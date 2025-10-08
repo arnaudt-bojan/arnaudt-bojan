@@ -498,6 +498,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe Connect OAuth routes
+  app.get("/api/stripe/connect", isAuthenticated, (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const baseUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`;
+      
+      // Generate Stripe Connect OAuth URL
+      const stripeAuthUrl = `https://connect.stripe.com/oauth/authorize?` +
+        `response_type=code&` +
+        `client_id=${process.env.STRIPE_CLIENT_ID || process.env.STRIPE_SECRET_KEY?.split('_')[1]}&` +
+        `scope=read_write&` +
+        `redirect_uri=${encodeURIComponent(`${baseUrl}/api/stripe/callback`)}&` +
+        `state=${userId}`;
+
+      res.json({ url: stripeAuthUrl });
+    } catch (error: any) {
+      console.error("Stripe connect error:", error);
+      res.status(500).json({ error: "Failed to generate Stripe connection URL" });
+    }
+  });
+
+  app.get("/api/stripe/callback", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).send("Stripe is not configured");
+      }
+
+      const { code, state: userId } = req.query;
+
+      if (!code || !userId) {
+        return res.status(400).send("Missing authorization code or state");
+      }
+
+      // Exchange authorization code for access token
+      const response = await stripe.oauth.token({
+        grant_type: "authorization_code",
+        code: code as string,
+      });
+
+      const connectedAccountId = response.stripe_user_id;
+
+      // Update user with connected account ID
+      const user = await storage.getUser(userId as string);
+      if (!user) {
+        return res.status(404).send("User not found");
+      }
+
+      await storage.upsertUser({
+        ...user,
+        stripeConnectedAccountId: connectedAccountId,
+      });
+
+      // Redirect back to settings page
+      res.redirect("/settings?stripe=connected");
+    } catch (error: any) {
+      console.error("Stripe OAuth callback error:", error);
+      res.redirect("/settings?stripe=error");
+    }
+  });
+
+  app.post("/api/stripe/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Disconnect the Stripe account
+      await storage.upsertUser({
+        ...user,
+        stripeConnectedAccountId: null,
+      });
+
+      res.json({ message: "Stripe account disconnected successfully" });
+    } catch (error: any) {
+      console.error("Stripe disconnect error:", error);
+      res.status(500).json({ error: "Failed to disconnect Stripe account" });
+    }
+  });
+
   // Seller-triggered balance payment for pre-orders
   app.post("/api/trigger-balance-payment/:orderId", isAuthenticated, async (req, res) => {
     try {
