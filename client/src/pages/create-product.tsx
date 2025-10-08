@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { insertProductSchema, type InsertProduct } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -60,6 +61,14 @@ const productTypes = [
   },
 ];
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  level: number;
+}
+
 export default function CreateProduct() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -67,6 +76,17 @@ export default function CreateProduct() {
   const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
   const [preOrderDate, setPreOrderDate] = useState<string>("");
   const [productImages, setProductImages] = useState<string[]>([""]);
+  const [selectedLevel1, setSelectedLevel1] = useState<string>("");
+  const [selectedLevel2, setSelectedLevel2] = useState<string>("");
+  const [selectedLevel3, setSelectedLevel3] = useState<string>("");
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+  
+  const level1Categories = categories.filter(c => c.level === 1);
+  const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
+  const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
   
   const addImageField = () => {
     if (productImages.length < 10) {
@@ -126,6 +146,11 @@ export default function CreateProduct() {
         data.requiresDeposit = 0;
         data.depositAmount = undefined;
       }
+      
+      // Add category IDs
+      (data as any).categoryLevel1Id = selectedLevel1 || null;
+      (data as any).categoryLevel2Id = selectedLevel2 || null;
+      (data as any).categoryLevel3Id = selectedLevel3 || null;
       
       // Add multiple images
       const validImages = productImages.filter(img => img.trim() !== "");
@@ -295,23 +320,60 @@ export default function CreateProduct() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., Clothing, Accessories"
-                          {...field}
-                          data-testid="input-category"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Category Level 1</label>
+                    <Select value={selectedLevel1} onValueChange={(value) => {
+                      setSelectedLevel1(value);
+                      setSelectedLevel2("");
+                      setSelectedLevel3("");
+                    }}>
+                      <SelectTrigger data-testid="select-category-level-1">
+                        <SelectValue placeholder="Select main category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {level1Categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedLevel1 && level2Categories.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium">Category Level 2</label>
+                      <Select value={selectedLevel2} onValueChange={(value) => {
+                        setSelectedLevel2(value);
+                        setSelectedLevel3("");
+                      }}>
+                        <SelectTrigger data-testid="select-category-level-2">
+                          <SelectValue placeholder="Select subcategory" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {level2Categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
-                />
+
+                  {selectedLevel2 && level3Categories.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium">Category Level 3</label>
+                      <Select value={selectedLevel3} onValueChange={setSelectedLevel3}>
+                        <SelectTrigger data-testid="select-category-level-3">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {level3Categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
 
                 <div>
                   <FormLabel>Product Images (up to 10)</FormLabel>
