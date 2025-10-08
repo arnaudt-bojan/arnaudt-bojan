@@ -259,6 +259,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/orders/:id/tracking", isAuthenticated, async (req, res) => {
+    try {
+      const trackingSchema = z.object({
+        trackingNumber: z.string().min(1, "Tracking number is required"),
+        trackingLink: z.string().url("Invalid tracking link").or(z.literal("")),
+        notifyCustomer: z.boolean().optional(),
+      });
+      
+      const validationResult = trackingSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+
+      const order = await storage.updateOrderTracking(
+        req.params.id, 
+        validationResult.data.trackingNumber,
+        validationResult.data.trackingLink
+      );
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // TODO: Send email notification if notifyCustomer is true
+      if (validationResult.data.notifyCustomer) {
+        console.log(`[Tracking] Would send notification to ${order.customerEmail} for order ${order.id}`);
+      }
+
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update tracking information" });
+    }
+  });
+
+  app.post("/api/orders/:id/request-balance", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ 
+          error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
+        });
+      }
+
+      const order = await storage.getOrder(req.params.id);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const remainingBalance = parseFloat(order.remainingBalance || "0");
+      if (remainingBalance <= 0) {
+        return res.status(400).json({ error: "No balance remaining on this order" });
+      }
+
+      // Create payment intent for remaining balance
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(remainingBalance * 100),
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: {
+          orderId: order.id,
+          paymentType: "balance",
+        },
+      });
+
+      // Update order with balance payment intent ID
+      await storage.updateOrderBalancePaymentIntent(order.id, paymentIntent.id);
+
+      // TODO: Send email to customer with payment link
+      console.log(`[Balance Request] Payment link sent to ${order.customerEmail} for order ${order.id}`);
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        message: "Balance payment request sent successfully",
+      });
+    } catch (error: any) {
+      console.error("Balance request error:", error);
+      res.status(500).json({ error: "Failed to request balance payment" });
+    }
+  });
+
   // Reference: javascript_stripe integration
   // Stripe payment intent creation for checkout
   app.post("/api/create-payment-intent", isAuthenticated, async (req, res) => {

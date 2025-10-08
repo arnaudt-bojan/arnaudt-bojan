@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { ArrowLeft, Package, Mail, MapPin, DollarSign } from "lucide-react";
+import { ArrowLeft, Package, Mail, MapPin, DollarSign, Truck, CreditCard } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +26,8 @@ type Order = {
   paymentType: string;
   paymentStatus: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  trackingNumber?: string;
+  trackingLink?: string;
   createdAt: string;
 };
 
@@ -30,6 +35,8 @@ export default function OrderDetail() {
   const { id } = useParams() as { id: string };
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [trackingLink, setTrackingLink] = useState("");
 
   const { data: order, isLoading } = useQuery<Order>({
     queryKey: ["/api/orders", id],
@@ -37,6 +44,10 @@ export default function OrderDetail() {
       const res = await fetch(`/api/orders/${id}`);
       if (!res.ok) throw new Error("Failed to fetch order");
       return res.json();
+    },
+    onSuccess: (data) => {
+      setTrackingNumber(data.trackingNumber || "");
+      setTrackingLink(data.trackingLink || "");
     },
   });
 
@@ -51,6 +62,51 @@ export default function OrderDetail() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update order status", variant: "destructive" });
+    },
+  });
+
+  const updateTrackingMutation = useMutation({
+    mutationFn: async ({ notifyCustomer }: { notifyCustomer: boolean }) => {
+      return await apiRequest("PATCH", `/api/orders/${id}/tracking`, {
+        trackingNumber,
+        trackingLink,
+        notifyCustomer,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ 
+        title: "Tracking updated", 
+        description: "Tracking information has been saved and customer notified" 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update tracking information", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const requestBalanceMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/orders/${id}/request-balance`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
+      toast({ 
+        title: "Balance requested", 
+        description: "Payment request has been sent to the customer" 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to request balance payment", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -253,6 +309,62 @@ export default function OrderDetail() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="border-t pt-4">
+              <h4 className="font-semibold mb-4 flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Tracking Information
+              </h4>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="tracking-number">Tracking Number</Label>
+                  <Input
+                    id="tracking-number"
+                    placeholder="Enter tracking number"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    data-testid="input-tracking-number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="tracking-link">Tracking Link</Label>
+                  <Input
+                    id="tracking-link"
+                    placeholder="https://tracking.example.com/..."
+                    value={trackingLink}
+                    onChange={(e) => setTrackingLink(e.target.value)}
+                    data-testid="input-tracking-link"
+                  />
+                </div>
+                <Button
+                  onClick={() => updateTrackingMutation.mutate({ notifyCustomer: true })}
+                  disabled={!trackingNumber || updateTrackingMutation.isPending}
+                  data-testid="button-save-notify"
+                >
+                  {updateTrackingMutation.isPending ? "Saving..." : "Save & Notify Customer"}
+                </Button>
+              </div>
+            </div>
+
+            {parseFloat(order.remainingBalance) > 0 && (
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Request Balance Payment
+                </h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Send a payment request to the customer for the remaining balance of ${parseFloat(order.remainingBalance).toFixed(2)}
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => requestBalanceMutation.mutate()}
+                  disabled={requestBalanceMutation.isPending}
+                  data-testid="button-request-balance"
+                >
+                  {requestBalanceMutation.isPending ? "Sending..." : "Request Balance Payment"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

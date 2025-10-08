@@ -60,6 +60,8 @@ export const orders = pgTable("orders", {
   stripePaymentIntentId: varchar("stripe_payment_intent_id"), // Stripe payment intent ID for deposit
   stripeBalancePaymentIntentId: varchar("stripe_balance_payment_intent_id"), // Stripe payment intent ID for balance
   status: text("status").notNull().default("pending"),
+  trackingNumber: varchar("tracking_number"),
+  trackingLink: text("tracking_link"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
