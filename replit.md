@@ -17,12 +17,12 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Design System**: Dark/light mode support, Inter font family, consistent spacing and typography.
 - **Product Type Badges**: Color-coded for easy identification (In-Stock: Green, Pre-Order: Blue, Made-to-Order: Purple, Wholesale: Orange).
 - **Responsive Design**: Mobile-first approach across all components.
-- **Landing Page**: Inspired by uppfirst.com, featuring a bold hero section, product type showcases, and a features grid.
+- **Landing Page**: Inspired by uppfirst.com, featuring a bold hero section, product type showcases, features grid, and a featured products section displaying up to 8 products. Products are visible to all users (logged in or logged out) and can be added to cart directly from the home page.
 - **Seller Dashboard**: Provides revenue analytics, recent orders, and quick navigation for product management.
 
 **Technical Implementations & Feature Specifications:**
 - **Product Types**: Supports in-stock, pre-order (with `depositAmount` and `requiresDeposit`), made-to-order, and wholesale.
-- **Shopping & Checkout**: Slide-over cart, quantity adjustment, persistent cart (localStorage), guest checkout with auto-account creation, and order confirmation.
+- **Shopping & Checkout**: Slide-over cart, quantity adjustment, persistent cart (localStorage), guest checkout with auto-account creation, and order confirmation. Products are displayed on the landing page and accessible to all users without login requirement.
 - **Guest Checkout**: 
     - **No Login Required**: Users can browse products and checkout without authentication
     - **Auto-Account Creation**: If email doesn't exist, automatically creates a buyer account with password "123456"
@@ -35,15 +35,18 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Role-Based Routing**: Authentication callback automatically redirects users to appropriate dashboard based on their role.
 - **Seller Features**:
     - **Product Management**: Comprehensive creation form (name, description, price, type, stock, image, category), list view, deletion with confirmation.
+    - **Order Management**: View all orders with click-through to individual order detail pages showing complete order information, customer details, payment status, and item breakdowns.
+    - **Settings Page**: Profile management, password changes, store branding (banner/logo upload), and payment provider configuration (Stripe/PayPal).
     - **Newsletter System**: Complete newsletter management with email list creation, content composition, and SendGrid integration placeholder for bulk email sending.
 - **Buyer Features**:
     - **Order Tracking**: View all orders with payment status, order status, and detailed breakdowns.
     - **NFT Minting**: Real Solana blockchain NFT minting for fully paid orders with Phantom wallet integration.
-        - **Wallet Connection**: Phantom wallet browser extension integration via WalletContext
+        - **Wallet Connection**: Phantom wallet browser extension integration via WalletContext with connect/disconnect functionality
         - **Real Blockchain**: NFTs minted on Solana devnet using Metaplex SDK
         - **Gas Fees**: Platform pays gas fees (~0.01-0.02 SOL per mint) via SOLANA_PAYER_PRIVATE_KEY
         - **NFT Ownership**: NFTs minted directly to user's connected wallet address
         - **Metadata**: Product details (name, price, image, order ID) stored on-chain via Metaplex
+        - **Setup**: Use `npx tsx scripts/generate-solana-keypair.ts` to generate a new payer keypair for SOLANA_PAYER_PRIVATE_KEY
 - **Authentication**: Dual authentication system:
     - **Replit Auth (OAuth)**: OpenID Connect with role-based access
     - **Local Authentication**: Simple username/password for testing purposes
@@ -68,7 +71,7 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Data Models**: Defined schemas for:
     - `Product`: id, name, description, price, image, category, productType, stock, depositAmount, requiresDeposit
     - `Order`: id, userId, customerName, customerEmail, customerAddress, items, total, amountPaid, remainingBalance, paymentType, paymentStatus, stripePaymentIntentId, status, createdAt
-    - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, createdAt, updatedAt
+    - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, storeBanner, storeLogo, paymentProvider, createdAt, updatedAt
     - `Newsletter`: id, userId, subject, content, recipients (jsonb), status, sentAt, createdAt
     - `NftMint`: id, orderId, userId, mintAddress, transactionSignature, metadata (jsonb), createdAt
 - **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints).
