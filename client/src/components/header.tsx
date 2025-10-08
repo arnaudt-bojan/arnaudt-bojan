@@ -56,7 +56,17 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                 >
                   Products
                 </Link>
-                {isAuthenticated && (
+                {isAuthenticated && user?.role === "buyer" && (
+                  <Link
+                    href="/buyer-dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                    data-testid="mobile-link-buyer-dashboard"
+                  >
+                    My Orders
+                  </Link>
+                )}
+                {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
                   <>
                     <Link
                       href="/seller-dashboard"
@@ -64,7 +74,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                       className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
                       data-testid="mobile-link-seller-dashboard"
                     >
-                      Seller Dashboard
+                      Dashboard
                     </Link>
                     <Link
                       href="/seller/products"
@@ -80,28 +90,28 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                       className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
                       data-testid="mobile-link-orders"
                     >
-                      My Orders
+                      Orders
                     </Link>
-                    {user && (user.role === "owner" || user.role === "admin") && (
-                      <>
-                        <Link
-                          href="/order-management"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                          data-testid="mobile-link-order-management"
-                        >
-                          Order Management
-                        </Link>
-                        <Link
-                          href="/team"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                          data-testid="mobile-link-team"
-                        >
-                          Team
-                        </Link>
-                      </>
-                    )}
+                  </>
+                )}
+                {isAuthenticated && (user?.role === "owner" || user?.role === "admin") && (
+                  <>
+                    <Link
+                      href="/order-management"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-order-management"
+                    >
+                      Order Management
+                    </Link>
+                    <Link
+                      href="/team"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-team"
+                    >
+                      Team
+                    </Link>
                   </>
                 )}
               </nav>
@@ -123,7 +133,18 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
           >
             Products
           </Link>
-          {isAuthenticated && (
+          {isAuthenticated && user?.role === "buyer" && (
+            <Link
+              href="/buyer-dashboard"
+              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                location === "/buyer-dashboard" ? "text-foreground" : "text-muted-foreground"
+              }`}
+              data-testid="link-buyer-dashboard"
+            >
+              My Orders
+            </Link>
+          )}
+          {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
             <>
               <Link
                 href="/seller-dashboard"
@@ -152,26 +173,28 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               >
                 Orders
               </Link>
-              {user && (user.role === "owner" || user.role === "admin") && (
-                <>
-                  <Link
-                    href="/order-management"
-                    className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                      location === "/order-management" ? "text-foreground" : "text-muted-foreground"
-                    }`}
-                    data-testid="link-order-management"
-                  >
-                    Order Mgmt
-                  </Link>
-                  <Link
-                    href="/team"
-                    className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                      location === "/team" ? "text-foreground" : "text-muted-foreground"
-                    }`}
-                    data-testid="link-team"
-                  >
-                    Team
-                  </Link>
+            </>
+          )}
+          {isAuthenticated && (user?.role === "owner" || user?.role === "admin") && (
+            <>
+              <Link
+                href="/order-management"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/order-management" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-order-management"
+              >
+                Order Mgmt
+              </Link>
+              <Link
+                href="/team"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/team" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-team"
+              >
+                Team
+              </Link>
                 </>
               )}
             </>
