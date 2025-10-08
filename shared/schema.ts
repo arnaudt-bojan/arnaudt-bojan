@@ -196,3 +196,55 @@ export const insertNftMintSchema = createInsertSchema(nftMints).omit({ id: true,
 export type InsertNftMint = z.infer<typeof insertNftMintSchema>;
 export type NftMint = typeof nftMints.$inferSelect;
 export type SelectNftMint = typeof nftMints.$inferSelect;
+
+// Wholesale Products
+export const wholesaleProducts = pgTable("wholesale_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(),
+  productId: varchar("product_id"), // Optional - reference to existing product
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  image: text("image").notNull(),
+  category: text("category").notNull(),
+  rrp: decimal("rrp", { precision: 10, scale: 2 }).notNull(), // Recommended Retail Price
+  wholesalePrice: decimal("wholesale_price", { precision: 10, scale: 2 }).notNull(),
+  moq: integer("moq").notNull(), // Minimum Order Quantity
+  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
+  requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
+  stock: integer("stock").default(0),
+  readinessDays: integer("readiness_days"), // Days after order for production/delivery
+  variants: jsonb("variants"), // [{size, color, stock, image, moq}]
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertWholesaleProductSchema = createInsertSchema(wholesaleProducts).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertWholesaleProduct = z.infer<typeof insertWholesaleProductSchema>;
+export type WholesaleProduct = typeof wholesaleProducts.$inferSelect;
+export type SelectWholesaleProduct = typeof wholesaleProducts.$inferSelect;
+
+// Wholesale Invitations
+export const wholesaleInvitations = pgTable("wholesale_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(),
+  buyerEmail: text("buyer_email").notNull(),
+  buyerName: text("buyer_name"),
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected
+  token: varchar("token").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export const insertWholesaleInvitationSchema = createInsertSchema(wholesaleInvitations).omit({ 
+  id: true, 
+  token: true,
+  createdAt: true, 
+  acceptedAt: true 
+});
+export type InsertWholesaleInvitation = z.infer<typeof insertWholesaleInvitationSchema>;
+export type WholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
+export type SelectWholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
