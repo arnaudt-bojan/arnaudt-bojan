@@ -1,7 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,8 +21,11 @@ import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ShoppingBag, CheckCircle, AlertCircle } from "lucide-react";
+import { ShoppingBag, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
+import StripeCheckoutForm from "@/components/stripe-checkout-form";
 import type { InsertOrder } from "@shared/schema";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
@@ -34,8 +39,11 @@ export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState<"shipping" | "payment">("shipping");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [orderData, setOrderData] = useState<InsertOrder | null>(null);
   const [orderComplete, setOrderComplete] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
 
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -74,12 +82,14 @@ export default function Checkout() {
     };
   }, [items]);
 
-  const onSubmit = async (data: CheckoutForm) => {
-    setIsSubmitting(true);
+  const amountToPay = paymentInfo.payingDepositOnly ? paymentInfo.depositTotal : paymentInfo.fullTotal;
+
+  const onShippingSubmit = async (data: CheckoutForm) => {
     try {
       const { payingDepositOnly, depositTotal, remainingBalance, fullTotal } = paymentInfo;
 
-      const orderData: InsertOrder = {
+      // Create order data
+      const newOrderData: InsertOrder = {
         ...data,
         items: JSON.stringify(items.map(item => ({
           id: item.id,
@@ -91,13 +101,49 @@ export default function Checkout() {
           requiresDeposit: item.requiresDeposit,
         }))),
         total: fullTotal.toString(),
-        amountPaid: payingDepositOnly ? depositTotal.toString() : fullTotal.toString(),
+        amountPaid: "0", // Will be updated after payment
         remainingBalance: payingDepositOnly ? remainingBalance.toString() : "0",
         paymentType: payingDepositOnly ? "deposit" : "full",
+        paymentStatus: "pending",
         status: "pending",
       };
 
-      await apiRequest("POST", "/api/orders", orderData);
+      setOrderData(newOrderData);
+
+      // Create payment intent
+      const response = await apiRequest("POST", "/api/create-payment-intent", {
+        amount: amountToPay,
+        paymentType: payingDepositOnly ? "deposit" : "full",
+      });
+
+      setClientSecret(response.clientSecret);
+      setPaymentIntentId(response.paymentIntentId);
+      setStep("payment");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initialize payment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePaymentSuccess = async () => {
+    try {
+      if (!orderData || !paymentIntentId) {
+        throw new Error("Missing order data or payment ID");
+      }
+
+      // Update order data with payment info
+      const updatedOrderData = {
+        ...orderData,
+        amountPaid: amountToPay.toString(),
+        paymentStatus: paymentInfo.payingDepositOnly ? "deposit_paid" : "fully_paid",
+        stripePaymentIntentId: paymentIntentId,
+      };
+
+      // Create order in database
+      await apiRequest("POST", "/api/orders", updatedOrderData);
       
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       clearCart();
@@ -105,11 +151,9 @@ export default function Checkout() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to place order. Please try again.",
+        description: "Payment successful but failed to save order. Please contact support.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -170,84 +214,132 @@ export default function Checkout() {
           Checkout
         </h1>
 
+        {/* Step Indicator */}
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <div className={`flex items-center gap-2 ${step === "shipping" ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === "shipping" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+              1
+            </div>
+            <span>Shipping</span>
+          </div>
+          <div className="h-px w-12 bg-border" />
+          <div className={`flex items-center gap-2 ${step === "payment" ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === "payment" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+              2
+            </div>
+            <span>Payment</span>
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <Card className="p-6">
-              <h2 className="text-2xl font-semibold mb-6">Shipping Information</h2>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="customerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="John Doe"
-                            {...field}
-                            data-testid="input-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            {step === "shipping" ? (
+              <Card className="p-6">
+                <h2 className="text-2xl font-semibold mb-6">Shipping Information</h2>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onShippingSubmit)} className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="customerName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="John Doe"
+                              {...field}
+                              data-testid="input-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="customerEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="john@example.com"
-                            {...field}
-                            data-testid="input-email"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="customerEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="john@example.com"
+                              {...field}
+                              data-testid="input-email"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="customerAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Shipping Address</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="123 Main St, City, State, ZIP"
-                            {...field}
-                            data-testid="input-address"
-                            rows={3}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="customerAddress"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Shipping Address</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="123 Main St, City, State, ZIP"
+                              {...field}
+                              data-testid="input-address"
+                              rows={3}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      size="lg"
+                      data-testid="button-continue-payment"
+                    >
+                      Continue to Payment
+                    </Button>
+                  </form>
+                </Form>
+              </Card>
+            ) : (
+              <Card className="p-6">
+                <div className="flex items-center gap-2 mb-6">
                   <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={isSubmitting}
-                    data-testid="button-place-order"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep("shipping")}
+                    data-testid="button-back-shipping"
                   >
-                    {isSubmitting 
-                      ? "Placing Order..." 
-                      : paymentInfo.payingDepositOnly 
-                        ? `Pay Deposit ($${paymentInfo.depositTotal.toFixed(2)})`
-                        : `Place Order ($${total.toFixed(2)})`}
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Shipping
                   </Button>
-                </form>
-              </Form>
-            </Card>
+                </div>
+                
+                <h2 className="text-2xl font-semibold mb-6">Payment Information</h2>
+                
+                {clientSecret && (
+                  <Elements
+                    stripe={stripePromise}
+                    options={{
+                      clientSecret,
+                      appearance: {
+                        theme: "stripe",
+                      },
+                    }}
+                  >
+                    <StripeCheckoutForm
+                      onSuccess={handlePaymentSuccess}
+                      amount={amountToPay}
+                      buttonText={paymentInfo.payingDepositOnly ? "Pay Deposit" : "Pay Now"}
+                    />
+                  </Elements>
+                )}
+              </Card>
+            )}
           </div>
 
           <div>
@@ -320,7 +412,7 @@ export default function Checkout() {
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Pay Now</span>
                   <span data-testid="text-total">
-                    ${paymentInfo.payingDepositOnly ? paymentInfo.depositTotal.toFixed(2) : paymentInfo.fullTotal.toFixed(2)}
+                    ${amountToPay.toFixed(2)}
                   </span>
                 </div>
               </div>
