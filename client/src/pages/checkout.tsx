@@ -126,6 +126,7 @@ export default function Checkout() {
       const response = await apiRequest("POST", "/api/create-payment-intent", {
         amount: amountToPay,
         paymentType: payingDepositOnly ? "deposit" : "full",
+        items: items, // Send cart items to determine seller for Stripe Connect
       });
 
       const paymentData = await response.json();

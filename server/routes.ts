@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reference: javascript_stripe integration
-  // Stripe payment intent creation for checkout
+  // Stripe Connect payment intent creation for checkout
   app.post("/api/create-payment-intent", isAuthenticated, async (req, res) => {
     try {
       if (!stripe) {
@@ -475,14 +475,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { amount, orderId, paymentType = "full" } = req.body;
+      const { amount, orderId, paymentType = "full", items } = req.body;
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ error: "Invalid amount" });
       }
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Convert to cents
+      // Determine seller from cart items
+      let sellerId: string | null = null;
+      let sellerConnectedAccountId: string | null = null;
+
+      if (items && items.length > 0) {
+        // Get first product to determine seller
+        const firstProductId = items[0].id;
+        const product = await storage.getProduct(firstProductId);
+        
+        if (product) {
+          sellerId = product.sellerId;
+          const seller = await storage.getUser(sellerId);
+          sellerConnectedAccountId = seller?.stripeConnectedAccountId || null;
+        }
+      }
+
+      // Calculate platform fee (1.5%)
+      const platformFeeAmount = Math.round(amount * 100 * 0.015); // 1.5% to Uppfirst
+      const totalAmount = Math.round(amount * 100);
+
+      // Create payment intent with Stripe Connect if seller has connected account
+      const paymentIntentParams: any = {
+        amount: totalAmount,
         currency: "usd",
         automatic_payment_methods: {
           enabled: true, // Enables Apple Pay, Google Pay, and other payment methods
@@ -490,8 +511,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           orderId: orderId || "",
           paymentType,
+          sellerId: sellerId || "",
         },
-      });
+      };
+
+      // If seller has connected Stripe account, use Connect
+      if (sellerConnectedAccountId) {
+        paymentIntentParams.application_fee_amount = platformFeeAmount;
+        paymentIntentParams.on_behalf_of = sellerConnectedAccountId; // Seller name appears on statement
+        paymentIntentParams.transfer_data = {
+          destination: sellerConnectedAccountId, // Money goes to seller
+        };
+        
+        console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} USD fee to platform, rest to seller ${sellerId}`);
+      } else {
+        console.log(`[Stripe Direct] Seller has no connected account, using direct payment`);
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
       res.json({ 
         clientSecret: paymentIntent.client_secret,
