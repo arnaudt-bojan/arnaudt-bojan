@@ -22,7 +22,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import logoImage from "@assets/image_1759955736836.png";
+import logoImage from "@assets/image_1759956321866.png";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -165,8 +165,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             </SheetContent>
           </Sheet>
           <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-            <img src={logoImage} alt="Uppshop" className="h-8 w-8" />
-            <span className="text-xl font-bold">Uppshop</span>
+            <img src={logoImage} alt="Uppshop Logo" className="h-8" />
           </Link>
         </div>
 
