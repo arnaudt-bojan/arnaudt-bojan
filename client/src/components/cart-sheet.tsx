@@ -2,6 +2,7 @@ import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useCart } from "@/lib/cart-context";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation } from "wouter";
 
 interface CartSheetProps {
@@ -11,6 +12,7 @@ interface CartSheetProps {
 
 export function CartSheet({ open, onClose }: CartSheetProps) {
   const { items, updateQuantity, removeItem, total, itemsCount } = useCart();
+  const { formatPrice } = useCurrency();
   const [, setLocation] = useLocation();
 
   const handleCheckout = () => {
@@ -92,7 +94,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                         </Button>
                       </div>
                       <span className="font-bold" data-testid={`text-item-total-${item.id}`}>
-                        ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                        {formatPrice(parseFloat(item.price) * item.quantity)}
                       </span>
                     </div>
                   </div>
@@ -104,7 +106,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold">Total</span>
                 <span className="text-2xl font-bold" data-testid="text-cart-total">
-                  ${total.toFixed(2)}
+                  {formatPrice(total)}
                 </span>
               </div>
               <Button

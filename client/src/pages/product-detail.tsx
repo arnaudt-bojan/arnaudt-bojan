@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ProductTypeBadge } from "@/components/product-type-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart-context";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { Link } from "wouter";
@@ -14,6 +15,7 @@ export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
   const productId = params?.id;
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
   const { toast } = useToast();
 
   const { data: product, isLoading } = useQuery<Product>({
@@ -101,10 +103,10 @@ export default function ProductDetail() {
                     <span className="text-sm text-muted-foreground">Deposit Required</span>
                   </div>
                   <div className="text-3xl font-bold" data-testid="text-product-price">
-                    ${parseFloat(product.depositAmount).toFixed(2)}
+                    {formatPrice(parseFloat(product.depositAmount))}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Total Price: <span className="font-semibold">${parseFloat(product.price).toFixed(2)}</span>
+                    Total Price: <span className="font-semibold">{formatPrice(parseFloat(product.price))}</span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-2">
                     Pay deposit now, balance due when product ships
@@ -113,7 +115,7 @@ export default function ProductDetail() {
               </Card>
             ) : (
               <div className="text-3xl font-bold" data-testid="text-product-price">
-                ${parseFloat(product.price).toFixed(2)}
+                {formatPrice(parseFloat(product.price))}
               </div>
             )}
 
@@ -165,12 +167,12 @@ export default function ProductDetail() {
                   <>
                     <div className="flex justify-between">
                       <dt className="text-muted-foreground">Deposit Amount</dt>
-                      <dd className="font-medium">${parseFloat(product.depositAmount).toFixed(2)}</dd>
+                      <dd className="font-medium">{formatPrice(parseFloat(product.depositAmount))}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-muted-foreground">Balance Due</dt>
                       <dd className="font-medium">
-                        ${(parseFloat(product.price) - parseFloat(product.depositAmount)).toFixed(2)}
+                        {formatPrice(parseFloat(product.price) - parseFloat(product.depositAmount))}
                       </dd>
                     </div>
                   </>

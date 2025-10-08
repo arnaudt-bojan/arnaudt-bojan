@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ProductTypeBadge } from "./product-type-badge";
 import type { Product } from "@shared/schema";
 import { Plus } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface ProductCardProps {
   product: Product;
@@ -11,6 +12,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+  const { formatPrice } = useCurrency();
+
   return (
     <Card className="overflow-hidden hover-elevate transition-all duration-300 group">
       <Link href={`/products/${product.id}`} data-testid={`link-product-${product.id}`}>
@@ -39,15 +42,15 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
               <>
                 <span className="text-sm text-muted-foreground">Deposit</span>
                 <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
-                  ${parseFloat(product.depositAmount).toFixed(2)}
+                  {formatPrice(parseFloat(product.depositAmount))}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Total: ${parseFloat(product.price).toFixed(2)}
+                  Total: {formatPrice(parseFloat(product.price))}
                 </span>
               </>
             ) : (
               <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
-                ${parseFloat(product.price).toFixed(2)}
+                {formatPrice(parseFloat(product.price))}
               </span>
             )}
           </div>
