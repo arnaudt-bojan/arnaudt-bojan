@@ -29,6 +29,9 @@ export const products = pgTable("products", {
   stock: integer("stock").default(0),
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
   requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
+  variants: jsonb("variants"), // [{size, color, stock, image}]
+  madeToOrderDays: integer("made_to_order_days"), // Days after purchase for made-to-order
+  preOrderDate: timestamp("pre_order_date"), // Availability date for pre-order
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
