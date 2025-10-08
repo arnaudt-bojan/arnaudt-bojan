@@ -195,8 +195,6 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               >
                 Team
               </Link>
-                </>
-              )}
             </>
           )}
         </nav>
