@@ -18,6 +18,8 @@ export const products = pgTable("products", {
   category: text("category").notNull(),
   productType: text("product_type").notNull(),
   stock: integer("stock").default(0),
+  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
+  requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
@@ -42,6 +44,9 @@ export const orders = pgTable("orders", {
   customerAddress: text("customer_address").notNull(),
   items: text("items").notNull(),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).default("0"),
+  remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).default("0"),
+  paymentType: text("payment_type").default("full"), // "full", "deposit", "balance"
   status: text("status").notNull().default("pending"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
