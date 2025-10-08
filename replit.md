@@ -22,7 +22,12 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 
 **Technical Implementations & Feature Specifications:**
 - **Product Types**: Supports in-stock, pre-order (with `depositAmount` and `requiresDeposit`), made-to-order, and wholesale.
-- **Shopping & Checkout**: Slide-over cart, quantity adjustment, persistent cart (localStorage), authenticated checkout, and order confirmation.
+- **Shopping & Checkout**: Slide-over cart, quantity adjustment, persistent cart (localStorage), guest checkout with auto-account creation, and order confirmation.
+- **Guest Checkout**: 
+    - **No Login Required**: Users can browse products and checkout without authentication
+    - **Auto-Account Creation**: If email doesn't exist, automatically creates a buyer account with password "123456"
+    - **Order Association**: All guest purchases are linked to user accounts (new or existing)
+    - **Later Login**: Guests can log in with their email and auto-generated password to view orders
 - **Buyer/Seller Separation**:
     - **Dual Login System**: Users can login as "Buyer" or "Seller" on the home page, with separate role assignment during registration.
     - **Buyer Dashboard** (`/buyer-dashboard`): Dedicated interface for buyers to view their orders with NFT minting capabilities.
@@ -45,7 +50,7 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Test Accounts**: testbuyer@test.com / 123456 (buyer role), testseller@test.com / 123456 (seller role)
     - **Session Management**: PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`)
     - **Login Page**: `/login` route provides form-based authentication for test accounts
-- **Protected API Endpoints**: Authentication required for creating orders, accessing user-specific orders, managing all orders (for dashboard), all product management operations (create, edit, delete), newsletter management, and NFT minting.
+- **Protected API Endpoints**: Authentication required for accessing user-specific orders, managing all orders (for dashboard), all product management operations (create, edit, delete), newsletter management, and NFT minting. Order creation supports both authenticated and guest checkout.
 - **Payment Integration**: Stripe SDK integration for Apple Pay, Google Pay, and credit card. Includes a seller-triggered balance payment system for pre-orders.
 - **Multi-Currency Support**: 
     - **Automatic Detection**: IP-based geolocation automatically detects user's currency on first visit
