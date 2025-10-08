@@ -69,9 +69,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/orders", isAuthenticated, async (req: any, res) => {
+  app.post("/api/orders", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      let userId: string;
+
+      // Check if user is authenticated
+      if (req.isAuthenticated() && req.user?.claims?.sub) {
+        userId = req.user.claims.sub;
+      } else {
+        // Guest checkout - create or find user by email
+        const { customerEmail } = req.body;
+        
+        if (!customerEmail) {
+          return res.status(400).json({ error: "Email is required for guest checkout" });
+        }
+
+        // Look up user by email
+        const allUsers = await storage.getAllUsers();
+        let existingUser = allUsers.find(u => u.email === customerEmail);
+
+        if (!existingUser) {
+          // Auto-create buyer account for guest checkout
+          const newUserId = Math.random().toString(36).substring(2, 8);
+          const [firstName, ...lastNameParts] = (req.body.customerName || "Guest User").split(" ");
+          
+          existingUser = await storage.upsertUser({
+            id: newUserId,
+            email: customerEmail,
+            firstName: firstName || "Guest",
+            lastName: lastNameParts.join(" ") || "User",
+            profileImageUrl: null,
+            role: "buyer",
+            password: "123456", // Temporary password for guest accounts
+          });
+
+          console.log(`[Guest Checkout] Created new buyer account for ${customerEmail}`);
+        }
+
+        userId = existingUser.id;
+      }
+
       const validationResult = insertOrderSchema.omit({ userId: true }).safeParse(req.body);
       if (!validationResult.success) {
         const error = fromZodError(validationResult.error);
@@ -81,6 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const order = await storage.createOrder({ ...validationResult.data, userId });
       res.status(201).json(order);
     } catch (error) {
+      console.error("Order creation error:", error);
       res.status(500).json({ error: "Failed to create order" });
     }
   });
