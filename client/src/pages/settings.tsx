@@ -129,7 +129,37 @@ export default function Settings() {
     },
   });
 
+  const disconnectStripeMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/stripe/disconnect", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Disconnected", description: "Your Stripe account has been disconnected" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to disconnect Stripe account", variant: "destructive" });
+    },
+  });
+
+  const handleConnectStripe = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/stripe/connect", {});
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to connect Stripe account",
+        variant: "destructive",
+      });
+    }
+  };
+
   const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
+  const isStripeConnected = user?.stripeConnectedAccountId;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -370,17 +400,57 @@ export default function Settings() {
                 <div className="border-t pt-6">
                   <h4 className="font-semibold mb-3">Connect Your Account</h4>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Set up OAuth connection to receive payments directly to your account.
+                    Connect your {paymentProvider === "stripe" ? "Stripe" : "PayPal"} account to start receiving payments. You can connect an existing account or create a new one during the setup process.
                   </p>
+                  
                   {paymentProvider === "stripe" ? (
-                    <Button variant="outline" disabled data-testid="button-connect-stripe">
-                      Connect Stripe Account (Coming Soon)
-                    </Button>
+                    <>
+                      {isStripeConnected ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                              Stripe account connected
+                            </span>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => disconnectStripeMutation.mutate()}
+                            disabled={disconnectStripeMutation.isPending}
+                            data-testid="button-disconnect-stripe"
+                          >
+                            {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect Stripe"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button 
+                          variant="default" 
+                          onClick={handleConnectStripe}
+                          data-testid="button-connect-stripe"
+                        >
+                          Connect Stripe Account
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <Button variant="outline" disabled data-testid="button-connect-paypal">
                       Connect PayPal Account (Coming Soon)
                     </Button>
                   )}
+                  
+                  <div className="mt-4 p-4 bg-muted/50 rounded-md">
+                    <p className="text-xs text-muted-foreground">
+                      <strong className="font-semibold">What happens when you connect:</strong>
+                      <br />
+                      • You'll be redirected to {paymentProvider === "stripe" ? "Stripe" : "PayPal"} to authorize the connection
+                      <br />
+                      • You can use an existing account or create a new one
+                      <br />
+                      • Start receiving payments immediately after connecting
+                      <br />
+                      • Manage payouts and advanced features in your {paymentProvider === "stripe" ? "Stripe" : "PayPal"} dashboard
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
