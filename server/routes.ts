@@ -386,6 +386,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Meta OAuth routes
+  app.get("/api/meta-auth/connect", isAuthenticated, (req, res) => {
+    const appId = process.env.META_APP_ID || "YOUR_APP_ID";
+    const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta-auth/callback`;
+    
+    const scopes = ["ads_management", "ads_read", "business_management"];
+    const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes.join(',')}&response_type=code`;
+    
+    res.redirect(authUrl);
+  });
+
+  app.get("/api/meta-auth/callback", isAuthenticated, async (req: any, res) => {
+    try {
+      const { code } = req.query;
+      const userId = req.user.claims.sub;
+      
+      if (!code) {
+        return res.redirect("/meta-ads-setup?error=no_code");
+      }
+
+      const appId = process.env.META_APP_ID;
+      const appSecret = process.env.META_APP_SECRET;
+      const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta-auth/callback`;
+
+      // Exchange code for access token
+      const tokenResponse = await fetch(
+        `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&code=${code}&redirect_uri=${encodeURIComponent(redirectUri)}`
+      );
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenData.access_token) {
+        return res.redirect("/meta-ads-setup?error=token_failed");
+      }
+
+      // Get user's ad accounts
+      const adAccountsResponse = await fetch(
+        `https://graph.facebook.com/v21.0/me/adaccounts?access_token=${tokenData.access_token}`
+      );
+      const adAccountsData = await adAccountsResponse.json();
+
+      const firstAdAccount = adAccountsData.data?.[0];
+      
+      // Store settings in database
+      await storage.saveMetaSettings(userId, {
+        accessToken: tokenData.access_token,
+        adAccountId: firstAdAccount?.id || "",
+        accountName: firstAdAccount?.name || "Facebook Ad Account",
+        connected: true,
+      });
+
+      res.redirect("/meta-ads-setup?success=true");
+    } catch (error) {
+      console.error("Meta OAuth error:", error);
+      res.redirect("/meta-ads-setup?error=oauth_failed");
+    }
+  });
+
+  app.post("/api/meta-auth/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.deleteMetaSettings(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  app.get("/api/meta-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getMetaSettings(userId);
+      
+      // Don't send the access token to frontend
+      if (settings) {
+        res.json({
+          connected: settings.connected,
+          adAccountId: settings.adAccountId,
+          accountName: settings.accountName,
+          accessToken: !!settings.accessToken, // Just indicate if token exists
+        });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.post("/api/meta-campaigns", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getMetaSettings(userId);
+      
+      if (!settings || !settings.accessToken) {
+        return res.status(400).json({ error: "Meta account not connected" });
+      }
+
+      const {
+        productId,
+        campaignName,
+        objective,
+        dailyBudget,
+        headline,
+        primaryText,
+        description,
+        callToAction,
+        targetAgeMin,
+        targetAgeMax,
+        targetGender,
+        targetCountries,
+      } = req.body;
+
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      const productUrl = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/products/${productId}`;
+
+      // Create Campaign
+      const campaignResponse = await fetch(
+        `https://graph.facebook.com/v21.0/${settings.adAccountId}/campaigns`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: campaignName,
+            objective: objective,
+            status: "PAUSED",
+            access_token: settings.accessToken,
+          }),
+        }
+      );
+      const campaignData = await campaignResponse.json();
+
+      if (campaignData.error) {
+        return res.status(400).json({ error: campaignData.error.message });
+      }
+
+      res.json({
+        success: true,
+        campaignId: campaignData.id,
+        message: "Campaign created successfully!",
+      });
+    } catch (error: any) {
+      console.error("Meta campaign error:", error);
+      res.status(500).json({ error: error.message || "Failed to create campaign" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

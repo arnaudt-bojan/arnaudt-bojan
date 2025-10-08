@@ -194,17 +194,18 @@ shared/
 - **No Role Checks**: Removed all seller role validation - everyone is both buyer and seller
 
 ## Recent Changes
-- **2025-10-08**: Meta Marketing API Integration for Product Promotion
-  - ✅ Created comprehensive Meta Ads setup page with step-by-step instructions
+- **2025-10-08**: Meta Marketing API Integration with OAuth
+  - ✅ Implemented Facebook OAuth flow - sellers just click "Connect with Facebook"
+  - ✅ Auto-fetches access token and ad account ID from Facebook
+  - ✅ Secure token storage with encrypted database
   - ✅ Built campaign creation page with full ad configuration (objective, budget, creative, targeting)
   - ✅ Integrated "Promote" buttons on product management page
-  - ✅ Added support for Facebook & Instagram ad campaigns via Meta Marketing API
-  - ✅ Included setup guides for: App creation, access tokens, Business Manager, ad accounts
   - ✅ Campaign features: Multiple objectives (sales, traffic, engagement, awareness, leads)
   - ✅ Targeting options: Age, gender, countries/regions
   - ✅ Ad creative: Headlines (40 chars), primary text (125 chars), CTAs
-  - 🎯 Requirements: Meta App ID, App Secret, Access Token, Ad Account ID
-  - 🎯 Result: Sellers can create Facebook/Instagram ad campaigns directly from product page
+  - 🎯 Platform Setup: Requires Meta App ID & App Secret in environment variables
+  - 🎯 User Setup: One-click "Connect with Facebook" - no manual credential copying
+  - 🎯 Result: Seamless Facebook/Instagram ad campaign creation directly from product page
 
 - **2025-10-08**: Stripe Payment Integration & Seller-Triggered Balance Payments
   - ✅ Integrated Stripe SDK with Apple Pay, Google Pay, and credit card support

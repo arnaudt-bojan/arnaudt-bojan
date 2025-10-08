@@ -1,121 +1,59 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { 
   CheckCircle, 
   ExternalLink, 
   AlertCircle,
   Settings,
-  Key,
-  CreditCard,
-  Target
+  Link as LinkIcon,
+  Unlink,
+  Target,
+  Megaphone
 } from "lucide-react";
 import { SiFacebook, SiInstagram } from "react-icons/si";
 
-const metaSetupSchema = z.object({
-  appId: z.string().min(1, "App ID is required"),
-  appSecret: z.string().min(1, "App Secret is required"),
-  accessToken: z.string().min(1, "Access Token is required"),
-  adAccountId: z.string().min(1, "Ad Account ID is required (format: act_XXXXX)"),
-});
-
-type MetaSetupForm = z.infer<typeof metaSetupSchema>;
-
 export default function MetaAdsSetup() {
   const { toast } = useToast();
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [connecting, setConnecting] = useState(false);
 
-  const { data: settings, isLoading } = useQuery<any>({
+  const { data: settings, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/meta-settings"],
   });
 
-  const form = useForm<MetaSetupForm>({
-    resolver: zodResolver(metaSetupSchema),
-    defaultValues: {
-      appId: settings?.appId || "",
-      appSecret: settings?.appSecret || "",
-      accessToken: settings?.accessToken || "",
-      adAccountId: settings?.adAccountId || "",
-    },
-  });
+  const handleConnectFacebook = () => {
+    setConnecting(true);
+    // Redirect to backend OAuth endpoint which will redirect to Facebook
+    window.location.href = "/api/meta-auth/connect";
+  };
 
-  const saveMutation = useMutation({
-    mutationFn: async (data: MetaSetupForm) => {
-      return await apiRequest("POST", "/api/meta-settings", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/meta-settings"] });
-      toast({
-        title: "Settings saved",
-        description: "Your Meta API credentials have been saved successfully.",
+  const handleDisconnect = async () => {
+    try {
+      const response = await fetch("/api/meta-auth/disconnect", {
+        method: "POST",
+        credentials: "include",
       });
-    },
-    onError: (error: any) => {
+      
+      if (response.ok) {
+        toast({
+          title: "Disconnected",
+          description: "Your Facebook account has been disconnected",
+        });
+        refetch();
+      }
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save settings",
+        description: "Failed to disconnect",
         variant: "destructive",
       });
-    },
-  });
-
-  const testConnection = async () => {
-    const values = form.getValues();
-    if (!values.accessToken || !values.adAccountId) {
-      toast({
-        title: "Missing credentials",
-        description: "Please fill in access token and ad account ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setTestingConnection(true);
-    setConnectionStatus("idle");
-
-    try {
-      await apiRequest("POST", "/api/meta-settings/test", {
-        accessToken: values.accessToken,
-        adAccountId: values.adAccountId,
-      });
-      setConnectionStatus("success");
-      toast({
-        title: "Connection successful",
-        description: "Your Meta API credentials are working correctly!",
-      });
-    } catch (error: any) {
-      setConnectionStatus("error");
-      toast({
-        title: "Connection failed",
-        description: error.message || "Unable to connect to Meta API",
-        variant: "destructive",
-      });
-    } finally {
-      setTestingConnection(false);
     }
   };
 
-  const onSubmit = (data: MetaSetupForm) => {
-    saveMutation.mutate(data);
-  };
+  const isConnected = settings?.connected && settings?.accessToken;
 
   return (
     <div className="min-h-screen py-12">
@@ -129,254 +67,216 @@ export default function MetaAdsSetup() {
             <h1 className="text-4xl font-bold">Meta Ads Integration</h1>
           </div>
           <p className="text-muted-foreground">
-            Connect your Facebook & Instagram advertising account to promote products
+            Connect your Facebook account to promote products on Facebook & Instagram
           </p>
         </div>
 
-        {/* Setup Instructions */}
+        {/* Connection Status */}
+        <Card className="p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                isConnected ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"
+              }`}>
+                {isConnected ? (
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                ) : (
+                  <LinkIcon className="h-6 w-6 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {isConnected ? "Connected to Facebook" : "Not Connected"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {isConnected 
+                    ? `Account: ${settings?.accountName || "Facebook Business Account"}`
+                    : "Connect your Facebook account to start creating ads"
+                  }
+                </p>
+              </div>
+            </div>
+            
+            {isConnected ? (
+              <Button
+                variant="outline"
+                onClick={handleDisconnect}
+                className="gap-2"
+                data-testid="button-disconnect"
+              >
+                <Unlink className="h-4 w-4" />
+                Disconnect
+              </Button>
+            ) : (
+              <Button
+                onClick={handleConnectFacebook}
+                disabled={connecting}
+                className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90"
+                data-testid="button-connect-facebook"
+              >
+                <SiFacebook className="h-4 w-4" />
+                {connecting ? "Connecting..." : "Connect with Facebook"}
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        {/* What You'll Get */}
         <Card className="p-6 mb-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Setup Instructions
+            <Megaphone className="h-5 w-5" />
+            What You Can Do
           </h2>
           
-          <div className="space-y-6">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                1
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold mb-2">Create Meta Developer App</h3>
-                <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-                  <li>Go to <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">developers.facebook.com <ExternalLink className="h-3 w-3" /></a></li>
-                  <li>Click "My Apps" → "Create App"</li>
-                  <li>Select "Other" use case, then "Business" app type</li>
-                  <li>Add "Marketing API" product to your app</li>
-                </ul>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex gap-3 p-4 rounded-lg bg-muted/50">
+              <Target className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold mb-1">Create Ad Campaigns</h3>
+                <p className="text-sm text-muted-foreground">
+                  Promote your products on Facebook and Instagram with targeted ads
+                </p>
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                2
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold mb-2">Get Your Credentials</h3>
-                <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-                  <li><strong>App ID & Secret:</strong> Found in app dashboard → Settings → Basic</li>
-                  <li><strong>Access Token:</strong> Tools → Graph API Explorer</li>
-                  <li>Select your app, add permissions: <Badge variant="outline" className="ml-1">ads_management</Badge> <Badge variant="outline">ads_read</Badge></li>
-                  <li>Generate long-lived token (60 days) or System User token (non-expiring)</li>
-                </ul>
+            
+            <div className="flex gap-3 p-4 rounded-lg bg-muted/50">
+              <Settings className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold mb-1">Full Campaign Control</h3>
+                <p className="text-sm text-muted-foreground">
+                  Set budgets, target audiences, and customize ad creative
+                </p>
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                3
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold mb-2">Setup Business Manager</h3>
-                <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-                  <li>Create or login to <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Meta Business Manager <ExternalLink className="h-3 w-3" /></a></li>
-                  <li>Link your ad account to Business Manager</li>
-                  <li>Get your Ad Account ID (format: act_XXXXX)</li>
-                  <li>Ensure your app has access to the ad account</li>
-                </ul>
+            
+            <div className="flex gap-3 p-4 rounded-lg bg-muted/50">
+              <SiFacebook className="h-5 w-5 text-[#1877F2] flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold mb-1">Facebook Ads</h3>
+                <p className="text-sm text-muted-foreground">
+                  Reach billions of users on the world's largest social network
+                </p>
               </div>
             </div>
-
-            <div className="bg-muted/50 p-4 rounded-lg border-l-4 border-blue-500">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium mb-1">Important Security Note</p>
-                  <p className="text-muted-foreground">
-                    Your access tokens will be securely stored and encrypted. We recommend using a System User token 
-                    with limited permissions for production use.
-                  </p>
-                </div>
+            
+            <div className="flex gap-3 p-4 rounded-lg bg-muted/50">
+              <SiInstagram className="h-5 w-5 text-[#E4405F] flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold mb-1">Instagram Ads</h3>
+                <p className="text-sm text-muted-foreground">
+                  Engage visual shoppers on Instagram's feed and stories
+                </p>
               </div>
             </div>
           </div>
         </Card>
 
-        {/* Configuration Form */}
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            API Configuration
+        {/* How It Works */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            How It Works
           </h2>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="appId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>App ID</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="1234567890123456" 
-                        {...field} 
-                        data-testid="input-app-id"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Your Meta App ID from the developer dashboard
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="appSecret"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>App Secret</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password"
-                        placeholder="••••••••••••••••••••••••••••••••" 
-                        {...field} 
-                        data-testid="input-app-secret"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Your Meta App Secret (keep this confidential)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="accessToken"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Access Token</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password"
-                        placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 
-                        {...field} 
-                        data-testid="input-access-token"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Long-lived user token or System User token with ads_management permission
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="adAccountId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ad Account ID</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="act_123456789012345" 
-                        {...field} 
-                        data-testid="input-ad-account-id"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Your Meta Ad Account ID (must start with "act_")
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={testConnection}
-                  disabled={testingConnection}
-                  data-testid="button-test-connection"
-                >
-                  {testingConnection ? "Testing..." : "Test Connection"}
-                </Button>
-                {connectionStatus === "success" && (
-                  <Badge variant="default" className="flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Connected
-                  </Badge>
-                )}
-                {connectionStatus === "error" && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Connection Failed
-                  </Badge>
-                )}
+          
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                1
               </div>
-
-              <div className="pt-4 border-t">
-                <Button
-                  type="submit"
-                  disabled={saveMutation.isPending}
-                  data-testid="button-save-settings"
-                >
-                  {saveMutation.isPending ? "Saving..." : "Save Settings"}
-                </Button>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">Connect Your Facebook Account</h3>
+                <p className="text-sm text-muted-foreground">
+                  Click "Connect with Facebook" and authorize Uppshop to access your ad account. 
+                  You'll need a Facebook Business Manager account with an ad account set up.
+                </p>
               </div>
-            </form>
-          </Form>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                2
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">Select Products to Promote</h3>
+                <p className="text-sm text-muted-foreground">
+                  Go to your Products page and click "Promote" on any product you want to advertise. 
+                  The product details will be automatically used in your ad.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                3
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">Configure & Launch Campaign</h3>
+                <p className="text-sm text-muted-foreground">
+                  Set your budget, target audience, and ad creative. Then launch your campaign 
+                  to start reaching customers on Facebook and Instagram!
+                </p>
+              </div>
+            </div>
+          </div>
         </Card>
 
-        {/* Quick Links */}
-        <Card className="p-6 mt-6">
-          <h3 className="font-semibold mb-4">Helpful Resources</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <a
-              href="https://developers.facebook.com/docs/marketing-api/get-started"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-3 rounded-lg hover-elevate border"
-            >
-              <Target className="h-4 w-4" />
-              <span className="text-sm">Marketing API Documentation</span>
-              <ExternalLink className="h-3 w-3 ml-auto" />
-            </a>
-            <a
-              href="https://developers.facebook.com/tools/explorer"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-3 rounded-lg hover-elevate border"
-            >
-              <Key className="h-4 w-4" />
-              <span className="text-sm">Graph API Explorer</span>
-              <ExternalLink className="h-3 w-3 ml-auto" />
-            </a>
-            <a
-              href="https://business.facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-3 rounded-lg hover-elevate border"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="text-sm">Business Manager</span>
-              <ExternalLink className="h-3 w-3 ml-auto" />
-            </a>
-            <a
-              href="https://developers.facebook.com/tools/debug/accesstoken"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-3 rounded-lg hover-elevate border"
-            >
-              <CreditCard className="h-4 w-4" />
-              <span className="text-sm">Access Token Debugger</span>
-              <ExternalLink className="h-3 w-3 ml-auto" />
-            </a>
+        {/* Requirements */}
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Requirements</h2>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Facebook Business Account</p>
+                <p className="text-sm text-muted-foreground">
+                  Create one at{" "}
+                  <a 
+                    href="https://business.facebook.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    business.facebook.com
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Ad Account</p>
+                <p className="text-sm text-muted-foreground">
+                  Set up in Business Manager → Business Settings → Ad Accounts
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Payment Method</p>
+                <p className="text-sm text-muted-foreground">
+                  Add a payment method to your ad account for running campaigns
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  First Time Setup
+                </p>
+                <p className="text-blue-700 dark:text-blue-300">
+                  If you don't have a Business Manager account yet, you'll be prompted to create one 
+                  during the connection process. This only takes a few minutes!
+                </p>
+              </div>
+            </div>
           </div>
         </Card>
       </div>
