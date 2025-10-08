@@ -19,8 +19,8 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Dashboard Design**: Seller dashboard features revenue analytics and order management. Buyer dashboard provides order tracking and NFT minting access.
 
 **Technical Implementations & Feature Specifications:**
-- **Product Management**: Supports in-stock, pre-order (with deposit), made-to-order, and wholesale products. Sellers can create, view, and manage products, including multi-image uploads.
-- **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout with automatic account creation. Checkout displays subtotal, shipping cost (fetched from seller settings), and total with shipping automatically added to order total.
+- **Product Management**: Supports in-stock, pre-order (with deposit), made-to-order, and wholesale products. Sellers can create, view, and manage products, including multi-image uploads. Features bulk CSV upload for efficient product catalog creation with template download and row-level error tracking.
+- **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout with automatic account creation. Checkout displays subtotal, shipping cost (fetched from seller settings), and total with shipping automatically added to order total. Sellers can configure per-seller flat-rate shipping via settings page.
 - **Authentication & Authorization**: Dual system using Replit Auth (OAuth) and local authentication for testing, with role-based access for buyers and sellers. Users are redirected to their respective dashboards post-login.
 - **Payment Processing**: Integrated with Stripe SDK for Apple Pay, Google Pay, and credit cards. Sellers can connect their Stripe accounts via OAuth. Supports balance payments for pre-orders.
 - **Multi-Currency Support**: Automatic IP-based currency detection with a user-selectable currency switcher (16+ currencies). Prices convert in real-time using cached exchange rates.
@@ -47,6 +47,7 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Forms**: React Hook Form
 - **Validation**: Zod
 - **Session Management**: `express-session`, `connect-pg-simple`
+- **CSV Parsing**: PapaParse (for bulk product uploads)
 - **Currency Exchange**: Fawazahmed0 Currency API
 - **Blockchain**: Solana Web3.js, Metaplex SDK, Phantom Wallet
 - **Email Service**: SendGrid API (placeholder)
