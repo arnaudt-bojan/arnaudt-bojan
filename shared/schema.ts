@@ -18,6 +18,21 @@ export type UserRole = z.infer<typeof userRoleEnum>;
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
 
+// Categories table with hierarchical structure (3 levels max)
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: varchar("slug").notNull(),
+  parentId: varchar("parent_id"), // null for level 1, references parent for level 2 & 3
+  level: integer("level").notNull(), // 1, 2, or 3
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;
+
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -25,7 +40,10 @@ export const products = pgTable("products", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   image: text("image").notNull(), // Primary/first image (backward compatibility)
   images: text("images").array(), // Array of all product images (up to 8-10)
-  category: text("category").notNull(),
+  category: text("category").notNull(), // Legacy text field for backward compatibility
+  categoryLevel1Id: varchar("category_level_1_id"), // Top-level category
+  categoryLevel2Id: varchar("category_level_2_id"), // Mid-level category
+  categoryLevel3Id: varchar("category_level_3_id"), // Leaf-level category
   productType: text("product_type").notNull(),
   stock: integer("stock").default(0),
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),

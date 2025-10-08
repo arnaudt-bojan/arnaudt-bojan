@@ -18,6 +18,8 @@ import {
   type InsertWholesaleProduct,
   type WholesaleInvitation,
   type InsertWholesaleInvitation,
+  type Category,
+  type InsertCategory,
   users,
   products,
   orders,
@@ -28,7 +30,8 @@ import {
   newsletters,
   nftMints,
   wholesaleProducts,
-  wholesaleInvitations
+  wholesaleInvitations,
+  categories
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -98,6 +101,14 @@ export interface IStorage {
   getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined>;
   acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined>;
   deleteWholesaleInvitation(id: string): Promise<boolean>;
+  
+  getAllCategories(): Promise<Category[]>;
+  getCategoriesByLevel(level: number): Promise<Category[]>;
+  getCategoriesByParentId(parentId: string | null): Promise<Category[]>;
+  getCategory(id: string): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -590,6 +601,53 @@ export class DatabaseStorage implements IStorage {
   async deleteWholesaleInvitation(id: string): Promise<boolean> {
     await this.ensureInitialized();
     await this.db.delete(wholesaleInvitations).where(eq(wholesaleInvitations.id, id));
+    return true;
+  }
+
+  // Categories Methods
+  async getAllCategories(): Promise<Category[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(categories).orderBy(categories.level, categories.name);
+  }
+
+  async getCategoriesByLevel(level: number): Promise<Category[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(categories).where(eq(categories.level, level)).orderBy(categories.name);
+  }
+
+  async getCategoriesByParentId(parentId: string | null): Promise<Category[]> {
+    await this.ensureInitialized();
+    if (parentId === null) {
+      return await this.db.select().from(categories).where(eq(categories.parentId, sql`NULL`)).orderBy(categories.name);
+    }
+    return await this.db.select().from(categories).where(eq(categories.parentId, parentId)).orderBy(categories.name);
+  }
+
+  async getCategory(id: string): Promise<Category | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(categories).where(eq(categories.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(categories).values(category).returning();
+    return result[0];
+  }
+
+  async updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(categories)
+      .set({ ...category, updatedAt: new Date() })
+      .where(eq(categories.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCategory(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(categories).where(eq(categories.id, id));
     return true;
   }
 }
