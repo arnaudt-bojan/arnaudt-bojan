@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Package, Clock, Hammer, Building2, Check, Plus, X } from "lucide-react";
+import { ArrowLeft, Package, Clock, Hammer, Building2, Check, Plus, X, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ProductVariant = {
@@ -66,6 +66,25 @@ export default function CreateProduct() {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
   const [preOrderDate, setPreOrderDate] = useState<string>("");
+  const [productImages, setProductImages] = useState<string[]>([""]);
+  
+  const addImageField = () => {
+    if (productImages.length < 10) {
+      setProductImages([...productImages, ""]);
+    }
+  };
+  
+  const removeImageField = (index: number) => {
+    if (productImages.length > 1) {
+      setProductImages(productImages.filter((_, i) => i !== index));
+    }
+  };
+  
+  const updateImageField = (index: number, value: string) => {
+    const updated = [...productImages];
+    updated[index] = value;
+    setProductImages(updated);
+  };
 
   const form = useForm<InsertProduct>({
     resolver: zodResolver(insertProductSchema),
@@ -106,6 +125,13 @@ export default function CreateProduct() {
       } else {
         data.requiresDeposit = 0;
         data.depositAmount = undefined;
+      }
+      
+      // Add multiple images
+      const validImages = productImages.filter(img => img.trim() !== "");
+      if (validImages.length > 0) {
+        (data as any).images = validImages;
+        data.image = validImages[0]; // Set first image as primary
       }
       
       // Add variants if any
@@ -269,42 +295,76 @@ export default function CreateProduct() {
                   )}
                 />
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., Clothing, Accessories"
-                            {...field}
-                            data-testid="input-category"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Clothing, Accessories"
+                          {...field}
+                          data-testid="input-category"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <div>
+                  <FormLabel>Product Images (up to 10)</FormLabel>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Add multiple image URLs. First image will be the primary display image.
+                  </p>
+                  <div className="space-y-3">
+                    {productImages.map((imgUrl, index) => (
+                      <div key={index} className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <Input
+                            type="url"
+                            placeholder={`https://example.com/image-${index + 1}.jpg`}
+                            value={imgUrl}
+                            onChange={(e) => updateImageField(index, e.target.value)}
+                            data-testid={`input-image-${index}`}
+                          />
+                          {index === 0 && imgUrl && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Primary image (will be shown on product cards)
+                            </p>
+                          )}
+                        </div>
+                        {productImages.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeImageField(index)}
+                            data-testid={`button-remove-image-${index}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    {productImages.length < 10 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addImageField}
+                        className="w-full"
+                        data-testid="button-add-image"
+                      >
+                        <ImagePlus className="h-4 w-4 mr-2" />
+                        Add Another Image
+                      </Button>
+                    )}
+                  </div>
                   <FormField
                     control={form.control}
                     name="image"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Image URL</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="url"
-                            placeholder="https://example.com/image.jpg"
-                            {...field}
-                            data-testid="input-image"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={() => <input type="hidden" />}
                   />
                 </div>
               </CardContent>
