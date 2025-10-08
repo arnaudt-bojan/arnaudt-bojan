@@ -17,6 +17,7 @@ import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
 import CreateProduct from "@/pages/create-product";
 import EditProduct from "@/pages/edit-product";
+import Orders from "@/pages/orders";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -37,6 +38,7 @@ function AppContent() {
           <Route path="/seller/products" component={SellerProducts} />
           <Route path="/seller/create-product" component={CreateProduct} />
           <Route path="/seller/products/:id/edit" component={EditProduct} />
+          <Route path="/orders" component={Orders} />
           <Route component={NotFound} />
         </Switch>
       </main>
