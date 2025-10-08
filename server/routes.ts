@@ -1346,6 +1346,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wholesale Products Routes
+  app.get("/api/wholesale/products", async (req, res) => {
+    try {
+      const products = await storage.getAllWholesaleProducts();
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching wholesale products:", error);
+      res.status(500).json({ message: "Failed to fetch wholesale products" });
+    }
+  });
+
+  app.get("/api/wholesale/products/seller/:sellerId", async (req, res) => {
+    try {
+      const { sellerId } = req.params;
+      const products = await storage.getWholesaleProductsBySellerId(sellerId);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching seller wholesale products:", error);
+      res.status(500).json({ message: "Failed to fetch seller wholesale products" });
+    }
+  });
+
+  app.get("/api/wholesale/products/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await storage.getWholesaleProduct(id);
+      if (!product) {
+        return res.status(404).json({ message: "Wholesale product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching wholesale product:", error);
+      res.status(500).json({ message: "Failed to fetch wholesale product" });
+    }
+  });
+
+  app.post("/api/wholesale/products", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const productData = {
+        ...req.body,
+        sellerId: userId,
+      };
+
+      const product = await storage.createWholesaleProduct(productData);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Error creating wholesale product:", error);
+      res.status(500).json({ message: "Failed to create wholesale product" });
+    }
+  });
+
+  app.patch("/api/wholesale/products/:id", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const existingProduct = await storage.getWholesaleProduct(id);
+      if (!existingProduct) {
+        return res.status(404).json({ message: "Wholesale product not found" });
+      }
+      
+      if (existingProduct.sellerId !== userId) {
+        return res.status(403).json({ message: "Unauthorized to update this product" });
+      }
+
+      const updatedProduct = await storage.updateWholesaleProduct(id, req.body);
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error("Error updating wholesale product:", error);
+      res.status(500).json({ message: "Failed to update wholesale product" });
+    }
+  });
+
+  app.delete("/api/wholesale/products/:id", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const existingProduct = await storage.getWholesaleProduct(id);
+      if (!existingProduct) {
+        return res.status(404).json({ message: "Wholesale product not found" });
+      }
+      
+      if (existingProduct.sellerId !== userId) {
+        return res.status(403).json({ message: "Unauthorized to delete this product" });
+      }
+
+      await storage.deleteWholesaleProduct(id);
+      res.json({ message: "Wholesale product deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting wholesale product:", error);
+      res.status(500).json({ message: "Failed to delete wholesale product" });
+    }
+  });
+
+  // Wholesale Invitations Routes
+  app.get("/api/wholesale/invitations", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const invitations = await storage.getWholesaleInvitationsBySellerId(userId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching wholesale invitations:", error);
+      res.status(500).json({ message: "Failed to fetch wholesale invitations" });
+    }
+  });
+
+  app.post("/api/wholesale/invitations", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const invitationData = {
+        ...req.body,
+        sellerId: userId,
+      };
+
+      const invitation = await storage.createWholesaleInvitation(invitationData);
+      res.status(201).json(invitation);
+    } catch (error) {
+      console.error("Error creating wholesale invitation:", error);
+      res.status(500).json({ message: "Failed to create wholesale invitation" });
+    }
+  });
+
+  app.get("/api/wholesale/invitations/token/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const invitation = await storage.getWholesaleInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error fetching wholesale invitation:", error);
+      res.status(500).json({ message: "Failed to fetch wholesale invitation" });
+    }
+  });
+
+  app.post("/api/wholesale/invitations/:token/accept", isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const invitation = await storage.getWholesaleInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== "pending") {
+        return res.status(400).json({ message: "Invitation has already been processed" });
+      }
+
+      const updated = await storage.acceptWholesaleInvitation(token, userId);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error accepting wholesale invitation:", error);
+      res.status(500).json({ message: "Failed to accept wholesale invitation" });
+    }
+  });
+
+  app.delete("/api/wholesale/invitations/:id", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteWholesaleInvitation(id);
+      res.json({ message: "Wholesale invitation deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting wholesale invitation:", error);
+      res.status(500).json({ message: "Failed to delete wholesale invitation" });
+    }
+  });
+
   // Currency API routes
   app.get("/api/currency/rates", async (req, res) => {
     try {
