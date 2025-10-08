@@ -34,7 +34,12 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Buyer Features**:
     - **Order Tracking**: View all orders with payment status, order status, and detailed breakdowns.
     - **NFT Minting**: Mint Solana-based NFTs from fully paid orders with product metadata embedded on-chain (Solana integration placeholder).
-- **Authentication**: Replit Auth with OpenID Connect, PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`). Anonymous users can browse; authenticated users login as buyer or seller with role-based access.
+- **Authentication**: Dual authentication system:
+    - **Replit Auth (OAuth)**: OpenID Connect with role-based access
+    - **Local Authentication**: Simple username/password for testing purposes
+    - **Test Accounts**: testbuyer@test.com / 123456 (buyer role), testseller@test.com / 123456 (seller role)
+    - **Session Management**: PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`)
+    - **Login Page**: `/login` route provides form-based authentication for test accounts
 - **Protected API Endpoints**: Authentication required for creating orders, accessing user-specific orders, managing all orders (for dashboard), all product management operations (create, edit, delete), newsletter management, and NFT minting.
 - **Payment Integration**: Stripe SDK integration for Apple Pay, Google Pay, and credit card. Includes a seller-triggered balance payment system for pre-orders.
 - **Multi-Currency Support**: 
@@ -53,7 +58,7 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Data Models**: Defined schemas for:
     - `Product`: id, name, description, price, image, category, productType, stock, depositAmount, requiresDeposit
     - `Order`: id, userId, customerName, customerEmail, customerAddress, items, total, amountPaid, remainingBalance, paymentType, paymentStatus, stripePaymentIntentId, status, createdAt
-    - `User`: id, email, firstName, lastName, profileImageUrl, role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, createdAt, updatedAt
+    - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, createdAt, updatedAt
     - `Newsletter`: id, userId, subject, content, recipients (jsonb), status, sentAt, createdAt
     - `NftMint`: id, orderId, userId, mintAddress, transactionSignature, metadata (jsonb), createdAt
 - **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints).
@@ -61,7 +66,7 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 ## External Dependencies
 - **Database**: PostgreSQL (via Neon)
 - **ORM**: Drizzle ORM
-- **Authentication**: Replit Auth (OpenID Connect)
+- **Authentication**: Replit Auth (OpenID Connect) + Local Authentication (passport-local for testing)
 - **Payment Gateway**: Stripe SDK
 - **Social Media APIs**:
     - Meta Graph API (for Facebook/Instagram Ads)
