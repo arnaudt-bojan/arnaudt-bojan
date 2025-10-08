@@ -14,6 +14,10 @@ import {
   type InsertNewsletter,
   type NftMint,
   type InsertNftMint,
+  type WholesaleProduct,
+  type InsertWholesaleProduct,
+  type WholesaleInvitation,
+  type InsertWholesaleInvitation,
   users,
   products,
   orders,
@@ -22,7 +26,9 @@ import {
   tiktokSettings,
   xSettings,
   newsletters,
-  nftMints
+  nftMints,
+  wholesaleProducts,
+  wholesaleInvitations
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -78,6 +84,19 @@ export interface IStorage {
   createNftMint(nftMint: InsertNftMint): Promise<NftMint>;
   getNftMintsByUserId(userId: string): Promise<NftMint[]>;
   getNftMintByOrderId(orderId: string): Promise<NftMint | undefined>;
+  
+  getAllWholesaleProducts(): Promise<WholesaleProduct[]>;
+  getWholesaleProductsBySellerId(sellerId: string): Promise<WholesaleProduct[]>;
+  getWholesaleProduct(id: string): Promise<WholesaleProduct | undefined>;
+  createWholesaleProduct(product: InsertWholesaleProduct): Promise<WholesaleProduct>;
+  updateWholesaleProduct(id: string, product: Partial<InsertWholesaleProduct>): Promise<WholesaleProduct | undefined>;
+  deleteWholesaleProduct(id: string): Promise<boolean>;
+  
+  createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation>;
+  getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]>;
+  getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined>;
+  acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined>;
+  deleteWholesaleInvitation(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -491,6 +510,81 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.select().from(nftMints).where(eq(nftMints.orderId, orderId)).limit(1);
     return result[0];
+  }
+
+  // Wholesale Products Methods
+  async getAllWholesaleProducts(): Promise<WholesaleProduct[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleProducts).orderBy(desc(wholesaleProducts.createdAt));
+  }
+
+  async getWholesaleProductsBySellerId(sellerId: string): Promise<WholesaleProduct[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleProducts).where(eq(wholesaleProducts.sellerId, sellerId)).orderBy(desc(wholesaleProducts.createdAt));
+  }
+
+  async getWholesaleProduct(id: string): Promise<WholesaleProduct | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleProducts).where(eq(wholesaleProducts.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createWholesaleProduct(product: InsertWholesaleProduct): Promise<WholesaleProduct> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesaleProducts).values(product).returning();
+    return result[0];
+  }
+
+  async updateWholesaleProduct(id: string, product: Partial<InsertWholesaleProduct>): Promise<WholesaleProduct | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleProducts)
+      .set({ ...product, updatedAt: new Date() })
+      .where(eq(wholesaleProducts.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesaleProduct(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleProducts).where(eq(wholesaleProducts.id, id));
+    return true;
+  }
+
+  // Wholesale Invitations Methods
+  async createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation> {
+    await this.ensureInitialized();
+    // Generate a unique token for the invitation
+    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const result = await this.db.insert(wholesaleInvitations).values({ ...invitation, token }).returning();
+    return result[0];
+  }
+
+  async getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleInvitations).where(eq(wholesaleInvitations.sellerId, sellerId)).orderBy(desc(wholesaleInvitations.createdAt));
+  }
+
+  async getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleInvitations).where(eq(wholesaleInvitations.token, token)).limit(1);
+    return result[0];
+  }
+
+  async acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleInvitations)
+      .set({ status: "accepted", acceptedAt: new Date() })
+      .where(eq(wholesaleInvitations.token, token))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesaleInvitation(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleInvitations).where(eq(wholesaleInvitations.id, id));
+    return true;
   }
 }
 
