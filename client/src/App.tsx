@@ -16,6 +16,7 @@ import Checkout from "@/pages/checkout";
 import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
 import CreateProduct from "@/pages/create-product";
+import EditProduct from "@/pages/edit-product";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -35,6 +36,7 @@ function AppContent() {
           <Route path="/seller/dashboard" component={SellerDashboard} />
           <Route path="/seller/products" component={SellerProducts} />
           <Route path="/seller/create-product" component={CreateProduct} />
+          <Route path="/seller/products/:id/edit" component={EditProduct} />
           <Route component={NotFound} />
         </Switch>
       </main>
