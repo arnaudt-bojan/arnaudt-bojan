@@ -145,20 +145,20 @@ export default function BulkProductUpload() {
       complete: (results) => {
         // Filter out instruction rows (starting with #)
         const products = results.data.filter((row: any) => 
-          !row.name?.startsWith("#") && row.name
+          !row.name?.startsWith("#") && row.name && row.name.trim()
         ).map((row: any) => ({
-          name: row.name,
-          description: row.description,
-          price: row.price,
-          image: row.image,
-          images: row.image ? [row.image] : [],
-          category: row.category,
-          productType: row.productType,
-          stock: row.stock ? parseInt(row.stock) : 0,
-          depositAmount: row.depositAmount || null,
-          requiresDeposit: row.requiresDeposit ? parseInt(row.requiresDeposit) : 0,
-          madeToOrderDays: row.madeToOrderDays ? parseInt(row.madeToOrderDays) : null,
-          preOrderDate: row.preOrderDate || null,
+          name: row.name.trim(),
+          description: row.description?.trim() || "",
+          price: row.price?.trim() || "",
+          image: row.image?.trim() || "",
+          images: row.image?.trim() ? [row.image.trim()] : [],
+          category: row.category?.trim() || "",
+          productType: row.productType?.trim() || "",
+          stock: row.stock?.trim() ? parseInt(row.stock.trim()) : 0,
+          depositAmount: row.depositAmount?.trim() || null,
+          requiresDeposit: row.requiresDeposit?.trim() ? parseInt(row.requiresDeposit.trim()) : 0,
+          madeToOrderDays: row.madeToOrderDays?.trim() ? parseInt(row.madeToOrderDays.trim()) : null,
+          preOrderDate: row.preOrderDate?.trim() ? new Date(row.preOrderDate.trim()) : null,
         }));
 
         if (products.length === 0) {

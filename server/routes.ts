@@ -120,6 +120,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rowNumber = i + 2; // +2 because of header row and 0-indexing
 
         try {
+          // Convert date strings to Date objects if present
+          if (productData.preOrderDate && typeof productData.preOrderDate === 'string') {
+            productData.preOrderDate = new Date(productData.preOrderDate);
+          }
+
           const validationResult = insertProductSchema.safeParse(productData);
           
           if (!validationResult.success) {
