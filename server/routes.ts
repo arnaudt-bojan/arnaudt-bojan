@@ -735,6 +735,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Newsletter routes
+  app.get("/api/newsletters", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const newsletters = await storage.getNewslettersByUserId(userId);
+      res.json(newsletters);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch newsletters" });
+    }
+  });
+
+  app.post("/api/newsletters", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { subject, content, recipients } = req.body;
+
+      if (!subject || !content || !recipients || recipients.length === 0) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const newsletter = await storage.createNewsletter({
+        userId,
+        subject,
+        content,
+        recipients,
+        status: "draft",
+      });
+
+      res.status(201).json(newsletter);
+    } catch (error) {
+      console.error("Newsletter creation error:", error);
+      res.status(500).json({ error: "Failed to create newsletter" });
+    }
+  });
+
+  app.post("/api/newsletters/:id/send", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const newsletterId = req.params.id;
+
+      const newsletter = await storage.getNewsletter(newsletterId);
+      if (!newsletter || newsletter.userId !== userId) {
+        return res.status(404).json({ error: "Newsletter not found" });
+      }
+
+      // TODO: Integrate SendGrid when API key is provided
+      // For now, mark as sent
+      await storage.updateNewsletter(newsletterId, {
+        status: "sent",
+        sentAt: new Date(),
+      });
+
+      res.json({ success: true, message: "Newsletter marked as sent. SendGrid integration pending." });
+    } catch (error) {
+      console.error("Newsletter send error:", error);
+      res.status(500).json({ error: "Failed to send newsletter" });
+    }
+  });
+
+  app.delete("/api/newsletters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const newsletterId = req.params.id;
+
+      const newsletter = await storage.getNewsletter(newsletterId);
+      if (!newsletter || newsletter.userId !== userId) {
+        return res.status(404).json({ error: "Newsletter not found" });
+      }
+
+      await storage.deleteNewsletter(newsletterId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete newsletter" });
+    }
+  });
+
+  // NFT Minting route
+  app.post("/api/nft/mint", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId, productData } = req.body;
+
+      if (!orderId || !productData) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Verify order belongs to user
+      const order = await storage.getOrder(orderId);
+      if (!order || order.userId !== userId) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Check if order is fully paid
+      if (order.paymentStatus !== "fully_paid") {
+        return res.status(400).json({ error: "Order must be fully paid before minting NFT" });
+      }
+
+      // For now, create a mock NFT mint record
+      // TODO: Integrate actual Solana blockchain minting
+      const mockSignature = `mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const mockMintAddress = `mock_mint_${Math.random().toString(36).substring(7)}`;
+
+      const nftMint = await storage.createNftMint({
+        orderId,
+        userId,
+        mintAddress: mockMintAddress,
+        transactionSignature: mockSignature,
+        metadata: productData,
+      });
+
+      res.json({
+        success: true,
+        signature: mockSignature,
+        mintAddress: mockMintAddress,
+        message: "NFT minting simulated. Solana integration pending."
+      });
+    } catch (error) {
+      console.error("NFT minting error:", error);
+      res.status(500).json({ error: "Failed to mint NFT" });
+    }
+  });
+
+  // Add routes for buyer and seller specific order views
+  app.get("/api/orders/my-orders", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const orders = await storage.getOrdersByUserId(userId);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  app.get("/api/orders/all-orders", isAuthenticated, async (req: any, res) => {
+    try {
+      // This endpoint returns all orders for sellers/admins
+      const orders = await storage.getAllOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

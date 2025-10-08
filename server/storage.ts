@@ -10,13 +10,19 @@ import {
   type MetaSettings,
   type TikTokSettings,
   type XSettings,
+  type Newsletter,
+  type InsertNewsletter,
+  type NftMint,
+  type InsertNftMint,
   users,
   products,
   orders,
   invitations,
   metaSettings,
   tiktokSettings,
-  xSettings
+  xSettings,
+  newsletters,
+  nftMints
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -61,6 +67,16 @@ export interface IStorage {
   saveXSettings(userId: string, settings: Partial<XSettings>): Promise<XSettings>;
   getXSettings(userId: string): Promise<XSettings | undefined>;
   deleteXSettings(userId: string): Promise<boolean>;
+  
+  getNewslettersByUserId(userId: string): Promise<Newsletter[]>;
+  getNewsletter(id: string): Promise<Newsletter | undefined>;
+  createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter>;
+  updateNewsletter(id: string, data: Partial<Newsletter>): Promise<Newsletter | undefined>;
+  deleteNewsletter(id: string): Promise<boolean>;
+  
+  createNftMint(nftMint: InsertNftMint): Promise<NftMint>;
+  getNftMintsByUserId(userId: string): Promise<NftMint[]>;
+  getNftMintByOrderId(orderId: string): Promise<NftMint | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -396,6 +412,56 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.delete(xSettings).where(eq(xSettings.userId, userId));
     return true;
+  }
+
+  async getNewslettersByUserId(userId: string): Promise<Newsletter[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(newsletters).where(eq(newsletters.userId, userId)).orderBy(desc(newsletters.createdAt));
+  }
+
+  async getNewsletter(id: string): Promise<Newsletter | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletters).where(eq(newsletters.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(newsletters).values(newsletter).returning();
+    return result[0];
+  }
+
+  async updateNewsletter(id: string, data: Partial<Newsletter>): Promise<Newsletter | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(newsletters)
+      .set(data)
+      .where(eq(newsletters.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteNewsletter(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(newsletters).where(eq(newsletters.id, id));
+    return true;
+  }
+
+  async createNftMint(nftMint: InsertNftMint): Promise<NftMint> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(nftMints).values(nftMint).returning();
+    return result[0];
+  }
+
+  async getNftMintsByUserId(userId: string): Promise<NftMint[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(nftMints).where(eq(nftMints.userId, userId)).orderBy(desc(nftMints.createdAt));
+  }
+
+  async getNftMintByOrderId(orderId: string): Promise<NftMint | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(nftMints).where(eq(nftMints.orderId, orderId)).limit(1);
+    return result[0];
   }
 }
 

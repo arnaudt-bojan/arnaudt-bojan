@@ -13,6 +13,7 @@ import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
+import BuyerDashboard from "@/pages/buyer-dashboard";
 import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
 import CreateProduct from "@/pages/create-product";
@@ -26,6 +27,7 @@ import CreateAdCampaign from "@/pages/create-ad-campaign";
 import PromoteProduct from "@/pages/promote-product";
 import CreateMetaCampaign from "@/pages/create-meta-campaign";
 import OrderManagement from "@/pages/order-management";
+import Newsletter from "@/pages/newsletter";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -41,6 +43,7 @@ function AppContent() {
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/checkout" component={Checkout} />
+          <Route path="/buyer-dashboard" component={BuyerDashboard} />
           <Route path="/seller-dashboard" component={SellerDashboard} />
           <Route path="/seller/dashboard" component={SellerDashboard} />
           <Route path="/seller/products" component={SellerProducts} />
@@ -55,6 +58,7 @@ function AppContent() {
           <Route path="/create-meta-campaign/:id" component={CreateMetaCampaign} />
           <Route path="/create-ad-campaign" component={CreateAdCampaign} />
           <Route path="/order-management" component={OrderManagement} />
+          <Route path="/newsletter" component={Newsletter} />
           <Route component={NotFound} />
         </Switch>
       </main>

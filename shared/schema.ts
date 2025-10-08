@@ -12,7 +12,7 @@ export type OrderStatus = z.infer<typeof orderStatusEnum>;
 export const paymentStatusEnum = z.enum(["pending", "deposit_paid", "fully_paid", "refunded"]);
 export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
 
-export const userRoleEnum = z.enum(["owner", "admin", "manager", "staff", "viewer", "customer"]);
+export const userRoleEnum = z.enum(["owner", "admin", "manager", "staff", "viewer", "customer", "buyer", "seller"]);
 export type UserRole = z.infer<typeof userRoleEnum>;
 
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
@@ -150,3 +150,34 @@ export const xSettings = pgTable("x_settings", {
 
 export type XSettings = typeof xSettings.$inferSelect;
 export type InsertXSettings = typeof xSettings.$inferInsert;
+
+export const newsletters = pgTable("newsletters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(),
+  recipients: jsonb("recipients").notNull(),
+  status: text("status").notNull().default("draft"), // "draft", "sent", "failed"
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNewsletterSchema = createInsertSchema(newsletters).omit({ id: true, createdAt: true });
+export type InsertNewsletter = z.infer<typeof insertNewsletterSchema>;
+export type Newsletter = typeof newsletters.$inferSelect;
+export type SelectNewsletter = typeof newsletters.$inferSelect;
+
+export const nftMints = pgTable("nft_mints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  mintAddress: text("mint_address").notNull(),
+  transactionSignature: text("transaction_signature").notNull(),
+  metadata: jsonb("metadata").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNftMintSchema = createInsertSchema(nftMints).omit({ id: true, createdAt: true });
+export type InsertNftMint = z.infer<typeof insertNftMintSchema>;
+export type NftMint = typeof nftMints.$inferSelect;
+export type SelectNftMint = typeof nftMints.$inferSelect;
