@@ -1,4 +1,5 @@
-import { ShoppingCart, Store, LogOut, User } from "lucide-react";
+import { useState } from "react";
+import { ShoppingCart, Store, LogOut, User, Menu } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -13,6 +14,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -22,14 +30,59 @@ interface HeaderProps {
 export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const [location] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
-        <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-          <Store className="h-6 w-6" />
-          <span className="text-xl font-bold">Uppshop</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden" data-testid="button-mobile-menu">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-4 mt-6">
+                <Link
+                  href="/products"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                  data-testid="mobile-link-products"
+                >
+                  Products
+                </Link>
+                {isAuthenticated && user?.role === "seller" && (
+                  <Link
+                    href="/seller/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                    data-testid="mobile-link-seller-dashboard"
+                  >
+                    Seller Dashboard
+                  </Link>
+                )}
+                {isAuthenticated && (
+                  <Link
+                    href="/orders"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                    data-testid="mobile-link-orders"
+                  >
+                    My Orders
+                  </Link>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
+          <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            <Store className="h-6 w-6" />
+            <span className="text-xl font-bold">Uppshop</span>
+          </Link>
+        </div>
 
         <nav className="hidden md:flex items-center gap-6">
           <Link
