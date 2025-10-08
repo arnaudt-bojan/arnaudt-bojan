@@ -116,7 +116,12 @@ export const users = pgTable("users", {
   storeBanner: text("store_banner"), // Seller's store banner image URL
   storeLogo: text("store_logo"), // Seller's store logo URL
   paymentProvider: varchar("payment_provider").default("stripe"), // stripe, paypal
-  stripeConnectedAccountId: varchar("stripe_connected_account_id"), // Stripe Connect account ID
+  stripeConnectedAccountId: varchar("stripe_connected_account_id"), // Stripe Connect account ID for receiving payments
+  stripeCustomerId: varchar("stripe_customer_id"), // Stripe Customer ID for subscription & saved payment methods
+  stripeSubscriptionId: varchar("stripe_subscription_id"), // Stripe Subscription ID for recurring billing
+  subscriptionStatus: varchar("subscription_status"), // trial, active, past_due, canceled, null
+  subscriptionPlan: varchar("subscription_plan"), // monthly, annual
+  trialEndsAt: timestamp("trial_ends_at"), // When 30-day trial expires
   paypalMerchantId: varchar("paypal_merchant_id"), // PayPal merchant ID
   customDomain: varchar("custom_domain"), // Custom domain for store (e.g., mystore.com)
   customDomainVerified: integer("custom_domain_verified").default(0), // 0 = false, 1 = true
