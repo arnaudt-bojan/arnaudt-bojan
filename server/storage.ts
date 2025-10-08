@@ -4,9 +4,17 @@ import {
   type Product, 
   type InsertProduct,
   type Order,
-  type InsertOrder
+  type InsertOrder,
+  users,
+  products,
+  orders
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { eq, desc } from "drizzle-orm";
+import ws from "ws";
+
+neonConfig.webSocketConstructor = ws;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -25,90 +33,114 @@ export interface IStorage {
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private products: Map<string, Product>;
-  private orders: Map<string, Order>;
+export class DatabaseStorage implements IStorage {
+  private db;
+  private initialized: Promise<void>;
+  private initError: Error | null = null;
 
   constructor() {
-    this.users = new Map();
-    this.products = new Map();
-    this.orders = new Map();
-    this.seedProducts();
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.db = drizzle(pool);
+    
+    this.initialized = this.init();
+  }
+
+  private async init(): Promise<void> {
+    try {
+      await this.seedProducts();
+    } catch (err) {
+      console.error("Failed to seed database:", err);
+      this.initError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  private async ensureInitialized() {
+    await this.initialized;
+    if (this.initError) {
+      throw this.initError;
+    }
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    await this.ensureInitialized();
+    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    await this.ensureInitialized();
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    await this.ensureInitialized();
+    const result = await this.db.insert(users).values(insertUser).returning();
+    return result[0];
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
+    await this.ensureInitialized();
+    return await this.db.select().from(products);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    return this.products.get(id);
+    await this.ensureInitialized();
+    const result = await this.db.select().from(products).where(eq(products.id, id)).limit(1);
+    return result[0];
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const id = randomUUID();
-    const product: Product = { ...insertProduct, id };
-    this.products.set(id, product);
-    return product;
+    await this.ensureInitialized();
+    const result = await this.db.insert(products).values(insertProduct).returning();
+    return result[0];
   }
 
   async getAllOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values()).sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    await this.ensureInitialized();
+    return await this.db.select().from(orders).orderBy(desc(orders.createdAt));
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
-    return this.orders.get(id);
+    await this.ensureInitialized();
+    const result = await this.db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    return result[0];
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
-    const id = randomUUID();
-    const createdAt = new Date().toISOString();
-    const order: Order = { ...insertOrder, id, createdAt };
-    this.orders.set(id, order);
-    return order;
+    await this.ensureInitialized();
+    const result = await this.db.insert(orders).values(insertOrder).returning();
+    return result[0];
   }
 
   async updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product | undefined> {
-    const product = this.products.get(id);
-    if (!product) return undefined;
-    const updated = { ...product, ...updates };
-    this.products.set(id, updated);
-    return updated;
+    await this.ensureInitialized();
+    const result = await this.db.update(products).set(updates).where(eq(products.id, id)).returning();
+    return result[0];
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    return this.products.delete(id);
+    await this.ensureInitialized();
+    const result = await this.db.delete(products).where(eq(products.id, id)).returning();
+    return result.length > 0;
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
-    const order = this.orders.get(id);
-    if (!order) return undefined;
-    const updated = { ...order, status };
-    this.orders.set(id, updated);
-    return updated;
+    await this.ensureInitialized();
+    const result = await this.db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
+    return result[0];
   }
 
-  private seedProducts() {
-    const products: InsertProduct[] = [
+  private async seedProducts() {
+    const existingProducts = await this.db.select().from(products).limit(1);
+    if (existingProducts.length > 0) {
+      return;
+    }
+
+    const seedData: InsertProduct[] = [
       {
         name: "Modern Minimalist Sneakers",
         description: "Premium white sneakers crafted with attention to detail. Features clean lines and comfortable fit for everyday wear.",
@@ -183,11 +215,8 @@ export class MemStorage implements IStorage {
       },
     ];
 
-    products.forEach((product) => {
-      const id = randomUUID();
-      this.products.set(id, { ...product, id });
-    });
+    await this.db.insert(products).values(seedData);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

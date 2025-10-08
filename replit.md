@@ -6,7 +6,8 @@ Uppshop is a modern e-commerce platform inspired by uppfirst.com, designed for c
 ## Tech Stack
 - **Frontend**: React, TypeScript, Tailwind CSS, Shadcn UI
 - **Backend**: Express.js, Node.js
-- **Storage**: In-memory storage (MemStorage)
+- **Database**: PostgreSQL (Neon) with Drizzle ORM
+- **Storage**: DatabaseStorage with persistent data
 - **State Management**: TanStack Query, React Context
 - **Routing**: Wouter
 - **Forms**: React Hook Form with Zod validation
@@ -138,6 +139,13 @@ shared/
 - Mobile-first responsive design
 
 ## Recent Changes
+- **2025-10-08**: Database Migration & Phase 2 Development
+  - ✅ Migrated from in-memory to PostgreSQL database with Drizzle ORM
+  - ✅ All products, orders, and users now persist in database
+  - ✅ Automatic database seeding with 8 products on first run
+  - ✅ Proper async initialization with error handling
+  - 🔄 In Progress: User authentication system
+  
 - **2025-10-08**: Completed frontend implementation with all MVP features
   - Created landing page with hero section
   - Built product listing with filtering
