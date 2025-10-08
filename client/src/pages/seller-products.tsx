@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Product } from "@shared/schema";
-import { Plus, Pencil, Trash2, Megaphone } from "lucide-react";
+import { Plus, Pencil, Trash2, Megaphone, Upload } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -83,13 +83,23 @@ export default function SellerProducts() {
               Manage your product catalog
             </p>
           </div>
-          <Button
-            onClick={() => setLocation("/seller/create-product")}
-            data-testid="button-create-product"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Product
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/seller/bulk-upload")}
+              data-testid="button-bulk-upload"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Upload
+            </Button>
+            <Button
+              onClick={() => setLocation("/seller/create-product")}
+              data-testid="button-create-product"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Product
+            </Button>
+          </div>
         </div>
 
         <Card className="p-6">

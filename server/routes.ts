@@ -101,6 +101,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/products/bulk", isAuthenticated, async (req, res) => {
+    try {
+      const { products } = req.body;
+      
+      if (!Array.isArray(products)) {
+        return res.status(400).json({ error: "Products must be an array" });
+      }
+
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ row: number; error: string }>,
+      };
+
+      for (let i = 0; i < products.length; i++) {
+        const productData = products[i];
+        const rowNumber = i + 2; // +2 because of header row and 0-indexing
+
+        try {
+          const validationResult = insertProductSchema.safeParse(productData);
+          
+          if (!validationResult.success) {
+            const error = fromZodError(validationResult.error);
+            results.failed++;
+            results.errors.push({ 
+              row: rowNumber, 
+              error: error.message 
+            });
+            continue;
+          }
+
+          await storage.createProduct(validationResult.data);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ 
+            row: rowNumber, 
+            error: error.message || "Failed to create product" 
+          });
+        }
+      }
+
+      res.status(200).json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process bulk upload" });
+    }
+  });
+
   app.post("/api/orders", async (req: any, res) => {
     try {
       let userId: string;

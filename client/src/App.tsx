@@ -39,6 +39,7 @@ import WholesaleInvitations from "@/pages/wholesale-invitations";
 import BuyerWholesaleCatalog from "@/pages/buyer-wholesale-catalog";
 import WholesaleProductDetail from "@/pages/wholesale-product-detail";
 import WholesaleAcceptInvitation from "@/pages/wholesale-accept-invitation";
+import BulkProductUpload from "@/pages/bulk-product-upload";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -60,6 +61,7 @@ function AppContent() {
           <Route path="/seller/dashboard" component={SellerDashboard} />
           <Route path="/seller/products" component={SellerProducts} />
           <Route path="/seller/create-product" component={CreateProduct} />
+          <Route path="/seller/bulk-upload" component={BulkProductUpload} />
           <Route path="/seller/products/:id/edit" component={EditProduct} />
           <Route path="/seller/order/:id" component={OrderDetail} />
           <Route path="/orders" component={Orders} />
