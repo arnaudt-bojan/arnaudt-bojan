@@ -26,8 +26,52 @@ export default function MetaAdsSetup() {
 
   const handleConnectFacebook = () => {
     setConnecting(true);
-    // Redirect to backend OAuth endpoint which will redirect to Facebook
-    window.location.href = "/api/meta-auth/connect";
+    
+    // Open OAuth in popup
+    const width = 600;
+    const height = 700;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const popup = window.open(
+      "/api/meta-auth/connect",
+      "Facebook Login",
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
+    );
+
+    // Listen for message from popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === "META_AUTH_SUCCESS") {
+        setConnecting(false);
+        toast({
+          title: "Connected!",
+          description: "Your Facebook account has been connected successfully",
+        });
+        refetch();
+        popup?.close();
+        window.removeEventListener("message", handleMessage);
+      } else if (event.data.type === "META_AUTH_ERROR") {
+        setConnecting(false);
+        toast({
+          title: "Connection failed",
+          description: event.data.error || "Failed to connect Facebook account",
+          variant: "destructive",
+        });
+        popup?.close();
+        window.removeEventListener("message", handleMessage);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    // Check if popup was closed without completing
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        setConnecting(false);
+        window.removeEventListener("message", handleMessage);
+      }
+    }, 1000);
   };
 
   const handleDisconnect = async () => {

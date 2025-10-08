@@ -106,3 +106,17 @@ export const invitations = pgTable("invitations", {
 export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type Invitation = typeof invitations.$inferSelect;
+
+export const metaSettings = pgTable("meta_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  accessToken: text("access_token"),
+  adAccountId: varchar("ad_account_id"),
+  accountName: varchar("account_name"),
+  connected: integer("connected").default(0), // 0 = false, 1 = true
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type MetaSettings = typeof metaSettings.$inferSelect;
+export type InsertMetaSettings = typeof metaSettings.$inferInsert;

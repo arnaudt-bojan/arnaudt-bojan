@@ -433,13 +433,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessToken: tokenData.access_token,
         adAccountId: firstAdAccount?.id || "",
         accountName: firstAdAccount?.name || "Facebook Ad Account",
-        connected: true,
+        connected: 1,
       });
 
-      res.redirect("/meta-ads-setup?success=true");
+      // Send message to parent window and close popup
+      res.send(`
+        <html>
+          <script>
+            window.opener.postMessage({ type: 'META_AUTH_SUCCESS' }, '*');
+            window.close();
+          </script>
+          <body>
+            <p>Connected successfully! This window will close automatically...</p>
+          </body>
+        </html>
+      `);
     } catch (error) {
       console.error("Meta OAuth error:", error);
-      res.redirect("/meta-ads-setup?error=oauth_failed");
+      res.send(`
+        <html>
+          <script>
+            window.opener.postMessage({ type: 'META_AUTH_ERROR', error: 'Failed to connect' }, '*');
+            window.close();
+          </script>
+          <body>
+            <p>Connection failed. This window will close automatically...</p>
+          </body>
+        </html>
+      `);
     }
   });
 

@@ -7,10 +7,12 @@ import {
   type InsertOrder,
   type Invitation,
   type InsertInvitation,
+  type MetaSettings,
   users,
   products,
   orders,
-  invitations
+  invitations,
+  metaSettings
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -43,6 +45,10 @@ export interface IStorage {
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
   updateInvitationStatus(token: string, status: string): Promise<Invitation | undefined>;
   getAllInvitations(): Promise<Invitation[]>;
+  
+  saveMetaSettings(userId: string, settings: Partial<MetaSettings>): Promise<MetaSettings>;
+  getMetaSettings(userId: string): Promise<MetaSettings | undefined>;
+  deleteMetaSettings(userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -283,6 +289,39 @@ export class DatabaseStorage implements IStorage {
     ];
 
     await this.db.insert(products).values(seedData);
+  }
+
+  async saveMetaSettings(userId: string, settings: Partial<MetaSettings>): Promise<MetaSettings> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(metaSettings)
+      .values({
+        userId,
+        ...settings,
+        connected: settings.connected ? 1 : 0,
+      })
+      .onConflictDoUpdate({
+        target: metaSettings.userId,
+        set: {
+          ...settings,
+          connected: settings.connected ? 1 : 0,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getMetaSettings(userId: string): Promise<MetaSettings | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(metaSettings).where(eq(metaSettings.userId, userId)).limit(1);
+    return result[0];
+  }
+
+  async deleteMetaSettings(userId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db.delete(metaSettings).where(eq(metaSettings.userId, userId));
+    return true;
   }
 }
 
