@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,8 +58,51 @@ type CustomDomainForm = z.infer<typeof customDomainSchema>;
 export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [location, setLocation] = useLocation();
   const [paymentProvider, setPaymentProvider] = useState<string>(user?.paymentProvider || "stripe");
   const [copiedUsername, setCopiedUsername] = useState(false);
+
+  // Handle Instagram OAuth callback messages
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const instagramStatus = urlParams.get('instagram');
+    
+    if (instagramStatus) {
+      switch (instagramStatus) {
+        case 'success':
+          toast({ 
+            title: "Instagram Connected!", 
+            description: "Your Instagram account has been successfully connected" 
+          });
+          break;
+        case 'error':
+          toast({ 
+            title: "Connection Failed", 
+            description: "Failed to connect your Instagram account", 
+            variant: "destructive" 
+          });
+          break;
+        case 'config_error':
+          toast({ 
+            title: "Configuration Error", 
+            description: "Instagram App ID or Secret not configured. Please contact support.", 
+            variant: "destructive" 
+          });
+          break;
+        case 'auth_error':
+          toast({ 
+            title: "Authentication Error", 
+            description: "Instagram authentication failed. Please try again.", 
+            variant: "destructive" 
+          });
+          break;
+      }
+      
+      // Remove query parameter from URL
+      window.history.replaceState({}, '', '/settings');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    }
+  }, [toast]);
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -206,6 +250,19 @@ export default function Settings() {
     },
   });
 
+  const disconnectInstagramMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/instagram/disconnect", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Disconnected", description: "Your Instagram account has been disconnected" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to disconnect Instagram account", variant: "destructive" });
+    },
+  });
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedUsername(true);
@@ -229,8 +286,25 @@ export default function Settings() {
     }
   };
 
+  const handleConnectInstagram = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/instagram/connect", {});
+      const data = await response.json();
+      if (data.authUrl) {
+        window.open(data.authUrl, '_blank', 'width=600,height=700');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate Instagram connection",
+        variant: "destructive",
+      });
+    }
+  };
+
   const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
   const isStripeConnected = user?.stripeConnectedAccountId;
+  const isInstagramConnected = user?.instagramUsername;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -395,58 +469,120 @@ export default function Settings() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Store Username</CardTitle>
-                  <CardDescription>Your unique store identifier and subdomain</CardDescription>
+                  <CardTitle>Instagram Connection</CardTitle>
+                  <CardDescription>Connect your Instagram account to use it as your store username</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                    <p className="text-sm font-medium">Your Store URL:</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm bg-background px-3 py-2 rounded border flex-1">
-                        {user?.username}.uppshop.com
-                      </code>
+                  {isInstagramConnected ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          <p className="text-sm font-medium text-green-800 dark:text-green-300">Instagram Connected</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Connected Account:</p>
+                          <code className="text-sm bg-background px-3 py-2 rounded border inline-block">
+                            @{user?.instagramUsername}
+                          </code>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-muted/50 rounded-md space-y-2">
+                        <p className="text-sm font-medium">Your Store URL:</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-sm bg-background px-3 py-2 rounded border flex-1">
+                            {user?.username}.uppshop.com
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(`${user?.username}.uppshop.com`)}
+                            data-testid="button-copy-store-url"
+                          >
+                            {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
                       <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(`${user?.username}.uppshop.com`)}
-                        data-testid="button-copy-store-url"
+                        variant="destructive"
+                        onClick={() => disconnectInstagramMutation.mutate()}
+                        disabled={disconnectInstagramMutation.isPending}
+                        data-testid="button-disconnect-instagram"
                       >
-                        {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}
                       </Button>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md space-y-2">
+                        <h4 className="font-semibold text-sm">Why Connect Instagram?</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          <li>Use your verified Instagram username as your store URL</li>
+                          <li>Build trust with customers using your established brand</li>
+                          <li>Automatic authentication ensures username ownership</li>
+                        </ul>
+                      </div>
 
-                  <Form {...usernameForm}>
-                    <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-4">
-                      <FormField
-                        control={usernameForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Username</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                placeholder="Enter your Instagram handle or custom username" 
-                                data-testid="input-username" 
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Use your Instagram handle or any custom username (3-20 characters, letters, numbers, and underscores only)
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button 
-                        type="submit" 
-                        disabled={updateUsernameMutation.isPending}
-                        data-testid="button-save-username"
-                      >
-                        {updateUsernameMutation.isPending ? "Saving..." : "Update Username"}
-                      </Button>
-                    </form>
-                  </Form>
+                      {user?.username && (
+                        <div className="p-4 bg-muted/50 rounded-md space-y-2">
+                          <p className="text-sm font-medium">Current Store URL:</p>
+                          <code className="text-sm bg-background px-3 py-2 rounded border inline-block">
+                            {user?.username}.uppshop.com
+                          </code>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Button
+                          onClick={handleConnectInstagram}
+                          data-testid="button-connect-instagram"
+                          className="w-full"
+                        >
+                          Connect Instagram Account
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Opens in a popup window. Make sure pop-ups are enabled.
+                        </p>
+                      </div>
+                      
+                      <div className="pt-4 border-t">
+                        <p className="text-sm font-medium mb-2">Or use a custom username:</p>
+                        <Form {...usernameForm}>
+                          <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-4">
+                            <FormField
+                              control={usernameForm.control}
+                              name="username"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Custom Username</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      {...field} 
+                                      placeholder="Enter a custom username" 
+                                      data-testid="input-username" 
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    3-20 characters, letters, numbers, and underscores only
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <Button 
+                              type="submit" 
+                              disabled={updateUsernameMutation.isPending}
+                              data-testid="button-save-username"
+                            >
+                              {updateUsernameMutation.isPending ? "Saving..." : "Update Username"}
+                            </Button>
+                          </form>
+                        </Form>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
