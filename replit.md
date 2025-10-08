@@ -138,24 +138,58 @@ shared/
 - Dark mode support throughout
 - Mobile-first responsive design
 
+## Authentication & Authorization
+
+### User Roles
+- **Customer**: Default role for all new users. Can browse products, place orders, view order history
+- **Seller**: Elevated role with access to seller dashboard, product management, and order fulfillment
+
+### How to Make a User a Seller
+1. Log in to Replit
+2. Open the Database pane
+3. Run this SQL query (replace with actual email):
+   ```sql
+   UPDATE users SET role='seller' WHERE email='user@example.com';
+   ```
+4. The user will gain seller access on their next login or page refresh
+
+### Protected API Endpoints
+- `POST /api/orders` - Requires authentication (links order to user automatically)
+- `GET /api/orders/my` - Requires authentication (customer's own orders)
+- `GET /api/orders` - Requires seller role (all orders for dashboard)
+- `POST /api/products` - Requires seller role
+- `PUT /api/products/:id` - Requires seller role
+- `DELETE /api/products/:id` - Requires seller role
+- `PATCH /api/orders/:id/status` - Requires seller role
+
+### Auth Implementation Details
+- **Provider**: Replit Auth with OpenID Connect
+- **Session**: PostgreSQL-backed sessions (express-session + connect-pg-simple)
+- **Middleware**: `isAuthenticated` and `isSeller` protect routes
+- **Anonymous Access**: `/api/auth/user` returns 200 with null for unauthenticated users
+- **Role Preservation**: Existing user roles are preserved on re-login
+
 ## Recent Changes
-- **2025-10-08**: Database Migration & User Authentication
+- **2025-10-08**: User Authentication Complete
   - ✅ Migrated from in-memory to PostgreSQL database with Drizzle ORM
   - ✅ All products, orders, and users now persist in database
   - ✅ Automatic database seeding with 8 products on first run
-  - ✅ Proper async initialization with error handling
-  - ✅ Implemented Replit Auth for user authentication
-  - ✅ Added user roles (customer/seller)
-  - ✅ Protected seller dashboard with authentication
-  - ✅ User profile dropdown with avatar and logout
-  - 🔄 In Progress: Order history and seller product management
+  - ✅ Implemented Replit Auth with OpenID Connect for user authentication
+  - ✅ Added role-based access control (customer/seller roles)
+  - ✅ Protected all seller endpoints with authentication middleware
+  - ✅ Orders automatically linked to authenticated users via userId
+  - ✅ User profile dropdown with avatar and logout in header
+  - ✅ Anonymous users can browse products, must login to checkout
+  - ✅ Seller dashboard protected and shows all orders
+  - ✅ Sessions table created with proper indexing
+  - 🔄 Next: Customer order history page, seller product management UI
   
 - **2025-10-08**: Completed frontend implementation with all MVP features
   - Created landing page with hero section
   - Built product listing with filtering
   - Implemented product detail pages
   - Added shopping cart with slide-over UI
-  - Created guest checkout flow
+  - Created checkout flow (now requires authentication)
   - Built seller dashboard with analytics
   - Integrated dark/light theme toggle
   - Added cart state management with localStorage persistence
