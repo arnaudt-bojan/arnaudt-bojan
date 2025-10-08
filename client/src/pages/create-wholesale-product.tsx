@@ -2,12 +2,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Form,
   FormControl,
@@ -24,7 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ArrowLeft, Plus, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -50,13 +60,28 @@ const wholesaleProductSchema = z.object({
   depositAmount: z.string().optional(),
   stock: z.string().default("0"),
   readinessDays: z.string().optional(),
+  hasVariants: z.boolean().default(false),
 });
 
 type WholesaleProductFormData = z.infer<typeof wholesaleProductSchema>;
 
+interface Variant {
+  size: string;
+  color: string;
+  stock: number;
+  image?: string;
+}
+
 export default function CreateWholesaleProduct() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Variant management state
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [colors, setColors] = useState<string[]>([]);
+  const [newSize, setNewSize] = useState("");
+  const [newColor, setNewColor] = useState("");
+  const [variantMatrix, setVariantMatrix] = useState<Map<string, Variant>>(new Map());
 
   const { data: existingProducts } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -77,14 +102,14 @@ export default function CreateWholesaleProduct() {
       depositAmount: "",
       stock: "0",
       readinessDays: "",
+      hasVariants: false,
     },
   });
 
   const useExisting = form.watch("useExisting");
   const requiresDeposit = form.watch("requiresDeposit");
-  const selectedProductId = form.watch("existingProductId");
+  const hasVariants = form.watch("hasVariants");
 
-  // Auto-fill form when existing product is selected
   const handleProductSelect = (productId: string) => {
     const product = existingProducts?.find(p => p.id === productId);
     if (product) {
@@ -97,8 +122,86 @@ export default function CreateWholesaleProduct() {
     }
   };
 
+  const addSize = () => {
+    if (newSize && !sizes.includes(newSize.trim())) {
+      const updatedSizes = [...sizes, newSize.trim()];
+      setSizes(updatedSizes);
+      setNewSize("");
+      
+      // Initialize variants for new size with existing colors
+      const newMatrix = new Map(variantMatrix);
+      colors.forEach(color => {
+        const key = `${newSize.trim()}-${color}`;
+        if (!newMatrix.has(key)) {
+          newMatrix.set(key, {
+            size: newSize.trim(),
+            color,
+            stock: 0,
+          });
+        }
+      });
+      setVariantMatrix(newMatrix);
+    }
+  };
+
+  const addColor = () => {
+    if (newColor && !colors.includes(newColor.trim())) {
+      const updatedColors = [...colors, newColor.trim()];
+      setColors(updatedColors);
+      setNewColor("");
+      
+      // Initialize variants for new color with existing sizes
+      const newMatrix = new Map(variantMatrix);
+      sizes.forEach(size => {
+        const key = `${size}-${newColor.trim()}`;
+        if (!newMatrix.has(key)) {
+          newMatrix.set(key, {
+            size,
+            color: newColor.trim(),
+            stock: 0,
+          });
+        }
+      });
+      setVariantMatrix(newMatrix);
+    }
+  };
+
+  const removeSize = (size: string) => {
+    setSizes(sizes.filter(s => s !== size));
+    // Remove variants with this size
+    const newMatrix = new Map(variantMatrix);
+    colors.forEach(color => {
+      newMatrix.delete(`${size}-${color}`);
+    });
+    setVariantMatrix(newMatrix);
+  };
+
+  const removeColor = (color: string) => {
+    setColors(colors.filter(c => c !== color));
+    // Remove variants with this color
+    const newMatrix = new Map(variantMatrix);
+    sizes.forEach(size => {
+      newMatrix.delete(`${size}-${color}`);
+    });
+    setVariantMatrix(newMatrix);
+  };
+
+  const updateVariantStock = (size: string, color: string, stock: number) => {
+    const key = `${size}-${color}`;
+    const newMatrix = new Map(variantMatrix);
+    const variant = newMatrix.get(key) || { size, color, stock: 0 };
+    newMatrix.set(key, { ...variant, stock });
+    setVariantMatrix(newMatrix);
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: WholesaleProductFormData) => {
+      // Build variants array from matrix
+      let variants = null;
+      if (data.hasVariants && sizes.length > 0 && colors.length > 0) {
+        variants = Array.from(variantMatrix.values());
+      }
+
       const payload = {
         productId: data.useExisting ? data.existingProductId : undefined,
         name: data.name,
@@ -112,6 +215,7 @@ export default function CreateWholesaleProduct() {
         depositAmount: data.requiresDeposit && data.depositAmount ? data.depositAmount : null,
         stock: parseInt(data.stock),
         readinessDays: data.readinessDays ? parseInt(data.readinessDays) : null,
+        variants,
       };
 
       await apiRequest("POST", "/api/wholesale/products", payload);
@@ -134,12 +238,22 @@ export default function CreateWholesaleProduct() {
   });
 
   const onSubmit = (data: WholesaleProductFormData) => {
+    if (data.hasVariants) {
+      if (sizes.length === 0 || colors.length === 0) {
+        toast({
+          title: "Variants Required",
+          description: "Please add at least one size and one color for variants.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     createMutation.mutate(data);
   };
 
   return (
     <div className="min-h-screen py-12">
-      <div className="container mx-auto px-4 max-w-3xl">
+      <div className="container mx-auto px-4 max-w-4xl">
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <Button
@@ -345,27 +459,166 @@ export default function CreateWholesaleProduct() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="moq"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Minimum Order Quantity (MOQ)</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="number"
-                          placeholder="10"
-                          data-testid="input-moq"
-                        />
-                      </FormControl>
-                      <FormDescription>Minimum units per order</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="moq"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Minimum Order Quantity (MOQ)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        placeholder="10"
+                        data-testid="input-moq"
+                      />
+                    </FormControl>
+                    <FormDescription>Minimum total units per order (applies across all variants)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
+              <FormField
+                control={form.control}
+                name="hasVariants"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel>Enable Size & Color Variants</FormLabel>
+                      <FormDescription>
+                        Allow buyers to choose from different size and color combinations
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-has-variants"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {hasVariants ? (
+                <Card className="p-6 space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Variant Configuration</h3>
+                    
+                    {/* Sizes Section */}
+                    <div className="mb-6">
+                      <Label className="mb-2 block">Sizes</Label>
+                      <div className="flex gap-2 mb-3">
+                        <Input
+                          value={newSize}
+                          onChange={(e) => setNewSize(e.target.value)}
+                          placeholder="e.g., S, M, L, XL"
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSize())}
+                          data-testid="input-new-size"
+                        />
+                        <Button
+                          type="button"
+                          onClick={addSize}
+                          size="icon"
+                          data-testid="button-add-size"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {sizes.map(size => (
+                          <Badge key={size} variant="secondary" className="gap-2">
+                            {size}
+                            <X
+                              className="h-3 w-3 cursor-pointer"
+                              onClick={() => removeSize(size)}
+                            />
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Colors Section */}
+                    <div className="mb-6">
+                      <Label className="mb-2 block">Colors</Label>
+                      <div className="flex gap-2 mb-3">
+                        <Input
+                          value={newColor}
+                          onChange={(e) => setNewColor(e.target.value)}
+                          placeholder="e.g., Red, Blue, Black"
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
+                          data-testid="input-new-color"
+                        />
+                        <Button
+                          type="button"
+                          onClick={addColor}
+                          size="icon"
+                          data-testid="button-add-color"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {colors.map(color => (
+                          <Badge key={color} variant="secondary" className="gap-2">
+                            {color}
+                            <X
+                              className="h-3 w-3 cursor-pointer"
+                              onClick={() => removeColor(color)}
+                            />
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Variant Matrix */}
+                    {sizes.length > 0 && colors.length > 0 && (
+                      <div>
+                        <Label className="mb-2 block">Stock for Each Variant</Label>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Size</TableHead>
+                                {colors.map(color => (
+                                  <TableHead key={color}>{color}</TableHead>
+                                ))}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sizes.map(size => (
+                                <TableRow key={size}>
+                                  <TableCell className="font-medium">{size}</TableCell>
+                                  {colors.map(color => {
+                                    const key = `${size}-${color}`;
+                                    const variant = variantMatrix.get(key);
+                                    return (
+                                      <TableCell key={color}>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          value={variant?.stock || 0}
+                                          onChange={(e) => updateVariantStock(size, color, parseInt(e.target.value) || 0)}
+                                          className="w-20"
+                                          data-testid={`input-stock-${size}-${color}`}
+                                        />
+                                      </TableCell>
+                                    );
+                                  })}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Set stock to 0 for made-to-order variants
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ) : (
                 <FormField
                   control={form.control}
                   name="stock"
@@ -385,7 +638,7 @@ export default function CreateWholesaleProduct() {
                     </FormItem>
                   )}
                 />
-              </div>
+              )}
 
               <FormField
                 control={form.control}

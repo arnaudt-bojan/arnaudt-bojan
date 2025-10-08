@@ -1,7 +1,7 @@
 # Uppshop - E-Commerce Platform
 
 ## Overview
-Uppshop is a modern e-commerce platform inspired by uppfirst.com, designed for creators and brands to sell various product types: in-stock, pre-order (with deposit functionality), made-to-order, and wholesale. It aims to provide a seamless buying and selling experience with a unified user model. Key capabilities include a user-friendly landing page, product browsing, shopping cart functionality, authenticated checkout, and a comprehensive seller dashboard for product and order management. The platform also integrates advanced social media advertising features with AI optimization and robust payment processing.
+Uppshop is a modern e-commerce platform inspired by uppfirst.com, designed for creators and brands to sell various product types: in-stock, pre-order (with deposit functionality), made-to-order, and wholesale. It aims to provide a seamless buying and selling experience with a unified user model. Key capabilities include a user-friendly landing page, product browsing, shopping cart functionality, authenticated checkout, a comprehensive seller dashboard for product and order management, and a B2B wholesale system similar to Joor with invitation-only access. The platform also integrates advanced social media advertising features with AI optimization and robust payment processing.
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -69,6 +69,14 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Real-time Conversion**: All prices (product cards, detail pages, cart, checkout) automatically convert using live exchange rates
     - **Daily Rate Updates**: Exchange rates fetched from Fawazahmed0 Currency API (free, no API key required) and cached for 24 hours
     - **Persistent Selection**: User's currency preference saved in localStorage across sessions
+- **Wholesale B2B System**: Joor-inspired invitation-only B2B platform for wholesale buyers
+    - **Wholesale Products**: Sellers can create wholesale-specific products with MOQ (Minimum Order Quantity), RRP (Recommended Retail Price), wholesale pricing, deposit/balance options, and readiness dates
+    - **Product Creation**: Sellers can upload new wholesale products or link existing retail products to wholesale catalog
+    - **Invitation Management**: Token-based invitation system for wholesale buyers with pending/accepted/rejected status tracking
+    - **Buyer Access Control**: Wholesale section accessible only to invited and accepted buyers
+    - **Dedicated Dashboard**: Separate wholesale section in seller dashboard with product management and buyer invitation tools
+    - **Database**: `wholesale_products` (sellerId, productId optional, rrp, wholesalePrice, moq, depositAmount, readinessDate, variants), `wholesale_invitations` (sellerId, buyerEmail, status, token)
+    - **Routes**: `/seller/wholesale/products`, `/seller/wholesale/create-product`, `/seller/wholesale/invitations`
 - **Social Ads System**: Comprehensive multi-platform social ads system with AI optimization for Meta (Advantage+ AI), TikTok (Smart Performance), and X (Promoted Tweets). Features popup OAuth for seamless connection, detailed creative controls, budget optimization, and manual targeting overrides.
 
 **System Design Choices:**
@@ -82,7 +90,9 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, storeBanner, storeLogo, paymentProvider, stripeConnectedAccountId, paypalMerchantId, createdAt, updatedAt
     - `Newsletter`: id, userId, subject, content, recipients (jsonb), status, sentAt, createdAt
     - `NftMint`: id, orderId, userId, mintAddress, transactionSignature, metadata (jsonb), createdAt
-- **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints).
+    - `WholesaleProduct`: id, sellerId, productId (optional), name, description, image, category, rrp, wholesalePrice, moq, depositAmount, requiresDeposit, stock, readinessDays, variants (jsonb), createdAt, updatedAt
+    - `WholesaleInvitation`: id, sellerId, buyerEmail, buyerName, status, token, createdAt, acceptedAt
+- **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints, wholesale_products, wholesale_invitations).
 
 ## External Dependencies
 - **Database**: PostgreSQL (via Neon)
