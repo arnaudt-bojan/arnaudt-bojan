@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -17,15 +18,40 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Package, Clock, Hammer, Building2, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const productTypes = [
+  {
+    value: "in-stock",
+    label: "In Stock",
+    description: "Items available for immediate shipping",
+    icon: Package,
+    color: "text-green-600 dark:text-green-400",
+  },
+  {
+    value: "pre-order",
+    label: "Pre-Order",
+    description: "Accept orders before product is available (deposit + balance)",
+    icon: Clock,
+    color: "text-blue-600 dark:text-blue-400",
+  },
+  {
+    value: "made-to-order",
+    label: "Made to Order",
+    description: "Create products upon receiving orders",
+    icon: Hammer,
+    color: "text-purple-600 dark:text-purple-400",
+  },
+  {
+    value: "wholesale",
+    label: "Wholesale",
+    description: "Bulk orders for businesses",
+    icon: Building2,
+    color: "text-orange-600 dark:text-orange-400",
+  },
+];
 
 export default function CreateProduct() {
   const [, setLocation] = useLocation();
@@ -41,11 +67,22 @@ export default function CreateProduct() {
       category: "",
       productType: "in-stock",
       stock: 0,
+      depositAmount: undefined,
+      requiresDeposit: 0,
     },
   });
 
+  const selectedType = form.watch("productType");
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertProduct) => {
+      // For pre-orders with deposit, set requiresDeposit flag
+      if (data.productType === "pre-order" && data.depositAmount && parseFloat(data.depositAmount as string) > 0) {
+        data.requiresDeposit = 1;
+      } else {
+        data.requiresDeposit = 0;
+        data.depositAmount = undefined;
+      }
       return await apiRequest("POST", "/api/products", data);
     },
     onSuccess: () => {
@@ -71,7 +108,7 @@ export default function CreateProduct() {
 
   return (
     <div className="min-h-screen py-12">
-      <div className="container mx-auto px-4 max-w-3xl">
+      <div className="container mx-auto px-4 max-w-5xl">
         <div className="mb-8">
           <Button
             variant="ghost"
@@ -86,57 +123,170 @@ export default function CreateProduct() {
             Create Product
           </h1>
           <p className="text-muted-foreground">
-            Add a new product to your store
+            Choose your product type and add details
           </p>
         </div>
 
-        <Card className="p-8">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Product Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter product name"
-                        {...field}
-                        data-testid="input-name"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            {/* Product Type Selection - Prominent at Top */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Step 1: Choose Product Type</CardTitle>
+                <CardDescription>
+                  Select how you want to sell this product
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={form.control}
+                  name="productType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {productTypes.map((type) => {
+                            const Icon = type.icon;
+                            const isSelected = field.value === type.value;
+                            return (
+                              <button
+                                key={type.value}
+                                type="button"
+                                onClick={() => field.onChange(type.value)}
+                                className={cn(
+                                  "relative flex flex-col items-start p-6 rounded-lg border-2 transition-all hover-elevate active-elevate-2",
+                                  isSelected
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border"
+                                )}
+                                data-testid={`button-type-${type.value}`}
+                              >
+                                {isSelected && (
+                                  <div className="absolute top-4 right-4">
+                                    <div className="bg-primary text-primary-foreground rounded-full p-1">
+                                      <Check className="h-4 w-4" />
+                                    </div>
+                                  </div>
+                                )}
+                                <Icon className={cn("h-8 w-8 mb-3", type.color)} />
+                                <h3 className="font-semibold text-lg mb-1">{type.label}</h3>
+                                <p className="text-sm text-muted-foreground text-left">
+                                  {type.description}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe your product"
-                        className="min-h-32"
-                        {...field}
-                        data-testid="input-description"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Product Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Step 2: Product Details</CardTitle>
+                <CardDescription>
+                  Add information about your product
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Product Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter product name"
+                          {...field}
+                          data-testid="input-name"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="grid md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe your product"
+                          className="min-h-32"
+                          {...field}
+                          data-testid="input-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Clothing, Accessories"
+                            {...field}
+                            data-testid="input-category"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="image"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Image URL</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="url"
+                            placeholder="https://example.com/image.jpg"
+                            {...field}
+                            data-testid="input-image"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pricing & Inventory */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Step 3: Pricing & Inventory</CardTitle>
+                <CardDescription>
+                  Set your pricing and manage stock
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price</FormLabel>
+                      <FormLabel>Full Price</FormLabel>
                       <FormControl>
                         <Input
                           type="text"
@@ -145,130 +295,88 @@ export default function CreateProduct() {
                           data-testid="input-price"
                         />
                       </FormControl>
-                      <FormDescription>Enter price in USD</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., Clothing, Accessories"
-                          {...field}
-                          data-testid="input-category"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="productType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Product Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      data-testid="select-product-type"
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="in-stock">In Stock</SelectItem>
-                        <SelectItem value="pre-order">Pre-Order</SelectItem>
-                        <SelectItem value="made-to-order">Made to Order</SelectItem>
-                        <SelectItem value="wholesale">Wholesale/Trade</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose how you want to sell this product
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {form.watch("productType") === "in-stock" && (
-                <FormField
-                  control={form.control}
-                  name="stock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stock Quantity</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          value={field.value || 0}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                          data-testid="input-stock"
-                        />
-                      </FormControl>
                       <FormDescription>
-                        Number of items available for immediate shipping
+                        {selectedType === "pre-order"
+                          ? "Total price (customer will pay deposit first, then balance)"
+                          : "Enter price in USD"}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
 
-              <FormField
-                control={form.control}
-                name="image"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://example.com/image.jpg"
-                        {...field}
-                        data-testid="input-image"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Enter the URL of your product image
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+                {selectedType === "pre-order" && (
+                  <FormField
+                    control={form.control}
+                    name="depositAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deposit Amount (Required)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="0.00"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-deposit"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Amount customer pays upfront to secure pre-order. Balance will be charged later.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
 
-              <div className="flex gap-4 pt-4">
-                <Button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  data-testid="button-create-product"
-                >
-                  {createMutation.isPending ? "Creating..." : "Create Product"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setLocation("/seller-dashboard")}
-                  data-testid="button-cancel"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </Card>
+                {selectedType === "in-stock" && (
+                  <FormField
+                    control={form.control}
+                    name="stock"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Stock Quantity</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={field.value || 0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            data-testid="input-stock"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Number of items available for immediate shipping
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="flex gap-4">
+              <Button
+                type="submit"
+                disabled={createMutation.isPending}
+                data-testid="button-submit-product"
+              >
+                {createMutation.isPending ? "Creating..." : "Create Product"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLocation("/seller-dashboard")}
+                data-testid="button-cancel"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
     </div>
   );
