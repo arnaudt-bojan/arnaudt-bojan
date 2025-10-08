@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -417,6 +418,10 @@ function XIntegration() {
 }
 
 export default function SocialAdsSetup() {
+  const [location] = useLocation();
+  const searchParams = new URLSearchParams(location.split('?')[1]);
+  const tabParam = searchParams.get('tab') || 'meta';
+
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -427,7 +432,7 @@ export default function SocialAdsSetup() {
           </p>
         </div>
 
-        <Tabs defaultValue="meta" className="w-full">
+        <Tabs defaultValue={tabParam} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8" data-testid="tabs-social-platforms">
             <TabsTrigger value="meta" className="gap-2" data-testid="tab-meta">
               <SiFacebook className="h-4 w-4" />

@@ -135,7 +135,7 @@ export default function SellerProducts() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setLocation(`/create-ad-campaign?productId=${product.id}`)}
+                            onClick={() => setLocation(`/promote-product/${product.id}`)}
                             data-testid={`button-promote-${product.id}`}
                             className="gap-1"
                           >

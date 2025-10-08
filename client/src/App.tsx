@@ -23,6 +23,8 @@ import Team from "@/pages/team";
 import AcceptInvitation from "@/pages/accept-invitation";
 import SocialAdsSetup from "@/pages/social-ads-setup";
 import CreateAdCampaign from "@/pages/create-ad-campaign";
+import PromoteProduct from "@/pages/promote-product";
+import CreateMetaCampaign from "@/pages/create-meta-campaign";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -48,6 +50,8 @@ function AppContent() {
           <Route path="/team" component={Team} />
           <Route path="/accept-invitation" component={AcceptInvitation} />
           <Route path="/social-ads-setup" component={SocialAdsSetup} />
+          <Route path="/promote-product/:id" component={PromoteProduct} />
+          <Route path="/create-meta-campaign/:id" component={CreateMetaCampaign} />
           <Route path="/create-ad-campaign" component={CreateAdCampaign} />
           <Route component={NotFound} />
         </Switch>
