@@ -100,6 +100,9 @@ export const users = pgTable("users", {
   paypalMerchantId: varchar("paypal_merchant_id"), // PayPal merchant ID
   customDomain: varchar("custom_domain"), // Custom domain for store (e.g., mystore.com)
   customDomainVerified: integer("custom_domain_verified").default(0), // 0 = false, 1 = true
+  instagramUserId: varchar("instagram_user_id"), // Instagram user ID from OAuth
+  instagramUsername: varchar("instagram_username"), // Instagram username from OAuth
+  instagramAccessToken: text("instagram_access_token"), // Instagram access token (encrypted in production)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
