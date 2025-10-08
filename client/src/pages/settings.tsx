@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle } from "lucide-react";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -35,14 +35,30 @@ const brandingSchema = z.object({
   storeLogo: z.string().url("Must be a valid URL").or(z.literal("")),
 });
 
+const usernameSchema = z.object({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(20, "Username must be at most 20 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+});
+
+const customDomainSchema = z.object({
+  customDomain: z.string()
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/, "Invalid domain format")
+    .or(z.literal("")),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
+type UsernameForm = z.infer<typeof usernameSchema>;
+type CustomDomainForm = z.infer<typeof customDomainSchema>;
 
 export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [paymentProvider, setPaymentProvider] = useState<string>(user?.paymentProvider || "stripe");
+  const [copiedUsername, setCopiedUsername] = useState(false);
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -67,6 +83,20 @@ export default function Settings() {
     defaultValues: {
       storeBanner: user?.storeBanner || "",
       storeLogo: user?.storeLogo || "",
+    },
+  });
+
+  const usernameForm = useForm<UsernameForm>({
+    resolver: zodResolver(usernameSchema),
+    defaultValues: {
+      username: user?.username || "",
+    },
+  });
+
+  const customDomainForm = useForm<CustomDomainForm>({
+    resolver: zodResolver(customDomainSchema),
+    defaultValues: {
+      customDomain: user?.customDomain || "",
     },
   });
 
@@ -142,6 +172,47 @@ export default function Settings() {
     },
   });
 
+  const updateUsernameMutation = useMutation({
+    mutationFn: async (data: UsernameForm) => {
+      return await apiRequest("PATCH", "/api/user/username", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Username updated", description: "Your store username has been updated" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update username", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateCustomDomainMutation = useMutation({
+    mutationFn: async (data: CustomDomainForm) => {
+      return await apiRequest("PATCH", "/api/user/custom-domain", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Custom domain updated", description: "Your custom domain has been updated. Please configure DNS settings." });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update custom domain", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedUsername(true);
+    setTimeout(() => setCopiedUsername(false), 2000);
+    toast({ title: "Copied!", description: "Link copied to clipboard" });
+  };
+
   const handleConnectStripe = async () => {
     try {
       const response = await apiRequest("GET", "/api/stripe/connect", {});
@@ -172,7 +243,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-5' : 'grid-cols-3'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
@@ -180,6 +251,10 @@ export default function Settings() {
           <TabsTrigger value="password" data-testid="tab-password">Password</TabsTrigger>
           {isSeller && (
             <>
+              <TabsTrigger value="store" data-testid="tab-store">
+                <Globe className="h-4 w-4 mr-2" />
+                Store
+              </TabsTrigger>
               <TabsTrigger value="branding" data-testid="tab-branding">
                 <Image className="h-4 w-4 mr-2" />
                 Branding
@@ -314,6 +389,137 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isSeller && (
+          <TabsContent value="store">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Store Username</CardTitle>
+                  <CardDescription>Your unique store identifier and subdomain</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 bg-muted/50 rounded-md space-y-2">
+                    <p className="text-sm font-medium">Your Store URL:</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm bg-background px-3 py-2 rounded border flex-1">
+                        {user?.username}.uppshop.com
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(`${user?.username}.uppshop.com`)}
+                        data-testid="button-copy-store-url"
+                      >
+                        {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Form {...usernameForm}>
+                    <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-4">
+                      <FormField
+                        control={usernameForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                placeholder="Enter your Instagram handle or custom username" 
+                                data-testid="input-username" 
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Use your Instagram handle or any custom username (3-20 characters, letters, numbers, and underscores only)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button 
+                        type="submit" 
+                        disabled={updateUsernameMutation.isPending}
+                        data-testid="button-save-username"
+                      >
+                        {updateUsernameMutation.isPending ? "Saving..." : "Update Username"}
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Custom Domain</CardTitle>
+                  <CardDescription>Connect your own domain to your store</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Form {...customDomainForm}>
+                    <form onSubmit={customDomainForm.handleSubmit((data) => updateCustomDomainMutation.mutate(data))} className="space-y-4">
+                      <FormField
+                        control={customDomainForm.control}
+                        name="customDomain"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Domain Name</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                placeholder="mystore.com" 
+                                data-testid="input-custom-domain" 
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Enter your domain without "www" (e.g., mystore.com)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button 
+                        type="submit" 
+                        disabled={updateCustomDomainMutation.isPending}
+                        data-testid="button-save-custom-domain"
+                      >
+                        {updateCustomDomainMutation.isPending ? "Saving..." : "Save Domain"}
+                      </Button>
+                    </form>
+                  </Form>
+
+                  {user?.customDomain && (
+                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md space-y-3">
+                      <h4 className="font-semibold text-sm">DNS Configuration Required</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Add these DNS records to your domain registrar:
+                      </p>
+                      <div className="space-y-2">
+                        <div className="bg-background p-3 rounded border">
+                          <p className="text-xs font-mono">
+                            <span className="font-semibold">Type:</span> A<br />
+                            <span className="font-semibold">Name:</span> @ (or your domain)<br />
+                            <span className="font-semibold">Value:</span> [Contact support for IP]
+                          </p>
+                        </div>
+                        <div className="bg-background p-3 rounded border">
+                          <p className="text-xs font-mono">
+                            <span className="font-semibold">Type:</span> TXT<br />
+                            <span className="font-semibold">Name:</span> @ (or your domain)<br />
+                            <span className="font-semibold">Value:</span> [Contact support for verification code]
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        DNS changes can take 24-48 hours to propagate. Contact support if you need assistance.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
 
         {isSeller && (
           <TabsContent value="branding">
