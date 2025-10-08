@@ -988,6 +988,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Subscription Management Endpoints
+  // Start 30-day free trial when seller creates their first product
+  app.post("/api/subscription/start-trial", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if trial already started
+      if (user.subscriptionStatus) {
+        return res.json({ message: "Trial already started", user });
+      }
+
+      // Set trial to expire 30 days from now
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        subscriptionStatus: "trial",
+        trialEndsAt,
+      });
+
+      res.json({ message: "Trial started successfully", user: updatedUser });
+    } catch (error: any) {
+      console.error("Start trial error:", error);
+      res.status(500).json({ error: "Failed to start trial" });
+    }
+  });
+
+  // Create SetupIntent to collect payment method without charging
+  app.post("/api/subscription/setup-payment", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          metadata: {
+            userId: user.id,
+          },
+        });
+        customerId = customer.id;
+
+        // Save customer ID
+        await storage.upsertUser({
+          ...user,
+          stripeCustomerId: customerId,
+        });
+      }
+
+      // Create SetupIntent to collect payment method
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        usage: 'off_session',
+      });
+
+      res.json({ 
+        clientSecret: setupIntent.client_secret,
+        customerId,
+      });
+    } catch (error: any) {
+      console.error("Setup payment error:", error);
+      res.status(500).json({ error: "Failed to setup payment method" });
+    }
+  });
+
+  // Create subscription after payment method is added
+  app.post("/api/subscription/create", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const { plan } = req.body; // "monthly" or "annual"
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({ error: "Payment method not set up" });
+      }
+
+      // Price IDs (you'll need to create these in Stripe Dashboard)
+      const priceId = plan === "annual" 
+        ? "price_annual_99" // Replace with actual Stripe Price ID
+        : "price_monthly_999"; // Replace with actual Stripe Price ID
+
+      // Get customer's default payment method
+      const customer = await stripe.customers.retrieve(user.stripeCustomerId);
+      const defaultPaymentMethod = (customer as any).invoice_settings?.default_payment_method;
+
+      if (!defaultPaymentMethod) {
+        return res.status(400).json({ error: "No payment method found" });
+      }
+
+      // Create subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: user.stripeCustomerId,
+        items: [{ price: priceId }],
+        default_payment_method: defaultPaymentMethod,
+        trial_end: user.trialEndsAt ? Math.floor(new Date(user.trialEndsAt).getTime() / 1000) : undefined,
+      });
+
+      // Update user with subscription info
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: subscription.status === "trialing" ? "trial" : "active",
+        subscriptionPlan: plan,
+      });
+
+      res.json({ 
+        message: "Subscription created successfully", 
+        subscription,
+        user: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("Create subscription error:", error);
+      res.status(500).json({ error: "Failed to create subscription" });
+    }
+  });
+
+  // Get subscription status
+  app.get("/api/subscription/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      let subscription = null;
+      if (user.stripeSubscriptionId && stripe) {
+        try {
+          subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        } catch (error) {
+          console.error("Error fetching subscription:", error);
+        }
+      }
+
+      res.json({
+        status: user.subscriptionStatus,
+        plan: user.subscriptionPlan,
+        trialEndsAt: user.trialEndsAt,
+        hasPaymentMethod: !!user.stripeCustomerId,
+        subscription,
+      });
+    } catch (error: any) {
+      console.error("Get subscription status error:", error);
+      res.status(500).json({ error: "Failed to get subscription status" });
+    }
+  });
+
+  // Cancel subscription
+  app.post("/api/subscription/cancel", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeSubscriptionId) {
+        return res.status(400).json({ error: "No active subscription" });
+      }
+
+      // Cancel subscription
+      await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+
+      // Update user
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        subscriptionStatus: "canceled",
+      });
+
+      res.json({ 
+        message: "Subscription canceled successfully",
+        user: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("Cancel subscription error:", error);
+      res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  });
+
   // Seller-triggered balance payment for pre-orders
   app.post("/api/trigger-balance-payment/:orderId", isAuthenticated, async (req, res) => {
     try {
