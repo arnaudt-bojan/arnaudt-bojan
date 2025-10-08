@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Package, ShoppingBag, AlertCircle, Wallet } from "lucide-react";
+import { Coins, Package, ShoppingBag, AlertCircle, Wallet, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
@@ -203,6 +203,25 @@ export default function BuyerDashboard() {
           )}
         </div>
       </div>
+
+      <Card className="mb-6 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Building2 className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+            <div className="flex-1">
+              <CardTitle className="text-xl">Wholesale B2B Catalog</CardTitle>
+              <CardDescription>Access exclusive wholesale products with special pricing</CardDescription>
+            </div>
+            <Button 
+              onClick={() => window.location.href = "/wholesale/catalog"}
+              data-testid="button-wholesale-catalog"
+              className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600"
+            >
+              View Catalog
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {!orders || orders.length === 0 ? (
         <Card>
