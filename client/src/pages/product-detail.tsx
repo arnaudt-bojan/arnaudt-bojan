@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { Link } from "wouter";
 import type { Product } from "@shared/schema";
+import { cn } from "@/lib/utils";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
@@ -17,6 +19,7 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", productId],
@@ -79,12 +82,36 @@ export default function ProductDetail() {
           <div className="space-y-4">
             <Card className="overflow-hidden">
               <img
-                src={product.image}
+                src={product.images && product.images.length > 0 ? product.images[selectedImageIndex] : product.image}
                 alt={product.name}
                 className="w-full aspect-square object-cover"
                 data-testid="img-product-detail"
               />
             </Card>
+            
+            {product.images && product.images.length > 1 && (
+              <div className="grid grid-cols-5 gap-3">
+                {product.images.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={cn(
+                      "aspect-square rounded-lg overflow-hidden border-2 transition-all hover-elevate",
+                      selectedImageIndex === index
+                        ? "border-primary"
+                        : "border-transparent"
+                    )}
+                    data-testid={`button-thumbnail-${index}`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} - Image ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
