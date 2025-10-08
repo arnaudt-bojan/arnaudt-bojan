@@ -93,6 +93,7 @@ export interface IStorage {
   deleteWholesaleProduct(id: string): Promise<boolean>;
   
   createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation>;
+  getAllWholesaleInvitations(): Promise<WholesaleInvitation[]>;
   getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]>;
   getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined>;
   acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined>;
@@ -558,6 +559,11 @@ export class DatabaseStorage implements IStorage {
     const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const result = await this.db.insert(wholesaleInvitations).values({ ...invitation, token }).returning();
     return result[0];
+  }
+
+  async getAllWholesaleInvitations(): Promise<WholesaleInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleInvitations).orderBy(desc(wholesaleInvitations.createdAt));
   }
 
   async getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]> {
