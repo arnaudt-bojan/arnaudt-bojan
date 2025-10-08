@@ -126,6 +126,8 @@ shared/
 - category
 - productType (in-stock | pre-order | made-to-order | wholesale)
 - stock (integer, optional)
+- depositAmount (decimal, optional) - For pre-order products
+- requiresDeposit (boolean, default 0) - Whether product requires deposit payment
 
 ### Order
 - id (UUID)
@@ -192,6 +194,16 @@ shared/
 - **No Role Checks**: Removed all seller role validation - everyone is both buyer and seller
 
 ## Recent Changes
+- **2025-10-08**: Pre-Order Deposit Payment System
+  - ✅ Added `depositAmount` and `requiresDeposit` fields to products schema
+  - ✅ Updated create product page with deposit amount input for pre-orders
+  - ✅ Updated edit product page with deposit fields support
+  - ✅ Modified checkout flow to calculate deposit for pre-orders vs full payment for in-stock
+  - ✅ Redesigned create product page with prominent 4-card product type selection at top
+  - ✅ Created quick access page with shortcuts to Dashboard, Products, Orders, Create Product
+  - ✅ Fixed TypeScript errors and infinite render loop in edit product page
+  - 🎯 Result: Pre-order products now support deposit/balance payment system
+
 - **2025-10-08**: Unified Buyer/Seller Experience (uppfirst.com Model)
   - ✅ **REMOVED role-based access control** - everyone is both buyer and seller
   - ✅ All authenticated users can create, edit, and delete products
