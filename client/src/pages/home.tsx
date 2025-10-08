@@ -3,11 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowRight, Package, Truck, CreditCard, Shield, ShoppingBag, Store } from "lucide-react";
+import { ProductCard } from "@/components/product-card";
+import { useCart } from "@/lib/cart-context";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import heroImage from "@assets/generated_images/E-commerce_hero_lifestyle_image_eb2634ff.png";
+import type { Product } from "@shared/schema";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+  const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+  const { addItem } = useCart();
+  const { toast } = useToast();
 
   const features = [
     {
@@ -45,6 +55,14 @@ export default function Home() {
 
   const handleSellerLogin = () => {
     window.location.href = "/api/login?role=seller";
+  };
+
+  const handleAddToCart = (product: Product) => {
+    addItem(product);
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart`,
+    });
   };
 
   return (
@@ -175,17 +193,55 @@ export default function Home() {
       </section>
 
       <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4 max-w-4xl text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Start Selling?</h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Browse our products or start managing your store today
-          </p>
-          <Link href="/products">
-            <Button size="lg" className="gap-2" data-testid="button-browse-products">
-              Browse Products
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-          </Link>
+        <div className="container mx-auto px-4 max-w-7xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Featured Products</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Browse our curated selection of products
+            </p>
+          </div>
+
+          {productsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="aspect-square w-full rounded-lg" />
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : products && products.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {products.slice(0, 8).map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={handleAddToCart}
+                  />
+                ))}
+              </div>
+              {products.length > 8 && (
+                <div className="text-center">
+                  <Link href="/products">
+                    <Button size="lg" className="gap-2" data-testid="button-view-all-products">
+                      View All Products
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No products available yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Check back soon for new products
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </div>
