@@ -23,7 +23,8 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  image: text("image").notNull(),
+  image: text("image").notNull(), // Primary/first image (backward compatibility)
+  images: text("images").array(), // Array of all product images (up to 8-10)
   category: text("category").notNull(),
   productType: text("product_type").notNull(),
   stock: integer("stock").default(0),
@@ -207,7 +208,8 @@ export const wholesaleProducts = pgTable("wholesale_products", {
   productId: varchar("product_id"), // Optional - reference to existing product
   name: text("name").notNull(),
   description: text("description").notNull(),
-  image: text("image").notNull(),
+  image: text("image").notNull(), // Primary/first image (backward compatibility)
+  images: text("images").array(), // Array of all product images (up to 8-10)
   category: text("category").notNull(),
   rrp: decimal("rrp", { precision: 10, scale: 2 }).notNull(), // Recommended Retail Price
   wholesalePrice: decimal("wholesale_price", { precision: 10, scale: 2 }).notNull(),
