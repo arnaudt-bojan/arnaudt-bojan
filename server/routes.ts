@@ -100,6 +100,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const product = await storage.createProduct(validationResult.data);
+
+      // Auto-start 30-day trial if this is seller's first product
+      const user = await storage.getUser(userId);
+      if (user && !user.subscriptionStatus) {
+        const allProducts = await storage.getAllProducts();
+        const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+        
+        // If this is the first product, start trial
+        if (sellerProducts.length === 1) {
+          const trialEndsAt = new Date();
+          trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+
+          await storage.upsertUser({
+            ...user,
+            subscriptionStatus: "trial",
+            trialEndsAt,
+          });
+        }
+      }
+
       res.status(201).json(product);
     } catch (error) {
       res.status(500).json({ error: "Failed to create product" });
