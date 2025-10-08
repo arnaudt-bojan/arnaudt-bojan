@@ -23,6 +23,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import logoImage from "@assets/image_1759956321866.png";
+import { detectDomain } from "@/lib/domain-utils";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -33,6 +34,8 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const [location] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const domainInfo = detectDomain();
+  const isSellerDomain = domainInfo.isSellerDomain;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -49,14 +52,17 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-4 mt-6">
-                <Link
-                  href="/products"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                  data-testid="mobile-link-products"
-                >
-                  Products
-                </Link>
+                {/* Only show Products on seller domains or for authenticated buyers */}
+                {(isSellerDomain || (isAuthenticated && user?.role === "buyer")) && (
+                  <Link
+                    href="/products"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                    data-testid="mobile-link-products"
+                  >
+                    Products
+                  </Link>
+                )}
                 {isAuthenticated && user?.role === "buyer" && (
                   <>
                     <Link
