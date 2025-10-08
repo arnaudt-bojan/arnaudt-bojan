@@ -92,11 +92,15 @@ async function upsertUser(claims: any, intendedRole?: string) {
     const allUsers = await storage.getAllUsers();
     const isFirstUser = allUsers.length === 0;
     
-    let userRole = "customer";
+    let userRole = "buyer";
     if (isFirstUser) {
-      userRole = "owner";
-    } else if (intendedRole === "seller") {
-      userRole = "seller";
+      userRole = "admin";
+    } else if (intendedRole === "admin") {
+      userRole = "admin";
+    } else if (intendedRole === "editor") {
+      userRole = "editor";
+    } else if (intendedRole === "viewer") {
+      userRole = "viewer";
     } else if (intendedRole === "buyer") {
       userRole = "buyer";
     }
@@ -120,7 +124,7 @@ async function upsertUser(claims: any, intendedRole?: string) {
 async function setupTestUsers() {
   const testUsers = [
     { email: "testbuyer@test.com", password: "123456", role: "buyer", firstName: "Test", lastName: "Buyer" },
-    { email: "testseller@test.com", password: "123456", role: "seller", firstName: "Test", lastName: "Seller" }
+    { email: "testseller@test.com", password: "123456", role: "admin", firstName: "Test", lastName: "Seller" }
   ];
 
   for (const testUser of testUsers) {

@@ -12,7 +12,7 @@ export type OrderStatus = z.infer<typeof orderStatusEnum>;
 export const paymentStatusEnum = z.enum(["pending", "deposit_paid", "fully_paid", "refunded"]);
 export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
 
-export const userRoleEnum = z.enum(["owner", "admin", "manager", "staff", "viewer", "customer", "buyer", "seller"]);
+export const userRoleEnum = z.enum(["admin", "editor", "viewer", "buyer"]);
 export type UserRole = z.infer<typeof userRoleEnum>;
 
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);

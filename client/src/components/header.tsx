@@ -58,16 +58,26 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                   Products
                 </Link>
                 {isAuthenticated && user?.role === "buyer" && (
-                  <Link
-                    href="/buyer-dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                    data-testid="mobile-link-buyer-dashboard"
-                  >
-                    My Orders
-                  </Link>
+                  <>
+                    <Link
+                      href="/buyer-dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-buyer-dashboard"
+                    >
+                      My Orders
+                    </Link>
+                    <Link
+                      href="/wholesale/catalog"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-buyer-wholesale"
+                    >
+                      Wholesale Catalog
+                    </Link>
+                  </>
                 )}
-                {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
+                {isAuthenticated && (user?.role === "admin" || user?.role === "editor" || user?.role === "viewer") && (
                   <>
                     <Link
                       href="/seller-dashboard"
@@ -93,10 +103,6 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     >
                       Orders
                     </Link>
-                  </>
-                )}
-                {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
-                  <>
                     <Link
                       href="/seller/wholesale/products"
                       onClick={() => setMobileMenuOpen(false)}
@@ -121,10 +127,6 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     >
                       Newsletter
                     </Link>
-                  </>
-                )}
-                {isAuthenticated && (user?.role === "owner" || user?.role === "admin") && (
-                  <>
                     <Link
                       href="/order-management"
                       onClick={() => setMobileMenuOpen(false)}
@@ -133,6 +135,10 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     >
                       Order Management
                     </Link>
+                  </>
+                )}
+                {isAuthenticated && user?.role === "admin" && (
+                  <>
                     <Link
                       href="/team"
                       onClick={() => setMobileMenuOpen(false)}
@@ -142,24 +148,14 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                       Team
                     </Link>
                     <Link
-                      href="/quick-access"
+                      href="/settings"
                       onClick={() => setMobileMenuOpen(false)}
                       className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-quick-access"
+                      data-testid="mobile-link-settings"
                     >
-                      Quick Access
+                      Settings
                     </Link>
                   </>
-                )}
-                {isAuthenticated && user?.role === "buyer" && (
-                  <Link
-                    href="/wholesale/catalog"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                    data-testid="mobile-link-buyer-wholesale"
-                  >
-                    Wholesale Catalog
-                  </Link>
                 )}
               </nav>
             </SheetContent>
