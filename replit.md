@@ -37,6 +37,12 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Authentication**: Replit Auth with OpenID Connect, PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`). Anonymous users can browse; authenticated users login as buyer or seller with role-based access.
 - **Protected API Endpoints**: Authentication required for creating orders, accessing user-specific orders, managing all orders (for dashboard), all product management operations (create, edit, delete), newsletter management, and NFT minting.
 - **Payment Integration**: Stripe SDK integration for Apple Pay, Google Pay, and credit card. Includes a seller-triggered balance payment system for pre-orders.
+- **Multi-Currency Support**: 
+    - **Automatic Detection**: IP-based geolocation automatically detects user's currency on first visit
+    - **Currency Selector**: Globe icon in header allows users to switch between 16+ popular currencies (USD, EUR, GBP, JPY, CAD, AUD, CHF, INR, etc.)
+    - **Real-time Conversion**: All prices (product cards, detail pages, cart, checkout) automatically convert using live exchange rates
+    - **Daily Rate Updates**: Exchange rates fetched from Fawazahmed0 Currency API (free, no API key required) and cached for 24 hours
+    - **Persistent Selection**: User's currency preference saved in localStorage across sessions
 - **Social Ads System**: Comprehensive multi-platform social ads system with AI optimization for Meta (Advantage+ AI), TikTok (Smart Performance), and X (Promoted Tweets). Features popup OAuth for seamless connection, detailed creative controls, budget optimization, and manual targeting overrides.
 
 **System Design Choices:**
@@ -68,5 +74,6 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Forms**: React Hook Form
 - **Validation**: Zod
 - **Session Management**: `express-session`, `connect-pg-simple`
+- **Currency Exchange**: Fawazahmed0 Currency API (free, 200+ currencies, no API key)
 - **Blockchain**: Solana Web3.js, SPL Token, Metaplex SDK (NFT minting placeholder)
 - **Email Service**: SendGrid API (integration placeholder for newsletter sending)
