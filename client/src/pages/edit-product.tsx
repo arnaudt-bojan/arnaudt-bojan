@@ -49,8 +49,12 @@ export default function EditProduct() {
       category: "",
       productType: "in-stock",
       stock: 0,
+      depositAmount: undefined,
+      requiresDeposit: 0,
     },
   });
+
+  const selectedType = form.watch("productType");
 
   // Update form when product data loads
   useEffect(() => {
@@ -63,6 +67,8 @@ export default function EditProduct() {
         category: product.category,
         productType: product.productType,
         stock: product.stock || 0,
+        depositAmount: product.depositAmount || undefined,
+        requiresDeposit: product.requiresDeposit || 0,
       });
     }
   }, [product, form]);
@@ -257,7 +263,7 @@ export default function EditProduct() {
                 )}
               />
 
-              {form.watch("productType") === "in-stock" && (
+              {selectedType === "in-stock" && (
                 <FormField
                   control={form.control}
                   name="stock"
@@ -276,6 +282,31 @@ export default function EditProduct() {
                       </FormControl>
                       <FormDescription>
                         Number of items available for immediate shipping
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {selectedType === "pre-order" && (
+                <FormField
+                  control={form.control}
+                  name="depositAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deposit Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="0.00"
+                          {...field}
+                          value={field.value || ""}
+                          data-testid="input-deposit"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Amount customer pays upfront to secure pre-order. Balance will be charged later.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

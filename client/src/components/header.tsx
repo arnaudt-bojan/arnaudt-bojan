@@ -162,7 +162,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" data-testid="button-user-menu">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.profileImageUrl} alt={user?.email || "User"} style={{ objectFit: "cover" }} />
+                      <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.email || "User"} style={{ objectFit: "cover" }} />
                       <AvatarFallback>
                         <User className="h-4 w-4" />
                       </AvatarFallback>
