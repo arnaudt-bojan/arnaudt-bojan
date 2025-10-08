@@ -100,12 +100,24 @@ async function setupTestUsers() {
   ];
 
   for (const testUser of testUsers) {
-    const userId = `local-${testUser.email}`;
     // Check if user already exists by email
     const allUsers = await storage.getAllUsers();
     const existingUser = allUsers.find(u => u.email === testUser.email);
     
-    if (!existingUser) {
+    if (existingUser) {
+      // Update existing user with password and correct role
+      await storage.upsertUser({
+        id: existingUser.id,
+        email: testUser.email,
+        firstName: testUser.firstName,
+        lastName: testUser.lastName,
+        profileImageUrl: existingUser.profileImageUrl,
+        role: testUser.role as any,
+        password: testUser.password
+      });
+    } else {
+      // Create new user
+      const userId = `local-${testUser.email}`;
       await storage.upsertUser({
         id: userId,
         email: testUser.email,
@@ -133,8 +145,9 @@ export async function setupAuth(app: Express) {
     { usernameField: 'email' },
     async (email, password, done) => {
       try {
-        const userId = `local-${email}`;
-        const user = await storage.getUser(userId);
+        // Look up user by email
+        const allUsers = await storage.getAllUsers();
+        const user = allUsers.find(u => u.email === email);
         
         if (!user || user.password !== password) {
           return done(null, false, { message: 'Invalid credentials' });
@@ -280,6 +293,16 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
+  // Check if this is local auth (doesn't need token refresh)
+  if (user.access_token === 'local-auth') {
+    const now = Math.floor(Date.now() / 1000);
+    if (now <= user.expires_at) {
+      return next();
+    }
+    return res.status(401).json({ message: "Session expired" });
+  }
+
+  // OIDC auth with token refresh
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
     return next();
