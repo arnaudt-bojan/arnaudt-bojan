@@ -816,10 +816,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/nft/mint", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { orderId, productData } = req.body;
+      const { orderId, productData, walletAddress } = req.body;
 
-      if (!orderId || !productData) {
-        return res.status(400).json({ error: "Missing required fields" });
+      if (!orderId || !productData || !walletAddress) {
+        return res.status(400).json({ error: "Missing required fields (orderId, productData, walletAddress)" });
       }
 
       // Verify order belongs to user
@@ -833,28 +833,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Order must be fully paid before minting NFT" });
       }
 
-      // For now, create a mock NFT mint record
-      // TODO: Integrate actual Solana blockchain minting
-      const mockSignature = `mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      const mockMintAddress = `mock_mint_${Math.random().toString(36).substring(7)}`;
+      // Check if NFT already minted for this order
+      const existingMint = await storage.getNftMintByOrderId(orderId);
+      if (existingMint) {
+        return res.status(400).json({ 
+          error: "NFT already minted for this order",
+          mintAddress: existingMint.mintAddress 
+        });
+      }
 
+      // Import Solana service dynamically to handle missing env vars gracefully
+      const { solanaService } = await import("./solanaService");
+
+      // Prepare NFT metadata
+      const nftMetadata = {
+        name: productData.name || "Product NFT",
+        symbol: "UPSH",
+        description: `NFT for ${productData.name} purchased on Uppshop`,
+        image: productData.image || "",
+        attributes: [
+          { trait_type: "Product ID", value: productData.id || "unknown" },
+          { trait_type: "Price", value: productData.price?.toString() || "0" },
+          { trait_type: "Order ID", value: orderId },
+        ],
+        properties: {
+          category: productData.category || "product",
+        },
+      };
+
+      console.log("[NFT Mint] Starting mint for order:", orderId);
+      console.log("[NFT Mint] Recipient wallet:", walletAddress);
+
+      // Mint the actual NFT on Solana
+      const mintResult = await solanaService.mintNFT(walletAddress, nftMetadata);
+
+      console.log("[NFT Mint] Success!", mintResult);
+
+      // Store mint record in database
       const nftMint = await storage.createNftMint({
         orderId,
         userId,
-        mintAddress: mockMintAddress,
-        transactionSignature: mockSignature,
-        metadata: productData,
+        mintAddress: mintResult.mintAddress,
+        transactionSignature: mintResult.transactionSignature,
+        metadata: { ...productData, metadataUri: mintResult.metadataUri },
       });
 
       res.json({
         success: true,
-        signature: mockSignature,
-        mintAddress: mockMintAddress,
-        message: "NFT minting simulated. Solana integration pending."
+        signature: mintResult.transactionSignature,
+        mintAddress: mintResult.mintAddress,
+        metadataUri: mintResult.metadataUri,
+        message: "NFT minted successfully on Solana blockchain!"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("NFT minting error:", error);
-      res.status(500).json({ error: "Failed to mint NFT" });
+      
+      if (error.message?.includes("SOLANA_PAYER_PRIVATE_KEY")) {
+        return res.status(500).json({ 
+          error: "Solana wallet not configured. Please contact support." 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: error.message || "Failed to mint NFT" 
+      });
     }
   });
 
