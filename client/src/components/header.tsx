@@ -55,25 +55,33 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                 >
                   Products
                 </Link>
-                {isAuthenticated && user?.role === "seller" && (
-                  <Link
-                    href="/seller/dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                    data-testid="mobile-link-seller-dashboard"
-                  >
-                    Seller Dashboard
-                  </Link>
-                )}
                 {isAuthenticated && (
-                  <Link
-                    href="/orders"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                    data-testid="mobile-link-orders"
-                  >
-                    My Orders
-                  </Link>
+                  <>
+                    <Link
+                      href="/seller-dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-seller-dashboard"
+                    >
+                      Seller Dashboard
+                    </Link>
+                    <Link
+                      href="/seller/products"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-seller-products"
+                    >
+                      My Products
+                    </Link>
+                    <Link
+                      href="/orders"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-orders"
+                    >
+                      My Orders
+                    </Link>
+                  </>
                 )}
               </nav>
             </SheetContent>
@@ -94,27 +102,36 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
           >
             Products
           </Link>
-          {isAuthenticated && user?.role === "seller" && (
-            <Link
-              href="/seller/dashboard"
-              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                location === "/seller/dashboard" ? "text-foreground" : "text-muted-foreground"
-              }`}
-              data-testid="link-seller-dashboard"
-            >
-              Seller Dashboard
-            </Link>
-          )}
           {isAuthenticated && (
-            <Link
-              href="/orders"
-              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                location === "/orders" ? "text-foreground" : "text-muted-foreground"
-              }`}
-              data-testid="link-orders"
-            >
-              My Orders
-            </Link>
+            <>
+              <Link
+                href="/seller-dashboard"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/seller-dashboard" || location === "/seller/dashboard" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-seller-dashboard"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/seller/products"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/seller/products" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-seller-products"
+              >
+                My Products
+              </Link>
+              <Link
+                href="/orders"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/orders" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-orders"
+              >
+                Orders
+              </Link>
+            </>
           )}
         </nav>
 

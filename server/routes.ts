@@ -43,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", isAuthenticated, isSeller, async (req, res) => {
+  app.post("/api/products", isAuthenticated, async (req, res) => {
     try {
       const validationResult = insertProductSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -74,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders", isAuthenticated, isSeller, async (req, res) => {
+  app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
       const orders = await storage.getAllOrders();
       res.json(orders);
@@ -93,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", isAuthenticated, isSeller, async (req, res) => {
+  app.put("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const validationResult = insertProductSchema.partial().safeParse(req.body);
       if (!validationResult.success) {
@@ -111,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:id", isAuthenticated, isSeller, async (req, res) => {
+  app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteProduct(req.params.id);
       if (!deleted) {
@@ -123,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/orders/:id/status", isAuthenticated, isSeller, async (req, res) => {
+  app.patch("/api/orders/:id/status", isAuthenticated, async (req, res) => {
     try {
       const statusSchema = z.object({ status: orderStatusEnum });
       const validationResult = statusSchema.safeParse(req.body);
