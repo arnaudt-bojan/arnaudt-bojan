@@ -1587,6 +1587,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Instagram OAuth Routes
+  app.get("/api/instagram/connect", isAuthenticated, async (req: any, res) => {
+    try {
+      const instagramAppId = process.env.INSTAGRAM_APP_ID;
+      const redirectUri = `${process.env.REPL_URL || 'http://localhost:5000'}/api/instagram/callback`;
+      
+      if (!instagramAppId) {
+        return res.status(500).json({ message: "Instagram App ID not configured. Please set INSTAGRAM_APP_ID environment variable." });
+      }
+
+      // Store user ID in session for callback
+      req.session.instagramConnectUserId = req.user.claims.sub;
+      
+      const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${instagramAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user_profile&response_type=code`;
+      
+      res.json({ authUrl });
+    } catch (error) {
+      console.error("Error initiating Instagram OAuth:", error);
+      res.status(500).json({ message: "Failed to initiate Instagram connection" });
+    }
+  });
+
+  app.get("/api/instagram/callback", async (req: any, res) => {
+    try {
+      const { code } = req.query;
+      const userId = req.session.instagramConnectUserId;
+
+      if (!code || !userId) {
+        return res.redirect('/settings?instagram=error');
+      }
+
+      const instagramAppId = process.env.INSTAGRAM_APP_ID;
+      const instagramAppSecret = process.env.INSTAGRAM_APP_SECRET;
+      const redirectUri = `${process.env.REPL_URL || 'http://localhost:5000'}/api/instagram/callback`;
+
+      if (!instagramAppId || !instagramAppSecret) {
+        return res.redirect('/settings?instagram=config_error');
+      }
+
+      // Exchange code for access token
+      const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: instagramAppId,
+          client_secret: instagramAppSecret,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri,
+          code: code as string,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        console.error("Instagram token exchange failed:", await tokenResponse.text());
+        return res.redirect('/settings?instagram=auth_error');
+      }
+
+      const tokenData = await tokenResponse.json();
+      const { access_token, user_id } = tokenData;
+
+      // Get user profile information
+      const profileResponse = await fetch(`https://graph.instagram.com/${user_id}?fields=id,username&access_token=${access_token}`);
+      
+      if (!profileResponse.ok) {
+        console.error("Instagram profile fetch failed:", await profileResponse.text());
+        return res.redirect('/settings?instagram=profile_error');
+      }
+
+      const profileData = await profileResponse.json();
+
+      // Update user with Instagram connection
+      await storage.updateUser(userId, {
+        instagramUserId: profileData.id,
+        instagramUsername: profileData.username,
+        instagramAccessToken: access_token,
+        username: profileData.username, // Also update the main username field
+      });
+
+      // Clear session data
+      delete req.session.instagramConnectUserId;
+
+      res.redirect('/settings?instagram=success');
+    } catch (error) {
+      console.error("Error in Instagram OAuth callback:", error);
+      res.redirect('/settings?instagram=error');
+    }
+  });
+
+  app.post("/api/instagram/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      await storage.updateUser(userId, {
+        instagramUserId: null,
+        instagramUsername: null,
+        instagramAccessToken: null,
+      });
+
+      res.json({ message: "Instagram disconnected successfully" });
+    } catch (error) {
+      console.error("Error disconnecting Instagram:", error);
+      res.status(500).json({ message: "Failed to disconnect Instagram" });
+    }
+  });
+
   // Currency API routes
   app.get("/api/currency/rates", async (req, res) => {
     try {
