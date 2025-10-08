@@ -111,17 +111,19 @@ export default function Checkout() {
       setOrderData(newOrderData);
 
       // Create payment intent
-      const response: any = await apiRequest("POST", "/api/create-payment-intent", {
+      const response = await apiRequest("POST", "/api/create-payment-intent", {
         amount: amountToPay,
         paymentType: payingDepositOnly ? "deposit" : "full",
       });
 
-      if (!response.clientSecret) {
+      const data = await response.json();
+
+      if (!data.clientSecret) {
         throw new Error("Failed to create payment intent");
       }
 
-      setClientSecret(response.clientSecret);
-      setPaymentIntentId(response.paymentIntentId);
+      setClientSecret(data.clientSecret);
+      setPaymentIntentId(data.paymentIntentId);
       setStep("payment");
     } catch (error: any) {
       toast({
