@@ -101,7 +101,10 @@ async function setupTestUsers() {
 
   for (const testUser of testUsers) {
     const userId = `local-${testUser.email}`;
-    const existingUser = await storage.getUser(userId);
+    // Check if user already exists by email
+    const allUsers = await storage.getAllUsers();
+    const existingUser = allUsers.find(u => u.email === testUser.email);
+    
     if (!existingUser) {
       await storage.upsertUser({
         id: userId,
