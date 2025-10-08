@@ -79,14 +79,84 @@ export default function CreateProduct() {
   const [selectedLevel1, setSelectedLevel1] = useState<string>("");
   const [selectedLevel2, setSelectedLevel2] = useState<string>("");
   const [selectedLevel3, setSelectedLevel3] = useState<string>("");
+  const [newLevel1Name, setNewLevel1Name] = useState("");
+  const [newLevel2Name, setNewLevel2Name] = useState("");
+  const [newLevel3Name, setNewLevel3Name] = useState("");
+  const [showLevel1Input, setShowLevel1Input] = useState(false);
+  const [showLevel2Input, setShowLevel2Input] = useState(false);
+  const [showLevel3Input, setShowLevel3Input] = useState(false);
 
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = [], refetch: refetchCategories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
   
   const level1Categories = categories.filter(c => c.level === 1);
   const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
   const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
+  
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; level: number; parentId: string | null }) => {
+      const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return await apiRequest("POST", "/api/categories", { ...data, slug });
+    },
+    onSuccess: (data: any) => {
+      refetchCategories();
+      toast({
+        title: "Category created",
+        description: "Category added successfully",
+      });
+      return data;
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create category",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const handleCreateLevel1 = async () => {
+    if (!newLevel1Name.trim()) return;
+    const result = await createCategoryMutation.mutateAsync({ 
+      name: newLevel1Name, 
+      level: 1, 
+      parentId: null 
+    });
+    if (result) {
+      setSelectedLevel1(result.id);
+      setNewLevel1Name("");
+      setShowLevel1Input(false);
+    }
+  };
+  
+  const handleCreateLevel2 = async () => {
+    if (!newLevel2Name.trim() || !selectedLevel1) return;
+    const result = await createCategoryMutation.mutateAsync({ 
+      name: newLevel2Name, 
+      level: 2, 
+      parentId: selectedLevel1 
+    });
+    if (result) {
+      setSelectedLevel2(result.id);
+      setNewLevel2Name("");
+      setShowLevel2Input(false);
+    }
+  };
+  
+  const handleCreateLevel3 = async () => {
+    if (!newLevel3Name.trim() || !selectedLevel2) return;
+    const result = await createCategoryMutation.mutateAsync({ 
+      name: newLevel3Name, 
+      level: 3, 
+      parentId: selectedLevel2 
+    });
+    if (result) {
+      setSelectedLevel3(result.id);
+      setNewLevel3Name("");
+      setShowLevel3Input(false);
+    }
+  };
   
   const addImageField = () => {
     if (productImages.length < 10) {
@@ -323,54 +393,177 @@ export default function CreateProduct() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium">Category Level 1</label>
-                    <Select value={selectedLevel1} onValueChange={(value) => {
-                      setSelectedLevel1(value);
-                      setSelectedLevel2("");
-                      setSelectedLevel3("");
-                    }}>
-                      <SelectTrigger data-testid="select-category-level-1">
-                        <SelectValue placeholder="Select main category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {level1Categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {!showLevel1Input ? (
+                      <div className="flex gap-2">
+                        <Select value={selectedLevel1} onValueChange={(value) => {
+                          setSelectedLevel1(value);
+                          setSelectedLevel2("");
+                          setSelectedLevel3("");
+                        }}>
+                          <SelectTrigger data-testid="select-category-level-1" className="flex-1">
+                            <SelectValue placeholder="Select main category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {level1Categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowLevel1Input(true)}
+                          data-testid="button-add-level1"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="New category name"
+                          value={newLevel1Name}
+                          onChange={(e) => setNewLevel1Name(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateLevel1())}
+                          data-testid="input-new-level1"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleCreateLevel1}
+                          disabled={!newLevel1Name.trim() || createCategoryMutation.isPending}
+                          data-testid="button-save-level1"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setShowLevel1Input(false);
+                            setNewLevel1Name("");
+                          }}
+                          data-testid="button-cancel-level1"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
-                  {selectedLevel1 && level2Categories.length > 0 && (
+                  {selectedLevel1 && (
                     <div>
-                      <label className="text-sm font-medium">Category Level 2</label>
-                      <Select value={selectedLevel2} onValueChange={(value) => {
-                        setSelectedLevel2(value);
-                        setSelectedLevel3("");
-                      }}>
-                        <SelectTrigger data-testid="select-category-level-2">
-                          <SelectValue placeholder="Select subcategory" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {level2Categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label className="text-sm font-medium">Category Level 2 (Optional)</label>
+                      {!showLevel2Input ? (
+                        <div className="flex gap-2">
+                          <Select value={selectedLevel2} onValueChange={(value) => {
+                            setSelectedLevel2(value);
+                            setSelectedLevel3("");
+                          }}>
+                            <SelectTrigger data-testid="select-category-level-2" className="flex-1">
+                              <SelectValue placeholder="Select subcategory (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {level2Categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowLevel2Input(true)}
+                            data-testid="button-add-level2"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="New subcategory name"
+                            value={newLevel2Name}
+                            onChange={(e) => setNewLevel2Name(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateLevel2())}
+                            data-testid="input-new-level2"
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleCreateLevel2}
+                            disabled={!newLevel2Name.trim() || createCategoryMutation.isPending}
+                            data-testid="button-save-level2"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setShowLevel2Input(false);
+                              setNewLevel2Name("");
+                            }}
+                            data-testid="button-cancel-level2"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {selectedLevel2 && level3Categories.length > 0 && (
+                  {selectedLevel2 && (
                     <div>
-                      <label className="text-sm font-medium">Category Level 3</label>
-                      <Select value={selectedLevel3} onValueChange={setSelectedLevel3}>
-                        <SelectTrigger data-testid="select-category-level-3">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {level3Categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label className="text-sm font-medium">Category Level 3 (Optional)</label>
+                      {!showLevel3Input ? (
+                        <div className="flex gap-2">
+                          <Select value={selectedLevel3} onValueChange={setSelectedLevel3}>
+                            <SelectTrigger data-testid="select-category-level-3" className="flex-1">
+                              <SelectValue placeholder="Select category (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {level3Categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowLevel3Input(true)}
+                            data-testid="button-add-level3"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="New category name"
+                            value={newLevel3Name}
+                            onChange={(e) => setNewLevel3Name(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateLevel3())}
+                            data-testid="input-new-level3"
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleCreateLevel3}
+                            disabled={!newLevel3Name.trim() || createCategoryMutation.isPending}
+                            data-testid="button-save-level3"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setShowLevel3Input(false);
+                              setNewLevel3Name("");
+                            }}
+                            data-testid="button-cancel-level3"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
