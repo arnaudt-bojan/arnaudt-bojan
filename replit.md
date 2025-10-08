@@ -19,6 +19,10 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Responsive Design**: Mobile-first approach across all components.
 - **Landing Page**: Inspired by uppfirst.com, featuring a bold hero section, product type showcases, features grid, and a featured products section displaying up to 8 products. Products are visible to all users (logged in or logged out) and can be added to cart directly from the home page.
 - **Seller Dashboard**: Provides revenue analytics, recent orders, and quick navigation for product management.
+- **Multi-Image Product Display**:
+    - **Product Cards**: Interactive carousel with left/right navigation buttons (visible on hover) and dot indicators showing current image
+    - **Product Detail Page (PDP)**: Main image display with thumbnail gallery below (5-column grid), clickable thumbnails with primary border highlight for selected image
+    - **Image Storage**: Products support up to 10 images stored as TEXT[] array in database (`images` field)
 
 **Technical Implementations & Feature Specifications:**
 - **Product Types**: Supports in-stock, pre-order (with `depositAmount` and `requiresDeposit`), made-to-order, and wholesale.
@@ -41,7 +45,9 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Seller Dashboard** (`/seller-dashboard`): Comprehensive seller interface with revenue analytics, product management, order tracking, and newsletter tools.
     - **Role-Based Routing**: Authentication callback automatically redirects users to appropriate dashboard based on their role.
 - **Seller Features**:
-    - **Product Management**: Comprehensive creation form (name, description, price, type, stock, image, category), list view, deletion with confirmation.
+    - **Product Management**: Comprehensive creation form (name, description, price, type, stock, category), list view, deletion with confirmation.
+        - **Multi-Image Upload**: Support for up to 10 product images per product with dynamic add/remove UI
+        - **Primary Image**: First image in array serves as primary display image on product cards
     - **Order Management**: View all orders with click-through to individual order detail pages showing complete order information, customer details, payment status, and item breakdowns.
     - **Settings Page**: Profile management, password changes, store branding (banner/logo upload), and payment provider configuration (Stripe/PayPal).
     - **Newsletter System**: Complete newsletter management with email list creation, content composition, and SendGrid integration placeholder for bulk email sending.
@@ -92,12 +98,12 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - `server/`: Houses API routes, storage implementation, authentication, and server configuration.
     - `shared/`: Contains Drizzle schemas and Zod validation.
 - **Data Models**: Defined schemas for:
-    - `Product`: id, name, description, price, image, category, productType, stock, depositAmount, requiresDeposit
+    - `Product`: id, name, description, price, image (primary), images (TEXT[] array up to 10), category, productType, stock, depositAmount, requiresDeposit, variants (jsonb), madeToOrderDays, preOrderDate
     - `Order`: id, userId, customerName, customerEmail, customerAddress, items, total, amountPaid, remainingBalance, paymentType, paymentStatus, stripePaymentIntentId, status, createdAt
-    - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, storeBanner, storeLogo, paymentProvider, stripeConnectedAccountId, paypalMerchantId, createdAt, updatedAt
+    - `User`: id, email, username, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, storeBanner, storeLogo, paymentProvider, stripeConnectedAccountId, paypalMerchantId, instagramUserId, instagramUsername, instagramAccessToken, createdAt, updatedAt
     - `Newsletter`: id, userId, subject, content, recipients (jsonb), status, sentAt, createdAt
     - `NftMint`: id, orderId, userId, mintAddress, transactionSignature, metadata (jsonb), createdAt
-    - `WholesaleProduct`: id, sellerId, productId (optional), name, description, image, category, rrp, wholesalePrice, moq, depositAmount, requiresDeposit, stock, readinessDays, variants (jsonb), createdAt, updatedAt
+    - `WholesaleProduct`: id, sellerId, productId (optional), name, description, image (primary), images (TEXT[] array), category, rrp, wholesalePrice, moq, depositAmount, requiresDeposit, stock, readinessDays, variants (jsonb), createdAt, updatedAt
     - `WholesaleInvitation`: id, sellerId, buyerEmail, buyerName, status, token, createdAt, acceptedAt
 - **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints, wholesale_products, wholesale_invitations).
 
