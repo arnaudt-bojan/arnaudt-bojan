@@ -360,7 +360,7 @@ export async function setupAuth(app: Express) {
       }
 
       // Create new user
-      const newUser = await storage.createUser({
+      const newUser = await storage.upsertUser({
         email,
         password,
         role: isFirstUser ? "admin" : "buyer", // First user is admin, others are buyers
