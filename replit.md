@@ -33,7 +33,12 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Newsletter System**: Complete newsletter management with email list creation, content composition, and SendGrid integration placeholder for bulk email sending.
 - **Buyer Features**:
     - **Order Tracking**: View all orders with payment status, order status, and detailed breakdowns.
-    - **NFT Minting**: Mint Solana-based NFTs from fully paid orders with product metadata embedded on-chain (Solana integration placeholder).
+    - **NFT Minting**: Real Solana blockchain NFT minting for fully paid orders with Phantom wallet integration.
+        - **Wallet Connection**: Phantom wallet browser extension integration via WalletContext
+        - **Real Blockchain**: NFTs minted on Solana devnet using Metaplex SDK
+        - **Gas Fees**: Platform pays gas fees (~0.01-0.02 SOL per mint) via SOLANA_PAYER_PRIVATE_KEY
+        - **NFT Ownership**: NFTs minted directly to user's connected wallet address
+        - **Metadata**: Product details (name, price, image, order ID) stored on-chain via Metaplex
 - **Authentication**: Dual authentication system:
     - **Replit Auth (OAuth)**: OpenID Connect with role-based access
     - **Local Authentication**: Simple username/password for testing purposes
@@ -80,5 +85,9 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Validation**: Zod
 - **Session Management**: `express-session`, `connect-pg-simple`
 - **Currency Exchange**: Fawazahmed0 Currency API (free, 200+ currencies, no API key)
-- **Blockchain**: Solana Web3.js, SPL Token, Metaplex SDK (NFT minting placeholder)
+- **Blockchain**: 
+    - **Solana Web3.js**: Connection to Solana blockchain (devnet)
+    - **Metaplex SDK**: NFT creation and metadata management
+    - **Phantom Wallet**: Browser extension for wallet connection
+    - **SolanaService** (`server/solanaService.ts`): Handles NFT minting, metadata upload, and gas fee payment
 - **Email Service**: SendGrid API (integration placeholder for newsletter sending)
