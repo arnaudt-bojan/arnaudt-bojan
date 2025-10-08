@@ -1,8 +1,18 @@
-import { ShoppingCart, Store } from "lucide-react";
+import { ShoppingCart, Store, LogOut, User } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -11,6 +21,7 @@ interface HeaderProps {
 
 export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const [location] = useLocation();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,15 +41,28 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
           >
             Products
           </Link>
-          <Link
-            href="/seller/dashboard"
-            className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-              location === "/seller/dashboard" ? "text-foreground" : "text-muted-foreground"
-            }`}
-            data-testid="link-seller-dashboard"
-          >
-            Seller Dashboard
-          </Link>
+          {isAuthenticated && user?.role === "seller" && (
+            <Link
+              href="/seller/dashboard"
+              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                location === "/seller/dashboard" ? "text-foreground" : "text-muted-foreground"
+              }`}
+              data-testid="link-seller-dashboard"
+            >
+              Seller Dashboard
+            </Link>
+          )}
+          {isAuthenticated && (
+            <Link
+              href="/orders"
+              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                location === "/orders" ? "text-foreground" : "text-muted-foreground"
+              }`}
+              data-testid="link-orders"
+            >
+              My Orders
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -61,6 +85,42 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </Badge>
             )}
           </Button>
+
+          {!isLoading && (
+            isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" data-testid="button-user-menu">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.profileImageUrl} alt={user?.email || "User"} style={{ objectFit: "cover" }} />
+                      <AvatarFallback>
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{user?.firstName || user?.email}</span>
+                      <span className="text-xs text-muted-foreground">{user?.email}</span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href="/api/logout" data-testid="button-logout">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="default" asChild data-testid="button-login">
+                <a href="/api/login">Log in</a>
+              </Button>
+            )
+          )}
         </div>
       </div>
     </header>

@@ -1,6 +1,6 @@
 import { 
   type User, 
-  type InsertUser, 
+  type UpsertUser, 
   type Product, 
   type InsertProduct,
   type Order,
@@ -18,8 +18,7 @@ neonConfig.webSocketConstructor = ws;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: UpsertUser): Promise<User>;
   
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -28,6 +27,7 @@ export interface IStorage {
   deleteProduct(id: string): Promise<boolean>;
   
   getAllOrders(): Promise<Order[]>;
+  getOrdersByUserId(userId: string): Promise<Order[]>;
   getOrder(id: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
@@ -70,15 +70,19 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async upsertUser(userData: UpsertUser): Promise<User> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
-    return result[0];
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    await this.ensureInitialized();
-    const result = await this.db.insert(users).values(insertUser).returning();
+    const result = await this.db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
     return result[0];
   }
 
@@ -102,6 +106,11 @@ export class DatabaseStorage implements IStorage {
   async getAllOrders(): Promise<Order[]> {
     await this.ensureInitialized();
     return await this.db.select().from(orders).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrdersByUserId(userId: string): Promise<Order[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
