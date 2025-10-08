@@ -16,9 +16,10 @@ export default function BuyerDashboard() {
   const [isMinting, setIsMinting] = useState(false);
   const { connected, publicKey, connecting, connect, disconnect } = useWallet();
 
-  const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
-  const { data: orders, isLoading } = useQuery<SelectOrder[]>({
+  const { data: user, isLoading: userLoading } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+  const { data: orders, isLoading: ordersLoading } = useQuery<SelectOrder[]>({
     queryKey: ["/api/orders/my-orders"],
+    enabled: !!user,
   });
 
   const handleDisconnect = () => {
@@ -88,9 +89,54 @@ export default function BuyerDashboard() {
     }
   };
 
-  if (isLoading) {
+  if (userLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-6 bg-muted rounded w-3/4"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-2/3"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Login Required</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
+              Please log in to view your orders. If you placed an order as a guest, log in with the email address you used during checkout (password: 123456).
+            </p>
+            <Button onClick={() => window.location.href = "/login"} data-testid="button-login">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (ordersLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">My Orders</h1>
+          <p className="text-muted-foreground">Loading your orders...</p>
+        </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
