@@ -14,7 +14,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2 } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -59,6 +63,340 @@ type BrandingForm = z.infer<typeof brandingSchema>;
 type UsernameForm = z.infer<typeof usernameSchema>;
 type CustomDomainForm = z.infer<typeof customDomainSchema>;
 type ShippingForm = z.infer<typeof shippingSchema>;
+
+// Payment Setup Form Component
+function PaymentSetupForm({ clientSecret, onSuccess }: { clientSecret: string; onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const { error } = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        },
+        redirect: "if_required",
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Payment method added successfully!",
+        });
+        onSuccess();
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to add payment method",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <Button type="submit" disabled={!stripe || isProcessing} className="w-full" data-testid="button-save-payment">
+        {isProcessing ? "Processing..." : "Save Payment Method"}
+      </Button>
+    </form>
+  );
+}
+
+// Subscription Management Tab
+function SubscriptionTab({ user }: { user: any }) {
+  const { toast } = useToast();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("monthly");
+  
+  const { data: subscriptionStatus, refetch: refetchSubscription } = useQuery<{
+    status: string | null;
+    plan: string | null;
+    trialEndsAt: string | null;
+    hasPaymentMethod: boolean;
+    subscription: any | null;
+  }>({
+    queryKey: ["/api/subscription/status"],
+  });
+
+  const setupPaymentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/subscription/setup-payment", {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setClientSecret(data.clientSecret);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to setup payment method",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createSubscriptionMutation = useMutation({
+    mutationFn: async (plan: string) => {
+      const response = await apiRequest("POST", "/api/subscription/create", { plan });
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Subscription activated successfully!",
+      });
+      refetchSubscription();
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create subscription",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePaymentSuccess = () => {
+    setClientSecret(null);
+    refetchSubscription();
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  };
+
+  const handleMakeStoreLive = () => {
+    if (subscriptionStatus?.hasPaymentMethod) {
+      createSubscriptionMutation.mutate(selectedPlan);
+    } else {
+      setupPaymentMutation.mutate();
+    }
+  };
+
+  const daysRemaining = subscriptionStatus?.trialEndsAt 
+    ? Math.ceil((new Date(subscriptionStatus.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  return (
+    <div className="space-y-6">
+      {/* Subscription Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Subscription Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {subscriptionStatus?.status === "trial" && (
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Free Trial Active</h3>
+              </div>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                {daysRemaining !== null && daysRemaining > 0
+                  ? `${daysRemaining} days remaining in your trial`
+                  : "Your trial has ended"}
+              </p>
+            </div>
+          )}
+
+          {subscriptionStatus?.status === "active" && (
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <h3 className="font-semibold text-green-900 dark:text-green-100">Active Subscription</h3>
+              </div>
+              <p className="text-sm text-green-700 dark:text-green-300">
+                Your {subscriptionStatus.plan} plan is active
+              </p>
+            </div>
+          )}
+
+          {!subscriptionStatus?.status && (
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                Create your first product to start your 30-day free trial
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Payment Method */}
+      {subscriptionStatus?.status && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Payment Method
+            </CardTitle>
+            <CardDescription>
+              {subscriptionStatus?.hasPaymentMethod
+                ? "Payment method saved securely"
+                : "Add a payment method to activate your store"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!subscriptionStatus?.hasPaymentMethod && !clientSecret && (
+              <Button 
+                onClick={() => setupPaymentMutation.mutate()} 
+                disabled={setupPaymentMutation.isPending}
+                data-testid="button-add-payment-method"
+              >
+                {setupPaymentMutation.isPending ? "Loading..." : "Add Payment Method"}
+              </Button>
+            )}
+
+            {clientSecret && (
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <PaymentSetupForm clientSecret={clientSecret} onSuccess={handlePaymentSuccess} />
+              </Elements>
+            )}
+
+            {subscriptionStatus?.hasPaymentMethod && (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="h-5 w-5" />
+                <span>Payment method on file</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Subscription Plan Selection */}
+      {subscriptionStatus?.status === "trial" && subscriptionStatus?.hasPaymentMethod && !subscriptionStatus?.subscription && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Choose Your Plan</CardTitle>
+            <CardDescription>Select a subscription plan to activate your store</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div 
+                className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                  selectedPlan === "monthly" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-border hover-elevate"
+                }`}
+                onClick={() => setSelectedPlan("monthly")}
+                data-testid="plan-monthly"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">Monthly</h3>
+                  <div className="text-2xl font-bold">$9.99</div>
+                </div>
+                <p className="text-sm text-muted-foreground">per month</p>
+              </div>
+
+              <div 
+                className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                  selectedPlan === "annual" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-border hover-elevate"
+                }`}
+                onClick={() => setSelectedPlan("annual")}
+                data-testid="plan-annual"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">Annual</h3>
+                  <div className="text-2xl font-bold">$99</div>
+                </div>
+                <p className="text-sm text-muted-foreground">per year (Save $20)</p>
+              </div>
+            </div>
+
+            <Button 
+              onClick={() => createSubscriptionMutation.mutate(selectedPlan)}
+              disabled={createSubscriptionMutation.isPending}
+              className="w-full"
+              data-testid="button-activate-subscription"
+            >
+              {createSubscriptionMutation.isPending ? "Activating..." : "Activate Store"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Make Store Live Button */}
+      {subscriptionStatus?.status === "trial" && !subscriptionStatus?.hasPaymentMethod && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Make Your Store Live</CardTitle>
+            <CardDescription>
+              Add payment method and activate your store subscription
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                    selectedPlan === "monthly" 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover-elevate"
+                  }`}
+                  onClick={() => setSelectedPlan("monthly")}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold">Monthly</h3>
+                    <div className="text-2xl font-bold">$9.99</div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">per month</p>
+                </div>
+
+                <div 
+                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                    selectedPlan === "annual" 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover-elevate"
+                  }`}
+                  onClick={() => setSelectedPlan("annual")}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold">Annual</h3>
+                    <div className="text-2xl font-bold">$99</div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">per year (Save $20)</p>
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleMakeStoreLive}
+                disabled={setupPaymentMutation.isPending}
+                className="w-full"
+                size="lg"
+                data-testid="button-make-store-live"
+              >
+                {setupPaymentMutation.isPending ? "Processing..." : "Make Store Live"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
 
 interface Category {
   id: string;
@@ -686,7 +1024,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-6' : 'grid-cols-3'}`} data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-7' : 'grid-cols-3'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
@@ -694,6 +1032,10 @@ export default function Settings() {
           <TabsTrigger value="password" data-testid="tab-password">Password</TabsTrigger>
           {isSeller && (
             <>
+              <TabsTrigger value="subscription" data-testid="tab-subscription">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Subscription
+              </TabsTrigger>
               <TabsTrigger value="store" data-testid="tab-store">
                 <Globe className="h-4 w-4 mr-2" />
                 Store
@@ -836,6 +1178,12 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isSeller && (
+          <TabsContent value="subscription">
+            <SubscriptionTab user={user} />
+          </TabsContent>
+        )}
 
         {isSeller && (
           <TabsContent value="store">
