@@ -194,6 +194,16 @@ shared/
 - **No Role Checks**: Removed all seller role validation - everyone is both buyer and seller
 
 ## Recent Changes
+- **2025-10-08**: Stripe Payment Integration & Seller-Triggered Balance Payments
+  - ✅ Integrated Stripe SDK with Apple Pay, Google Pay, and credit card support
+  - ✅ Added payment tracking fields to orders schema (paymentStatus, stripePaymentIntentId, stripeBalancePaymentIntentId)
+  - ✅ Created `/api/create-payment-intent` endpoint for checkout payments
+  - ✅ Created `/api/trigger-balance-payment/:orderId` endpoint for seller-triggered balance payments
+  - ✅ Product cards and detail pages now display deposit amounts for pre-orders
+  - ✅ Checkout calculates and displays deposit vs full payment
+  - ⏳ **Awaiting Stripe API keys** to complete testing (VITE_STRIPE_PUBLIC_KEY, STRIPE_SECRET_KEY)
+  - 🎯 Result: **Seller-triggered balance payment system** - sellers can manually trigger balance payments when products are ready to ship
+
 - **2025-10-08**: Pre-Order Deposit Payment System
   - ✅ Added `depositAmount` and `requiresDeposit` fields to products schema
   - ✅ Updated create product page with deposit amount input for pre-orders
