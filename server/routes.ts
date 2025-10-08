@@ -176,6 +176,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Buyer orders endpoint - must be before /:id route
+  app.get("/api/orders/my-orders", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const orders = await storage.getOrdersByUserId(userId);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // Seller/admin orders endpoint - must be before /:id route
+  app.get("/api/orders/all-orders", isAuthenticated, async (req: any, res) => {
+    try {
+      const orders = await storage.getAllOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
   app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
     try {
       const order = await storage.getOrder(req.params.id);
@@ -1238,27 +1259,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: error.message || "Failed to mint NFT" 
       });
-    }
-  });
-
-  // Add routes for buyer and seller specific order views
-  app.get("/api/orders/my-orders", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const orders = await storage.getOrdersByUserId(userId);
-      res.json(orders);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch orders" });
-    }
-  });
-
-  app.get("/api/orders/all-orders", isAuthenticated, async (req: any, res) => {
-    try {
-      // This endpoint returns all orders for sellers/admins
-      const orders = await storage.getAllOrders();
-      res.json(orders);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch orders" });
     }
   });
 
