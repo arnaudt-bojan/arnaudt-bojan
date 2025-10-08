@@ -23,11 +23,19 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 **Technical Implementations & Feature Specifications:**
 - **Product Types**: Supports in-stock, pre-order (with `depositAmount` and `requiresDeposit`), made-to-order, and wholesale.
 - **Shopping & Checkout**: Slide-over cart, quantity adjustment, persistent cart (localStorage), authenticated checkout, and order confirmation.
+- **Buyer/Seller Separation**:
+    - **Dual Login System**: Users can login as "Buyer" or "Seller" on the home page, with separate role assignment during registration.
+    - **Buyer Dashboard** (`/buyer-dashboard`): Dedicated interface for buyers to view their orders with NFT minting capabilities.
+    - **Seller Dashboard** (`/seller-dashboard`): Comprehensive seller interface with revenue analytics, product management, order tracking, and newsletter tools.
+    - **Role-Based Routing**: Authentication callback automatically redirects users to appropriate dashboard based on their role.
 - **Seller Features**:
     - **Product Management**: Comprehensive creation form (name, description, price, type, stock, image, category), list view, deletion with confirmation.
-    - **Unified User Model**: Every authenticated user is both a buyer and a seller, removing role-based access control. All authenticated users can create, edit, and delete products.
-- **Authentication**: Replit Auth with OpenID Connect, PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`). Anonymous users can browse; authenticated users can buy, sell, and manage.
-- **Protected API Endpoints**: Authentication required for creating orders, accessing user-specific orders, managing all orders (for dashboard), and all product management operations (create, edit, delete).
+    - **Newsletter System**: Complete newsletter management with email list creation, content composition, and SendGrid integration placeholder for bulk email sending.
+- **Buyer Features**:
+    - **Order Tracking**: View all orders with payment status, order status, and detailed breakdowns.
+    - **NFT Minting**: Mint Solana-based NFTs from fully paid orders with product metadata embedded on-chain (Solana integration placeholder).
+- **Authentication**: Replit Auth with OpenID Connect, PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`). Anonymous users can browse; authenticated users login as buyer or seller with role-based access.
+- **Protected API Endpoints**: Authentication required for creating orders, accessing user-specific orders, managing all orders (for dashboard), all product management operations (create, edit, delete), newsletter management, and NFT minting.
 - **Payment Integration**: Stripe SDK integration for Apple Pay, Google Pay, and credit card. Includes a seller-triggered balance payment system for pre-orders.
 - **Social Ads System**: Comprehensive multi-platform social ads system with AI optimization for Meta (Advantage+ AI), TikTok (Smart Performance), and X (Promoted Tweets). Features popup OAuth for seamless connection, detailed creative controls, budget optimization, and manual targeting overrides.
 
@@ -36,8 +44,13 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - `client/`: Contains React components, pages, hooks, and utilities.
     - `server/`: Houses API routes, storage implementation, authentication, and server configuration.
     - `shared/`: Contains Drizzle schemas and Zod validation.
-- **Data Models**: Defined schemas for `Product` (id, name, description, price, image, category, productType, stock, depositAmount, requiresDeposit), `Order` (id, customerName, customerEmail, customerAddress, items, total, status, createdAt), and `Cart Item`.
-- **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions).
+- **Data Models**: Defined schemas for:
+    - `Product`: id, name, description, price, image, category, productType, stock, depositAmount, requiresDeposit
+    - `Order`: id, userId, customerName, customerEmail, customerAddress, items, total, amountPaid, remainingBalance, paymentType, paymentStatus, stripePaymentIntentId, status, createdAt
+    - `User`: id, email, firstName, lastName, profileImageUrl, role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, createdAt, updatedAt
+    - `Newsletter`: id, userId, subject, content, recipients (jsonb), status, sentAt, createdAt
+    - `NftMint`: id, orderId, userId, mintAddress, transactionSignature, metadata (jsonb), createdAt
+- **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints).
 
 ## External Dependencies
 - **Database**: PostgreSQL (via Neon)
@@ -55,3 +68,5 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Forms**: React Hook Form
 - **Validation**: Zod
 - **Session Management**: `express-session`, `connect-pg-simple`
+- **Blockchain**: Solana Web3.js, SPL Token, Metaplex SDK (NFT minting placeholder)
+- **Email Service**: SendGrid API (integration placeholder for newsletter sending)

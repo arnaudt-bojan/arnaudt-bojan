@@ -11,7 +11,7 @@ import type { SelectOrder } from "@shared/schema";
 
 export default function BuyerDashboard() {
   const { toast } = useToast();
-  const [mintingOrderId, setMintingOrderId] = useState<number | null>(null);
+  const [mintingOrderId, setMintingOrderId] = useState<string | null>(null);
   const [isMinting, setIsMinting] = useState(false);
 
   const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
