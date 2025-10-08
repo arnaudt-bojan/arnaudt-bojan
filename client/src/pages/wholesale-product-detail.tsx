@@ -17,6 +17,7 @@ import {
 import { ArrowLeft, ShoppingCart, Package, TrendingUp, AlertCircle } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/lib/cart-context";
 import { apiRequest } from "@/lib/queryClient";
 
 interface WholesaleProduct {
@@ -49,6 +50,7 @@ export default function WholesaleProductDetail() {
   const [, setLocation] = useLocation();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
+  const { addItem } = useCart();
 
   // Quantity selections for variants
   const [variantQuantities, setVariantQuantities] = useState<Map<string, number>>(new Map());
@@ -110,21 +112,48 @@ export default function WholesaleProductDetail() {
         return { size, color, quantity };
       });
 
-      console.log("Adding to cart:", {
-        productId: product.id,
-        variants: selectedVariants,
-        totalQuantity,
-      });
+      // Convert wholesale product to cart-compatible format
+      const cartItem = {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.wholesalePrice,
+        image: product.image,
+        category: product.category,
+        productType: "wholesale" as const,
+        stock: product.stock,
+        depositAmount: product.depositAmount,
+        requiresDeposit: product.requiresDeposit,
+        variants: product.variants,
+      };
+
+      // Add to cart with total quantity
+      addItem(cartItem, totalQuantity);
 
       toast({
-        title: "Success",
+        title: "Added to Cart",
         description: `Added ${totalQuantity} units to cart`,
       });
     } else {
-      // Simple product without variants
+      // Simple product without variants - add with MOQ
+      const cartItem = {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.wholesalePrice,
+        image: product.image,
+        category: product.category,
+        productType: "wholesale" as const,
+        stock: product.stock,
+        depositAmount: product.depositAmount,
+        requiresDeposit: product.requiresDeposit,
+      };
+
+      addItem(cartItem, product.moq);
+
       toast({
-        title: "Success",
-        description: "Added to cart",
+        title: "Added to Cart",
+        description: `Added ${product.moq} units to cart (MOQ)`,
       });
     }
   };
