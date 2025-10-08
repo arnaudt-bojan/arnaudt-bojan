@@ -239,6 +239,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Categories Routes
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  app.get("/api/categories/level/:level", async (req, res) => {
+    try {
+      const level = parseInt(req.params.level);
+      const categories = await storage.getCategoriesByLevel(level);
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  app.get("/api/categories/parent/:parentId", async (req, res) => {
+    try {
+      const parentId = req.params.parentId === "null" ? null : req.params.parentId;
+      const categories = await storage.getCategoriesByParentId(parentId);
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  app.post("/api/categories", isAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.createCategory(req.body);
+      res.status(201).json(category);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
+  app.put("/api/categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.updateCategory(req.params.id, req.body);
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteCategory(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete category" });
+    }
+  });
+
   app.patch("/api/orders/:id/status", isAuthenticated, async (req, res) => {
     try {
       const statusSchema = z.object({ status: orderStatusEnum });

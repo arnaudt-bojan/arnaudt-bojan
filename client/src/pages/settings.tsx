@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2 } from "lucide-react";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -54,6 +54,346 @@ type PasswordForm = z.infer<typeof passwordSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
 type UsernameForm = z.infer<typeof usernameSchema>;
 type CustomDomainForm = z.infer<typeof customDomainSchema>;
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  level: number;
+}
+
+function CategoryManagement() {
+  const { toast } = useToast();
+  const [selectedLevel1, setSelectedLevel1] = useState<string | null>(null);
+  const [selectedLevel2, setSelectedLevel2] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState<1 | 2 | 3>(1);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  const { data: categories = [], refetch } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  const level1Categories = categories.filter(c => c.level === 1);
+  const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
+  const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; level: number; parentId: string | null }) => {
+      const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return await apiRequest("POST", "/api/categories", { ...data, slug });
+    },
+    onSuccess: () => {
+      refetch();
+      setNewCategoryName("");
+      toast({ title: "Category created", description: "The category has been added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create category", variant: "destructive" });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return await apiRequest("PUT", `/api/categories/${id}`, { name, slug });
+    },
+    onSuccess: () => {
+      refetch();
+      setEditingCategory(null);
+      toast({ title: "Category updated", description: "The category has been updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update category", variant: "destructive" });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/categories/${id}`, {});
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ title: "Category deleted", description: "The category has been removed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete category", variant: "destructive" });
+    },
+  });
+
+  const handleCreateCategory = () => {
+    let parentId = null;
+    if (selectedLevel === 2 && selectedLevel1) {
+      parentId = selectedLevel1;
+    } else if (selectedLevel === 3 && selectedLevel2) {
+      parentId = selectedLevel2;
+    }
+
+    createCategoryMutation.mutate({
+      name: newCategoryName,
+      level: selectedLevel,
+      parentId,
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Category Management</CardTitle>
+        <CardDescription>Organize your products with hierarchical categories (up to 3 levels)</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <div className="flex gap-3">
+            <Select value={selectedLevel.toString()} onValueChange={(v) => setSelectedLevel(parseInt(v) as 1 | 2 | 3)}>
+              <SelectTrigger className="w-32" data-testid="select-category-level">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Level 1</SelectItem>
+                <SelectItem value="2">Level 2</SelectItem>
+                <SelectItem value="3">Level 3</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Category name"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              data-testid="input-new-category"
+            />
+            <Button
+              onClick={handleCreateCategory}
+              disabled={!newCategoryName || (selectedLevel === 2 && !selectedLevel1) || (selectedLevel === 3 && !selectedLevel2)}
+              data-testid="button-add-category"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </Button>
+          </div>
+          
+          {selectedLevel === 2 && !selectedLevel1 && (
+            <p className="text-sm text-muted-foreground">Select a Level 1 category first</p>
+          )}
+          {selectedLevel === 3 && !selectedLevel2 && (
+            <p className="text-sm text-muted-foreground">Select a Level 2 category first</p>
+          )}
+        </div>
+
+        <div className="border rounded-lg p-4 space-y-4">
+          <h4 className="font-semibold">Level 1 Categories</h4>
+          <div className="space-y-2">
+            {level1Categories.map((cat) => (
+              <div key={cat.id} className={`p-3 rounded-md border ${selectedLevel1 === cat.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                <div className="flex items-center justify-between">
+                  {editingCategory?.id === cat.id ? (
+                    <Input
+                      value={editingCategory.name}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                      className="flex-1 mr-2"
+                      data-testid={`input-edit-category-${cat.id}`}
+                    />
+                  ) : (
+                    <button
+                      className="flex-1 text-left"
+                      onClick={() => setSelectedLevel1(cat.id)}
+                      data-testid={`button-select-category-${cat.id}`}
+                    >
+                      {cat.name}
+                    </button>
+                  )}
+                  <div className="flex gap-2">
+                    {editingCategory?.id === cat.id ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => updateCategoryMutation.mutate({ id: cat.id, name: editingCategory.name })}
+                          data-testid={`button-save-category-${cat.id}`}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingCategory(null)}
+                          data-testid={`button-cancel-edit-${cat.id}`}
+                        >
+                          ×
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingCategory(cat)}
+                          data-testid={`button-edit-category-${cat.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                          data-testid={`button-delete-category-${cat.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {level1Categories.length === 0 && (
+              <p className="text-sm text-muted-foreground">No Level 1 categories yet</p>
+            )}
+          </div>
+        </div>
+
+        {selectedLevel1 && (
+          <div className="border rounded-lg p-4 space-y-4">
+            <h4 className="font-semibold">Level 2 Categories</h4>
+            <div className="space-y-2">
+              {level2Categories.map((cat) => (
+                <div key={cat.id} className={`p-3 rounded-md border ${selectedLevel2 === cat.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                  <div className="flex items-center justify-between">
+                    {editingCategory?.id === cat.id ? (
+                      <Input
+                        value={editingCategory.name}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                        className="flex-1 mr-2"
+                        data-testid={`input-edit-category-${cat.id}`}
+                      />
+                    ) : (
+                      <button
+                        className="flex-1 text-left"
+                        onClick={() => setSelectedLevel2(cat.id)}
+                        data-testid={`button-select-category-${cat.id}`}
+                      >
+                        {cat.name}
+                      </button>
+                    )}
+                    <div className="flex gap-2">
+                      {editingCategory?.id === cat.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => updateCategoryMutation.mutate({ id: cat.id, name: editingCategory.name })}
+                            data-testid={`button-save-category-${cat.id}`}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingCategory(null)}
+                            data-testid={`button-cancel-edit-${cat.id}`}
+                          >
+                            ×
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingCategory(cat)}
+                            data-testid={`button-edit-category-${cat.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                            data-testid={`button-delete-category-${cat.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {level2Categories.length === 0 && (
+                <p className="text-sm text-muted-foreground">No Level 2 categories yet</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {selectedLevel2 && (
+          <div className="border rounded-lg p-4 space-y-4">
+            <h4 className="font-semibold">Level 3 Categories</h4>
+            <div className="space-y-2">
+              {level3Categories.map((cat) => (
+                <div key={cat.id} className="p-3 rounded-md border">
+                  <div className="flex items-center justify-between">
+                    {editingCategory?.id === cat.id ? (
+                      <Input
+                        value={editingCategory.name}
+                        onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                        className="flex-1 mr-2"
+                        data-testid={`input-edit-category-${cat.id}`}
+                      />
+                    ) : (
+                      <span>{cat.name}</span>
+                    )}
+                    <div className="flex gap-2">
+                      {editingCategory?.id === cat.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => updateCategoryMutation.mutate({ id: cat.id, name: editingCategory.name })}
+                            data-testid={`button-save-category-${cat.id}`}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingCategory(null)}
+                            data-testid={`button-cancel-edit-${cat.id}`}
+                          >
+                            ×
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingCategory(cat)}
+                            data-testid={`button-edit-category-${cat.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                            data-testid={`button-delete-category-${cat.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {level3Categories.length === 0 && (
+                <p className="text-sm text-muted-foreground">No Level 3 categories yet</p>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -317,7 +657,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-5' : 'grid-cols-3'}`} data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-6' : 'grid-cols-3'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
@@ -336,6 +676,10 @@ export default function Settings() {
               <TabsTrigger value="payment" data-testid="tab-payment">
                 <CreditCard className="h-4 w-4 mr-2" />
                 Payment
+              </TabsTrigger>
+              <TabsTrigger value="categories" data-testid="tab-categories">
+                <Tag className="h-4 w-4 mr-2" />
+                Categories
               </TabsTrigger>
             </>
           )}
@@ -706,6 +1050,12 @@ export default function Settings() {
                 </Form>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {isSeller && (
+          <TabsContent value="categories">
+            <CategoryManagement />
           </TabsContent>
         )}
 
