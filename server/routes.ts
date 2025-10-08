@@ -6,6 +6,7 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isSeller } from "./replitAuth";
 import Stripe from "stripe";
+import { getExchangeRates, getUserCurrency } from "./currencyService";
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -875,6 +876,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(orders);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // Currency API routes
+  app.get("/api/currency/rates", async (req, res) => {
+    try {
+      const ratesData = await getExchangeRates();
+      res.json(ratesData);
+    } catch (error) {
+      console.error("Error fetching exchange rates:", error);
+      res.status(500).json({ error: "Failed to fetch exchange rates" });
+    }
+  });
+
+  app.get("/api/currency/detect", async (req, res) => {
+    try {
+      // Get country code from IP geolocation header (provided by Replit)
+      const countryCode = req.headers['x-replit-user-geo-country-code'] as string || 
+                         req.headers['cf-ipcountry'] as string;
+      
+      const currency = await getUserCurrency(countryCode);
+      res.json({ currency, countryCode: countryCode || 'US' });
+    } catch (error) {
+      console.error("Error detecting currency:", error);
+      res.json({ currency: 'USD', countryCode: 'US' });
     }
   });
 
