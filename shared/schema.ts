@@ -81,6 +81,7 @@ export const sessions = pgTable(
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
+  username: varchar("username").unique(), // Store subdomain username (8 digits or Instagram handle)
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -92,6 +93,8 @@ export const users = pgTable("users", {
   paymentProvider: varchar("payment_provider").default("stripe"), // stripe, paypal
   stripeConnectedAccountId: varchar("stripe_connected_account_id"), // Stripe Connect account ID
   paypalMerchantId: varchar("paypal_merchant_id"), // PayPal merchant ID
+  customDomain: varchar("custom_domain"), // Custom domain for store (e.g., mystore.com)
+  customDomainVerified: integer("custom_domain_verified").default(0), // 0 = false, 1 = true
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
