@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { ShoppingBag } from "lucide-react";
 
 export default function Login() {
@@ -34,7 +35,12 @@ export default function Login() {
           title: "Login successful",
           description: "Redirecting...",
         });
-        navigate(data.redirectUrl);
+        
+        await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        
+        setTimeout(() => {
+          window.location.href = data.redirectUrl;
+        }, 500);
       } else {
         toast({
           title: "Login failed",
