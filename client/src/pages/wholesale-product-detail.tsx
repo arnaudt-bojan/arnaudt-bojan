@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowLeft, ShoppingCart, Package, TrendingUp, AlertCircle } from "lucide-react";
-import { useCurrency } from "@/hooks/use-currency";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 

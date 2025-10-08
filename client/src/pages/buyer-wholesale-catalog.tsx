@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package2, TrendingUp, ShoppingCart } from "lucide-react";
 import { useLocation } from "wouter";
-import { useCurrency } from "@/hooks/use-currency";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface WholesaleProduct {
   id: string;

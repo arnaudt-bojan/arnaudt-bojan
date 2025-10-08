@@ -1519,6 +1519,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Buyer Wholesale Routes (Invitation-Protected)
+  app.get("/api/wholesale/buyer/catalog", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.email) {
+        return res.status(403).json({ message: "User not found" });
+      }
+
+      // Check if user has any accepted invitations
+      const allInvitations = await storage.getAllWholesaleInvitations();
+      const userInvitations = allInvitations.filter(
+        inv => inv.buyerEmail === user.email && inv.status === "accepted"
+      );
+
+      if (userInvitations.length === 0) {
+        // No invitations - return empty catalog
+        return res.json([]);
+      }
+
+      // Get all wholesale products from sellers who invited this buyer
+      const sellerIds = userInvitations.map(inv => inv.sellerId);
+      const allProducts = await storage.getAllWholesaleProducts();
+      const invitedProducts = allProducts.filter(p => sellerIds.includes(p.sellerId));
+
+      res.json(invitedProducts);
+    } catch (error) {
+      console.error("Error fetching buyer wholesale catalog:", error);
+      res.status(500).json({ message: "Failed to fetch catalog" });
+    }
+  });
+
+  app.get("/api/wholesale/buyer/products/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.email) {
+        return res.status(403).json({ message: "User not found" });
+      }
+
+      // Get the product
+      const product = await storage.getWholesaleProduct(id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Check if user has accepted invitation from this seller
+      const allInvitations = await storage.getAllWholesaleInvitations();
+      const hasInvitation = allInvitations.some(
+        inv => inv.buyerEmail === user.email && 
+               inv.sellerId === product.sellerId && 
+               inv.status === "accepted"
+      );
+
+      if (!hasInvitation) {
+        return res.status(403).json({ message: "Access denied. Invitation required." });
+      }
+
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching wholesale product:", error);
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
   // Currency API routes
   app.get("/api/currency/rates", async (req, res) => {
     try {

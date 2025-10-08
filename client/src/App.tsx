@@ -36,6 +36,8 @@ import Newsletter from "@/pages/newsletter";
 import WholesaleProducts from "@/pages/wholesale-products";
 import CreateWholesaleProduct from "@/pages/create-wholesale-product";
 import WholesaleInvitations from "@/pages/wholesale-invitations";
+import BuyerWholesaleCatalog from "@/pages/buyer-wholesale-catalog";
+import WholesaleProductDetail from "@/pages/wholesale-product-detail";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -74,6 +76,8 @@ function AppContent() {
           <Route path="/seller/wholesale/products" component={WholesaleProducts} />
           <Route path="/seller/wholesale/create-product" component={CreateWholesaleProduct} />
           <Route path="/seller/wholesale/invitations" component={WholesaleInvitations} />
+          <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
+          <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
           <Route component={NotFound} />
         </Switch>
       </main>
