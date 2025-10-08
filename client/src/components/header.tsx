@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShoppingCart, Store, LogOut, User, Menu, Settings } from "lucide-react";
+import { ShoppingCart, LogOut, User, Menu, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -22,6 +22,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import logoImage from "@assets/image_1759955736836.png";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -94,6 +95,34 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     </Link>
                   </>
                 )}
+                {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
+                  <>
+                    <Link
+                      href="/seller/wholesale/products"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-wholesale"
+                    >
+                      Wholesale
+                    </Link>
+                    <Link
+                      href="/social-ads-setup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-social-ads"
+                    >
+                      Social Ads
+                    </Link>
+                    <Link
+                      href="/newsletter"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-newsletter"
+                    >
+                      Newsletter
+                    </Link>
+                  </>
+                )}
                 {isAuthenticated && (user?.role === "owner" || user?.role === "admin") && (
                   <>
                     <Link
@@ -112,13 +141,31 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     >
                       Team
                     </Link>
+                    <Link
+                      href="/quick-access"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-quick-access"
+                    >
+                      Quick Access
+                    </Link>
                   </>
+                )}
+                {isAuthenticated && user?.role === "buyer" && (
+                  <Link
+                    href="/wholesale/catalog"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                    data-testid="mobile-link-buyer-wholesale"
+                  >
+                    Wholesale Catalog
+                  </Link>
                 )}
               </nav>
             </SheetContent>
           </Sheet>
           <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-            <Store className="h-6 w-6" />
+            <img src={logoImage} alt="Uppshop" className="h-8 w-8" />
             <span className="text-xl font-bold">Uppshop</span>
           </Link>
         </div>
@@ -175,6 +222,37 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </Link>
             </>
           )}
+          {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
+            <>
+              <Link
+                href="/seller/wholesale/products"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/seller/wholesale/products" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-wholesale"
+              >
+                Wholesale
+              </Link>
+              <Link
+                href="/social-ads-setup"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/social-ads-setup" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-social-ads"
+              >
+                Social Ads
+              </Link>
+              <Link
+                href="/newsletter"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/newsletter" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-newsletter"
+              >
+                Newsletter
+              </Link>
+            </>
+          )}
           {isAuthenticated && (user?.role === "owner" || user?.role === "admin") && (
             <>
               <Link
@@ -195,7 +273,27 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               >
                 Team
               </Link>
+              <Link
+                href="/quick-access"
+                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                  location === "/quick-access" ? "text-foreground" : "text-muted-foreground"
+                }`}
+                data-testid="link-quick-access"
+              >
+                Quick Access
+              </Link>
             </>
+          )}
+          {isAuthenticated && user?.role === "buyer" && (
+            <Link
+              href="/wholesale/catalog"
+              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                location === "/wholesale/catalog" ? "text-foreground" : "text-muted-foreground"
+              }`}
+              data-testid="link-buyer-wholesale"
+            >
+              Wholesale
+            </Link>
           )}
         </nav>
 
