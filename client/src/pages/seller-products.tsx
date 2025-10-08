@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Product } from "@shared/schema";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Share2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -27,10 +28,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { PromoteProductDialog } from "@/components/promote-product-dialog";
 
 export default function SellerProducts() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [promoteProduct, setPromoteProduct] = useState<Product | null>(null);
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -135,6 +138,14 @@ export default function SellerProducts() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => setPromoteProduct(product)}
+                            data-testid={`button-promote-${product.id}`}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => setLocation(`/seller/products/${product.id}/edit`)}
                             data-testid={`button-edit-${product.id}`}
                           >
@@ -185,6 +196,14 @@ export default function SellerProducts() {
             </div>
           )}
         </Card>
+
+        {promoteProduct && (
+          <PromoteProductDialog
+            open={!!promoteProduct}
+            onClose={() => setPromoteProduct(null)}
+            product={promoteProduct}
+          />
+        )}
       </div>
     </div>
   );
