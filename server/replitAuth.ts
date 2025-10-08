@@ -100,33 +100,39 @@ async function setupTestUsers() {
   ];
 
   for (const testUser of testUsers) {
-    // Check if user already exists by email
-    const allUsers = await storage.getAllUsers();
-    const existingUser = allUsers.find(u => u.email === testUser.email);
-    
-    if (existingUser) {
-      // Update existing user with password and correct role
-      await storage.upsertUser({
-        id: existingUser.id,
-        email: testUser.email,
-        firstName: testUser.firstName,
-        lastName: testUser.lastName,
-        profileImageUrl: existingUser.profileImageUrl,
-        role: testUser.role as any,
-        password: testUser.password
-      });
-    } else {
-      // Create new user
-      const userId = `local-${testUser.email}`;
-      await storage.upsertUser({
-        id: userId,
-        email: testUser.email,
-        firstName: testUser.firstName,
-        lastName: testUser.lastName,
-        profileImageUrl: null,
-        role: testUser.role as any,
-        password: testUser.password
-      });
+    try {
+      // Check if user already exists by email
+      const allUsers = await storage.getAllUsers();
+      const existingUser = allUsers.find(u => u.email === testUser.email);
+      
+      if (existingUser) {
+        // Update existing user with password and correct role
+        console.log(`[Setup] Updating test user: ${testUser.email} (ID: ${existingUser.id})`);
+        await storage.upsertUser({
+          id: existingUser.id,
+          email: testUser.email,
+          firstName: testUser.firstName,
+          lastName: testUser.lastName,
+          profileImageUrl: existingUser.profileImageUrl,
+          role: testUser.role as any,
+          password: testUser.password
+        });
+      } else {
+        // Create new user
+        const userId = `local-${testUser.email}`;
+        console.log(`[Setup] Creating test user: ${testUser.email} (ID: ${userId})`);
+        await storage.upsertUser({
+          id: userId,
+          email: testUser.email,
+          firstName: testUser.firstName,
+          lastName: testUser.lastName,
+          profileImageUrl: null,
+          role: testUser.role as any,
+          password: testUser.password
+        });
+      }
+    } catch (error) {
+      console.error(`[Setup] Error setting up test user ${testUser.email}:`, error);
     }
   }
 }
@@ -145,14 +151,25 @@ export async function setupAuth(app: Express) {
     { usernameField: 'email' },
     async (email, password, done) => {
       try {
+        console.log(`[LocalAuth] Attempting login for: ${email}`);
         // Look up user by email
         const allUsers = await storage.getAllUsers();
         const user = allUsers.find(u => u.email === email);
         
-        if (!user || user.password !== password) {
+        if (!user) {
+          console.log(`[LocalAuth] User not found: ${email}`);
+          return done(null, false, { message: 'Invalid credentials' });
+        }
+        
+        console.log(`[LocalAuth] User found. ID: ${user.id}, Password in DB: ${user.password ? 'set' : 'not set'}`);
+        
+        if (user.password !== password) {
+          console.log(`[LocalAuth] Password mismatch for ${email}`);
           return done(null, false, { message: 'Invalid credentials' });
         }
 
+        console.log(`[LocalAuth] Login successful for ${email}`);
+        
         // Create a session user object similar to OIDC
         const sessionUser = {
           claims: {
@@ -167,6 +184,7 @@ export async function setupAuth(app: Express) {
 
         return done(null, sessionUser);
       } catch (error) {
+        console.error('[LocalAuth] Error during authentication:', error);
         return done(error);
       }
     }
