@@ -14,12 +14,16 @@ export default function BuyerDashboard() {
   const { toast } = useToast();
   const [mintingOrderId, setMintingOrderId] = useState<string | null>(null);
   const [isMinting, setIsMinting] = useState(false);
-  const { connected, publicKey, connecting, connect } = useWallet();
+  const { connected, publicKey, connecting, connect, disconnect } = useWallet();
 
   const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
   const { data: orders, isLoading } = useQuery<SelectOrder[]>({
     queryKey: ["/api/orders/my-orders"],
   });
+
+  const handleDisconnect = () => {
+    disconnect();
+  };
 
   const handleMintNFT = async (order: SelectOrder) => {
     if (!order || !connected || !publicKey) return;
@@ -129,17 +133,27 @@ export default function BuyerDashboard() {
               {connecting ? "Connecting..." : "Connect Wallet"}
             </Button>
           ) : (
-            <Card className="px-4 py-2">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Connected</p>
-                  <p className="text-sm font-mono" data-testid="text-wallet-address">
-                    {publicKey?.substring(0, 4)}...{publicKey?.substring(publicKey.length - 4)}
-                  </p>
+            <div className="flex items-center gap-2">
+              <Card className="px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Connected</p>
+                    <p className="text-sm font-mono" data-testid="text-wallet-address">
+                      {publicKey?.substring(0, 4)}...{publicKey?.substring(publicKey.length - 4)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDisconnect}
+                data-testid="button-disconnect-wallet"
+              >
+                Disconnect
+              </Button>
+            </div>
           )}
         </div>
       </div>
