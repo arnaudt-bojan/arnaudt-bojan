@@ -122,6 +122,7 @@ export const users = pgTable("users", {
   instagramUserId: varchar("instagram_user_id"), // Instagram user ID from OAuth
   instagramUsername: varchar("instagram_username"), // Instagram username from OAuth
   instagramAccessToken: text("instagram_access_token"), // Instagram access token (encrypted in production)
+  shippingPrice: decimal("shipping_price", { precision: 10, scale: 2 }).default("0"), // Flat shipping rate for seller
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

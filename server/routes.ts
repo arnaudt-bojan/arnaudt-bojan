@@ -760,6 +760,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/user/shipping", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { shippingPrice } = req.body;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Validate shipping price
+      const price = parseFloat(shippingPrice);
+      if (isNaN(price) || price < 0) {
+        return res.status(400).json({ error: "Invalid shipping price" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        shippingPrice: price.toString(),
+      });
+
+      res.json({ message: "Shipping price updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Shipping price update error:", error);
+      res.status(500).json({ error: "Failed to update shipping price" });
+    }
+  });
+
+  app.get("/api/shipping-settings", async (req, res) => {
+    try {
+      // Get the first seller's shipping price (store owner)
+      const allUsers = await storage.getAllUsers();
+      const seller = allUsers.find(u => u.role === "seller");
+      
+      const shippingPrice = seller?.shippingPrice ? parseFloat(seller.shippingPrice) : 0;
+      
+      res.json({ shippingPrice });
+    } catch (error) {
+      console.error("Error fetching shipping settings:", error);
+      res.status(500).json({ error: "Failed to fetch shipping settings" });
+    }
+  });
+
   // Stripe Connect OAuth routes
   app.get("/api/stripe/connect", isAuthenticated, (req: any, res) => {
     try {
@@ -1720,12 +1763,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profileData = await profileResponse.json();
 
       // Update user with Instagram connection
-      await storage.updateUser(userId, {
-        instagramUserId: profileData.id,
-        instagramUsername: profileData.username,
-        instagramAccessToken: access_token,
-        username: profileData.username, // Also update the main username field
-      });
+      const user = await storage.getUser(userId);
+      if (user) {
+        await storage.upsertUser({
+          ...user,
+          instagramUserId: profileData.id,
+          instagramUsername: profileData.username,
+          instagramAccessToken: access_token,
+          username: profileData.username, // Also update the main username field
+        });
+      }
 
       // Clear session data
       delete req.session.instagramConnectUserId;
@@ -1741,11 +1788,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      await storage.updateUser(userId, {
-        instagramUserId: null,
-        instagramUsername: null,
-        instagramAccessToken: null,
-      });
+      const user = await storage.getUser(userId);
+      if (user) {
+        await storage.upsertUser({
+          ...user,
+          instagramUserId: null,
+          instagramUsername: null,
+          instagramAccessToken: null,
+        });
+      }
 
       res.json({ message: "Instagram disconnected successfully" });
     } catch (error) {

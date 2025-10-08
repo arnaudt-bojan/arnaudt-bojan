@@ -24,6 +24,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ShoppingBag, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
 import StripeCheckoutForm from "@/components/stripe-checkout-form";
 import type { InsertOrder } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -54,6 +55,13 @@ export default function Checkout() {
     },
   });
 
+  // Fetch shipping settings
+  const { data: shippingData } = useQuery<{ shippingPrice: number }>({
+    queryKey: ["/api/shipping-settings"],
+  });
+
+  const shippingPrice = shippingData?.shippingPrice ?? 0;
+
   // Calculate deposit vs full payment
   const paymentInfo = useMemo(() => {
     let depositTotal = 0;
@@ -71,16 +79,20 @@ export default function Checkout() {
       fullTotal += itemTotal;
     });
 
-    const remainingBalance = fullTotal - depositTotal;
+    // Add shipping to full total
+    const fullTotalWithShipping = fullTotal + shippingPrice;
+    const remainingBalance = fullTotalWithShipping - depositTotal;
 
     return {
       hasPreOrders,
       depositTotal,
       remainingBalance,
-      fullTotal,
+      fullTotal: fullTotalWithShipping,
+      subtotal: fullTotal,
+      shipping: shippingPrice,
       payingDepositOnly: hasPreOrders && depositTotal > 0,
     };
-  }, [items]);
+  }, [items, shippingPrice]);
 
   const amountToPay = paymentInfo.payingDepositOnly ? paymentInfo.depositTotal : paymentInfo.fullTotal;
 
@@ -408,8 +420,18 @@ export default function Checkout() {
 
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Order Total</span>
-                  <span data-testid="text-subtotal">${paymentInfo.fullTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span data-testid="text-subtotal">${paymentInfo.subtotal.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Shipping</span>
+                  <span data-testid="text-shipping">${paymentInfo.shipping.toFixed(2)}</span>
+                </div>
+
+                <div className="border-t pt-3 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span data-testid="text-total">${paymentInfo.fullTotal.toFixed(2)}</span>
                 </div>
 
                 {paymentInfo.payingDepositOnly && (
@@ -425,10 +447,6 @@ export default function Checkout() {
                   </>
                 )}
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="text-green-600">Free</span>
-                </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Pay Now</span>
                   <span data-testid="text-total">

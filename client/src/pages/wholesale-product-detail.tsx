@@ -50,7 +50,7 @@ export default function WholesaleProductDetail() {
   const [, setLocation] = useLocation();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
-  const { addItem } = useCart();
+  const { addItem, updateQuantity } = useCart();
 
   // Quantity selections for variants
   const [variantQuantities, setVariantQuantities] = useState<Map<string, number>>(new Map());
@@ -128,7 +128,8 @@ export default function WholesaleProductDetail() {
       };
 
       // Add to cart with total quantity
-      addItem(cartItem, totalQuantity);
+      addItem(cartItem);
+      updateQuantity(cartItem.id, totalQuantity);
 
       toast({
         title: "Added to Cart",
@@ -149,7 +150,8 @@ export default function WholesaleProductDetail() {
         requiresDeposit: product.requiresDeposit,
       };
 
-      addItem(cartItem, product.moq);
+      addItem(cartItem);
+      updateQuantity(cartItem.id, product.moq);
 
       toast({
         title: "Added to Cart",

@@ -49,11 +49,16 @@ const customDomainSchema = z.object({
     .or(z.literal("")),
 });
 
+const shippingSchema = z.object({
+  shippingPrice: z.string().min(0, "Shipping price must be 0 or greater"),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
 type UsernameForm = z.infer<typeof usernameSchema>;
 type CustomDomainForm = z.infer<typeof customDomainSchema>;
+type ShippingForm = z.infer<typeof shippingSchema>;
 
 interface Category {
   id: string;
@@ -484,6 +489,13 @@ export default function Settings() {
     },
   });
 
+  const shippingForm = useForm<ShippingForm>({
+    resolver: zodResolver(shippingSchema),
+    defaultValues: {
+      shippingPrice: user?.shippingPrice || "0",
+    },
+  });
+
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileForm) => {
       return await apiRequest("PATCH", "/api/user/profile", data);
@@ -585,6 +597,23 @@ export default function Settings() {
       toast({ 
         title: "Error", 
         description: error.message || "Failed to update custom domain", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateShippingMutation = useMutation({
+    mutationFn: async (data: ShippingForm) => {
+      return await apiRequest("PATCH", "/api/user/shipping", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Shipping updated", description: "Your shipping price has been updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update shipping price", 
         variant: "destructive" 
       });
     },
@@ -1144,6 +1173,49 @@ export default function Settings() {
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Shipping Settings</CardTitle>
+                <CardDescription>Configure shipping price for your products</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...shippingForm}>
+                  <form onSubmit={shippingForm.handleSubmit((data) => updateShippingMutation.mutate(data))} className="space-y-4">
+                    <FormField
+                      control={shippingForm.control}
+                      name="shippingPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Flat Rate Shipping Price</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type="number" 
+                              step="0.01" 
+                              min="0" 
+                              placeholder="0.00" 
+                              data-testid="input-shipping-price" 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Set a flat rate shipping price for all orders. Enter 0 for free shipping.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={updateShippingMutation.isPending}
+                      data-testid="button-save-shipping"
+                    >
+                      {updateShippingMutation.isPending ? "Saving..." : "Save Shipping Price"}
+                    </Button>
+                  </form>
+                </Form>
               </CardContent>
             </Card>
           </TabsContent>
