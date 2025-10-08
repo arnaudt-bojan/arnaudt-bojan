@@ -5,6 +5,16 @@ import { insertOrderSchema, insertProductSchema, orderStatusEnum } from "@shared
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isSeller } from "./replitAuth";
+import Stripe from "stripe";
+
+// Reference: javascript_stripe integration
+// Initialize Stripe with secret key when available
+let stripe: Stripe | null = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2025-09-30.clover",
+  });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -140,6 +150,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       res.status(500).json({ error: "Failed to update order status" });
+    }
+  });
+
+  // Reference: javascript_stripe integration
+  // Stripe payment intent creation for checkout
+  app.post("/api/create-payment-intent", isAuthenticated, async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ 
+          error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
+        });
+      }
+
+      const { amount, orderId, paymentType = "full" } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Invalid amount" });
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true, // Enables Apple Pay, Google Pay, and other payment methods
+        },
+        metadata: {
+          orderId: orderId || "",
+          paymentType,
+        },
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      });
+    } catch (error: any) {
+      console.error("Stripe payment intent error:", error);
+      res.status(500).json({ 
+        error: "Error creating payment intent: " + error.message 
+      });
+    }
+  });
+
+  // Seller-triggered balance payment for pre-orders
+  app.post("/api/trigger-balance-payment/:orderId", isAuthenticated, async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ 
+          error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
+        });
+      }
+
+      const order = await storage.getOrder(req.params.orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const remainingBalance = parseFloat(order.remainingBalance || "0");
+      if (remainingBalance <= 0) {
+        return res.status(400).json({ error: "No balance remaining" });
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(remainingBalance * 100),
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: {
+          orderId: order.id,
+          paymentType: "balance",
+        },
+      });
+
+      // Update order with balance payment intent ID
+      await storage.updateOrderBalancePaymentIntent(order.id, paymentIntent.id);
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        amount: remainingBalance,
+      });
+    } catch (error: any) {
+      console.error("Balance payment error:", error);
+      res.status(500).json({ 
+        error: "Error creating balance payment: " + error.message 
+      });
     }
   });
 

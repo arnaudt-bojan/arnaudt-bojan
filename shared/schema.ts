@@ -9,6 +9,9 @@ export type ProductType = z.infer<typeof productTypeEnum>;
 export const orderStatusEnum = z.enum(["pending", "processing", "shipped", "delivered", "cancelled"]);
 export type OrderStatus = z.infer<typeof orderStatusEnum>;
 
+export const paymentStatusEnum = z.enum(["pending", "deposit_paid", "fully_paid", "refunded"]);
+export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
+
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -47,6 +50,9 @@ export const orders = pgTable("orders", {
   amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).default("0"),
   remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).default("0"),
   paymentType: text("payment_type").default("full"), // "full", "deposit", "balance"
+  paymentStatus: text("payment_status").default("pending"), // "pending", "deposit_paid", "fully_paid"
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"), // Stripe payment intent ID for deposit
+  stripeBalancePaymentIntentId: varchar("stripe_balance_payment_intent_id"), // Stripe payment intent ID for balance
   status: text("status").notNull().default("pending"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
