@@ -3,6 +3,7 @@ import { ShoppingCart, Store, LogOut, User, Menu } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
+import { CurrencySelector } from "./currency-selector";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -178,6 +179,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
         </nav>
 
         <div className="flex items-center gap-2">
+          <CurrencySelector />
           <ThemeToggle />
           <Button
             variant="ghost"

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/lib/cart-context";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { Header } from "@/components/header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
@@ -72,10 +73,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <CartProvider>
-            <AppContent />
-            <Toaster />
-          </CartProvider>
+          <CurrencyProvider>
+            <CartProvider>
+              <AppContent />
+              <Toaster />
+            </CartProvider>
+          </CurrencyProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
