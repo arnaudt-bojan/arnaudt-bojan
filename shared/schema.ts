@@ -84,6 +84,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  password: varchar("password"), // For local test accounts
   role: varchar("role").notNull().default("customer"),
   invitedBy: varchar("invited_by"), // User ID of who invited this user
   createdAt: timestamp("created_at").defaultNow(),

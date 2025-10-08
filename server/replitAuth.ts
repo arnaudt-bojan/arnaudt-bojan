@@ -1,6 +1,7 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
@@ -91,11 +92,69 @@ async function upsertUser(claims: any, intendedRole?: string) {
   }
 }
 
+// Setup test users for local authentication
+async function setupTestUsers() {
+  const testUsers = [
+    { email: "testbuyer@test.com", password: "123456", role: "buyer", firstName: "Test", lastName: "Buyer" },
+    { email: "testseller@test.com", password: "123456", role: "seller", firstName: "Test", lastName: "Seller" }
+  ];
+
+  for (const testUser of testUsers) {
+    const userId = `local-${testUser.email}`;
+    const existingUser = await storage.getUser(userId);
+    if (!existingUser) {
+      await storage.upsertUser({
+        id: userId,
+        email: testUser.email,
+        firstName: testUser.firstName,
+        lastName: testUser.lastName,
+        profileImageUrl: null,
+        role: testUser.role as any,
+        password: testUser.password
+      });
+    }
+  }
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Setup test users
+  await setupTestUsers();
+
+  // Local strategy for testing
+  passport.use(new LocalStrategy(
+    { usernameField: 'email' },
+    async (email, password, done) => {
+      try {
+        const userId = `local-${email}`;
+        const user = await storage.getUser(userId);
+        
+        if (!user || user.password !== password) {
+          return done(null, false, { message: 'Invalid credentials' });
+        }
+
+        // Create a session user object similar to OIDC
+        const sessionUser = {
+          claims: {
+            sub: user.id,
+            email: user.email,
+            first_name: user.firstName,
+            last_name: user.lastName,
+          },
+          access_token: 'local-auth',
+          expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+        };
+
+        return done(null, sessionUser);
+      } catch (error) {
+        return done(error);
+      }
+    }
+  ));
 
   const config = await getOidcConfig();
 
@@ -165,14 +224,48 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
+  // Local login route for testing
+  app.post("/api/local-login", (req, res, next) => {
+    passport.authenticate("local", async (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ error: "Authentication error" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+      }
+
+      req.login(user, async (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ error: "Login failed" });
+        }
+
+        const dbUser = await storage.getUser(user.claims.sub);
+
+        let redirectUrl = "/";
+        if (dbUser?.role === "buyer") {
+          redirectUrl = "/buyer-dashboard";
+        } else if (dbUser?.role === "seller" || dbUser?.role === "owner" || dbUser?.role === "admin") {
+          redirectUrl = "/seller-dashboard";
+        }
+
+        return res.json({ success: true, redirectUrl });
+      });
+    })(req, res, next);
+  });
+
   app.get("/api/logout", (req, res) => {
+    const isLocalAuth = (req.user as any)?.access_token === 'local-auth';
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      if (isLocalAuth) {
+        res.redirect("/");
+      } else {
+        res.redirect(
+          client.buildEndSessionUrl(config, {
+            client_id: process.env.REPL_ID!,
+            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          }).href
+        );
+      }
     });
   });
 }
