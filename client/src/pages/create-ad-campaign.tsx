@@ -148,8 +148,8 @@ export default function CreateAdCampaign() {
             <p className="text-muted-foreground mb-6">
               You need to configure your Meta API credentials before creating ad campaigns.
             </p>
-            <Button onClick={() => setLocation("/meta-ads-setup")}>
-              Setup Meta API
+            <Button onClick={() => setLocation("/social-ads-setup")}>
+              Setup Social Ads
             </Button>
           </Card>
         </div>

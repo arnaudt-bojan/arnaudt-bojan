@@ -8,11 +8,15 @@ import {
   type Invitation,
   type InsertInvitation,
   type MetaSettings,
+  type TikTokSettings,
+  type XSettings,
   users,
   products,
   orders,
   invitations,
-  metaSettings
+  metaSettings,
+  tiktokSettings,
+  xSettings
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -49,6 +53,14 @@ export interface IStorage {
   saveMetaSettings(userId: string, settings: Partial<MetaSettings>): Promise<MetaSettings>;
   getMetaSettings(userId: string): Promise<MetaSettings | undefined>;
   deleteMetaSettings(userId: string): Promise<boolean>;
+  
+  saveTikTokSettings(userId: string, settings: Partial<TikTokSettings>): Promise<TikTokSettings>;
+  getTikTokSettings(userId: string): Promise<TikTokSettings | undefined>;
+  deleteTikTokSettings(userId: string): Promise<boolean>;
+  
+  saveXSettings(userId: string, settings: Partial<XSettings>): Promise<XSettings>;
+  getXSettings(userId: string): Promise<XSettings | undefined>;
+  deleteXSettings(userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -321,6 +333,68 @@ export class DatabaseStorage implements IStorage {
   async deleteMetaSettings(userId: string): Promise<boolean> {
     await this.ensureInitialized();
     const result = await this.db.delete(metaSettings).where(eq(metaSettings.userId, userId));
+    return true;
+  }
+
+  async saveTikTokSettings(userId: string, settings: Partial<TikTokSettings>): Promise<TikTokSettings> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(tiktokSettings)
+      .values({
+        userId,
+        ...settings,
+      })
+      .onConflictDoUpdate({
+        target: tiktokSettings.userId,
+        set: {
+          ...settings,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getTikTokSettings(userId: string): Promise<TikTokSettings | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(tiktokSettings).where(eq(tiktokSettings.userId, userId)).limit(1);
+    return result[0];
+  }
+
+  async deleteTikTokSettings(userId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db.delete(tiktokSettings).where(eq(tiktokSettings.userId, userId));
+    return true;
+  }
+
+  async saveXSettings(userId: string, settings: Partial<XSettings>): Promise<XSettings> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(xSettings)
+      .values({
+        userId,
+        ...settings,
+      })
+      .onConflictDoUpdate({
+        target: xSettings.userId,
+        set: {
+          ...settings,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getXSettings(userId: string): Promise<XSettings | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(xSettings).where(eq(xSettings.userId, userId)).limit(1);
+    return result[0];
+  }
+
+  async deleteXSettings(userId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db.delete(xSettings).where(eq(xSettings.userId, userId));
     return true;
   }
 }

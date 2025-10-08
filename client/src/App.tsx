@@ -21,7 +21,7 @@ import Orders from "@/pages/orders";
 import QuickAccess from "@/pages/quick-access";
 import Team from "@/pages/team";
 import AcceptInvitation from "@/pages/accept-invitation";
-import MetaAdsSetup from "@/pages/meta-ads-setup";
+import SocialAdsSetup from "@/pages/social-ads-setup";
 import CreateAdCampaign from "@/pages/create-ad-campaign";
 import NotFound from "@/pages/not-found";
 
@@ -47,7 +47,7 @@ function AppContent() {
           <Route path="/quick-access" component={QuickAccess} />
           <Route path="/team" component={Team} />
           <Route path="/accept-invitation" component={AcceptInvitation} />
-          <Route path="/meta-ads-setup" component={MetaAdsSetup} />
+          <Route path="/social-ads-setup" component={SocialAdsSetup} />
           <Route path="/create-ad-campaign" component={CreateAdCampaign} />
           <Route component={NotFound} />
         </Switch>

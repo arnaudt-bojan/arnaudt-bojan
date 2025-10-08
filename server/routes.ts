@@ -557,6 +557,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // TikTok OAuth routes
+  app.get("/api/tiktok-auth/connect", isAuthenticated, (req, res) => {
+    const appId = process.env.TIKTOK_APP_ID || "YOUR_APP_ID";
+    const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/tiktok-auth/callback`;
+    
+    const authUrl = `https://business-api.tiktok.com/portal/auth?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=STATE`;
+    
+    res.redirect(authUrl);
+  });
+
+  app.get("/api/tiktok-auth/callback", isAuthenticated, async (req: any, res) => {
+    try {
+      const { auth_code } = req.query;
+      const userId = req.user.claims.sub;
+      
+      if (!auth_code) {
+        return res.send(`
+          <html>
+            <script>
+              window.opener.postMessage({ type: 'TIKTOK_AUTH_ERROR', error: 'No authorization code' }, '*');
+              window.close();
+            </script>
+            <body><p>Failed to connect. This window will close automatically...</p></body>
+          </html>
+        `);
+      }
+
+      const appId = process.env.TIKTOK_APP_ID;
+      const appSecret = process.env.TIKTOK_APP_SECRET;
+
+      // Exchange code for access token
+      const tokenResponse = await fetch(
+        `https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            app_id: appId,
+            secret: appSecret,
+            auth_code: auth_code,
+          }),
+        }
+      );
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenData.data?.access_token) {
+        return res.send(`
+          <html>
+            <script>
+              window.opener.postMessage({ type: 'TIKTOK_AUTH_ERROR', error: 'Token exchange failed' }, '*');
+              window.close();
+            </script>
+            <body><p>Failed to connect. This window will close automatically...</p></body>
+          </html>
+        `);
+      }
+
+      // Get advertiser info
+      const advertiserResponse = await fetch(
+        `https://business-api.tiktok.com/open_api/v1.3/oauth2/advertiser/get/`,
+        {
+          method: "GET",
+          headers: {
+            "Access-Token": tokenData.data.access_token,
+          },
+        }
+      );
+      const advertiserData = await advertiserResponse.json();
+      const firstAdvertiser = advertiserData.data?.list?.[0];
+      
+      // Store settings in database
+      await storage.saveTikTokSettings(userId, {
+        accessToken: tokenData.data.access_token,
+        refreshToken: tokenData.data.refresh_token,
+        advertiserId: firstAdvertiser?.advertiser_id || "",
+        advertiserName: firstAdvertiser?.advertiser_name || "TikTok Advertiser",
+        connected: 1,
+      });
+
+      res.send(`
+        <html>
+          <script>
+            window.opener.postMessage({ type: 'TIKTOK_AUTH_SUCCESS' }, '*');
+            window.close();
+          </script>
+          <body><p>Connected successfully! This window will close automatically...</p></body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("TikTok OAuth error:", error);
+      res.send(`
+        <html>
+          <script>
+            window.opener.postMessage({ type: 'TIKTOK_AUTH_ERROR', error: 'Failed to connect' }, '*');
+            window.close();
+          </script>
+          <body><p>Connection failed. This window will close automatically...</p></body>
+        </html>
+      `);
+    }
+  });
+
+  app.post("/api/tiktok-auth/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.deleteTikTokSettings(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  app.get("/api/tiktok-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getTikTokSettings(userId);
+      
+      if (settings) {
+        res.json({
+          connected: settings.connected,
+          advertiserId: settings.advertiserId,
+          advertiserName: settings.advertiserName,
+          accessToken: !!settings.accessToken,
+        });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  // X (Twitter) OAuth routes - Note: X Ads API uses OAuth 1.0a
+  app.get("/api/x-auth/connect", isAuthenticated, (req, res) => {
+    // X Ads API requires OAuth 1.0a which is more complex
+    // For now, return placeholder
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h2>X (Twitter) Ads Integration</h2>
+          <p>X Ads API uses OAuth 1.0a authentication.</p>
+          <p>Please contact support for setup assistance.</p>
+          <button onclick="window.close()" style="margin-top: 20px; padding: 10px 20px; cursor: pointer;">Close</button>
+        </body>
+      </html>
+    `);
+  });
+
+  app.post("/api/x-auth/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.deleteXSettings(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to disconnect" });
+    }
+  });
+
+  app.get("/api/x-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getXSettings(userId);
+      
+      if (settings) {
+        res.json({
+          connected: settings.connected,
+          accountId: settings.accountId,
+          accountName: settings.accountName,
+          accessToken: !!settings.accessToken,
+        });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

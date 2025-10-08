@@ -120,3 +120,33 @@ export const metaSettings = pgTable("meta_settings", {
 
 export type MetaSettings = typeof metaSettings.$inferSelect;
 export type InsertMetaSettings = typeof metaSettings.$inferInsert;
+
+export const tiktokSettings = pgTable("tiktok_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  advertiserId: varchar("advertiser_id"),
+  advertiserName: varchar("advertiser_name"),
+  connected: integer("connected").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type TikTokSettings = typeof tiktokSettings.$inferSelect;
+export type InsertTikTokSettings = typeof tiktokSettings.$inferInsert;
+
+export const xSettings = pgTable("x_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  accessToken: text("access_token"),
+  accessTokenSecret: text("access_token_secret"),
+  accountId: varchar("account_id"),
+  accountName: varchar("account_name"),
+  connected: integer("connected").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type XSettings = typeof xSettings.$inferSelect;
+export type InsertXSettings = typeof xSettings.$inferInsert;
