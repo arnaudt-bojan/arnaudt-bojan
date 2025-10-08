@@ -1,9 +1,10 @@
 import { Link } from "wouter";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProductTypeBadge } from "./product-type-badge";
 import type { Product } from "@shared/schema";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface ProductCardProps {
@@ -13,13 +14,33 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const { formatPrice } = useCurrency();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // Use images array if available, otherwise fall back to single image
+  const productImages = product.images && product.images.length > 0 
+    ? product.images 
+    : [product.image];
+  
+  const hasMultipleImages = productImages.length > 1;
+  
+  const nextImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % productImages.length);
+  };
+  
+  const prevImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
+  };
 
   return (
     <Card className="overflow-hidden hover-elevate transition-all duration-300 group">
       <Link href={`/products/${product.id}`} data-testid={`link-product-${product.id}`}>
         <div className="aspect-square relative overflow-hidden bg-muted">
           <img
-            src={product.image}
+            src={productImages[currentImageIndex]}
             alt={product.name}
             className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
             data-testid={`img-product-${product.id}`}
@@ -27,6 +48,42 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           <div className="absolute top-3 right-3">
             <ProductTypeBadge type={product.productType as any} />
           </div>
+          
+          {hasMultipleImages && (
+            <>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                onClick={prevImage}
+                data-testid={`button-prev-image-${product.id}`}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                onClick={nextImage}
+                data-testid={`button-next-image-${product.id}`}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+                {productImages.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`h-1.5 w-1.5 rounded-full transition-all ${
+                      index === currentImageIndex
+                        ? "bg-white w-4"
+                        : "bg-white/50"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </Link>
       <div className="p-4 space-y-3">
