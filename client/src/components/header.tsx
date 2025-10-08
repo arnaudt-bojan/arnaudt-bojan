@@ -40,7 +40,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
         <div className="flex items-center gap-2">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" data-testid="button-mobile-menu">
+              <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -168,133 +168,6 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             <img src={logoImage} alt="Uppshop Logo" className="h-8" />
           </Link>
         </div>
-
-        <nav className="hidden md:flex items-center gap-6">
-          <Link
-            href="/products"
-            className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-              location === "/products" ? "text-foreground" : "text-muted-foreground"
-            }`}
-            data-testid="link-products"
-          >
-            Products
-          </Link>
-          {isAuthenticated && user?.role === "buyer" && (
-            <Link
-              href="/buyer-dashboard"
-              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                location === "/buyer-dashboard" ? "text-foreground" : "text-muted-foreground"
-              }`}
-              data-testid="link-buyer-dashboard"
-            >
-              My Orders
-            </Link>
-          )}
-          {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
-            <>
-              <Link
-                href="/seller-dashboard"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/seller-dashboard" || location === "/seller/dashboard" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-seller-dashboard"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/seller/products"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/seller/products" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-seller-products"
-              >
-                My Products
-              </Link>
-              <Link
-                href="/orders"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/orders" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-orders"
-              >
-                Orders
-              </Link>
-            </>
-          )}
-          {isAuthenticated && (user?.role === "seller" || user?.role === "owner" || user?.role === "admin") && (
-            <>
-              <Link
-                href="/seller/wholesale/products"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/seller/wholesale/products" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-wholesale"
-              >
-                Wholesale
-              </Link>
-              <Link
-                href="/social-ads-setup"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/social-ads-setup" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-social-ads"
-              >
-                Social Ads
-              </Link>
-              <Link
-                href="/newsletter"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/newsletter" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-newsletter"
-              >
-                Newsletter
-              </Link>
-            </>
-          )}
-          {isAuthenticated && (user?.role === "owner" || user?.role === "admin") && (
-            <>
-              <Link
-                href="/order-management"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/order-management" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-order-management"
-              >
-                Order Mgmt
-              </Link>
-              <Link
-                href="/team"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/team" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-team"
-              >
-                Team
-              </Link>
-              <Link
-                href="/quick-access"
-                className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                  location === "/quick-access" ? "text-foreground" : "text-muted-foreground"
-                }`}
-                data-testid="link-quick-access"
-              >
-                Quick Access
-              </Link>
-            </>
-          )}
-          {isAuthenticated && user?.role === "buyer" && (
-            <Link
-              href="/wholesale/catalog"
-              className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
-                location === "/wholesale/catalog" ? "text-foreground" : "text-muted-foreground"
-              }`}
-              data-testid="link-buyer-wholesale"
-            >
-              Wholesale
-            </Link>
-          )}
-        </nav>
 
         <div className="flex items-center gap-2">
           <CurrencySelector />
