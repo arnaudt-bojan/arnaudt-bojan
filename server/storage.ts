@@ -5,9 +5,12 @@ import {
   type InsertProduct,
   type Order,
   type InsertOrder,
+  type Invitation,
+  type InsertInvitation,
   users,
   products,
-  orders
+  orders,
+  invitations
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -18,7 +21,10 @@ neonConfig.webSocketConstructor = ws;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserRole(userId: string, role: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -32,6 +38,11 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderBalancePaymentIntent(id: string, paymentIntentId: string): Promise<Order | undefined>;
+  
+  createInvitation(invitation: InsertInvitation): Promise<Invitation>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  updateInvitationStatus(token: string, status: string): Promise<Invitation | undefined>;
+  getAllInvitations(): Promise<Invitation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -148,6 +159,46 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.update(orders).set({ stripeBalancePaymentIntentId: paymentIntentId }).where(eq(orders.id, id)).returning();
     return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result[0];
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    return result[0];
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async createInvitation(insertInvitation: InsertInvitation): Promise<Invitation> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(invitations).values(insertInvitation).returning();
+    return result[0];
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(invitations).where(eq(invitations.token, token)).limit(1);
+    return result[0];
+  }
+
+  async updateInvitationStatus(token: string, status: string): Promise<Invitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(invitations).set({ status }).where(eq(invitations.token, token)).returning();
+    return result[0];
+  }
+
+  async getAllInvitations(): Promise<Invitation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(invitations).orderBy(desc(invitations.createdAt));
   }
 
   private async seedProducts() {

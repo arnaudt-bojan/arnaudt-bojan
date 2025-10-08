@@ -19,6 +19,8 @@ import CreateProduct from "@/pages/create-product";
 import EditProduct from "@/pages/edit-product";
 import Orders from "@/pages/orders";
 import QuickAccess from "@/pages/quick-access";
+import Team from "@/pages/team";
+import AcceptInvitation from "@/pages/accept-invitation";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -41,6 +43,8 @@ function AppContent() {
           <Route path="/seller/products/:id/edit" component={EditProduct} />
           <Route path="/orders" component={Orders} />
           <Route path="/quick-access" component={QuickAccess} />
+          <Route path="/team" component={Team} />
+          <Route path="/accept-invitation" component={AcceptInvitation} />
           <Route component={NotFound} />
         </Switch>
       </main>

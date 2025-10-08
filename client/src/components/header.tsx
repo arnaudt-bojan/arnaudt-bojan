@@ -81,6 +81,16 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     >
                       My Orders
                     </Link>
+                    {user && (user.role === "owner" || user.role === "admin") && (
+                      <Link
+                        href="/team"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                        data-testid="mobile-link-team"
+                      >
+                        Team
+                      </Link>
+                    )}
                   </>
                 )}
               </nav>
@@ -131,6 +141,17 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               >
                 Orders
               </Link>
+              {user && (user.role === "owner" || user.role === "admin") && (
+                <Link
+                  href="/team"
+                  className={`text-sm font-medium hover-elevate px-3 py-2 rounded-lg transition-colors ${
+                    location === "/team" ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                  data-testid="link-team"
+                >
+                  Team
+                </Link>
+              )}
             </>
           )}
         </nav>

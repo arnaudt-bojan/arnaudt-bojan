@@ -12,6 +12,12 @@ export type OrderStatus = z.infer<typeof orderStatusEnum>;
 export const paymentStatusEnum = z.enum(["pending", "deposit_paid", "fully_paid", "refunded"]);
 export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
 
+export const userRoleEnum = z.enum(["owner", "admin", "manager", "staff", "viewer", "customer"]);
+export type UserRole = z.infer<typeof userRoleEnum>;
+
+export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
+export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
+
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -78,9 +84,25 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("customer"),
+  invitedBy: varchar("invited_by"), // User ID of who invited this user
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+export const invitations = pgTable("invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  role: varchar("role").notNull(),
+  invitedBy: varchar("invited_by").notNull(), // User ID of who sent invitation
+  status: varchar("status").notNull().default("pending"),
+  token: varchar("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type Invitation = typeof invitations.$inferSelect;

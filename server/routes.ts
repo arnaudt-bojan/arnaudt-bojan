@@ -193,6 +193,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Team Management - Invite users
+  app.post("/api/invitations", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Only owners and admins can invite users" });
+      }
+
+      const { email, role } = req.body;
+      if (!email || !role) {
+        return res.status(400).json({ error: "Email and role are required" });
+      }
+
+      if (!["admin", "manager", "staff", "viewer"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "User with this email already exists" });
+      }
+
+      // Generate unique token
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      const invitation = await storage.createInvitation({
+        email,
+        role,
+        invitedBy: currentUser.id,
+        status: "pending",
+        token,
+        expiresAt,
+      });
+
+      // In a real app, you'd send an email here with the invitation link
+      const invitationLink = `${req.protocol}://${req.get('host')}/accept-invitation?token=${token}`;
+
+      res.status(201).json({ 
+        invitation,
+        invitationLink, // For testing purposes
+      });
+    } catch (error: any) {
+      console.error("Invitation error:", error);
+      res.status(500).json({ error: "Failed to create invitation" });
+    }
+  });
+
+  // Get all invitations
+  app.get("/api/invitations", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Only owners and admins can view invitations" });
+      }
+
+      const invitations = await storage.getAllInvitations();
+      res.json(invitations);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch invitations" });
+    }
+  });
+
+  // Accept invitation
+  app.post("/api/invitations/accept/:token", isAuthenticated, async (req: any, res) => {
+    try {
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      if (invitation.status !== "pending") {
+        return res.status(400).json({ error: "Invitation already used or expired" });
+      }
+
+      if (new Date() > new Date(invitation.expiresAt)) {
+        await storage.updateInvitationStatus(invitation.token, "expired");
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user && user.email !== invitation.email) {
+        return res.status(400).json({ error: "This invitation was sent to a different email address" });
+      }
+
+      // Update user role
+      await storage.updateUserRole(userId, invitation.role);
+      await storage.updateInvitationStatus(invitation.token, "accepted");
+
+      res.json({ message: "Invitation accepted successfully", role: invitation.role });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to accept invitation" });
+    }
+  });
+
+  // Get all team members
+  app.get("/api/team", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (!currentUser || !["owner", "admin", "manager"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+
+      const users = await storage.getAllUsers();
+      // Don't expose sensitive info
+      const sanitizedUsers = users.map(u => ({
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        role: u.role,
+        createdAt: u.createdAt,
+      }));
+      res.json(sanitizedUsers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
+  // Update user role
+  app.patch("/api/team/:userId/role", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Only owners and admins can update roles" });
+      }
+
+      const { role } = req.body;
+      if (!role || !["admin", "manager", "staff", "viewer", "customer"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+
+      const updatedUser = await storage.updateUserRole(req.params.userId, role);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ message: "User role updated successfully", user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user role" });
+    }
+  });
+
   // Seller-triggered balance payment for pre-orders
   app.post("/api/trigger-balance-payment/:orderId", isAuthenticated, async (req, res) => {
     try {
