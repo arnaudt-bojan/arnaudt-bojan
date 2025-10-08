@@ -28,6 +28,13 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Auto-Account Creation**: If email doesn't exist, automatically creates a buyer account with password "123456"
     - **Order Association**: All guest purchases are linked to user accounts (new or existing)
     - **Later Login**: Guests can log in with their email and auto-generated password to view orders
+- **Instagram OAuth Integration**:
+    - **Verified Username**: Sellers can connect their Instagram account via OAuth to automatically use their verified Instagram username as their store URL
+    - **OAuth Flow**: Popup-based OAuth using Instagram Basic Display API with automatic token exchange
+    - **Database Fields**: `instagramUserId`, `instagramUsername`, `instagramAccessToken` stored in users table
+    - **API Routes**: `/api/instagram/connect` (initiate), `/api/instagram/callback` (handle OAuth), `/api/instagram/disconnect` (remove connection)
+    - **Settings UI**: Connect/Disconnect Instagram buttons with connection status display, fallback to manual username input
+    - **Requirements**: `INSTAGRAM_APP_ID` and `INSTAGRAM_APP_SECRET` environment variables from Meta/Facebook Developer Portal
 - **Buyer/Seller Separation**:
     - **Dual Login System**: Users can login as "Buyer" or "Seller" on the home page, with separate role assignment during registration.
     - **Buyer Dashboard** (`/buyer-dashboard`): Dedicated interface for buyers to view their orders with NFT minting capabilities.
