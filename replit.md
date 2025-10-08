@@ -54,7 +54,15 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
     - **Session Management**: PostgreSQL-backed sessions (`express-session` + `connect-pg-simple`)
     - **Login Page**: `/login` route provides form-based authentication for test accounts
 - **Protected API Endpoints**: Authentication required for accessing user-specific orders, managing all orders (for dashboard), all product management operations (create, edit, delete), newsletter management, and NFT minting. Order creation supports both authenticated and guest checkout.
-- **Payment Integration**: Stripe SDK integration for Apple Pay, Google Pay, and credit card. Includes a seller-triggered balance payment system for pre-orders.
+- **Payment Integration**: 
+    - **Stripe SDK**: Apple Pay, Google Pay, and credit card support
+    - **Stripe Connect OAuth**: Sellers can connect existing Stripe accounts or create new ones via OAuth flow
+        - **OAuth Routes**: `/api/stripe/connect` (initiate), `/api/stripe/callback` (handle response), `/api/stripe/disconnect` (remove connection)
+        - **Account Connection**: Sellers redirect to Stripe for authorization, can login to existing account or create new one with minimal setup
+        - **Direct Payments**: Connected accounts receive payments directly (future feature: automatic payouts)
+        - **Settings UI**: Connection status display, connect/disconnect buttons, explanatory information
+        - **Database**: `stripeConnectedAccountId` stored in users table
+    - **Balance Payment System**: Seller-triggered balance payment for pre-order deposits
 - **Multi-Currency Support**: 
     - **Automatic Detection**: IP-based geolocation automatically detects user's currency on first visit
     - **Currency Selector**: Globe icon in header allows users to switch between 16+ popular currencies (USD, EUR, GBP, JPY, CAD, AUD, CHF, INR, etc.)
@@ -71,7 +79,7 @@ Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Data Models**: Defined schemas for:
     - `Product`: id, name, description, price, image, category, productType, stock, depositAmount, requiresDeposit
     - `Order`: id, userId, customerName, customerEmail, customerAddress, items, total, amountPaid, remainingBalance, paymentType, paymentStatus, stripePaymentIntentId, status, createdAt
-    - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, storeBanner, storeLogo, paymentProvider, createdAt, updatedAt
+    - `User`: id, email, firstName, lastName, profileImageUrl, password (for local test accounts), role (owner/admin/manager/staff/viewer/customer/buyer/seller), invitedBy, storeBanner, storeLogo, paymentProvider, stripeConnectedAccountId, paypalMerchantId, createdAt, updatedAt
     - `Newsletter`: id, userId, subject, content, recipients (jsonb), status, sentAt, createdAt
     - `NftMint`: id, orderId, userId, mintAddress, transactionSignature, metadata (jsonb), createdAt
 - **Database**: PostgreSQL with Drizzle ORM for all persistent data (products, orders, users, sessions, newsletters, nft_mints).
