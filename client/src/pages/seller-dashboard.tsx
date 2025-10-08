@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function SellerDashboard() {
@@ -55,7 +55,7 @@ export default function SellerDashboard() {
                 Manage your orders and track your sales
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
                 onClick={() => setLocation("/seller/products")}
@@ -70,6 +70,14 @@ export default function SellerDashboard() {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Product
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setLocation("/newsletter")}
+                data-testid="button-newsletter"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Newsletters
               </Button>
             </div>
           </div>

@@ -40,13 +40,11 @@ export default function Home() {
   ];
 
   const handleBuyerLogin = () => {
-    sessionStorage.setItem("intended_role", "buyer");
-    window.location.href = "/api/login";
+    window.location.href = "/api/login?role=buyer";
   };
 
   const handleSellerLogin = () => {
-    sessionStorage.setItem("intended_role", "seller");
-    window.location.href = "/api/login";
+    window.location.href = "/api/login?role=seller";
   };
 
   return (

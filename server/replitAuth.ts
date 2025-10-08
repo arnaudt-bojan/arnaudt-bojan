@@ -53,7 +53,7 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any) {
+async function upsertUser(claims: any, intendedRole?: string) {
   const existingUser = await storage.getUser(claims["sub"]);
   
   // If user exists, keep their role
@@ -71,13 +71,22 @@ async function upsertUser(claims: any) {
     const allUsers = await storage.getAllUsers();
     const isFirstUser = allUsers.length === 0;
     
+    let userRole = "customer";
+    if (isFirstUser) {
+      userRole = "owner";
+    } else if (intendedRole === "seller") {
+      userRole = "seller";
+    } else if (intendedRole === "buyer") {
+      userRole = "buyer";
+    }
+    
     await storage.upsertUser({
       id: claims["sub"],
       email: claims["email"],
       firstName: claims["first_name"],
       lastName: claims["last_name"],
       profileImageUrl: claims["profile_image_url"],
-      role: isFirstUser ? "owner" : "customer",
+      role: userRole,
     });
   }
 }
@@ -92,11 +101,16 @@ export async function setupAuth(app: Express) {
 
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
+    verified: passport.AuthenticateCallback,
+    req?: any
   ) => {
     const user = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    const intendedRole = req?.session?.intendedRole;
+    await upsertUser(tokens.claims(), intendedRole);
+    if (req?.session?.intendedRole) {
+      delete req.session.intendedRole;
+    }
     verified(null, user);
   };
 
@@ -117,16 +131,37 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    const intendedRole = req.query.role as string;
+    if (intendedRole) {
+      (req.session as any).intendedRole = intendedRole;
+    }
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+  app.get("/api/callback", async (req, res, next) => {
+    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+      if (err || !user) {
+        return res.redirect("/api/login");
+      }
+      
+      req.login(user, async (loginErr) => {
+        if (loginErr) {
+          return res.redirect("/api/login");
+        }
+        
+        const dbUser = await storage.getUser(user.claims.sub);
+        
+        if (dbUser?.role === "buyer") {
+          return res.redirect("/buyer-dashboard");
+        } else if (dbUser?.role === "seller" || dbUser?.role === "owner" || dbUser?.role === "admin") {
+          return res.redirect("/seller-dashboard");
+        } else {
+          return res.redirect("/");
+        }
+      });
     })(req, res, next);
   });
 
