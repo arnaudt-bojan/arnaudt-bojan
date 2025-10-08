@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,9 +12,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function SellerDashboard() {
+  const [, setLocation] = useLocation();
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
   });
@@ -43,12 +46,33 @@ export default function SellerDashboard() {
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
-            Seller Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your orders and track your sales
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
+                Seller Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Manage your orders and track your sales
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setLocation("/seller/products")}
+                data-testid="button-manage-products"
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Products
+              </Button>
+              <Button
+                onClick={() => setLocation("/seller/create-product")}
+                data-testid="button-create-product"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Product
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-4 gap-6 mb-8">
