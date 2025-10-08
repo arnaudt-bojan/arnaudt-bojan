@@ -111,10 +111,14 @@ export default function Checkout() {
       setOrderData(newOrderData);
 
       // Create payment intent
-      const response = await apiRequest("POST", "/api/create-payment-intent", {
+      const response: any = await apiRequest("POST", "/api/create-payment-intent", {
         amount: amountToPay,
         paymentType: payingDepositOnly ? "deposit" : "full",
       });
+
+      if (!response.clientSecret) {
+        throw new Error("Failed to create payment intent");
+      }
 
       setClientSecret(response.clientSecret);
       setPaymentIntentId(response.paymentIntentId);
@@ -321,6 +325,12 @@ export default function Checkout() {
                 
                 <h2 className="text-2xl font-semibold mb-6">Payment Information</h2>
                 
+                {!clientSecret && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading payment form...
+                  </div>
+                )}
+                
                 {clientSecret && (
                   <Elements
                     stripe={stripePromise}
@@ -338,6 +348,14 @@ export default function Checkout() {
                     />
                   </Elements>
                 )}
+                
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg text-sm">
+                  <p className="font-semibold mb-2">Test Card Information:</p>
+                  <p className="text-muted-foreground">Card: 4242 4242 4242 4242</p>
+                  <p className="text-muted-foreground">Expiry: Any future date</p>
+                  <p className="text-muted-foreground">CVC: Any 3 digits</p>
+                  <p className="text-muted-foreground">ZIP: Any 5 digits</p>
+                </div>
               </Card>
             )}
           </div>
