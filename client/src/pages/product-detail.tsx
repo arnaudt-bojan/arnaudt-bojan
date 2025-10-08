@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ProductTypeBadge } from "@/components/product-type-badge";
@@ -24,6 +24,7 @@ interface Category {
 export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
   const productId = params?.id;
+  const [, setLocation] = useLocation();
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
@@ -63,6 +64,13 @@ export default function ProductDetail() {
         title: "Added to cart",
         description: `${product.name} has been added to your cart`,
       });
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (product) {
+      addItem(product);
+      setLocation("/checkout");
     }
   };
 
@@ -209,15 +217,26 @@ export default function ProductDetail() {
               </div>
             )}
 
-            <Button
-              size="lg"
-              className="w-full gap-2"
-              onClick={handleAddToCart}
-              data-testid="button-add-to-cart"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              Add to Cart
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                size="lg"
+                variant="outline"
+                className="gap-2"
+                onClick={handleAddToCart}
+                data-testid="button-add-to-cart"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                Add to Cart
+              </Button>
+              <Button
+                size="lg"
+                className="gap-2"
+                onClick={handleBuyNow}
+                data-testid="button-buy-now"
+              >
+                Buy Now
+              </Button>
+            </div>
 
             <Card className="p-6 bg-muted/50">
               <h3 className="font-semibold mb-3">Product Details</h3>
