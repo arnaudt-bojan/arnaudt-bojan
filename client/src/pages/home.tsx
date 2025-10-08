@@ -1,10 +1,14 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Package, Truck, CreditCard, Shield } from "lucide-react";
+import { ArrowRight, Package, Truck, CreditCard, Shield, ShoppingBag, Store } from "lucide-react";
 import heroImage from "@assets/generated_images/E-commerce_hero_lifestyle_image_eb2634ff.png";
 
 export default function Home() {
+  const [, setLocation] = useLocation();
+  const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+
   const features = [
     {
       icon: Package,
@@ -35,6 +39,16 @@ export default function Home() {
     { name: "Wholesale", color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" },
   ];
 
+  const handleBuyerLogin = () => {
+    sessionStorage.setItem("intended_role", "buyer");
+    window.location.href = "/api/login";
+  };
+
+  const handleSellerLogin = () => {
+    sessionStorage.setItem("intended_role", "seller");
+    window.location.href = "/api/login";
+  };
+
   return (
     <div className="min-h-screen">
       <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
@@ -52,24 +66,73 @@ export default function Home() {
           <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-2xl mx-auto">
             Launch your online store in minutes. No code required.
           </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Link href="/products">
-              <Button size="lg" variant="default" className="gap-2" data-testid="button-shop-now">
-                Shop Now
-                <ArrowRight className="h-5 w-5" />
+          
+          {!user ? (
+            <div className="flex gap-4 justify-center flex-wrap">
+              <Button 
+                size="lg" 
+                variant="default" 
+                className="gap-2 min-w-[180px]" 
+                onClick={handleBuyerLogin}
+                data-testid="button-login-buyer"
+              >
+                <ShoppingBag className="h-5 w-5" />
+                Login as Buyer
               </Button>
-            </Link>
-            <Link href="/seller/dashboard">
               <Button
                 size="lg"
                 variant="outline"
-                className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
-                data-testid="button-seller-dashboard"
+                className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20 gap-2 min-w-[180px]"
+                onClick={handleSellerLogin}
+                data-testid="button-login-seller"
               >
-                Seller Dashboard
+                <Store className="h-5 w-5" />
+                Login as Seller
               </Button>
-            </Link>
-          </div>
+            </div>
+          ) : (
+            <div className="flex gap-4 justify-center flex-wrap">
+              {user.role === "buyer" || user.role === "customer" ? (
+                <>
+                  <Link href="/products">
+                    <Button size="lg" variant="default" className="gap-2" data-testid="button-shop-now">
+                      Shop Now
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link href="/buyer-dashboard">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      data-testid="button-buyer-dashboard"
+                    >
+                      My Orders
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/products">
+                    <Button size="lg" variant="default" className="gap-2" data-testid="button-shop-now">
+                      Shop Now
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link href="/seller-dashboard">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      data-testid="button-seller-dashboard"
+                    >
+                      Seller Dashboard
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

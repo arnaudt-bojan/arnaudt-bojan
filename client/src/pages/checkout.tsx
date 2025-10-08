@@ -116,14 +116,14 @@ export default function Checkout() {
         paymentType: payingDepositOnly ? "deposit" : "full",
       });
 
-      const data = await response.json();
+      const paymentData = await response.json();
 
-      if (!data.clientSecret) {
+      if (!paymentData.clientSecret) {
         throw new Error("Failed to create payment intent");
       }
 
-      setClientSecret(data.clientSecret);
-      setPaymentIntentId(data.paymentIntentId);
+      setClientSecret(paymentData.clientSecret);
+      setPaymentIntentId(paymentData.paymentIntentId);
       setStep("payment");
     } catch (error: any) {
       toast({
