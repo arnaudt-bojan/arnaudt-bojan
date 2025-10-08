@@ -512,6 +512,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/user/username", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { username } = req.body;
+
+      if (!username || !/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+        return res.status(400).json({ 
+          error: "Username must be 3-20 characters and contain only letters, numbers, and underscores" 
+        });
+      }
+
+      // Check if username is already taken
+      const allUsers = await storage.getAllUsers();
+      const usernameTaken = allUsers.some(u => u.username === username && u.id !== userId);
+      if (usernameTaken) {
+        return res.status(409).json({ error: "Username is already taken" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        username,
+      });
+
+      res.json({ message: "Username updated successfully", user: updatedUser });
+    } catch (error: any) {
+      console.error("Username update error:", error);
+      res.status(500).json({ error: "Failed to update username" });
+    }
+  });
+
+  app.patch("/api/user/custom-domain", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { customDomain } = req.body;
+
+      // Basic domain validation
+      if (customDomain && !/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/.test(customDomain)) {
+        return res.status(400).json({ error: "Invalid domain format" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        customDomain: customDomain || null,
+        customDomainVerified: 0, // Reset verification when domain changes
+      });
+
+      res.json({ message: "Custom domain updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Custom domain update error:", error);
+      res.status(500).json({ error: "Failed to update custom domain" });
+    }
+  });
+
   // Stripe Connect OAuth routes
   app.get("/api/stripe/connect", isAuthenticated, (req: any, res) => {
     try {

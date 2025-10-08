@@ -54,14 +54,34 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
+function generateRandomUsername(): string {
+  // Generate 8-digit random username
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
+}
+
+async function generateUniqueUsername(): Promise<string> {
+  const allUsers = await storage.getAllUsers();
+  let username = generateRandomUsername();
+  let attempts = 0;
+  
+  // Keep generating until we find a unique one (max 10 attempts)
+  while (allUsers.some(u => u.username === username) && attempts < 10) {
+    username = generateRandomUsername();
+    attempts++;
+  }
+  
+  return username;
+}
+
 async function upsertUser(claims: any, intendedRole?: string) {
   const existingUser = await storage.getUser(claims["sub"]);
   
-  // If user exists, keep their role
+  // If user exists, keep their role and username
   if (existingUser) {
     await storage.upsertUser({
       id: claims["sub"],
       email: claims["email"],
+      username: existingUser.username,
       firstName: claims["first_name"],
       lastName: claims["last_name"],
       profileImageUrl: claims["profile_image_url"],
@@ -81,9 +101,13 @@ async function upsertUser(claims: any, intendedRole?: string) {
       userRole = "buyer";
     }
     
+    // Generate unique username for new user
+    const username = await generateUniqueUsername();
+    
     await storage.upsertUser({
       id: claims["sub"],
       email: claims["email"],
+      username,
       firstName: claims["first_name"],
       lastName: claims["last_name"],
       profileImageUrl: claims["profile_image_url"],
@@ -106,11 +130,12 @@ async function setupTestUsers() {
       const existingUser = allUsers.find(u => u.email === testUser.email);
       
       if (existingUser) {
-        // Update existing user with password and correct role
+        // Update existing user with password and correct role, but keep username if they have one
         console.log(`[Setup] Updating test user: ${testUser.email} (ID: ${existingUser.id})`);
         await storage.upsertUser({
           id: existingUser.id,
           email: testUser.email,
+          username: existingUser.username || await generateUniqueUsername(),
           firstName: testUser.firstName,
           lastName: testUser.lastName,
           profileImageUrl: existingUser.profileImageUrl,
@@ -120,10 +145,12 @@ async function setupTestUsers() {
       } else {
         // Create new user
         const userId = `local-${testUser.email}`;
+        const username = await generateUniqueUsername();
         console.log(`[Setup] Creating test user: ${testUser.email} (ID: ${userId})`);
         await storage.upsertUser({
           id: userId,
           email: testUser.email,
+          username,
           firstName: testUser.firstName,
           lastName: testUser.lastName,
           profileImageUrl: null,
