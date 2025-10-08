@@ -19,8 +19,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Package, Clock, Hammer, Building2, Check } from "lucide-react";
+import { ArrowLeft, Package, Clock, Hammer, Building2, Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type ProductVariant = {
+  size: string;
+  color: string;
+  stock: number;
+  image: string;
+};
 
 const productTypes = [
   {
@@ -56,6 +63,9 @@ const productTypes = [
 export default function CreateProduct() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
+  const [preOrderDate, setPreOrderDate] = useState<string>("");
 
   const form = useForm<InsertProduct>({
     resolver: zodResolver(insertProductSchema),
@@ -74,6 +84,20 @@ export default function CreateProduct() {
 
   const selectedType = form.watch("productType");
 
+  const addVariant = () => {
+    setVariants([...variants, { size: "", color: "", stock: 0, image: "" }]);
+  };
+
+  const removeVariant = (index: number) => {
+    setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  const updateVariant = (index: number, field: keyof ProductVariant, value: string | number) => {
+    const updated = [...variants];
+    updated[index] = { ...updated[index], [field]: value };
+    setVariants(updated);
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertProduct) => {
       // For pre-orders with deposit, set requiresDeposit flag
@@ -83,6 +107,20 @@ export default function CreateProduct() {
         data.requiresDeposit = 0;
         data.depositAmount = undefined;
       }
+      
+      // Add variants if any
+      if (variants.length > 0) {
+        (data as any).variants = variants;
+      }
+      
+      // Add readiness dates based on product type
+      if (data.productType === "made-to-order") {
+        (data as any).madeToOrderDays = madeToOrderDays;
+      }
+      if (data.productType === "pre-order" && preOrderDate) {
+        (data as any).preOrderDate = new Date(preOrderDate).toISOString();
+      }
+      
       return await apiRequest("POST", "/api/products", data);
     },
     onSuccess: () => {
@@ -354,6 +392,143 @@ export default function CreateProduct() {
                       </FormItem>
                     )}
                   />
+                )}
+
+                {/* Readiness Date for Made-to-Order */}
+                {selectedType === "made-to-order" && (
+                  <div>
+                    <FormLabel>Production Time</FormLabel>
+                    <div className="flex items-center gap-3 mt-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={madeToOrderDays}
+                        onChange={(e) => setMadeToOrderDays(parseInt(e.target.value) || 1)}
+                        className="w-24"
+                        data-testid="input-made-to-order-days"
+                      />
+                      <span className="text-sm text-muted-foreground">days after purchase</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Estimated time to create and ship this product after receiving an order
+                    </p>
+                  </div>
+                )}
+
+                {/* Readiness Date for Pre-Order */}
+                {selectedType === "pre-order" && (
+                  <div>
+                    <FormLabel>Expected Availability Date</FormLabel>
+                    <Input
+                      type="date"
+                      value={preOrderDate}
+                      onChange={(e) => setPreOrderDate(e.target.value)}
+                      className="mt-2"
+                      data-testid="input-pre-order-date"
+                    />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      When will this product be available to ship to customers?
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Product Variants */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Step 4: Product Variants (Optional)</CardTitle>
+                <CardDescription>
+                  Add size and color options for this product
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {variants.length === 0 ? (
+                  <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                    <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mb-4">
+                      No variants added yet. Add size and color options to offer multiple versions of this product.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addVariant}
+                      data-testid="button-add-first-variant"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add First Variant
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {variants.map((variant, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="flex items-start justify-between mb-4">
+                          <h4 className="font-semibold">Variant #{index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeVariant(index)}
+                            data-testid={`button-remove-variant-${index}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <FormLabel>Size</FormLabel>
+                            <Input
+                              placeholder="e.g., Small, Medium, Large, XL"
+                              value={variant.size}
+                              onChange={(e) => updateVariant(index, "size", e.target.value)}
+                              data-testid={`input-variant-size-${index}`}
+                            />
+                          </div>
+                          <div>
+                            <FormLabel>Color</FormLabel>
+                            <Input
+                              placeholder="e.g., Red, Blue, Black"
+                              value={variant.color}
+                              onChange={(e) => updateVariant(index, "color", e.target.value)}
+                              data-testid={`input-variant-color-${index}`}
+                            />
+                          </div>
+                          <div>
+                            <FormLabel>Stock</FormLabel>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={variant.stock}
+                              onChange={(e) => updateVariant(index, "stock", parseInt(e.target.value) || 0)}
+                              data-testid={`input-variant-stock-${index}`}
+                            />
+                          </div>
+                          <div>
+                            <FormLabel>Image URL</FormLabel>
+                            <Input
+                              type="url"
+                              placeholder="https://example.com/variant.jpg"
+                              value={variant.image}
+                              onChange={(e) => updateVariant(index, "image", e.target.value)}
+                              data-testid={`input-variant-image-${index}`}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addVariant}
+                      className="w-full"
+                      data-testid="button-add-another-variant"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Another Variant
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
