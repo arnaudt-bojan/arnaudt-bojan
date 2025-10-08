@@ -149,7 +149,12 @@ export default function SellerDashboard() {
                 </TableHeader>
                 <TableBody>
                   {orders.map((order) => (
-                    <TableRow key={order.id} data-testid={`order-row-${order.id}`}>
+                    <TableRow 
+                      key={order.id} 
+                      data-testid={`order-row-${order.id}`}
+                      className="cursor-pointer hover-elevate"
+                      onClick={() => setLocation(`/seller/order/${order.id}`)}
+                    >
                       <TableCell className="font-medium">
                         {order.id.slice(0, 8)}...
                       </TableCell>

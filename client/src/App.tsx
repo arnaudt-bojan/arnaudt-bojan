@@ -55,6 +55,7 @@ function AppContent() {
           <Route path="/seller/products" component={SellerProducts} />
           <Route path="/seller/create-product" component={CreateProduct} />
           <Route path="/seller/products/:id/edit" component={EditProduct} />
+          <Route path="/seller/order/:id" component={OrderDetail} />
           <Route path="/orders" component={Orders} />
           <Route path="/orders/:id" component={OrderDetail} />
           <Route path="/settings" component={Settings} />
