@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { Package, ShoppingBag } from "lucide-react";
+import { Package, ShoppingBag, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 
 type Order = {
@@ -20,11 +20,14 @@ type Order = {
 };
 
 export default function Orders() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [, navigate] = useLocation();
 
+  // For sellers, show all orders; for buyers, show only their orders
+  const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
+  
   const { data: orders, isLoading } = useQuery<Order[]>({
-    queryKey: ["/api/orders/my"],
+    queryKey: isSeller ? ["/api/orders"] : ["/api/orders/my"],
     enabled: isAuthenticated,
   });
 
@@ -60,8 +63,12 @@ export default function Orders() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2" data-testid="text-orders-title">My Orders</h1>
-        <p className="text-muted-foreground">View and track all your orders</p>
+        <h1 className="text-4xl font-bold mb-2" data-testid="text-orders-title">
+          {isSeller ? "All Orders" : "My Orders"}
+        </h1>
+        <p className="text-muted-foreground">
+          {isSeller ? "View and manage all customer orders" : "View and track all your orders"}
+        </p>
       </div>
 
       {isLoading ? (
@@ -83,10 +90,15 @@ export default function Orders() {
           {orders.map((order) => {
             const parsedItems = JSON.parse(order.items);
             return (
-              <Card key={order.id} data-testid={`card-order-${order.id}`}>
+              <Card 
+                key={order.id} 
+                className="hover-elevate cursor-pointer transition-all"
+                onClick={() => navigate(`/orders/${order.id}`)}
+                data-testid={`card-order-${order.id}`}
+              >
                 <CardHeader>
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
+                    <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
                         <Package className="h-5 w-5" />
                         Order #{order.id.slice(0, 8)}
@@ -94,14 +106,23 @@ export default function Orders() {
                       <CardDescription>
                         Placed on {format(new Date(order.createdAt), "PPP")}
                       </CardDescription>
+                      {isSeller && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          <p><span className="font-medium">Customer:</span> {order.customerName}</p>
+                          <p><span className="font-medium">Email:</span> {order.customerEmail}</p>
+                        </div>
+                      )}
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={getStatusColor(order.status)}
-                      data-testid={`status-${order.id}`}
-                    >
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={getStatusColor(order.status)}
+                        data-testid={`status-${order.id}`}
+                      >
+                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      </Badge>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -132,12 +153,6 @@ export default function Orders() {
                         ${parseFloat(order.total).toFixed(2)}
                       </span>
                     </div>
-
-                    <div className="text-sm text-muted-foreground">
-                      <p>
-                        <span className="font-medium">Shipping to:</span> {order.customerAddress}
-                      </p>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -156,15 +171,19 @@ export default function Orders() {
                   No orders yet
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  You haven't placed any orders yet. Start shopping to see your orders here!
+                  {isSeller 
+                    ? "Orders will appear here once customers start purchasing" 
+                    : "You haven't placed any orders yet. Start shopping to see your orders here!"}
                 </p>
-                <button
-                  onClick={() => navigate("/products")}
-                  className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover-elevate active-elevate-2 px-6 py-2 font-medium"
-                  data-testid="button-browse-products"
-                >
-                  Browse Products
-                </button>
+                {!isSeller && (
+                  <button
+                    onClick={() => navigate("/products")}
+                    className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover-elevate active-elevate-2 px-6 py-2 font-medium"
+                    data-testid="button-browse-products"
+                  >
+                    Browse Products
+                  </button>
+                )}
               </div>
             </div>
           </CardContent>

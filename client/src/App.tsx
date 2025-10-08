@@ -22,6 +22,8 @@ import SellerProducts from "@/pages/seller-products";
 import CreateProduct from "@/pages/create-product";
 import EditProduct from "@/pages/edit-product";
 import Orders from "@/pages/orders";
+import OrderDetail from "@/pages/order-detail";
+import Settings from "@/pages/settings";
 import QuickAccess from "@/pages/quick-access";
 import Team from "@/pages/team";
 import AcceptInvitation from "@/pages/accept-invitation";
@@ -54,6 +56,8 @@ function AppContent() {
           <Route path="/seller/create-product" component={CreateProduct} />
           <Route path="/seller/products/:id/edit" component={EditProduct} />
           <Route path="/orders" component={Orders} />
+          <Route path="/orders/:id" component={OrderDetail} />
+          <Route path="/settings" component={Settings} />
           <Route path="/quick-access" component={QuickAccess} />
           <Route path="/team" component={Team} />
           <Route path="/accept-invitation" component={AcceptInvitation} />

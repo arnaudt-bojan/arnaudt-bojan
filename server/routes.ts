@@ -142,6 +142,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
+    try {
+      const order = await storage.getOrder(req.params.id);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch order" });
+    }
+  });
+
   app.put("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const validationResult = insertProductSchema.partial().safeParse(req.body);
@@ -375,6 +387,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "User role updated successfully", user: updatedUser });
     } catch (error) {
       res.status(500).json({ error: "Failed to update user role" });
+    }
+  });
+
+  // User Settings Routes
+  app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName } = req.body;
+
+      if (!firstName || !lastName) {
+        return res.status(400).json({ error: "First name and last name are required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        firstName,
+        lastName,
+      });
+
+      res.json({ message: "Profile updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  app.patch("/api/user/password", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current and new passwords are required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.password) {
+        return res.status(404).json({ error: "User not found or no password set" });
+      }
+
+      // Simple password comparison (in production, use bcrypt)
+      if (user.password !== currentPassword) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        password: newPassword,
+      });
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password update error:", error);
+      res.status(500).json({ error: "Failed to update password" });
+    }
+  });
+
+  app.patch("/api/user/branding", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { storeBanner, storeLogo } = req.body;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        storeBanner: storeBanner || null,
+        storeLogo: storeLogo || null,
+      });
+
+      res.json({ message: "Branding updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Branding update error:", error);
+      res.status(500).json({ error: "Failed to update branding" });
+    }
+  });
+
+  app.patch("/api/user/payment-provider", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { paymentProvider } = req.body;
+
+      if (!paymentProvider || !["stripe", "paypal"].includes(paymentProvider)) {
+        return res.status(400).json({ error: "Invalid payment provider" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        paymentProvider,
+      });
+
+      res.json({ message: "Payment provider updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Payment provider update error:", error);
+      res.status(500).json({ error: "Failed to update payment provider" });
     }
   });
 

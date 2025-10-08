@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShoppingCart, Store, LogOut, User, Menu } from "lucide-react";
+import { ShoppingCart, Store, LogOut, User, Menu, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -242,6 +242,12 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" data-testid="link-settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a href="/api/logout" data-testid="button-logout">
                       <LogOut className="mr-2 h-4 w-4" />

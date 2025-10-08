@@ -1,0 +1,392 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { User, Settings as SettingsIcon, CreditCard, Image } from "lucide-react";
+
+const profileSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email(),
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+const brandingSchema = z.object({
+  storeBanner: z.string().url("Must be a valid URL").or(z.literal("")),
+  storeLogo: z.string().url("Must be a valid URL").or(z.literal("")),
+});
+
+type ProfileForm = z.infer<typeof profileSchema>;
+type PasswordForm = z.infer<typeof passwordSchema>;
+type BrandingForm = z.infer<typeof brandingSchema>;
+
+export default function Settings() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [paymentProvider, setPaymentProvider] = useState<string>(user?.paymentProvider || "stripe");
+
+  const profileForm = useForm<ProfileForm>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      firstName: user?.firstName || "",
+      lastName: user?.lastName || "",
+      email: user?.email || "",
+    },
+  });
+
+  const passwordForm = useForm<PasswordForm>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  const brandingForm = useForm<BrandingForm>({
+    resolver: zodResolver(brandingSchema),
+    defaultValues: {
+      storeBanner: user?.storeBanner || "",
+      storeLogo: user?.storeLogo || "",
+    },
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: ProfileForm) => {
+      return await apiRequest("PATCH", "/api/user/profile", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Profile updated", description: "Your profile has been updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: async (data: PasswordForm) => {
+      return await apiRequest("PATCH", "/api/user/password", {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      });
+    },
+    onSuccess: () => {
+      passwordForm.reset();
+      toast({ title: "Password updated", description: "Your password has been changed successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update password", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateBrandingMutation = useMutation({
+    mutationFn: async (data: BrandingForm) => {
+      return await apiRequest("PATCH", "/api/user/branding", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Branding updated", description: "Your store branding has been updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update branding", variant: "destructive" });
+    },
+  });
+
+  const updatePaymentProviderMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      return await apiRequest("PATCH", "/api/user/payment-provider", { paymentProvider: provider });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Payment provider updated", description: "Your payment provider has been updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update payment provider", variant: "destructive" });
+    },
+  });
+
+  const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
+
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">
+          <SettingsIcon className="h-8 w-8" />
+          Settings
+        </h1>
+        <p className="text-muted-foreground">Manage your account settings and preferences</p>
+      </div>
+
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4" data-testid="tabs-settings">
+          <TabsTrigger value="profile" data-testid="tab-profile">
+            <User className="h-4 w-4 mr-2" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="password" data-testid="tab-password">Password</TabsTrigger>
+          {isSeller && (
+            <>
+              <TabsTrigger value="branding" data-testid="tab-branding">
+                <Image className="h-4 w-4 mr-2" />
+                Branding
+              </TabsTrigger>
+              <TabsTrigger value="payment" data-testid="tab-payment">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Payment
+              </TabsTrigger>
+            </>
+          )}
+        </TabsList>
+
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Information</CardTitle>
+              <CardDescription>Update your personal information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit((data) => updateProfileMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-firstName" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-lastName" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled data-testid="input-email" />
+                        </FormControl>
+                        <FormDescription>Email cannot be changed</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button 
+                    type="submit" 
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-save-profile"
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="password">
+          <Card>
+            <CardHeader>
+              <CardTitle>Change Password</CardTitle>
+              <CardDescription>Update your account password</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...passwordForm}>
+                <form onSubmit={passwordForm.handleSubmit((data) => updatePasswordMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={passwordForm.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Current Password</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" data-testid="input-currentPassword" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" data-testid="input-newPassword" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" data-testid="input-confirmPassword" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button 
+                    type="submit" 
+                    disabled={updatePasswordMutation.isPending}
+                    data-testid="button-change-password"
+                  >
+                    {updatePasswordMutation.isPending ? "Changing..." : "Change Password"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {isSeller && (
+          <TabsContent value="branding">
+            <Card>
+              <CardHeader>
+                <CardTitle>Store Branding</CardTitle>
+                <CardDescription>Customize your storefront appearance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...brandingForm}>
+                  <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-4">
+                    <FormField
+                      control={brandingForm.control}
+                      name="storeBanner"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Store Banner URL</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="https://example.com/banner.jpg" data-testid="input-storeBanner" />
+                          </FormControl>
+                          <FormDescription>Banner image displayed on your storefront</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={brandingForm.control}
+                      name="storeLogo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Store Logo URL</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="https://example.com/logo.png" data-testid="input-storeLogo" />
+                          </FormControl>
+                          <FormDescription>Logo replacing "Uppshop" in the header</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={updateBrandingMutation.isPending}
+                      data-testid="button-save-branding"
+                    >
+                      {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {isSeller && (
+          <TabsContent value="payment">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Provider</CardTitle>
+                <CardDescription>Configure how you receive payments</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Label htmlFor="payment-provider">Payment Provider</Label>
+                  <Select
+                    value={paymentProvider}
+                    onValueChange={(value) => {
+                      setPaymentProvider(value);
+                      updatePaymentProviderMutation.mutate(value);
+                    }}
+                  >
+                    <SelectTrigger id="payment-provider" data-testid="select-payment-provider">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stripe">Stripe</SelectItem>
+                      <SelectItem value="paypal">PayPal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Currently using: <span className="font-medium">{paymentProvider === "stripe" ? "Stripe" : "PayPal"}</span>
+                  </p>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h4 className="font-semibold mb-3">Connect Your Account</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Set up OAuth connection to receive payments directly to your account.
+                  </p>
+                  {paymentProvider === "stripe" ? (
+                    <Button variant="outline" disabled data-testid="button-connect-stripe">
+                      Connect Stripe Account (Coming Soon)
+                    </Button>
+                  ) : (
+                    <Button variant="outline" disabled data-testid="button-connect-paypal">
+                      Connect PayPal Account (Coming Soon)
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}
