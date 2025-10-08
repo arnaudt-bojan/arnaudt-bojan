@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -52,17 +53,19 @@ export default function EditProduct() {
   });
 
   // Update form when product data loads
-  if (product && !form.formState.isDirty) {
-    form.reset({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      image: product.image,
-      category: product.category,
-      productType: product.productType,
-      stock: product.stock || 0,
-    });
-  }
+  useEffect(() => {
+    if (product) {
+      form.reset({
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        image: product.image,
+        category: product.category,
+        productType: product.productType,
+        stock: product.stock || 0,
+      });
+    }
+  }, [product, form]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: InsertProduct) => {
