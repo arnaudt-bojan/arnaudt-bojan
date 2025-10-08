@@ -87,6 +87,11 @@ export const users = pgTable("users", {
   password: varchar("password"), // For local test accounts
   role: varchar("role").notNull().default("customer"),
   invitedBy: varchar("invited_by"), // User ID of who invited this user
+  storeBanner: text("store_banner"), // Seller's store banner image URL
+  storeLogo: text("store_logo"), // Seller's store logo URL
+  paymentProvider: varchar("payment_provider").default("stripe"), // stripe, paypal
+  stripeConnectedAccountId: varchar("stripe_connected_account_id"), // Stripe Connect account ID
+  paypalMerchantId: varchar("paypal_merchant_id"), // PayPal merchant ID
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
