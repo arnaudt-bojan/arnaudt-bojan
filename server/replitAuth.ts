@@ -291,6 +291,8 @@ export async function setupAuth(app: Express) {
 
   // Local login route for testing
   app.post("/api/local-login", (req, res, next) => {
+    const { isSellerLogin } = req.body;
+    
     passport.authenticate("local", async (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ error: "Authentication error" });
@@ -306,16 +308,87 @@ export async function setupAuth(app: Express) {
 
         const dbUser = await storage.getUser(user.claims.sub);
 
-        let redirectUrl = "/";
-        if (dbUser?.role === "buyer") {
-          redirectUrl = "/buyer-dashboard";
-        } else if (dbUser?.role === "seller" || dbUser?.role === "owner" || dbUser?.role === "admin") {
-          redirectUrl = "/seller-dashboard";
+        // Validate domain-based access
+        if (isSellerLogin) {
+          // Main domain - only admin/editor/viewer allowed
+          if (dbUser?.role !== "admin" && dbUser?.role !== "editor" && dbUser?.role !== "viewer") {
+            return res.status(403).json({ error: "Sellers must login from the main domain" });
+          }
+          return res.json({ success: true, redirectUrl: "/seller-dashboard" });
+        } else {
+          // Seller domain - only buyers allowed
+          if (dbUser?.role !== "buyer") {
+            return res.status(403).json({ error: "Buyers must login from a seller's storefront" });
+          }
+          return res.json({ success: true, redirectUrl: "/" });
         }
-
-        return res.json({ success: true, redirectUrl });
       });
     })(req, res, next);
+  });
+
+  // Signup route for buyers
+  app.post("/api/signup", async (req, res) => {
+    try {
+      const { email, password, sellerUsername } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+
+      // Check if user already exists
+      const allUsers = await storage.getAllUsers();
+      const existingUser = allUsers.find(u => u.email === email);
+
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already registered" });
+      }
+
+      // Check if this is the first user (special case)
+      const isFirstUser = allUsers.length === 0;
+      
+      // Generate unique username
+      let username = Math.floor(10000000 + Math.random() * 90000000).toString();
+      let attempts = 0;
+      
+      while (allUsers.some(u => u.username === username) && attempts < 10) {
+        username = Math.floor(10000000 + Math.random() * 90000000).toString();
+        attempts++;
+      }
+
+      // Create new user
+      const newUser = await storage.createUser({
+        email,
+        password,
+        role: isFirstUser ? "admin" : "buyer", // First user is admin, others are buyers
+        username,
+        replitAuthUserId: `local-${Date.now()}-${Math.random()}`,
+      });
+
+      // Auto-login the new user
+      const userForSession = {
+        claims: { sub: newUser.id },
+        access_token: 'local-auth',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      req.login(userForSession, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Account created but login failed" });
+        }
+
+        // Redirect based on role
+        const redirectUrl = isFirstUser ? "/seller-dashboard" : "/";
+        return res.json({ success: true, redirectUrl });
+      });
+
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      return res.status(500).json({ error: "Failed to create account" });
+    }
   });
 
   app.get("/api/logout", (req, res) => {
