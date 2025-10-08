@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function SellerDashboard() {
@@ -70,6 +70,14 @@ export default function SellerDashboard() {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Product
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setLocation("/seller/wholesale/products")}
+                data-testid="button-wholesale"
+              >
+                <Store className="h-4 w-4 mr-2" />
+                Wholesale
               </Button>
               <Button
                 variant="outline"

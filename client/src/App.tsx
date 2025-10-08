@@ -33,6 +33,9 @@ import PromoteProduct from "@/pages/promote-product";
 import CreateMetaCampaign from "@/pages/create-meta-campaign";
 import OrderManagement from "@/pages/order-management";
 import Newsletter from "@/pages/newsletter";
+import WholesaleProducts from "@/pages/wholesale-products";
+import CreateWholesaleProduct from "@/pages/create-wholesale-product";
+import WholesaleInvitations from "@/pages/wholesale-invitations";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -68,6 +71,9 @@ function AppContent() {
           <Route path="/create-ad-campaign" component={CreateAdCampaign} />
           <Route path="/order-management" component={OrderManagement} />
           <Route path="/newsletter" component={Newsletter} />
+          <Route path="/seller/wholesale/products" component={WholesaleProducts} />
+          <Route path="/seller/wholesale/create-product" component={CreateWholesaleProduct} />
+          <Route path="/seller/wholesale/invitations" component={WholesaleInvitations} />
           <Route component={NotFound} />
         </Switch>
       </main>
