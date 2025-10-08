@@ -17,6 +17,24 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
+// Helper function to generate random 8-digit username
+function generateRandomUsername(): string {
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
+}
+
+async function generateUniqueUsername(): Promise<string> {
+  const allUsers = await storage.getAllUsers();
+  let username = generateRandomUsername();
+  let attempts = 0;
+  
+  while (allUsers.some(u => u.username === username) && attempts < 10) {
+    username = generateRandomUsername();
+    attempts++;
+  }
+  
+  return username;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
@@ -106,10 +124,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Auto-create buyer account for guest checkout
           const newUserId = Math.random().toString(36).substring(2, 8);
           const [firstName, ...lastNameParts] = (req.body.customerName || "Guest User").split(" ");
+          const username = await generateUniqueUsername();
           
           existingUser = await storage.upsertUser({
             id: newUserId,
             email: customerEmail,
+            username,
             firstName: firstName || "Guest",
             lastName: lastNameParts.join(" ") || "User",
             profileImageUrl: null,
@@ -117,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             password: "123456", // Temporary password for guest accounts
           });
 
-          console.log(`[Guest Checkout] Created new buyer account for ${customerEmail}`);
+          console.log(`[Guest Checkout] Created new buyer account for ${customerEmail} with username ${username}`);
         }
 
         userId = existingUser.id;
