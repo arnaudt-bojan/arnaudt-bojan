@@ -8,10 +8,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart-context";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ShoppingCart, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import type { Product } from "@shared/schema";
 import { cn } from "@/lib/utils";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  level: number;
+}
 
 export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
@@ -25,6 +33,28 @@ export default function ProductDetail() {
     queryKey: ["/api/products", productId],
     enabled: !!productId,
   });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  const getCategoryPath = () => {
+    const path: Category[] = [];
+    if (!product) return path;
+
+    const level1 = categories.find(c => c.id === (product as any).categoryLevel1Id);
+    if (level1) path.push(level1);
+
+    const level2 = categories.find(c => c.id === (product as any).categoryLevel2Id);
+    if (level2) path.push(level2);
+
+    const level3 = categories.find(c => c.id === (product as any).categoryLevel3Id);
+    if (level3) path.push(level3);
+
+    return path;
+  };
+
+  const categoryPath = getCategoryPath();
 
   const handleAddToCart = () => {
     if (product) {
@@ -72,11 +102,29 @@ export default function ProductDetail() {
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-6xl">
         <Link href="/products">
-          <Button variant="ghost" className="mb-8 gap-2" data-testid="button-back">
+          <Button variant="ghost" className="mb-4 gap-2" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
             Back to Products
           </Button>
         </Link>
+
+        {categoryPath.length > 0 && (
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-8" data-testid="breadcrumb-navigation">
+            <Link href="/">
+              <span className="hover:text-foreground transition-colors">Home</span>
+            </Link>
+            {categoryPath.map((category, index) => (
+              <div key={category.id} className="flex items-center gap-2">
+                <ChevronRight className="h-4 w-4" />
+                <span className="hover:text-foreground transition-colors" data-testid={`breadcrumb-${category.slug}`}>
+                  {category.name}
+                </span>
+              </div>
+            ))}
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium" data-testid="breadcrumb-product-name">{product.name}</span>
+          </nav>
+        )}
 
         <div className="grid md:grid-cols-2 gap-12">
           <div className="space-y-4">
