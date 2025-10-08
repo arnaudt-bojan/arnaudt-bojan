@@ -2,17 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Package, ShoppingBag, AlertCircle } from "lucide-react";
+import { Coins, Package, ShoppingBag, AlertCircle, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useWallet } from "@/contexts/WalletContext";
 import type { SelectOrder } from "@shared/schema";
 
 export default function BuyerDashboard() {
   const { toast } = useToast();
   const [mintingOrderId, setMintingOrderId] = useState<string | null>(null);
   const [isMinting, setIsMinting] = useState(false);
+  const { connected, publicKey, connecting, connect } = useWallet();
 
   const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
   const { data: orders, isLoading } = useQuery<SelectOrder[]>({
@@ -20,7 +22,7 @@ export default function BuyerDashboard() {
   });
 
   const handleMintNFT = async (order: SelectOrder) => {
-    if (!order) return;
+    if (!order || !connected || !publicKey) return;
 
     setIsMinting(true);
     try {
@@ -29,6 +31,7 @@ export default function BuyerDashboard() {
       const response = await apiRequest("POST", "/api/nft/mint", {
         orderId: order.id,
         productData: items[0],
+        walletAddress: publicKey,
       });
 
       const result = await response.json();
@@ -36,7 +39,7 @@ export default function BuyerDashboard() {
       if (result.signature) {
         toast({
           title: "NFT Minted Successfully!",
-          description: `Transaction: ${result.signature.substring(0, 20)}...`,
+          description: `Mint: ${result.mintAddress.substring(0, 20)}...`,
         });
         
         queryClient.invalidateQueries({ queryKey: ["/api/orders/my-orders"] });
@@ -106,12 +109,39 @@ export default function BuyerDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
-          My Orders
-        </h1>
-        <p className="text-muted-foreground">
-          Welcome back, {user?.firstName || user?.email}! View your orders and mint NFTs.
-        </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
+              My Orders
+            </h1>
+            <p className="text-muted-foreground">
+              Welcome back, {user?.firstName || user?.email}! View your orders and mint NFTs.
+            </p>
+          </div>
+          {!connected ? (
+            <Button 
+              onClick={connect} 
+              disabled={connecting}
+              data-testid="button-connect-wallet"
+              className="gap-2"
+            >
+              <Wallet className="h-4 w-4" />
+              {connecting ? "Connecting..." : "Connect Wallet"}
+            </Button>
+          ) : (
+            <Card className="px-4 py-2">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Connected</p>
+                  <p className="text-sm font-mono" data-testid="text-wallet-address">
+                    {publicKey?.substring(0, 4)}...{publicKey?.substring(publicKey.length - 4)}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
 
       {!orders || orders.length === 0 ? (
@@ -192,17 +222,21 @@ export default function BuyerDashboard() {
                       className="w-full gap-2"
                       variant="outline"
                       onClick={() => setMintingOrderId(order.id)}
-                      disabled={order.paymentStatus !== "fully_paid"}
+                      disabled={order.paymentStatus !== "fully_paid" || !connected}
                       data-testid={`button-mint-nft-${order.id}`}
                     >
                       <Coins className="h-4 w-4" />
                       Mint NFT
                     </Button>
-                    {order.paymentStatus !== "fully_paid" && (
+                    {order.paymentStatus !== "fully_paid" ? (
                       <p className="text-xs text-muted-foreground mt-2 text-center">
                         Complete payment to mint NFT
                       </p>
-                    )}
+                    ) : !connected ? (
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Connect wallet to mint NFT
+                      </p>
+                    ) : null}
                   </div>
                 </CardContent>
               </Card>

@@ -2,10 +2,9 @@ import {
   Connection,
   Keypair,
   PublicKey,
-  Transaction,
   clusterApiUrl,
 } from "@solana/web3.js";
-import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
+import { Metaplex, keypairIdentity } from "@metaplex-foundation/js";
 
 const NETWORK = process.env.SOLANA_NETWORK || "devnet";
 const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || clusterApiUrl(NETWORK as any);
@@ -20,6 +19,7 @@ export interface NftMetadata {
     category?: string;
     files?: Array<{ uri: string; type: string }>;
   };
+  [key: string]: any;
 }
 
 export interface MintResult {
@@ -55,14 +55,7 @@ export class SolanaService {
       }
 
       this.metaplex = Metaplex.make(this.connection)
-        .use(keypairIdentity(this.payer))
-        .use(
-          bundlrStorage({
-            address: "https://devnet.bundlr.network",
-            providerUrl: RPC_ENDPOINT,
-            timeout: 60000,
-          })
-        );
+        .use(keypairIdentity(this.payer));
     }
   }
 
