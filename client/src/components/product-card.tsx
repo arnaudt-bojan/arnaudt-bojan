@@ -34,9 +34,23 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           <p className="text-sm text-muted-foreground line-clamp-1">{product.category}</p>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
-            ${parseFloat(product.price).toFixed(2)}
-          </span>
+          <div className="flex flex-col">
+            {product.productType === "pre-order" && product.depositAmount ? (
+              <>
+                <span className="text-sm text-muted-foreground">Deposit</span>
+                <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
+                  ${parseFloat(product.depositAmount).toFixed(2)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Total: ${parseFloat(product.price).toFixed(2)}
+                </span>
+              </>
+            ) : (
+              <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
+                ${parseFloat(product.price).toFixed(2)}
+              </span>
+            )}
+          </div>
           <Button
             size="icon"
             onClick={(e) => {

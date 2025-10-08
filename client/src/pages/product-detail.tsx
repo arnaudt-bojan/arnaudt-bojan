@@ -94,9 +94,28 @@ export default function ProductDetail() {
               <p className="text-lg text-muted-foreground">{product.category}</p>
             </div>
 
-            <div className="text-3xl font-bold" data-testid="text-product-price">
-              ${parseFloat(product.price).toFixed(2)}
-            </div>
+            {product.productType === "pre-order" && product.depositAmount ? (
+              <Card className="p-4 bg-blue-500/10 border-blue-500/20">
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-muted-foreground">Deposit Required</span>
+                  </div>
+                  <div className="text-3xl font-bold" data-testid="text-product-price">
+                    ${parseFloat(product.depositAmount).toFixed(2)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Total Price: <span className="font-semibold">${parseFloat(product.price).toFixed(2)}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2">
+                    Pay deposit now, balance due when product ships
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <div className="text-3xl font-bold" data-testid="text-product-price">
+                ${parseFloat(product.price).toFixed(2)}
+              </div>
+            )}
 
             <div className="prose prose-sm dark:prose-invert">
               <p className="text-muted-foreground" data-testid="text-product-description">
@@ -141,6 +160,20 @@ export default function ProductDetail() {
                       {(product.stock || 0) > 0 ? "In Stock" : "Out of Stock"}
                     </dd>
                   </div>
+                )}
+                {product.productType === "pre-order" && product.depositAmount && (
+                  <>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Deposit Amount</dt>
+                      <dd className="font-medium">${parseFloat(product.depositAmount).toFixed(2)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Balance Due</dt>
+                      <dd className="font-medium">
+                        ${(parseFloat(product.price) - parseFloat(product.depositAmount)).toFixed(2)}
+                      </dd>
+                    </div>
+                  </>
                 )}
               </dl>
             </Card>
