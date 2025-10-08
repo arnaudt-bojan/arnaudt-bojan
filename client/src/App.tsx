@@ -14,6 +14,8 @@ import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
 import SellerDashboard from "@/pages/seller-dashboard";
+import SellerProducts from "@/pages/seller-products";
+import CreateProduct from "@/pages/create-product";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -29,7 +31,10 @@ function AppContent() {
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/checkout" component={Checkout} />
+          <Route path="/seller-dashboard" component={SellerDashboard} />
           <Route path="/seller/dashboard" component={SellerDashboard} />
+          <Route path="/seller/products" component={SellerProducts} />
+          <Route path="/seller/create-product" component={CreateProduct} />
           <Route component={NotFound} />
         </Switch>
       </main>
