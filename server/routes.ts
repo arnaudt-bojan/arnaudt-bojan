@@ -86,9 +86,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", isAuthenticated, async (req, res) => {
+  app.post("/api/products", isAuthenticated, async (req: any, res) => {
     try {
-      const validationResult = insertProductSchema.safeParse(req.body);
+      const userId = req.user.claims.sub;
+      
+      const validationResult = insertProductSchema.safeParse({
+        ...req.body,
+        sellerId: userId, // Add seller ID from authenticated user
+      });
       if (!validationResult.success) {
         const error = fromZodError(validationResult.error);
         return res.status(400).json({ error: error.message });
@@ -101,8 +106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products/bulk", isAuthenticated, async (req, res) => {
+  app.post("/api/products/bulk", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { products } = req.body;
       
       if (!Array.isArray(products)) {
@@ -125,7 +131,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             productData.preOrderDate = new Date(productData.preOrderDate);
           }
 
-          const validationResult = insertProductSchema.safeParse(productData);
+          const validationResult = insertProductSchema.safeParse({
+            ...productData,
+            sellerId: userId, // Add seller ID from authenticated user
+          });
           
           if (!validationResult.success) {
             const error = fromZodError(validationResult.error);
