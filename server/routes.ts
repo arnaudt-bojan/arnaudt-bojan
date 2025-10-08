@@ -33,6 +33,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
+
+  app.get("/api/sellers", async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const sellers = allUsers.filter(u => 
+        u.role === "seller" || u.role === "owner" || u.role === "admin"
+      );
+      res.json(sellers);
+    } catch (error) {
+      console.error("Error fetching sellers:", error);
+      res.status(500).json({ error: "Failed to fetch sellers" });
+    }
+  });
+
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getAllProducts();

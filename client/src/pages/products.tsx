@@ -17,6 +17,10 @@ export default function Products() {
     queryKey: ["/api/products"],
   });
 
+  const { data: sellers } = useQuery<any[]>({
+    queryKey: ["/api/sellers"],
+  });
+
   const productTypes: Array<{ value: ProductType | "all"; label: string }> = [
     { value: "all", label: "All Products" },
     { value: "in-stock", label: "In Stock" },
@@ -38,9 +42,32 @@ export default function Products() {
     });
   };
 
+  const sellerWithBanner = sellers?.find(s => s.storeBanner);
+
   return (
-    <div className="min-h-screen py-12">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <div className="min-h-screen">
+      {sellerWithBanner?.storeBanner && (
+        <div className="relative h-[300px] w-full overflow-hidden mb-8">
+          <img 
+            src={sellerWithBanner.storeBanner} 
+            alt="Store Banner" 
+            className="w-full h-full object-cover"
+            data-testid="img-store-banner"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
+            <div className="container mx-auto px-4 py-8">
+              <h2 className="text-3xl font-bold text-white mb-2">
+                {sellerWithBanner.firstName ? `${sellerWithBanner.firstName}'s Store` : "Featured Store"}
+              </h2>
+              <p className="text-white/90 text-lg">
+                Discover amazing products from our sellers
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 max-w-7xl py-12">
         <div className="mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-page-title">
             All Products
