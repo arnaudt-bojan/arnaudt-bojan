@@ -43,6 +43,7 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
 - **Social Ads System**: Comprehensive multi-platform social advertising (Meta, TikTok, X) with AI optimization, creative controls, and budget management.
 - **Instagram Integration**: Sellers can connect Instagram to use their username as their store URL.
 - **Session Management**: PostgreSQL-backed sessions using `express-session` and `connect-pg-simple`.
+- **Store Visibility Control**: Sellers can toggle store status (active/inactive). Inactive stores show a "Store Unavailable" page to buyers with seller contact info, while sellers retain full access to manage their inactive stores.
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)

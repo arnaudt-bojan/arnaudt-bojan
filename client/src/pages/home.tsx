@@ -13,6 +13,16 @@ export default function Home() {
   const { data: user, isLoading } = useQuery<any>({ queryKey: ["/api/auth/user"] });
   const domainInfo = detectDomain();
 
+  // Redirect to products page when viewing a seller storefront
+  useEffect(() => {
+    if (domainInfo.isSellerDomain) {
+      // Preserve the seller query parameter when redirecting
+      const sellerParam = new URLSearchParams(window.location.search).get('seller');
+      const targetUrl = sellerParam ? `/products?seller=${sellerParam}` : '/products';
+      setLocation(targetUrl);
+    }
+  }, [domainInfo.isSellerDomain, setLocation]);
+
   // Redirect logged-in sellers to dashboard
   useEffect(() => {
     if (!isLoading && user && (user.role === "admin" || user.role === "editor" || user.role === "viewer")) {
