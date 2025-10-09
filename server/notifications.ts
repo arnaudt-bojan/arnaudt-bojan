@@ -265,15 +265,26 @@ class NotificationServiceImpl implements NotificationService {
    * Send authentication code (6-digit code) with auto-login link
    */
   async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<void> {
-    const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
+    try {
+      const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
 
-    await this.sendEmail({
-      to: email,
-      subject: `Your Upfirst Login Code: ${code}`,
-      html: emailHtml,
-    });
+      const result = await this.sendEmail({
+        to: email,
+        subject: `Your Upfirst Login Code: ${code}`,
+        html: emailHtml,
+      });
 
-    console.log(`[Notifications] Auth code sent to ${email}`);
+      if (!result.success) {
+        console.error(`[Notifications] Failed to send auth code to ${email}:`, result.error);
+        // Don't throw - development mode fallback already logged the code to console
+      } else {
+        console.log(`[Notifications] Auth code sent to ${email}`);
+      }
+    } catch (error: any) {
+      console.error(`[Notifications] Error in sendAuthCode:`, error);
+      // Don't throw - allow authentication to continue even if email fails
+      // In development, the code is logged to console anyway
+    }
   }
 
   /**
