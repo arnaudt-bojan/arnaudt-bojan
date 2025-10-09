@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download, Send, Image as ImageIcon } from "lucide-react";
+import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download, Send, Image as ImageIcon, Monitor, Smartphone } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,6 +49,7 @@ export default function NewsletterPage() {
   const [newsletterContent, setNewsletterContent] = useState("");
   const [newsletterRecipients, setNewsletterRecipients] = useState<string>("all");
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
 
   const { data: groups, isLoading: groupsLoading } = useQuery<SubscriberGroup[]>({
     queryKey: ["/api/subscriber-groups"],
@@ -433,14 +434,15 @@ export default function NewsletterPage() {
         </TabsContent>
 
         <TabsContent value="compose" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Compose Newsletter</CardTitle>
-              <CardDescription>
-                Create and send newsletters to your subscribers
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Compose Newsletter</CardTitle>
+                <CardDescription>
+                  Create and send newsletters to your subscribers
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="newsletter-subject">Subject Line</Label>
                 <Input
@@ -555,6 +557,61 @@ export default function NewsletterPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Preview</CardTitle>
+                  <CardDescription>
+                    See how your newsletter will look
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={previewMode === "desktop" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPreviewMode("desktop")}
+                    data-testid="button-preview-desktop"
+                  >
+                    <Monitor className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={previewMode === "mobile" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPreviewMode("mobile")}
+                    data-testid="button-preview-mobile"
+                  >
+                    <Smartphone className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div 
+                className={`border rounded-md bg-background transition-all ${
+                  previewMode === "mobile" ? "max-w-sm mx-auto" : "w-full"
+                }`}
+                data-testid="preview-container"
+              >
+                <div className="p-6 space-y-4">
+                  {newsletterSubject && (
+                    <div className="border-b pb-4">
+                      <h3 className="text-lg font-semibold" data-testid="preview-subject">
+                        {newsletterSubject}
+                      </h3>
+                    </div>
+                  )}
+                  <div 
+                    className="prose dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: newsletterContent || "<p className='text-muted-foreground'>Your newsletter content will appear here...</p>" }}
+                    data-testid="preview-content"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
