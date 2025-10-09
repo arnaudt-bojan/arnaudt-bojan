@@ -217,6 +217,26 @@ export default function CreateProduct() {
         data.depositAmount = undefined;
       }
       
+      // Set category based on selections or use default
+      if (selectedLevel1 || selectedLevel2 || selectedLevel3) {
+        const categoryNames = [];
+        if (selectedLevel1) {
+          const level1 = categories.find(c => c.id === selectedLevel1);
+          if (level1) categoryNames.push(level1.name);
+        }
+        if (selectedLevel2) {
+          const level2 = categories.find(c => c.id === selectedLevel2);
+          if (level2) categoryNames.push(level2.name);
+        }
+        if (selectedLevel3) {
+          const level3 = categories.find(c => c.id === selectedLevel3);
+          if (level3) categoryNames.push(level3.name);
+        }
+        data.category = categoryNames.join(" > ") || "General";
+      } else {
+        data.category = "General"; // Default category if none selected
+      }
+      
       // Add category IDs
       (data as any).categoryLevel1Id = selectedLevel1 || null;
       (data as any).categoryLevel2Id = selectedLevel2 || null;
