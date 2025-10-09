@@ -33,7 +33,7 @@ export default function SellerProducts() {
   const { toast } = useToast();
 
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/seller/products"],
   });
 
   const deleteMutation = useMutation({
@@ -41,7 +41,7 @@ export default function SellerProducts() {
       return await apiRequest("DELETE", `/api/products/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       toast({
         title: "Product deleted",
         description: "The product has been removed from your store.",

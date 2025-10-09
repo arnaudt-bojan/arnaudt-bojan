@@ -18,7 +18,7 @@ import { useLocation } from "wouter";
 export default function SellerDashboard() {
   const [, setLocation] = useLocation();
   const { data: orders, isLoading } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/seller/orders"],
   });
 
   const getStatusVariant = (status: string) => {

@@ -65,6 +65,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seller-specific products (only products owned by this seller)
+  app.get("/api/seller/products", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const allProducts = await storage.getAllProducts();
+      const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+      res.json(sellerProducts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+
+  // Public products endpoint (for storefront - all products)
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getAllProducts();
@@ -240,6 +253,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seller-specific orders (only orders for products owned by this seller)
+  app.get("/api/seller/orders", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const allOrders = await storage.getAllOrders();
+      const allProducts = await storage.getAllProducts();
+      
+      // Get all product IDs owned by this seller
+      const sellerProductIds = new Set(
+        allProducts.filter(p => p.sellerId === userId).map(p => p.id)
+      );
+      
+      // Filter orders that contain products from this seller
+      const sellerOrders = allOrders.filter(order => {
+        try {
+          const items = JSON.parse(order.items);
+          return items.some((item: any) => sellerProductIds.has(item.productId));
+        } catch {
+          return false;
+        }
+      });
+      
+      res.json(sellerOrders);
+    } catch (error) {
+      console.error("Error fetching seller orders:", error);
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // Legacy endpoint - returns all orders (for admin/backward compatibility)
   app.get("/api/orders", isAuthenticated, async (req, res) => {
     try {
       const orders = await storage.getAllOrders();
