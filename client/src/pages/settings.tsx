@@ -983,8 +983,28 @@ export default function Settings() {
       const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", {});
       const accountData = await createResponse.json();
       
+      console.log("Stripe create response:", { status: createResponse.status, data: accountData });
+      
       if (!createResponse.ok) {
-        throw new Error(accountData.error || "Failed to create Stripe account");
+        // Check if it's the Stripe Connect not enabled error
+        console.log("Checking error type:", accountData.error);
+        if (accountData.error === "Stripe Connect Not Enabled") {
+          console.log("Showing Stripe Connect error toast");
+          toast({
+            title: "Stripe Connect Not Enabled",
+            description: accountData.message || "Please enable Stripe Connect in your Stripe dashboard first.",
+            variant: "destructive",
+            duration: 10000, // Show for 10 seconds
+          });
+          
+          // Open Stripe Connect setup page in new tab
+          console.log("Opening Stripe Connect page");
+          window.open("https://dashboard.stripe.com/connect/accounts/overview", "_blank");
+          return;
+        }
+        
+        console.log("Throwing generic error");
+        throw new Error(accountData.message || accountData.error || "Failed to create Stripe account");
       }
 
       // Then, get the account link for onboarding
@@ -994,7 +1014,7 @@ export default function Settings() {
       const linkData = await linkResponse.json();
       
       if (!linkResponse.ok) {
-        throw new Error(linkData.error || "Failed to generate account link");
+        throw new Error(linkData.message || linkData.error || "Failed to generate account link");
       }
 
       if (linkData.url) {

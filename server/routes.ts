@@ -1093,7 +1093,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Stripe Express account creation error:", error);
-      res.status(500).json({ error: "Failed to create Express account" });
+      
+      // Check for specific Stripe Connect error
+      if (error.message && error.message.includes("signed up for Connect")) {
+        return res.status(400).json({ 
+          error: "Stripe Connect Not Enabled",
+          message: "Your Stripe account needs to enable Stripe Connect. Please visit https://dashboard.stripe.com/connect/accounts/overview and click 'Get Started' to activate Connect for your account.",
+          stripeError: error.message
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to create Express account",
+        message: error.message || "Unknown error occurred",
+        stripeError: error.raw?.message || error.message
+      });
     }
   });
 
