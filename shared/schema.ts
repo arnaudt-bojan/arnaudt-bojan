@@ -122,7 +122,9 @@ export const orderItems = pgTable("order_items", {
   variant: jsonb("variant"), // {size, color} if applicable
   itemStatus: text("item_status").notNull().default("pending"), // "pending", "processing", "shipped", "delivered", "cancelled"
   trackingNumber: varchar("tracking_number"),
-  trackingLink: text("tracking_link"),
+  trackingCarrier: varchar("tracking_carrier"), // e.g., UPS, FedEx, USPS
+  trackingUrl: text("tracking_url"), // Full tracking URL
+  trackingLink: text("tracking_link"), // Legacy - for backward compatibility
   shippedAt: timestamp("shipped_at"),
   deliveredAt: timestamp("delivered_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

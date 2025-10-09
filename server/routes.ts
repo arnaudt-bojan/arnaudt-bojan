@@ -401,9 +401,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const items = JSON.parse(order.items);
         const orderItemsToCreate = items.map((item: any) => ({
           orderId: order.id,
-          productId: item.id || item.productId,
+          productId: item.id, // Cart items always have 'id' field (product ID)
           productName: item.name,
-          productImage: item.image,
+          productImage: item.image || null,
           productType: item.productType || 'in-stock',
           quantity: item.quantity,
           price: String(item.price),
@@ -411,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           depositAmount: item.depositAmount ? String(item.depositAmount) : null,
           requiresDeposit: item.requiresDeposit ? 1 : 0, // Coerce boolean to integer
           variant: item.variant || null,
-          itemStatus: 'pending',
+          itemStatus: 'pending' as const,
         }));
         
         await storage.createOrderItems(orderItemsToCreate);
@@ -1037,7 +1037,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const trackingSchema = z.object({
         trackingNumber: z.string().min(1, "Tracking number is required"),
-        trackingLink: z.string().url("Invalid tracking link").or(z.literal("")),
+        trackingCarrier: z.string().optional(),
+        trackingUrl: z.string().url("Invalid tracking URL").or(z.literal("")).optional(),
         notifyCustomer: z.boolean().optional(),
       });
       
@@ -1085,7 +1086,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedItem = await storage.updateOrderItemTracking(
         req.params.id,
         validationResult.data.trackingNumber,
-        validationResult.data.trackingLink
+        validationResult.data.trackingCarrier,
+        validationResult.data.trackingUrl
       );
       
       if (!updatedItem) {

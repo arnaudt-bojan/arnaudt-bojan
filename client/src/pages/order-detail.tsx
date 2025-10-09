@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,10 +26,198 @@ type Order = {
   paymentType: string;
   paymentStatus: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  fulfillmentStatus?: "unfulfilled" | "partially_fulfilled" | "fulfilled";
   trackingNumber?: string;
   trackingLink?: string;
   createdAt: string;
 };
+
+type OrderItem = {
+  id: string;
+  orderId: string;
+  productId: string;
+  productName: string;
+  productImage: string | null;
+  productType: string;
+  quantity: number;
+  price: string;
+  subtotal: string;
+  depositAmount: string | null;
+  requiresDeposit: number;
+  variant: string | null;
+  itemStatus: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  trackingNumber: string | null;
+  trackingCarrier: string | null;
+  trackingUrl: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+};
+
+function OrderItemRow({ 
+  item, 
+  onStatusUpdate, 
+  onTrackingUpdate, 
+  isUpdating 
+}: { 
+  item: OrderItem; 
+  onStatusUpdate: (status: string) => void;
+  onTrackingUpdate: (trackingNumber: string, trackingCarrier?: string, trackingUrl?: string) => void;
+  isUpdating: boolean;
+}) {
+  const [showTracking, setShowTracking] = useState(false);
+  const [trackingNumber, setTrackingNumber] = useState(item.trackingNumber || "");
+  const [trackingCarrier, setTrackingCarrier] = useState(item.trackingCarrier || "");
+  const [trackingUrl, setTrackingUrl] = useState(item.trackingUrl || "");
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      pending: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
+      processing: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+      shipped: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
+      delivered: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
+      cancelled: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
+    };
+    return colors[status as keyof typeof colors] || colors.pending;
+  };
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3" data-testid={`item-${item.id}`}>
+      <div className="flex gap-3">
+        {item.productImage && (
+          <img 
+            src={item.productImage} 
+            alt={item.productName}
+            className="w-16 h-16 object-cover rounded-md"
+            data-testid={`img-item-${item.id}`}
+          />
+        )}
+        <div className="flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-medium" data-testid={`text-item-name-${item.id}`}>{item.productName}</p>
+              {item.variant && (
+                <p className="text-sm text-muted-foreground">Variant: {item.variant}</p>
+              )}
+              <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold">${parseFloat(item.subtotal).toFixed(2)}</p>
+              <Badge
+                variant="outline"
+                className={getStatusColor(item.itemStatus)}
+                data-testid={`badge-item-status-${item.id}`}
+              >
+                {item.itemStatus.charAt(0).toUpperCase() + item.itemStatus.slice(1)}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Tracking info if exists */}
+          {item.trackingNumber && (
+            <div className="mt-3 p-2 bg-muted/50 rounded-md">
+              <p className="text-sm font-medium">Tracking: {item.trackingNumber}</p>
+              {item.trackingCarrier && (
+                <p className="text-sm text-muted-foreground">Carrier: {item.trackingCarrier}</p>
+              )}
+              {item.trackingUrl && (
+                <a 
+                  href={item.trackingUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline"
+                  data-testid={`link-tracking-${item.id}`}
+                >
+                  Track Package →
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Management controls for sellers */}
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Select
+                value={item.itemStatus}
+                onValueChange={onStatusUpdate}
+                disabled={isUpdating}
+              >
+                <SelectTrigger className="w-[150px]" data-testid={`select-status-${item.id}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {!item.trackingNumber && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTracking(!showTracking)}
+                  data-testid={`button-add-tracking-${item.id}`}
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  Add Tracking
+                </Button>
+              )}
+            </div>
+
+            {/* Tracking form */}
+            {(showTracking || item.trackingNumber) && !item.trackingNumber && (
+              <div className="space-y-2 p-3 bg-muted/30 rounded-md">
+                <div>
+                  <Label htmlFor={`tracking-number-${item.id}`}>Tracking Number *</Label>
+                  <Input
+                    id={`tracking-number-${item.id}`}
+                    placeholder="Enter tracking number"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    data-testid={`input-tracking-number-${item.id}`}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`tracking-carrier-${item.id}`}>Carrier (Optional)</Label>
+                  <Input
+                    id={`tracking-carrier-${item.id}`}
+                    placeholder="e.g., UPS, FedEx, USPS"
+                    value={trackingCarrier}
+                    onChange={(e) => setTrackingCarrier(e.target.value)}
+                    data-testid={`input-tracking-carrier-${item.id}`}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`tracking-url-${item.id}`}>Tracking URL (Optional)</Label>
+                  <Input
+                    id={`tracking-url-${item.id}`}
+                    placeholder="https://tracking.example.com/..."
+                    value={trackingUrl}
+                    onChange={(e) => setTrackingUrl(e.target.value)}
+                    data-testid={`input-tracking-url-${item.id}`}
+                  />
+                </div>
+                <Button
+                  onClick={() => {
+                    onTrackingUpdate(trackingNumber, trackingCarrier || undefined, trackingUrl || undefined);
+                    setShowTracking(false);
+                  }}
+                  disabled={!trackingNumber || isUpdating}
+                  size="sm"
+                  data-testid={`button-save-tracking-${item.id}`}
+                >
+                  {isUpdating ? "Saving..." : "Save & Notify Customer"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OrderDetail() {
   const { id } = useParams() as { id: string };
@@ -45,11 +233,26 @@ export default function OrderDetail() {
       if (!res.ok) throw new Error("Failed to fetch order");
       return res.json();
     },
-    onSuccess: (data) => {
-      setTrackingNumber(data.trackingNumber || "");
-      setTrackingLink(data.trackingLink || "");
-    },
   });
+
+  // Fetch order items for item-level tracking
+  const { data: orderItems } = useQuery<OrderItem[]>({
+    queryKey: ["/api/orders", id, "items"],
+    queryFn: async () => {
+      const res = await fetch(`/api/orders/${id}/items`);
+      if (!res.ok) throw new Error("Failed to fetch order items");
+      return res.json();
+    },
+    enabled: !!order,
+  });
+
+  // Update tracking fields when order data loads
+  useEffect(() => {
+    if (order) {
+      setTrackingNumber(order.trackingNumber || "");
+      setTrackingLink(order.trackingLink || "");
+    }
+  }, [order]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async (status: string) => {
@@ -105,6 +308,53 @@ export default function OrderDetail() {
       toast({ 
         title: "Error", 
         description: error.message || "Failed to request balance payment", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Item-level mutations
+  const updateItemStatusMutation = useMutation({
+    mutationFn: async ({ itemId, status }: { itemId: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/order-items/${itemId}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id, "items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
+      toast({ title: "Item status updated", description: "Item status has been updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update item status", variant: "destructive" });
+    },
+  });
+
+  const updateItemTrackingMutation = useMutation({
+    mutationFn: async ({ itemId, trackingNumber, trackingCarrier, trackingUrl }: { 
+      itemId: string; 
+      trackingNumber: string;
+      trackingCarrier?: string;
+      trackingUrl?: string;
+    }) => {
+      return await apiRequest("PATCH", `/api/order-items/${itemId}/tracking`, {
+        trackingNumber,
+        trackingCarrier,
+        trackingUrl,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id, "items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
+      toast({ 
+        title: "Tracking added", 
+        description: "Tracking information saved and customer notified" 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update tracking information", 
         variant: "destructive" 
       });
     },
@@ -217,28 +467,73 @@ export default function OrderDetail() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Fulfillment Status */}
+            {order.fulfillmentStatus && (
+              <div className="flex items-center gap-2">
+                <h4 className="font-semibold">Fulfillment:</h4>
+                <Badge
+                  variant="outline"
+                  className={
+                    order.fulfillmentStatus === 'fulfilled'
+                      ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20'
+                      : order.fulfillmentStatus === 'partially_fulfilled'
+                      ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20'
+                      : 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20'
+                  }
+                  data-testid="badge-fulfillment-status"
+                >
+                  {order.fulfillmentStatus === 'unfulfilled' && 'Unfulfilled'}
+                  {order.fulfillmentStatus === 'partially_fulfilled' && 'Partially Fulfilled'}
+                  {order.fulfillmentStatus === 'fulfilled' && 'Fulfilled'}
+                </Badge>
+              </div>
+            )}
+
+            {/* Order Items with Item-Level Tracking */}
             <div>
               <h4 className="font-semibold mb-4 flex items-center gap-2">
                 <Package className="h-4 w-4" />
                 Order Items
+                {orderItems && orderItems.length > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({orderItems.filter(item => item.itemStatus === 'shipped' || item.itemStatus === 'delivered').length} of {orderItems.length} shipped)
+                  </span>
+                )}
               </h4>
-              <div className="space-y-3">
-                {parsedItems.map((item: any, index: number) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center p-3 rounded-lg bg-muted/50"
-                    data-testid={`item-${index}`}
-                  >
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+              
+              {orderItems && orderItems.length > 0 ? (
+                <div className="space-y-4">
+                  {orderItems.map((item) => (
+                    <OrderItemRow
+                      key={item.id}
+                      item={item}
+                      onStatusUpdate={(status) => updateItemStatusMutation.mutate({ itemId: item.id, status })}
+                      onTrackingUpdate={(trackingNumber, trackingCarrier, trackingUrl) => 
+                        updateItemTrackingMutation.mutate({ itemId: item.id, trackingNumber, trackingCarrier, trackingUrl })
+                      }
+                      isUpdating={updateItemStatusMutation.isPending || updateItemTrackingMutation.isPending}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {parsedItems.map((item: any, index: number) => (
+                    <div
+                      key={index}
+                      className="flex justify-between items-center p-3 rounded-lg bg-muted/50"
+                      data-testid={`item-${index}`}
+                    >
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                      </div>
+                      <span className="font-semibold">
+                        ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      </span>
                     </div>
-                    <span className="font-semibold">
-                      ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">

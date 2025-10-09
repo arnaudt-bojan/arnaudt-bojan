@@ -96,7 +96,7 @@ export interface IStorage {
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
   createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]>;
   updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined>;
-  updateOrderItemTracking(itemId: string, trackingNumber: string, trackingLink: string): Promise<OrderItem | undefined>;
+  updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined>;
   
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
@@ -410,12 +410,14 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateOrderItemTracking(itemId: string, trackingNumber: string, trackingLink: string): Promise<OrderItem | undefined> {
+  async updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
     const result = await this.db.update(orderItems)
       .set({ 
-        trackingNumber, 
-        trackingLink,
+        trackingNumber,
+        trackingCarrier: trackingCarrier || null,
+        trackingUrl: trackingUrl || null,
+        trackingLink: trackingUrl || null, // Legacy field for backward compatibility
         itemStatus: 'shipped',
         shippedAt: new Date(),
         updatedAt: new Date()
