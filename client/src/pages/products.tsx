@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
+import { StoreUnavailable } from "@/components/store-unavailable";
 
 type CardSize = "compact" | "medium" | "large";
 
@@ -41,7 +42,7 @@ export default function Products() {
   const { addItem } = useCart();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
-  const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
+  const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer' || user?.role === 'seller' || user?.role === 'owner';
   
   // Load card size preference from localStorage
   useEffect(() => {
@@ -232,6 +233,23 @@ export default function Products() {
 
   const sellerWithBanner = sellers?.find(s => s.storeBanner);
   const currentSellerHasBanner = user?.storeBanner || sellerInfo?.storeBanner;
+
+  // Check if viewing a seller domain with inactive store
+  const isViewingInactiveStore = domainInfo.isSellerDomain && sellerInfo && sellerInfo.storeActive === 0;
+
+  // Show store unavailable page for buyers viewing inactive seller stores
+  if (isViewingInactiveStore && !isSeller) {
+    return (
+      <div className="min-h-screen">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <StoreUnavailable 
+            sellerName={sellerInfo.firstName || sellerInfo.username}
+            sellerEmail={sellerInfo.email}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
