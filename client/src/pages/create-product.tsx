@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Package, Clock, Hammer, Building2, Check, Plus, X, ImagePlus } from "lucide-react";
+import { BulkImageInput } from "@/components/bulk-image-input";
 import { cn } from "@/lib/utils";
 
 type ProductVariant = {
@@ -597,60 +598,16 @@ export default function CreateProduct() {
                   )}
                 </div>
 
-                <div>
-                  <FormLabel>Product Images (up to 10)</FormLabel>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Add multiple image URLs. First image will be the primary display image.
-                  </p>
-                  <div className="space-y-3">
-                    {productImages.map((imgUrl, index) => (
-                      <div key={index} className="flex gap-2 items-start">
-                        <div className="flex-1">
-                          <Input
-                            type="url"
-                            placeholder={`https://example.com/image-${index + 1}.jpg`}
-                            value={imgUrl}
-                            onChange={(e) => updateImageField(index, e.target.value)}
-                            data-testid={`input-image-${index}`}
-                          />
-                          {index === 0 && imgUrl && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Primary image (will be shown on product cards)
-                            </p>
-                          )}
-                        </div>
-                        {productImages.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeImageField(index)}
-                            data-testid={`button-remove-image-${index}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    {productImages.length < 10 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={addImageField}
-                        className="w-full"
-                        data-testid="button-add-image"
-                      >
-                        <ImagePlus className="h-4 w-4 mr-2" />
-                        Add Another Image
-                      </Button>
-                    )}
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="image"
-                    render={() => <input type="hidden" />}
-                  />
-                </div>
+                <BulkImageInput 
+                  images={productImages}
+                  onChange={setProductImages}
+                  maxImages={10}
+                />
+                <FormField
+                  control={form.control}
+                  name="image"
+                  render={() => <input type="hidden" />}
+                />
               </CardContent>
             </Card>
 
