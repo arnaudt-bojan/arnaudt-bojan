@@ -106,9 +106,27 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 </span>
               </>
             ) : (
-              <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
-                {formatPrice(parseFloat(product.price))}
-              </span>
+              <div className="flex flex-col">
+                {product.promotionActive && product.discountPercentage && parseFloat(product.discountPercentage) > 0 ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-red-600 dark:text-red-400" data-testid={`text-product-price-${product.id}`}>
+                        {formatPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100))}
+                      </span>
+                      <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">
+                        -{product.discountPercentage}%
+                      </span>
+                    </div>
+                    <span className="text-sm text-muted-foreground line-through">
+                      {formatPrice(parseFloat(product.price))}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
+                    {formatPrice(parseFloat(product.price))}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <Button

@@ -59,6 +59,9 @@ export const products = pgTable("products", {
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
   preOrderDate: z.coerce.date().optional(),
+  discountPercentage: z.string().optional(),
+  promotionEndDate: z.coerce.date().optional(),
+  promotionActive: z.number().optional(),
 });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;

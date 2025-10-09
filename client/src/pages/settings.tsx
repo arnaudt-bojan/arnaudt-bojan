@@ -997,8 +997,17 @@ export default function Settings() {
     try {
       const response = await apiRequest("GET", "/api/instagram/connect");
       const data = await response.json();
-      if (data.authUrl) {
+      
+      if (response.ok && data.authUrl) {
         window.open(data.authUrl, '_blank', 'width=600,height=700');
+      } else if (data.errorCode === "INSTAGRAM_NOT_CONFIGURED") {
+        toast({
+          title: "Instagram Not Available",
+          description: "Instagram connection is not configured yet. This feature will be available soon.",
+          variant: "default",
+        });
+      } else {
+        throw new Error(data.error || "Failed to connect");
       }
     } catch (error: any) {
       toast({

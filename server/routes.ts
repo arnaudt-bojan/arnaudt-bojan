@@ -2067,7 +2067,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const redirectUri = `${process.env.REPL_URL || 'http://localhost:5000'}/api/instagram/callback`;
       
       if (!instagramAppId) {
-        return res.status(500).json({ message: "Instagram App ID not configured. Please set INSTAGRAM_APP_ID environment variable." });
+        return res.status(400).json({ 
+          error: "Instagram integration is not configured yet. Contact support to enable this feature.",
+          errorCode: "INSTAGRAM_NOT_CONFIGURED"
+        });
       }
 
       // Store user ID in session for callback

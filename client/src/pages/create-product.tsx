@@ -217,6 +217,15 @@ export default function CreateProduct() {
         data.depositAmount = undefined;
       }
       
+      // Handle discount/promotion
+      if ((data as any).discountPercentage && parseFloat((data as any).discountPercentage) > 0) {
+        (data as any).promotionActive = 1;
+      } else {
+        (data as any).promotionActive = 0;
+        (data as any).discountPercentage = null;
+        (data as any).promotionEndDate = null;
+      }
+      
       // Set category based on selections or use default
       if (selectedLevel1 || selectedLevel2 || selectedLevel3) {
         const categoryNames = [];
@@ -677,6 +686,57 @@ export default function CreateProduct() {
                     </FormItem>
                   )}
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="discountPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Discount % (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder="0"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-discount"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Discount percentage (0-100%)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="promotionEndDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Promotion End Date (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            {...field}
+                            value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""}
+                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                            data-testid="input-promotion-end"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          When the promotion ends
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 {selectedType === "pre-order" && (
                   <FormField
