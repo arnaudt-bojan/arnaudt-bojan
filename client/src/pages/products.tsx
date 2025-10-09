@@ -67,10 +67,12 @@ export default function Products() {
     }
   }, [domainInfo.sellerUsername]);
   
-  // Fetch products - filter by seller if on seller subdomain
+  // Fetch products - filter by seller if on seller subdomain OR if logged in as seller
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: domainInfo.isSellerDomain && sellerInfo?.id 
       ? ["/api/products/seller", sellerInfo.id]
+      : isSeller && user?.id
+      ? ["/api/products/seller", user.id]
       : ["/api/products"],
     enabled: !domainInfo.isSellerDomain || !!sellerInfo,
   });
