@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2 } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
 
@@ -22,6 +23,10 @@ export default function SellerDashboard() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
+  });
+  
+  const { data: user } = useQuery<any>({ 
+    queryKey: ["/api/auth/user"] 
   });
 
   const getStatusVariant = (status: string) => {
@@ -100,6 +105,27 @@ export default function SellerDashboard() {
               </Button>
             </div>
           </div>
+          
+          {user && !user.stripeConnectedAccountId && (
+            <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-not-connected">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Payment Setup Required</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>
+                  You must connect a payment provider before customers can purchase your products. 
+                  Without this, customers won't be able to complete checkout.
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setLocation("/settings")}
+                  data-testid="button-setup-payments"
+                >
+                  Setup Payments
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         <div className="grid md:grid-cols-4 gap-6 mb-8">
