@@ -91,23 +91,32 @@ router.post('/verify-code', async (req: any, res: Response) => {
     // Mark as used
     await storage.markAuthTokenAsUsed(authToken.id);
 
+    // Determine if this is a seller or buyer signup based on domain
+    const host = req.get('host') || '';
+    const isMainDomain = !host.includes('.') || host.startsWith('localhost') || host.split('.').length <= 2;
+    
     // Get or create user
     let user = await storage.getUserByEmail(email);
     
     if (!user) {
       // Create new user account
+      // Main domain = seller (admin role), subdomain = buyer
+      const role = isMainDomain ? 'admin' : 'buyer';
+      
       user = await storage.upsertUser({
         email,
-        role: 'buyer', // Default role
+        role,
       });
       
-      console.log(`[Auth] Created new user: ${email}`);
+      console.log(`[Auth] Created new ${role} user: ${email} (domain: ${host})`);
     }
 
-    // Create session
+    // Create session compatible with isAuthenticated middleware
     req.session.passport = {
       user: {
         id: user.id,
+        access_token: 'email-auth', // Marker for email-based auth
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
         claims: {
           sub: user.id,
           email: user.email,
@@ -230,10 +239,12 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       console.log(`[Auth] Created new user: ${authToken.email}`);
     }
 
-    // Create session
+    // Create session compatible with isAuthenticated middleware
     req.session.passport = {
       user: {
         id: user.id,
+        access_token: 'email-auth', // Marker for email-based auth
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
         claims: {
           sub: user.id,
           email: user.email,

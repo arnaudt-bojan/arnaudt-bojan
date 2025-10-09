@@ -186,7 +186,7 @@ export default function SellerDashboard() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => setLocation("/settings")}
+                  onClick={() => setLocation("/settings?tab=payment")}
                   data-testid="button-setup-payments"
                 >
                   Setup Payments

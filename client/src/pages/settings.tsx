@@ -1052,6 +1052,11 @@ export default function Settings() {
   const isStripeConnected = user?.stripeConnectedAccountId;
   const isInstagramConnected = user?.instagramUsername;
 
+  // Get tab from URL search params
+  const searchParams = new URLSearchParams(window.location.search);
+  const tabParam = searchParams.get('tab');
+  const defaultTab = tabParam || "profile";
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
       <div className="mb-8">
@@ -1062,7 +1067,7 @@ export default function Settings() {
         <p className="text-muted-foreground">Manage your account settings and preferences</p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className={`grid w-full ${isSeller ? 'grid-cols-7' : 'grid-cols-3'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />

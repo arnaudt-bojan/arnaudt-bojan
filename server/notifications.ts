@@ -30,7 +30,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send email using Resend
+   * Send email using Resend (with development fallback)
    */
   async sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }> {
     try {
@@ -44,6 +44,35 @@ class NotificationServiceImpl implements NotificationService {
 
       if (result.error) {
         console.error('[Notifications] Email send error:', result.error);
+        
+        // In development, if domain is not verified, log email to console
+        const errorMsg = result.error.message || '';
+        const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || result.error.statusCode === 403;
+        
+        if (process.env.NODE_ENV === 'development' && isDomainError) {
+          console.log('\n═══════════════════════════════════════════════════════');
+          console.log('📧 EMAIL (Development Mode - Domain Not Verified)');
+          console.log('═══════════════════════════════════════════════════════');
+          console.log(`To: ${params.to}`);
+          console.log(`From: ${params.from || FROM_EMAIL}`);
+          console.log(`Subject: ${params.subject}`);
+          console.log('───────────────────────────────────────────────────────');
+          
+          // Extract verification code if it's an auth email
+          const codeMatch = params.html.match(/\b\d{6}\b/);
+          if (codeMatch) {
+            console.log(`🔑 VERIFICATION CODE: ${codeMatch[0]}`);
+          }
+          
+          console.log('───────────────────────────────────────────────────────');
+          console.log('💡 To send real emails, verify your domain at:');
+          console.log('   https://resend.com/domains');
+          console.log('═══════════════════════════════════════════════════════\n');
+          
+          // Return success in development so auth flow continues
+          return { success: true, emailId: 'dev-mode-' + Date.now() };
+        }
+        
         return { success: false, error: result.error.message };
       }
 

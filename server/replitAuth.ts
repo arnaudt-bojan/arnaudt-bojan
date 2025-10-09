@@ -391,9 +391,10 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
-    const isLocalAuth = (req.user as any)?.access_token === 'local-auth';
+    const accessToken = (req.user as any)?.access_token;
+    const isLocalOrEmailAuth = accessToken === 'local-auth' || accessToken === 'email-auth';
     req.logout(() => {
-      if (isLocalAuth) {
+      if (isLocalOrEmailAuth) {
         res.redirect("/");
       } else {
         res.redirect(
@@ -414,9 +415,9 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Check if this is local auth (doesn't need token refresh)
-  if (user.access_token === 'local-auth') {
-    // Extend session for local auth users on each request (similar to session cookie behavior)
+  // Check if this is local auth or email auth (doesn't need token refresh)
+  if (user.access_token === 'local-auth' || user.access_token === 'email-auth') {
+    // Extend session for local/email auth users on each request (similar to session cookie behavior)
     user.expires_at = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
     return next();
   }
