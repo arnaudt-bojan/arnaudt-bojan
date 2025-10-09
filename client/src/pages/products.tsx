@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
 import { Package, Grid3x3, LayoutGrid, Grip } from "lucide-react";
+import { detectDomain } from "@/lib/domain-utils";
 
 type CardSize = "compact" | "medium" | "large";
 
@@ -30,8 +31,26 @@ export default function Products() {
     localStorage.setItem("productCardSize", size);
   };
 
+  // Detect which seller's store we're viewing
+  const domainInfo = detectDomain();
+  const [sellerInfo, setSellerInfo] = useState<any>(null);
+  
+  // Get seller info if on seller domain
+  useEffect(() => {
+    if (domainInfo.isSellerDomain && domainInfo.sellerUsername) {
+      fetch(`/api/sellers/${domainInfo.sellerUsername}`)
+        .then(res => res.json())
+        .then(data => setSellerInfo(data))
+        .catch(console.error);
+    }
+  }, [domainInfo.sellerUsername]);
+  
+  // Fetch products - filter by seller if on seller subdomain
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: domainInfo.isSellerDomain && sellerInfo?.id 
+      ? ["/api/products/seller", sellerInfo.id]
+      : ["/api/products"],
+    enabled: !domainInfo.isSellerDomain || !!sellerInfo,
   });
 
   const { data: sellers } = useQuery<any[]>({

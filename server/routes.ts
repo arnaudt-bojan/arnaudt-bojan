@@ -64,6 +64,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch sellers" });
     }
   });
+  
+  // Get seller by username
+  app.get("/api/sellers/:username", async (req, res) => {
+    try {
+      const { username } = req.params;
+      const allUsers = await storage.getAllUsers();
+      const seller = allUsers.find(u => 
+        u.username === username && (u.role === "seller" || u.role === "owner" || u.role === "admin")
+      );
+      
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+      
+      res.json(seller);
+    } catch (error) {
+      console.error("Error fetching seller:", error);
+      res.status(500).json({ error: "Failed to fetch seller" });
+    }
+  });
 
   // Seller-specific products (only products owned by this seller)
   app.get("/api/seller/products", isAuthenticated, async (req: any, res) => {
@@ -84,6 +104,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+  
+  // Get products by seller ID (for seller storefronts)
+  app.get("/api/products/seller/:sellerId", async (req, res) => {
+    try {
+      const { sellerId } = req.params;
+      const allProducts = await storage.getAllProducts();
+      const sellerProducts = allProducts.filter(p => p.sellerId === sellerId);
+      res.json(sellerProducts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch seller products" });
     }
   });
 
