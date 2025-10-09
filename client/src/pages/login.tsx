@@ -130,52 +130,103 @@ export default function Login() {
                 <Store className="h-6 w-6 text-primary-foreground" />
               </div>
             </div>
-            <CardTitle className="text-2xl">Seller Login</CardTitle>
+            <CardTitle className="text-2xl">Seller Portal</CardTitle>
             <CardDescription>
-              Access your Uppfirst dashboard
+              Login or create your Uppfirst seller account
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" data-testid="label-email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  data-testid="input-email"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" data-testid="label-password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  data-testid="input-password"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading}
-                data-testid="button-login"
-              >
-                {loading ? "Logging in..." : "Login to Dashboard"}
-              </Button>
-            </form>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login" data-testid="tab-seller-login">Login</TabsTrigger>
+                <TabsTrigger value="signup" data-testid="tab-seller-signup">Sign Up</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="login" className="space-y-4 mt-4">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="seller-login-email">Email</Label>
+                    <Input
+                      id="seller-login-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      data-testid="input-seller-login-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="seller-login-password">Password</Label>
+                    <Input
+                      id="seller-login-password"
+                      type="password"
+                      placeholder="Enter password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      data-testid="input-seller-login-password"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={loading}
+                    data-testid="button-seller-login"
+                  >
+                    {loading ? "Logging in..." : "Login to Dashboard"}
+                  </Button>
+                </form>
 
-            <div className="mt-6 p-3 bg-muted/50 rounded-md">
-              <p className="text-sm text-muted-foreground">
-                <strong>Test Account:</strong> testseller@test.com / 123456
-              </p>
-            </div>
+                <div className="mt-4 p-3 bg-muted/50 rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Test Account:</strong> testseller@test.com / 123456
+                  </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="signup" className="space-y-4 mt-4">
+                <form onSubmit={handleSignup} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="seller-signup-email">Email</Label>
+                    <Input
+                      id="seller-signup-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      data-testid="input-seller-signup-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="seller-signup-password">Password</Label>
+                    <Input
+                      id="seller-signup-password"
+                      type="password"
+                      placeholder="Create password (min 6 characters)"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      data-testid="input-seller-signup-password"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={loading}
+                    data-testid="button-seller-signup"
+                  >
+                    {loading ? "Creating account..." : "Create Seller Account"}
+                  </Button>
+                </form>
+                
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                  Start your 30-day free trial when you list your first product
+                </p>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

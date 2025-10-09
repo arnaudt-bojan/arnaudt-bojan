@@ -103,6 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Auto-start 30-day trial if this is seller's first product
       const user = await storage.getUser(userId);
+      
       if (user && !user.subscriptionStatus) {
         const allProducts = await storage.getAllProducts();
         const sellerProducts = allProducts.filter(p => p.sellerId === userId);

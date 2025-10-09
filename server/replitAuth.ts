@@ -326,7 +326,7 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  // Signup route for buyers
+  // Signup route for buyers and sellers
   app.post("/api/signup", async (req, res) => {
     try {
       const { email, password, sellerUsername } = req.body;
@@ -347,8 +347,8 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ error: "Email already registered" });
       }
 
-      // Check if this is the first user (special case)
-      const isFirstUser = allUsers.length === 0;
+      // Determine if this is a seller signup (main domain) or buyer signup (seller subdomain)
+      const isSellerSignup = !sellerUsername; // No sellerUsername means main domain (seller signup)
       
       // Generate unique username
       let username = Math.floor(10000000 + Math.random() * 90000000).toString();
@@ -359,11 +359,11 @@ export async function setupAuth(app: Express) {
         attempts++;
       }
 
-      // Create new user
+      // Create new user with appropriate role
       const newUser = await storage.upsertUser({
         email,
         password,
-        role: isFirstUser ? "admin" : "buyer", // First user is admin, others are buyers
+        role: isSellerSignup ? "admin" : "buyer", // Sellers get admin role, buyers get buyer role
         username,
         replitAuthUserId: `local-${Date.now()}-${Math.random()}`,
       });
@@ -381,7 +381,7 @@ export async function setupAuth(app: Express) {
         }
 
         // Redirect based on role
-        const redirectUrl = isFirstUser ? "/seller-dashboard" : "/";
+        const redirectUrl = isSellerSignup ? "/seller-dashboard" : "/";
         return res.json({ success: true, redirectUrl });
       });
 
