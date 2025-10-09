@@ -8,12 +8,30 @@ import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
 import { Package, Grid3x3, LayoutGrid, Grip } from "lucide-react";
 import { detectDomain } from "@/lib/domain-utils";
+import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 
 type CardSize = "compact" | "medium" | "large";
+
+interface FilterOptions {
+  categories: string[];
+  productTypes: string[];
+  priceRange: [number, number];
+  sizes: string[];
+  colors: string[];
+  sortBy: string;
+}
 
 export default function Products() {
   const [selectedType, setSelectedType] = useState<ProductType | "all">("all");
   const [cardSize, setCardSize] = useState<CardSize>("medium");
+  const [filters, setFilters] = useState<FilterOptions>({
+    categories: [],
+    productTypes: [],
+    priceRange: [0, 10000],
+    sizes: [],
+    colors: [],
+    sortBy: "newest",
+  });
   const { addItem } = useCart();
   const { toast } = useToast();
   
@@ -65,10 +83,61 @@ export default function Products() {
     { value: "wholesale", label: "Wholesale" },
   ];
 
-  const filteredProducts =
-    selectedType === "all"
-      ? products
-      : products?.filter((p) => p.productType === selectedType);
+  // Apply filters and sorting
+  const filteredAndSortedProducts = products
+    ?.filter((p) => {
+      // Product type filter (legacy + new)
+      if (selectedType !== "all" && p.productType !== selectedType) return false;
+      if (filters.productTypes.length > 0 && !filters.productTypes.includes(p.productType)) return false;
+      
+      // Category filter
+      if (filters.categories.length > 0) {
+        const productCategories = [
+          (p as any).categoryLevel1Id,
+          (p as any).categoryLevel2Id,
+          (p as any).categoryLevel3Id
+        ].filter(Boolean);
+        
+        if (!productCategories.some(catId => filters.categories.includes(catId))) {
+          return false;
+        }
+      }
+      
+      // Price filter
+      const price = parseFloat(p.price);
+      if (price < filters.priceRange[0] || price > filters.priceRange[1]) return false;
+      
+      // Size filter (check variants)
+      if (filters.sizes.length > 0 && (p as any).variants) {
+        const variants = (p as any).variants;
+        const hasSizeMatch = variants.some((v: any) => filters.sizes.includes(v.size));
+        if (!hasSizeMatch) return false;
+      }
+      
+      // Color filter (check variants)
+      if (filters.colors.length > 0 && (p as any).variants) {
+        const variants = (p as any).variants;
+        const hasColorMatch = variants.some((v: any) => filters.colors.includes(v.color));
+        if (!hasColorMatch) return false;
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      switch (filters.sortBy) {
+        case "price-low":
+          return parseFloat(a.price) - parseFloat(b.price);
+        case "price-high":
+          return parseFloat(b.price) - parseFloat(a.price);
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        case "newest":
+        default:
+          return 0; // Keep original order (assuming newest first from backend)
+      }
+    });
 
   const handleAddToCart = (product: Product) => {
     addItem(product);
@@ -77,6 +146,11 @@ export default function Products() {
       description: `${product.name} has been added to your cart`,
     });
   };
+
+  // Calculate max price for filter
+  const maxPrice = products 
+    ? Math.max(...products.map(p => parseFloat(p.price)), 1000)
+    : 1000;
   
   // Dynamic grid classes based on card size
   const getGridClasses = () => {
@@ -142,35 +216,42 @@ export default function Products() {
             ))}
           </div>
           
-          <div className="flex gap-1 items-center">
-            <span className="text-sm text-muted-foreground mr-2">View:</span>
-            <Button
-              variant={cardSize === "compact" ? "default" : "outline"}
-              size="icon"
-              onClick={() => handleCardSizeChange("compact")}
-              data-testid="button-view-compact"
-              title="Compact view"
-            >
-              <Grip className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={cardSize === "medium" ? "default" : "outline"}
-              size="icon"
-              onClick={() => handleCardSizeChange("medium")}
-              data-testid="button-view-medium"
-              title="Medium view"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={cardSize === "large" ? "default" : "outline"}
-              size="icon"
-              onClick={() => handleCardSizeChange("large")}
-              data-testid="button-view-large"
-              title="Large view"
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
+          <div className="flex gap-2 items-center">
+            <ProductFiltersSheet 
+              onFilterChange={setFilters} 
+              maxPrice={maxPrice}
+            />
+            
+            <div className="flex gap-1 items-center ml-2">
+              <span className="text-sm text-muted-foreground mr-2">View:</span>
+              <Button
+                variant={cardSize === "compact" ? "default" : "outline"}
+                size="icon"
+                onClick={() => handleCardSizeChange("compact")}
+                data-testid="button-view-compact"
+                title="Compact view"
+              >
+                <Grip className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={cardSize === "medium" ? "default" : "outline"}
+                size="icon"
+                onClick={() => handleCardSizeChange("medium")}
+                data-testid="button-view-medium"
+                title="Medium view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={cardSize === "large" ? "default" : "outline"}
+                size="icon"
+                onClick={() => handleCardSizeChange("large")}
+                data-testid="button-view-large"
+                title="Large view"
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -184,9 +265,9 @@ export default function Products() {
               </div>
             ))}
           </div>
-        ) : filteredProducts && filteredProducts.length > 0 ? (
+        ) : filteredAndSortedProducts && filteredAndSortedProducts.length > 0 ? (
           <div className={getGridClasses()}>
-            {filteredProducts.map((product) => (
+            {filteredAndSortedProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
