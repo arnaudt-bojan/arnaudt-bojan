@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,8 +9,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { detectDomain } from "@/lib/domain-utils";
 
 export default function Home() {
-  const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+  const [, setLocation] = useLocation();
+  const { data: user, isLoading } = useQuery<any>({ queryKey: ["/api/auth/user"] });
   const domainInfo = detectDomain();
+
+  // Redirect logged-in sellers to dashboard
+  useEffect(() => {
+    if (!isLoading && user && (user.role === "admin" || user.role === "editor" || user.role === "viewer")) {
+      setLocation("/seller-dashboard");
+    }
+  }, [user, isLoading, setLocation]);
 
   const productTypes = [
     { 
