@@ -365,7 +365,6 @@ export async function setupAuth(app: Express) {
         password,
         role: isSellerSignup ? "admin" : "buyer", // Sellers get admin role, buyers get buyer role
         username,
-        replitAuthUserId: `local-${Date.now()}-${Math.random()}`,
       });
 
       // Auto-login the new user

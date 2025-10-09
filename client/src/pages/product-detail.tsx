@@ -196,6 +196,20 @@ export default function ProductDetail() {
                   </div>
                 </div>
               </Card>
+            ) : product.promotionActive && product.discountPercentage && parseFloat(product.discountPercentage) > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400" data-testid="text-product-price">
+                    {formatPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100))}
+                  </div>
+                  <span className="text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded">
+                    -{product.discountPercentage}% OFF
+                  </span>
+                </div>
+                <div className="text-xl text-muted-foreground line-through">
+                  {formatPrice(parseFloat(product.price))}
+                </div>
+              </div>
             ) : (
               <div className="text-3xl font-bold" data-testid="text-product-price">
                 {formatPrice(parseFloat(product.price))}
