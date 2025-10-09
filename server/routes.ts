@@ -793,8 +793,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email and role are required" });
       }
 
-      if (!["admin", "manager", "staff", "viewer"].includes(role)) {
-        return res.status(400).json({ error: "Invalid role" });
+      // Updated roles: admin, editor, viewer
+      if (!["admin", "editor", "viewer"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role. Valid roles: admin, editor, viewer" });
       }
 
       // Check if user already exists
@@ -868,8 +869,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "This invitation was sent to a different email address" });
       }
 
-      // Update user role
+      // Get the inviter to set as sellerId
+      const inviter = await storage.getUser(invitation.invitedBy);
+      
+      // Update user role and set sellerId to canonical owner ID
       await storage.updateUserRole(userId, invitation.role);
+      if (inviter && user) {
+        // Get canonical owner ID: if inviter is owner, use their ID; otherwise use their sellerId
+        const canonicalOwnerId = inviter.role === "owner" ? inviter.id : inviter.sellerId;
+        await storage.upsertUser({
+          ...user,
+          role: invitation.role,
+          sellerId: canonicalOwnerId, // Set to the store owner's ID
+        });
+      }
       await storage.updateInvitationStatus(invitation.token, "accepted");
 
       res.json({ message: "Invitation accepted successfully", role: invitation.role });
@@ -878,15 +891,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all team members
+  // Get team members for current seller's store
   app.get("/api/team", isAuthenticated, async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || !["owner", "admin", "manager"].includes(currentUser.role)) {
-        return res.status(403).json({ error: "Insufficient permissions" });
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
       }
 
-      const users = await storage.getAllUsers();
+      // Only sellers (admin/owner) can view their team
+      if (!["admin", "owner"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Only store owners can manage team members" });
+      }
+
+      // Get canonical owner ID: if owner, use their ID; otherwise use their sellerId
+      const canonicalOwnerId = currentUser.role === "owner" ? currentUser.id : currentUser.sellerId;
+      if (!canonicalOwnerId) {
+        return res.status(400).json({ error: "No store owner found for this user" });
+      }
+
+      // Get team members for this seller's store
+      const users = await storage.getTeamMembersBySellerId(canonicalOwnerId);
+      
       // Don't expose sensitive info
       const sanitizedUsers = users.map(u => ({
         id: u.id,
@@ -911,8 +937,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { role } = req.body;
-      if (!role || !["admin", "manager", "staff", "viewer", "customer"].includes(role)) {
-        return res.status(400).json({ error: "Invalid role" });
+      // Updated roles: admin, editor, viewer (removed manager, staff, customer)
+      if (!role || !["admin", "editor", "viewer"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role. Valid roles: admin, editor, viewer" });
       }
 
       const updatedUser = await storage.updateUserRole(req.params.userId, role);
@@ -923,6 +950,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "User role updated successfully", user: updatedUser });
     } catch (error) {
       res.status(500).json({ error: "Failed to update user role" });
+    }
+  });
+
+  // Delete team member
+  app.delete("/api/team/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Only owners and admins can delete team members" });
+      }
+
+      // Get canonical owner ID
+      const canonicalOwnerId = currentUser.role === "owner" ? currentUser.id : currentUser.sellerId;
+      if (!canonicalOwnerId) {
+        return res.status(400).json({ error: "No store owner found for this user" });
+      }
+
+      const deleted = await storage.deleteTeamMember(req.params.userId, canonicalOwnerId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Team member not found or doesn't belong to your store" });
+      }
+
+      res.json({ message: "Team member deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete team member" });
     }
   });
 

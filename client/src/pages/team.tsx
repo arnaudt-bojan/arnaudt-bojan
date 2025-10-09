@@ -37,23 +37,20 @@ import type { User, Invitation } from "@shared/schema";
 const roleColors = {
   owner: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20",
   admin: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20",
-  manager: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
-  staff: "bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20",
+  editor: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
   viewer: "bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-500/20",
-  customer: "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/20",
 };
 
 const roleDescriptions = {
-  admin: "Can manage products, orders, and invite users",
-  manager: "Can manage products and orders",
-  staff: "Can view and update order status",
-  viewer: "Read-only access to dashboard",
+  admin: "Can manage products, orders, and invite team members",
+  editor: "Can manage products and orders",
+  viewer: "Read-only access to store dashboard",
 };
 
 export default function Team() {
   const { toast } = useToast();
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<string>("staff");
+  const [inviteRole, setInviteRole] = useState<string>("editor");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -112,6 +109,26 @@ export default function Team() {
       toast({
         title: "Error",
         description: error.message || "Failed to update role",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTeamMemberMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest("DELETE", `/api/team/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team"] });
+      toast({
+        title: "Team member removed",
+        description: "Team member has been successfully removed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete team member",
         variant: "destructive",
       });
     },
@@ -200,8 +217,7 @@ export default function Team() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
                       <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
@@ -260,21 +276,30 @@ export default function Team() {
                     </TableCell>
                     <TableCell className="text-right">
                       {member.role !== "owner" && (
-                        <Select
-                          value={member.role}
-                          onValueChange={(newRole) => handleRoleChange(member.id, newRole)}
-                        >
-                          <SelectTrigger className="w-32 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="staff">Staff</SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                            <SelectItem value="customer">Customer</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center justify-end gap-2">
+                          <Select
+                            value={member.role}
+                            onValueChange={(newRole) => handleRoleChange(member.id, newRole)}
+                          >
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="editor">Editor</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteTeamMemberMutation.mutate(member.id)}
+                            disabled={deleteTeamMemberMutation.isPending}
+                            data-testid={`button-delete-member-${member.id}`}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>

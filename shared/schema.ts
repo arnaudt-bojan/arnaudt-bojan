@@ -124,6 +124,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   password: varchar("password"), // For local test accounts
   role: varchar("role").notNull().default("customer"),
+  sellerId: varchar("seller_id"), // ID of the seller/store owner this user belongs to (for team members)
   invitedBy: varchar("invited_by"), // User ID of who invited this user
   storeBanner: text("store_banner"), // Seller's store banner image URL
   storeLogo: text("store_logo"), // Seller's store logo URL

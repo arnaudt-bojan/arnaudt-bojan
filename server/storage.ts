@@ -52,6 +52,8 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+  getTeamMembersBySellerId(sellerId: string): Promise<User[]>;
+  deleteTeamMember(userId: string, sellerId: string): Promise<boolean>;
   
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -288,6 +290,21 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     await this.ensureInitialized();
     return await this.db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async getTeamMembersBySellerId(sellerId: string): Promise<User[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(users).where(eq(users.sellerId, sellerId)).orderBy(desc(users.createdAt));
+  }
+
+  async deleteTeamMember(userId: string, sellerId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    // Only delete if the user belongs to this seller
+    const result = await this.db
+      .delete(users)
+      .where(and(eq(users.id, userId), eq(users.sellerId, sellerId)))
+      .returning();
+    return result.length > 0;
   }
 
   async createInvitation(insertInvitation: InsertInvitation): Promise<Invitation> {
