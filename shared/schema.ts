@@ -86,7 +86,7 @@ export const orders = pgTable("orders", {
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
   customerAddress: text("customer_address").notNull(),
-  items: text("items").notNull(),
+  items: text("items").notNull(), // Legacy JSON field - kept for backward compatibility
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).default("0"),
   remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).default("0"),
@@ -94,9 +94,10 @@ export const orders = pgTable("orders", {
   paymentStatus: text("payment_status").default("pending"), // "pending", "deposit_paid", "fully_paid"
   stripePaymentIntentId: varchar("stripe_payment_intent_id"), // Stripe payment intent ID for deposit
   stripeBalancePaymentIntentId: varchar("stripe_balance_payment_intent_id"), // Stripe payment intent ID for balance
-  status: text("status").notNull().default("pending"),
-  trackingNumber: varchar("tracking_number"),
-  trackingLink: text("tracking_link"),
+  status: text("status").notNull().default("pending"), // Overall order status
+  fulfillmentStatus: text("fulfillment_status").default("unfulfilled"), // "unfulfilled", "partially_fulfilled", "fulfilled"
+  trackingNumber: varchar("tracking_number"), // Legacy - kept for backward compatibility
+  trackingLink: text("tracking_link"), // Legacy - kept for backward compatibility
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -104,6 +105,38 @@ export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, cre
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 export type SelectOrder = typeof orders.$inferSelect;
+
+// Order Items - for item-level tracking and fulfillment
+export const orderItems = pgTable("order_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  productId: varchar("product_id").notNull(), // Product/wholesale product ID
+  productName: text("product_name").notNull(),
+  productImage: text("product_image"),
+  productType: text("product_type").notNull(), // "in-stock", "pre-order", "made-to-order", "wholesale"
+  quantity: integer("quantity").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Price per unit at time of order
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(), // quantity * price
+  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
+  requiresDeposit: integer("requires_deposit").default(0),
+  variant: jsonb("variant"), // {size, color} if applicable
+  itemStatus: text("item_status").notNull().default("pending"), // "pending", "processing", "shipped", "delivered", "cancelled"
+  trackingNumber: varchar("tracking_number"),
+  trackingLink: text("tracking_link"),
+  shippedAt: timestamp("shipped_at"),
+  deliveredAt: timestamp("delivered_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type SelectOrderItem = typeof orderItems.$inferSelect;
 
 export const sessions = pgTable(
   "sessions",

@@ -5,6 +5,8 @@ import {
   type InsertProduct,
   type Order,
   type InsertOrder,
+  type OrderItem,
+  type InsertOrderItem,
   type Invitation,
   type InsertInvitation,
   type MetaSettings,
@@ -39,6 +41,7 @@ import {
   users,
   products,
   orders,
+  orderItems,
   invitations,
   metaSettings,
   tiktokSettings,
@@ -86,6 +89,14 @@ export interface IStorage {
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderTracking(id: string, trackingNumber: string, trackingLink: string): Promise<Order | undefined>;
   updateOrderBalancePaymentIntent(id: string, paymentIntentId: string): Promise<Order | undefined>;
+  updateOrderFulfillmentStatus(orderId: string): Promise<Order | undefined>;
+  
+  // Order Items
+  getOrderItems(orderId: string): Promise<OrderItem[]>;
+  createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
+  createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]>;
+  updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined>;
+  updateOrderItemTracking(itemId: string, trackingNumber: string, trackingLink: string): Promise<OrderItem | undefined>;
   
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
@@ -322,6 +333,96 @@ export class DatabaseStorage implements IStorage {
   async updateOrderBalancePaymentIntent(id: string, paymentIntentId: string): Promise<Order | undefined> {
     await this.ensureInitialized();
     const result = await this.db.update(orders).set({ stripeBalancePaymentIntentId: paymentIntentId }).where(eq(orders.id, id)).returning();
+    return result[0];
+  }
+
+  async updateOrderFulfillmentStatus(orderId: string): Promise<Order | undefined> {
+    await this.ensureInitialized();
+    
+    // Get all items for this order
+    const items = await this.db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    
+    if (items.length === 0) {
+      return undefined;
+    }
+    
+    // Count shipped items
+    const shippedItems = items.filter(item => 
+      item.itemStatus === 'shipped' || item.itemStatus === 'delivered'
+    );
+    
+    // Determine fulfillment status
+    let fulfillmentStatus: string;
+    if (shippedItems.length === 0) {
+      fulfillmentStatus = 'unfulfilled';
+    } else if (shippedItems.length === items.length) {
+      fulfillmentStatus = 'fulfilled';
+    } else {
+      fulfillmentStatus = 'partially_fulfilled';
+    }
+    
+    const result = await this.db.update(orders)
+      .set({ fulfillmentStatus })
+      .where(eq(orders.id, orderId))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Order Items methods
+  async getOrderItems(orderId: string): Promise<OrderItem[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(orderItems.createdAt);
+  }
+
+  async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(orderItems).values(item).returning();
+    return result[0];
+  }
+
+  async createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]> {
+    await this.ensureInitialized();
+    if (items.length === 0) return [];
+    const result = await this.db.insert(orderItems).values(items).returning();
+    return result;
+  }
+
+  async updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined> {
+    await this.ensureInitialized();
+    const updateData: any = { 
+      itemStatus: status,
+      updatedAt: new Date()
+    };
+    
+    // Set timestamps based on status
+    if (status === 'shipped') {
+      updateData.shippedAt = new Date();
+    } else if (status === 'delivered') {
+      updateData.deliveredAt = new Date();
+    }
+    
+    const result = await this.db.update(orderItems)
+      .set(updateData)
+      .where(eq(orderItems.id, itemId))
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateOrderItemTracking(itemId: string, trackingNumber: string, trackingLink: string): Promise<OrderItem | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orderItems)
+      .set({ 
+        trackingNumber, 
+        trackingLink,
+        itemStatus: 'shipped',
+        shippedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(orderItems.id, itemId))
+      .returning();
+    
     return result[0];
   }
 
