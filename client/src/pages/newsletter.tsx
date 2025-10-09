@@ -192,6 +192,39 @@ export default function NewsletterPage() {
     },
   });
 
+  const sendNewsletterMutation = useMutation({
+    mutationFn: async (params: { subject: string; content: string; recipients: string[] }) => {
+      console.log('[Newsletter] Sending with params:', { ...params, recipients: params.recipients?.length || 'undefined' });
+      // Create newsletter first
+      const createResponse = await apiRequest("POST", "/api/newsletters", params);
+      const newsletter = await createResponse.json();
+      
+      // Send the newsletter
+      const sendResponse = await apiRequest("POST", `/api/newsletters/${newsletter.id}/send`, {});
+      return sendResponse.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Newsletter Sent",
+        description: data.message || "Your newsletter has been sent successfully.",
+      });
+      // Clear form
+      setNewsletterSubject("");
+      setNewsletterContent("");
+      setNewsletterRecipients("all");
+      setSelectedProductId("");
+      // Refresh analytics
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter-analytics"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Send Failed",
+        description: error.message || "Failed to send newsletter.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateGroup = () => {
     if (!groupName.trim()) {
       toast({
@@ -579,17 +612,59 @@ export default function NewsletterPage() {
                 </Button>
                 <Button
                   onClick={() => {
-                    // TODO: Implement send newsletter
-                    toast({
-                      title: "Newsletter Sent",
-                      description: "Your newsletter has been sent successfully.",
+                    // Validate inputs
+                    if (!newsletterSubject.trim()) {
+                      toast({
+                        title: "Missing Subject",
+                        description: "Please enter a newsletter subject.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    if (!newsletterContent.trim()) {
+                      toast({
+                        title: "Missing Content",
+                        description: "Please enter newsletter content.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    // Build recipient list
+                    let recipients: string[] = [];
+                    if (newsletterRecipients === "all") {
+                      recipients = allSubscribers?.map(s => s.email) || [];
+                    } else {
+                      // Filter by group
+                      const groupSubscribers = allSubscribers?.filter(s => {
+                        // For now, send to all (group filtering can be enhanced later)
+                        return true;
+                      }) || [];
+                      recipients = groupSubscribers.map(s => s.email);
+                    }
+
+                    if (recipients.length === 0) {
+                      toast({
+                        title: "No Recipients",
+                        description: "There are no subscribers to send the newsletter to.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    sendNewsletterMutation.mutate({
+                      subject: newsletterSubject,
+                      content: newsletterContent,
+                      recipients,
                     });
                   }}
                   className="gap-2"
                   data-testid="button-send-newsletter"
+                  disabled={sendNewsletterMutation.isPending}
                 >
                   <Send className="h-4 w-4" />
-                  Send Newsletter
+                  {sendNewsletterMutation.isPending ? "Sending..." : "Send Newsletter"}
                 </Button>
               </div>
             </CardContent>

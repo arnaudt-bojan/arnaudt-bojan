@@ -263,6 +263,7 @@ export const newsletters = pgTable("newsletters", {
   subject: text("subject").notNull(),
   content: text("content").notNull(), // Plain text content
   htmlContent: text("html_content"), // HTML content for email
+  recipients: jsonb("recipients").notNull(), // Array of recipient email addresses
   groupIds: text("group_ids").array(), // Array of subscriber group IDs
   images: jsonb("images"), // Array of {id, url, productId?, link, alt}
   status: text("status").notNull().default("draft"), // "draft", "sent", "failed"

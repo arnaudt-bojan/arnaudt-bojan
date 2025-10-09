@@ -2374,8 +2374,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { subject, content, recipients } = req.body;
+      
+      console.log('[Newsletter] Create request body:', { subject, content, recipients: recipients?.length || 'undefined' });
 
       if (!subject || !content || !recipients || recipients.length === 0) {
+        console.log('[Newsletter] Validation failed:', { subject: !!subject, content: !!content, recipients: recipients?.length });
         return res.status(400).json({ error: "Missing required fields" });
       }
 
@@ -2399,19 +2402,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const newsletterId = req.params.id;
 
+      // Fetch newsletter
       const newsletter = await storage.getNewsletter(newsletterId);
       if (!newsletter || newsletter.userId !== userId) {
         return res.status(404).json({ error: "Newsletter not found" });
       }
 
-      // TODO: Integrate SendGrid when API key is provided
-      // For now, mark as sent
+      if (newsletter.status === "sent") {
+        return res.status(400).json({ error: "Newsletter has already been sent" });
+      }
+
+      // Fetch user/seller information for "from" field
+      const seller = await storage.getUser(userId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // Build recipients list from newsletter.recipients (array of email strings)
+      const recipients = newsletter.recipients.map((email: string) => ({ email }));
+
+      if (recipients.length === 0) {
+        return res.status(400).json({ error: "No recipients found" });
+      }
+
+      // Send newsletter via Resend
+      const result = await notificationService.sendNewsletter({
+        userId,
+        newsletterId,
+        recipients,
+        from: `${seller.firstName || seller.username} <${seller.email}>`,
+        replyTo: seller.email,
+        subject: newsletter.subject,
+        htmlContent: newsletter.content,
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || "Failed to send newsletter" });
+      }
+
+      // Update newsletter status
       await storage.updateNewsletter(newsletterId, {
         status: "sent",
         sentAt: new Date(),
       });
 
-      res.json({ success: true, message: "Newsletter marked as sent. SendGrid integration pending." });
+      res.json({ 
+        success: true, 
+        message: `Newsletter sent to ${recipients.length} recipients`,
+        batchId: result.batchId 
+      });
     } catch (error) {
       console.error("Newsletter send error:", error);
       res.status(500).json({ error: "Failed to send newsletter" });
