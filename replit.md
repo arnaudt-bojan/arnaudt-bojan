@@ -44,7 +44,15 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
   - Phase 1 templates ready: Stripe onboarding reminders, payment failures, inventory alerts, payout failures (require webhook integration)
   - 30+ notification types planned across 3 phases (see docs/notification-system-design.md)
 - **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting Apple Pay, Google Pay, and credit cards. Supports balance payments for pre-orders. Each order contains products from a single seller only - payment routes directly to that seller's Stripe Connect account.
-- **Subscription System**: Sellers pay a monthly or annual fee with a 30-day free trial. Payment methods are securely stored using Stripe Customer objects.
+- **Subscription System**: 
+  - Sellers pay a monthly ($9.99) or annual ($99) fee with a 30-day free trial
+  - New sellers default to inactive store status (storeActive: 0)
+  - Activating store triggers subscription flow via SubscriptionPricingDialog
+  - Store toggle appears in both Dashboard and Products pages with consistent behavior
+  - Toggle disabled until user data loads to prevent cache corruption
+  - Optimistic updates maintain proper user object shape for reliable subscription gating
+  - Payment methods securely stored using Stripe Customer objects
+  - Development mode creates Stripe prices dynamically (avoids hardcoded test price IDs)
 - **Multi-Currency Support**: Automatic IP-based currency detection with a user-selectable currency switcher and real-time exchange rate conversion.
 - **NFT Minting**: Buyers can mint NFTs on the Solana devnet for fully paid orders, integrated with Phantom wallet.
 - **Wholesale B2B System**: Invitation-only system for managing wholesale products with specific pricing and order requirements.

@@ -47,7 +47,12 @@ router.post('/send-code', async (req: Request, res: Response) => {
     // Send email with code and magic link for auto-login
     await notificationService.sendAuthCode(email, code, token);
 
-    console.log(`[Auth] Sent code and auto-login link to ${email}`);
+    // In development, log the code for testing
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Auth] Verification code for ${email}: ${code}`);
+    } else {
+      console.log(`[Auth] Sent code and auto-login link to ${email}`);
+    }
 
     res.json({ 
       success: true, 
