@@ -48,17 +48,21 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   // Determine which seller info to use
   const sellerInfo = (isSellerDomain ? sellerData : user) as any;
   const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
+  
+  // Determine if we should show the burger menu
+  const shouldShowBurgerMenu = isSellerDomain || isAuthenticated;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
         <div className="flex items-center gap-2">
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
+          {shouldShowBurgerMenu && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
             <SheetContent side="left">
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
@@ -185,7 +189,8 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                 )}
               </nav>
             </SheetContent>
-          </Sheet>
+            </Sheet>
+          )}
           {sellerInfo?.instagramUsername ? (
             <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
