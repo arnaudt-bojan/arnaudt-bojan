@@ -396,6 +396,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const order = await storage.createOrder({ ...validationResult.data, userId });
       
+      // Create order items for item-level tracking
+      try {
+        const items = JSON.parse(order.items);
+        const orderItemsToCreate = items.map((item: any) => ({
+          orderId: order.id,
+          productId: item.id || item.productId,
+          productName: item.name,
+          productImage: item.image,
+          productType: item.productType || 'in-stock',
+          quantity: item.quantity,
+          price: String(item.price),
+          subtotal: String(parseFloat(item.price) * item.quantity),
+          depositAmount: item.depositAmount ? String(item.depositAmount) : null,
+          requiresDeposit: item.requiresDeposit ? 1 : 0, // Coerce boolean to integer
+          variant: item.variant || null,
+          itemStatus: 'pending',
+        }));
+        
+        await storage.createOrderItems(orderItemsToCreate);
+        console.log(`[Order Items] Created ${orderItemsToCreate.length} order items for order ${order.id}`);
+      } catch (error) {
+        console.error('[Order Items] Failed to create order items:', error);
+        // Don't fail the order if items creation fails - legacy items field still works
+      }
+      
       // Send order notifications (async, don't block response)
       void (async () => {
         try {
