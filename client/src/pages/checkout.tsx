@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Form,
   FormControl,
@@ -45,6 +46,7 @@ export default function Checkout() {
   const [orderData, setOrderData] = useState<InsertOrder | null>(null);
   const [orderComplete, setOrderComplete] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [stripeError, setStripeError] = useState<string | null>(null);
 
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -137,11 +139,21 @@ export default function Checkout() {
 
       setClientSecret(paymentData.clientSecret);
       setPaymentIntentId(paymentData.paymentIntentId);
+      setStripeError(null); // Clear any previous errors
       setStep("payment");
     } catch (error: any) {
+      const errorMsg = error.message || "Failed to initialize payment. Please try again.";
+      
+      // Check if it's a Stripe connection error
+      if (errorMsg.includes("hasn't set up payments") || errorMsg.includes("connect a payment provider")) {
+        setStripeError("This store hasn't set up payments yet. Please contact the seller or try again later.");
+      } else {
+        setStripeError(errorMsg);
+      }
+      
       toast({
-        title: "Error",
-        description: error.message || "Failed to initialize payment. Please try again.",
+        title: "Payment Error",
+        description: errorMsg,
         variant: "destructive",
       });
     }
@@ -255,6 +267,17 @@ export default function Checkout() {
             {step === "shipping" ? (
               <Card className="p-6">
                 <h2 className="text-2xl font-semibold mb-6">Shipping Information</h2>
+                
+                {stripeError && (
+                  <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-error">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Payment Not Available</AlertTitle>
+                    <AlertDescription>
+                      {stripeError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onShippingSubmit)} className="space-y-6">
                     <FormField
@@ -339,6 +362,16 @@ export default function Checkout() {
                 </div>
                 
                 <h2 className="text-2xl font-semibold mb-6">Payment Information</h2>
+                
+                {stripeError && (
+                  <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-error">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Payment Not Available</AlertTitle>
+                    <AlertDescription>
+                      {stripeError}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 
                 {!clientSecret && (
                   <div className="text-center py-8 text-muted-foreground">
