@@ -41,7 +41,7 @@ import {
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, and, lt } from "drizzle-orm";
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
@@ -722,8 +722,7 @@ export class DatabaseStorage implements IStorage {
     const result = await this.db
       .select()
       .from(authTokens)
-      .where(eq(authTokens.email, email))
-      .where(eq(authTokens.code, code))
+      .where(and(eq(authTokens.email, email), eq(authTokens.code, code)))
       .limit(1);
     return result[0];
   }
@@ -742,7 +741,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db
       .delete(authTokens)
-      .where(eq(authTokens.expiresAt, sql`< NOW()`))
+      .where(lt(authTokens.expiresAt, new Date()))
       .returning();
     return result.length;
   }

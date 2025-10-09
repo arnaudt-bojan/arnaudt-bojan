@@ -8,6 +8,8 @@ import { setupAuth, isAuthenticated, isSeller } from "./replitAuth";
 import Stripe from "stripe";
 import { getExchangeRates, getUserCurrency } from "./currencyService";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import emailAuthRoutes from "./auth-email";
+import { createNotificationService } from "./notifications";
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -38,6 +40,43 @@ async function generateUniqueUsername(): Promise<string> {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
+
+  // Email-based authentication routes
+  app.use("/api/auth/email", emailAuthRoutes);
+
+  // Notification routes
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notifications = await storage.getNotificationsByUserId(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const notification = await storage.markNotificationAsRead(id);
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteNotification(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ error: "Failed to delete notification" });
+    }
+  });
 
   app.get("/api/auth/user", async (req: any, res) => {
     try {
