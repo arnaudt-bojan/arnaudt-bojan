@@ -129,12 +129,17 @@ export const users = pgTable("users", {
   storeLogo: text("store_logo"), // Seller's store logo URL
   paymentProvider: varchar("payment_provider").default("stripe"), // stripe, paypal
   stripeConnectedAccountId: varchar("stripe_connected_account_id"), // Stripe Connect account ID for receiving payments
+  stripeChargesEnabled: integer("stripe_charges_enabled").default(0), // Can accept payments (0=no, 1=yes)
+  stripePayoutsEnabled: integer("stripe_payouts_enabled").default(0), // Can receive payouts (0=no, 1=yes)
+  stripeDetailsSubmitted: integer("stripe_details_submitted").default(0), // Has submitted onboarding info (0=no, 1=yes)
+  listingCurrency: varchar("listing_currency", { length: 3 }).default("USD"), // Default currency from Stripe account (ISO 4217)
   stripeCustomerId: varchar("stripe_customer_id"), // Stripe Customer ID for subscription & saved payment methods
   stripeSubscriptionId: varchar("stripe_subscription_id"), // Stripe Subscription ID for recurring billing
   subscriptionStatus: varchar("subscription_status"), // trial, active, past_due, canceled, null
   subscriptionPlan: varchar("subscription_plan"), // monthly, annual
   trialEndsAt: timestamp("trial_ends_at"), // When 30-day trial expires
   paypalMerchantId: varchar("paypal_merchant_id"), // PayPal merchant ID
+  paypalPartnerId: varchar("paypal_partner_id"), // PayPal partner attribution ID
   customDomain: varchar("custom_domain"), // Custom domain for store (e.g., mystore.com)
   customDomainVerified: integer("custom_domain_verified").default(0), // 0 = false, 1 = true
   instagramUserId: varchar("instagram_user_id"), // Instagram user ID from OAuth

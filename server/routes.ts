@@ -612,15 +612,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       };
 
-      // If seller has connected Stripe account, use Connect
+      // Check if seller has Stripe account and can accept payments
       if (sellerConnectedAccountId) {
+        const seller = await storage.getUser(sellerId);
+        
+        // Check if seller can accept charges (doesn't need full verification for this)
+        if (!seller?.stripeChargesEnabled) {
+          return res.status(400).json({ 
+            error: "This store is still setting up payment processing. Please check back soon.",
+            errorCode: "STRIPE_CHARGES_DISABLED"
+          });
+        }
+
         paymentIntentParams.application_fee_amount = platformFeeAmount;
         paymentIntentParams.on_behalf_of = sellerConnectedAccountId; // Seller name appears on statement
         paymentIntentParams.transfer_data = {
           destination: sellerConnectedAccountId, // Money goes to seller
         };
         
-        console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} USD fee to platform, rest to seller ${sellerId}`);
+        // Use seller's listing currency
+        paymentIntentParams.currency = (seller.listingCurrency || 'USD').toLowerCase();
+        
+        console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} ${paymentIntentParams.currency.toUpperCase()} fee to platform, rest to seller ${sellerId}`);
       } else {
         // Seller must connect Stripe before accepting payments
         return res.status(400).json({ 
@@ -1004,66 +1017,279 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stripe Connect OAuth routes
-  app.get("/api/stripe/connect", isAuthenticated, (req: any, res) => {
+  // Create or get Stripe Express account with minimal KYC
+  app.post("/api/stripe/create-express-account", isAuthenticated, async (req: any, res) => {
     try {
       if (!stripe) {
         return res.status(500).json({ error: "Stripe is not configured" });
       }
 
       const userId = req.user.claims.sub;
-      const baseUrl = process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`;
+      const user = await storage.getUser(userId);
       
-      // Generate Stripe Connect OAuth URL
-      const stripeAuthUrl = `https://connect.stripe.com/oauth/authorize?` +
-        `response_type=code&` +
-        `client_id=${process.env.STRIPE_CLIENT_ID || process.env.STRIPE_SECRET_KEY?.split('_')[1]}&` +
-        `scope=read_write&` +
-        `redirect_uri=${encodeURIComponent(`${baseUrl}/api/stripe/callback`)}&` +
-        `state=${userId}`;
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
-      res.json({ url: stripeAuthUrl });
+      // If user already has a connected account, return its status
+      if (user.stripeConnectedAccountId) {
+        const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+        
+        // Update user with latest account status
+        await storage.upsertUser({
+          ...user,
+          stripeChargesEnabled: account.charges_enabled ? 1 : 0,
+          stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
+          stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
+          listingCurrency: account.default_currency?.toUpperCase() || 'USD',
+        });
+
+        return res.json({
+          accountId: account.id,
+          chargesEnabled: account.charges_enabled,
+          payoutsEnabled: account.payouts_enabled,
+          detailsSubmitted: account.details_submitted,
+          currency: account.default_currency,
+        });
+      }
+
+      // Create new Express account with minimal requirements
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: 'US', // Default to US, user can change during onboarding
+        email: user.email || undefined,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: 'individual', // Start with individual, can upgrade later
+        settings: {
+          payouts: {
+            debit_negative_balances: true,
+          },
+        },
+      });
+
+      // Save account ID and initial status
+      await storage.upsertUser({
+        ...user,
+        stripeConnectedAccountId: account.id,
+        stripeChargesEnabled: account.charges_enabled ? 1 : 0,
+        stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
+        stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
+        listingCurrency: account.default_currency?.toUpperCase() || 'USD',
+      });
+
+      console.log(`[Stripe Express] Created account ${account.id} for user ${userId}`);
+
+      res.json({
+        accountId: account.id,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        detailsSubmitted: account.details_submitted,
+        currency: account.default_currency,
+      });
     } catch (error: any) {
-      console.error("Stripe connect error:", error);
-      res.status(500).json({ error: "Failed to generate Stripe connection URL" });
+      console.error("Stripe Express account creation error:", error);
+      res.status(500).json({ error: "Failed to create Express account" });
     }
   });
 
-  app.get("/api/stripe/callback", async (req, res) => {
+  // Generate Account Link for onboarding/verification
+  app.post("/api/stripe/account-link", isAuthenticated, async (req: any, res) => {
     try {
       if (!stripe) {
-        return res.status(500).send("Stripe is not configured");
+        return res.status(500).json({ error: "Stripe is not configured" });
       }
 
-      const { code, state: userId } = req.query;
-
-      if (!code || !userId) {
-        return res.status(400).send("Missing authorization code or state");
+      const userId = req.user.claims.sub;
+      const { type = 'account_onboarding' } = req.body; // account_onboarding or account_update
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeConnectedAccountId) {
+        return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-      // Exchange authorization code for access token
-      const response = await stripe.oauth.token({
-        grant_type: "authorization_code",
-        code: code as string,
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : `http://localhost:${process.env.PORT || 5000}`;
+
+      const accountLink = await stripe.accountLinks.create({
+        account: user.stripeConnectedAccountId,
+        refresh_url: `${baseUrl}/settings?stripe=refresh`,
+        return_url: `${baseUrl}/settings?stripe=connected`,
+        type: type, // 'account_onboarding' for new accounts, 'account_update' for existing
       });
 
-      const connectedAccountId = response.stripe_user_id;
+      res.json({ url: accountLink.url });
+    } catch (error: any) {
+      console.error("Stripe Account Link error:", error);
+      res.status(500).json({ error: "Failed to generate account link" });
+    }
+  });
 
-      // Update user with connected account ID
-      const user = await storage.getUser(userId as string);
-      if (!user) {
-        return res.status(404).send("User not found");
+  // Check Stripe account status and update user
+  app.get("/api/stripe/account-status", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
       }
 
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeConnectedAccountId) {
+        return res.json({ 
+          connected: false,
+          chargesEnabled: false,
+          payoutsEnabled: false,
+          detailsSubmitted: false,
+        });
+      }
+
+      const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+      
+      // Update user with latest status
       await storage.upsertUser({
         ...user,
-        stripeConnectedAccountId: connectedAccountId,
+        stripeChargesEnabled: account.charges_enabled ? 1 : 0,
+        stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
+        stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
+        listingCurrency: account.default_currency?.toUpperCase() || 'USD',
       });
 
-      // Redirect back to settings page
-      res.redirect("/settings?stripe=connected");
+      res.json({
+        connected: true,
+        accountId: account.id,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        detailsSubmitted: account.details_submitted,
+        currency: account.default_currency,
+        requirements: account.requirements,
+      });
     } catch (error: any) {
-      console.error("Stripe OAuth callback error:", error);
-      res.redirect("/settings?stripe=error");
+      console.error("Stripe account status error:", error);
+      res.status(500).json({ error: "Failed to check account status" });
+    }
+  });
+
+  // PayPal Commerce Platform Partner Integration
+  app.post("/api/paypal/create-partner-referral", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // PayPal Partner Referral API integration
+      // Note: Requires PAYPAL_PARTNER_ID and PAYPAL_CLIENT_SECRET
+      const partnerId = process.env.PAYPAL_PARTNER_ID;
+      const clientId = process.env.PAYPAL_CLIENT_ID;
+      const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+
+      if (!partnerId || !clientId || !clientSecret) {
+        return res.status(501).json({ 
+          error: "PayPal integration not configured. Please contact support.",
+          errorCode: "PAYPAL_NOT_CONFIGURED"
+        });
+      }
+
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : `http://localhost:${process.env.PORT || 5000}`;
+
+      // Get PayPal access token
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      const tokenResponse = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      });
+
+      const { access_token } = await tokenResponse.json();
+
+      // Create partner referral
+      const referralResponse = await fetch('https://api-m.paypal.com/v2/customer/partner-referrals', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tracking_id: userId,
+          partner_config_override: {
+            partner_logo_url: `${baseUrl}/logo.png`,
+            return_url: `${baseUrl}/settings?paypal=connected`,
+            return_url_description: "Return to your store settings",
+            action_renewal_url: `${baseUrl}/settings?paypal=refresh`,
+          },
+          operations: [
+            {
+              operation: 'API_INTEGRATION',
+              api_integration_preference: {
+                rest_api_integration: {
+                  integration_method: 'PAYPAL',
+                  integration_type: 'THIRD_PARTY',
+                  third_party_details: {
+                    features: ['PAYMENT', 'REFUND', 'PARTNER_FEE'],
+                  },
+                },
+              },
+            },
+          ],
+          products: ['EXPRESS_CHECKOUT'],
+          legal_consents: [
+            {
+              type: 'SHARE_DATA_CONSENT',
+              granted: true,
+            },
+          ],
+        }),
+      });
+
+      const referralData = await referralResponse.json();
+
+      if (referralData.links) {
+        const actionUrl = referralData.links.find((link: any) => link.rel === 'action_url')?.href;
+        
+        res.json({ 
+          url: actionUrl,
+          referralId: referralData.partner_referral_id,
+        });
+      } else {
+        throw new Error('No action URL returned from PayPal');
+      }
+    } catch (error: any) {
+      console.error("PayPal partner referral error:", error);
+      res.status(500).json({ error: "Failed to create PayPal partner referral" });
+    }
+  });
+
+  // PayPal merchant status check
+  app.get("/api/paypal/merchant-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.paypalMerchantId) {
+        return res.json({ 
+          connected: false,
+          merchantId: null,
+        });
+      }
+
+      res.json({
+        connected: true,
+        merchantId: user.paypalMerchantId,
+      });
+    } catch (error: any) {
+      console.error("PayPal merchant status error:", error);
+      res.status(500).json({ error: "Failed to check PayPal status" });
     }
   });
 
