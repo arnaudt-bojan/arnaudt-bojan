@@ -2,9 +2,8 @@ import { Resend } from 'resend';
 import type { User, Order, Product, Notification, InsertNotification } from '../shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-// Use Resend's verified testing domain or your verified domain
-// For production: verify your domain at https://resend.com/domains
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Uppfirst <onboarding@resend.dev>';
+// Using verified domain uppfirst.io
+const FROM_EMAIL = process.env.FROM_EMAIL || 'Uppfirst <hello@uppfirst.io>';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -139,10 +138,10 @@ class NotificationServiceImpl implements NotificationService {
     // Generate branded email HTML
     const emailHtml = this.generateOrderConfirmationEmail(order, seller, products, buyerName);
 
-    // Send email with seller as sender
+    // Send email from verified domain with seller as reply-to
     const result = await this.sendEmail({
       to: buyerEmail,
-      from: seller.email ? `${seller.firstName || 'Store'} <${seller.email}>` : FROM_EMAIL,
+      from: `${seller.firstName || 'Store'} via Uppfirst <hello@uppfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Order Confirmation #${order.id.slice(0, 8)} - ${seller.firstName || 'Your'} Store`,
       html: emailHtml,
@@ -172,7 +171,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: seller.email ? `${seller.firstName || 'Store'} <${seller.email}>` : FROM_EMAIL,
+      from: `${seller.firstName || 'Store'} via Uppfirst <hello@uppfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Your order has shipped! - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -763,7 +762,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: seller.email ? `${seller.firstName || 'Store'} <${seller.email}>` : FROM_EMAIL,
+      from: `${seller.firstName || 'Store'} via Uppfirst <hello@uppfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -1202,7 +1201,7 @@ class NotificationServiceImpl implements NotificationService {
         
         // In development, if domain/validation error, log and succeed anyway
         const errorMsg = result.error.message || '';
-        const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || result.error.statusCode === 422;
+        const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || errorMsg.includes('not verified') || result.error.statusCode === 422 || result.error.statusCode === 403;
         
         if (process.env.NODE_ENV === 'development' && isValidationError) {
           console.log('\n═══════════════════════════════════════════════════════');
