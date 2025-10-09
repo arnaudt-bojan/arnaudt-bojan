@@ -1012,7 +1012,21 @@ export default function Settings() {
       }
 
       if (linkData.url) {
-        window.location.href = linkData.url;
+        // Open Stripe in a new tab to avoid redirect issues
+        const stripeWindow = window.open(linkData.url, '_blank', 'noopener,noreferrer');
+        
+        if (!stripeWindow) {
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups to connect your Stripe account.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Opening Stripe...",
+            description: "Complete the setup in the new window, then return here.",
+          });
+        }
       }
     } catch (error: any) {
       toast({
@@ -1049,13 +1063,54 @@ export default function Settings() {
   };
 
   const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
-  const isStripeConnected = user?.stripeConnectedAccountId;
+  const isStripeConnected = user?.stripeConnectedAccountId && user?.stripeDetailsSubmitted === 1;
   const isInstagramConnected = user?.instagramUsername;
 
   // Get tab from URL search params
   const searchParams = new URLSearchParams(window.location.search);
   const tabParam = searchParams.get('tab');
+  const stripeParam = searchParams.get('stripe');
   const defaultTab = tabParam || "profile";
+
+  // Check Stripe status when returning from Stripe Connect
+  useEffect(() => {
+    const checkStripeStatus = async () => {
+      if (stripeParam === 'connected' && user?.stripeConnectedAccountId) {
+        try {
+          const response = await apiRequest("GET", "/api/stripe/account-status");
+          const data = await response.json();
+          
+          if (data.detailsSubmitted) {
+            toast({
+              title: "Stripe Connected!",
+              description: "Your payment account is now set up and ready to accept payments.",
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          } else {
+            toast({
+              title: "Setup Incomplete",
+              description: "Please complete the Stripe onboarding to start accepting payments.",
+              variant: "destructive",
+            });
+          }
+          
+          // Clean up URL
+          window.history.replaceState({}, '', '/settings?tab=payment');
+        } catch (error) {
+          console.error("Failed to check Stripe status:", error);
+        }
+      } else if (stripeParam === 'refresh') {
+        toast({
+          title: "Session Expired",
+          description: "Your Stripe setup session expired. Please try connecting again.",
+          variant: "destructive",
+        });
+        window.history.replaceState({}, '', '/settings?tab=payment');
+      }
+    };
+
+    checkStripeStatus();
+  }, [stripeParam, user?.stripeConnectedAccountId]);
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
