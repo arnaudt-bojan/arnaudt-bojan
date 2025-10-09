@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Product } from "@shared/schema";
-import { Plus, Pencil, Trash2, Megaphone, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Megaphone, Upload, CreditCard } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -34,6 +35,10 @@ export default function SellerProducts() {
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/seller/products"],
+  });
+  
+  const { data: user } = useQuery<any>({ 
+    queryKey: ["/api/auth/user"] 
   });
 
   const deleteMutation = useMutation({
@@ -101,6 +106,27 @@ export default function SellerProducts() {
             </Button>
           </div>
         </div>
+        
+        {user && !user.stripeConnectedAccountId && (
+          <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-not-connected">
+            <CreditCard className="h-4 w-4" />
+            <AlertTitle>Connect Payment Provider</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>
+                You must connect a payment provider before customers can purchase your products. 
+                Go to Settings to connect Stripe.
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setLocation("/settings")}
+                data-testid="button-setup-payments"
+              >
+                Setup now
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="p-6">
           {isLoading ? (

@@ -531,7 +531,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Reference: javascript_stripe integration
   // Stripe Connect payment intent creation for checkout
-  app.post("/api/create-payment-intent", isAuthenticated, async (req, res) => {
+  // Note: No auth required - guest checkout needs this
+  app.post("/api/create-payment-intent", async (req, res) => {
     try {
       if (!stripe) {
         return res.status(500).json({ 
