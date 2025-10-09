@@ -95,7 +95,7 @@ export default function BulkProductUpload() {
     },
     onSuccess: (data: UploadResult) => {
       setUploadResult(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       
       if (data.success > 0) {
         toast({

@@ -136,7 +136,7 @@ export default function EditProduct() {
       return await apiRequest("PUT", `/api/products/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products", id] });
       toast({
         title: "Product updated",

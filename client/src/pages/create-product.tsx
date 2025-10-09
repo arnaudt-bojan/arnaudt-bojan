@@ -245,7 +245,7 @@ export default function CreateProduct() {
       return await apiRequest("POST", "/api/products", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
       toast({
         title: "Product created",
         description: "Your product has been created successfully.",
