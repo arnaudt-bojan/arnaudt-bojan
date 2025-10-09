@@ -301,7 +301,7 @@ export default function Products() {
             <ImagePlus className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground mb-2">Add a banner to showcase your brand</p>
             <p className="text-sm text-muted-foreground/70 mb-4">Recommended size: 1920x300px</p>
-            <Link href="/settings">
+            <Link href="/settings?tab=branding">
               <Button variant="outline" data-testid="button-add-banner">
                 Add Banner
               </Button>

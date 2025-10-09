@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { X, Star, Link as LinkIcon, ImagePlus } from "lucide-react";
+import { X, Star, Link as LinkIcon, ImagePlus, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ImageDropzone } from "@/components/image-dropzone";
+import { ImageEditor } from "@/components/image-editor";
 
 interface UniversalImageUploadProps {
   value: string | string[];
@@ -36,6 +37,7 @@ export function UniversalImageUpload({
   const [showUrlDialog, setShowUrlDialog] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [heroIndex, setHeroIndex] = useState(0);
+  const [editingImage, setEditingImage] = useState<{ index: number; url: string } | null>(null);
 
   // Normalize value to array for easier handling
   const images = Array.isArray(value) ? value : value ? [value] : [];
@@ -86,7 +88,30 @@ export function UniversalImageUpload({
     setHeroIndex(0);
   };
 
+  const handleEditImage = (index: number) => {
+    setEditingImage({ index, url: images[index] });
+  };
+
+  const handleSaveEdit = (editedImageUrl: string) => {
+    if (editingImage === null) return;
+    
+    if (isSingle) {
+      onChange(editedImageUrl);
+    } else {
+      const newImages = [...images];
+      newImages[editingImage.index] = editedImageUrl;
+      onChange(newImages);
+    }
+    setEditingImage(null);
+  };
+
   const canAddMore = isSingle ? images.length === 0 : images.length < maxImages;
+  
+  // Determine aspect ratio for editor
+  const editorAspectRatio = 
+    aspectRatio === "square" ? 1 : 
+    aspectRatio === "wide" ? 16 / 9 : 
+    4 / 3;
 
   const aspectRatioClass = 
     aspectRatio === "square" ? "aspect-square" : 
@@ -225,6 +250,17 @@ export function UniversalImageUpload({
                 <Button
                   type="button"
                   size="icon"
+                  variant="secondary"
+                  className="h-7 w-7"
+                  onClick={() => handleEditImage(index)}
+                  title="Edit image"
+                  data-testid={`button-edit-image-${index}`}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
                   variant="destructive"
                   className="h-7 w-7"
                   onClick={() => removeImage(index)}
@@ -251,6 +287,17 @@ export function UniversalImageUpload({
         <p className="text-sm text-muted-foreground">
           💡 The first image is your <strong>hero image</strong> (main display). Click the star to set a different image as hero.
         </p>
+      )}
+
+      {/* Image Editor */}
+      {editingImage && (
+        <ImageEditor
+          imageUrl={editingImage.url}
+          isOpen={true}
+          onClose={() => setEditingImage(null)}
+          onSave={handleSaveEdit}
+          aspectRatio={editorAspectRatio}
+        />
       )}
     </div>
   );

@@ -200,7 +200,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-8 max-w-[200px] object-contain" />
             </Link>
           ) : isSeller ? (
-            <Link href="/settings">
+            <Link href="/settings?tab=branding">
               <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
                 Add Logo
               </Button>
