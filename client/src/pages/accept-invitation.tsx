@@ -29,10 +29,14 @@ export default function AcceptInvitation() {
     },
     onSuccess: (data: any) => {
       setStatus("success");
-      setMessage(`Welcome! You've been added as ${data.role}`);
-      setTimeout(() => {
-        setLocation("/dashboard");
-      }, 2000);
+      if (data.requiresLogin) {
+        setMessage(`Invitation accepted! Check your email (${data.email}) for a magic link to log in and access your dashboard.`);
+      } else {
+        setMessage(`Welcome! You've been added as ${data.role}`);
+        setTimeout(() => {
+          setLocation("/dashboard");
+        }, 2000);
+      }
     },
     onError: (error: any) => {
       setStatus("error");
@@ -78,9 +82,20 @@ export default function AcceptInvitation() {
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold mb-2">Success!</h2>
               <p className="text-muted-foreground mb-4">{message}</p>
-              <p className="text-sm text-muted-foreground">
-                Redirecting to dashboard...
-              </p>
+              {!message.includes("Check your email") && (
+                <p className="text-sm text-muted-foreground">
+                  Redirecting to dashboard...
+                </p>
+              )}
+              {message.includes("Check your email") && (
+                <Button
+                  onClick={() => setLocation("/")}
+                  className="mt-4"
+                  data-testid="button-go-home-success"
+                >
+                  Go to Home
+                </Button>
+              )}
             </>
           )}
 

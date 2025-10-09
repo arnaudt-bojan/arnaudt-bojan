@@ -968,8 +968,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept invitation
-  app.post("/api/invitations/accept/:token", isAuthenticated, async (req: any, res) => {
+  // Accept invitation - works for both new and existing users
+  app.post("/api/invitations/accept/:token", async (req: any, res) => {
     try {
       const invitation = await storage.getInvitationByToken(req.params.token);
       if (!invitation) {
@@ -985,31 +985,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invitation has expired" });
       }
 
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (user && user.email !== invitation.email) {
-        return res.status(400).json({ error: "This invitation was sent to a different email address" });
+      // Get the inviter to determine sellerId
+      const inviter = await storage.getUser(invitation.invitedBy);
+      if (!inviter) {
+        return res.status(400).json({ error: "Inviter not found" });
       }
 
-      // Get the inviter to set as sellerId
-      const inviter = await storage.getUser(invitation.invitedBy);
+      // Get canonical owner ID: if inviter is owner, use their ID; otherwise use their sellerId
+      const canonicalOwnerId = inviter.role === "owner" ? inviter.id : inviter.sellerId;
+      if (!canonicalOwnerId) {
+        return res.status(400).json({ error: "Could not determine store owner" });
+      }
+
+      // Check if user exists
+      let user = await storage.getUserByEmail(invitation.email);
       
-      // Update user role and set sellerId to canonical owner ID
-      await storage.updateUserRole(userId, invitation.role);
-      if (inviter && user) {
-        // Get canonical owner ID: if inviter is owner, use their ID; otherwise use their sellerId
-        const canonicalOwnerId = inviter.role === "owner" ? inviter.id : inviter.sellerId;
+      if (user) {
+        // User exists - update their role and sellerId
         await storage.upsertUser({
           ...user,
           role: invitation.role,
-          sellerId: canonicalOwnerId, // Set to the store owner's ID
+          sellerId: canonicalOwnerId,
+        });
+      } else {
+        // New user - create account with admin role (no password, will use magic link)
+        const newUserId = `usr_${Math.random().toString(36).substring(2, 15)}`;
+        user = await storage.upsertUser({
+          id: newUserId,
+          email: invitation.email.toLowerCase().trim(),
+          password: null, // No password - will use magic link auth
+          role: invitation.role,
+          sellerId: canonicalOwnerId,
+          firstName: null,
+          lastName: null,
+          username: null,
+          storeName: null,
+          storeDescription: null,
+          bannerImage: null,
+          logoImage: null,
+          storeActive: null,
+          shippingCost: null,
+          instagramUsername: null,
         });
       }
+
+      // Mark invitation as accepted
       await storage.updateInvitationStatus(invitation.token, "accepted");
 
-      res.json({ message: "Invitation accepted successfully", role: invitation.role });
+      // Send magic link for auto-login
+      await notificationService.sendMagicLink(invitation.email, '/dashboard');
+
+      res.json({ 
+        message: "Invitation accepted successfully", 
+        role: invitation.role,
+        requiresLogin: true,
+        email: invitation.email
+      });
     } catch (error) {
+      console.error("Accept invitation error:", error);
       res.status(500).json({ error: "Failed to accept invitation" });
     }
   });
