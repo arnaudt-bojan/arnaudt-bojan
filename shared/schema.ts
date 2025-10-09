@@ -277,6 +277,23 @@ export type InsertNewsletter = z.infer<typeof insertNewsletterSchema>;
 export type Newsletter = typeof newsletters.$inferSelect;
 export type SelectNewsletter = typeof newsletters.$inferSelect;
 
+// Newsletter Templates
+export const newsletterTemplates = pgTable("newsletter_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(),
+  htmlContent: text("html_content"),
+  images: jsonb("images"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNewsletterTemplateSchema = createInsertSchema(newsletterTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertNewsletterTemplate = z.infer<typeof insertNewsletterTemplateSchema>;
+export type NewsletterTemplate = typeof newsletterTemplates.$inferSelect;
+
 // Newsletter Analytics
 export const newsletterAnalytics = pgTable("newsletter_analytics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

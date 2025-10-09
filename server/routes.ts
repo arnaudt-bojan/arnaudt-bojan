@@ -2605,6 +2605,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send test newsletter
+  app.post("/api/newsletters/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const newsletterId = req.params.id;
+      const { testEmail } = req.body;
+
+      if (!testEmail?.trim()) {
+        return res.status(400).json({ error: "Test email address is required" });
+      }
+
+      const newsletter = await storage.getNewsletter(newsletterId);
+      if (!newsletter || newsletter.userId !== userId) {
+        return res.status(404).json({ error: "Newsletter not found" });
+      }
+
+      const seller = await storage.getUser(userId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // Send test email using notification service
+      const result = await notificationService.sendNewsletter({
+        userId,
+        newsletterId,
+        recipients: [{ email: testEmail.trim() }],
+        from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
+        replyTo: seller.email,
+        subject: `[TEST] ${newsletter.subject}`,
+        htmlContent: newsletter.content,
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || "Failed to send test email" });
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Test email sent to ${testEmail}` 
+      });
+    } catch (error) {
+      console.error("Test email send error:", error);
+      res.status(500).json({ error: "Failed to send test email" });
+    }
+  });
+
+  // Newsletter Templates
+  app.get("/api/newsletter-templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const templates = await storage.getNewsletterTemplatesByUserId(userId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Get newsletter templates error:", error);
+      res.status(500).json({ error: "Failed to get newsletter templates" });
+    }
+  });
+
+  app.post("/api/newsletter-templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, subject, content, htmlContent, images } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Template name is required" });
+      }
+
+      if (!subject?.trim()) {
+        return res.status(400).json({ error: "Subject is required" });
+      }
+
+      const template = await storage.createNewsletterTemplate({
+        userId,
+        name: name.trim(),
+        subject: subject.trim(),
+        content: content || '',
+        htmlContent: htmlContent || null,
+        images: images || null,
+      });
+
+      res.json(template);
+    } catch (error) {
+      console.error("Create newsletter template error:", error);
+      res.status(500).json({ error: "Failed to create newsletter template" });
+    }
+  });
+
+  app.delete("/api/newsletter-templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const templateId = req.params.id;
+
+      const template = await storage.getNewsletterTemplate(templateId);
+      if (!template || template.userId !== userId) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      await storage.deleteNewsletterTemplate(templateId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete newsletter template error:", error);
+      res.status(500).json({ error: "Failed to delete newsletter template" });
+    }
+  });
+
   // Subscriber Groups
   app.get("/api/subscriber-groups", isAuthenticated, async (req: any, res) => {
     try {

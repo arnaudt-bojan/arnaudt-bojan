@@ -63,11 +63,27 @@ interface NewsletterAnalytics {
   newsletter?: Newsletter;
 }
 
+interface NewsletterTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  subject: string;
+  content: string;
+  htmlContent: string | null;
+  images: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function NewsletterPage() {
   const { toast } = useToast();
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [isSubscriberDialogOpen, setIsSubscriberDialogOpen] = useState(false);
   const [isCsvUploadDialogOpen, setIsCsvUploadDialogOpen] = useState(false);
+  const [isTestEmailDialogOpen, setIsTestEmailDialogOpen] = useState(false);
+  const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [templateName, setTemplateName] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
@@ -76,13 +92,14 @@ export default function NewsletterPage() {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<{ email: string; name?: string }[]>([]);
+  const [currentNewsletterId, setCurrentNewsletterId] = useState<string | null>(null);
   
   // Newsletter composer state
   const [newsletterSubject, setNewsletterSubject] = useState("");
   const [newsletterContent, setNewsletterContent] = useState("");
   const [newsletterRecipients, setNewsletterRecipients] = useState<string>("all");
   const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile" | "tablet">("desktop");
 
   const { data: groups, isLoading: groupsLoading } = useQuery<SubscriberGroup[]>({
     queryKey: ["/api/subscriber-groups"],
@@ -116,6 +133,10 @@ export default function NewsletterPage() {
 
   const { data: analytics } = useQuery<NewsletterAnalytics[]>({
     queryKey: ["/api/newsletter-analytics"],
+  });
+
+  const { data: templates } = useQuery<NewsletterTemplate[]>({
+    queryKey: ["/api/newsletter-templates"],
   });
 
   const createGroupMutation = useMutation({
@@ -227,6 +248,7 @@ export default function NewsletterPage() {
       // Create newsletter first
       const createResponse = await apiRequest("POST", "/api/newsletters", params);
       const newsletter = await createResponse.json();
+      setCurrentNewsletterId(newsletter.id);
       
       // Send the newsletter
       const sendResponse = await apiRequest("POST", `/api/newsletters/${newsletter.id}/send`, {});
@@ -242,6 +264,7 @@ export default function NewsletterPage() {
       setNewsletterContent("");
       setNewsletterRecipients("all");
       setSelectedProductId("");
+      setCurrentNewsletterId(null);
       // Refresh analytics
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter-analytics"] });
     },
@@ -249,6 +272,65 @@ export default function NewsletterPage() {
       toast({
         title: "Send Failed",
         description: error.message || "Failed to send newsletter.",
+        variant: "destructive",
+      });
+      setCurrentNewsletterId(null);
+    },
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (data: { name: string; subject: string; content: string }) => {
+      const response = await apiRequest("POST", "/api/newsletter-templates", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Template Saved",
+        description: "Your newsletter template has been saved successfully.",
+      });
+      setIsSaveTemplateDialogOpen(false);
+      setTemplateName("");
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter-templates"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save template.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/newsletter-templates/${id}`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Template Deleted",
+        description: "The template has been deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter-templates"] });
+    },
+  });
+
+  const sendTestEmailMutation = useMutation({
+    mutationFn: async (params: { newsletterId: string; testEmail: string }) => {
+      const response = await apiRequest("POST", `/api/newsletters/${params.newsletterId}/test`, { testEmail: params.testEmail });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Test Email Sent",
+        description: data.message || "Test email has been sent successfully.",
+      });
+      setIsTestEmailDialogOpen(false);
+      setTestEmail("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Test Send Failed",
+        description: error.message || "Failed to send test email.",
         variant: "destructive",
       });
     },
@@ -379,6 +461,80 @@ export default function NewsletterPage() {
     }
 
     bulkImportMutation.mutate(csvPreview);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Missing Name",
+        description: "Please enter a template name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newsletterSubject.trim() || !newsletterContent.trim()) {
+      toast({
+        title: "Missing Content",
+        description: "Please enter subject and content before saving template.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    saveTemplateMutation.mutate({
+      name: templateName,
+      subject: newsletterSubject,
+      content: newsletterContent,
+    });
+  };
+
+  const loadTemplate = (template: NewsletterTemplate) => {
+    setNewsletterSubject(template.subject);
+    setNewsletterContent(template.content);
+    toast({
+      title: "Template Loaded",
+      description: `Loaded template: ${template.name}`,
+    });
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail.trim()) {
+      toast({
+        title: "Missing Email",
+        description: "Please enter a test email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create a draft newsletter first if we don't have one
+    if (!currentNewsletterId) {
+      let recipients: string[] = [];
+      if (newsletterRecipients === "all") {
+        recipients = allSubscribers?.map(s => s.email) || [];
+      } else {
+        recipients = allSubscribers?.map(s => s.email) || [];
+      }
+
+      const createResponse = await apiRequest("POST", "/api/newsletters", {
+        subject: newsletterSubject,
+        content: newsletterContent,
+        recipients,
+      });
+      const newsletter = await createResponse.json();
+      setCurrentNewsletterId(newsletter.id);
+      
+      sendTestEmailMutation.mutate({
+        newsletterId: newsletter.id,
+        testEmail: testEmail.trim(),
+      });
+    } else {
+      sendTestEmailMutation.mutate({
+        newsletterId: currentNewsletterId,
+        testEmail: testEmail.trim(),
+      });
+    }
   };
 
   if (groupsLoading || subscribersLoading) {
@@ -599,6 +755,49 @@ export default function NewsletterPage() {
         </TabsContent>
 
         <TabsContent value="compose" className="space-y-4">
+          {/* Templates Section */}
+          {templates && templates.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Saved Templates
+                </CardTitle>
+                <CardDescription>Load a previously saved template</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {templates.map((template) => (
+                    <div key={template.id} className="flex items-center gap-2 border rounded-lg p-3 min-w-[200px]">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{template.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{template.subject}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => loadTemplate(template)}
+                          data-testid={`button-load-template-${template.id}`}
+                        >
+                          Load
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTemplateMutation.mutate(template.id)}
+                          data-testid={`button-delete-template-${template.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -692,75 +891,98 @@ export default function NewsletterPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setNewsletterSubject("");
-                    setNewsletterContent("");
-                    setNewsletterRecipients("all");
-                    setSelectedProductId("");
-                  }}
-                  data-testid="button-clear-newsletter"
-                >
-                  Clear
-                </Button>
-                <Button
-                  onClick={() => {
-                    // Validate inputs
-                    if (!newsletterSubject.trim()) {
-                      toast({
-                        title: "Missing Subject",
-                        description: "Please enter a newsletter subject.",
-                        variant: "destructive",
+              <div className="flex flex-wrap justify-between gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setNewsletterSubject("");
+                      setNewsletterContent("");
+                      setNewsletterRecipients("all");
+                      setSelectedProductId("");
+                      setCurrentNewsletterId(null);
+                    }}
+                    data-testid="button-clear-newsletter"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSaveTemplateDialogOpen(true)}
+                    disabled={!newsletterSubject.trim() || !newsletterContent.trim()}
+                    data-testid="button-save-template"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Save Template
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsTestEmailDialogOpen(true)}
+                    disabled={!newsletterSubject.trim() || !newsletterContent.trim()}
+                    data-testid="button-send-test"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Test
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      // Validate inputs
+                      if (!newsletterSubject.trim()) {
+                        toast({
+                          title: "Missing Subject",
+                          description: "Please enter a newsletter subject.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      if (!newsletterContent.trim()) {
+                        toast({
+                          title: "Missing Content",
+                          description: "Please enter newsletter content.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      // Build recipient list
+                      let recipients: string[] = [];
+                      if (newsletterRecipients === "all") {
+                        recipients = allSubscribers?.map(s => s.email) || [];
+                      } else {
+                        // Filter by group
+                        const groupSubscribers = allSubscribers?.filter(s => {
+                          // For now, send to all (group filtering can be enhanced later)
+                          return true;
+                        }) || [];
+                        recipients = groupSubscribers.map(s => s.email);
+                      }
+
+                      if (recipients.length === 0) {
+                        toast({
+                          title: "No Recipients",
+                          description: "There are no subscribers to send the newsletter to.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      sendNewsletterMutation.mutate({
+                        subject: newsletterSubject,
+                        content: newsletterContent,
+                        recipients,
                       });
-                      return;
-                    }
-
-                    if (!newsletterContent.trim()) {
-                      toast({
-                        title: "Missing Content",
-                        description: "Please enter newsletter content.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-
-                    // Build recipient list
-                    let recipients: string[] = [];
-                    if (newsletterRecipients === "all") {
-                      recipients = allSubscribers?.map(s => s.email) || [];
-                    } else {
-                      // Filter by group
-                      const groupSubscribers = allSubscribers?.filter(s => {
-                        // For now, send to all (group filtering can be enhanced later)
-                        return true;
-                      }) || [];
-                      recipients = groupSubscribers.map(s => s.email);
-                    }
-
-                    if (recipients.length === 0) {
-                      toast({
-                        title: "No Recipients",
-                        description: "There are no subscribers to send the newsletter to.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-
-                    sendNewsletterMutation.mutate({
-                      subject: newsletterSubject,
-                      content: newsletterContent,
-                      recipients,
-                    });
-                  }}
-                  className="gap-2"
-                  data-testid="button-send-newsletter"
-                  disabled={sendNewsletterMutation.isPending}
-                >
-                  <Send className="h-4 w-4" />
-                  {sendNewsletterMutation.isPending ? "Sending..." : "Send Newsletter"}
-                </Button>
+                    }}
+                    className="gap-2"
+                    data-testid="button-send-newsletter"
+                    disabled={sendNewsletterMutation.isPending}
+                  >
+                    <Send className="h-4 w-4" />
+                    {sendNewsletterMutation.isPending ? "Sending..." : "Send Newsletter"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -774,12 +996,20 @@ export default function NewsletterPage() {
                     See how your newsletter will look
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   <Button
                     variant={previewMode === "desktop" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setPreviewMode("desktop")}
                     data-testid="button-preview-desktop"
+                  >
+                    <Monitor className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={previewMode === "tablet" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPreviewMode("tablet")}
+                    data-testid="button-preview-tablet"
                   >
                     <Monitor className="h-4 w-4" />
                   </Button>
@@ -794,26 +1024,54 @@ export default function NewsletterPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div 
-                className={`border rounded-md bg-background transition-all ${
-                  previewMode === "mobile" ? "max-w-sm mx-auto" : "w-full"
-                }`}
-                data-testid="preview-container"
-              >
-                <div className="p-6 space-y-4">
-                  {newsletterSubject && (
-                    <div className="border-b pb-4">
-                      <h3 className="text-lg font-semibold" data-testid="preview-subject">
-                        {newsletterSubject}
-                      </h3>
-                    </div>
+            <CardContent className="flex justify-center">
+              {/* Professional Device Frame */}
+              <div className={`transition-all ${
+                previewMode === "mobile" ? "w-[375px]" :
+                previewMode === "tablet" ? "w-[768px]" :
+                "w-full"
+              }`}>
+                {/* Device Frame with Shadow */}
+                <div className={`relative ${
+                  previewMode === "mobile" ? "mx-auto" : ""
+                } ${
+                  previewMode !== "desktop" ? "border-8 border-muted rounded-[2.5rem] shadow-2xl" : "border rounded-lg shadow-md"
+                } bg-background overflow-hidden`}>
+                  {/* Top Notch for Mobile */}
+                  {previewMode === "mobile" && (
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-muted rounded-b-3xl z-10"></div>
                   )}
-                  <div 
-                    className="prose dark:prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{ __html: newsletterContent || "<p className='text-muted-foreground'>Your newsletter content will appear here...</p>" }}
-                    data-testid="preview-content"
-                  />
+                  
+                  {/* Email Content */}
+                  <div className={`${
+                    previewMode === "mobile" ? "h-[667px]" :
+                    previewMode === "tablet" ? "h-[800px]" :
+                    "min-h-[600px]"
+                  } overflow-auto bg-white dark:bg-gray-900`}>
+                    <div className="p-6 space-y-4">
+                      {newsletterSubject && (
+                        <div className="border-b pb-4">
+                          <h3 className={`font-semibold ${
+                            previewMode === "mobile" ? "text-base" : "text-lg"
+                          }`} data-testid="preview-subject">
+                            {newsletterSubject}
+                          </h3>
+                        </div>
+                      )}
+                      <div 
+                        className={`prose dark:prose-invert max-w-none ${
+                          previewMode === "mobile" ? "prose-sm" : ""
+                        }`}
+                        dangerouslySetInnerHTML={{ __html: newsletterContent || "<p class='text-gray-500'>Your newsletter content will appear here...</p>" }}
+                        data-testid="preview-content"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Home Indicator for Mobile */}
+                  {previewMode === "mobile" && (
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-muted rounded-full"></div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -1134,6 +1392,96 @@ export default function NewsletterPage() {
               data-testid="button-import-csv-submit"
             >
               {bulkImportMutation.isPending ? "Importing..." : `Import ${csvPreview.length} Subscribers`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Template Dialog */}
+      <Dialog open={isSaveTemplateDialogOpen} onOpenChange={setIsSaveTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save as Template</DialogTitle>
+            <DialogDescription>
+              Save this newsletter as a template for future use
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                placeholder="e.g., Monthly Newsletter, Product Launch"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                data-testid="input-template-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsSaveTemplateDialogOpen(false);
+                setTemplateName("");
+              }}
+              data-testid="button-cancel-save-template"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTemplate}
+              disabled={saveTemplateMutation.isPending}
+              data-testid="button-save-template-confirm"
+            >
+              {saveTemplateMutation.isPending ? "Saving..." : "Save Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Test Email Dialog */}
+      <Dialog open={isTestEmailDialogOpen} onOpenChange={setIsTestEmailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+            <DialogDescription>
+              Send a test email to verify how your newsletter looks
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-email">Test Email Address</Label>
+              <Input
+                id="test-email"
+                type="email"
+                placeholder="your@email.com"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                data-testid="input-test-email"
+              />
+              <p className="text-sm text-muted-foreground">
+                Subject will be prefixed with [TEST]
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsTestEmailDialogOpen(false);
+                setTestEmail("");
+              }}
+              data-testid="button-cancel-test-email"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendTestEmail}
+              disabled={sendTestEmailMutation.isPending}
+              data-testid="button-send-test-email-confirm"
+            >
+              {sendTestEmailMutation.isPending ? "Sending..." : "Send Test"}
             </Button>
           </DialogFooter>
         </DialogContent>

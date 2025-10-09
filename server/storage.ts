@@ -18,6 +18,8 @@ import {
   type InsertSubscriberGroupMembership,
   type Newsletter,
   type InsertNewsletter,
+  type NewsletterTemplate,
+  type InsertNewsletterTemplate,
   type NewsletterAnalytics,
   type InsertNewsletterAnalytics,
   type NewsletterEvent,
@@ -45,6 +47,7 @@ import {
   subscribers,
   subscriberGroupMemberships,
   newsletters,
+  newsletterTemplates,
   newsletterAnalytics,
   newsletterEvents,
   nftMints,
@@ -125,6 +128,13 @@ export interface IStorage {
   createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter>;
   updateNewsletter(id: string, data: Partial<Newsletter>): Promise<Newsletter | undefined>;
   deleteNewsletter(id: string): Promise<boolean>;
+  
+  // Newsletter Templates
+  getNewsletterTemplatesByUserId(userId: string): Promise<NewsletterTemplate[]>;
+  getNewsletterTemplate(id: string): Promise<NewsletterTemplate | undefined>;
+  createNewsletterTemplate(template: InsertNewsletterTemplate): Promise<NewsletterTemplate>;
+  updateNewsletterTemplate(id: string, data: Partial<NewsletterTemplate>): Promise<NewsletterTemplate | undefined>;
+  deleteNewsletterTemplate(id: string): Promise<boolean>;
   
   // Newsletter Analytics
   getNewsletterAnalytics(newsletterId: string): Promise<NewsletterAnalytics | undefined>;
@@ -684,6 +694,40 @@ export class DatabaseStorage implements IStorage {
   async deleteNewsletter(id: string): Promise<boolean> {
     await this.ensureInitialized();
     await this.db.delete(newsletters).where(eq(newsletters.id, id));
+    return true;
+  }
+
+  // Newsletter Templates
+  async getNewsletterTemplatesByUserId(userId: string): Promise<NewsletterTemplate[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(newsletterTemplates).where(eq(newsletterTemplates.userId, userId)).orderBy(desc(newsletterTemplates.updatedAt));
+  }
+
+  async getNewsletterTemplate(id: string): Promise<NewsletterTemplate | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletterTemplates).where(eq(newsletterTemplates.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createNewsletterTemplate(template: InsertNewsletterTemplate): Promise<NewsletterTemplate> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(newsletterTemplates).values(template).returning();
+    return result[0];
+  }
+
+  async updateNewsletterTemplate(id: string, data: Partial<NewsletterTemplate>): Promise<NewsletterTemplate | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(newsletterTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(newsletterTemplates.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteNewsletterTemplate(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(newsletterTemplates).where(eq(newsletterTemplates.id, id));
     return true;
   }
 
