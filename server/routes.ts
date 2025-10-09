@@ -2497,6 +2497,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Newsletter Analytics
+  app.get("/api/newsletter-analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const analytics = await storage.getNewsletterAnalyticsByUserId(userId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Get newsletter analytics error:", error);
+      res.status(500).json({ error: "Failed to get newsletter analytics" });
+    }
+  });
+
   // Subscribers
   app.get("/api/subscribers", isAuthenticated, async (req: any, res) => {
     try {

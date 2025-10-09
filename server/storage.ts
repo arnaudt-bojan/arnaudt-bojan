@@ -127,6 +127,7 @@ export interface IStorage {
   
   // Newsletter Analytics
   getNewsletterAnalytics(newsletterId: string): Promise<NewsletterAnalytics | undefined>;
+  getNewsletterAnalyticsByUserId(userId: string): Promise<NewsletterAnalytics[]>;
   createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics>;
   updateNewsletterAnalytics(newsletterId: string, data: Partial<NewsletterAnalytics>): Promise<NewsletterAnalytics | undefined>;
   
@@ -682,6 +683,33 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.select().from(newsletterAnalytics).where(eq(newsletterAnalytics.newsletterId, newsletterId)).limit(1);
     return result[0];
+  }
+
+  async getNewsletterAnalyticsByUserId(userId: string): Promise<NewsletterAnalytics[]> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select({
+        id: newsletterAnalytics.id,
+        newsletterId: newsletterAnalytics.newsletterId,
+        userId: newsletterAnalytics.userId,
+        totalSent: newsletterAnalytics.totalSent,
+        totalDelivered: newsletterAnalytics.totalDelivered,
+        totalOpened: newsletterAnalytics.totalOpened,
+        totalClicked: newsletterAnalytics.totalClicked,
+        totalBounced: newsletterAnalytics.totalBounced,
+        totalUnsubscribed: newsletterAnalytics.totalUnsubscribed,
+        openRate: newsletterAnalytics.openRate,
+        clickRate: newsletterAnalytics.clickRate,
+        bounceRate: newsletterAnalytics.bounceRate,
+        createdAt: newsletterAnalytics.createdAt,
+        lastUpdated: newsletterAnalytics.lastUpdated,
+        newsletter: newsletters,
+      })
+      .from(newsletterAnalytics)
+      .leftJoin(newsletters, eq(newsletterAnalytics.newsletterId, newsletters.id))
+      .where(eq(newsletterAnalytics.userId, userId))
+      .orderBy(desc(newsletterAnalytics.createdAt));
+    return result as any;
   }
 
   async createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics> {

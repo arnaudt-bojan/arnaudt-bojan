@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download, Send, Image as ImageIcon, Monitor, Smartphone } from "lucide-react";
+import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download, Send, Image as ImageIcon, Monitor, Smartphone, BarChart3, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +31,35 @@ interface Subscriber {
   name: string | null;
   status: string;
   createdAt: string;
+}
+
+interface Newsletter {
+  id: string;
+  userId: string;
+  subject: string;
+  content: string;
+  htmlContent: string | null;
+  groupIds: string[] | null;
+  status: string;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+interface NewsletterAnalytics {
+  id: string;
+  newsletterId: string;
+  userId: string;
+  totalSent: number;
+  totalDelivered: number;
+  totalOpened: number;
+  totalClicked: number;
+  totalBounced: number;
+  totalUnsubscribed: number;
+  openRate: string | null;
+  clickRate: string | null;
+  bounceRate: string | null;
+  createdAt: string;
+  newsletter?: Newsletter;
 }
 
 export default function NewsletterPage() {
@@ -79,6 +108,10 @@ export default function NewsletterPage() {
       if (!response.ok) throw new Error("Failed to fetch subscribers");
       return response.json();
     },
+  });
+
+  const { data: analytics } = useQuery<NewsletterAnalytics[]>({
+    queryKey: ["/api/newsletter-analytics"],
   });
 
   const createGroupMutation = useMutation({
@@ -287,6 +320,10 @@ export default function NewsletterPage() {
           <TabsTrigger value="compose" data-testid="tab-compose">
             <Send className="h-4 w-4 mr-2" />
             Compose
+          </TabsTrigger>
+          <TabsTrigger value="analytics" data-testid="tab-analytics">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analytics
           </TabsTrigger>
         </TabsList>
 
@@ -612,6 +649,114 @@ export default function NewsletterPage() {
             </CardContent>
           </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          {!analytics || analytics.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <TrendingUp className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Analytics Yet</h3>
+                <p className="text-muted-foreground text-center mb-6">
+                  Send your first newsletter to see analytics here
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Sent</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {analytics.reduce((sum, a) => sum + (a.totalSent || 0), 0)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Opened</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {analytics.reduce((sum, a) => sum + (a.totalOpened || 0), 0)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Clicked</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {analytics.reduce((sum, a) => sum + (a.totalClicked || 0), 0)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Avg Open Rate</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {analytics.length > 0
+                        ? Math.round(analytics.reduce((sum, a) => sum + (parseFloat(a.openRate || "0") || 0), 0) / analytics.length)
+                        : 0}%
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Newsletter Performance</CardTitle>
+                  <CardDescription>Detailed analytics for each newsletter</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Newsletter</TableHead>
+                        <TableHead>Sent</TableHead>
+                        <TableHead>Delivered</TableHead>
+                        <TableHead>Opened</TableHead>
+                        <TableHead>Clicked</TableHead>
+                        <TableHead>Bounced</TableHead>
+                        <TableHead>Open Rate</TableHead>
+                        <TableHead>Click Rate</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analytics.map((item) => (
+                        <TableRow key={item.id} data-testid={`row-analytics-${item.id}`}>
+                          <TableCell className="font-medium">
+                            {item.newsletter?.subject || "Unknown"}
+                          </TableCell>
+                          <TableCell>{item.totalSent || 0}</TableCell>
+                          <TableCell>{item.totalDelivered || 0}</TableCell>
+                          <TableCell>{item.totalOpened || 0}</TableCell>
+                          <TableCell>{item.totalClicked || 0}</TableCell>
+                          <TableCell>{item.totalBounced || 0}</TableCell>
+                          <TableCell>
+                            <Badge variant={parseFloat(item.openRate || "0") > 20 ? "default" : "secondary"}>
+                              {item.openRate || "0"}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={parseFloat(item.clickRate || "0") > 5 ? "default" : "secondary"}>
+                              {item.clickRate || "0"}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
