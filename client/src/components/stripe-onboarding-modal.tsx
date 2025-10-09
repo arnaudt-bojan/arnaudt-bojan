@@ -89,8 +89,8 @@ export function StripeOnboardingModal({ isOpen, onClose, accountId, onComplete, 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0" data-testid="dialog-stripe-onboarding">
-        <DialogHeader className="p-6 pb-4">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0" data-testid="dialog-stripe-onboarding">
+        <DialogHeader className="p-6 pb-4 flex-shrink-0">
           <DialogTitle>
             {purpose === 'payouts' ? 'Add Bank Details for Payouts' : 'Connect Your Stripe Account'}
           </DialogTitle>
@@ -101,7 +101,7 @@ export function StripeOnboardingModal({ isOpen, onClose, accountId, onComplete, 
             }
           </DialogDescription>
         </DialogHeader>
-        <div className="px-6 pb-6 overflow-auto">
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
           <ConnectComponentsProvider connectInstance={stripeConnectInstance}>
             <ConnectAccountOnboarding
               onExit={handleExit}

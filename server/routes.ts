@@ -1198,13 +1198,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      const { reset = false } = req.body; // Allow resetting/recreating the account
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // If user already has a connected account, return its status
-      if (user.stripeConnectedAccountId) {
+      // If user already has a connected account and not resetting, return its status
+      if (user.stripeConnectedAccountId && !reset) {
         const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
         
         // Update user with latest account status
@@ -1225,10 +1226,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Get country from IP geolocation headers
+      const countryCode = (req.headers['x-replit-user-geo-country-code'] as string || 
+                          req.headers['cf-ipcountry'] as string || 
+                          'US').toUpperCase();
+
+      console.log(`[Stripe Express] Creating account for user ${userId} with country: ${countryCode}`);
+
       // Create new Express account with minimal requirements
       const account = await stripe.accounts.create({
         type: 'express',
-        country: 'US', // Default to US, user can change during onboarding
+        country: countryCode,
         email: user.email || undefined,
         capabilities: {
           card_payments: { requested: true },

@@ -940,10 +940,10 @@ export default function Settings() {
     toast({ title: "Copied!", description: "Link copied to clipboard" });
   };
 
-  const handleConnectStripe = async () => {
+  const handleConnectStripe = async (reset = false) => {
     try {
       // First, create or get the Stripe Express account
-      const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", {});
+      const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", { reset });
       const accountData = await createResponse.json();
       
       if (!createResponse.ok) {
@@ -967,6 +967,13 @@ export default function Settings() {
       // Open embedded modal for onboarding
       setIsStripeModalOpen(true);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
+      if (reset) {
+        toast({
+          title: "Starting Fresh",
+          description: "Stripe onboarding has been reset. You can now start from the beginning.",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1580,38 +1587,48 @@ export default function Settings() {
                           </div>
                         )}
                         
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                           {canAcceptPayments && !canReceivePayouts && (
                             <Button 
                               onClick={() => setIsPayoutsModalOpen(true)}
                               data-testid="button-add-bank-details"
-                              className="flex-1"
+                              className="w-full"
                             >
                               Add Bank Details
                             </Button>
                           )}
-                          <Button 
-                            variant="outline" 
-                            onClick={handleConnectStripe}
-                            data-testid="button-update-stripe"
-                            className="flex-1"
-                          >
-                            Update Account
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            onClick={() => disconnectStripeMutation.mutate()}
-                            disabled={disconnectStripeMutation.isPending}
-                            data-testid="button-disconnect-stripe"
-                            className="flex-1"
-                          >
-                            {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => handleConnectStripe(false)}
+                              data-testid="button-update-stripe"
+                              className="flex-1"
+                            >
+                              Update Account
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => handleConnectStripe(true)}
+                              data-testid="button-restart-stripe"
+                              className="flex-1"
+                            >
+                              Start Over
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => disconnectStripeMutation.mutate()}
+                              disabled={disconnectStripeMutation.isPending}
+                              data-testid="button-disconnect-stripe"
+                              className="flex-1"
+                            >
+                              {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <Button
-                        onClick={handleConnectStripe}
+                        onClick={() => handleConnectStripe(false)}
                         data-testid="button-connect-stripe"
                         className="w-full"
                       >
