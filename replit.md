@@ -20,8 +20,21 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
 
 **Technical Implementations & Feature Specifications:**
 - **Product Management**: Supports diverse product types (in-stock, pre-order, made-to-order, wholesale) with multi-image uploads and bulk CSV upload functionality.
-- **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout. Shipping costs are fetched from seller settings and automatically added to the total.
-- **Authentication & Authorization**: Domain-based authentication for sellers and buyers, with a 4-role system (admin, editor, viewer, buyer).
+- **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout. Shipping costs are fetched from seller settings and automatically added to the total. All orders require customerEmail and create/use buyer accounts.
+- **Authentication & Authorization**: 
+  - Email-based authentication (verification code and magic link) for sellers only - creates admin role accounts
+  - All emails normalized to lowercase and trimmed for consistency
+  - Buyers created automatically via guest checkout (no email auth)
+  - Buyer accounts have null passwords (security measure - cannot login)
+  - 4-role system: admin, editor, viewer (sellers) and buyer
+  - Seller emails blocked from guest checkout to prevent role confusion
+- **Notification System**: 
+  - Comprehensive email notification system using Resend
+  - All emails sent from Uppfirst (platform branding), seller emails use Reply-To
+  - Development mode: verification codes logged to console when domain unverified
+  - Phase 1 notifications implemented: seller welcome (triggered on signup)
+  - Phase 1 templates ready: Stripe onboarding reminders, payment failures, inventory alerts, payout failures (require webhook integration)
+  - 30+ notification types planned across 3 phases (see docs/notification-system-design.md)
 - **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting Apple Pay, Google Pay, and credit cards. Supports balance payments for pre-orders.
 - **Subscription System**: Sellers pay a monthly or annual fee with a 30-day free trial. Payment methods are securely stored using Stripe Customer objects.
 - **Multi-Currency Support**: Automatic IP-based currency detection with a user-selectable currency switcher and real-time exchange rate conversion.
@@ -34,7 +47,8 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
 - **ORM**: Drizzle ORM
-- **Authentication**: Replit Auth
+- **Authentication**: Custom email-based auth (verification codes and magic links)
+- **Email Service**: Resend (for transactional emails and notifications)
 - **Payment Gateway**: Stripe SDK
 - **Social Media APIs**: Meta Graph API, TikTok Business API, X (Twitter) Ads API, Instagram Basic Display API
 - **UI Components**: Shadcn UI
