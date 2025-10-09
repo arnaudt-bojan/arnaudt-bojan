@@ -11,6 +11,17 @@ Uppshop is a modern e-commerce platform for creators and brands to sell various 
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
 ## Recent Changes (October 2025)
+
+### Latest Updates (Oct 9, 2025)
+- **Stripe Express Account Migration** - Replaced Stripe OAuth with Express account creation using Account Links API. Sellers can now start immediately with minimal KYC, with full verification deferred until first payout. Added `stripeChargesEnabled`, `stripePayoutsEnabled`, and `stripeAccountVerified` fields to track account status.
+- **Automatic Currency Detection** - Listing currency now automatically pulled from seller's Stripe account default currency setting, ensuring correct currency display and preventing conversion issues.
+- **PayPal Marketplace Integration** - Implemented PayPal Commerce Platform partner integration with merchant referral flow and onboarding status tracking (foundation laid for future PayPal credentials).
+- **Dynamic Navbar Logo System** - Implemented priority-based logo display: Instagram username (@username) > uploaded storeLogo > username with "Add Logo" prompt. Provides clear branding hierarchy for seller stores.
+- **Go Live Dashboard Feature** - Relocated subscription activation from settings to seller dashboard with prominent "Go Live" banner. Shows 30-day free trial offer, trial status with countdown, and clear payment setup CTA to drive activation.
+- **Product Schema Nullable Fix** - Fixed validation error where optional fields (discountPercentage, preOrderDate, promotionEndDate) sent as null failed validation. Added nullable().transform() to convert null to undefined for proper handling.
+- **Checkout Error UX Improvement** - Added prominent error alerts on checkout page when seller hasn't connected Stripe. Alert displays on both shipping and payment steps with clear "Payment Not Available" message and guidance to contact seller.
+
+### Previous Updates
 - **Session Expiration Fix** - Fixed critical bug where local auth users experienced premature session expiration. Sessions now properly extend `expires_at` on each request with 7-day rolling window, preventing "Session expired" 401 errors.
 - **Product Card Size Control** - Implemented responsive card size toggle with Compact (2-6 columns), Medium (1-4 columns), and Large (1-3 columns) views. Preference persists in localStorage for seamless user experience across sessions.
 - **Discount & Promotion System** - Added comprehensive discount management allowing sellers to set percentage discounts (0-100%) and optional promotion end dates. Displays discounted prices in red with strikethrough original prices on both product cards and detail pages. Includes visual discount badges (e.g., "-25% OFF").
