@@ -6,9 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
-import { Package, Grid3x3, LayoutGrid, Grip } from "lucide-react";
+import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus } from "lucide-react";
 import { detectDomain } from "@/lib/domain-utils";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
+import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
 
 type CardSize = "compact" | "medium" | "large";
 
@@ -34,6 +36,8 @@ export default function Products() {
   });
   const { addItem } = useCart();
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
+  const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
   
   // Load card size preference from localStorage
   useEffect(() => {
@@ -167,13 +171,15 @@ export default function Products() {
   };
 
   const sellerWithBanner = sellers?.find(s => s.storeBanner);
+  const currentSellerHasBanner = user?.storeBanner || sellerInfo?.storeBanner;
 
   return (
     <div className="min-h-screen">
-      {sellerWithBanner?.storeBanner && (
+      {/* Banner Section */}
+      {currentSellerHasBanner ? (
         <div className="relative h-[300px] w-full overflow-hidden mb-8">
           <img 
-            src={sellerWithBanner.storeBanner} 
+            src={currentSellerHasBanner} 
             alt="Store Banner" 
             className="w-full h-full object-cover"
             data-testid="img-store-banner"
@@ -181,15 +187,28 @@ export default function Products() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
             <div className="container mx-auto px-4 py-8">
               <h2 className="text-3xl font-bold text-white mb-2">
-                {sellerWithBanner.firstName ? `${sellerWithBanner.firstName}'s Store` : "Featured Store"}
+                {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "Featured Store"}
               </h2>
               <p className="text-white/90 text-lg">
-                Discover amazing products from our sellers
+                Discover amazing products
               </p>
             </div>
           </div>
         </div>
-      )}
+      ) : isSeller ? (
+        <div className="relative h-[200px] w-full overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <ImagePlus className="h-12 w-12 text-muted-foreground mb-3" />
+            <p className="text-muted-foreground mb-2">Add a banner to showcase your brand</p>
+            <p className="text-sm text-muted-foreground/70 mb-4">Recommended size: 1920x300px</p>
+            <Link href="/settings">
+              <Button variant="outline" data-testid="button-add-banner">
+                Add Banner
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="container mx-auto px-4 max-w-7xl py-12">
         <div className="mb-12">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +17,13 @@ import type { Order } from "@shared/schema";
 import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
+import { OnboardingModal } from "@/components/onboarding-modal";
 
 export default function SellerDashboard() {
   const [, setLocation] = useLocation();
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
+  
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
   });
@@ -28,6 +31,17 @@ export default function SellerDashboard() {
   const { data: user } = useQuery<any>({ 
     queryKey: ["/api/auth/user"] 
   });
+
+  // Show onboarding modal for new sellers without Instagram or custom domain
+  useEffect(() => {
+    if (user && !user.instagramUsername && !user.customDomain) {
+      // Check if this specific user has seen onboarding before (scoped by user ID)
+      const hasSeenOnboarding = localStorage.getItem(`hasSeenOnboarding:${user.id}`);
+      if (!hasSeenOnboarding) {
+        setOnboardingModalOpen(true);
+      }
+    }
+  }, [user]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -290,6 +304,15 @@ export default function SellerDashboard() {
         </Card>
       </div>
       <ShareStoreModal open={shareModalOpen} onOpenChange={setShareModalOpen} />
+      <OnboardingModal 
+        open={onboardingModalOpen} 
+        onClose={() => {
+          setOnboardingModalOpen(false);
+          if (user?.id) {
+            localStorage.setItem(`hasSeenOnboarding:${user.id}`, 'true');
+          }
+        }} 
+      />
     </div>
   );
 }

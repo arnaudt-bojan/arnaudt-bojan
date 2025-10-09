@@ -194,16 +194,11 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-8 max-w-[200px] object-contain" />
             </Link>
           ) : isSeller ? (
-            <div className="flex items-center gap-2">
-              <Link href="/seller-dashboard" className="text-lg font-medium hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                {user?.username || user?.firstName || 'My Store'}
-              </Link>
-              <Link href="/settings">
-                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
-                  Add Logo
-                </Button>
-              </Link>
-            </div>
+            <Link href="/settings">
+              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
+                Add Logo
+              </Button>
+            </Link>
           ) : (
             <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <img src={logoImage} alt="Uppfirst" className="h-8" />
