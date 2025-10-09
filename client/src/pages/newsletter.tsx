@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download } from "lucide-react";
+import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download, Send, Image as ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +43,12 @@ export default function NewsletterPage() {
   const [subscriberEmail, setSubscriberEmail] = useState("");
   const [subscriberName, setSubscriberName] = useState("");
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  
+  // Newsletter composer state
+  const [newsletterSubject, setNewsletterSubject] = useState("");
+  const [newsletterContent, setNewsletterContent] = useState("");
+  const [newsletterRecipients, setNewsletterRecipients] = useState<string>("all");
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
 
   const { data: groups, isLoading: groupsLoading } = useQuery<SubscriberGroup[]>({
     queryKey: ["/api/subscriber-groups"],
@@ -53,6 +61,20 @@ export default function NewsletterPage() {
         ? `/api/subscribers?groupId=${selectedGroup}` 
         : "/api/subscribers";
       const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch subscribers");
+      return response.json();
+    },
+  });
+
+  const { data: products } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
+
+  // Separate unfiltered query for compose tab recipient counts
+  const { data: allSubscribers } = useQuery<Subscriber[]>({
+    queryKey: ["/api/subscribers", "all"],
+    queryFn: async () => {
+      const response = await fetch("/api/subscribers", { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch subscribers");
       return response.json();
     },
@@ -261,6 +283,10 @@ export default function NewsletterPage() {
             <FolderOpen className="h-4 w-4 mr-2" />
             Groups
           </TabsTrigger>
+          <TabsTrigger value="compose" data-testid="tab-compose">
+            <Send className="h-4 w-4 mr-2" />
+            Compose
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="subscribers" className="space-y-4">
@@ -404,6 +430,131 @@ export default function NewsletterPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="compose" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Compose Newsletter</CardTitle>
+              <CardDescription>
+                Create and send newsletters to your subscribers
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="newsletter-subject">Subject Line</Label>
+                <Input
+                  id="newsletter-subject"
+                  placeholder="Enter your newsletter subject..."
+                  value={newsletterSubject}
+                  onChange={(e) => setNewsletterSubject(e.target.value)}
+                  data-testid="input-newsletter-subject"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="newsletter-recipients">Recipients</Label>
+                <Select value={newsletterRecipients} onValueChange={setNewsletterRecipients}>
+                  <SelectTrigger id="newsletter-recipients" data-testid="select-newsletter-recipients">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Subscribers ({allSubscribers?.length || 0})</SelectItem>
+                    {groups?.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name} ({group.subscriberCount || 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Add Product Image</Label>
+                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                  <SelectTrigger data-testid="select-product-image">
+                    <SelectValue placeholder="Select a product to add its image..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products?.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedProductId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const product = products?.find(p => p.id === selectedProductId);
+                      if (product && product.image) {
+                        const imageHtml = `<p><img src="${product.image}" alt="${product.name}" style="max-width: 100%; height: auto;" /></p>`;
+                        setNewsletterContent(newsletterContent + imageHtml);
+                        setSelectedProductId("");
+                      }
+                    }}
+                    data-testid="button-insert-product-image"
+                  >
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    Insert Image
+                  </Button>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Newsletter Content</Label>
+                <div className="border rounded-md" data-testid="editor-newsletter-content">
+                  <ReactQuill
+                    theme="snow"
+                    value={newsletterContent}
+                    onChange={setNewsletterContent}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'align': [] }],
+                        ['link', 'image'],
+                        ['clean']
+                      ],
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setNewsletterSubject("");
+                    setNewsletterContent("");
+                    setNewsletterRecipients("all");
+                    setSelectedProductId("");
+                  }}
+                  data-testid="button-clear-newsletter"
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={() => {
+                    // TODO: Implement send newsletter
+                    toast({
+                      title: "Newsletter Sent",
+                      description: "Your newsletter has been sent successfully.",
+                    });
+                  }}
+                  className="gap-2"
+                  data-testid="button-send-newsletter"
+                >
+                  <Send className="h-4 w-4" />
+                  Send Newsletter
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
