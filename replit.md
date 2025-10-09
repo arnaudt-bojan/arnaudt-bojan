@@ -44,6 +44,7 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
 - **Instagram Integration**: Sellers can connect Instagram to use their username as their store URL.
 - **Session Management**: PostgreSQL-backed sessions using `express-session` and `connect-pg-simple`.
 - **Store Visibility Control**: Sellers can toggle store status (active/inactive). Inactive stores show a "Store Unavailable" page to buyers with seller contact info, while sellers retain full access to manage their inactive stores.
+- **Newsletter System**: Comprehensive email marketing system with subscriber management, rich text editor (React Quill), email groups/segments, live preview (desktop/mobile), and analytics dashboard. Integrated with Resend batch API for bulk sending with open/click/bounce tracking. Development mode logs newsletters to console for testing with unverified domains. Includes tracking pixels, unsubscribe links, and deduplicated event analytics. Production-ready pending domain verification.
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
