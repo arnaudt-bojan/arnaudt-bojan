@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, Check, Trash2, Package, Truck, ShoppingBag, AlertCircle } from "lucide-react";
+import { Bell, Check, Trash2, Package, Truck, ShoppingBag, AlertCircle, Mail, CheckCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Notification } from "@shared/schema";
 
@@ -98,45 +98,74 @@ export function NotificationBell({ className }: NotificationBellProps) {
   return (
     <>
       <Dialog open={!!selectedNotification} onOpenChange={(open) => !open && setSelectedNotification(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedNotification && getNotificationIcon(selectedNotification.type)}
-              {selectedNotification?.title}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedNotification && formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true })}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="rounded-lg bg-muted p-4">
-              <p className="text-sm whitespace-pre-wrap">{selectedNotification?.message}</p>
-            </div>
-
-            {selectedNotification?.metadata && (
-              <div className="rounded-lg border p-4">
-                <h4 className="font-medium mb-2">Details</h4>
-                <dl className="space-y-2 text-sm">
-                  {Object.entries(selectedNotification.metadata as Record<string, any>).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <dt className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</dt>
-                      <dd className="font-medium">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</dd>
-                    </div>
-                  ))}
-                </dl>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+          {/* Email-style header with icon and timestamp */}
+          <div className="px-6 pt-6 pb-4 border-b">
+            <div className="flex items-start gap-4">
+              <div className="mt-1 p-3 rounded-full bg-primary/10">
+                {selectedNotification && getNotificationIcon(selectedNotification.type)}
               </div>
-            )}
-
-            {selectedNotification?.emailSent === 1 && (
-              <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4">
-                <p className="text-sm text-blue-900 dark:text-blue-100">
-                  ✉️ Email sent to recipient
-                  {selectedNotification.emailId && ` (ID: ${selectedNotification.emailId})`}
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-xl font-semibold mb-1">
+                  {selectedNotification?.title}
+                </DialogTitle>
+                <DialogDescription className="text-sm flex items-center gap-2">
+                  <span>{selectedNotification && formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true })}</span>
+                  {selectedNotification?.emailSent === 1 && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Email delivered
+                      </span>
+                    </>
+                  )}
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+          
+          {/* Scrollable content area */}
+          <ScrollArea className="flex-1 px-6 py-4">
+            <div className="space-y-6">
+              {/* Main message - email body style */}
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <p className="text-base leading-relaxed whitespace-pre-wrap text-foreground">
+                  {selectedNotification?.message}
                 </p>
               </div>
-            )}
-          </div>
+
+              {/* Metadata - presented as clean key-value pairs */}
+              {selectedNotification?.metadata && (() => {
+                // Filter out technical/internal fields that users shouldn't see
+                const hiddenFields = ['emailId', 'internalId', 'requestId', 'debugInfo', 'systemInfo'];
+                const userFriendlyMetadata = Object.entries(selectedNotification.metadata as Record<string, any>)
+                  .filter(([key]) => !hiddenFields.includes(key));
+                
+                return userFriendlyMetadata.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                      Additional Details
+                    </h4>
+                    <div className="bg-muted/30 rounded-lg p-4">
+                      <dl className="space-y-3">
+                        {userFriendlyMetadata.map(([key, value]) => (
+                          <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                            <dt className="text-sm font-medium text-muted-foreground capitalize">
+                              {key.replace(/([A-Z])/g, ' $1').trim()}
+                            </dt>
+                            <dd className="text-sm font-semibold text-foreground sm:text-right">
+                              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     <DropdownMenu open={open} onOpenChange={setOpen}>
