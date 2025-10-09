@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
-import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus } from "lucide-react";
+import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus } from "lucide-react";
 import { detectDomain } from "@/lib/domain-utils";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { useAuth } from "@/hooks/useAuth";
@@ -288,6 +288,24 @@ export default function Products() {
           </div>
         ) : filteredAndSortedProducts && filteredAndSortedProducts.length > 0 ? (
           <div className={getGridClasses()}>
+            {/* Add Product Card for Sellers */}
+            {isSeller && (
+              <Link href="/create-product">
+                <div 
+                  className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
+                  data-testid="card-add-product"
+                >
+                  <div className="rounded-full bg-primary/10 p-4">
+                    <Plus className="h-8 w-8 text-primary" />
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="font-semibold text-foreground">Add Product</p>
+                    <p className="text-sm text-muted-foreground mt-1">Create a new product</p>
+                  </div>
+                </div>
+              </Link>
+            )}
+            
             {filteredAndSortedProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -295,6 +313,24 @@ export default function Products() {
                 onAddToCart={handleAddToCart}
               />
             ))}
+          </div>
+        ) : isSeller ? (
+          <div className={getGridClasses()}>
+            {/* Add Product Card for Sellers when no products */}
+            <Link href="/create-product">
+              <div 
+                className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
+                data-testid="card-add-product"
+              >
+                <div className="rounded-full bg-primary/10 p-4">
+                  <Plus className="h-8 w-8 text-primary" />
+                </div>
+                <div className="text-center px-4">
+                  <p className="font-semibold text-foreground">Add Product</p>
+                  <p className="text-sm text-muted-foreground mt-1">Create your first product</p>
+                </div>
+              </div>
+            </Link>
           </div>
         ) : (
           <div className="text-center py-20">
