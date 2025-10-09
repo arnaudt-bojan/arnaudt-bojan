@@ -187,6 +187,7 @@ export default function Products() {
       const previousUser = queryClient.getQueryData(["/api/auth/user"]);
 
       // Optimistically update to the new value
+      // Toggle is disabled when !user, so old should always exist
       queryClient.setQueryData(["/api/auth/user"], (old: any) => ({
         ...old,
         storeActive: newStatus,
@@ -332,7 +333,7 @@ export default function Products() {
                 id="store-active"
                 checked={user?.storeActive === 1}
                 onCheckedChange={handleStoreToggle}
-                disabled={toggleStoreMutation.isPending}
+                disabled={toggleStoreMutation.isPending || !user}
                 data-testid="switch-store-active"
               />
             </div>

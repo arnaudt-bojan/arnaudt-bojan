@@ -1872,10 +1872,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Price IDs (Replace with actual Stripe Price IDs from dashboard)
-      const priceId = plan === "annual" 
-        ? "price_annual_99" // TODO: Replace with actual Stripe Price ID for $99/year
-        : "price_monthly_999"; // TODO: Replace with actual Stripe Price ID for $9.99/month
+      // Get or create Stripe price IDs
+      let priceId: string;
+      
+      // In test mode, create prices programmatically
+      if (process.env.NODE_ENV === 'development' || !process.env.STRIPE_PRICE_MONTHLY || !process.env.STRIPE_PRICE_ANNUAL) {
+        // Create product if it doesn't exist
+        const products = await stripe.products.list({ limit: 1 });
+        let product = products.data.find(p => p.name === 'Upfirst Pro');
+        
+        if (!product) {
+          product = await stripe.products.create({
+            name: 'Upfirst Pro',
+            description: 'Professional e-commerce platform subscription',
+          });
+        }
+
+        // Create or get prices
+        const prices = await stripe.prices.list({ product: product.id });
+        
+        if (plan === "annual") {
+          let annualPrice = prices.data.find(p => p.recurring?.interval === 'year' && p.unit_amount === 9900);
+          if (!annualPrice) {
+            annualPrice = await stripe.prices.create({
+              product: product.id,
+              unit_amount: 9900, // $99.00
+              currency: 'usd',
+              recurring: { interval: 'year' },
+            });
+          }
+          priceId = annualPrice.id;
+        } else {
+          let monthlyPrice = prices.data.find(p => p.recurring?.interval === 'month' && p.unit_amount === 999);
+          if (!monthlyPrice) {
+            monthlyPrice = await stripe.prices.create({
+              product: product.id,
+              unit_amount: 999, // $9.99
+              currency: 'usd',
+              recurring: { interval: 'month' },
+            });
+          }
+          priceId = monthlyPrice.id;
+        }
+      } else {
+        // Use environment variable price IDs for production
+        priceId = plan === "annual" 
+          ? process.env.STRIPE_PRICE_ANNUAL!
+          : process.env.STRIPE_PRICE_MONTHLY!;
+      }
 
       // Create or get Stripe customer
       let customerId = user.stripeCustomerId;

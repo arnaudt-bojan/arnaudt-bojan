@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -18,11 +20,16 @@ import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, S
 import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
 import { OnboardingModal } from "@/components/onboarding-modal";
+import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SellerDashboard() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
   
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
@@ -59,6 +66,60 @@ export default function SellerDashboard() {
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
     }
   };
+
+  // Store toggle functionality
+  const handleStoreToggle = (checked: boolean) => {
+    if (checked) {
+      // Activating store - check subscription
+      const hasActiveSubscription = user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial';
+      
+      if (!hasActiveSubscription) {
+        // No active subscription - show pricing dialog
+        setShowSubscriptionDialog(true);
+        return;
+      }
+    }
+    
+    // Either deactivating or has active subscription - proceed with toggle
+    toggleStoreMutation.mutate(checked ? 1 : 0);
+  };
+
+  const toggleStoreMutation = useMutation({
+    mutationFn: async (storeActive: number) => {
+      return await apiRequest("PATCH", "/api/user/store-status", { storeActive });
+    },
+    onMutate: async (newStatus) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/auth/user"] });
+      const previousUser = queryClient.getQueryData(["/api/auth/user"]);
+      // Toggle is disabled when !user, so old should always exist
+      queryClient.setQueryData(["/api/auth/user"], (old: any) => ({
+        ...old,
+        storeActive: newStatus,
+      }));
+      return { previousUser };
+    },
+    onSuccess: (data, variables) => {
+      toast({
+        title: variables === 1 ? "Store activated" : "Store deactivated",
+        description: variables === 1
+          ? "Your store is now visible to customers" 
+          : "Your store is now hidden from customers",
+      });
+    },
+    onError: (error, variables, context) => {
+      if (context?.previousUser) {
+        queryClient.setQueryData(["/api/auth/user"], context.previousUser);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update store status",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
 
   const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total), 0) || 0;
   const totalOrders = orders?.length || 0;
@@ -120,38 +181,27 @@ export default function SellerDashboard() {
             </div>
           </div>
           
-          {/* Go Live Banner - Trial & Subscription */}
-          {user && !user.subscriptionStatus && (
-            <Card className="p-8 mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20" data-testid="card-go-live">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                    <Store className="h-6 w-6" />
-                    Launch Your Store - 30 Day Free Trial
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    Start your free trial now! Add a payment method to activate your store and unlock all features. 
-                    No charges for 30 days, cancel anytime.
-                  </p>
-                  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                    <li>Accept payments from customers worldwide</li>
-                    <li>Unlimited products and orders</li>
-                    <li>Advanced analytics and reporting</li>
-                    <li>$9.99/month or $99/year after trial</li>
-                  </ul>
-                </div>
-                <Button 
-                  size="lg" 
-                  onClick={() => setLocation("/settings?tab=subscription")}
-                  className="whitespace-nowrap"
-                  data-testid="button-go-live"
-                >
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  Go Live - Start Free Trial
-                </Button>
+          {/* Store Status Toggle */}
+          <div className="flex items-center justify-between gap-4 mb-6 bg-card border rounded-lg px-6 py-4">
+            <div className="flex items-center gap-4">
+              <Store className="h-6 w-6 text-muted-foreground" />
+              <div>
+                <Label htmlFor="dashboard-store-active" className="text-base font-semibold cursor-pointer">
+                  Store Status
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {user?.storeActive === 1 ? "Your store is live and visible to customers" : "Your store is inactive and hidden from customers"}
+                </p>
               </div>
-            </Card>
-          )}
+            </div>
+            <Switch
+              id="dashboard-store-active"
+              checked={user?.storeActive === 1}
+              onCheckedChange={handleStoreToggle}
+              disabled={toggleStoreMutation.isPending || !user}
+              data-testid="switch-dashboard-store-active"
+            />
+          </div>
 
           {user?.subscriptionStatus === 'trial' && user.trialEndsAt && (
             <Alert className="mb-6 border-blue-500/50 bg-blue-500/10" data-testid="alert-trial-active">
@@ -312,6 +362,10 @@ export default function SellerDashboard() {
             localStorage.setItem(`hasSeenOnboarding:${user.id}`, 'true');
           }
         }} 
+      />
+      <SubscriptionPricingDialog 
+        open={showSubscriptionDialog} 
+        onOpenChange={setShowSubscriptionDialog} 
       />
     </div>
   );
