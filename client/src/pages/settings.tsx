@@ -575,6 +575,11 @@ export default function Settings() {
   const [location, setLocation] = useLocation();
   const [copiedUsername, setCopiedUsername] = useState(false);
 
+  // Force refetch user data when component mounts to ensure fresh auth state
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  }, []);
+
   // Handle Instagram OAuth callback messages
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -633,6 +638,16 @@ export default function Settings() {
       storeLogo: user?.storeLogo || "",
     },
   });
+
+  // Reset branding form when user data changes
+  useEffect(() => {
+    if (user) {
+      brandingForm.reset({
+        storeBanner: user.storeBanner || "",
+        storeLogo: user.storeLogo || "",
+      });
+    }
+  }, [user?.storeBanner, user?.storeLogo]);
 
   const usernameForm = useForm<UsernameForm>({
     resolver: zodResolver(usernameSchema),

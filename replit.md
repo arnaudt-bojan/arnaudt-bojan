@@ -61,6 +61,7 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
 - **Session Management**: PostgreSQL-backed sessions using `express-session` and `connect-pg-simple`.
 - **Store Visibility Control**: Sellers can toggle store status (active/inactive). Inactive stores show a "Store Unavailable" page to buyers with seller contact info, while sellers retain full access to manage their inactive stores.
 - **Newsletter System**: Comprehensive email marketing system with subscriber management, rich text editor (React Quill), email groups/segments, live preview (desktop/mobile), and analytics dashboard. Integrated with Resend batch API for bulk sending with open/click/bounce tracking. Development mode logs newsletters to console for testing with unverified domains. Includes tracking pixels, unsubscribe links, and deduplicated event analytics. Production-ready pending domain verification.
+- **Image Editing System**: Built-in image editor for logo and banner customization using react-easy-crop. Features crop, zoom (1-3x), rotation (0-360°), flip (horizontal/vertical), and filters (brightness, contrast, saturation, blur, grayscale, sepia). Implements official react-easy-crop getCroppedImg pattern for proper rotation/flip handling. Settings page includes loading state for proper tab rendering and CORS headers on /objects/ route enable canvas-based image processing.
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
