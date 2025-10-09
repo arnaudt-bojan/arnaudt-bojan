@@ -18,9 +18,23 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
   const [copied, setCopied] = useState(false);
 
   // Get store URL based on username
-  const storeUrl = user?.username 
-    ? `${window.location.protocol}//${user.username}.${window.location.hostname.replace(/^[^.]+\./, '')}` 
-    : `${window.location.origin}/products`;
+  const getStoreUrl = () => {
+    if (!user?.username) {
+      return `${window.location.origin}/products`;
+    }
+
+    const hostname = window.location.hostname;
+    
+    // Development/Replit environment - use query parameter
+    if (hostname.includes('replit') || hostname === 'localhost') {
+      return `${window.location.origin}?seller=${user.username}`;
+    }
+    
+    // Production - use subdomain
+    return `${window.location.protocol}//${user.username}.upfirst.com`;
+  };
+
+  const storeUrl = getStoreUrl();
 
   const copyToClipboard = async () => {
     try {
