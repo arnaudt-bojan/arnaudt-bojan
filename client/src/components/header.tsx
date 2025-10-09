@@ -185,26 +185,30 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </nav>
             </SheetContent>
           </Sheet>
-          <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-            {sellerInfo?.instagramUsername ? (
-              <div className="flex items-center gap-2">
-                <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
-              </div>
-            ) : sellerInfo?.storeLogo ? (
+          {sellerInfo?.instagramUsername ? (
+            <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+              <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
+            </Link>
+          ) : sellerInfo?.storeLogo ? (
+            <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-8 max-w-[200px] object-contain" />
-            ) : isSeller ? (
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-medium">{user?.username || user?.firstName || 'My Store'}</span>
-                <Link href="/settings">
-                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
-                    Add Logo
-                  </Button>
-                </Link>
-              </div>
-            ) : (
+            </Link>
+          ) : isSeller ? (
+            <div className="flex items-center gap-2">
+              <Link href="/seller-dashboard" className="text-lg font-medium hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                {user?.username || user?.firstName || 'My Store'}
+              </Link>
+              <Link href="/settings">
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
+                  Add Logo
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <img src={logoImage} alt="Uppfirst" className="h-8" />
-            )}
-          </Link>
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
