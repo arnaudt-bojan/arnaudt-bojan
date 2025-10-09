@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import logoImage from "@assets/image_1759956321866.png";
 import { detectDomain } from "@/lib/domain-utils";
+import { useQuery } from "@tanstack/react-query";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -36,6 +37,16 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const domainInfo = detectDomain();
   const isSellerDomain = domainInfo.isSellerDomain;
+
+  // Fetch seller info if on seller domain
+  const { data: sellerData } = useQuery({
+    queryKey: ['/api/seller', domainInfo.sellerUsername],
+    enabled: !!domainInfo.sellerUsername && isSellerDomain,
+  });
+
+  // Determine which seller info to use
+  const sellerInfo = isSellerDomain ? sellerData : user;
+  const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -174,8 +185,25 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </nav>
             </SheetContent>
           </Sheet>
-          <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-            <img src={logoImage} alt="Uppshop Logo" className="h-8" />
+          <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            {sellerInfo?.instagramUsername ? (
+              <div className="flex items-center gap-2">
+                <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
+              </div>
+            ) : sellerInfo?.storeLogo ? (
+              <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-8 max-w-[200px] object-contain" />
+            ) : isSeller ? (
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-medium">{user?.username || user?.firstName || 'My Store'}</span>
+                <Link href="/settings">
+                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+                    Add Logo
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <img src={logoImage} alt="Uppfirst" className="h-8" />
+            )}
           </Link>
         </div>
 
