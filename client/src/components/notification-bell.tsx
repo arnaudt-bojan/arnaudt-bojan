@@ -142,7 +142,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                 const userFriendlyMetadata = Object.entries(selectedNotification.metadata as Record<string, any>)
                   .filter(([key]) => !hiddenFields.includes(key));
                 
-                return userFriendlyMetadata.length > 0 && (
+                return userFriendlyMetadata.length > 0 ? (
                   <div className="border-t pt-4">
                     <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                       Additional Details
@@ -162,7 +162,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                       </dl>
                     </div>
                   </div>
-                );
+                ) : null;
               })()}
             </div>
           </ScrollArea>
