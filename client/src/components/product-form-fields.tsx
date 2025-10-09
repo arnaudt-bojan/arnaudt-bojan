@@ -193,7 +193,7 @@ export function ProductFormFields({
                   </SelectTrigger>
                   <SelectContent>
                     {level1Categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
+                      <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
                     ))}
@@ -210,7 +210,7 @@ export function ProductFormFields({
                     </SelectTrigger>
                     <SelectContent>
                       {level2Categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>
+                        <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
                         </SelectItem>
                       ))}
@@ -228,7 +228,7 @@ export function ProductFormFields({
                     </SelectTrigger>
                     <SelectContent>
                       {level3Categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>
+                        <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
                         </SelectItem>
                       ))}

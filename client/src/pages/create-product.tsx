@@ -23,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Package, Clock, Hammer, Building2, Check, Plus, X, ImagePlus } from "lucide-react";
 import { BulkImageInput } from "@/components/bulk-image-input";
 import { cn } from "@/lib/utils";
+import { ProductFormFields } from "@/components/product-form-fields";
 
 type ProductVariant = {
   size: string;
@@ -76,6 +77,8 @@ export default function CreateProduct() {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
   const [preOrderDate, setPreOrderDate] = useState<string>("");
+  const [discountPercentage, setDiscountPercentage] = useState<string>("");
+  const [promotionEndDate, setPromotionEndDate] = useState<string>("");
   const [productImages, setProductImages] = useState<string[]>([""]);
   const [selectedLevel1, setSelectedLevel1] = useState<string>("");
   const [selectedLevel2, setSelectedLevel2] = useState<string>("");
@@ -219,8 +222,14 @@ export default function CreateProduct() {
       }
       
       // Handle discount/promotion
-      if ((data as any).discountPercentage && parseFloat((data as any).discountPercentage) > 0) {
+      if (discountPercentage && parseFloat(discountPercentage) > 0) {
         (data as any).promotionActive = 1;
+        (data as any).discountPercentage = discountPercentage;
+        if (promotionEndDate) {
+          (data as any).promotionEndDate = new Date(promotionEndDate).toISOString();
+        } else {
+          (data as any).promotionEndDate = null;
+        }
       } else {
         (data as any).promotionActive = 0;
         (data as any).discountPercentage = null;
@@ -318,572 +327,28 @@ export default function CreateProduct() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* Product Type Selection - Prominent at Top */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Step 1: Choose Product Type</CardTitle>
-                <CardDescription>
-                  Select how you want to sell this product
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="productType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {productTypes.map((type) => {
-                            const Icon = type.icon;
-                            const isSelected = field.value === type.value;
-                            return (
-                              <button
-                                key={type.value}
-                                type="button"
-                                onClick={() => field.onChange(type.value)}
-                                className={cn(
-                                  "relative flex flex-col items-start p-6 rounded-lg border-2 transition-all hover-elevate active-elevate-2",
-                                  isSelected
-                                    ? "border-primary bg-primary/5"
-                                    : "border-border"
-                                )}
-                                data-testid={`button-type-${type.value}`}
-                              >
-                                {isSelected && (
-                                  <div className="absolute top-4 right-4">
-                                    <div className="bg-primary text-primary-foreground rounded-full p-1">
-                                      <Check className="h-4 w-4" />
-                                    </div>
-                                  </div>
-                                )}
-                                <Icon className={cn("h-8 w-8 mb-3", type.color)} />
-                                <h3 className="font-semibold text-lg mb-1">{type.label}</h3>
-                                <p className="text-sm text-muted-foreground text-left">
-                                  {type.description}
-                                </p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Product Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Step 2: Product Details</CardTitle>
-                <CardDescription>
-                  Add information about your product
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Product Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter product name"
-                          {...field}
-                          data-testid="input-name"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your product"
-                          className="min-h-32"
-                          {...field}
-                          data-testid="input-description"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Category Level 1</label>
-                    {!showLevel1Input ? (
-                      <div className="flex gap-2">
-                        <Select value={selectedLevel1} onValueChange={(value) => {
-                          setSelectedLevel1(value);
-                          setSelectedLevel2("");
-                          setSelectedLevel3("");
-                        }}>
-                          <SelectTrigger data-testid="select-category-level-1" className="flex-1">
-                            <SelectValue placeholder="Select main category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {level1Categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowLevel1Input(true)}
-                          data-testid="button-add-level1"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="New category name"
-                          value={newLevel1Name}
-                          onChange={(e) => setNewLevel1Name(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateLevel1())}
-                          data-testid="input-new-level1"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleCreateLevel1}
-                          disabled={!newLevel1Name.trim() || createCategoryMutation.isPending}
-                          data-testid="button-save-level1"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setShowLevel1Input(false);
-                            setNewLevel1Name("");
-                          }}
-                          data-testid="button-cancel-level1"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedLevel1 && (
-                    <div>
-                      <label className="text-sm font-medium">Category Level 2 (Optional)</label>
-                      {!showLevel2Input ? (
-                        <div className="flex gap-2">
-                          <Select value={selectedLevel2} onValueChange={(value) => {
-                            setSelectedLevel2(value);
-                            setSelectedLevel3("");
-                          }}>
-                            <SelectTrigger data-testid="select-category-level-2" className="flex-1">
-                              <SelectValue placeholder="Select subcategory (optional)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {level2Categories.map((cat) => (
-                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setShowLevel2Input(true)}
-                            data-testid="button-add-level2"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="New subcategory name"
-                            value={newLevel2Name}
-                            onChange={(e) => setNewLevel2Name(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateLevel2())}
-                            data-testid="input-new-level2"
-                          />
-                          <Button
-                            type="button"
-                            onClick={handleCreateLevel2}
-                            disabled={!newLevel2Name.trim() || createCategoryMutation.isPending}
-                            data-testid="button-save-level2"
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                              setShowLevel2Input(false);
-                              setNewLevel2Name("");
-                            }}
-                            data-testid="button-cancel-level2"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {selectedLevel2 && (
-                    <div>
-                      <label className="text-sm font-medium">Category Level 3 (Optional)</label>
-                      {!showLevel3Input ? (
-                        <div className="flex gap-2">
-                          <Select value={selectedLevel3} onValueChange={setSelectedLevel3}>
-                            <SelectTrigger data-testid="select-category-level-3" className="flex-1">
-                              <SelectValue placeholder="Select category (optional)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {level3Categories.map((cat) => (
-                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setShowLevel3Input(true)}
-                            data-testid="button-add-level3"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="New category name"
-                            value={newLevel3Name}
-                            onChange={(e) => setNewLevel3Name(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateLevel3())}
-                            data-testid="input-new-level3"
-                          />
-                          <Button
-                            type="button"
-                            onClick={handleCreateLevel3}
-                            disabled={!newLevel3Name.trim() || createCategoryMutation.isPending}
-                            data-testid="button-save-level3"
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                              setShowLevel3Input(false);
-                              setNewLevel3Name("");
-                            }}
-                            data-testid="button-cancel-level3"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <BulkImageInput 
-                  images={productImages}
-                  onChange={setProductImages}
-                  maxImages={10}
-                />
-                <FormField
-                  control={form.control}
-                  name="image"
-                  render={() => <input type="hidden" />}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Pricing & Inventory */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Step 3: Pricing & Inventory</CardTitle>
-                <CardDescription>
-                  Set your pricing and manage stock
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Price</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="0.00"
-                          {...field}
-                          data-testid="input-price"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        {selectedType === "pre-order"
-                          ? "Total price (customer will pay deposit first, then balance)"
-                          : "Enter price in USD"}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="discountPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Discount % (Optional)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            placeholder="0"
-                            {...field}
-                            value={field.value || ""}
-                            data-testid="input-discount"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Discount percentage (0-100%)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="promotionEndDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Promotion End Date (Optional)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            {...field}
-                            value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""}
-                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
-                            data-testid="input-promotion-end"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          When the promotion ends
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {selectedType === "pre-order" && (
-                  <FormField
-                    control={form.control}
-                    name="depositAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Deposit Amount (Required)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="0.00"
-                            {...field}
-                            value={field.value || ""}
-                            data-testid="input-deposit"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Amount customer pays upfront to secure pre-order. Balance will be charged later.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {selectedType === "in-stock" && (
-                  <FormField
-                    control={form.control}
-                    name="stock"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Stock Quantity</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            value={field.value || 0}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            data-testid="input-stock"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Number of items available for immediate shipping
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* Readiness Date for Made-to-Order */}
-                {selectedType === "made-to-order" && (
-                  <div>
-                    <FormLabel>Production Time</FormLabel>
-                    <div className="flex items-center gap-3 mt-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={madeToOrderDays}
-                        onChange={(e) => setMadeToOrderDays(parseInt(e.target.value) || 1)}
-                        className="w-24"
-                        data-testid="input-made-to-order-days"
-                      />
-                      <span className="text-sm text-muted-foreground">days after purchase</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Estimated time to create and ship this product after receiving an order
-                    </p>
-                  </div>
-                )}
-
-                {/* Readiness Date for Pre-Order */}
-                {selectedType === "pre-order" && (
-                  <div>
-                    <FormLabel>Expected Availability Date</FormLabel>
-                    <Input
-                      type="date"
-                      value={preOrderDate}
-                      onChange={(e) => setPreOrderDate(e.target.value)}
-                      className="mt-2"
-                      data-testid="input-pre-order-date"
-                    />
-                    <p className="text-sm text-muted-foreground mt-2">
-                      When will this product be available to ship to customers?
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Product Variants */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Step 4: Product Variants (Optional)</CardTitle>
-                <CardDescription>
-                  Add size and color options for this product
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {variants.length === 0 ? (
-                  <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                    <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-4">
-                      No variants added yet. Add size and color options to offer multiple versions of this product.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={addVariant}
-                      data-testid="button-add-first-variant"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add First Variant
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {variants.map((variant, index) => (
-                      <Card key={index} className="p-4">
-                        <div className="flex items-start justify-between mb-4">
-                          <h4 className="font-semibold">Variant #{index + 1}</h4>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeVariant(index)}
-                            data-testid={`button-remove-variant-${index}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <FormLabel>Size</FormLabel>
-                            <Input
-                              placeholder="e.g., Small, Medium, Large, XL"
-                              value={variant.size}
-                              onChange={(e) => updateVariant(index, "size", e.target.value)}
-                              data-testid={`input-variant-size-${index}`}
-                            />
-                          </div>
-                          <div>
-                            <FormLabel>Color</FormLabel>
-                            <Input
-                              placeholder="e.g., Red, Blue, Black"
-                              value={variant.color}
-                              onChange={(e) => updateVariant(index, "color", e.target.value)}
-                              data-testid={`input-variant-color-${index}`}
-                            />
-                          </div>
-                          <div>
-                            <FormLabel>Stock</FormLabel>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="0"
-                              value={variant.stock}
-                              onChange={(e) => updateVariant(index, "stock", parseInt(e.target.value) || 0)}
-                              data-testid={`input-variant-stock-${index}`}
-                            />
-                          </div>
-                          <div>
-                            <FormLabel>Image URL</FormLabel>
-                            <Input
-                              type="url"
-                              placeholder="https://example.com/variant.jpg"
-                              value={variant.image}
-                              onChange={(e) => updateVariant(index, "image", e.target.value)}
-                              data-testid={`input-variant-image-${index}`}
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={addVariant}
-                      className="w-full"
-                      data-testid="button-add-another-variant"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Another Variant
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <ProductFormFields
+              form={form}
+              variants={variants}
+              setVariants={setVariants}
+              madeToOrderDays={madeToOrderDays}
+              setMadeToOrderDays={setMadeToOrderDays}
+              preOrderDate={preOrderDate}
+              setPreOrderDate={setPreOrderDate}
+              discountPercentage={discountPercentage}
+              setDiscountPercentage={setDiscountPercentage}
+              promotionEndDate={promotionEndDate}
+              setPromotionEndDate={setPromotionEndDate}
+              selectedLevel1={selectedLevel1}
+              setSelectedLevel1={setSelectedLevel1}
+              selectedLevel2={selectedLevel2}
+              setSelectedLevel2={setSelectedLevel2}
+              selectedLevel3={selectedLevel3}
+              setSelectedLevel3={setSelectedLevel3}
+              level1Categories={level1Categories}
+              level2Categories={level2Categories}
+              level3Categories={level3Categories}
+            />
 
             <div className="flex gap-4">
               <Button
@@ -908,3 +373,4 @@ export default function CreateProduct() {
     </div>
   );
 }
+
