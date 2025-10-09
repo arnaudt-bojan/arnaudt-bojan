@@ -49,12 +49,19 @@ export interface SendNewsletterParams {
   htmlContent: string;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+}
+
 interface SendEmailParams {
   to: string;
   from?: string;
   replyTo?: string;
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }
 
 class NotificationServiceImpl implements NotificationService {
@@ -103,13 +110,24 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }> {
     try {
-      const result = await resend.emails.send({
+      const emailPayload: any = {
         from: params.from || FROM_EMAIL,
         to: params.to,
         replyTo: params.replyTo,
         subject: params.subject,
         html: params.html,
-      });
+      };
+
+      // Add attachments if provided
+      if (params.attachments && params.attachments.length > 0) {
+        emailPayload.attachments = params.attachments.map(att => ({
+          filename: att.filename,
+          content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
+          ...(att.contentType && { content_type: att.contentType }),
+        }));
+      }
+
+      const result = await resend.emails.send(emailPayload);
 
       if (result.error) {
         console.error('[Notifications] Email send error:', result.error);
