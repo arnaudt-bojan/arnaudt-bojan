@@ -1782,6 +1782,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe Webhook Handler
+  app.post("/api/stripe/webhook", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).send("Stripe is not configured");
+      }
+
+      const sig = req.headers['stripe-signature'];
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!sig || !webhookSecret) {
+        console.error("Webhook signature or secret missing");
+        return res.status(400).send("Webhook signature or secret missing");
+      }
+
+      let event: Stripe.Event;
+
+      try {
+        // Verify webhook signature
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } catch (err: any) {
+        console.error(`Webhook signature verification failed:`, err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+      }
+
+      console.log(`[Webhook] Received event: ${event.type}`);
+
+      // Handle different event types
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const userId = session.metadata?.userId;
+          const plan = session.metadata?.plan;
+
+          if (userId && plan && session.subscription) {
+            const user = await storage.getUser(userId);
+            if (user) {
+              // Retrieve the actual subscription to get correct status
+              const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+              
+              let status: string;
+              switch (subscription.status) {
+                case 'trialing':
+                  status = 'trial';
+                  break;
+                case 'active':
+                  status = 'active';
+                  break;
+                case 'past_due':
+                  status = 'past_due';
+                  break;
+                case 'canceled':
+                case 'unpaid':
+                  status = 'canceled';
+                  break;
+                default:
+                  status = subscription.status;
+              }
+
+              await storage.upsertUser({
+                ...user,
+                stripeSubscriptionId: subscription.id,
+                subscriptionStatus: status,
+                subscriptionPlan: plan,
+              });
+              console.log(`[Webhook] Checkout completed - user ${userId} subscription status: ${status}`);
+            }
+          }
+          break;
+        }
+
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const customerId = subscription.customer as string;
+          
+          // Find user by Stripe customer ID (indexed lookup)
+          const user = await storage.getUserByStripeCustomerId(customerId);
+
+          if (user) {
+            let status: string;
+            switch (subscription.status) {
+              case 'trialing':
+                status = 'trial';
+                break;
+              case 'active':
+                status = 'active';
+                break;
+              case 'past_due':
+                status = 'past_due';
+                break;
+              case 'canceled':
+              case 'unpaid':
+                status = 'canceled';
+                break;
+              default:
+                status = subscription.status;
+            }
+
+            await storage.upsertUser({
+              ...user,
+              stripeSubscriptionId: subscription.id,
+              subscriptionStatus: status,
+            });
+            console.log(`[Webhook] Updated user ${user.id} subscription status to ${status}`);
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const customerId = subscription.customer as string;
+          
+          const user = await storage.getUserByStripeCustomerId(customerId);
+
+          if (user) {
+            await storage.upsertUser({
+              ...user,
+              subscriptionStatus: 'canceled',
+              stripeSubscriptionId: null,
+            });
+            console.log(`[Webhook] Cancelled subscription for user ${user.id}`);
+          }
+          break;
+        }
+
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as Stripe.Invoice;
+          const customerId = invoice.customer as string;
+          
+          const user = await storage.getUserByStripeCustomerId(customerId);
+
+          if (user) {
+            await storage.upsertUser({
+              ...user,
+              subscriptionStatus: 'past_due',
+            });
+            console.log(`[Webhook] Marked user ${user.id} subscription as past_due`);
+            
+            // TODO: Send notification email to user about failed payment
+          }
+          break;
+        }
+
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as Stripe.Invoice;
+          const customerId = invoice.customer as string;
+          
+          const user = await storage.getUserByStripeCustomerId(customerId);
+
+          if (user && user.subscriptionStatus === 'past_due') {
+            await storage.upsertUser({
+              ...user,
+              subscriptionStatus: 'active',
+            });
+            console.log(`[Webhook] Restored user ${user.id} subscription to active`);
+          }
+          break;
+        }
+
+        default:
+          console.log(`[Webhook] Unhandled event type: ${event.type}`);
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error("[Webhook] Error processing webhook:", error);
+      res.status(500).send("Webhook processing error");
+    }
+  });
+
   // Seller-triggered balance payment for pre-orders
   app.post("/api/trigger-balance-payment/:orderId", isAuthenticated, async (req, res) => {
     try {

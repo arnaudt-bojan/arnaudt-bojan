@@ -292,6 +292,12 @@ export class DatabaseStorage implements IStorage {
     return await this.db.select().from(users).orderBy(desc(users.createdAt));
   }
 
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId)).limit(1);
+    return result[0];
+  }
+
   async getTeamMembersBySellerId(sellerId: string): Promise<User[]> {
     await this.ensureInitialized();
     return await this.db.select().from(users).where(eq(users.sellerId, sellerId)).orderBy(desc(users.createdAt));
