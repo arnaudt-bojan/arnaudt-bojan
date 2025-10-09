@@ -1301,18 +1301,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create account session for embedded onboarding or payout setup
+      // For Express accounts: don't include external_account_collection for initial onboarding
+      const components: any = {
+        account_onboarding: {
+          enabled: true,
+        },
+      };
+
+      // Only enable external_account_collection for payout setup
+      if (purpose === 'payouts') {
+        components.account_onboarding.features = {
+          external_account_collection: true,
+        };
+      }
+
       const accountSession = await stripe.accountSessions.create({
         account: user.stripeConnectedAccountId,
-        components: {
-          account_onboarding: {
-            enabled: true,
-            features: {
-              // For initial onboarding, skip bank details
-              // For payout setup, require bank details
-              external_account_collection: purpose === 'payouts',
-            },
-          },
-        },
+        components,
       });
 
       res.json({ 
