@@ -1006,37 +1006,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/user/password", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { currentPassword, newPassword } = req.body;
-
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ error: "Current and new passwords are required" });
-      }
-
-      const user = await storage.getUser(userId);
-      if (!user || !user.password) {
-        return res.status(404).json({ error: "User not found or no password set" });
-      }
-
-      // Simple password comparison (in production, use bcrypt)
-      if (user.password !== currentPassword) {
-        return res.status(401).json({ error: "Current password is incorrect" });
-      }
-
-      const updatedUser = await storage.upsertUser({
-        ...user,
-        password: newPassword,
-      });
-
-      res.json({ message: "Password updated successfully" });
-    } catch (error) {
-      console.error("Password update error:", error);
-      res.status(500).json({ error: "Failed to update password" });
-    }
-  });
-
   app.patch("/api/user/branding", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1814,6 +1783,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update order with balance payment intent ID
       await storage.updateOrderBalancePaymentIntent(order.id, paymentIntent.id);
+
+      // Get seller information
+      const seller = await storage.getUser(req.user.claims.sub);
+      if (seller) {
+        // Generate payment link (for email)
+        const paymentLink = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/complete-balance-payment/${order.id}?payment_intent=${paymentIntent.id}`;
+        
+        // Send email to customer
+        await notificationService.sendBalancePaymentRequest(order, seller, paymentLink);
+      }
 
       res.json({ 
         clientSecret: paymentIntent.client_secret,

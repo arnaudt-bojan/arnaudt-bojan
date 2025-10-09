@@ -29,15 +29,6 @@ const profileSchema = z.object({
   email: z.string().email(),
 });
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
 const brandingSchema = z.object({
   storeBanner: z.string().url("Must be a valid URL").or(z.literal("")),
   storeLogo: z.string().url("Must be a valid URL").or(z.literal("")),
@@ -61,7 +52,6 @@ const shippingSchema = z.object({
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
-type PasswordForm = z.infer<typeof passwordSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
 type UsernameForm = z.infer<typeof usernameSchema>;
 type CustomDomainForm = z.infer<typeof customDomainSchema>;
@@ -798,15 +788,6 @@ export default function Settings() {
     },
   });
 
-  const passwordForm = useForm<PasswordForm>({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: {
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    },
-  });
-
   const brandingForm = useForm<BrandingForm>({
     resolver: zodResolver(brandingSchema),
     defaultValues: {
@@ -846,26 +827,6 @@ export default function Settings() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
-    },
-  });
-
-  const updatePasswordMutation = useMutation({
-    mutationFn: async (data: PasswordForm) => {
-      return await apiRequest("PATCH", "/api/user/password", {
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      });
-    },
-    onSuccess: () => {
-      passwordForm.reset();
-      toast({ title: "Password updated", description: "Your password has been changed successfully" });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Error", 
-        description: error.message || "Failed to update password", 
-        variant: "destructive" 
-      });
     },
   });
 
@@ -1107,12 +1068,11 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-7' : 'grid-cols-3'}`} data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-6' : 'grid-cols-1'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="password" data-testid="tab-password">Password</TabsTrigger>
           {isSeller && (
             <>
               <TabsTrigger value="subscription" data-testid="tab-subscription">
@@ -1194,67 +1154,6 @@ export default function Settings() {
                     data-testid="button-save-profile"
                   >
                     {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="password">
-          <Card>
-            <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>Update your account password</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...passwordForm}>
-                <form onSubmit={passwordForm.handleSubmit((data) => updatePasswordMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={passwordForm.control}
-                    name="currentPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Current Password</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="password" data-testid="input-currentPassword" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={passwordForm.control}
-                    name="newPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>New Password</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="password" data-testid="input-newPassword" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={passwordForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirm Password</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="password" data-testid="input-confirmPassword" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button 
-                    type="submit" 
-                    disabled={updatePasswordMutation.isPending}
-                    data-testid="button-change-password"
-                  >
-                    {updatePasswordMutation.isPending ? "Changing..." : "Change Password"}
                   </Button>
                 </form>
               </Form>

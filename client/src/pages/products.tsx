@@ -254,12 +254,9 @@ export default function Products() {
       <div className="container mx-auto px-4 max-w-7xl py-12">
         <div className="mb-12 flex items-start justify-between gap-4 flex-wrap">
           <div className="flex-1">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-page-title">
-              All Products
+            <h1 className="text-4xl md:text-5xl font-bold" data-testid="text-page-title">
+              {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "All Products"}
             </h1>
-            <p className="text-lg text-muted-foreground">
-              Discover our collection of high-quality products
-            </p>
           </div>
           
           {isSeller && (
@@ -346,7 +343,7 @@ export default function Products() {
             
             {/* New Listing Card for Sellers - Last Position */}
             {isSeller && (
-              <Link href="/create-product">
+              <Link href="/seller/create-product">
                 <div 
                   className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
                   data-testid="card-new-listing"
@@ -365,7 +362,7 @@ export default function Products() {
         ) : isSeller ? (
           <div className={getGridClasses()}>
             {/* New Listing Card for Sellers when no products */}
-            <Link href="/create-product">
+            <Link href="/seller/create-product">
               <div 
                 className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
                 data-testid="card-new-listing"
