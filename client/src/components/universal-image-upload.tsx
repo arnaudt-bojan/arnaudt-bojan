@@ -3,14 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { X, Star, Upload, Link as LinkIcon, ImagePlus } from "lucide-react";
+import { X, Star, Link as LinkIcon, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Uppy from "@uppy/core";
-import { DashboardModal } from "@uppy/react";
-import AwsS3 from "@uppy/aws-s3";
-import { apiRequest } from "@/lib/queryClient";
+import { ImageDropzone } from "@/components/image-dropzone";
 
 interface UniversalImageUploadProps {
   value: string | string[];
@@ -37,7 +33,6 @@ export function UniversalImageUpload({
   heroSelection = true,
   className,
 }: UniversalImageUploadProps) {
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showUrlDialog, setShowUrlDialog] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [heroIndex, setHeroIndex] = useState(0);
@@ -45,56 +40,6 @@ export function UniversalImageUpload({
   // Normalize value to array for easier handling
   const images = Array.isArray(value) ? value : value ? [value] : [];
   const isSingle = mode === "single";
-
-  // Create Uppy instance
-  const [uppy] = useState(() =>
-    new Uppy({
-      restrictions: {
-        maxNumberOfFiles: isSingle ? 1 : maxImages,
-        maxFileSize: 10485760, // 10MB
-        allowedFileTypes: ['image/*'],
-      },
-      autoProceed: false,
-    })
-      .use(AwsS3, {
-        shouldUseMultipart: false,
-        getUploadParameters: async () => {
-          const response = await apiRequest("POST", "/api/objects/upload");
-          return {
-            method: "PUT" as const,
-            url: (response as any).uploadURL,
-          };
-        },
-      })
-      .on("complete", async (result) => {
-        if (result.successful && result.successful.length > 0) {
-          const uploadedUrls: string[] = [];
-          
-          // Process all uploaded files
-          for (const file of result.successful) {
-            const uploadURL = file.uploadURL;
-            
-            // Normalize the path and set ACL policy
-            const response = await apiRequest("PUT", "/api/product-images", {
-              imageURL: uploadURL,
-            });
-            
-            uploadedUrls.push((response as any).objectPath);
-          }
-
-          // Update images
-          if (isSingle) {
-            onChange(uploadedUrls[0]);
-          } else {
-            const newImages = [...images, ...uploadedUrls].slice(0, maxImages);
-            onChange(newImages);
-          }
-          
-          setShowUploadDialog(false);
-          uppy.cancelAll();
-        }
-      })
-  );
 
   const handleUrlAdd = () => {
     if (!urlInput.trim()) return;
@@ -153,34 +98,20 @@ export function UniversalImageUpload({
       {/* Header */}
       <div className="flex items-center justify-between">
         <Label className="text-base font-semibold">
-          {label} {!isSingle && `(up to ${maxImages})`}
+          {label} {!isSingle && `(${images.length}/${maxImages})`}
         </Label>
-        <div className="flex gap-2">
-          {allowUrl && canAddMore && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUrlDialog(true)}
-              data-testid="button-add-url"
-            >
-              <LinkIcon className="h-4 w-4 mr-2" />
-              {isSingle ? "Add URL" : "Paste URLs"}
-            </Button>
-          )}
-          {allowUpload && canAddMore && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUploadDialog(true)}
-              data-testid="button-upload-images"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {isSingle ? "Upload" : "Upload Images"}
-            </Button>
-          )}
-        </div>
+        {allowUrl && canAddMore && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowUrlDialog(true)}
+            data-testid="button-add-url"
+          >
+            <LinkIcon className="h-4 w-4 mr-2" />
+            {isSingle ? "Add URL" : "Paste URLs"}
+          </Button>
+        )}
       </div>
 
       {/* URL Input Dialog */}
@@ -223,27 +154,18 @@ export function UniversalImageUpload({
         </DialogContent>
       </Dialog>
 
-      {/* Upload Dialog */}
-      <DashboardModal
-        uppy={uppy}
-        open={showUploadDialog}
-        onRequestClose={() => {
-          setShowUploadDialog(false);
-          uppy.cancelAll();
-        }}
-        proudlyDisplayPoweredByUppy={false}
-        note={isSingle ? "Select 1 image" : `Select up to ${maxImages - images.length} images`}
-      />
+      {/* Drag & Drop Upload Area (only when upload is enabled and can add more) */}
+      {allowUpload && canAddMore && (
+        <ImageDropzone
+          value={value}
+          onChange={onChange}
+          maxFiles={maxImages}
+          mode={mode}
+        />
+      )}
 
       {/* Image Grid */}
-      {images.length === 0 ? (
-        <Card className="p-8 text-center border-dashed">
-          <ImagePlus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground mb-4">
-            No images added yet. {allowUpload && "Upload"}{allowUpload && allowUrl && " or "}{allowUrl && "add URL"} using the buttons above.
-          </p>
-        </Card>
-      ) : (
+      {images.length > 0 && (
         <div className={cn(
           "grid gap-4",
           isSingle ? "grid-cols-1 max-w-md" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
