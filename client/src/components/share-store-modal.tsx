@@ -31,7 +31,7 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
     }
     
     // Production - use subdomain
-    return `${window.location.protocol}//${user.username}.upfirst.com`;
+    return `${window.location.protocol}//${user.username}.upfirst.io`;
   };
 
   const storeUrl = getStoreUrl();

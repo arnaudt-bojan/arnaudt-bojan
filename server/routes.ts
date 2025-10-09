@@ -3192,7 +3192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const nftMetadata = {
         name: productData.name || "Product NFT",
         symbol: "UPSH",
-        description: `NFT for ${productData.name} purchased on Uppshop`,
+        description: `NFT for ${productData.name} purchased on Upfirst`,
         image: productData.image || "",
         attributes: [
           { trait_type: "Product ID", value: productData.id || "unknown" },

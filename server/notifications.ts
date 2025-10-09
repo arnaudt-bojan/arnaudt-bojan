@@ -386,13 +386,13 @@ class NotificationServiceImpl implements NotificationService {
               <p>${order.customerAddress}</p>
 
               <p style="margin-top: 30px; color: #666;">
-                If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@upfirst.com'}.
+                If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
               </p>
             </div>
 
             <div class="footer">
               <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
-              <p>${seller.username ? `${seller.username}.upfirst.com` : 'upfirst.com'}</p>
+              <p>${seller.username ? `${seller.username}.upfirst.io` : 'upfirst.io'}</p>
             </div>
           </div>
         </body>
@@ -454,7 +454,7 @@ class NotificationServiceImpl implements NotificationService {
               <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact us at ${seller.email || 'support@upfirst.com'}.
+                Questions? Reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
               </p>
             </div>
 
@@ -633,7 +633,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: `Welcome to Upfirst, ${seller.firstName || 'Seller'}!`,
       html: emailHtml,
     });
@@ -662,7 +662,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: 'Complete Your Stripe Setup to Start Accepting Payments',
       html: emailHtml,
     });
@@ -691,7 +691,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: `Payment Failed for Order #${orderId.slice(0, 8)}`,
       html: emailHtml,
     });
@@ -720,7 +720,7 @@ class NotificationServiceImpl implements NotificationService {
     await this.sendEmail({
       to: buyerEmail,
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: 'Payment Failed - Please Try Again',
       html: emailHtml,
     });
@@ -737,7 +737,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: 'Your Upfirst Subscription Payment Failed',
       html: emailHtml,
     });
@@ -766,7 +766,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: `Product Out of Stock: ${product.name}`,
       html: emailHtml,
     });
@@ -795,7 +795,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.com',
+      replyTo: 'support@upfirst.io',
       subject: 'Payout Failed - Action Required',
       html: emailHtml,
     });
@@ -949,7 +949,7 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <p style="color: #666; font-size: 14px;">
-              Need help? Our support team is here: support@upfirst.com
+              Need help? Our support team is here: support@upfirst.io
             </p>
 
             <div class="footer">
@@ -1046,7 +1046,7 @@ class NotificationServiceImpl implements NotificationService {
             ` : ''}
 
             <p style="color: #666; font-size: 14px;">
-              Need help? Contact support@upfirst.com
+              Need help? Contact support@upfirst.io
             </p>
 
             <div class="footer">
@@ -1096,7 +1096,7 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <div class="footer">
-              <p>Questions? Contact support@upfirst.com</p>
+              <p>Questions? Contact support@upfirst.io</p>
               <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
@@ -1204,7 +1204,7 @@ class NotificationServiceImpl implements NotificationService {
             </p>
 
             <div class="footer">
-              <p>Need help? Contact support@upfirst.com</p>
+              <p>Need help? Contact support@upfirst.io</p>
               <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
@@ -1455,13 +1455,13 @@ class NotificationServiceImpl implements NotificationService {
               </ol>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact ${seller.email || 'support@upfirst.com'}
+                Questions? Reply to this email or contact ${seller.email || 'support@upfirst.io'}
               </p>
             </div>
 
             <div class="footer">
               <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
-              <p>${seller.username ? `${seller.username}.upfirst.com` : 'upfirst.com'}</p>
+              <p>${seller.username ? `${seller.username}.upfirst.io` : 'upfirst.io'}</p>
             </div>
           </div>
         </body>

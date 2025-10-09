@@ -45,7 +45,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-base">Instagram Username</CardTitle>
-                  <CardDescription className="text-xs">@username.upfirst.com</CardDescription>
+                  <CardDescription className="text-xs">@username.upfirst.io</CardDescription>
                 </div>
               </div>
             </CardHeader>

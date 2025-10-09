@@ -1,7 +1,7 @@
-# Upshop - E-Commerce Platform
+# Upfirst - E-Commerce Platform
 
 ## Overview
-Upshop is an e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order (with deposit), made-to-order, and wholesale. It aims to provide a seamless buying and selling experience with a unified user model. Key capabilities include product browsing, a shopping cart, authenticated checkout, a comprehensive seller dashboard for product and order management, and a B2B wholesale system with invitation-only access. The platform also integrates advanced social media advertising features with AI optimization, robust payment processing, and NFT minting for buyers.
+Upfirst is an e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order (with deposit), made-to-order, and wholesale. It aims to provide a seamless buying and selling experience with a unified user model. Key capabilities include product browsing, a shopping cart, authenticated checkout, a comprehensive seller dashboard for product and order management, and a B2B wholesale system with invitation-only access. The platform also integrates advanced social media advertising features with AI optimization, robust payment processing, and NFT minting for buyers.
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -11,7 +11,7 @@ Upshop is an e-commerce platform designed for creators and brands to sell variou
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
 ## System Architecture
-Uppshop is built with a modern web stack. The frontend uses **React, TypeScript, Tailwind CSS, and Shadcn UI** for a responsive user experience, with **TanStack Query** and **React Context** for state management, and **Wouter** for routing. Forms are handled by **React Hook Form** with **Zod** validation. The backend is an **Express.js, Node.js** application, using **PostgreSQL (Neon)** with **Drizzle ORM** for persistent data storage.
+Upfirst is built with a modern web stack. The frontend uses **React, TypeScript, Tailwind CSS, and Shadcn UI** for a responsive user experience, with **TanStack Query** and **React Context** for state management, and **Wouter** for routing. Forms are handled by **React Hook Form** with **Zod** validation. The backend is an **Express.js, Node.js** application, using **PostgreSQL (Neon)** with **Drizzle ORM** for persistent data storage.
 
 **Navigation Architecture:**
 - **Dashboard-Centric Design**: Seller Dashboard is the main hub with quick access to all features via action chips

@@ -1,7 +1,7 @@
 /**
  * Domain detection utilities for Upfirst
- * Main domain: upfirst.com (seller admin access)
- * Seller domains: {username}.upfirst.com or custom domains (buyer access)
+ * Main domain: upfirst.io (seller admin access)
+ * Seller domains: {username}.upfirst.io or custom domains (buyer access)
  */
 
 export interface DomainInfo {
@@ -40,16 +40,16 @@ export function detectDomain(): DomainInfo {
   // Production logic
   const parts = hostname.split('.');
   
-  // Main domain: upfirst.com
-  if (hostname === 'upfirst.com' || (parts.length === 2 && parts[0] === 'upfirst')) {
+  // Main domain: upfirst.io
+  if (hostname === 'upfirst.io' || (parts.length === 2 && parts[0] === 'upfirst')) {
     return {
       isMainDomain: true,
       isSellerDomain: false,
     };
   }
   
-  // Seller subdomain: {username}.upfirst.com
-  if (parts.length === 3 && parts[1] === 'upfirst' && parts[2] === 'com') {
+  // Seller subdomain: {username}.upfirst.io
+  if (parts.length === 3 && parts[1] === 'upfirst' && parts[2] === 'io') {
     return {
       isMainDomain: false,
       isSellerDomain: true,

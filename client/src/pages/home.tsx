@@ -258,7 +258,7 @@ export default function Home() {
 
           <div className="text-center mt-16">
             <p className="text-xl text-muted-foreground">
-              If you can <span className="italic font-semibold">post</span> on social media, you can <span className="italic font-semibold">sell</span> on UPPFIRST.
+              If you can <span className="italic font-semibold">post</span> on social media, you can <span className="italic font-semibold">sell</span> on Upfirst.
             </p>
           </div>
         </div>
@@ -272,7 +272,7 @@ export default function Home() {
               Everything You Need to <span className="italic">Sell Smarter</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              UPPFIRST gives you the tools to build your store, engage your audience, and manage your sales.
+              Upfirst gives you the tools to build your store, engage your audience, and manage your sales.
             </p>
           </div>
 
@@ -303,7 +303,7 @@ export default function Home() {
               Built for Sellers <span className="italic">Of Every Kind</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              From solo creators to established brands, UPPFIRST lets you sell your way - whether launching your first product, offering made-to-order, managing wholesale or leaving marketplaces behind.
+              From solo creators to established brands, Upfirst lets you sell your way - whether launching your first product, offering made-to-order, managing wholesale or leaving marketplaces behind.
             </p>
           </div>
 
