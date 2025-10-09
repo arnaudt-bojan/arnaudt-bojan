@@ -20,6 +20,10 @@ import {
   type InsertWholesaleInvitation,
   type Category,
   type InsertCategory,
+  type Notification,
+  type InsertNotification,
+  type AuthToken,
+  type InsertAuthToken,
   users,
   products,
   orders,
@@ -31,7 +35,9 @@ import {
   nftMints,
   wholesaleProducts,
   wholesaleInvitations,
-  categories
+  categories,
+  notifications,
+  authTokens
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -109,6 +115,17 @@ export interface IStorage {
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<boolean>;
+  
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotificationsByUserId(userId: string): Promise<Notification[]>;
+  markNotificationAsRead(id: string): Promise<Notification | undefined>;
+  deleteNotification(id: string): Promise<boolean>;
+  
+  createAuthToken(token: InsertAuthToken): Promise<AuthToken>;
+  getAuthTokenByToken(token: string): Promise<AuthToken | undefined>;
+  getAuthTokenByCode(email: string, code: string): Promise<AuthToken | undefined>;
+  markAuthTokenAsUsed(id: string): Promise<AuthToken | undefined>;
+  deleteExpiredAuthTokens(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -649,6 +666,85 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(categories).where(eq(categories.id, id));
     return true;
+  }
+
+  // Notification Methods
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(notifications).values(notification).returning();
+    return result[0];
+  }
+
+  async getNotificationsByUserId(userId: string): Promise<Notification[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async markNotificationAsRead(id: string): Promise<Notification | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(notifications)
+      .set({ read: 1 })
+      .where(eq(notifications.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteNotification(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(notifications).where(eq(notifications.id, id));
+    return true;
+  }
+
+  // Auth Token Methods
+  async createAuthToken(token: InsertAuthToken): Promise<AuthToken> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(authTokens).values(token).returning();
+    return result[0];
+  }
+
+  async getAuthTokenByToken(token: string): Promise<AuthToken | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(authTokens)
+      .where(eq(authTokens.token, token))
+      .limit(1);
+    return result[0];
+  }
+
+  async getAuthTokenByCode(email: string, code: string): Promise<AuthToken | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(authTokens)
+      .where(eq(authTokens.email, email))
+      .where(eq(authTokens.code, code))
+      .limit(1);
+    return result[0];
+  }
+
+  async markAuthTokenAsUsed(id: string): Promise<AuthToken | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(authTokens)
+      .set({ used: 1 })
+      .where(eq(authTokens.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteExpiredAuthTokens(): Promise<number> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .delete(authTokens)
+      .where(eq(authTokens.expiresAt, sql`< NOW()`))
+      .returning();
+    return result.length;
   }
 }
 
