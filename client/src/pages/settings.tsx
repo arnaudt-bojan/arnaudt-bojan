@@ -1362,65 +1362,148 @@ export default function Settings() {
 
         {isSeller && (
           <TabsContent value="branding">
-            <Card>
-              <CardHeader>
-                <CardTitle>Store Branding</CardTitle>
-                <CardDescription>Customize your storefront appearance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...brandingForm}>
-                  <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-6">
-                    <FormField
-                      control={brandingForm.control}
-                      name="storeBanner"
-                      render={({ field }) => (
-                        <FormItem>
-                          <UniversalImageUpload
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            label="Store Banner"
-                            mode="single"
-                            aspectRatio="wide"
-                            heroSelection={false}
-                            allowUrl={true}
-                            allowUpload={true}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Store Branding</CardTitle>
+                  <CardDescription>Customize your storefront appearance with banner and logo</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Form {...brandingForm}>
+                    <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-8">
+                      {/* Banner Section */}
+                      <div className="space-y-4">
+                        <div className="border-b pb-3">
+                          <h3 className="text-lg font-semibold">Store Banner</h3>
+                          <p className="text-sm text-muted-foreground">Hero image at the top of your store (1200×400px recommended)</p>
+                        </div>
+                        <FormField
+                          control={brandingForm.control}
+                          name="storeBanner"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <UniversalImageUpload
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="wide"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Logo Section */}
+                      <div className="space-y-4">
+                        <div className="border-b pb-3">
+                          <h3 className="text-lg font-semibold">Store Logo</h3>
+                          <p className="text-sm text-muted-foreground">Appears in the navigation header (200×200px square recommended)</p>
+                        </div>
+                        <FormField
+                          control={brandingForm.control}
+                          name="storeLogo"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <UniversalImageUpload
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="square"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        disabled={updateBrandingMutation.isPending}
+                        data-testid="button-save-branding"
+                        className="w-full sm:w-auto"
+                      >
+                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+
+              {/* Storefront Preview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="h-5 w-5" />
+                    Storefront Preview
+                  </CardTitle>
+                  <CardDescription>See how your store appears to buyers</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Tabs defaultValue="desktop" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="desktop">Desktop</TabsTrigger>
+                      <TabsTrigger value="tablet">iPad</TabsTrigger>
+                      <TabsTrigger value="mobile">iPhone</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="desktop" className="mt-4">
+                      <div className="border rounded-lg overflow-hidden bg-muted/50">
+                        <div className="aspect-video w-full">
+                          <iframe
+                            src={`/${user?.username || 'store'}`}
+                            className="w-full h-full"
+                            title="Desktop Preview"
                           />
-                          <FormDescription>Banner image displayed on your storefront (recommended: 1200x400px)</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={brandingForm.control}
-                      name="storeLogo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <UniversalImageUpload
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            label="Store Logo"
-                            mode="single"
-                            aspectRatio="square"
-                            heroSelection={false}
-                            allowUrl={true}
-                            allowUpload={true}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Desktop view (1920×1080)</p>
+                    </TabsContent>
+                    <TabsContent value="tablet" className="mt-4">
+                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '768px' }}>
+                        <div className="aspect-[4/3] w-full">
+                          <iframe
+                            src={`/${user?.username || 'store'}`}
+                            className="w-full h-full"
+                            title="iPad Preview"
                           />
-                          <FormDescription>Logo replacing "Uppshop" in the header (recommended: square, 200x200px)</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button 
-                      type="submit" 
-                      disabled={updateBrandingMutation.isPending}
-                      data-testid="button-save-branding"
-                    >
-                      {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">iPad view (768×1024)</p>
+                    </TabsContent>
+                    <TabsContent value="mobile" className="mt-4">
+                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '375px' }}>
+                        <div className="aspect-[9/16] w-full">
+                          <iframe
+                            src={`/${user?.username || 'store'}`}
+                            className="w-full h-full"
+                            title="iPhone Preview"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">iPhone view (375×667)</p>
+                    </TabsContent>
+                  </Tabs>
+                  <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <Image className="h-4 w-4 text-blue-600" />
+                    <p className="text-sm text-blue-900 dark:text-blue-100">
+                      Save your branding changes above to see them reflected in the preview
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         )}
 
