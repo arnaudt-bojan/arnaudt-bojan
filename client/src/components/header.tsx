@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { CurrencySelector } from "./currency-selector";
+import { NotificationBell } from "./notification-bell";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -208,6 +209,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
 
         <div className="flex items-center gap-2">
           <CurrencySelector />
+          {isAuthenticated && <NotificationBell />}
           <ThemeToggle />
           <Button
             variant="ghost"

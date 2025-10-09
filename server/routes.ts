@@ -11,6 +11,9 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
 
+// Initialize notification service
+const notificationService = createNotificationService(storage);
+
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
 let stripe: Stripe | null = null;
@@ -56,20 +59,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const notification = await storage.markNotificationAsRead(id);
-      res.json(notification);
+      const userId = req.user.claims.sub;
+      
+      // Verify notification ownership before updating
+      const notification = await storage.getNotification(id);
+      if (!notification) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      if (notification.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to access this notification" });
+      }
+      
+      const updatedNotification = await storage.markNotificationAsRead(id);
+      res.json(updatedNotification);
     } catch (error) {
       console.error("Error marking notification as read:", error);
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
 
-  app.delete("/api/notifications/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/notifications/:id", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Verify notification ownership before deleting
+      const notification = await storage.getNotification(id);
+      if (!notification) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      if (notification.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to access this notification" });
+      }
+      
       await storage.deleteNotification(id);
       res.json({ success: true });
     } catch (error) {
@@ -319,6 +344,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const order = await storage.createOrder({ ...validationResult.data, userId });
+      
+      // Send order notifications (async, don't block response)
+      void (async () => {
+        try {
+          const items = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const products = items.map((item: any) => 
+            allProducts.find(p => p.id === item.productId)
+          ).filter(Boolean);
+          
+          // Get seller info (assuming first product's seller)
+          if (products.length > 0 && products[0]?.sellerId) {
+            const seller = await storage.getUser(products[0].sellerId);
+            if (seller) {
+              // Send order confirmation email to buyer with seller branding
+              await notificationService.sendOrderConfirmation(order, seller, products);
+              console.log(`[Notifications] Order confirmation sent for order ${order.id}`);
+            }
+          }
+        } catch (error) {
+          console.error('[Notifications] Failed to send order notifications:', error);
+        }
+      })();
+      
       res.status(201).json(order);
     } catch (error) {
       console.error("Order creation error:", error);
@@ -543,9 +592,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Order not found" });
       }
 
-      // TODO: Send email notification if notifyCustomer is true
+      // Send shipping notification if requested
       if (validationResult.data.notifyCustomer) {
-        console.log(`[Tracking] Would send notification to ${order.customerEmail} for order ${order.id}`);
+        void (async () => {
+          try {
+            const items = JSON.parse(order.items);
+            const allProducts = await storage.getAllProducts();
+            const products = items.map((item: any) => 
+              allProducts.find(p => p.id === item.productId)
+            ).filter(Boolean);
+            
+            // Get seller info
+            if (products.length > 0 && products[0]?.sellerId) {
+              const seller = await storage.getUser(products[0].sellerId);
+              if (seller) {
+                // Send order shipped email to buyer
+                await notificationService.sendOrderShipped(order, seller);
+                console.log(`[Notifications] Shipping notification sent for order ${order.id}`);
+              }
+            }
+          } catch (error) {
+            console.error('[Notifications] Failed to send shipping notification:', error);
+          }
+        })();
       }
 
       res.json(order);
@@ -654,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Check if seller has Stripe account and can accept payments
-      if (sellerConnectedAccountId) {
+      if (sellerConnectedAccountId && sellerId) {
         const seller = await storage.getUser(sellerId);
         
         // Check if seller can accept charges (doesn't need full verification for this)

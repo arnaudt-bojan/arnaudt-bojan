@@ -117,6 +117,7 @@ export interface IStorage {
   deleteCategory(id: string): Promise<boolean>;
   
   createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotification(id: string): Promise<Notification | undefined>;
   getNotificationsByUserId(userId: string): Promise<Notification[]>;
   markNotificationAsRead(id: string): Promise<Notification | undefined>;
   deleteNotification(id: string): Promise<boolean>;
@@ -672,6 +673,16 @@ export class DatabaseStorage implements IStorage {
   async createNotification(notification: InsertNotification): Promise<Notification> {
     await this.ensureInitialized();
     const result = await this.db.insert(notifications).values(notification).returning();
+    return result[0];
+  }
+
+  async getNotification(id: string): Promise<Notification | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.id, id))
+      .limit(1);
     return result[0];
   }
 

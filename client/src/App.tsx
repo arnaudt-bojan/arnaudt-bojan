@@ -16,6 +16,7 @@ import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
 import Login from "@/pages/login";
+import EmailLogin from "@/pages/email-login";
 import BuyerDashboard from "@/pages/buyer-dashboard";
 import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
@@ -53,6 +54,7 @@ function AppContent() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/login" component={Login} />
+          <Route path="/email-login" component={EmailLogin} />
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/checkout" component={Checkout} />
