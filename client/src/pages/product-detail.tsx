@@ -269,6 +269,14 @@ export default function ProductDetail() {
                         {formatPrice(parseFloat(product.price) - parseFloat(product.depositAmount))}
                       </dd>
                     </div>
+                    {(product as any).preOrderDate && (
+                      <div className="flex justify-between">
+                        <dt className="text-muted-foreground">Expected Delivery</dt>
+                        <dd className="font-medium">
+                          {new Date((product as any).preOrderDate).toLocaleDateString()}
+                        </dd>
+                      </div>
+                    )}
                   </>
                 )}
               </dl>

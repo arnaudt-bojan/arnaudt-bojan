@@ -399,9 +399,16 @@ export default function Checkout() {
                         Qty: {item.quantity} × ${parseFloat(item.price).toFixed(2)}
                       </p>
                       {item.productType === "pre-order" && item.requiresDeposit && item.depositAmount && (
-                        <p className="text-xs text-blue-600 dark:text-blue-400">
-                          Deposit: ${parseFloat(item.depositAmount).toFixed(2)} each
-                        </p>
+                        <>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
+                            Deposit: ${parseFloat(item.depositAmount).toFixed(2)} each
+                          </p>
+                          {(item as any).preOrderDate && (
+                            <p className="text-xs text-muted-foreground">
+                              Expected: {new Date((item as any).preOrderDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
