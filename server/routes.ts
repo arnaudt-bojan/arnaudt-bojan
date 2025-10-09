@@ -891,17 +891,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Note: No auth required - guest checkout needs this
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
-      // Test mode bypass for notification/checkout testing without full Stripe onboarding
-      // Enabled in development mode or when STRIPE_TEST_MODE=true
-      if (process.env.NODE_ENV === 'development' || process.env.STRIPE_TEST_MODE === 'true') {
-        console.log('[Stripe Test Mode] Returning mock payment intent for testing');
-        return res.json({
-          clientSecret: 'pi_test_mock_1234567890_secret_abcdefghijklmnop',
-          paymentIntentId: 'pi_test_mock_1234567890',
-        });
-      }
-
       if (!stripe) {
+        // Test mode bypass for notification/checkout testing without Stripe onboarding
+        // Only use mock when Stripe is not configured at all
+        if (process.env.NODE_ENV === 'development' || process.env.STRIPE_TEST_MODE === 'true') {
+          console.log('[Stripe Test Mode] Returning mock payment intent (no Stripe keys configured)');
+          return res.json({
+            clientSecret: 'pi_test_mock_1234567890_secret_abcdefghijklmnop',
+            paymentIntentId: 'pi_test_mock_1234567890',
+          });
+        }
+        
         return res.status(500).json({ 
           error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
         });
@@ -947,8 +947,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       };
 
-      // Check if seller has Stripe account and can accept payments
-      if (sellerConnectedAccountId && sellerId) {
+      // In test mode with test keys, skip Stripe Connect and use direct payments
+      // This enables testing order/tracking features without full Connect onboarding
+      const isTestMode = process.env.STRIPE_SECRET_KEY?.includes('_test_');
+      
+      if (sellerConnectedAccountId && sellerId && !isTestMode) {
+        // Production mode: use Stripe Connect
         const seller = await storage.getUser(sellerId);
         
         // Check if seller can accept charges (doesn't need full verification for this)
@@ -969,8 +973,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntentParams.currency = (seller.listingCurrency || 'USD').toLowerCase();
         
         console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} ${paymentIntentParams.currency.toUpperCase()} fee to platform, rest to seller ${sellerId}`);
+      } else if (isTestMode) {
+        // Test mode: create direct payment intent without Connect
+        console.log('[Stripe Test Mode] Creating direct payment intent (bypassing Connect for testing)');
+        // Direct payment - funds go to platform account
       } else {
-        // Seller must connect Stripe before accepting payments
+        // Production mode without Connect: seller must set up
         return res.status(400).json({ 
           error: "This store hasn't set up payment processing yet. Please contact the seller to complete their setup.",
           errorCode: "STRIPE_NOT_CONNECTED"

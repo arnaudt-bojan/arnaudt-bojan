@@ -63,12 +63,14 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
 - **Newsletter System**: Comprehensive email marketing system with subscriber management, rich text editor (React Quill), email groups/segments, live preview (desktop/mobile), and analytics dashboard. Integrated with Resend batch API for bulk sending with open/click/bounce tracking. Development mode logs newsletters to console for testing with unverified domains. Includes tracking pixels, unsubscribe links, and deduplicated event analytics. Production-ready pending domain verification.
 - **Image Editing System**: Built-in image editor for logo and banner customization using react-easy-crop. Features crop, zoom (1-3x), rotation (0-360°), flip (horizontal/vertical), and filters (brightness, contrast, saturation, blur, grayscale, sepia). Implements official react-easy-crop getCroppedImg pattern for proper rotation/flip handling. Settings page includes loading state for proper tab rendering and CORS headers on /objects/ route enable canvas-based image processing.
 - **Item-Level Order Tracking**: Comprehensive per-item fulfillment system with independent status, tracking, and shipping for each product in an order. Features:
-  - **Order Items Table**: Each cart item creates an order_item record with individual status (pending/processing/shipped/delivered/cancelled), tracking number, carrier info, and shipping timestamps
+  - **Order Items Table**: Each cart item creates an order_item record with individual status (pending/processing/shipped/delivered/cancelled), tracking number, tracking carrier, tracking URL, and shipping timestamps
+  - **Enhanced Tracking Fields**: Full support for trackingNumber, trackingCarrier (e.g., "UPS", "FedEx", "DHL"), and trackingUrl (full tracking link) - all fields properly persist to database
   - **Fulfillment Status**: Orders automatically compute fulfillmentStatus ('unfulfilled'|'partially_fulfilled'|'fulfilled') based on item statuses
   - **Partial Shipments**: Sellers can ship items independently - order marked 'partially_fulfilled' when some items shipped, 'fulfilled' when all complete
-  - **Item Tracking Notifications**: Automated emails to buyers when tracking is added to items, showing item details, image, tracking number, and carrier
-  - **Backward Compatibility**: Legacy items JSON field maintained during migration; new orders create both JSON and order_items records
-  - **API Architecture**: GET /api/orders/:orderId/items, PATCH /api/order-items/:id/tracking, PATCH /api/order-items/:id/status with seller authorization
+  - **Item Tracking Notifications**: Automated emails to buyers when tracking is added to items, showing item details, image, tracking number, carrier, and tracking link
+  - **Backward Compatibility**: Legacy items JSON field and order-level tracking fields maintained; new orders create both JSON and order_items records
+  - **API Architecture**: GET /api/orders/:orderId/items, PATCH /api/order-items/:id/tracking (accepts trackingNumber, trackingCarrier, trackingUrl, notifyCustomer), PATCH /api/order-items/:id/status with seller authorization
+  - **Test Mode**: Stripe test mode bypasses Connect requirements for easier testing of order/tracking features
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
