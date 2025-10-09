@@ -1248,9 +1248,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-      const baseUrl = process.env.REPLIT_DOMAINS 
+      // Use the request origin for proper public URL (fixes Stripe redirect issues)
+      const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
+      const baseUrl = origin || (process.env.REPLIT_DOMAINS 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
-        : `http://localhost:${process.env.PORT || 5000}`;
+        : `http://localhost:${process.env.PORT || 5000}`);
 
       const accountLink = await stripe.accountLinks.create({
         account: user.stripeConnectedAccountId,
