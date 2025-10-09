@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Package } from "lucide-react";
 import { ProductFormFields, type ProductVariant } from "@/components/product-form-fields";
