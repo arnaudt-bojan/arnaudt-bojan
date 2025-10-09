@@ -21,6 +21,9 @@ export interface NotificationService {
   sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string): Promise<void>;
   sendInventoryOutOfStock(seller: User, product: Product): Promise<void>;
   sendPayoutFailed(seller: User, amount: number, reason: string): Promise<void>;
+  
+  // Balance Payment Request
+  sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void>;
 }
 
 interface SendEmailParams {
@@ -731,6 +734,36 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
+   * Send balance payment request (Seller → Buyer)
+   */
+  async sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void> {
+    const emailHtml = this.generateBalancePaymentRequestEmail(order, seller, paymentLink);
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: seller.email ? `${seller.firstName || 'Store'} <${seller.email}>` : FROM_EMAIL,
+      replyTo: seller.email || undefined,
+      subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
+      html: emailHtml,
+    });
+
+    // Create in-app notification for buyer (if they have an account)
+    if (order.userId) {
+      await this.createNotification({
+        userId: order.userId,
+        type: 'preorder_balance_due',
+        title: 'Balance Payment Due',
+        message: `Your remaining balance of $${order.remainingBalance} is now due for order #${order.id.slice(0, 8)}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { orderId: order.id, amount: order.remainingBalance, paymentLink },
+      });
+    }
+
+    console.log(`[Notifications] Balance payment request sent to ${order.customerEmail}:`, result.success);
+  }
+
+  /**
    * ============================================
    * EMAIL TEMPLATE GENERATORS - PHASE 1
    * ============================================
@@ -1091,6 +1124,81 @@ class NotificationServiceImpl implements NotificationService {
             <div class="footer">
               <p>Need help? Contact support@uppfirst.com</p>
               <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate balance payment request email (Seller → Buyer)
+   */
+  private generateBalancePaymentRequestEmail(order: Order, seller: User, paymentLink: string): string {
+    const bannerUrl = seller.storeBanner || '';
+    const logoUrl = seller.storeLogo || '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; }
+            .banner { width: 100%; height: 200px; object-fit: cover; }
+            .header { padding: 30px; text-align: center; }
+            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
+            .content { padding: 0 30px 30px; }
+            .payment-box { background: #f0f7ff; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; }
+            .amount { font-size: 32px; font-weight: bold; color: #000; margin: 15px 0; }
+            .button { display: inline-block; padding: 14px 40px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
+            .button:hover { background: #333; }
+            .order-details { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .footer { padding: 30px; text-align: center; color: #666; font-size: 14px; background: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
+            
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="${seller.firstName || 'Store'} Logo" class="logo">` : ''}
+              <h1>Balance Payment Due</h1>
+            </div>
+
+            <div class="content">
+              <p>Hi ${order.customerName},</p>
+              
+              <p>Your order is ready, and the remaining balance is now due.</p>
+
+              <div class="order-details">
+                <h3>Order #${order.id.slice(0, 8)}</h3>
+                <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
+                <p><strong>Deposit Paid:</strong> $${order.amountPaid}</p>
+              </div>
+
+              <div class="payment-box">
+                <p style="margin: 0 0 10px; color: #666;">Amount Due</p>
+                <div class="amount">$${order.remainingBalance}</div>
+                <a href="${paymentLink}" class="button">Pay Balance Now</a>
+              </div>
+
+              <p><strong>What happens next?</strong></p>
+              <ol>
+                <li>Click the button above to complete payment</li>
+                <li>Once paid, your order will be shipped immediately</li>
+                <li>You'll receive tracking information via email</li>
+              </ol>
+
+              <p style="margin-top: 30px; color: #666;">
+                Questions? Reply to this email or contact ${seller.email || 'support@uppfirst.com'}
+              </p>
+            </div>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Uppfirst'}. All rights reserved.</p>
+              <p>${seller.username ? `${seller.username}.uppfirst.com` : 'uppfirst.com'}</p>
             </div>
           </div>
         </body>
