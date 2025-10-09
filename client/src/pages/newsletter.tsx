@@ -3,113 +3,163 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Mail, Send, Users, Plus, Trash2, X } from "lucide-react";
+import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface Newsletter {
-  id: number;
-  subject: string;
-  content: string;
-  recipients: string[];
+interface SubscriberGroup {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  subscriberCount?: number;
+}
+
+interface Subscriber {
+  id: string;
+  userId: string;
+  email: string;
+  name: string | null;
   status: string;
   createdAt: string;
-  sentAt?: string;
 }
 
 export default function NewsletterPage() {
   const { toast } = useToast();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [content, setContent] = useState("");
-  const [emailInput, setEmailInput] = useState("");
-  const [recipients, setRecipients] = useState<string[]>([]);
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [isSubscriberDialogOpen, setIsSubscriberDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [subscriberEmail, setSubscriberEmail] = useState("");
+  const [subscriberName, setSubscriberName] = useState("");
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
 
-  const { data: newsletters, isLoading } = useQuery<Newsletter[]>({
-    queryKey: ["/api/newsletters"],
+  const { data: groups, isLoading: groupsLoading } = useQuery<SubscriberGroup[]>({
+    queryKey: ["/api/subscriber-groups"],
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: { subject: string; content: string; recipients: string[] }) => {
-      const response = await apiRequest("POST", "/api/newsletters", data);
+  const { data: subscribers, isLoading: subscribersLoading } = useQuery<Subscriber[]>({
+    queryKey: selectedGroup ? ["/api/subscribers", selectedGroup] : ["/api/subscribers"],
+    queryFn: async () => {
+      const url = selectedGroup 
+        ? `/api/subscribers?groupId=${selectedGroup}` 
+        : "/api/subscribers";
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch subscribers");
+      return response.json();
+    },
+  });
+
+  const createGroupMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      const response = await apiRequest("POST", "/api/subscriber-groups", data);
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Newsletter Created",
-        description: "Your newsletter has been created successfully.",
+        title: "Group Created",
+        description: "Subscriber group has been created successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/newsletters"] });
-      setIsCreateDialogOpen(false);
-      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriber-groups"] });
+      setIsGroupDialogOpen(false);
+      setGroupName("");
+      setGroupDescription("");
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create newsletter.",
+        description: error.message || "Failed to create group.",
         variant: "destructive",
       });
     },
   });
 
-  const sendMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest("POST", `/api/newsletters/${id}/send`, {});
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/subscriber-groups/${id}`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Group Deleted",
+        description: "The subscriber group has been deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriber-groups"] });
+      if (selectedGroup) setSelectedGroup(null);
+    },
+  });
+
+  const createSubscriberMutation = useMutation({
+    mutationFn: async (data: { email: string; name?: string; groupIds?: string[] }) => {
+      const response = await apiRequest("POST", "/api/subscribers", data);
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Newsletter Sent",
-        description: "Your newsletter has been sent successfully.",
+        title: "Subscriber Added",
+        description: "Subscriber has been added successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/newsletters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriber-groups"] });
+      setIsSubscriberDialogOpen(false);
+      setSubscriberEmail("");
+      setSubscriberName("");
+      setSelectedGroups([]);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to send newsletter. Please check your SendGrid API key.",
+        description: error.message || "Failed to add subscriber.",
         variant: "destructive",
       });
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/newsletters/${id}`, {});
+  const deleteSubscriberMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/subscribers/${id}`, {});
     },
     onSuccess: () => {
       toast({
-        title: "Newsletter Deleted",
-        description: "The newsletter has been deleted.",
+        title: "Subscriber Removed",
+        description: "The subscriber has been removed.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/newsletters"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete newsletter.",
-        variant: "destructive",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriber-groups"] });
     },
   });
 
-  const resetForm = () => {
-    setSubject("");
-    setContent("");
-    setRecipients([]);
-    setEmailInput("");
+  const handleCreateGroup = () => {
+    if (!groupName.trim()) {
+      toast({
+        title: "Missing Name",
+        description: "Please enter a group name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createGroupMutation.mutate({ name: groupName, description: groupDescription });
   };
 
-  const addEmail = () => {
-    const email = emailInput.trim();
-    if (!email) return;
+  const handleCreateSubscriber = () => {
+    if (!subscriberEmail.trim()) {
+      toast({
+        title: "Missing Email",
+        description: "Please enter an email address.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(subscriberEmail)) {
       toast({
         title: "Invalid Email",
         description: "Please enter a valid email address.",
@@ -118,68 +168,45 @@ export default function NewsletterPage() {
       return;
     }
 
-    if (recipients.includes(email)) {
+    createSubscriberMutation.mutate({
+      email: subscriberEmail,
+      name: subscriberName || undefined,
+      groupIds: selectedGroups.length > 0 ? selectedGroups : undefined,
+    });
+  };
+
+  const exportSubscribers = () => {
+    if (!subscribers || subscribers.length === 0) {
       toast({
-        title: "Duplicate Email",
-        description: "This email has already been added.",
+        title: "No Subscribers",
+        description: "There are no subscribers to export.",
         variant: "destructive",
       });
       return;
     }
 
-    setRecipients([...recipients, email]);
-    setEmailInput("");
+    const csv = [
+      "Email,Name,Status,Created At",
+      ...subscribers.map(s => `${s.email},${s.name || ''},${s.status},${s.createdAt}`)
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `subscribers-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${subscribers.length} subscribers to CSV.`,
+    });
   };
 
-  const removeEmail = (email: string) => {
-    setRecipients(recipients.filter((e) => e !== email));
-  };
-
-  const handleCreateNewsletter = () => {
-    if (!subject.trim()) {
-      toast({
-        title: "Missing Subject",
-        description: "Please enter a subject for your newsletter.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!content.trim()) {
-      toast({
-        title: "Missing Content",
-        description: "Please enter content for your newsletter.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (recipients.length === 0) {
-      toast({
-        title: "No Recipients",
-        description: "Please add at least one recipient email.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createMutation.mutate({ subject, content, recipients });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "sent":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "draft":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
-      case "failed":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      default:
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-    }
-  };
-
-  if (isLoading) {
+  if (groupsLoading || subscribersLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="grid gap-6">
@@ -204,179 +231,212 @@ export default function NewsletterPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
-              Newsletter Management
+              Newsletter Subscribers
             </h1>
             <p className="text-muted-foreground">
-              Create and send newsletters to your customers
+              Manage your subscribers and groups for newsletters
             </p>
           </div>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="gap-2"
-            data-testid="button-create-newsletter"
-          >
-            <Plus className="h-4 w-4" />
-            Create Newsletter
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={exportSubscribers}
+              className="gap-2"
+              data-testid="button-export-subscribers"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+          </div>
         </div>
       </div>
 
-      {!newsletters || newsletters.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Mail className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Newsletters Yet</h3>
-            <p className="text-muted-foreground text-center mb-6">
-              Create your first newsletter to start engaging with your customers
-            </p>
-            <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-first">
-              Create Newsletter
+      <Tabs defaultValue="subscribers" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="subscribers" data-testid="tab-subscribers">
+            <Users className="h-4 w-4 mr-2" />
+            Subscribers
+          </TabsTrigger>
+          <TabsTrigger value="groups" data-testid="tab-groups">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Groups
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="subscribers" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Select value={selectedGroup || "all"} onValueChange={(v) => setSelectedGroup(v === "all" ? null : v)}>
+                <SelectTrigger className="w-[200px]" data-testid="select-filter-group">
+                  <SelectValue placeholder="Filter by group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subscribers</SelectItem>
+                  {groups?.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedGroup && (
+                <Badge variant="secondary">
+                  Filtered: {groups?.find(g => g.id === selectedGroup)?.name}
+                </Badge>
+              )}
+            </div>
+            <Button
+              onClick={() => setIsSubscriberDialogOpen(true)}
+              className="gap-2"
+              data-testid="button-add-subscriber"
+            >
+              <Plus className="h-4 w-4" />
+              Add Subscriber
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
-          {newsletters.map((newsletter) => (
-            <Card key={newsletter.id} className="hover-elevate" data-testid={`card-newsletter-${newsletter.id}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-xl mb-1">{newsletter.subject}</CardTitle>
-                    <CardDescription>
-                      Created: {new Date(newsletter.createdAt).toLocaleDateString()}
-                      {newsletter.sentAt && ` • Sent: ${new Date(newsletter.sentAt).toLocaleDateString()}`}
-                    </CardDescription>
-                  </div>
-                  <Badge className={getStatusColor(newsletter.status)}>
-                    {newsletter.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {newsletter.content}
-                  </p>
-                </div>
+          </div>
 
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" />
-                  <span>{newsletter.recipients.length} recipients</span>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  {newsletter.status === "draft" && (
-                    <Button
-                      onClick={() => sendMutation.mutate(newsletter.id)}
-                      disabled={sendMutation.isPending}
-                      className="gap-2"
-                      data-testid={`button-send-${newsletter.id}`}
-                    >
-                      <Send className="h-4 w-4" />
-                      {sendMutation.isPending ? "Sending..." : "Send Newsletter"}
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={() => deleteMutation.mutate(newsletter.id)}
-                    disabled={deleteMutation.isPending}
-                    className="gap-2"
-                    data-testid={`button-delete-${newsletter.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
-                </div>
+          {!subscribers || subscribers.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Mail className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Subscribers Yet</h3>
+                <p className="text-muted-foreground text-center mb-6">
+                  Add your first subscriber to start building your mailing list
+                </p>
+                <Button onClick={() => setIsSubscriberDialogOpen(true)} data-testid="button-add-first-subscriber">
+                  Add Subscriber
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Added</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscribers.map((subscriber) => (
+                    <TableRow key={subscriber.id} data-testid={`row-subscriber-${subscriber.id}`}>
+                      <TableCell className="font-medium">{subscriber.email}</TableCell>
+                      <TableCell>{subscriber.name || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={subscriber.status === "active" ? "default" : "secondary"}>
+                          {subscriber.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(subscriber.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteSubscriberMutation.mutate(subscriber.id)}
+                          data-testid={`button-delete-subscriber-${subscriber.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </TabsContent>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-create-newsletter">
+        <TabsContent value="groups" className="space-y-4">
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setIsGroupDialogOpen(true)}
+              className="gap-2"
+              data-testid="button-create-group"
+            >
+              <Plus className="h-4 w-4" />
+              Create Group
+            </Button>
+          </div>
+
+          {!groups || groups.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Groups Yet</h3>
+                <p className="text-muted-foreground text-center mb-6">
+                  Create subscriber groups to organize your mailing lists
+                </p>
+                <Button onClick={() => setIsGroupDialogOpen(true)} data-testid="button-create-first-group">
+                  Create Group
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {groups.map((group) => (
+                <Card key={group.id} className="hover-elevate" data-testid={`card-group-${group.id}`}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{group.name}</CardTitle>
+                    {group.description && (
+                      <CardDescription>{group.description}</CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span>{group.subscriberCount || 0} subscribers</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteGroupMutation.mutate(group.id)}
+                        data-testid={`button-delete-group-${group.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+        <DialogContent data-testid="dialog-create-group">
           <DialogHeader>
-            <DialogTitle>Create Newsletter</DialogTitle>
+            <DialogTitle>Create Subscriber Group</DialogTitle>
             <DialogDescription>
-              Compose your newsletter and add recipient email addresses
+              Organize your subscribers into groups for targeted newsletters
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
+              <Label htmlFor="group-name">Group Name</Label>
               <Input
-                id="subject"
-                placeholder="Enter newsletter subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                data-testid="input-subject"
+                id="group-name"
+                placeholder="e.g., Weekly Newsletter, Product Updates"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                data-testid="input-group-name"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="content">Content</Label>
-              <Textarea
-                id="content"
-                placeholder="Write your newsletter content..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={8}
-                data-testid="input-content"
+              <Label htmlFor="group-description">Description (Optional)</Label>
+              <Input
+                id="group-description"
+                placeholder="Describe this group..."
+                value={groupDescription}
+                onChange={(e) => setGroupDescription(e.target.value)}
+                data-testid="input-group-description"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Recipients</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter email address"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addEmail();
-                    }
-                  }}
-                  data-testid="input-email"
-                />
-                <Button onClick={addEmail} type="button" data-testid="button-add-email">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {recipients.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {recipients.map((email) => (
-                    <Badge
-                      key={email}
-                      variant="secondary"
-                      className="gap-1 pr-1"
-                      data-testid={`badge-email-${email}`}
-                    >
-                      {email}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 p-0 hover:bg-transparent"
-                        onClick={() => removeEmail(email)}
-                        data-testid={`button-remove-${email}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-900 dark:text-blue-100">
-                <strong>Note:</strong> SendGrid API integration will be configured with your API key. The newsletter will be saved as a draft and can be sent when ready.
-              </p>
             </div>
           </div>
 
@@ -384,19 +444,97 @@ export default function NewsletterPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setIsCreateDialogOpen(false);
-                resetForm();
+                setIsGroupDialogOpen(false);
+                setGroupName("");
+                setGroupDescription("");
               }}
-              data-testid="button-cancel"
+              data-testid="button-cancel-group"
             >
               Cancel
             </Button>
             <Button
-              onClick={handleCreateNewsletter}
-              disabled={createMutation.isPending}
-              data-testid="button-save"
+              onClick={handleCreateGroup}
+              disabled={createGroupMutation.isPending}
+              data-testid="button-save-group"
             >
-              {createMutation.isPending ? "Saving..." : "Save Newsletter"}
+              {createGroupMutation.isPending ? "Creating..." : "Create Group"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSubscriberDialogOpen} onOpenChange={setIsSubscriberDialogOpen}>
+        <DialogContent data-testid="dialog-add-subscriber">
+          <DialogHeader>
+            <DialogTitle>Add Subscriber</DialogTitle>
+            <DialogDescription>
+              Add a new subscriber to your mailing list
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="subscriber-email">Email Address</Label>
+              <Input
+                id="subscriber-email"
+                type="email"
+                placeholder="subscriber@example.com"
+                value={subscriberEmail}
+                onChange={(e) => setSubscriberEmail(e.target.value)}
+                data-testid="input-subscriber-email"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subscriber-name">Name (Optional)</Label>
+              <Input
+                id="subscriber-name"
+                placeholder="John Doe"
+                value={subscriberName}
+                onChange={(e) => setSubscriberName(e.target.value)}
+                data-testid="input-subscriber-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Add to Groups (Optional)</Label>
+              <Select
+                value={selectedGroups[0] || ""}
+                onValueChange={(v) => setSelectedGroups(v ? [v] : [])}
+              >
+                <SelectTrigger data-testid="select-subscriber-groups">
+                  <SelectValue placeholder="Select groups..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups?.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsSubscriberDialogOpen(false);
+                setSubscriberEmail("");
+                setSubscriberName("");
+                setSelectedGroups([]);
+              }}
+              data-testid="button-cancel-subscriber"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateSubscriber}
+              disabled={createSubscriberMutation.isPending}
+              data-testid="button-save-subscriber"
+            >
+              {createSubscriberMutation.isPending ? "Adding..." : "Add Subscriber"}
             </Button>
           </DialogFooter>
         </DialogContent>

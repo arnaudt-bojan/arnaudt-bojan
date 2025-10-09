@@ -2435,6 +2435,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Subscriber Groups
+  app.get("/api/subscriber-groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groups = await storage.getSubscriberGroupsByUserId(userId);
+      
+      // Add subscriber counts to each group
+      const groupsWithCounts = await Promise.all(groups.map(async (group) => {
+        const subscribers = await storage.getSubscribersByGroupId(userId, group.id);
+        return {
+          ...group,
+          subscriberCount: subscribers.length
+        };
+      }));
+      
+      res.json(groupsWithCounts);
+    } catch (error) {
+      console.error("Get subscriber groups error:", error);
+      res.status(500).json({ error: "Failed to get subscriber groups" });
+    }
+  });
+
+  app.post("/api/subscriber-groups", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, description } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Group name is required" });
+      }
+
+      const group = await storage.createSubscriberGroup({
+        userId,
+        name: name.trim(),
+        description: description?.trim() || null,
+      });
+
+      res.json(group);
+    } catch (error) {
+      console.error("Create subscriber group error:", error);
+      res.status(500).json({ error: "Failed to create subscriber group" });
+    }
+  });
+
+  app.delete("/api/subscriber-groups/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const groupId = req.params.id;
+
+      const group = await storage.getSubscriberGroup(groupId);
+      if (!group || group.userId !== userId) {
+        return res.status(404).json({ error: "Subscriber group not found" });
+      }
+
+      await storage.deleteSubscriberGroup(groupId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete subscriber group error:", error);
+      res.status(500).json({ error: "Failed to delete subscriber group" });
+    }
+  });
+
+  // Subscribers
+  app.get("/api/subscribers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { groupId } = req.query;
+      
+      let subscribers;
+      if (groupId) {
+        // Get subscribers for specific group
+        subscribers = await storage.getSubscribersByGroupId(userId, groupId as string);
+      } else {
+        // Get all subscribers
+        subscribers = await storage.getSubscribersByUserId(userId);
+      }
+      
+      res.json(subscribers);
+    } catch (error) {
+      console.error("Get subscribers error:", error);
+      res.status(500).json({ error: "Failed to get subscribers" });
+    }
+  });
+
+  app.post("/api/subscribers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { email, name, groupIds } = req.body;
+
+      if (!email?.trim()) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+
+      const subscriber = await storage.createSubscriber({
+        userId,
+        email: email.trim().toLowerCase(),
+        name: name?.trim() || null,
+      });
+
+      // Add to groups if specified
+      if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
+        for (const groupId of groupIds) {
+          await storage.addSubscriberToGroup(subscriber.id, groupId);
+        }
+      }
+
+      res.json(subscriber);
+    } catch (error: any) {
+      console.error("Create subscriber error:", error);
+      if (error.message?.includes('unique constraint')) {
+        return res.status(400).json({ error: "Subscriber with this email already exists" });
+      }
+      res.status(500).json({ error: "Failed to create subscriber" });
+    }
+  });
+
+  app.delete("/api/subscribers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const subscriberId = req.params.id;
+
+      const subscriber = await storage.getSubscriber(subscriberId);
+      if (!subscriber || subscriber.userId !== userId) {
+        return res.status(404).json({ error: "Subscriber not found" });
+      }
+
+      await storage.deleteSubscriber(subscriberId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete subscriber error:", error);
+      res.status(500).json({ error: "Failed to delete subscriber" });
+    }
+  });
+
   // NFT Minting route
   app.post("/api/nft/mint", isAuthenticated, async (req: any, res) => {
     try {
