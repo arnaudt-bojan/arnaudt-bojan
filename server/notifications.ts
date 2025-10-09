@@ -12,7 +12,7 @@ export interface NotificationService {
   sendOrderConfirmation(order: Order, seller: User, products: Product[]): Promise<void>;
   sendOrderShipped(order: Order, seller: User): Promise<void>;
   sendProductListed(seller: User, product: Product): Promise<void>;
-  sendAuthCode(email: string, code: string): Promise<void>;
+  sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<void>;
   sendMagicLink(email: string, link: string): Promise<void>;
   
   // Phase 1: Critical Revenue-Impacting Notifications
