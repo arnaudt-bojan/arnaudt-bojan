@@ -52,6 +52,9 @@ export const products = pgTable("products", {
   variants: jsonb("variants"), // [{size, color, stock, image}]
   madeToOrderDays: integer("made_to_order_days"), // Days after purchase for made-to-order
   preOrderDate: timestamp("pre_order_date"), // Availability date for pre-order
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }), // Discount percentage (0-100)
+  promotionActive: integer("promotion_active").default(0), // 0 = false, 1 = true
+  promotionEndDate: timestamp("promotion_end_date"), // When promotion ends
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
