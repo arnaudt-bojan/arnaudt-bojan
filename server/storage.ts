@@ -10,8 +10,16 @@ import {
   type MetaSettings,
   type TikTokSettings,
   type XSettings,
+  type SubscriberGroup,
+  type InsertSubscriberGroup,
+  type Subscriber,
+  type InsertSubscriber,
+  type SubscriberGroupMembership,
+  type InsertSubscriberGroupMembership,
   type Newsletter,
   type InsertNewsletter,
+  type NewsletterAnalytics,
+  type InsertNewsletterAnalytics,
   type NftMint,
   type InsertNftMint,
   type WholesaleProduct,
@@ -31,7 +39,11 @@ import {
   metaSettings,
   tiktokSettings,
   xSettings,
+  subscriberGroups,
+  subscribers,
+  subscriberGroupMemberships,
   newsletters,
+  newsletterAnalytics,
   nftMints,
   wholesaleProducts,
   wholesaleInvitations,
@@ -86,11 +98,34 @@ export interface IStorage {
   getXSettings(userId: string): Promise<XSettings | undefined>;
   deleteXSettings(userId: string): Promise<boolean>;
   
+  // Subscriber Groups
+  getSubscriberGroupsByUserId(userId: string): Promise<SubscriberGroup[]>;
+  getSubscriberGroup(id: string): Promise<SubscriberGroup | undefined>;
+  createSubscriberGroup(group: InsertSubscriberGroup): Promise<SubscriberGroup>;
+  updateSubscriberGroup(id: string, data: Partial<SubscriberGroup>): Promise<SubscriberGroup | undefined>;
+  deleteSubscriberGroup(id: string): Promise<boolean>;
+  
+  // Subscribers
+  getSubscribersByUserId(userId: string): Promise<Subscriber[]>;
+  getSubscribersByGroupId(userId: string, groupId: string): Promise<Subscriber[]>;
+  getSubscriber(id: string): Promise<Subscriber | undefined>;
+  createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
+  updateSubscriber(id: string, data: Partial<Subscriber>): Promise<Subscriber | undefined>;
+  deleteSubscriber(id: string): Promise<boolean>;
+  addSubscriberToGroup(subscriberId: string, groupId: string): Promise<SubscriberGroupMembership>;
+  removeSubscriberFromGroup(subscriberId: string, groupId: string): Promise<boolean>;
+  
+  // Newsletters
   getNewslettersByUserId(userId: string): Promise<Newsletter[]>;
   getNewsletter(id: string): Promise<Newsletter | undefined>;
   createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter>;
   updateNewsletter(id: string, data: Partial<Newsletter>): Promise<Newsletter | undefined>;
   deleteNewsletter(id: string): Promise<boolean>;
+  
+  // Newsletter Analytics
+  getNewsletterAnalytics(newsletterId: string): Promise<NewsletterAnalytics | undefined>;
+  createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics>;
+  updateNewsletterAnalytics(newsletterId: string, data: Partial<NewsletterAnalytics>): Promise<NewsletterAnalytics | undefined>;
   
   createNftMint(nftMint: InsertNftMint): Promise<NftMint>;
   getNftMintsByUserId(userId: string): Promise<NftMint[]>;
@@ -515,6 +550,97 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  // Subscriber Groups
+  async getSubscriberGroupsByUserId(userId: string): Promise<SubscriberGroup[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(subscriberGroups).where(eq(subscriberGroups.userId, userId)).orderBy(desc(subscriberGroups.createdAt));
+  }
+
+  async getSubscriberGroup(id: string): Promise<SubscriberGroup | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(subscriberGroups).where(eq(subscriberGroups.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createSubscriberGroup(group: InsertSubscriberGroup): Promise<SubscriberGroup> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(subscriberGroups).values(group).returning();
+    return result[0];
+  }
+
+  async updateSubscriberGroup(id: string, data: Partial<SubscriberGroup>): Promise<SubscriberGroup | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(subscriberGroups).set(data).where(eq(subscriberGroups.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteSubscriberGroup(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(subscriberGroups).where(eq(subscriberGroups.id, id));
+    return true;
+  }
+
+  // Subscribers
+  async getSubscribersByUserId(userId: string): Promise<Subscriber[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(subscribers).where(eq(subscribers.userId, userId)).orderBy(desc(subscribers.createdAt));
+  }
+
+  async getSubscribersByGroupId(userId: string, groupId: string): Promise<Subscriber[]> {
+    await this.ensureInitialized();
+    // Use SQL join to efficiently get subscribers in a specific group
+    const result = await this.db
+      .select({ 
+        id: subscribers.id,
+        userId: subscribers.userId,
+        email: subscribers.email,
+        name: subscribers.name,
+        status: subscribers.status,
+        createdAt: subscribers.createdAt
+      })
+      .from(subscribers)
+      .innerJoin(subscriberGroupMemberships, eq(subscribers.id, subscriberGroupMemberships.subscriberId))
+      .where(and(eq(subscribers.userId, userId), eq(subscriberGroupMemberships.groupId, groupId)));
+    return result as Subscriber[];
+  }
+
+  async getSubscriber(id: string): Promise<Subscriber | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(subscribers).where(eq(subscribers.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(subscribers).values(subscriber).returning();
+    return result[0];
+  }
+
+  async updateSubscriber(id: string, data: Partial<Subscriber>): Promise<Subscriber | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(subscribers).set(data).where(eq(subscribers.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteSubscriber(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(subscribers).where(eq(subscribers.id, id));
+    return true;
+  }
+
+  async addSubscriberToGroup(subscriberId: string, groupId: string): Promise<SubscriberGroupMembership> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(subscriberGroupMemberships).values({ subscriberId, groupId }).returning();
+    return result[0];
+  }
+
+  async removeSubscriberFromGroup(subscriberId: string, groupId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(subscriberGroupMemberships).where(and(eq(subscriberGroupMemberships.subscriberId, subscriberId), eq(subscriberGroupMemberships.groupId, groupId)));
+    return true;
+  }
+
+  // Newsletters
   async getNewslettersByUserId(userId: string): Promise<Newsletter[]> {
     await this.ensureInitialized();
     return await this.db.select().from(newsletters).where(eq(newsletters.userId, userId)).orderBy(desc(newsletters.createdAt));
@@ -546,6 +672,25 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(newsletters).where(eq(newsletters.id, id));
     return true;
+  }
+
+  // Newsletter Analytics
+  async getNewsletterAnalytics(newsletterId: string): Promise<NewsletterAnalytics | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletterAnalytics).where(eq(newsletterAnalytics.newsletterId, newsletterId)).limit(1);
+    return result[0];
+  }
+
+  async createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(newsletterAnalytics).values(analytics).returning();
+    return result[0];
+  }
+
+  async updateNewsletterAnalytics(newsletterId: string, data: Partial<NewsletterAnalytics>): Promise<NewsletterAnalytics | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(newsletterAnalytics).set(data).where(eq(newsletterAnalytics.newsletterId, newsletterId)).returning();
+    return result[0];
   }
 
   async createNftMint(nftMint: InsertNftMint): Promise<NftMint> {

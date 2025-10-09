@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -214,14 +214,60 @@ export const xSettings = pgTable("x_settings", {
 export type XSettings = typeof xSettings.$inferSelect;
 export type InsertXSettings = typeof xSettings.$inferInsert;
 
+// Subscriber Groups for Newsletter Management
+export const subscriberGroups = pgTable("subscriber_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriberGroupSchema = createInsertSchema(subscriberGroups).omit({ id: true, createdAt: true });
+export type InsertSubscriberGroup = z.infer<typeof insertSubscriberGroupSchema>;
+export type SubscriberGroup = typeof subscriberGroups.$inferSelect;
+
+// Subscribers for Newsletter
+export const subscribers = pgTable("subscribers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  email: text("email").notNull(),
+  name: text("name"),
+  status: text("status").notNull().default("active"), // "active", "unsubscribed", "bounced"
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userEmailUnique: uniqueIndex("subscribers_user_email_unique").on(table.userId, table.email),
+}));
+
+export const insertSubscriberSchema = createInsertSchema(subscribers).omit({ id: true, createdAt: true });
+export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
+export type Subscriber = typeof subscribers.$inferSelect;
+
+// Junction table for subscriber-group relationships
+export const subscriberGroupMemberships = pgTable("subscriber_group_memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberId: varchar("subscriber_id").notNull().references(() => subscribers.id, { onDelete: "cascade" }),
+  groupId: varchar("group_id").notNull().references(() => subscriberGroups.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  subscriberGroupUnique: uniqueIndex("subscriber_group_unique").on(table.subscriberId, table.groupId),
+}));
+
+export const insertSubscriberGroupMembershipSchema = createInsertSchema(subscriberGroupMemberships).omit({ id: true, createdAt: true });
+export type InsertSubscriberGroupMembership = z.infer<typeof insertSubscriberGroupMembershipSchema>;
+export type SubscriberGroupMembership = typeof subscriberGroupMemberships.$inferSelect;
+
 export const newsletters = pgTable("newsletters", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   subject: text("subject").notNull(),
-  content: text("content").notNull(),
-  recipients: jsonb("recipients").notNull(),
+  content: text("content").notNull(), // Plain text content
+  htmlContent: text("html_content"), // HTML content for email
+  groupIds: text("group_ids").array(), // Array of subscriber group IDs
+  images: jsonb("images"), // Array of {id, url, productId?, link, alt}
   status: text("status").notNull().default("draft"), // "draft", "sent", "failed"
   sentAt: timestamp("sent_at"),
+  resendBatchId: text("resend_batch_id"), // Resend batch ID for tracking
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -229,6 +275,30 @@ export const insertNewsletterSchema = createInsertSchema(newsletters).omit({ id:
 export type InsertNewsletter = z.infer<typeof insertNewsletterSchema>;
 export type Newsletter = typeof newsletters.$inferSelect;
 export type SelectNewsletter = typeof newsletters.$inferSelect;
+
+// Newsletter Analytics
+export const newsletterAnalytics = pgTable("newsletter_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  newsletterId: varchar("newsletter_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
+  totalSent: integer("total_sent").default(0),
+  totalDelivered: integer("total_delivered").default(0),
+  totalOpened: integer("total_opened").default(0),
+  totalClicked: integer("total_clicked").default(0),
+  totalBounced: integer("total_bounced").default(0),
+  totalUnsubscribed: integer("total_unsubscribed").default(0),
+  openRate: decimal("open_rate", { precision: 5, scale: 2 }), // Percentage
+  clickRate: decimal("click_rate", { precision: 5, scale: 2 }), // Percentage  
+  bounceRate: decimal("bounce_rate", { precision: 5, scale: 2 }), // Percentage
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  newsletterIdUnique: uniqueIndex("newsletter_analytics_newsletter_id_unique").on(table.newsletterId),
+}));
+
+export const insertNewsletterAnalyticsSchema = createInsertSchema(newsletterAnalytics).omit({ id: true, createdAt: true });
+export type InsertNewsletterAnalytics = z.infer<typeof insertNewsletterAnalyticsSchema>;
+export type NewsletterAnalytics = typeof newsletterAnalytics.$inferSelect;
 
 export const nftMints = pgTable("nft_mints", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
