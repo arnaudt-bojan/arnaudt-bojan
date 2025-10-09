@@ -966,6 +966,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Order Items - Get items for an order
+  app.get("/api/orders/:orderId/items", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const order = await storage.getOrder(req.params.orderId);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Authorization check: buyer can see their order items, seller can see their product items
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      const isBuyer = order.userId === userId;
+      
+      let isSeller = false;
+      if (!isAdmin && !isBuyer) {
+        try {
+          const items = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = items.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+        } catch {}
+      }
+      
+      if (!isAdmin && !isBuyer && !isSeller) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const orderItems = await storage.getOrderItems(req.params.orderId);
+      res.json(orderItems);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch order items" });
+    }
+  });
+
+  // Order Items - Update item tracking
+  app.patch("/api/order-items/:id/tracking", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const trackingSchema = z.object({
+        trackingNumber: z.string().min(1, "Tracking number is required"),
+        trackingLink: z.string().url("Invalid tracking link").or(z.literal("")),
+        notifyCustomer: z.boolean().optional(),
+      });
+      
+      const validationResult = trackingSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+      
+      // Get the order item to find the order
+      const items = await storage.getOrderItems('');
+      const item = items.find(i => i.id === req.params.id);
+      
+      if (!item) {
+        return res.status(404).json({ error: "Order item not found" });
+      }
+      
+      const order = await storage.getOrder(item.orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Authorization: only seller can update tracking
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      if (!isAdmin) {
+        try {
+          const orderItems = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = orderItems.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
+      // Update item tracking (automatically sets status to 'shipped')
+      const updatedItem = await storage.updateOrderItemTracking(
+        req.params.id,
+        validationResult.data.trackingNumber,
+        validationResult.data.trackingLink
+      );
+      
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Failed to update tracking" });
+      }
+      
+      // Update order fulfillment status
+      await storage.updateOrderFulfillmentStatus(item.orderId);
+      
+      // Send notification if requested
+      if (validationResult.data.notifyCustomer) {
+        void (async () => {
+          try {
+            const orderItemsAll = await storage.getOrderItems(item.orderId);
+            const seller = await storage.getUser(userId);
+            
+            if (seller) {
+              // Send item tracking notification to buyer
+              await notificationService.sendItemTracking(order, updatedItem, seller);
+              console.log(`[Notifications] Item tracking notification sent for item ${updatedItem.id}`);
+            }
+          } catch (error) {
+            console.error('[Notifications] Failed to send item tracking notification:', error);
+          }
+        })();
+      }
+      
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('[Order Items] Failed to update tracking:', error);
+      res.status(500).json({ error: "Failed to update tracking information" });
+    }
+  });
+
+  // Order Items - Update item status
+  app.patch("/api/order-items/:id/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const statusSchema = z.object({
+        status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled']),
+      });
+      
+      const validationResult = statusSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+      
+      // Get the order item to find the order
+      const items = await storage.getOrderItems('');
+      const item = items.find(i => i.id === req.params.id);
+      
+      if (!item) {
+        return res.status(404).json({ error: "Order item not found" });
+      }
+      
+      const order = await storage.getOrder(item.orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Authorization: only seller can update status
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      if (!isAdmin) {
+        try {
+          const orderItems = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = orderItems.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
+      // Update item status
+      const updatedItem = await storage.updateOrderItemStatus(
+        req.params.id,
+        validationResult.data.status
+      );
+      
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Failed to update status" });
+      }
+      
+      // Update order fulfillment status
+      await storage.updateOrderFulfillmentStatus(item.orderId);
+      
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('[Order Items] Failed to update status:', error);
+      res.status(500).json({ error: "Failed to update status" });
+    }
+  });
+
   // Team Management - Invite users
   app.post("/api/invitations", isAuthenticated, async (req: any, res) => {
     try {

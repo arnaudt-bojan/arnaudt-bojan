@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import crypto from 'crypto';
-import type { User, Order, Product, Notification, InsertNotification } from '../shared/schema';
+import type { User, Order, Product, Notification, InsertNotification, OrderItem } from '../shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 // Using verified domain upfirst.io
@@ -11,6 +11,7 @@ export interface NotificationService {
   createNotification(notification: InsertNotification): Promise<Notification | null>;
   sendOrderConfirmation(order: Order, seller: User, products: Product[]): Promise<void>;
   sendOrderShipped(order: Order, seller: User): Promise<void>;
+  sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void>;
   sendProductListed(seller: User, product: Product): Promise<void>;
   sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<void>;
   sendMagicLink(email: string, link: string): Promise<void>;
@@ -239,6 +240,41 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
+   * Send item tracking notification (Seller → Buyer) when individual item ships
+   */
+  async sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void> {
+    const emailHtml = this.generateItemTrackingEmail(order, item, seller);
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
+      replyTo: seller.email || undefined,
+      subject: `Item shipped from order #${order.id.slice(0, 8)}`,
+      html: emailHtml,
+    });
+
+    // Create in-app notification for buyer (if they have an account)
+    if (order.userId) {
+      await this.createNotification({
+        userId: order.userId,
+        type: 'order_shipped',
+        title: 'Item Shipped!',
+        message: `${item.productName} from order #${order.id.slice(0, 8)} has shipped${item.trackingNumber ? ` - Tracking: ${item.trackingNumber}` : ''}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { 
+          orderId: order.id, 
+          itemId: item.id,
+          trackingNumber: item.trackingNumber,
+          productName: item.productName
+        },
+      });
+    }
+
+    console.log(`[Notifications] Item tracking notification sent for ${item.productName}:`, result.success);
+  }
+
+  /**
    * Send product listed confirmation (Upfirst → Seller)
    */
   async sendProductListed(seller: User, product: Product): Promise<void> {
@@ -445,6 +481,87 @@ class NotificationServiceImpl implements NotificationService {
                   <div class="tracking-number">${order.trackingNumber}</div>
                   ${order.trackingLink ? `
                     <a href="${order.trackingLink}" class="button">Track Your Package</a>
+                  ` : ''}
+                </div>
+              ` : `
+                <p>You'll receive tracking information shortly.</p>
+              `}
+
+              <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
+
+              <p style="margin-top: 30px; color: #666;">
+                Questions? Reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
+              </p>
+            </div>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate item tracking email (Seller → Buyer) for individual item shipment
+   */
+  private generateItemTrackingEmail(order: Order, item: OrderItem, seller: User): string {
+    const bannerUrl = seller.storeBanner || '';
+    const logoUrl = seller.storeLogo || '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; }
+            .banner { width: 100%; height: 200px; object-fit: cover; }
+            .header { padding: 30px; text-align: center; }
+            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
+            .content { padding: 0 30px 30px; }
+            .item-box { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .item-image { max-width: 100px; height: auto; border-radius: 6px; margin-right: 15px; }
+            .item-details { display: flex; align-items: center; }
+            .tracking-box { background: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+            .tracking-number { font-size: 24px; font-weight: bold; margin: 15px 0; letter-spacing: 1px; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+            .footer { padding: 30px; text-align: center; color: #666; font-size: 14px; background: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
+            
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="${seller.firstName || 'Store'} Logo" class="logo">` : ''}
+              <h1>Item Shipped!</h1>
+              <p>An item from your order has been shipped.</p>
+            </div>
+
+            <div class="content">
+              <p>Hi ${order.customerName},</p>
+              <p>We've shipped an item from your order <strong>#${order.id.slice(0, 8)}</strong>!</p>
+
+              <div class="item-box">
+                <div class="item-details">
+                  ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="item-image">` : ''}
+                  <div>
+                    <h3 style="margin: 0 0 10px;">${item.productName}</h3>
+                    <p style="margin: 0; color: #666;">Quantity: ${item.quantity}</p>
+                    ${item.variant ? `<p style="margin: 5px 0 0; color: #666;">Variant: ${JSON.stringify(item.variant).replace(/[{}"]/g, '').replace(/,/g, ', ')}</p>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              ${item.trackingNumber ? `
+                <div class="tracking-box">
+                  <p style="margin: 0 0 10px; color: #666;">Tracking Number</p>
+                  <div class="tracking-number">${item.trackingNumber}</div>
+                  ${item.trackingLink ? `
+                    <a href="${item.trackingLink}" class="button">Track Your Package</a>
                   ` : ''}
                 </div>
               ` : `
