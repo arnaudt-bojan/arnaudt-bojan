@@ -13,6 +13,13 @@ Upshop is an e-commerce platform designed for creators and brands to sell variou
 ## System Architecture
 Uppshop is built with a modern web stack. The frontend uses **React, TypeScript, Tailwind CSS, and Shadcn UI** for a responsive user experience, with **TanStack Query** and **React Context** for state management, and **Wouter** for routing. Forms are handled by **React Hook Form** with **Zod** validation. The backend is an **Express.js, Node.js** application, using **PostgreSQL (Neon)** with **Drizzle ORM** for persistent data storage.
 
+**Navigation Architecture:**
+- **Dashboard-Centric Design**: Seller Dashboard is the main hub with quick access to all features via action chips
+- **Consistent Navigation**: All seller pages (Settings, Products, Orders, etc.) include a "Back to Dashboard" breadcrumb in the same location
+- **Desktop Navigation**: Clean header with Dashboard and Settings buttons visible on desktop (no burger menu clutter)
+- **Mobile-First**: Burger menu appears on mobile devices for easy access to all features
+- **Storefront**: Buyer-facing pages remain clean while maintaining subtle access to seller dashboard
+
 **UI/UX Decisions:**
 - **Design System**: Supports dark/light mode, uses Inter font family, consistent spacing and typography, and mobile-first responsive design.
 - **Product Display**: Features multi-image support with interactive carousels and thumbnail galleries. Product types are color-coded (In-Stock: Green, Pre-Order: Blue, Made-to-Order: Purple, Wholesale: Orange).

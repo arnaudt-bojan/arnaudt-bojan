@@ -20,6 +20,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
+import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -1066,13 +1067,16 @@ export default function Settings() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">
-          <SettingsIcon className="h-8 w-8" />
-          Settings
-        </h1>
-        <p className="text-muted-foreground">Manage your account settings and preferences</p>
-      </div>
+      {isSeller && <DashboardBreadcrumb currentPage="Settings" />}
+      {!isSeller && (
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">
+            <SettingsIcon className="h-8 w-8" />
+            Settings
+          </h1>
+          <p className="text-muted-foreground">Manage your account settings and preferences</p>
+        </div>
+      )}
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className={`grid w-full ${isSeller ? 'grid-cols-6' : 'grid-cols-1'}`} data-testid="tabs-settings">

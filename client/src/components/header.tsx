@@ -49,17 +49,17 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const sellerInfo = (isSellerDomain ? sellerData : user) as any;
   const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
   
-  // Determine if we should show the burger menu
-  const shouldShowBurgerMenu = isSellerDomain || isAuthenticated;
+  // Show burger menu on mobile for both sellers and buyers, or on seller domains
+  const shouldShowMobileMenu = isSellerDomain || isAuthenticated;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
         <div className="flex items-center gap-2">
-          {shouldShowBurgerMenu && (
+          {shouldShowMobileMenu && (
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
+                <Button variant="ghost" size="icon" className="md:hidden" data-testid="button-mobile-menu">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -211,6 +211,23 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             </Link>
           )}
         </div>
+
+        {/* Desktop navigation for authenticated sellers */}
+        {isAuthenticated && isSeller && !isSellerDomain && (
+          <nav className="hidden md:flex items-center gap-2 flex-1 justify-center">
+            <Link href="/seller-dashboard">
+              <Button variant={location === "/seller-dashboard" ? "secondary" : "ghost"} size="sm">
+                Dashboard
+              </Button>
+            </Link>
+            <Link href="/settings">
+              <Button variant={location === "/settings" ? "secondary" : "ghost"} size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            </Link>
+          </nav>
+        )}
 
         <div className="flex items-center gap-2">
           <CurrencySelector />
