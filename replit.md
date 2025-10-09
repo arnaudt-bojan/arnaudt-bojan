@@ -20,7 +20,7 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
 
 **Technical Implementations & Feature Specifications:**
 - **Product Management**: Supports diverse product types (in-stock, pre-order, made-to-order, wholesale) with multi-image uploads and bulk CSV upload functionality.
-- **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout. Shipping costs are fetched from seller settings and automatically added to the total. All orders require customerEmail and create/use buyer accounts.
+- **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout. Shipping costs are fetched from seller settings and automatically added to the total. All orders require customerEmail and create/use buyer accounts. **Cart enforces single-seller constraint** - products from different sellers cannot be mixed in one cart to ensure proper payment routing (Stripe Connect) and data isolation.
 - **Authentication & Authorization**: 
   - Email-based authentication (verification code and magic link) for sellers only - creates admin role accounts
   - All emails normalized to lowercase and trimmed for consistency
@@ -28,6 +28,7 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
   - Buyer accounts have null passwords (security measure - cannot login)
   - 4-role system: admin, editor, viewer (sellers) and buyer
   - Seller emails blocked from guest checkout to prevent role confusion
+  - **Order Authorization**: Comprehensive multi-tenant security - sellers can only view/modify orders containing their products; buyers can only view their own orders; platform owner/admin can access all orders. Cart validation enforces single-seller orders for proper data isolation and payment routing.
 - **Notification System**: 
   - Comprehensive email notification system using Resend
   - All emails sent from Upfirst (platform branding), seller emails use Reply-To
@@ -35,7 +36,7 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
   - Phase 1 notifications implemented: seller welcome (triggered on signup)
   - Phase 1 templates ready: Stripe onboarding reminders, payment failures, inventory alerts, payout failures (require webhook integration)
   - 30+ notification types planned across 3 phases (see docs/notification-system-design.md)
-- **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting Apple Pay, Google Pay, and credit cards. Supports balance payments for pre-orders.
+- **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting Apple Pay, Google Pay, and credit cards. Supports balance payments for pre-orders. Each order contains products from a single seller only - payment routes directly to that seller's Stripe Connect account.
 - **Subscription System**: Sellers pay a monthly or annual fee with a 30-day free trial. Payment methods are securely stored using Stripe Customer objects.
 - **Multi-Currency Support**: Automatic IP-based currency detection with a user-selectable currency switcher and real-time exchange rate conversion.
 - **NFT Minting**: Buyers can mint NFTs on the Solana devnet for fully paid orders, integrated with Phantom wallet.

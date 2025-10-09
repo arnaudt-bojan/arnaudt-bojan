@@ -7,7 +7,7 @@ interface CartItem extends Product {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product) => void;
+  addItem: (product: Product) => { success: boolean; error?: string };
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -31,6 +31,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items]);
 
   const addItem = (product: Product) => {
+    let error: string | undefined;
+    
     setItems((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
@@ -43,11 +45,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       
       // Prevent mixing products from different sellers
       if (prev.length > 0 && prev[0].sellerId !== product.sellerId) {
-        throw new Error("Cannot add products from different sellers to the same cart. Please checkout your current items first.");
+        error = "Cannot add products from different sellers to the same cart. Please checkout your current items first.";
+        return prev; // Don't modify cart
       }
       
       return [...prev, { ...product, quantity: 1 }];
     });
+    
+    if (error) {
+      return { success: false, error };
+    }
+    return { success: true };
   };
 
   const removeItem = (productId: string) => {

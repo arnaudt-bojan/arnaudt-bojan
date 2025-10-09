@@ -128,13 +128,20 @@ export default function WholesaleProductDetail() {
       };
 
       // Add to cart with total quantity
-      addItem(cartItem);
-      updateQuantity(cartItem.id, totalQuantity);
-
-      toast({
-        title: "Added to Cart",
-        description: `Added ${totalQuantity} units to cart`,
-      });
+      const result = addItem(cartItem);
+      if (result.success) {
+        updateQuantity(cartItem.id, totalQuantity);
+        toast({
+          title: "Added to Cart",
+          description: `Added ${totalQuantity} units to cart`,
+        });
+      } else {
+        toast({
+          title: "Cannot add to cart",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
     } else {
       // Simple product without variants - add with MOQ
       const cartItem = {
@@ -150,13 +157,20 @@ export default function WholesaleProductDetail() {
         requiresDeposit: product.requiresDeposit,
       };
 
-      addItem(cartItem);
-      updateQuantity(cartItem.id, product.moq);
-
-      toast({
-        title: "Added to Cart",
-        description: `Added ${product.moq} units to cart (MOQ)`,
-      });
+      const result = addItem(cartItem);
+      if (result.success) {
+        updateQuantity(cartItem.id, product.moq);
+        toast({
+          title: "Added to Cart",
+          description: `Added ${product.moq} units to cart (MOQ)`,
+        });
+      } else {
+        toast({
+          title: "Cannot add to cart",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
     }
   };
 

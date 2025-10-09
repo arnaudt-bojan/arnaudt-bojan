@@ -142,11 +142,19 @@ export default function Products() {
     });
 
   const handleAddToCart = (product: Product) => {
-    addItem(product);
-    toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart`,
-    });
+    const result = addItem(product);
+    if (result.success) {
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart`,
+      });
+    } else {
+      toast({
+        title: "Cannot add to cart",
+        description: result.error,
+        variant: "destructive",
+      });
+    }
   };
 
   // Check subscription status and handle store activation

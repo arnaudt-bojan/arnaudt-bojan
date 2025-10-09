@@ -65,18 +65,34 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (product) {
-      addItem(product);
-      toast({
-        title: "Added to cart",
-        description: `${product.name} has been added to your cart`,
-      });
+      const result = addItem(product);
+      if (result.success) {
+        toast({
+          title: "Added to cart",
+          description: `${product.name} has been added to your cart`,
+        });
+      } else {
+        toast({
+          title: "Cannot add to cart",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const handleBuyNow = () => {
     if (product) {
-      addItem(product);
-      setLocation("/checkout");
+      const result = addItem(product);
+      if (result.success) {
+        setLocation("/checkout");
+      } else {
+        toast({
+          title: "Cannot proceed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
     }
   };
 
