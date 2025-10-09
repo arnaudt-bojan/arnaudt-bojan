@@ -169,6 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(product);
     } catch (error) {
+      console.error("Error creating product:", error);
       res.status(500).json({ error: "Failed to create product" });
     }
   });
