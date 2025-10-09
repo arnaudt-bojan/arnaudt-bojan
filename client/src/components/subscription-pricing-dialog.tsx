@@ -78,7 +78,7 @@ export function SubscriptionPricingDialog({ open, onOpenChange }: SubscriptionPr
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            Activate Your Store with Uppfirst Pro
+            Activate Your Store with Upfirst Pro
           </DialogTitle>
           <DialogDescription className="text-base">
             Choose a plan to activate your store and start selling to customers worldwide

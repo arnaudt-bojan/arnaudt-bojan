@@ -1,7 +1,7 @@
-# Uppshop - E-Commerce Platform
+# Upshop - E-Commerce Platform
 
 ## Overview
-Uppshop is an e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order (with deposit), made-to-order, and wholesale. It aims to provide a seamless buying and selling experience with a unified user model. Key capabilities include product browsing, a shopping cart, authenticated checkout, a comprehensive seller dashboard for product and order management, and a B2B wholesale system with invitation-only access. The platform also integrates advanced social media advertising features with AI optimization, robust payment processing, and NFT minting for buyers.
+Upshop is an e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order (with deposit), made-to-order, and wholesale. It aims to provide a seamless buying and selling experience with a unified user model. Key capabilities include product browsing, a shopping cart, authenticated checkout, a comprehensive seller dashboard for product and order management, and a B2B wholesale system with invitation-only access. The platform also integrates advanced social media advertising features with AI optimization, robust payment processing, and NFT minting for buyers.
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -30,7 +30,7 @@ Uppshop is built with a modern web stack. The frontend uses **React, TypeScript,
   - Seller emails blocked from guest checkout to prevent role confusion
 - **Notification System**: 
   - Comprehensive email notification system using Resend
-  - All emails sent from Uppfirst (platform branding), seller emails use Reply-To
+  - All emails sent from Upfirst (platform branding), seller emails use Reply-To
   - Development mode: verification codes logged to console when domain unverified
   - Phase 1 notifications implemented: seller welcome (triggered on signup)
   - Phase 1 templates ready: Stripe onboarding reminders, payment failures, inventory alerts, payout failures (require webhook integration)

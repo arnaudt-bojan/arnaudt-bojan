@@ -207,7 +207,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             </Link>
           ) : (
             <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-              <img src={logoImage} alt="Uppfirst" className="h-8" />
+              <img src={logoImage} alt="Upfirst" className="h-8" />
             </Link>
           )}
         </div>

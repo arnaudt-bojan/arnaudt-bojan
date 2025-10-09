@@ -2,8 +2,8 @@ import { Resend } from 'resend';
 import type { User, Order, Product, Notification, InsertNotification } from '../shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-// Using verified domain uppfirst.io
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Uppfirst <hello@uppfirst.io>';
+// Using verified domain upfirst.io
+const FROM_EMAIL = process.env.FROM_EMAIL || 'Upfirst <hello@upfirst.io>';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -141,7 +141,7 @@ class NotificationServiceImpl implements NotificationService {
     // Send email from verified domain with seller as reply-to
     const result = await this.sendEmail({
       to: buyerEmail,
-      from: `${seller.firstName || 'Store'} via Uppfirst <hello@uppfirst.io>`,
+      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Order Confirmation #${order.id.slice(0, 8)} - ${seller.firstName || 'Your'} Store`,
       html: emailHtml,
@@ -171,7 +171,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${seller.firstName || 'Store'} via Uppfirst <hello@uppfirst.io>`,
+      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Your order has shipped! - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -194,7 +194,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send product listed confirmation (Uppfirst → Seller)
+   * Send product listed confirmation (Upfirst → Seller)
    */
   async sendProductListed(seller: User, product: Product): Promise<void> {
     const emailHtml = this.generateProductListedEmail(seller, product);
@@ -226,7 +226,7 @@ class NotificationServiceImpl implements NotificationService {
 
     await this.sendEmail({
       to: email,
-      subject: `Your Uppfirst Login Code: ${code}`,
+      subject: `Your Upfirst Login Code: ${code}`,
       html: emailHtml,
     });
 
@@ -241,7 +241,7 @@ class NotificationServiceImpl implements NotificationService {
 
     await this.sendEmail({
       to: email,
-      subject: 'Sign in to Uppfirst',
+      subject: 'Sign in to Upfirst',
       html: emailHtml,
     });
 
@@ -330,13 +330,13 @@ class NotificationServiceImpl implements NotificationService {
               <p>${order.customerAddress}</p>
 
               <p style="margin-top: 30px; color: #666;">
-                If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@uppfirst.com'}.
+                If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@upfirst.com'}.
               </p>
             </div>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Uppfirst'}. All rights reserved.</p>
-              <p>${seller.username ? `${seller.username}.uppfirst.com` : 'uppfirst.com'}</p>
+              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
+              <p>${seller.username ? `${seller.username}.upfirst.com` : 'upfirst.com'}</p>
             </div>
           </div>
         </body>
@@ -398,12 +398,12 @@ class NotificationServiceImpl implements NotificationService {
               <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact us at ${seller.email || 'support@uppfirst.com'}.
+                Questions? Reply to this email or contact us at ${seller.email || 'support@upfirst.com'}.
               </p>
             </div>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Uppfirst'}. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -412,7 +412,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Generate product listed email (Uppfirst → Seller, no branding)
+   * Generate product listed email (Upfirst → Seller, no branding)
    */
   private generateProductListedEmail(seller: User, product: Product): string {
     return `
@@ -434,7 +434,7 @@ class NotificationServiceImpl implements NotificationService {
           <div class="container">
             <h1>Product Listed Successfully</h1>
             <p>Hi ${seller.firstName || 'there'},</p>
-            <p>Your product has been successfully listed on your Uppfirst store!</p>
+            <p>Your product has been successfully listed on your Upfirst store!</p>
 
             <div class="product-card">
               <h3>${product.name}</h3>
@@ -449,8 +449,8 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
-              <p>This is an automated notification from Uppfirst.</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
+              <p>This is an automated notification from Upfirst.</p>
             </div>
           </div>
         </body>
@@ -483,11 +483,11 @@ class NotificationServiceImpl implements NotificationService {
         </head>
         <body>
           <div class="container">
-            <h1>Sign in to Uppfirst</h1>
+            <h1>Sign in to Upfirst</h1>
             
             ${magicLink ? `
               <p>Click the button below to sign in instantly:</p>
-              <a href="${magicLink}" class="button">Sign In to Uppfirst</a>
+              <a href="${magicLink}" class="button">Sign In to Upfirst</a>
               
               <div class="divider">OR</div>
               
@@ -506,7 +506,7 @@ class NotificationServiceImpl implements NotificationService {
             </p>
 
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              © ${new Date().getFullYear()} Uppfirst. All rights reserved.
+              © ${new Date().getFullYear()} Upfirst. All rights reserved.
             </p>
           </div>
         </body>
@@ -532,10 +532,10 @@ class NotificationServiceImpl implements NotificationService {
         </head>
         <body>
           <div class="container">
-            <h1>Sign in to Uppfirst</h1>
+            <h1>Sign in to Upfirst</h1>
             <p>Click the button below to securely sign in to your account:</p>
             
-            <a href="${link}" class="button">Sign In to Uppfirst</a>
+            <a href="${link}" class="button">Sign In to Upfirst</a>
 
             <p style="color: #666; font-size: 14px;">This link expires in 15 minutes and can only be used once.</p>
 
@@ -549,7 +549,7 @@ class NotificationServiceImpl implements NotificationService {
             </p>
 
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              © ${new Date().getFullYear()} Uppfirst. All rights reserved.
+              © ${new Date().getFullYear()} Upfirst. All rights reserved.
             </p>
           </div>
         </body>
@@ -564,7 +564,7 @@ class NotificationServiceImpl implements NotificationService {
    */
 
   /**
-   * Send welcome email to new seller (Uppfirst → Seller)
+   * Send welcome email to new seller (Upfirst → Seller)
    */
   async sendSellerWelcome(seller: User): Promise<void> {
     const emailHtml = this.generateSellerWelcomeEmail(seller);
@@ -572,8 +572,8 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
-      subject: `Welcome to Uppfirst, ${seller.firstName || 'Seller'}!`,
+      replyTo: 'support@upfirst.com',
+      subject: `Welcome to Upfirst, ${seller.firstName || 'Seller'}!`,
       html: emailHtml,
     });
 
@@ -581,7 +581,7 @@ class NotificationServiceImpl implements NotificationService {
       await this.createNotification({
         userId: seller.id,
         type: 'seller_welcome',
-        title: 'Welcome to Uppfirst!',
+        title: 'Welcome to Upfirst!',
         message: 'Get started by setting up your payment method and listing your first product',
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
@@ -593,7 +593,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send Stripe onboarding incomplete reminder (Uppfirst → Seller)
+   * Send Stripe onboarding incomplete reminder (Upfirst → Seller)
    */
   async sendStripeOnboardingIncomplete(seller: User): Promise<void> {
     const emailHtml = this.generateStripeOnboardingIncompleteEmail(seller);
@@ -601,7 +601,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
+      replyTo: 'support@upfirst.com',
       subject: 'Complete Your Stripe Setup to Start Accepting Payments',
       html: emailHtml,
     });
@@ -622,7 +622,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send order payment failed notification (Uppfirst → Seller)
+   * Send order payment failed notification (Upfirst → Seller)
    */
   async sendOrderPaymentFailed(seller: User, orderId: string, amount: number, reason: string): Promise<void> {
     const emailHtml = this.generateOrderPaymentFailedEmail(seller, orderId, amount, reason);
@@ -630,7 +630,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
+      replyTo: 'support@upfirst.com',
       subject: `Payment Failed for Order #${orderId.slice(0, 8)}`,
       html: emailHtml,
     });
@@ -651,7 +651,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send buyer payment failed notification (Uppfirst → Buyer)
+   * Send buyer payment failed notification (Upfirst → Buyer)
    */
   async sendBuyerPaymentFailed(buyerEmail: string, buyerName: string, amount: number, reason: string, retryLink?: string): Promise<void> {
     const emailHtml = this.generateBuyerPaymentFailedEmail(buyerName, amount, reason, retryLink);
@@ -659,7 +659,7 @@ class NotificationServiceImpl implements NotificationService {
     await this.sendEmail({
       to: buyerEmail,
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
+      replyTo: 'support@upfirst.com',
       subject: 'Payment Failed - Please Try Again',
       html: emailHtml,
     });
@@ -668,7 +668,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send subscription payment failed (Uppfirst → Seller)
+   * Send subscription payment failed (Upfirst → Seller)
    */
   async sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string): Promise<void> {
     const emailHtml = this.generateSubscriptionPaymentFailedEmail(seller, amount, reason);
@@ -676,8 +676,8 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
-      subject: 'Your Uppfirst Subscription Payment Failed',
+      replyTo: 'support@upfirst.com',
+      subject: 'Your Upfirst Subscription Payment Failed',
       html: emailHtml,
     });
 
@@ -697,7 +697,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send inventory out of stock alert (Uppfirst → Seller)
+   * Send inventory out of stock alert (Upfirst → Seller)
    */
   async sendInventoryOutOfStock(seller: User, product: Product): Promise<void> {
     const emailHtml = this.generateInventoryOutOfStockEmail(seller, product);
@@ -705,7 +705,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
+      replyTo: 'support@upfirst.com',
       subject: `Product Out of Stock: ${product.name}`,
       html: emailHtml,
     });
@@ -726,7 +726,7 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send payout failed notification (Uppfirst → Seller)
+   * Send payout failed notification (Upfirst → Seller)
    */
   async sendPayoutFailed(seller: User, amount: number, reason: string): Promise<void> {
     const emailHtml = this.generatePayoutFailedEmail(seller, amount, reason);
@@ -734,7 +734,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@uppfirst.com',
+      replyTo: 'support@upfirst.com',
       subject: 'Payout Failed - Action Required',
       html: emailHtml,
     });
@@ -762,7 +762,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${seller.firstName || 'Store'} via Uppfirst <hello@uppfirst.io>`,
+      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -810,12 +810,12 @@ class NotificationServiceImpl implements NotificationService {
         <body>
           <div class="container">
             <div class="hero">
-              <h1 style="color: white; margin: 0;">Welcome to Uppfirst!</h1>
+              <h1 style="color: white; margin: 0;">Welcome to Upfirst!</h1>
               <p style="font-size: 18px; margin: 10px 0 0;">Your e-commerce journey starts here</p>
             </div>
 
             <p>Hi ${seller.firstName || 'there'},</p>
-            <p>Congratulations! Your Uppfirst store is ready to go. Here's how to get started:</p>
+            <p>Congratulations! Your Upfirst store is ready to go. Here's how to get started:</p>
 
             <div class="step">
               <span class="step-number">1</span>
@@ -845,7 +845,7 @@ class NotificationServiceImpl implements NotificationService {
 
             <div class="footer">
               <p>Questions? Reply to this email or visit our help center.</p>
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -888,11 +888,11 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <p style="color: #666; font-size: 14px;">
-              Need help? Our support team is here: support@uppfirst.com
+              Need help? Our support team is here: support@upfirst.com
             </p>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -939,7 +939,7 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -985,11 +985,11 @@ class NotificationServiceImpl implements NotificationService {
             ` : ''}
 
             <p style="color: #666; font-size: 14px;">
-              Need help? Contact support@uppfirst.com
+              Need help? Contact support@upfirst.com
             </p>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -1017,7 +1017,7 @@ class NotificationServiceImpl implements NotificationService {
             <p>Hi ${seller.firstName || 'there'},</p>
             
             <div class="alert-box">
-              <strong>Action Required:</strong> Your Uppfirst subscription payment of $${amount} failed.<br>
+              <strong>Action Required:</strong> Your Upfirst subscription payment of $${amount} failed.<br>
               <small>Reason: ${reason}</small>
             </div>
 
@@ -1035,8 +1035,8 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <div class="footer">
-              <p>Questions? Contact support@uppfirst.com</p>
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>Questions? Contact support@upfirst.com</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -1088,7 +1088,7 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -1143,8 +1143,8 @@ class NotificationServiceImpl implements NotificationService {
             </p>
 
             <div class="footer">
-              <p>Need help? Contact support@uppfirst.com</p>
-              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+              <p>Need help? Contact support@upfirst.com</p>
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -1391,13 +1391,13 @@ class NotificationServiceImpl implements NotificationService {
               </ol>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact ${seller.email || 'support@uppfirst.com'}
+                Questions? Reply to this email or contact ${seller.email || 'support@upfirst.com'}
               </p>
             </div>
 
             <div class="footer">
-              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Uppfirst'}. All rights reserved.</p>
-              <p>${seller.username ? `${seller.username}.uppfirst.com` : 'uppfirst.com'}</p>
+              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
+              <p>${seller.username ? `${seller.username}.upfirst.com` : 'upfirst.com'}</p>
             </div>
           </div>
         </body>

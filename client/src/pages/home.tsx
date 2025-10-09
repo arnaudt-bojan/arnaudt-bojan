@@ -158,7 +158,7 @@ export default function Home() {
     },
     {
       question: "What if I already have a store?",
-      answer: "You can link your Uppfirst store to your website or social. Or use it for limited drops and one-off collections."
+      answer: "You can link your Upfirst store to your website or social. Or use it for limited drops and one-off collections."
     },
     {
       question: "What do I need to get started?",

@@ -75,7 +75,7 @@ export default function QuickAccess() {
             Quick Access
           </h1>
           <p className="text-muted-foreground text-lg">
-            Jump to any section of your Uppshop experience
+            Jump to any section of your Upshop experience
           </p>
         </div>
 

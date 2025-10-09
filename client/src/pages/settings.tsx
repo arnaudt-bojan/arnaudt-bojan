@@ -1195,12 +1195,12 @@ export default function Settings() {
                         <p className="text-sm font-medium">Your Store URL:</p>
                         <div className="flex items-center gap-2">
                           <code className="text-sm bg-background px-3 py-2 rounded border flex-1">
-                            {user?.username}.uppshop.com
+                            {user?.username}.upshop.com
                           </code>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => copyToClipboard(`${user?.username}.uppshop.com`)}
+                            onClick={() => copyToClipboard(`${user?.username}.upshop.com`)}
                             data-testid="button-copy-store-url"
                           >
                             {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -1232,7 +1232,7 @@ export default function Settings() {
                         <div className="p-4 bg-muted/50 rounded-md space-y-2">
                           <p className="text-sm font-medium">Current Store URL:</p>
                           <code className="text-sm bg-background px-3 py-2 rounded border inline-block">
-                            {user?.username}.uppshop.com
+                            {user?.username}.upshop.com
                           </code>
                         </div>
                       )}
@@ -1684,7 +1684,7 @@ export default function Settings() {
                     <div>
                       <h4 className="font-medium mb-1">Receive Payments Directly</h4>
                       <p className="text-sm text-muted-foreground">
-                        Funds go straight to your account - Uppfirst never holds your money
+                        Funds go straight to your account - Upfirst never holds your money
                       </p>
                     </div>
                   </div>
@@ -1695,7 +1695,7 @@ export default function Settings() {
                     <div>
                       <h4 className="font-medium mb-1">Platform Fee & Branding</h4>
                       <p className="text-sm text-muted-foreground">
-                        We collect 1.5% platform fee automatically. Buyers see YOUR name on their statement, not Uppfirst
+                        We collect 1.5% platform fee automatically. Buyers see YOUR name on their statement, not Upfirst
                       </p>
                     </div>
                   </div>

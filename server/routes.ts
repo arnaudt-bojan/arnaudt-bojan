@@ -2425,12 +2425,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No recipients found" });
       }
 
-      // Send newsletter via Resend - use verified uppfirst.io domain
+      // Send newsletter via Resend - use verified upfirst.io domain
       const result = await notificationService.sendNewsletter({
         userId,
         newsletterId,
         recipients,
-        from: `${seller.firstName || seller.username} via Uppfirst <hello@uppfirst.io>`,
+        from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
         replyTo: seller.email,
         subject: newsletter.subject,
         htmlContent: newsletter.content,

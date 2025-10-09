@@ -132,7 +132,7 @@ export default function Login() {
             </div>
             <CardTitle className="text-2xl">Seller Portal</CardTitle>
             <CardDescription>
-              Login or create your Uppfirst seller account
+              Login or create your Upfirst seller account
             </CardDescription>
           </CardHeader>
           <CardContent>

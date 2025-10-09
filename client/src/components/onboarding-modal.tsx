@@ -45,7 +45,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-lg">Use Instagram Username</CardTitle>
-                  <CardDescription>Connect your Instagram and use @username.uppfirst.com</CardDescription>
+                  <CardDescription>Connect your Instagram and use @username.upfirst.com</CardDescription>
                 </div>
               </div>
             </CardHeader>

@@ -230,7 +230,7 @@ export default function MetaAdsSetup() {
               <div className="flex-1">
                 <h3 className="font-semibold mb-1">Connect Your Facebook Account</h3>
                 <p className="text-sm text-muted-foreground">
-                  Click "Connect with Facebook" and authorize Uppshop to access your ad account. 
+                  Click "Connect with Facebook" and authorize Upshop to access your ad account. 
                   You'll need a Facebook Business Manager account with an ad account set up.
                 </p>
               </div>
