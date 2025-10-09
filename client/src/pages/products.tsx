@@ -233,6 +233,7 @@ export default function Products() {
 
   const sellerWithBanner = sellers?.find(s => s.storeBanner);
   const currentSellerHasBanner = user?.storeBanner || sellerInfo?.storeBanner;
+  const currentSellerLogo = user?.storeLogo || sellerInfo?.storeLogo;
 
   // Check if viewing a seller domain with inactive store
   const isViewingInactiveStore = domainInfo.isSellerDomain && sellerInfo && sellerInfo.storeActive === 0;
@@ -263,13 +264,25 @@ export default function Products() {
             data-testid="img-store-banner"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-            <div className="container mx-auto px-4 py-8">
-              <h2 className="text-3xl font-bold text-white mb-2">
-                {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "Featured Store"}
-              </h2>
-              <p className="text-white/90 text-lg">
-                Discover amazing products
-              </p>
+            <div className="container mx-auto px-4 py-8 flex items-end gap-6">
+              {currentSellerLogo && (
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/20 bg-white flex-shrink-0">
+                  <img 
+                    src={currentSellerLogo} 
+                    alt="Store Logo" 
+                    className="w-full h-full object-cover"
+                    data-testid="img-store-logo"
+                  />
+                </div>
+              )}
+              <div>
+                <h2 className="text-3xl font-bold text-white mb-2">
+                  {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "Featured Store"}
+                </h2>
+                <p className="text-white/90 text-lg">
+                  Discover amazing products
+                </p>
+              </div>
             </div>
           </div>
         </div>
