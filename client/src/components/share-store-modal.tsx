@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -84,6 +84,9 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
       <DialogContent className="sm:max-w-md" data-testid="modal-share-store">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Share Your Store!</DialogTitle>
+          <DialogDescription>
+            Share your store link with customers through social media and other channels
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 mt-4">
           <div>
