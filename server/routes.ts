@@ -589,7 +589,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} USD fee to platform, rest to seller ${sellerId}`);
       } else {
-        console.log(`[Stripe Direct] Seller has no connected account, using direct payment`);
+        // Seller must connect Stripe before accepting payments
+        return res.status(400).json({ 
+          error: "This store hasn't set up payment processing yet. Please contact the seller to complete their setup.",
+          errorCode: "STRIPE_NOT_CONNECTED"
+        });
       }
 
       const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);

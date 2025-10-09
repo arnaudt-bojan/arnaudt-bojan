@@ -979,7 +979,7 @@ export default function Settings() {
 
   const handleConnectStripe = async () => {
     try {
-      const response = await apiRequest("GET", "/api/stripe/connect", {});
+      const response = await apiRequest("GET", "/api/stripe/connect");
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
@@ -995,7 +995,7 @@ export default function Settings() {
 
   const handleConnectInstagram = async () => {
     try {
-      const response = await apiRequest("GET", "/api/instagram/connect", {});
+      const response = await apiRequest("GET", "/api/instagram/connect");
       const data = await response.json();
       if (data.authUrl) {
         window.open(data.authUrl, '_blank', 'width=600,height=700');
