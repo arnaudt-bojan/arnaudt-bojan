@@ -100,7 +100,7 @@ export default function CreateProduct() {
       image: "",
       category: "",
       productType: "in-stock",
-      stock: 0,
+      stock: undefined,
       depositAmount: undefined,
       requiresDeposit: 0,
     },
@@ -216,6 +216,27 @@ export default function CreateProduct() {
     createMutation.mutate(data);
   };
 
+  const onError = (errors: any) => {
+    // Find the first error field and scroll to it
+    const firstError = Object.keys(errors)[0];
+    if (firstError) {
+      const element = document.querySelector(`[name="${firstError}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Focus the element for better UX
+        (element as HTMLElement).focus();
+      }
+    }
+    
+    // Show toast with first error message
+    const firstErrorMessage = errors[firstError]?.message || "Please fix the errors in the form";
+    toast({
+      title: "Validation Error",
+      description: firstErrorMessage,
+      variant: "destructive",
+    });
+  };
+
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -238,7 +259,7 @@ export default function CreateProduct() {
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-8">
             <ProductFormFields
               form={form}
               variants={variants}

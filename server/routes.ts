@@ -231,6 +231,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send notifications to seller about new product listing
+      if (user) {
+        try {
+          // Create in-app notification
+          await notificationService.createNotification({
+            userId: user.id,
+            type: 'product_listed',
+            title: 'Product Listed Successfully!',
+            message: `Your product "${product.name}" is now live on your store`,
+            emailSent: 0,
+            metadata: { productId: product.id, productName: product.name, productPrice: product.price },
+          });
+
+          // Send confirmation email to seller
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">Product Listed Successfully!</h2>
+              <p>Hi ${user.firstName || 'there'},</p>
+              <p>Your product has been successfully added to your Upfirst store:</p>
+              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">${product.name}</h3>
+                <p style="color: #6b7280; margin: 10px 0;">Price: $${product.price}</p>
+                <p style="color: #6b7280; margin: 10px 0;">Type: ${product.productType}</p>
+                ${product.stock ? `<p style="color: #6b7280; margin: 10px 0;">Stock: ${product.stock} units</p>` : ''}
+              </div>
+              <p>Your product is now visible to customers on your storefront.</p>
+              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                Best regards,<br>
+                The Upfirst Team
+              </p>
+            </div>
+          `;
+
+          await notificationService.sendEmail({
+            to: user.email,
+            from: 'Upfirst <hello@upfirst.io>',
+            subject: `Product Listed: ${product.name}`,
+            html: emailHtml,
+          });
+
+          console.log(`[Notifications] Product listing confirmation sent to ${user.email}`);
+        } catch (error) {
+          console.error('[Notifications] Failed to send product listing notifications:', error);
+          // Don't fail the request if notifications fail
+        }
+      }
+
       res.status(201).json(product);
     } catch (error) {
       console.error("Error creating product:", error);

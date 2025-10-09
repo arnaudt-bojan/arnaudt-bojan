@@ -288,8 +288,12 @@ export function ProductFormFields({
                     <Input
                       type="number"
                       {...field}
-                      value={field.value || 0}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === "" ? undefined : parseInt(value) || 0);
+                      }}
+                      placeholder="Enter stock quantity"
                       data-testid="input-stock"
                     />
                   </FormControl>
