@@ -94,6 +94,14 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                       Dashboard
                     </Link>
                     <Link
+                      href="/products"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
+                      data-testid="mobile-link-preview-store"
+                    >
+                      Preview Store
+                    </Link>
+                    <Link
                       href="/seller/products"
                       onClick={() => setMobileMenuOpen(false)}
                       className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"

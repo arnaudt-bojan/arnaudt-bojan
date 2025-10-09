@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +13,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { ShareStoreModal } from "@/components/share-store-modal";
 
 export default function SellerDashboard() {
   const [, setLocation] = useLocation();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
   });
@@ -56,6 +59,14 @@ export default function SellerDashboard() {
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => setShareModalOpen(true)}
+                data-testid="button-share-store"
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share Store
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setLocation("/seller/products")}
@@ -198,6 +209,7 @@ export default function SellerDashboard() {
           )}
         </Card>
       </div>
+      <ShareStoreModal open={shareModalOpen} onOpenChange={setShareModalOpen} />
     </div>
   );
 }
