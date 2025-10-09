@@ -7,6 +7,7 @@ import { z } from "zod";
 import { setupAuth, isAuthenticated, isSeller } from "./replitAuth";
 import Stripe from "stripe";
 import { getExchangeRates, getUserCurrency } from "./currencyService";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -2458,6 +2459,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error detecting currency:", error);
       res.json({ currency: 'USD', countryCode: 'US' });
+    }
+  });
+
+  // Object Storage endpoints - from javascript_object_storage integration
+  // Endpoint to get presigned upload URL
+  app.post("/api/objects/upload", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Endpoint to normalize uploaded image path (after upload completes)
+  app.put("/api/product-images", async (req, res) => {
+    if (!req.body.imageURL) {
+      return res.status(400).json({ error: "imageURL is required" });
+    }
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      // Normalize the path and set public ACL (product images are public)
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.imageURL,
+        {
+          owner: "system", // Product images owned by system
+          visibility: "public", // Product images are publicly accessible
+        }
+      );
+
+      res.status(200).json({
+        objectPath: objectPath,
+      });
+    } catch (error) {
+      console.error("Error setting product image:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Endpoint to serve uploaded images (public access)
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(
+        req.path,
+      );
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
     }
   });
 
