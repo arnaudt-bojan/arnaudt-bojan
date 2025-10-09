@@ -295,3 +295,48 @@ export const insertWholesaleInvitationSchema = createInsertSchema(wholesaleInvit
 export type InsertWholesaleInvitation = z.infer<typeof insertWholesaleInvitationSchema>;
 export type WholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
 export type SelectWholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
+
+// Magic Link Authentication Tokens
+export const authTokens = pgTable("auth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  token: varchar("token").notNull().unique(),
+  code: varchar("code", { length: 6 }), // 6-digit code for email authentication
+  expiresAt: timestamp("expires_at").notNull(),
+  used: integer("used").default(0), // 0 = false, 1 = true
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuthTokenSchema = createInsertSchema(authTokens).omit({ id: true, createdAt: true });
+export type InsertAuthToken = z.infer<typeof insertAuthTokenSchema>;
+export type AuthToken = typeof authTokens.$inferSelect;
+
+// Notifications (unified email + in-app)
+export const notificationTypeEnum = z.enum([
+  "order_placed", 
+  "order_shipped", 
+  "order_delivered",
+  "payment_received",
+  "product_listed",
+  "product_updated",
+  "wholesale_invitation",
+  "system_alert"
+]);
+export type NotificationType = z.infer<typeof notificationTypeEnum>;
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // Recipient user ID
+  type: text("type").notNull(), // notification type
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  emailSent: integer("email_sent").default(0), // 0 = false, 1 = true
+  emailId: text("email_id"), // Resend email ID for tracking
+  read: integer("read").default(0), // 0 = false, 1 = true
+  metadata: jsonb("metadata"), // Additional data (orderId, productId, etc.)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
