@@ -417,11 +417,9 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
   // Check if this is local auth (doesn't need token refresh)
   if (user.access_token === 'local-auth') {
-    const now = Math.floor(Date.now() / 1000);
-    if (now <= user.expires_at) {
-      return next();
-    }
-    return res.status(401).json({ message: "Session expired" });
+    // Extend session for local auth users on each request (similar to session cookie behavior)
+    user.expires_at = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
+    return next();
   }
 
   // OIDC auth with token refresh
