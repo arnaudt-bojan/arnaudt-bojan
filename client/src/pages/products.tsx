@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
-import { Package } from "lucide-react";
+import { Package, Grid3x3, LayoutGrid, Grip } from "lucide-react";
+
+type CardSize = "compact" | "medium" | "large";
 
 export default function Products() {
   const [selectedType, setSelectedType] = useState<ProductType | "all">("all");
+  const [cardSize, setCardSize] = useState<CardSize>("medium");
   const { addItem } = useCart();
   const { toast } = useToast();
+  
+  // Load card size preference from localStorage
+  useEffect(() => {
+    const savedSize = localStorage.getItem("productCardSize") as CardSize;
+    if (savedSize) {
+      setCardSize(savedSize);
+    }
+  }, []);
+  
+  // Save card size preference to localStorage
+  const handleCardSizeChange = (size: CardSize) => {
+    setCardSize(size);
+    localStorage.setItem("productCardSize", size);
+  };
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -40,6 +57,20 @@ export default function Products() {
       title: "Added to cart",
       description: `${product.name} has been added to your cart`,
     });
+  };
+  
+  // Dynamic grid classes based on card size
+  const getGridClasses = () => {
+    switch (cardSize) {
+      case "compact":
+        return "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4";
+      case "medium":
+        return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6";
+      case "large":
+        return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-8";
+      default:
+        return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
+    }
   };
 
   const sellerWithBanner = sellers?.find(s => s.storeBanner);
@@ -77,22 +108,55 @@ export default function Products() {
           </p>
         </div>
 
-        <div className="mb-8 flex gap-2 overflow-x-auto pb-2">
-          {productTypes.map((type) => (
+        <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-2 flex-1">
+            {productTypes.map((type) => (
+              <Button
+                key={type.value}
+                variant={selectedType === type.value ? "default" : "outline"}
+                onClick={() => setSelectedType(type.value)}
+                data-testid={`button-filter-${type.value}`}
+                className="flex-shrink-0"
+              >
+                {type.label}
+              </Button>
+            ))}
+          </div>
+          
+          <div className="flex gap-1 items-center">
+            <span className="text-sm text-muted-foreground mr-2">View:</span>
             <Button
-              key={type.value}
-              variant={selectedType === type.value ? "default" : "outline"}
-              onClick={() => setSelectedType(type.value)}
-              data-testid={`button-filter-${type.value}`}
-              className="flex-shrink-0"
+              variant={cardSize === "compact" ? "default" : "outline"}
+              size="icon"
+              onClick={() => handleCardSizeChange("compact")}
+              data-testid="button-view-compact"
+              title="Compact view"
             >
-              {type.label}
+              <Grip className="h-4 w-4" />
             </Button>
-          ))}
+            <Button
+              variant={cardSize === "medium" ? "default" : "outline"}
+              size="icon"
+              onClick={() => handleCardSizeChange("medium")}
+              data-testid="button-view-medium"
+              title="Medium view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={cardSize === "large" ? "default" : "outline"}
+              size="icon"
+              onClick={() => handleCardSizeChange("large")}
+              data-testid="button-view-large"
+              title="Large view"
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className={getGridClasses()}>
             {[...Array(8)].map((_, i) => (
               <div key={i} className="space-y-3">
                 <Skeleton className="aspect-square w-full rounded-lg" />
@@ -102,7 +166,7 @@ export default function Products() {
             ))}
           </div>
         ) : filteredProducts && filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className={getGridClasses()}>
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
