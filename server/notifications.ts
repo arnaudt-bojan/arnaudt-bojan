@@ -2,7 +2,9 @@ import { Resend } from 'resend';
 import type { User, Order, Product, Notification, InsertNotification } from '../shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = 'Uppfirst <noreply@upfirst.io>'; // Verified domain
+// Use Resend's verified testing domain or your verified domain
+// For production: verify your domain at https://resend.com/domains
+const FROM_EMAIL = process.env.FROM_EMAIL || 'Uppfirst <onboarding@resend.dev>';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
