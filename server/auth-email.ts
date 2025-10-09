@@ -232,7 +232,7 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
  */
 router.get('/verify-magic-link', async (req: any, res: Response) => {
   try {
-    const { token } = req.query;
+    const { token, redirect } = req.query;
 
     if (!token || typeof token !== 'string') {
       return res.status(400).json({ error: 'Token is required' });
@@ -312,18 +312,26 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
 
     console.log(`[Auth] User authenticated via magic link: ${normalizedEmail}`);
 
-    // Determine redirect URL based on role
+    // Determine redirect URL
     let redirectUrl: string;
     
-    if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
-      // Sellers always go to their dashboard
-      redirectUrl = '/seller-dashboard';
-    } else if (user.role === 'buyer') {
-      // Buyers go to buyer dashboard
-      redirectUrl = '/buyer-dashboard';
+    // Use provided redirect parameter if available
+    if (redirect && typeof redirect === 'string') {
+      // Sanitize redirect URL - must start with /
+      redirectUrl = redirect.startsWith('/') ? redirect : `/${redirect}`;
+      console.log(`[Auth] Using provided redirect: ${redirectUrl}`);
     } else {
-      // Fallback
-      redirectUrl = '/';
+      // Default redirect based on role
+      if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
+        // Sellers always go to their dashboard
+        redirectUrl = '/seller-dashboard';
+      } else if (user.role === 'buyer') {
+        // Buyers go to buyer dashboard
+        redirectUrl = '/buyer-dashboard';
+      } else {
+        // Fallback
+        redirectUrl = '/';
+      }
     }
     
     res.redirect(redirectUrl);

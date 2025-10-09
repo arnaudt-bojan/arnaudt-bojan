@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification } from '../shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -60,6 +61,38 @@ class NotificationServiceImpl implements NotificationService {
 
   constructor(storage: any) {
     this.storage = storage;
+  }
+
+  /**
+   * Generate magic link token for email auto-login
+   * Creates a token, stores it in database, and returns the magic link URL
+   * @param email - User email address
+   * @param redirectPath - Optional redirect path after login
+   * @param sellerContext - Seller username for buyer emails (null for seller emails)
+   */
+  private async generateMagicLinkForEmail(email: string, redirectPath?: string, sellerContext?: string): Promise<string> {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Save auth token to database with seller context
+    await this.storage.createAuthToken({
+      email: email.toLowerCase().trim(),
+      token,
+      code: null, // No code for magic links from emails
+      expiresAt,
+      used: 0,
+      sellerContext: sellerContext || null, // Preserve seller context for buyer emails
+    });
+
+    // Generate magic link URL
+    const baseUrl = process.env.VITE_BASE_URL || 'http://localhost:5000';
+    let magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${token}`;
+    
+    if (redirectPath) {
+      magicLink += `&redirect=${encodeURIComponent(redirectPath)}`;
+    }
+
+    return magicLink;
   }
 
   /**
@@ -135,8 +168,18 @@ class NotificationServiceImpl implements NotificationService {
     const buyerEmail = order.customerEmail;
     const buyerName = order.customerName;
 
-    // Generate branded email HTML
-    const emailHtml = this.generateOrderConfirmationEmail(order, seller, products, buyerName);
+    // Generate magic link for auto-login with seller context (buyer email from seller's shop)
+    // Use seller.username with fallback to seller.id to ensure sellerContext is never null for buyer emails
+    const sellerContext = seller.username || seller.id;
+    if (!sellerContext) {
+      console.error('[Notifications] Cannot generate buyer magic link - seller has no username or ID');
+      throw new Error('Seller must have username or ID to send buyer emails');
+    }
+    
+    const magicLink = await this.generateMagicLinkForEmail(buyerEmail, `/orders/${order.id}`, sellerContext);
+
+    // Generate branded email HTML with magic link
+    const emailHtml = this.generateOrderConfirmationEmail(order, seller, products, buyerName, magicLink);
 
     // Send email from verified domain with seller as reply-to
     const result = await this.sendEmail({
@@ -251,7 +294,7 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Generate branded order confirmation email with seller banner and product images
    */
-  private generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string): string {
+  private generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string, magicLink: string): string {
     const items = JSON.parse(order.items);
     const bannerUrl = seller.storeBanner || '';
     const logoUrl = seller.storeLogo || '';
@@ -321,7 +364,7 @@ class NotificationServiceImpl implements NotificationService {
               </div>
 
               <div style="text-align: center;">
-                <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/orders/${order.id}" class="button">
+                <a href="${magicLink}" class="button">
                   View Order Status
                 </a>
               </div>
@@ -567,7 +610,10 @@ class NotificationServiceImpl implements NotificationService {
    * Send welcome email to new seller (Upfirst → Seller)
    */
   async sendSellerWelcome(seller: User): Promise<void> {
-    const emailHtml = this.generateSellerWelcomeEmail(seller);
+    // Generate magic link for auto-login (seller email, no seller context)
+    const magicLink = await this.generateMagicLinkForEmail(seller.email || '', '/settings', undefined);
+    
+    const emailHtml = this.generateSellerWelcomeEmail(seller, magicLink);
 
     const result = await this.sendEmail({
       to: seller.email || '',
@@ -790,7 +836,7 @@ class NotificationServiceImpl implements NotificationService {
    * ============================================
    */
 
-  private generateSellerWelcomeEmail(seller: User): string {
+  private generateSellerWelcomeEmail(seller: User, magicLink: string): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -835,7 +881,7 @@ class NotificationServiceImpl implements NotificationService {
               <p style="margin: 10px 0 0;">Add your logo, banner, and branding to make your store uniquely yours</p>
             </div>
 
-            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/settings" class="button">
+            <a href="${magicLink}" class="button">
               Get Started
             </a>
 
