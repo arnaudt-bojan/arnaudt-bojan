@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { X, Star, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
+import { X, Star, Image as ImageIcon, Link as LinkIcon, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -13,6 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import { apiRequest } from "@/lib/queryClient";
+import type { UploadResult } from "@uppy/core";
 
 interface BulkImageInputProps {
   images: string[];
@@ -91,6 +94,30 @@ export function BulkImageInput({
     const newImages = [...images];
     newImages[index] = url;
     onChange(newImages);
+  };
+
+  // Handle image upload
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("POST", "/api/objects/upload");
+    return {
+      method: "PUT" as const,
+      url: (response as any).uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (index: number, result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFile = result.successful[0];
+      const uploadURL = uploadedFile.uploadURL;
+
+      // Normalize the path and set ACL policy
+      const response = await apiRequest("PUT", "/api/product-images", {
+        imageURL: uploadURL,
+      });
+
+      // Update the image URL with the normalized path
+      updateSingleUrl(index, (response as any).objectPath);
+    }
   };
 
   return (
@@ -201,16 +228,27 @@ export function BulkImageInput({
                 )}
               </div>
 
-              {/* URL input */}
-              <div className="p-2">
+              {/* URL input with upload button */}
+              <div className="p-2 space-y-2">
                 <input
                   type="url"
-                  placeholder="https://..."
+                  placeholder="https://... or upload below"
                   value={imageUrl}
                   onChange={(e) => updateSingleUrl(index, e.target.value)}
                   className="w-full px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                   data-testid={`input-image-url-${index}`}
                 />
+                <ObjectUploader
+                  maxNumberOfFiles={1}
+                  maxFileSize={10485760}
+                  onGetUploadParameters={handleGetUploadParameters}
+                  onComplete={(result) => handleUploadComplete(index, result)}
+                  variant="outline"
+                  buttonClassName="w-full h-7 text-xs"
+                >
+                  <Upload className="h-3 w-3 mr-1" />
+                  Upload
+                </ObjectUploader>
               </div>
 
               {/* Action buttons */}
