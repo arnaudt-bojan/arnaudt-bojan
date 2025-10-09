@@ -300,6 +300,26 @@ export const insertNewsletterAnalyticsSchema = createInsertSchema(newsletterAnal
 export type InsertNewsletterAnalytics = z.infer<typeof insertNewsletterAnalyticsSchema>;
 export type NewsletterAnalytics = typeof newsletterAnalytics.$inferSelect;
 
+// Newsletter Events - Track individual recipient actions to prevent duplicates
+export const newsletterEvents = pgTable("newsletter_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  newsletterId: varchar("newsletter_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  recipientEmail: text("recipient_email").notNull(),
+  eventType: text("event_type").notNull(), // "open", "click", "bounce", "unsubscribe"
+  eventData: jsonb("event_data"), // Additional data like clicked link URL
+  webhookEventId: text("webhook_event_id"), // Resend webhook event ID for idempotency
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  // Prevent duplicate events per recipient per newsletter per type
+  recipientEventUnique: uniqueIndex("newsletter_events_recipient_event_unique").on(table.newsletterId, table.recipientEmail, table.eventType),
+  // Index for webhook idempotency
+  webhookEventIdIndex: index("newsletter_events_webhook_event_id_idx").on(table.webhookEventId),
+}));
+
+export const insertNewsletterEventSchema = createInsertSchema(newsletterEvents).omit({ id: true, createdAt: true });
+export type InsertNewsletterEvent = z.infer<typeof insertNewsletterEventSchema>;
+export type NewsletterEvent = typeof newsletterEvents.$inferSelect;
+
 export const nftMints = pgTable("nft_mints", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull(),

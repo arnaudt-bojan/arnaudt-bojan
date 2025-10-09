@@ -26,6 +26,26 @@ export interface NotificationService {
   
   // Balance Payment Request
   sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void>;
+  
+  // Newsletter Functions
+  sendNewsletter(params: SendNewsletterParams): Promise<{ success: boolean; batchId?: string; error?: string }>;
+  trackNewsletterEvent(
+    newsletterId: string, 
+    recipientEmail: string,
+    eventType: 'open' | 'click' | 'bounce' | 'unsubscribe',
+    webhookEventId?: string,
+    eventData?: any
+  ): Promise<void>;
+}
+
+export interface SendNewsletterParams {
+  userId: string;
+  newsletterId: string;
+  recipients: Array<{ email: string; name?: string }>;
+  from: string;
+  replyTo?: string;
+  subject: string;
+  htmlContent: string;
 }
 
 interface SendEmailParams {
@@ -1131,6 +1151,147 @@ class NotificationServiceImpl implements NotificationService {
         </body>
       </html>
     `;
+  }
+
+  /**
+   * Send newsletter to multiple recipients using Resend Batch API
+   */
+  async sendNewsletter(params: SendNewsletterParams): Promise<{ success: boolean; batchId?: string; error?: string }> {
+    try {
+      const { recipients, from, replyTo, subject, htmlContent, newsletterId } = params;
+
+      // Resend batch API - send to multiple recipients with personalized tracking
+      const emails = recipients.map(recipient => {
+        const encodedEmail = encodeURIComponent(recipient.email);
+        
+        // Add tracking pixel with recipient email for open tracking
+        const trackingPixelUrl = `${process.env.VITE_BASE_URL || 'http://localhost:5000'}/api/newsletters/track/${newsletterId}/open?email=${encodedEmail}`;
+        const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
+
+        // Add unsubscribe link to HTML
+        const unsubscribeUrl = `${process.env.VITE_BASE_URL || 'http://localhost:5000'}/api/newsletters/unsubscribe?email=${encodedEmail}`;
+        const unsubscribeBlock = `<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+          <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe</a>
+        </div>`;
+
+        // Inject tracking pixel and unsubscribe before </body>, or append if no </body>
+        let finalHtml = htmlContent;
+        if (finalHtml.includes('</body>')) {
+          finalHtml = finalHtml.replace('</body>', `${trackingPixel}\n${unsubscribeBlock}</body>`);
+        } else {
+          finalHtml = finalHtml + trackingPixel + unsubscribeBlock;
+        }
+
+        return {
+          from,
+          to: recipient.email,
+          replyTo,
+          subject,
+          html: finalHtml,
+          tags: [
+            { name: 'newsletter_id', value: newsletterId },
+            { name: 'user_id', value: params.userId }
+          ]
+        };
+      });
+
+      const result = await resend.batch.send(emails);
+
+      if (result.error) {
+        console.error('[Newsletter] Batch send error:', result.error);
+        return { success: false, error: result.error.message };
+      }
+
+      // Initialize newsletter analytics
+      await this.storage.createNewsletterAnalytics({
+        newsletterId,
+        userId: params.userId,
+        totalSent: recipients.length,
+        totalDelivered: 0,
+        totalOpened: 0,
+        totalClicked: 0,
+        totalBounced: 0,
+        totalUnsubscribed: 0,
+      });
+
+      console.log(`[Newsletter] Batch sent to ${recipients.length} recipients`);
+      return { success: true, batchId: result.data?.id };
+    } catch (error: any) {
+      console.error('[Newsletter] Send exception:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Track newsletter events (opens, clicks, bounces, unsubscribes) with deduplication
+   */
+  async trackNewsletterEvent(
+    newsletterId: string, 
+    recipientEmail: string,
+    eventType: 'open' | 'click' | 'bounce' | 'unsubscribe',
+    webhookEventId?: string,
+    eventData?: any
+  ): Promise<void> {
+    try {
+      // Check for webhook idempotency
+      if (webhookEventId) {
+        const existingEvent = await this.storage.getNewsletterEventByWebhookId(webhookEventId);
+        if (existingEvent) {
+          console.log(`[Newsletter] Duplicate webhook event ${webhookEventId}, skipping`);
+          return;
+        }
+      }
+
+      // Attempt to create event record (will fail silently if duplicate per recipient)
+      const eventCreated = await this.storage.createNewsletterEvent({
+        newsletterId,
+        recipientEmail,
+        eventType,
+        webhookEventId,
+        eventData,
+      });
+
+      // Only update analytics if this is a new unique event
+      if (!eventCreated) {
+        console.log(`[Newsletter] Duplicate ${eventType} event for ${recipientEmail}, skipping analytics update`);
+        return;
+      }
+
+      const analytics = await this.storage.getNewsletterAnalytics(newsletterId);
+      if (!analytics) {
+        console.error('[Newsletter] Analytics not found for newsletter:', newsletterId);
+        return;
+      }
+
+      const updates: any = {};
+      
+      switch (eventType) {
+        case 'open':
+          updates.totalOpened = (analytics.totalOpened || 0) + 1;
+          break;
+        case 'click':
+          updates.totalClicked = (analytics.totalClicked || 0) + 1;
+          break;
+        case 'bounce':
+          updates.totalBounced = (analytics.totalBounced || 0) + 1;
+          break;
+        case 'unsubscribe':
+          updates.totalUnsubscribed = (analytics.totalUnsubscribed || 0) + 1;
+          break;
+      }
+
+      // Calculate rates
+      const totalSent = analytics.totalSent || 1;
+      updates.openRate = ((updates.totalOpened || analytics.totalOpened || 0) / totalSent * 100).toFixed(2);
+      updates.clickRate = ((updates.totalClicked || analytics.totalClicked || 0) / totalSent * 100).toFixed(2);
+      updates.bounceRate = ((updates.totalBounced || analytics.totalBounced || 0) / totalSent * 100).toFixed(2);
+      updates.lastUpdated = new Date();
+
+      await this.storage.updateNewsletterAnalytics(newsletterId, updates);
+      console.log(`[Newsletter] Tracked unique ${eventType} for ${recipientEmail} in newsletter:`, newsletterId);
+    } catch (error) {
+      console.error('[Newsletter] Track event error:', error);
+    }
   }
 
   /**

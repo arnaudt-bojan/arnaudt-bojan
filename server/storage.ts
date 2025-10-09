@@ -20,6 +20,8 @@ import {
   type InsertNewsletter,
   type NewsletterAnalytics,
   type InsertNewsletterAnalytics,
+  type NewsletterEvent,
+  type InsertNewsletterEvent,
   type NftMint,
   type InsertNftMint,
   type WholesaleProduct,
@@ -44,6 +46,7 @@ import {
   subscriberGroupMemberships,
   newsletters,
   newsletterAnalytics,
+  newsletterEvents,
   nftMints,
   wholesaleProducts,
   wholesaleInvitations,
@@ -683,6 +686,20 @@ export class DatabaseStorage implements IStorage {
 
   async createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics> {
     await this.ensureInitialized();
+    // Use upsert to handle resends without failing
+    const existing = await this.getNewsletterAnalytics(analytics.newsletterId);
+    if (existing) {
+      // Update existing record by adding to totalSent
+      const result = await this.db
+        .update(newsletterAnalytics)
+        .set({
+          totalSent: (existing.totalSent || 0) + (analytics.totalSent || 0),
+          lastUpdated: new Date(),
+        })
+        .where(eq(newsletterAnalytics.newsletterId, analytics.newsletterId))
+        .returning();
+      return result[0];
+    }
     const result = await this.db.insert(newsletterAnalytics).values(analytics).returning();
     return result[0];
   }
@@ -690,6 +707,35 @@ export class DatabaseStorage implements IStorage {
   async updateNewsletterAnalytics(newsletterId: string, data: Partial<NewsletterAnalytics>): Promise<NewsletterAnalytics | undefined> {
     await this.ensureInitialized();
     const result = await this.db.update(newsletterAnalytics).set(data).where(eq(newsletterAnalytics.newsletterId, newsletterId)).returning();
+    return result[0];
+  }
+
+  // Newsletter Events
+  async createNewsletterEvent(event: InsertNewsletterEvent): Promise<NewsletterEvent | null> {
+    await this.ensureInitialized();
+    try {
+      const result = await this.db.insert(newsletterEvents).values(event).returning();
+      return result[0];
+    } catch (error: any) {
+      // Only catch unique constraint violations (duplicate event) - propagate other errors
+      if (error.code === '23505' || error.message?.includes('unique constraint')) {
+        console.log('[Storage] Duplicate newsletter event, skipping:', event.eventType, event.recipientEmail);
+        return null;
+      }
+      // Re-throw other database errors
+      console.error('[Storage] Newsletter event creation error:', error);
+      throw error;
+    }
+  }
+
+  async getNewsletterEventsByNewsletterId(newsletterId: string): Promise<NewsletterEvent[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(newsletterEvents).where(eq(newsletterEvents.newsletterId, newsletterId));
+  }
+
+  async getNewsletterEventByWebhookId(webhookEventId: string): Promise<NewsletterEvent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletterEvents).where(eq(newsletterEvents.webhookEventId, webhookEventId)).limit(1);
     return result[0];
   }
 
