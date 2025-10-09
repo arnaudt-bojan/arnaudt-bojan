@@ -9,6 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +29,7 @@ interface NotificationBellProps {
 
 export function NotificationBell({ className }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
@@ -78,7 +86,59 @@ export function NotificationBell({ className }: NotificationBellProps) {
     deleteNotificationMutation.mutate(id);
   };
 
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read when opening
+    if (notification.read === 0) {
+      markAsReadMutation.mutate(notification.id);
+    }
+    setSelectedNotification(notification);
+    setOpen(false); // Close dropdown when opening dialog
+  };
+
   return (
+    <>
+      <Dialog open={!!selectedNotification} onOpenChange={(open) => !open && setSelectedNotification(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedNotification && getNotificationIcon(selectedNotification.type)}
+              {selectedNotification?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedNotification && formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true })}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm whitespace-pre-wrap">{selectedNotification?.message}</p>
+            </div>
+
+            {selectedNotification?.metadata && (
+              <div className="rounded-lg border p-4">
+                <h4 className="font-medium mb-2">Details</h4>
+                <dl className="space-y-2 text-sm">
+                  {Object.entries(selectedNotification.metadata as Record<string, any>).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <dt className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</dt>
+                      <dd className="font-medium">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            {selectedNotification?.emailSent === 1 && (
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  ✉️ Email sent to recipient
+                  {selectedNotification.emailId && ` (ID: ${selectedNotification.emailId})`}
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
@@ -128,6 +188,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                   notification.read === 0 ? 'bg-accent/50' : ''
                 }`}
                 onSelect={(e) => e.preventDefault()}
+                onClick={() => handleNotificationClick(notification)}
                 data-testid={`notification-${notification.id}`}
               >
                 <div className={`mt-0.5 ${notification.read === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -142,7 +203,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                     {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   {notification.read === 0 && (
                     <Button
                       variant="ghost"
@@ -170,5 +231,6 @@ export function NotificationBell({ className }: NotificationBellProps) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }
