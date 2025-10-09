@@ -10,6 +10,11 @@ Uppshop is a modern e-commerce platform for creators and brands to sell various 
 - **Interaction Preferences**: Ask for confirmation before implementing significant architectural changes or refactoring large portions of the codebase.
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
+## Recent Changes (October 2025)
+- **CRITICAL FIX: Data Isolation** - Fixed a critical security issue where sellers could see other sellers' products and orders. Implemented seller-specific API endpoints (`/api/seller/products`, `/api/seller/orders`) that filter data by authenticated seller's ID. All seller dashboards now use these filtered endpoints to ensure complete data isolation.
+- **Product Schema Fix** - Created `frontendProductSchema` (omits `sellerId`) for client-side validation, while backend uses full `insertProductSchema` and automatically adds `sellerId` from authenticated user. This fixes form submission issues where client-side validation was failing due to missing sellerId.
+- **Category Auto-fill** - Products now auto-populate category field with "General" if no category is selected, preventing validation errors.
+
 ## System Architecture
 Uppshop is built with a modern web stack. The frontend utilizes **React, TypeScript, Tailwind CSS, and Shadcn UI** for a responsive user experience, managing state with **TanStack Query** and **React Context**, and routing with **Wouter**. Forms are handled by **React Hook Form** with **Zod** validation. The backend is an **Express.js, Node.js** application, using **PostgreSQL (Neon)** with **Drizzle ORM** for persistent data storage.
 
