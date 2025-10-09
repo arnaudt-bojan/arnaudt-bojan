@@ -58,6 +58,10 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
+// Frontend product schema (without sellerId - added by backend)
+export const frontendProductSchema = insertProductSchema.omit({ sellerId: true });
+export type FrontendProduct = z.infer<typeof frontendProductSchema>;
+
 export const cartItems = pgTable("cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").notNull(),

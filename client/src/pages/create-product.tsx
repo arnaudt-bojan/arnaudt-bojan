@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { insertProductSchema, type InsertProduct } from "@shared/schema";
+import { frontendProductSchema, type FrontendProduct } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -176,8 +176,8 @@ export default function CreateProduct() {
     setProductImages(updated);
   };
 
-  const form = useForm<InsertProduct>({
-    resolver: zodResolver(insertProductSchema),
+  const form = useForm<FrontendProduct>({
+    resolver: zodResolver(frontendProductSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -208,7 +208,7 @@ export default function CreateProduct() {
   };
 
   const createMutation = useMutation({
-    mutationFn: async (data: InsertProduct) => {
+    mutationFn: async (data: FrontendProduct) => {
       // For pre-orders with deposit, set requiresDeposit flag
       if (data.productType === "pre-order" && data.depositAmount && parseFloat(data.depositAmount as string) > 0) {
         data.requiresDeposit = 1;
@@ -281,7 +281,7 @@ export default function CreateProduct() {
     },
   });
 
-  const onSubmit = (data: InsertProduct) => {
+  const onSubmit = (data: FrontendProduct) => {
     createMutation.mutate(data);
   };
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { insertProductSchema, type InsertProduct, type Product } from "@shared/schema";
+import { frontendProductSchema, type FrontendProduct, type Product } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useParams } from "wouter";
@@ -49,8 +49,8 @@ export default function EditProduct() {
     enabled: !!id,
   });
 
-  const form = useForm<InsertProduct>({
-    resolver: zodResolver(insertProductSchema),
+  const form = useForm<FrontendProduct>({
+    resolver: zodResolver(frontendProductSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -112,7 +112,7 @@ export default function EditProduct() {
   }, [product, form]);
 
   const updateMutation = useMutation({
-    mutationFn: async (data: InsertProduct) => {
+    mutationFn: async (data: FrontendProduct) => {
       // Add variants if any
       if (variants.length > 0) {
         (data as any).variants = variants;
@@ -153,7 +153,7 @@ export default function EditProduct() {
     },
   });
 
-  const onSubmit = (data: InsertProduct) => {
+  const onSubmit = (data: FrontendProduct) => {
     updateMutation.mutate(data);
   };
 
