@@ -28,34 +28,32 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl" data-testid="dialog-onboarding">
+      <DialogContent className="max-w-md" data-testid="dialog-onboarding">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Set Up Your Store URL</DialogTitle>
+          <DialogTitle>Set Up Your Store URL</DialogTitle>
           <DialogDescription>
-            Choose how you want to set up your store's web address. You can always change this later in Settings.
+            Choose your store's web address
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="space-y-3 py-4">
           <Card className="hover-elevate cursor-pointer" onClick={handleInstagramConnect} data-testid="card-instagram-option">
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
-                  <Instagram className="h-5 w-5 text-white" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
+                  <Instagram className="h-4 w-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">Use Instagram Username</CardTitle>
-                  <CardDescription>Connect your Instagram and use @username.upfirst.com</CardDescription>
+                  <CardTitle className="text-base">Instagram Username</CardTitle>
+                  <CardDescription className="text-xs">@username.upfirst.com</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground mb-3">
-                Automatically use your verified Instagram username as your store URL. Quick and easy!
-              </div>
+            <CardContent className="pt-0">
               <Button 
                 className="w-full" 
-                variant="default" 
+                variant="default"
+                size="sm"
                 onClick={handleInstagramConnect}
                 disabled={connecting}
                 data-testid="button-connect-instagram"
@@ -67,28 +65,22 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           </Card>
 
           <Card className="opacity-60">
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                  <Globe className="h-5 w-5 text-primary-foreground" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                  <Globe className="h-4 w-4" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">Custom Domain</CardTitle>
-                  <CardDescription>Use your own domain name (Coming Soon)</CardDescription>
+                  <CardTitle className="text-base">Custom Domain</CardTitle>
+                  <CardDescription className="text-xs">Coming Soon</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground mb-3">
-                <div className="mb-2">Options available soon:</div>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Purchase a new domain through GoDaddy</li>
-                  <li>Connect your existing domain with automatic DNS setup</li>
-                </ul>
-              </div>
+            <CardContent className="pt-0">
               <Button 
                 className="w-full" 
-                variant="outline" 
+                variant="outline"
+                size="sm"
                 disabled
                 data-testid="button-custom-domain"
               >
@@ -99,8 +91,8 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           </Card>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} data-testid="button-skip-onboarding">
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-skip-onboarding">
             Skip for Now
           </Button>
         </div>
