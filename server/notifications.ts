@@ -12,6 +12,15 @@ export interface NotificationService {
   sendProductListed(seller: User, product: Product): Promise<void>;
   sendAuthCode(email: string, code: string): Promise<void>;
   sendMagicLink(email: string, link: string): Promise<void>;
+  
+  // Phase 1: Critical Revenue-Impacting Notifications
+  sendSellerWelcome(seller: User): Promise<void>;
+  sendStripeOnboardingIncomplete(seller: User): Promise<void>;
+  sendOrderPaymentFailed(seller: User, orderId: string, amount: number, reason: string): Promise<void>;
+  sendBuyerPaymentFailed(buyerEmail: string, buyerName: string, amount: number, reason: string, retryLink?: string): Promise<void>;
+  sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string): Promise<void>;
+  sendInventoryOutOfStock(seller: User, product: Product): Promise<void>;
+  sendPayoutFailed(seller: User, amount: number, reason: string): Promise<void>;
 }
 
 interface SendEmailParams {
@@ -342,7 +351,7 @@ class NotificationServiceImpl implements NotificationService {
             
             <div class="header">
               ${logoUrl ? `<img src="${logoUrl}" alt="${seller.firstName || 'Store'} Logo" class="logo">` : ''}
-              <h1>📦 Your Order Has Shipped!</h1>
+              <h1>Your Order Has Shipped!</h1>
               <p>Great news! Your order is on its way.</p>
             </div>
 
@@ -399,7 +408,7 @@ class NotificationServiceImpl implements NotificationService {
         </head>
         <body>
           <div class="container">
-            <h1>✅ Product Listed Successfully</h1>
+            <h1>Product Listed Successfully</h1>
             <p>Hi ${seller.firstName || 'there'},</p>
             <p>Your product has been successfully listed on your Uppfirst store!</p>
 
@@ -444,7 +453,7 @@ class NotificationServiceImpl implements NotificationService {
         </head>
         <body>
           <div class="container">
-            <h1>🔐 Your Login Code</h1>
+            <h1>Your Login Code</h1>
             <p>Enter this code to sign in to Uppfirst:</p>
             
             <div class="code-box">
@@ -483,7 +492,7 @@ class NotificationServiceImpl implements NotificationService {
         </head>
         <body>
           <div class="container">
-            <h1>🔗 Sign in to Uppfirst</h1>
+            <h1>Sign in to Uppfirst</h1>
             <p>Click the button below to securely sign in to your account:</p>
             
             <a href="${link}" class="button">Sign In to Uppfirst</a>
@@ -502,6 +511,571 @@ class NotificationServiceImpl implements NotificationService {
             <p style="margin-top: 30px; color: #666; font-size: 14px;">
               © ${new Date().getFullYear()} Uppfirst. All rights reserved.
             </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * ============================================
+   * PHASE 1: CRITICAL REVENUE-IMPACTING NOTIFICATIONS
+   * ============================================
+   */
+
+  /**
+   * Send welcome email to new seller (Uppfirst → Seller)
+   */
+  async sendSellerWelcome(seller: User): Promise<void> {
+    const emailHtml = this.generateSellerWelcomeEmail(seller);
+
+    const result = await this.sendEmail({
+      to: seller.email || '',
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: `Welcome to Uppfirst, ${seller.firstName || 'Seller'}!`,
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'seller_welcome',
+        title: 'Welcome to Uppfirst!',
+        message: 'Get started by setting up your payment method and listing your first product',
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: {},
+      });
+    }
+
+    console.log(`[Notifications] Welcome email sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send Stripe onboarding incomplete reminder (Uppfirst → Seller)
+   */
+  async sendStripeOnboardingIncomplete(seller: User): Promise<void> {
+    const emailHtml = this.generateStripeOnboardingIncompleteEmail(seller);
+
+    const result = await this.sendEmail({
+      to: seller.email || '',
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: 'Complete Your Stripe Setup to Start Accepting Payments',
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'stripe_onboarding_incomplete',
+        title: 'Complete Stripe Setup',
+        message: 'Your Stripe account setup is incomplete. Complete it now to start accepting payments.',
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: {},
+      });
+    }
+
+    console.log(`[Notifications] Stripe onboarding reminder sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send order payment failed notification (Uppfirst → Seller)
+   */
+  async sendOrderPaymentFailed(seller: User, orderId: string, amount: number, reason: string): Promise<void> {
+    const emailHtml = this.generateOrderPaymentFailedEmail(seller, orderId, amount, reason);
+
+    const result = await this.sendEmail({
+      to: seller.email || '',
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: `Payment Failed for Order #${orderId.slice(0, 8)}`,
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'order_payment_failed',
+        title: 'Order Payment Failed',
+        message: `Payment of $${amount} failed for order #${orderId.slice(0, 8)} - ${reason}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { orderId, amount, reason },
+      });
+    }
+
+    console.log(`[Notifications] Order payment failed sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send buyer payment failed notification (Uppfirst → Buyer)
+   */
+  async sendBuyerPaymentFailed(buyerEmail: string, buyerName: string, amount: number, reason: string, retryLink?: string): Promise<void> {
+    const emailHtml = this.generateBuyerPaymentFailedEmail(buyerName, amount, reason, retryLink);
+
+    await this.sendEmail({
+      to: buyerEmail,
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: 'Payment Failed - Please Try Again',
+      html: emailHtml,
+    });
+
+    console.log(`[Notifications] Buyer payment failed sent to ${buyerEmail}`);
+  }
+
+  /**
+   * Send subscription payment failed (Uppfirst → Seller)
+   */
+  async sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string): Promise<void> {
+    const emailHtml = this.generateSubscriptionPaymentFailedEmail(seller, amount, reason);
+
+    const result = await this.sendEmail({
+      to: seller.email || '',
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: 'Your Uppfirst Subscription Payment Failed',
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'subscription_payment_failed',
+        title: 'Subscription Payment Failed',
+        message: `Your subscription payment of $${amount} failed - ${reason}. Please update your payment method.`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { amount, reason },
+      });
+    }
+
+    console.log(`[Notifications] Subscription payment failed sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send inventory out of stock alert (Uppfirst → Seller)
+   */
+  async sendInventoryOutOfStock(seller: User, product: Product): Promise<void> {
+    const emailHtml = this.generateInventoryOutOfStockEmail(seller, product);
+
+    const result = await this.sendEmail({
+      to: seller.email || '',
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: `Product Out of Stock: ${product.name}`,
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'inventory_out_of_stock',
+        title: 'Product Out of Stock',
+        message: `${product.name} is now out of stock and has been hidden from your store`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { productId: product.id, productName: product.name },
+      });
+    }
+
+    console.log(`[Notifications] Inventory out of stock sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send payout failed notification (Uppfirst → Seller)
+   */
+  async sendPayoutFailed(seller: User, amount: number, reason: string): Promise<void> {
+    const emailHtml = this.generatePayoutFailedEmail(seller, amount, reason);
+
+    const result = await this.sendEmail({
+      to: seller.email || '',
+      from: FROM_EMAIL,
+      replyTo: 'support@uppfirst.com',
+      subject: 'Payout Failed - Action Required',
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'payout_failed',
+        title: 'Payout Failed',
+        message: `Your payout of $${amount} failed - ${reason}. Please update your bank account details.`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { amount, reason },
+      });
+    }
+
+    console.log(`[Notifications] Payout failed sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * ============================================
+   * EMAIL TEMPLATE GENERATORS - PHASE 1
+   * ============================================
+   */
+
+  private generateSellerWelcomeEmail(seller: User): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            h1 { color: #000; margin-bottom: 10px; }
+            .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; text-align: center; border-radius: 8px; margin-bottom: 30px; }
+            .step { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 15px 0; }
+            .step-number { display: inline-block; width: 30px; height: 30px; background: #000; color: white; border-radius: 50%; text-align: center; line-height: 30px; margin-right: 10px; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="hero">
+              <h1 style="color: white; margin: 0;">Welcome to Uppfirst!</h1>
+              <p style="font-size: 18px; margin: 10px 0 0;">Your e-commerce journey starts here</p>
+            </div>
+
+            <p>Hi ${seller.firstName || 'there'},</p>
+            <p>Congratulations! Your Uppfirst store is ready to go. Here's how to get started:</p>
+
+            <div class="step">
+              <span class="step-number">1</span>
+              <strong>Set Up Payments</strong>
+              <p style="margin: 10px 0 0;">Connect your Stripe account to start accepting payments (1.5% platform fee)</p>
+            </div>
+
+            <div class="step">
+              <span class="step-number">2</span>
+              <strong>List Your First Product</strong>
+              <p style="margin: 10px 0 0;">Add products with flexible types: in-stock, pre-order, made-to-order, or wholesale</p>
+            </div>
+
+            <div class="step">
+              <span class="step-number">3</span>
+              <strong>Customize Your Store</strong>
+              <p style="margin: 10px 0 0;">Add your logo, banner, and branding to make your store uniquely yours</p>
+            </div>
+
+            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/settings" class="button">
+              Get Started
+            </a>
+
+            <p style="margin-top: 30px; padding: 20px; background: #f0f7ff; border-radius: 8px;">
+              <strong>Pro Tip:</strong> You have a 30-day free trial to explore all features. No payment method required to start!
+            </p>
+
+            <div class="footer">
+              <p>Questions? Reply to this email or visit our help center.</p>
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generateStripeOnboardingIncompleteEmail(seller: User): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Complete Your Stripe Setup</h1>
+            <p>Hi ${seller.firstName || 'there'},</p>
+            
+            <div class="alert-box">
+              <strong>Action Required:</strong> Your Stripe account setup is incomplete. You won't be able to accept payments until this is done.
+            </div>
+
+            <p>Completing your Stripe setup takes just a few minutes and allows you to:</p>
+            <ul>
+              <li>Accept credit cards, Apple Pay, and Google Pay</li>
+              <li>Receive automatic payouts to your bank account</li>
+              <li>Start selling immediately</li>
+            </ul>
+
+            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/settings?tab=payment" class="button">
+              Complete Stripe Setup
+            </a>
+
+            <p style="color: #666; font-size: 14px;">
+              Need help? Our support team is here: support@uppfirst.com
+            </p>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generateOrderPaymentFailedEmail(seller: User, orderId: string, amount: number, reason: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Order Payment Failed</h1>
+            <p>Hi ${seller.firstName || 'there'},</p>
+            
+            <div class="error-box">
+              <strong>Order #${orderId.slice(0, 8)}</strong><br>
+              Payment of $${amount} failed<br>
+              <small>Reason: ${reason}</small>
+            </div>
+
+            <p>The customer's payment did not go through. This could be due to:</p>
+            <ul>
+              <li>Insufficient funds</li>
+              <li>Invalid card details</li>
+              <li>Card declined by issuing bank</li>
+            </ul>
+
+            <p>The order has been marked as failed and the customer has been notified.</p>
+
+            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/seller" class="button">
+              View Order Details
+            </a>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generateBuyerPaymentFailedEmail(buyerName: string, amount: number, reason: string, retryLink?: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Payment Failed</h1>
+            <p>Hi ${buyerName},</p>
+            
+            <div class="error-box">
+              <strong>Your payment of $${amount} could not be processed</strong><br>
+              <small>Reason: ${reason}</small>
+            </div>
+
+            <p>Don't worry! You can try again with:</p>
+            <ul>
+              <li>A different payment method</li>
+              <li>A different card</li>
+              <li>Contact your bank to authorize the payment</li>
+            </ul>
+
+            ${retryLink ? `
+              <a href="${retryLink}" class="button">
+                Try Again
+              </a>
+            ` : ''}
+
+            <p style="color: #666; font-size: 14px;">
+              Need help? Contact support@uppfirst.com
+            </p>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generateSubscriptionPaymentFailedEmail(seller: User, amount: number, reason: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .button { display: inline-block; padding: 12px 30px; background: #dc3545; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Subscription Payment Failed</h1>
+            <p>Hi ${seller.firstName || 'there'},</p>
+            
+            <div class="alert-box">
+              <strong>Action Required:</strong> Your Uppfirst subscription payment of $${amount} failed.<br>
+              <small>Reason: ${reason}</small>
+            </div>
+
+            <p>To avoid service interruption, please update your payment method immediately.</p>
+
+            <p><strong>What happens next:</strong></p>
+            <ul>
+              <li>We'll retry the payment in 3 days</li>
+              <li>If payment fails again, your account will be suspended</li>
+              <li>Update your payment method now to avoid disruption</li>
+            </ul>
+
+            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/settings?tab=subscription" class="button">
+              Update Payment Method
+            </a>
+
+            <div class="footer">
+              <p>Questions? Contact support@uppfirst.com</p>
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generateInventoryOutOfStockEmail(seller: User, product: Product): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .product-card { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Product Out of Stock</h1>
+            <p>Hi ${seller.firstName || 'there'},</p>
+            
+            <div class="alert-box">
+              <strong>Action Required:</strong> One of your products is out of stock
+            </div>
+
+            <div class="product-card">
+              <h3>${product.name}</h3>
+              <p><strong>Current Stock:</strong> 0 units</p>
+              <p><strong>Status:</strong> Hidden from store (automatically)</p>
+            </div>
+
+            <p>This product has been automatically hidden from your storefront to prevent new orders.</p>
+
+            <p><strong>Next steps:</strong></p>
+            <ul>
+              <li>Restock the product</li>
+              <li>Update the inventory count</li>
+              <li>The product will be automatically shown again</li>
+            </ul>
+
+            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/seller/products/${product.id}/edit" class="button">
+              Update Inventory
+            </a>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generatePayoutFailedEmail(seller: User, amount: number, reason: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Payout Failed</h1>
+            <p>Hi ${seller.firstName || 'there'},</p>
+            
+            <div class="error-box">
+              <strong>Your payout of $${amount} failed</strong><br>
+              <small>Reason: ${reason}</small>
+            </div>
+
+            <p>We were unable to transfer funds to your bank account. This could be due to:</p>
+            <ul>
+              <li>Invalid or closed bank account</li>
+              <li>Incorrect routing or account numbers</li>
+              <li>Bank verification required</li>
+            </ul>
+
+            <p><strong>What you need to do:</strong></p>
+            <ol>
+              <li>Log in to your Stripe dashboard</li>
+              <li>Verify your bank account details</li>
+              <li>Update any incorrect information</li>
+            </ol>
+
+            <a href="https://dashboard.stripe.com" class="button">
+              Go to Stripe Dashboard
+            </a>
+
+            <p style="margin-top: 30px; padding: 20px; background: #f0f7ff; border-radius: 8px;">
+              <strong>Note:</strong> Your funds are safe and will be retried once you update your bank details.
+            </p>
+
+            <div class="footer">
+              <p>Need help? Contact support@uppfirst.com</p>
+              <p>© ${new Date().getFullYear()} Uppfirst. All rights reserved.</p>
+            </div>
           </div>
         </body>
       </html>

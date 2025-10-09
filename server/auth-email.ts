@@ -93,9 +93,20 @@ router.post('/verify-code', async (req: any, res: Response) => {
 
     // Determine if this is a seller or buyer signup based on domain
     const host = req.get('host') || '';
-    const isMainDomain = !host.includes('.') || host.startsWith('localhost') || host.split('.').length <= 2;
     
-    // Get or create user
+    // Simplified domain logic for MVP:
+    // - Development (localhost, replit.dev, repl.co) = ALWAYS seller
+    // - Production: For now, all signups are sellers (buyer accounts created via guest checkout or seller invite)
+    // TODO: Implement proper storefront subdomain detection for production buyer signups
+    
+    const isDevEnvironment = host.includes('localhost') || host.includes('127.0.0.1') || 
+                             host.includes('replit.dev') || host.includes('repl.co');
+    
+    // For MVP: All email auth signups create seller accounts
+    // Buyers are created automatically during guest checkout
+    const isMainDomain = true; // Always seller for now
+    
+    // Get or create user (email lookup is case-insensitive in storage)
     let user = await storage.getUserByEmail(email);
     
     if (!user) {
@@ -104,11 +115,25 @@ router.post('/verify-code', async (req: any, res: Response) => {
       const role = isMainDomain ? 'admin' : 'buyer';
       
       user = await storage.upsertUser({
-        email,
+        email: email.toLowerCase().trim(), // Normalize email
         role,
       });
       
-      console.log(`[Auth] Created new ${role} user: ${email} (domain: ${host})`);
+      console.log(`[Auth] Created new ${role} user: ${email} (domain: ${host}, isMainDomain: ${isMainDomain})`);
+      
+      // Send welcome email to new sellers
+      if (role === 'admin') {
+        await notificationService.sendSellerWelcome(user);
+      }
+    } else {
+      // Existing user: buyers should not use email auth (they use guest checkout)
+      if (user.role === 'buyer') {
+        return res.status(403).json({ 
+          error: 'Buyer accounts cannot login here. Please use guest checkout to place orders.' 
+        });
+      }
+      
+      console.log(`[Auth] Existing ${user.role} user logging in: ${email} (domain: ${host})`);
     }
 
     // Create session compatible with isAuthenticated middleware
@@ -226,17 +251,28 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     // Mark as used
     await storage.markAuthTokenAsUsed(authToken.id);
 
-    // Get or create user
-    let user = await storage.getUserByEmail(authToken.email);
+    // Get or create user (normalized email)
+    const normalizedEmail = authToken.email.toLowerCase().trim();
+    let user = await storage.getUserByEmail(normalizedEmail);
     
     if (!user) {
-      // Create new user account
+      // Create new seller account (all email auth users are sellers)
       user = await storage.upsertUser({
-        email: authToken.email,
-        role: 'buyer', // Default role
+        email: normalizedEmail,
+        role: 'admin', // Email auth creates sellers
       });
       
-      console.log(`[Auth] Created new user: ${authToken.email}`);
+      console.log(`[Auth] Created new admin user: ${normalizedEmail}`);
+      
+      // Send welcome email to new sellers
+      await notificationService.sendSellerWelcome(user);
+    } else {
+      // Existing user: buyers should not use email auth
+      if (user.role === 'buyer') {
+        return res.redirect('/login?error=buyer_account');
+      }
+      
+      console.log(`[Auth] Existing ${user.role} user logging in via magic link: ${normalizedEmail}`);
     }
 
     // Create session compatible with isAuthenticated middleware
@@ -260,12 +296,10 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       });
     });
 
-    console.log(`[Auth] User authenticated via magic link: ${authToken.email}`);
+    console.log(`[Auth] User authenticated via magic link: ${normalizedEmail}`);
 
-    // Redirect to dashboard based on role
-    const redirectUrl = user.role === 'seller' || user.role === 'admin' || user.role === 'owner'
-      ? '/seller-dashboard'
-      : '/';
+    // Redirect to seller dashboard (all email auth users are sellers)
+    const redirectUrl = '/seller-dashboard';
     
     res.redirect(redirectUrl);
   } catch (error: any) {

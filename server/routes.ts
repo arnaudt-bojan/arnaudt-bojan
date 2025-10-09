@@ -310,9 +310,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Email is required for guest checkout" });
         }
 
-        // Look up user by email
+        // Look up user by email (case-insensitive)
         const allUsers = await storage.getAllUsers();
-        let existingUser = allUsers.find(u => u.email === customerEmail);
+        const normalizedEmail = customerEmail.toLowerCase().trim();
+        let existingUser = allUsers.find(u => u.email?.toLowerCase().trim() === normalizedEmail);
+
+        // Check if this is a seller email trying to checkout as a buyer
+        const sellerRoles = ['admin', 'editor', 'viewer', 'seller'];
+        if (existingUser && sellerRoles.includes(existingUser.role)) {
+          return res.status(403).json({ 
+            error: "This is a seller account email. Sellers cannot checkout as buyers. Please use a different email address." 
+          });
+        }
 
         if (!existingUser) {
           // Auto-create buyer account for guest checkout
@@ -322,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           existingUser = await storage.upsertUser({
             id: newUserId,
-            email: customerEmail,
+            email: normalizedEmail, // Use normalized email
             username,
             firstName: firstName || "Guest",
             lastName: lastNameParts.join(" ") || "User",
@@ -331,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             password: "123456", // Temporary password for guest accounts
           });
 
-          console.log(`[Guest Checkout] Created new buyer account for ${customerEmail} with username ${username}`);
+          console.log(`[Guest Checkout] Created new buyer account for ${normalizedEmail} with username ${username}`);
         }
 
         userId = existingUser.id;
