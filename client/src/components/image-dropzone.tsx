@@ -35,11 +35,12 @@ export function ImageDropzone({
     try {
       for (const file of acceptedFiles) {
         // Get presigned upload URL
-        const uploadParams = await apiRequest('POST', '/api/objects/upload');
-        const { uploadURL } = uploadParams as { uploadURL: string };
+        const uploadResponse = await apiRequest('POST', '/api/objects/upload');
+        const uploadData = await uploadResponse.json() as { uploadURL: string };
+        const { uploadURL } = uploadData;
 
-        // Upload to S3
-        const uploadResponse = await fetch(uploadURL, {
+        // Upload to object storage
+        const putResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
           headers: {
@@ -47,16 +48,19 @@ export function ImageDropzone({
           },
         });
 
-        if (!uploadResponse.ok) {
+        if (!putResponse.ok) {
           throw new Error('Upload failed');
         }
 
         // Normalize the path and set ACL policy
-        const response = await apiRequest('PUT', '/api/product-images', {
+        const normalizeResponse = await apiRequest('PUT', '/api/product-images', {
           imageURL: uploadURL,
         });
+        const normalizeData = await normalizeResponse.json() as { objectPath: string };
 
-        uploadedUrls.push((response as any).objectPath);
+        // Prepend /objects/ prefix to create fetchable URL
+        const imageUrl = `/objects/${normalizeData.objectPath.replace(/^\/+/, '')}`;
+        uploadedUrls.push(imageUrl);
         setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
       }
 

@@ -3140,8 +3140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     try {
+      // Extract just the object path (remove /objects/ prefix)
+      const objectPath = req.params.objectPath || req.params[0];
       const objectFile = await objectStorageService.getObjectEntityFile(
-        req.path,
+        objectPath,
       );
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
