@@ -45,7 +45,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   });
 
   // Determine which seller info to use
-  const sellerInfo = isSellerDomain ? sellerData : user;
+  const sellerInfo = (isSellerDomain ? sellerData : user) as any;
   const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
 
   return (

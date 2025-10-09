@@ -106,6 +106,60 @@ export default function SellerDashboard() {
             </div>
           </div>
           
+          {/* Go Live Banner - Trial & Subscription */}
+          {user && !user.subscriptionStatus && (
+            <Card className="p-8 mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20" data-testid="card-go-live">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                    <Store className="h-6 w-6" />
+                    Launch Your Store - 30 Day Free Trial
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Start your free trial now! Add a payment method to activate your store and unlock all features. 
+                    No charges for 30 days, cancel anytime.
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                    <li>Accept payments from customers worldwide</li>
+                    <li>Unlimited products and orders</li>
+                    <li>Advanced analytics and reporting</li>
+                    <li>$9.99/month or $99/year after trial</li>
+                  </ul>
+                </div>
+                <Button 
+                  size="lg" 
+                  onClick={() => setLocation("/settings?tab=subscription")}
+                  className="whitespace-nowrap"
+                  data-testid="button-go-live"
+                >
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Go Live - Start Free Trial
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {user?.subscriptionStatus === 'trial' && user.trialEndsAt && (
+            <Alert className="mb-6 border-blue-500/50 bg-blue-500/10" data-testid="alert-trial-active">
+              <TrendingUp className="h-4 w-4" />
+              <AlertTitle>Free Trial Active</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>
+                  Your free trial ends on {new Date(user.trialEndsAt).toLocaleDateString()}. 
+                  Choose your subscription plan in settings to continue after trial.
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setLocation("/settings?tab=subscription")}
+                  data-testid="button-choose-plan"
+                >
+                  Choose Plan
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {user && !user.stripeConnectedAccountId && (
             <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-not-connected">
               <AlertTriangle className="h-4 w-4" />
