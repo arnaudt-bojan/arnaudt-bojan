@@ -1242,20 +1242,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      const { purpose = 'onboarding' } = req.body; // 'onboarding' or 'payouts'
       
       if (!user || !user.stripeConnectedAccountId) {
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-      // Create account session for embedded onboarding
+      // Create account session for embedded onboarding or payout setup
       const accountSession = await stripe.accountSessions.create({
         account: user.stripeConnectedAccountId,
         components: {
           account_onboarding: {
             enabled: true,
             features: {
-              // Enable progressive onboarding - collect bank details later
-              external_account_collection: false,
+              // For initial onboarding, skip bank details
+              // For payout setup, require bank details
+              external_account_collection: purpose === 'payouts',
             },
           },
         },

@@ -1043,6 +1043,11 @@ export default function Settings() {
   const isStripeConnected = user?.stripeConnectedAccountId && user?.stripeDetailsSubmitted === 1;
   const isInstagramConnected = user?.instagramUsername;
   const [isStripeModalOpen, setIsStripeModalOpen] = useState(false);
+  const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
+  
+  // Check if charges are enabled but payouts are not (progressive onboarding state)
+  const canAcceptPayments = user?.stripeChargesEnabled === 1;
+  const canReceivePayouts = user?.stripePayoutsEnabled === 1;
 
   // Get tab from URL search params
   const searchParams = new URLSearchParams(window.location.search);
@@ -1563,24 +1568,51 @@ export default function Settings() {
                     </div>
 
                     {isStripeConnected ? (
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          onClick={handleConnectStripe}
-                          data-testid="button-update-stripe"
-                          className="flex-1"
-                        >
-                          Update Account
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => disconnectStripeMutation.mutate()}
-                          disabled={disconnectStripeMutation.isPending}
-                          data-testid="button-disconnect-stripe"
-                          className="flex-1"
-                        >
-                          {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
-                        </Button>
+                      <div className="space-y-3">
+                        {/* Show payout status if charges are enabled */}
+                        {canAcceptPayments && !canReceivePayouts && (
+                          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                            <p className="text-sm text-amber-800 dark:text-amber-200">
+                              <strong>Payments Enabled:</strong> You can accept payments! Add bank details to receive payouts.
+                            </p>
+                          </div>
+                        )}
+                        {canAcceptPayments && canReceivePayouts && (
+                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                            <p className="text-sm text-green-800 dark:text-green-200">
+                              <strong>Fully Enabled:</strong> You can accept payments and receive payouts.
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2">
+                          {canAcceptPayments && !canReceivePayouts && (
+                            <Button 
+                              onClick={() => setIsPayoutsModalOpen(true)}
+                              data-testid="button-add-bank-details"
+                              className="flex-1"
+                            >
+                              Add Bank Details
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            onClick={handleConnectStripe}
+                            data-testid="button-update-stripe"
+                            className="flex-1"
+                          >
+                            Update Account
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => disconnectStripeMutation.mutate()}
+                            disabled={disconnectStripeMutation.isPending}
+                            data-testid="button-disconnect-stripe"
+                            className="flex-1"
+                          >
+                            {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <Button
@@ -1724,15 +1756,28 @@ export default function Settings() {
 
       {/* Stripe Embedded Onboarding Modal */}
       {user?.stripeConnectedAccountId && (
-        <StripeOnboardingModal
-          isOpen={isStripeModalOpen}
-          onClose={() => setIsStripeModalOpen(false)}
-          accountId={user.stripeConnectedAccountId}
-          onComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-            setIsStripeModalOpen(false);
-          }}
-        />
+        <>
+          <StripeOnboardingModal
+            isOpen={isStripeModalOpen}
+            onClose={() => setIsStripeModalOpen(false)}
+            accountId={user.stripeConnectedAccountId}
+            purpose="onboarding"
+            onComplete={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+              setIsStripeModalOpen(false);
+            }}
+          />
+          <StripeOnboardingModal
+            isOpen={isPayoutsModalOpen}
+            onClose={() => setIsPayoutsModalOpen(false)}
+            accountId={user.stripeConnectedAccountId}
+            purpose="payouts"
+            onComplete={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+              setIsPayoutsModalOpen(false);
+            }}
+          />
+        </>
       )}
     </div>
   );
