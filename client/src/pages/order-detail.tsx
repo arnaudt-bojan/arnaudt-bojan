@@ -57,7 +57,7 @@ export default function OrderDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
       toast({ title: "Status updated", description: "Order status has been updated successfully" });
     },
     onError: () => {
@@ -75,7 +75,7 @@ export default function OrderDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
       toast({ 
         title: "Tracking updated", 
         description: "Tracking information has been saved and customer notified" 

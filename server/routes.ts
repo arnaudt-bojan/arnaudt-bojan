@@ -408,9 +408,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy endpoint - returns all orders (for admin/backward compatibility)
-  app.get("/api/orders", isAuthenticated, async (req, res) => {
+  // DEPRECATED: Use /api/seller/orders instead for proper filtering
+  // This endpoint should only be used by admins/owners for platform-wide order management
+  app.get("/api/orders", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only allow owner/admin roles to see all orders
+      if (user?.role !== 'owner' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Access denied. Use /api/seller/orders for seller-specific orders." });
+      }
+      
       const orders = await storage.getAllOrders();
       res.json(orders);
     } catch (error) {
@@ -439,9 +448,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Seller/admin orders endpoint - must be before /:id route
+  // DEPRECATED: Use /api/seller/orders instead
+  // This endpoint should only be used by admins/owners for platform-wide order management
   app.get("/api/orders/all-orders", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only allow owner/admin roles to see all orders
+      if (user?.role !== 'owner' && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Access denied. Use /api/seller/orders for seller-specific orders." });
+      }
+      
       const orders = await storage.getAllOrders();
       res.json(orders);
     } catch (error) {
@@ -449,12 +467,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/orders/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       const order = await storage.getOrder(req.params.id);
+      
       if (!order) {
         return res.status(404).json({ error: "Order not found" });
       }
+      
+      // Check authorization: user must be owner/admin, the buyer, or seller of products in the order
+      const isBuyer = order.userId === userId;
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      
+      if (!isBuyer && !isAdmin) {
+        // Check if user is the seller of any products in this order
+        try {
+          const items = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = items.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
       res.json(order);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch order" });
@@ -551,8 +596,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/orders/:id/status", isAuthenticated, async (req, res) => {
+  app.patch("/api/orders/:id/status", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
       const statusSchema = z.object({ status: orderStatusEnum });
       const validationResult = statusSchema.safeParse(req.body);
       
@@ -561,18 +609,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.message });
       }
 
-      const order = await storage.updateOrderStatus(req.params.id, validationResult.data.status);
-      if (!order) {
+      // Check authorization before updating
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
         return res.status(404).json({ error: "Order not found" });
       }
+      
+      // Only seller of products in order or admin can update status
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      if (!isAdmin) {
+        try {
+          const items = JSON.parse(existingOrder.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = items.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const order = await storage.updateOrderStatus(req.params.id, validationResult.data.status);
       res.json(order);
     } catch (error) {
       res.status(500).json({ error: "Failed to update order status" });
     }
   });
 
-  app.patch("/api/orders/:id/tracking", isAuthenticated, async (req, res) => {
+  app.patch("/api/orders/:id/tracking", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
       const trackingSchema = z.object({
         trackingNumber: z.string().min(1, "Tracking number is required"),
         trackingLink: z.string().url("Invalid tracking link").or(z.literal("")),
@@ -584,6 +658,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validationResult.success) {
         const error = fromZodError(validationResult.error);
         return res.status(400).json({ error: error.message });
+      }
+
+      // Check authorization before updating
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Only seller of products in order or admin can update tracking
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      if (!isAdmin) {
+        try {
+          const items = JSON.parse(existingOrder.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = items.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
       }
 
       const order = await storage.updateOrderTracking(
@@ -629,6 +729,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders/:id/request-balance", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
       if (!stripe) {
         return res.status(500).json({ 
           error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
@@ -638,6 +741,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const order = await storage.getOrder(req.params.id);
       if (!order) {
         return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Check authorization before requesting balance
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      if (!isAdmin) {
+        try {
+          const items = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = items.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
       }
 
       const remainingBalance = parseFloat(order.remainingBalance || "0");

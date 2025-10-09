@@ -23,11 +23,11 @@ export default function Orders() {
   const { isAuthenticated, user } = useAuth();
   const [, navigate] = useLocation();
 
-  // For sellers, show all orders; for buyers, show only their orders
+  // For sellers, show only their product orders; for buyers, show only their orders
   const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
   
   const { data: orders, isLoading } = useQuery<Order[]>({
-    queryKey: isSeller ? ["/api/orders"] : ["/api/orders/my"],
+    queryKey: isSeller ? ["/api/seller/orders"] : ["/api/orders/my"],
     enabled: isAuthenticated,
   });
 

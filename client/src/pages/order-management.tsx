@@ -39,7 +39,7 @@ export default function OrderManagement() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   const { data: orders, isLoading } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/seller/orders"],
   });
 
   const updateStatusMutation = useMutation({
@@ -47,7 +47,7 @@ export default function OrderManagement() {
       return await apiRequest("PATCH", `/api/orders/${orderId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
       toast({ title: "Status updated", description: "Order status has been updated successfully" });
     },
     onError: () => {

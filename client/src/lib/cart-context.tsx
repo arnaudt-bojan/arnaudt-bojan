@@ -40,6 +40,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             : item
         );
       }
+      
+      // Prevent mixing products from different sellers
+      if (prev.length > 0 && prev[0].sellerId !== product.sellerId) {
+        throw new Error("Cannot add products from different sellers to the same cart. Please checkout your current items first.");
+      }
+      
       return [...prev, { ...product, quantity: 1 }];
     });
   };
