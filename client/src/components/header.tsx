@@ -267,7 +267,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </DropdownMenu>
             ) : (
               <Button variant="default" asChild data-testid="button-login">
-                <Link href="/login">Log in</Link>
+                <Link href="/email-login">Log in</Link>
               </Button>
             )
           )}

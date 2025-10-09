@@ -15,7 +15,6 @@ import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
-import Login from "@/pages/login";
 import EmailLogin from "@/pages/email-login";
 import BuyerDashboard from "@/pages/buyer-dashboard";
 import SellerDashboard from "@/pages/seller-dashboard";
@@ -53,7 +52,6 @@ function AppContent() {
       <main className="flex-1">
         <Switch>
           <Route path="/" component={Home} />
-          <Route path="/login" component={Login} />
           <Route path="/email-login" component={EmailLogin} />
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />

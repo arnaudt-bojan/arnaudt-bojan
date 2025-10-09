@@ -195,7 +195,7 @@ export default function Home() {
           </div>
 
           <div className="flex gap-4 justify-center">
-            <Link href="/login">
+            <Link href="/email-login">
               <Button size="lg" className="gap-2 text-lg px-8 py-6" data-testid="button-get-started">
                 GET STARTED FOR FREE
                 <ArrowRight className="h-5 w-5" />
@@ -408,7 +408,7 @@ export default function Home() {
           <p className="text-xl text-muted-foreground mb-8">
             That idea you have? Run with it.
           </p>
-          <Link href="/login">
+          <Link href="/email-login">
             <Button size="lg" className="gap-2 text-lg px-8 py-6" data-testid="button-get-started-footer">
               Get Started For Free
               <ArrowRight className="h-5 w-5" />

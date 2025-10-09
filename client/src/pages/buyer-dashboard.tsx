@@ -121,7 +121,7 @@ export default function BuyerDashboard() {
             <p className="text-muted-foreground text-center mb-6 max-w-md">
               Please log in to view your orders. If you placed an order as a guest, log in with the email address you used during checkout (password: 123456).
             </p>
-            <Button onClick={() => window.location.href = "/login"} data-testid="button-login">
+            <Button onClick={() => window.location.href = "/email-login"} data-testid="button-login">
               Go to Login
             </Button>
           </CardContent>
