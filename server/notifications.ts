@@ -85,7 +85,9 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     // Generate magic link URL
-    const baseUrl = process.env.VITE_BASE_URL || 'http://localhost:5000';
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
     let magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${token}`;
     
     if (redirectPath) {
@@ -498,7 +500,7 @@ class NotificationServiceImpl implements NotificationService {
               <p><strong>Category:</strong> ${product.category}</p>
             </div>
 
-            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/products/${product.id}" class="button">
+            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/products/${product.id}" class="button">
               View Product
             </a>
 
@@ -516,7 +518,9 @@ class NotificationServiceImpl implements NotificationService {
    * Generate auth code email with auto-login button
    */
   private generateAuthCodeEmail(code: string, magicLinkToken?: string): string {
-    const baseUrl = process.env.VITE_BASE_URL || 'http://localhost:5000';
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
     const magicLink = magicLinkToken ? `${baseUrl}/api/auth/email/verify-magic-link?token=${magicLinkToken}` : null;
 
     return `
@@ -940,7 +944,7 @@ class NotificationServiceImpl implements NotificationService {
               <li>Start selling immediately</li>
             </ul>
 
-            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/settings?tab=payment" class="button">
+            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/settings?tab=payment" class="button">
               Complete Stripe Setup
             </a>
 
@@ -991,7 +995,7 @@ class NotificationServiceImpl implements NotificationService {
 
             <p>The order has been marked as failed and the customer has been notified.</p>
 
-            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/seller" class="button">
+            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/seller" class="button">
               View Order Details
             </a>
 
@@ -1087,7 +1091,7 @@ class NotificationServiceImpl implements NotificationService {
               <li>Update your payment method now to avoid disruption</li>
             </ul>
 
-            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/settings?tab=subscription" class="button">
+            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/settings?tab=subscription" class="button">
               Update Payment Method
             </a>
 
@@ -1140,7 +1144,7 @@ class NotificationServiceImpl implements NotificationService {
               <li>The product will be automatically shown again</li>
             </ul>
 
-            <a href="${process.env.VITE_BASE_URL || 'http://localhost:5000'}/seller/products/${product.id}/edit" class="button">
+            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/seller/products/${product.id}/edit" class="button">
               Update Inventory
             </a>
 
@@ -1221,11 +1225,14 @@ class NotificationServiceImpl implements NotificationService {
         const encodedEmail = encodeURIComponent(recipient.email);
         
         // Add tracking pixel with recipient email for open tracking
-        const trackingPixelUrl = `${process.env.VITE_BASE_URL || 'http://localhost:5000'}/api/newsletters/track/${newsletterId}/open?email=${encodedEmail}`;
+        const baseUrl = process.env.REPLIT_DOMAINS 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+          : `http://localhost:${process.env.PORT || 5000}`;
+        const trackingPixelUrl = `${baseUrl}/api/newsletters/track/${newsletterId}/open?email=${encodedEmail}`;
         const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
 
         // Add unsubscribe link to HTML
-        const unsubscribeUrl = `${process.env.VITE_BASE_URL || 'http://localhost:5000'}/api/newsletters/unsubscribe?email=${encodedEmail}`;
+        const unsubscribeUrl = `${baseUrl}/api/newsletters/unsubscribe?email=${encodedEmail}`;
         const unsubscribeBlock = `<div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
           <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe</a>
         </div>`;

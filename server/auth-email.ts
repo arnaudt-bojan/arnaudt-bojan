@@ -207,7 +207,9 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
     });
 
     // Generate magic link - points to API endpoint
-    const baseUrl = process.env.VITE_BASE_URL || 'http://localhost:5000';
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
     const magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${token}`;
 
     // Send email with magic link
