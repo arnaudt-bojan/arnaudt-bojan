@@ -379,19 +379,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Seller-specific orders (only orders for products owned by this seller)
+  // Seller-specific orders (only orders for products owned by this seller or their store)
   app.get("/api/seller/orders", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get canonical owner ID:
+      // - For owner/seller/buyer roles: use their own ID (they own their products/orders)
+      // - For team roles (admin/editor/viewer): use their sellerId (products owned by store owner)
+      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role);
+      const canonicalOwnerId = isTeamMember ? currentUser.sellerId : currentUser.id;
+      
+      if (!canonicalOwnerId) {
+        return res.status(400).json({ error: "No store owner found for this user" });
+      }
+
       const allOrders = await storage.getAllOrders();
       const allProducts = await storage.getAllProducts();
       
-      // Get all product IDs owned by this seller
+      // Get all product IDs owned by this seller's store
       const sellerProductIds = new Set(
-        allProducts.filter(p => p.sellerId === userId).map(p => p.id)
+        allProducts.filter(p => p.sellerId === canonicalOwnerId).map(p => p.id)
       );
       
-      // Filter orders that contain products from this seller
+      // Filter orders that contain products from this seller's store
       const sellerOrders = allOrders.filter(order => {
         try {
           const items = JSON.parse(order.items);

@@ -108,8 +108,8 @@ export default function Orders() {
                       </CardDescription>
                       {isSeller && (
                         <div className="mt-2 text-sm text-muted-foreground">
-                          <p><span className="font-medium">Customer:</span> {order.customerName}</p>
-                          <p><span className="font-medium">Email:</span> {order.customerEmail}</p>
+                          <p><span className="font-medium">Customer:</span> {order.userId ? order.customerName : `${order.customerEmail} (Guest)`}</p>
+                          {order.userId && <p><span className="font-medium">Email:</span> {order.customerEmail}</p>}
                         </div>
                       )}
                     </div>

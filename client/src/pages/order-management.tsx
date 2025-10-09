@@ -164,7 +164,7 @@ export default function OrderManagement() {
                             </div>
                             <div className="flex items-center gap-1">
                               <User className="h-4 w-4" />
-                              {order.customerName}
+                              {order.userId ? order.customerName : `${order.customerEmail} (Guest)`}
                             </div>
                           </div>
                         </div>
@@ -310,13 +310,17 @@ export default function OrderManagement() {
                               </h4>
                               <div className="space-y-2 text-sm">
                                 <div>
-                                  <p className="text-muted-foreground">Name</p>
-                                  <p className="font-medium">{order.customerName}</p>
+                                  <p className="text-muted-foreground">{order.userId ? 'Name' : 'Customer'}</p>
+                                  <p className="font-medium">
+                                    {order.userId ? order.customerName : `${order.customerEmail} (Guest)`}
+                                  </p>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground">Email</p>
-                                  <p className="font-medium">{order.customerEmail}</p>
-                                </div>
+                                {order.userId && (
+                                  <div>
+                                    <p className="text-muted-foreground">Email</p>
+                                    <p className="font-medium">{order.customerEmail}</p>
+                                  </div>
+                                )}
                                 <div>
                                   <p className="text-muted-foreground flex items-center gap-1">
                                     <MapPin className="h-3 w-3" />
