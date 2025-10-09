@@ -1,7 +1,7 @@
 # Comprehensive Notification System Design
 
 ## Overview
-This document outlines the complete notification system for Uppfirst, covering all seller and buyer lifecycle events.
+This document outlines the complete notification system for Upfirst, covering all seller and buyer lifecycle events.
 
 ## Notification Types
 
@@ -11,7 +11,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `order_placed` ✅ EXISTS
 - **Trigger**: Order created with payment confirmed
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Order details, customer info, items, total
 
@@ -19,7 +19,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `order_payment_failed` 🆕
 - **Trigger**: Payment intent fails during checkout
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Order ID, amount, reason for failure
 
@@ -43,7 +43,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `order_cancelled` 🆕
 - **Trigger**: Order cancelled by seller or system
 - **Recipient**: Both seller and buyer
-- **Email**: Uppfirst → Seller, Uppfirst → Buyer (Reply-To: seller)
+- **Email**: Upfirst → Seller, Upfirst → Buyer (Reply-To: seller)
 - **In-app**: Yes
 - **Content**: Cancellation reason, refund info
 
@@ -51,7 +51,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `order_refunded` 🆕
 - **Trigger**: Refund processed (full or partial)
 - **Recipient**: Both seller and buyer
-- **Email**: Uppfirst → Seller, Uppfirst → Buyer (Reply-To: seller)
+- **Email**: Upfirst → Seller, Upfirst → Buyer (Reply-To: seller)
 - **In-app**: Yes
 - **Content**: Refund amount, reason, expected arrival in bank account
 
@@ -59,7 +59,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `payment_dispute` 🆕
 - **Trigger**: Stripe reports chargeback or dispute
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller
+- **Email**: Upfirst → Seller
 - **In-app**: Yes
 - **Content**: Dispute details, order info, response deadline, dispute resolution link
 
@@ -67,7 +67,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `buyer_payment_failed` 🆕
 - **Trigger**: Payment fails at checkout
 - **Recipient**: Buyer
-- **Email**: Uppfirst → Buyer
+- **Email**: Upfirst → Buyer
 - **In-app**: Yes (if buyer has account)
 - **Content**: Failure reason, retry link, alternative payment methods
 
@@ -75,7 +75,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `preorder_deposit_received` 🆕
 - **Trigger**: Pre-order deposit payment successful
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller
+- **Email**: Upfirst → Seller
 - **In-app**: Yes
 - **Content**: Order ID, deposit amount, balance due
 
@@ -83,7 +83,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `preorder_balance_due` 🆕
 - **Trigger**: Product ready for shipping, balance payment needed
 - **Recipient**: Buyer
-- **Email**: Uppfirst → Buyer (Reply-To: seller)
+- **Email**: Upfirst → Buyer (Reply-To: seller)
 - **In-app**: Yes (if buyer has account)
 - **Content**: Balance amount, payment link, due date
 
@@ -93,7 +93,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `seller_welcome` 🆕
 - **Trigger**: Seller completes signup
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: No
 - **Content**: Getting started guide, trial info, setup steps
 
@@ -101,7 +101,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `trial_ending_soon` 🆕
 - **Trigger**: 7 days before trial ends
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Trial end date, subscription plans, payment setup
 
@@ -109,7 +109,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `trial_ended` 🆕
 - **Trigger**: Trial period expires
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Account limitations, upgrade prompt
 
@@ -117,7 +117,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `subscription_activated` 🆕
 - **Trigger**: First successful subscription payment
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Plan details, billing date, receipt
 
@@ -125,7 +125,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `subscription_payment_success` 🆕
 - **Trigger**: Recurring subscription payment successful
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Amount charged, next billing date, receipt
 
@@ -133,7 +133,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `subscription_payment_failed` 🆕
 - **Trigger**: Subscription payment fails
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Failure reason, retry info, update payment method link
 
@@ -141,7 +141,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `subscription_cancelled` 🆕
 - **Trigger**: Seller cancels subscription
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Cancellation confirmation, access end date, data retention
 
@@ -149,7 +149,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `payment_method_expiring` 🆕
 - **Trigger**: 30 days before card expires
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Expiration date, update payment method link
 
@@ -159,7 +159,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `stripe_onboarding_incomplete` 🆕
 - **Trigger**: 3 days after account created, not completed
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Onboarding link, benefits of completion
 
@@ -167,7 +167,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `stripe_onboarding_complete` 🆕
 - **Trigger**: Stripe account fully verified
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Congratulations, next steps, payment capabilities
 
@@ -175,7 +175,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `payout_received` 🆕
 - **Trigger**: Stripe payout completes
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Payout amount, arrival date, bank account
 
@@ -183,7 +183,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `payout_failed` 🆕
 - **Trigger**: Stripe payout fails or payouts_enabled becomes false
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Failure reason, held amount, resolution steps, bank account verification
 
@@ -191,7 +191,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `stripe_verification_required` 🆕
 - **Trigger**: Stripe requires additional verification
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Required documents, deadline, consequences
 
@@ -199,7 +199,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `stripe_account_restricted` 🆕
 - **Trigger**: Stripe restricts account capabilities
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Restriction reason, resolution steps, support contact
 
@@ -209,7 +209,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `product_listed` ✅ EXISTS
 - **Trigger**: Product successfully created
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Product details, storefront link
 
@@ -225,7 +225,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `inventory_low` 🆕
 - **Trigger**: Stock falls below 5 units (configurable)
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Product name, current stock, restock reminder
 
@@ -233,7 +233,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `inventory_out_of_stock` 🆕
 - **Trigger**: Stock reaches 0
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Product name, auto-hide status, restock action
 
@@ -251,7 +251,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `wholesale_application` 🆕
 - **Trigger**: Buyer requests wholesale access
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Applicant details, approval link
 
@@ -259,7 +259,7 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `wholesale_order_placed` 🆕
 - **Trigger**: Wholesale order created
 - **Recipient**: Seller
-- **Email**: Uppfirst → Seller (non-branded)
+- **Email**: Upfirst → Seller (non-branded)
 - **In-app**: Yes
 - **Content**: Order details, wholesale pricing, buyer info
 
@@ -269,31 +269,31 @@ This document outlines the complete notification system for Uppfirst, covering a
 - **Type**: `system_alert` ✅ EXISTS
 - **Trigger**: Admin creates system alert
 - **Recipient**: All users or specific roles
-- **Email**: Uppfirst → User (non-branded)
+- **Email**: Upfirst → User (non-branded)
 - **In-app**: Yes
 - **Content**: Alert message, severity, action required
 
 ## Email Branding Rules
 
-**IMPORTANT**: Due to Resend domain verification requirements, ALL emails must use `Uppfirst <noreply@uppfirst.com>` as the From address. Seller branding is achieved through Reply-To and email content.
+**IMPORTANT**: Due to Resend domain verification requirements, ALL emails must use `Upfirst <noreply@upfirst.io>` as the From address. Seller branding is achieved through Reply-To and email content.
 
 ### Seller-Branded Emails (to Buyers)
-- **From**: `Uppfirst <noreply@uppfirst.com>` (required for delivery)
+- **From**: `Upfirst <noreply@upfirst.io>` (required for delivery)
 - **Reply-To**: Seller email (allows buyer to respond directly to seller)
 - **Design**: Can include seller branding in email body (logo, colors, store name)
 - **Subject**: Includes seller/store name
 - **Types**: order_shipped, order_delivered, order_confirmation, preorder_balance_due, wholesale_invitation
 
-### Uppfirst-Branded Emails (to Sellers)
-- **From**: `Uppfirst <noreply@uppfirst.com>`
-- **Reply-To**: `support@uppfirst.com`
-- **Design**: Uppfirst brand (platform communications)
+### Upfirst-Branded Emails (to Sellers)
+- **From**: `Upfirst <noreply@upfirst.io>`
+- **Reply-To**: `support@upfirst.io`
+- **Design**: Upfirst brand (platform communications)
 - **Types**: All seller notifications (subscription, stripe, product alerts, order alerts)
 
-### Uppfirst-Branded Emails (to Buyers - System)
-- **From**: `Uppfirst <noreply@uppfirst.com>`
-- **Reply-To**: `support@uppfirst.com` or seller email (context-dependent)
-- **Design**: Uppfirst brand
+### Upfirst-Branded Emails (to Buyers - System)
+- **From**: `Upfirst <noreply@upfirst.io>`
+- **Reply-To**: `support@upfirst.io` or seller email (context-dependent)
+- **Design**: Upfirst brand
 - **Types**: system_alert, buyer_payment_failed
 
 **Future Enhancement**: When sellers verify their own domains with Resend, enable true From-address branding.
