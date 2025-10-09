@@ -18,6 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -1001,33 +1002,9 @@ export default function Settings() {
         throw new Error(accountData.message || accountData.error || "Failed to create Stripe account");
       }
 
-      // Then, get the account link for onboarding
-      const linkResponse = await apiRequest("POST", "/api/stripe/account-link", {
-        type: accountData.detailsSubmitted ? "account_update" : "account_onboarding"
-      });
-      const linkData = await linkResponse.json();
-      
-      if (!linkResponse.ok) {
-        throw new Error(linkData.message || linkData.error || "Failed to generate account link");
-      }
-
-      if (linkData.url) {
-        // Open Stripe in a new tab to avoid redirect issues
-        const stripeWindow = window.open(linkData.url, '_blank', 'noopener,noreferrer');
-        
-        if (!stripeWindow) {
-          toast({
-            title: "Popup Blocked",
-            description: "Please allow popups to connect your Stripe account.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Opening Stripe...",
-            description: "Complete the setup in the new window, then return here.",
-          });
-        }
-      }
+      // Open embedded modal for onboarding
+      setIsStripeModalOpen(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1065,6 +1042,7 @@ export default function Settings() {
   const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
   const isStripeConnected = user?.stripeConnectedAccountId && user?.stripeDetailsSubmitted === 1;
   const isInstagramConnected = user?.instagramUsername;
+  const [isStripeModalOpen, setIsStripeModalOpen] = useState(false);
 
   // Get tab from URL search params
   const searchParams = new URLSearchParams(window.location.search);
@@ -1743,6 +1721,19 @@ export default function Settings() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Stripe Embedded Onboarding Modal */}
+      {user?.stripeConnectedAccountId && (
+        <StripeOnboardingModal
+          isOpen={isStripeModalOpen}
+          onClose={() => setIsStripeModalOpen(false)}
+          accountId={user.stripeConnectedAccountId}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+            setIsStripeModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

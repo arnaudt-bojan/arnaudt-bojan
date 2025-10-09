@@ -1233,6 +1233,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create Account Session for embedded onboarding
+  app.post("/api/stripe/account-session", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeConnectedAccountId) {
+        return res.status(400).json({ error: "No Stripe account found. Create one first." });
+      }
+
+      // Create account session for embedded onboarding
+      const accountSession = await stripe.accountSessions.create({
+        account: user.stripeConnectedAccountId,
+        components: {
+          account_onboarding: {
+            enabled: true,
+            features: {
+              // Enable progressive onboarding - collect bank details later
+              external_account_collection: false,
+            },
+          },
+        },
+      });
+
+      res.json({ 
+        clientSecret: accountSession.client_secret,
+        accountId: user.stripeConnectedAccountId,
+      });
+    } catch (error: any) {
+      console.error("Stripe Account Session error:", error);
+      res.status(500).json({ error: "Failed to create account session" });
+    }
+  });
+
   // Generate Account Link for onboarding/verification
   app.post("/api/stripe/account-link", isAuthenticated, async (req: any, res) => {
     try {
