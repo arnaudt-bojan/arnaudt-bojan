@@ -21,7 +21,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, X, Upload } from "lucide-react";
-import { BulkImageInput } from "@/components/bulk-image-input";
+import { UniversalImageUpload } from "@/components/universal-image-upload";
 
 export type ProductVariant = {
   size: string;
@@ -167,12 +167,17 @@ export function ProductFormFields({
           </div>
 
           <div className="space-y-4">
-            <FormLabel>Additional Images (Optional)</FormLabel>
-            <BulkImageInput
-              images={form.getValues("additionalImages" as any) || []}
-              onChange={(images: string[]) => {
-                form.setValue("additionalImages" as any, images);
+            <UniversalImageUpload
+              value={form.getValues("additionalImages" as any) || []}
+              onChange={(images) => {
+                form.setValue("additionalImages" as any, images as string[]);
               }}
+              label="Product Images"
+              maxImages={10}
+              mode="multiple"
+              heroSelection={true}
+              allowUrl={true}
+              allowUpload={true}
             />
           </div>
         </div>

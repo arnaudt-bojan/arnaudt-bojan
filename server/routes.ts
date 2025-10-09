@@ -1060,6 +1060,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle store active status
+  app.patch("/api/user/store-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { storeActive } = req.body;
+
+      if (storeActive === undefined || (storeActive !== 0 && storeActive !== 1)) {
+        return res.status(400).json({ error: "Invalid store status" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        storeActive,
+      });
+
+      res.json({ message: "Store status updated successfully", user: updatedUser, storeActive });
+    } catch (error) {
+      console.error("Store status update error:", error);
+      res.status(500).json({ error: "Failed to update store status" });
+    }
+  });
+
   app.patch("/api/user/payment-provider", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

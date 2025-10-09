@@ -19,6 +19,7 @@ import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCi
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
+import { UniversalImageUpload } from "@/components/universal-image-upload";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -1469,17 +1470,23 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <Form {...brandingForm}>
-                  <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-4">
+                  <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-6">
                     <FormField
                       control={brandingForm.control}
                       name="storeBanner"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Store Banner URL</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="https://example.com/banner.jpg" data-testid="input-storeBanner" />
-                          </FormControl>
-                          <FormDescription>Banner image displayed on your storefront</FormDescription>
+                          <UniversalImageUpload
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            label="Store Banner"
+                            mode="single"
+                            aspectRatio="wide"
+                            heroSelection={false}
+                            allowUrl={true}
+                            allowUpload={true}
+                          />
+                          <FormDescription>Banner image displayed on your storefront (recommended: 1200x400px)</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1489,11 +1496,17 @@ export default function Settings() {
                       name="storeLogo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Store Logo URL</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="https://example.com/logo.png" data-testid="input-storeLogo" />
-                          </FormControl>
-                          <FormDescription>Logo replacing "Uppshop" in the header</FormDescription>
+                          <UniversalImageUpload
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            label="Store Logo"
+                            mode="single"
+                            aspectRatio="square"
+                            heroSelection={false}
+                            allowUrl={true}
+                            allowUpload={true}
+                          />
+                          <FormDescription>Logo replacing "Uppshop" in the header (recommended: square, 200x200px)</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

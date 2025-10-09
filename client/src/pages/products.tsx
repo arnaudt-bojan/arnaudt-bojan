@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
-import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus } from "lucide-react";
+import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus, Store } from "lucide-react";
 import { detectDomain } from "@/lib/domain-utils";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type CardSize = "compact" | "medium" | "large";
 
@@ -24,7 +27,6 @@ interface FilterOptions {
 }
 
 export default function Products() {
-  const [selectedType, setSelectedType] = useState<ProductType | "all">("all");
   const [cardSize, setCardSize] = useState<CardSize>("medium");
   const [filters, setFilters] = useState<FilterOptions>({
     categories: [],
@@ -81,19 +83,10 @@ export default function Products() {
     queryKey: ["/api/sellers"],
   });
 
-  const productTypes: Array<{ value: ProductType | "all"; label: string }> = [
-    { value: "all", label: "All Products" },
-    { value: "in-stock", label: "In Stock" },
-    { value: "pre-order", label: "Pre-Order" },
-    { value: "made-to-order", label: "Made to Order" },
-    { value: "wholesale", label: "Wholesale" },
-  ];
-
   // Apply filters and sorting
   const filteredAndSortedProducts = products
     ?.filter((p) => {
-      // Product type filter (legacy + new)
-      if (selectedType !== "all" && p.productType !== selectedType) return false;
+      // Product type filter
       if (filters.productTypes.length > 0 && !filters.productTypes.includes(p.productType)) return false;
       
       // Category filter
@@ -152,6 +145,52 @@ export default function Products() {
       description: `${product.name} has been added to your cart`,
     });
   };
+
+  // Toggle store active status
+  const toggleStoreMutation = useMutation({
+    mutationFn: async (storeActive: number) => {
+      return await apiRequest("PATCH", "/api/user/store-status", { storeActive });
+    },
+    onMutate: async (newStatus) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/auth/user"] });
+
+      // Snapshot the previous value
+      const previousUser = queryClient.getQueryData(["/api/auth/user"]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["/api/auth/user"], (old: any) => ({
+        ...old,
+        storeActive: newStatus,
+      }));
+
+      // Return context with previous value
+      return { previousUser };
+    },
+    onSuccess: (data, variables) => {
+      toast({
+        title: variables === 1 ? "Store activated" : "Store deactivated",
+        description: variables === 1
+          ? "Your store is now visible to customers" 
+          : "Your store is now hidden from customers",
+      });
+    },
+    onError: (error, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousUser) {
+        queryClient.setQueryData(["/api/auth/user"], context.previousUser);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update store status",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      // Refetch to sync with server
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
 
   // Calculate max price for filter
   const maxPrice = products 
@@ -213,30 +252,39 @@ export default function Products() {
       ) : null}
 
       <div className="container mx-auto px-4 max-w-7xl py-12">
-        <div className="mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-page-title">
-            All Products
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Discover our collection of high-quality products
-          </p>
-        </div>
-
-        <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex gap-2 overflow-x-auto pb-2 flex-1">
-            {productTypes.map((type) => (
-              <Button
-                key={type.value}
-                variant={selectedType === type.value ? "default" : "outline"}
-                onClick={() => setSelectedType(type.value)}
-                data-testid={`button-filter-${type.value}`}
-                className="flex-shrink-0"
-              >
-                {type.label}
-              </Button>
-            ))}
+        <div className="mb-12 flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex-1">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-page-title">
+              All Products
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Discover our collection of high-quality products
+            </p>
           </div>
           
+          {isSeller && (
+            <div className="flex items-center gap-3 bg-card border rounded-lg px-4 py-3">
+              <Store className="h-5 w-5 text-muted-foreground" />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="store-active" className="text-sm font-medium cursor-pointer">
+                  Store Status
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {user?.storeActive === 1 ? "Active & Visible" : "Inactive & Hidden"}
+                </p>
+              </div>
+              <Switch
+                id="store-active"
+                checked={user?.storeActive === 1}
+                onCheckedChange={(checked) => toggleStoreMutation.mutate(checked ? 1 : 0)}
+                disabled={toggleStoreMutation.isPending}
+                data-testid="switch-store-active"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="mb-8 flex items-center justify-end gap-4 flex-wrap">
           <div className="flex gap-2 items-center">
             <ProductFiltersSheet 
               onFilterChange={setFilters} 
@@ -288,24 +336,6 @@ export default function Products() {
           </div>
         ) : filteredAndSortedProducts && filteredAndSortedProducts.length > 0 ? (
           <div className={getGridClasses()}>
-            {/* Add Product Card for Sellers */}
-            {isSeller && (
-              <Link href="/create-product">
-                <div 
-                  className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
-                  data-testid="card-add-product"
-                >
-                  <div className="rounded-full bg-primary/10 p-4">
-                    <Plus className="h-8 w-8 text-primary" />
-                  </div>
-                  <div className="text-center px-4">
-                    <p className="font-semibold text-foreground">Add Product</p>
-                    <p className="text-sm text-muted-foreground mt-1">Create a new product</p>
-                  </div>
-                </div>
-              </Link>
-            )}
-            
             {filteredAndSortedProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -313,20 +343,38 @@ export default function Products() {
                 onAddToCart={handleAddToCart}
               />
             ))}
+            
+            {/* New Listing Card for Sellers - Last Position */}
+            {isSeller && (
+              <Link href="/create-product">
+                <div 
+                  className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
+                  data-testid="card-new-listing"
+                >
+                  <div className="rounded-full bg-primary/10 p-4">
+                    <Plus className="h-8 w-8 text-primary" />
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="font-semibold text-foreground">New Listing</p>
+                    <p className="text-sm text-muted-foreground mt-1">Create a new product</p>
+                  </div>
+                </div>
+              </Link>
+            )}
           </div>
         ) : isSeller ? (
           <div className={getGridClasses()}>
-            {/* Add Product Card for Sellers when no products */}
+            {/* New Listing Card for Sellers when no products */}
             <Link href="/create-product">
               <div 
                 className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
-                data-testid="card-add-product"
+                data-testid="card-new-listing"
               >
                 <div className="rounded-full bg-primary/10 p-4">
                   <Plus className="h-8 w-8 text-primary" />
                 </div>
                 <div className="text-center px-4">
-                  <p className="font-semibold text-foreground">Add Product</p>
+                  <p className="font-semibold text-foreground">New Listing</p>
                   <p className="text-sm text-muted-foreground mt-1">Create your first product</p>
                 </div>
               </div>
@@ -337,9 +385,7 @@ export default function Products() {
             <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">No products found</h3>
             <p className="text-muted-foreground">
-              {selectedType === "all"
-                ? "No products available at the moment"
-                : `No ${selectedType} products available`}
+              No products available at the moment
             </p>
           </div>
         )}

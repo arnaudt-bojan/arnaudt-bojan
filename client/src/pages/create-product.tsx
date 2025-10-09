@@ -79,16 +79,9 @@ export default function CreateProduct() {
   const [preOrderDate, setPreOrderDate] = useState<string>("");
   const [discountPercentage, setDiscountPercentage] = useState<string>("");
   const [promotionEndDate, setPromotionEndDate] = useState<string>("");
-  const [productImages, setProductImages] = useState<string[]>([""]);
   const [selectedLevel1, setSelectedLevel1] = useState<string>("");
   const [selectedLevel2, setSelectedLevel2] = useState<string>("");
   const [selectedLevel3, setSelectedLevel3] = useState<string>("");
-  const [newLevel1Name, setNewLevel1Name] = useState("");
-  const [newLevel2Name, setNewLevel2Name] = useState("");
-  const [newLevel3Name, setNewLevel3Name] = useState("");
-  const [showLevel1Input, setShowLevel1Input] = useState(false);
-  const [showLevel2Input, setShowLevel2Input] = useState(false);
-  const [showLevel3Input, setShowLevel3Input] = useState(false);
 
   const { data: categories = [], refetch: refetchCategories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -97,88 +90,6 @@ export default function CreateProduct() {
   const level1Categories = categories.filter(c => c.level === 1);
   const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
   const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
-  
-  const createCategoryMutation = useMutation({
-    mutationFn: async (data: { name: string; level: number; parentId: string | null }) => {
-      const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      return await apiRequest("POST", "/api/categories", { ...data, slug });
-    },
-    onSuccess: (data: any) => {
-      refetchCategories();
-      toast({
-        title: "Category created",
-        description: "Category added successfully",
-      });
-      return data;
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create category",
-        variant: "destructive",
-      });
-    },
-  });
-  
-  const handleCreateLevel1 = async () => {
-    if (!newLevel1Name.trim()) return;
-    const result = await createCategoryMutation.mutateAsync({ 
-      name: newLevel1Name, 
-      level: 1, 
-      parentId: null 
-    });
-    if (result) {
-      setSelectedLevel1(result.id);
-      setNewLevel1Name("");
-      setShowLevel1Input(false);
-    }
-  };
-  
-  const handleCreateLevel2 = async () => {
-    if (!newLevel2Name.trim() || !selectedLevel1) return;
-    const result = await createCategoryMutation.mutateAsync({ 
-      name: newLevel2Name, 
-      level: 2, 
-      parentId: selectedLevel1 
-    });
-    if (result) {
-      setSelectedLevel2(result.id);
-      setNewLevel2Name("");
-      setShowLevel2Input(false);
-    }
-  };
-  
-  const handleCreateLevel3 = async () => {
-    if (!newLevel3Name.trim() || !selectedLevel2) return;
-    const result = await createCategoryMutation.mutateAsync({ 
-      name: newLevel3Name, 
-      level: 3, 
-      parentId: selectedLevel2 
-    });
-    if (result) {
-      setSelectedLevel3(result.id);
-      setNewLevel3Name("");
-      setShowLevel3Input(false);
-    }
-  };
-  
-  const addImageField = () => {
-    if (productImages.length < 10) {
-      setProductImages([...productImages, ""]);
-    }
-  };
-  
-  const removeImageField = (index: number) => {
-    if (productImages.length > 1) {
-      setProductImages(productImages.filter((_, i) => i !== index));
-    }
-  };
-  
-  const updateImageField = (index: number, value: string) => {
-    const updated = [...productImages];
-    updated[index] = value;
-    setProductImages(updated);
-  };
 
   const form = useForm<FrontendProduct>({
     resolver: zodResolver(frontendProductSchema),
@@ -261,11 +172,12 @@ export default function CreateProduct() {
       (data as any).categoryLevel2Id = selectedLevel2 || null;
       (data as any).categoryLevel3Id = selectedLevel3 || null;
       
-      // Add multiple images
-      const validImages = productImages.filter(img => img.trim() !== "");
+      // Add multiple images from additionalImages field
+      const additionalImages = form.getValues("additionalImages" as any) || [];
+      const validImages = additionalImages.filter((img: string) => img.trim() !== "");
       if (validImages.length > 0) {
         (data as any).images = validImages;
-        data.image = validImages[0]; // Set first image as primary
+        data.image = validImages[0]; // Set first image as primary (hero)
       }
       
       // Add variants if any
