@@ -313,6 +313,7 @@ export type AuthToken = typeof authTokens.$inferSelect;
 
 // Notifications (unified email + in-app)
 export const notificationTypeEnum = z.enum([
+  // Existing
   "order_placed", 
   "order_shipped", 
   "order_delivered",
@@ -320,7 +321,38 @@ export const notificationTypeEnum = z.enum([
   "product_listed",
   "product_updated",
   "wholesale_invitation",
-  "system_alert"
+  "system_alert",
+  
+  // Phase 1: Critical Revenue-Impacting
+  "stripe_onboarding_incomplete",
+  "order_payment_failed",
+  "buyer_payment_failed",
+  "subscription_payment_failed",
+  "inventory_out_of_stock",
+  "payout_failed",
+  "seller_welcome",
+  
+  // Phase 2: Important Operations
+  "stripe_onboarding_complete",
+  "payout_received",
+  "trial_ending_soon",
+  "inventory_low",
+  "payment_dispute",
+  "order_refunded",
+  
+  // Phase 3: Enhanced Experience
+  "order_cancelled",
+  "preorder_deposit_received",
+  "preorder_balance_due",
+  "wholesale_application",
+  "wholesale_order_placed",
+  "subscription_activated",
+  "subscription_payment_success",
+  "trial_ended",
+  "subscription_cancelled",
+  "payment_method_expiring",
+  "stripe_verification_required",
+  "stripe_account_restricted",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeEnum>;
 
