@@ -2747,6 +2747,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Track newsletter open (public endpoint - no auth required)
+  app.get("/api/newsletters/track/:id/open", async (req, res) => {
+    try {
+      const newsletterId = req.params.id;
+      const recipientEmail = req.query.email as string;
+
+      if (!recipientEmail) {
+        return res.status(400).send("Email required");
+      }
+
+      // Track the open event
+      await notificationService.trackNewsletterEvent(
+        newsletterId,
+        recipientEmail,
+        'open'
+      );
+
+      // Return a 1x1 transparent pixel
+      const pixel = Buffer.from(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        'base64'
+      );
+      
+      res.writeHead(200, {
+        'Content-Type': 'image/gif',
+        'Content-Length': pixel.length,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      });
+      res.end(pixel);
+    } catch (error) {
+      console.error("Newsletter tracking error:", error);
+      // Still return pixel even on error to prevent broken images
+      const pixel = Buffer.from(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        'base64'
+      );
+      res.writeHead(200, {
+        'Content-Type': 'image/gif',
+        'Content-Length': pixel.length,
+      });
+      res.end(pixel);
+    }
+  });
+
+  // Unsubscribe from newsletters (public endpoint - no auth required)
+  app.get("/api/newsletters/unsubscribe", async (req, res) => {
+    try {
+      const email = req.query.email as string;
+
+      if (!email) {
+        return res.status(400).send("Email required");
+      }
+
+      // Track unsubscribe event (if we have a newsletterId, otherwise just update subscriber)
+      const newsletterId = req.query.newsletterId as string;
+      if (newsletterId) {
+        await notificationService.trackNewsletterEvent(
+          newsletterId,
+          email,
+          'unsubscribe'
+        );
+      }
+
+      // Find and update the subscriber
+      const allSubscribers = await storage.getAllNewsletterSubscribers();
+      const subscriber = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+
+      if (subscriber) {
+        await storage.updateNewsletterSubscriber(subscriber.id, {
+          status: 'unsubscribed',
+          unsubscribedAt: new Date(),
+        });
+      }
+
+      // HTML escape function to prevent XSS
+      const escapeHtml = (unsafe: string) => {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      };
+
+      // Return a user-friendly unsubscribe confirmation page
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Unsubscribed - Upfirst</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background: #f3f4f6;
+              }
+              .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                text-align: center;
+                max-width: 500px;
+              }
+              h1 {
+                color: #2563eb;
+                margin-bottom: 1rem;
+              }
+              p {
+                color: #6b7280;
+                line-height: 1.6;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>You've been unsubscribed</h1>
+              <p>You will no longer receive newsletter emails at <strong>${escapeHtml(email)}</strong></p>
+              <p>If this was a mistake, please contact the sender directly to resubscribe.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      res.status(500).send("An error occurred while unsubscribing. Please try again.");
+    }
+  });
+
   // Newsletter Templates
   app.get("/api/newsletter-templates", isAuthenticated, async (req: any, res) => {
     try {
