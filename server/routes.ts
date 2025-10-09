@@ -676,6 +676,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Note: No auth required - guest checkout needs this
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
+      // Test mode bypass for notification/checkout testing without Stripe Connect
+      if (process.env.STRIPE_TEST_MODE === 'true') {
+        console.log('[Stripe Test Mode] Returning mock payment intent for testing');
+        return res.json({
+          clientSecret: 'test_secret_mock_client_secret',
+          paymentIntentId: 'pi_test_mock_payment_intent',
+        });
+      }
+
       if (!stripe) {
         return res.status(500).json({ 
           error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
