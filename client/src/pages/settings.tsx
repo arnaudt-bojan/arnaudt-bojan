@@ -7,6 +7,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -742,7 +743,6 @@ export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
-  const [paymentProvider, setPaymentProvider] = useState<string>(user?.paymentProvider || "stripe");
   const [copiedUsername, setCopiedUsername] = useState(false);
 
   // Handle Instagram OAuth callback messages
@@ -979,10 +979,26 @@ export default function Settings() {
 
   const handleConnectStripe = async () => {
     try {
-      const response = await apiRequest("GET", "/api/stripe/connect");
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
+      // First, create or get the Stripe Express account
+      const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", {});
+      const accountData = await createResponse.json();
+      
+      if (!createResponse.ok) {
+        throw new Error(accountData.error || "Failed to create Stripe account");
+      }
+
+      // Then, get the account link for onboarding
+      const linkResponse = await apiRequest("POST", "/api/stripe/account-link", {
+        type: accountData.detailsSubmitted ? "account_update" : "account_onboarding"
+      });
+      const linkData = await linkResponse.json();
+      
+      if (!linkResponse.ok) {
+        throw new Error(linkData.error || "Failed to generate account link");
+      }
+
+      if (linkData.url) {
+        window.location.href = linkData.url;
       }
     } catch (error: any) {
       toast({
@@ -1447,91 +1463,166 @@ export default function Settings() {
 
         {isSeller && (
           <TabsContent value="payment">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Provider</CardTitle>
-                <CardDescription>Configure how you receive payments</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <Label htmlFor="payment-provider">Payment Provider</Label>
-                  <Select
-                    value={paymentProvider}
-                    onValueChange={(value) => {
-                      setPaymentProvider(value);
-                      updatePaymentProviderMutation.mutate(value);
-                    }}
-                  >
-                    <SelectTrigger id="payment-provider" data-testid="select-payment-provider">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="stripe">Stripe</SelectItem>
-                      <SelectItem value="paypal">PayPal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground">
-                    Currently using: <span className="font-medium">{paymentProvider === "stripe" ? "Stripe" : "PayPal"}</span>
-                  </p>
-                </div>
-
-                <div className="border-t pt-6">
-                  <h4 className="font-semibold mb-3">Connect Your Account</h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Connect your {paymentProvider === "stripe" ? "Stripe" : "PayPal"} account to start receiving payments. You can connect an existing account or create a new one during the setup process.
-                  </p>
-                  
-                  {paymentProvider === "stripe" ? (
-                    <>
-                      {isStripeConnected ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                            <span className="text-sm font-medium text-green-900 dark:text-green-100">
-                              Stripe account connected
-                            </span>
-                          </div>
-                          <Button 
-                            variant="outline" 
-                            onClick={() => disconnectStripeMutation.mutate()}
-                            disabled={disconnectStripeMutation.isPending}
-                            data-testid="button-disconnect-stripe"
-                          >
-                            {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect Stripe"}
-                          </Button>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Providers</CardTitle>
+                  <CardDescription>
+                    Connect payment providers to receive payments from customers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Stripe Provider */}
+                  <div className="border rounded-lg p-6 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+                          <CreditCard className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                         </div>
-                      ) : (
-                        <Button 
-                          variant="default" 
-                          onClick={handleConnectStripe}
-                          data-testid="button-connect-stripe"
-                        >
-                          Connect Stripe Account
-                        </Button>
+                        <div>
+                          <h3 className="font-semibold text-lg">Stripe</h3>
+                          <p className="text-sm text-muted-foreground">Global payment processing</p>
+                        </div>
+                      </div>
+                      {isStripeConnected && (
+                        <Badge className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800">
+                          Connected
+                        </Badge>
                       )}
-                    </>
-                  ) : (
-                    <Button variant="outline" disabled data-testid="button-connect-paypal">
-                      Connect PayPal Account (Coming Soon)
-                    </Button>
-                  )}
-                  
-                  <div className="mt-4 p-4 bg-muted/50 rounded-md">
-                    <p className="text-xs text-muted-foreground">
-                      <strong className="font-semibold">What happens when you connect:</strong>
-                      <br />
-                      • You'll be redirected to {paymentProvider === "stripe" ? "Stripe" : "PayPal"} to authorize the connection
-                      <br />
-                      • You can use an existing account or create a new one
-                      <br />
-                      • Start receiving payments immediately after connecting
-                      <br />
-                      • Manage payouts and advanced features in your {paymentProvider === "stripe" ? "Stripe" : "PayPal"} dashboard
-                    </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>135+ currencies</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>Apple Pay & Google Pay</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>Direct to your account</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>1.5% platform fee</span>
+                      </div>
+                    </div>
+
+                    {isStripeConnected ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleConnectStripe}
+                          data-testid="button-update-stripe"
+                          className="flex-1"
+                        >
+                          Update Account
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => disconnectStripeMutation.mutate()}
+                          disabled={disconnectStripeMutation.isPending}
+                          data-testid="button-disconnect-stripe"
+                          className="flex-1"
+                        >
+                          {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleConnectStripe}
+                        data-testid="button-connect-stripe"
+                        className="w-full"
+                      >
+                        Connect Stripe Account
+                      </Button>
+                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+
+                  {/* PayPal Provider */}
+                  <div className="border rounded-lg p-6 space-y-4 opacity-60">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                          <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">PayPal</h3>
+                          <p className="text-sm text-muted-foreground">Trusted payment platform</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">Coming Soon</Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>200+ countries</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Buyer protection</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Direct to your account</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>1.5% platform fee</span>
+                      </div>
+                    </div>
+
+                    <Button variant="outline" disabled data-testid="button-connect-paypal" className="w-full">
+                      Connect PayPal Account
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>How It Works</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-semibold">1</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">Connect Your Account</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Link your existing account or create a new one with minimal information
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-semibold">2</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">Receive Payments Directly</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Funds go straight to your account - Uppfirst never holds your money
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-semibold">3</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">Platform Fee & Branding</h4>
+                      <p className="text-sm text-muted-foreground">
+                        We collect 1.5% platform fee automatically. Buyers see YOUR name on their statement, not Uppfirst
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             <Card className="mt-6">
               <CardHeader>

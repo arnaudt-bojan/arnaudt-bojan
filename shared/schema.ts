@@ -127,7 +127,7 @@ export const users = pgTable("users", {
   invitedBy: varchar("invited_by"), // User ID of who invited this user
   storeBanner: text("store_banner"), // Seller's store banner image URL
   storeLogo: text("store_logo"), // Seller's store logo URL
-  paymentProvider: varchar("payment_provider").default("stripe"), // stripe, paypal
+  paymentProvider: varchar("payment_provider"), // stripe, paypal, or null (not yet selected)
   stripeConnectedAccountId: varchar("stripe_connected_account_id"), // Stripe Connect account ID for receiving payments
   stripeChargesEnabled: integer("stripe_charges_enabled").default(0), // Can accept payments (0=no, 1=yes)
   stripePayoutsEnabled: integer("stripe_payouts_enabled").default(0), // Can receive payouts (0=no, 1=yes)
