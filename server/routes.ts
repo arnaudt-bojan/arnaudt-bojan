@@ -1630,7 +1630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create subscription after payment method is added
+  // Create subscription checkout session
   app.post("/api/subscription/create", isAuthenticated, async (req: any, res) => {
     try {
       if (!stripe) {
@@ -1641,47 +1641,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { plan } = req.body; // "monthly" or "annual"
       const user = await storage.getUser(userId);
       
-      if (!user || !user.stripeCustomerId) {
-        return res.status(400).json({ error: "Payment method not set up" });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
       }
 
-      // Price IDs (you'll need to create these in Stripe Dashboard)
+      // Price IDs (Replace with actual Stripe Price IDs from dashboard)
       const priceId = plan === "annual" 
-        ? "price_annual_99" // Replace with actual Stripe Price ID
-        : "price_monthly_999"; // Replace with actual Stripe Price ID
+        ? "price_annual_99" // TODO: Replace with actual Stripe Price ID for $99/year
+        : "price_monthly_999"; // TODO: Replace with actual Stripe Price ID for $9.99/month
 
-      // Get customer's default payment method
-      const customer = await stripe.customers.retrieve(user.stripeCustomerId);
-      const defaultPaymentMethod = (customer as any).invoice_settings?.default_payment_method;
-
-      if (!defaultPaymentMethod) {
-        return res.status(400).json({ error: "No payment method found" });
+      // Create or get Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+        await storage.upsertUser({ ...user, stripeCustomerId: customerId });
       }
 
-      // Create subscription
-      const subscription = await stripe.subscriptions.create({
-        customer: user.stripeCustomerId,
-        items: [{ price: priceId }],
-        default_payment_method: defaultPaymentMethod,
-        trial_end: user.trialEndsAt ? Math.floor(new Date(user.trialEndsAt).getTime() / 1000) : undefined,
+      // Calculate trial end date - only use if valid and in the future
+      let trialEndTimestamp: number | undefined;
+      let shouldUpdateTrialDate = false;
+      
+      if (user.trialEndsAt) {
+        const existingTrialEnd = new Date(user.trialEndsAt);
+        // Only use trial end if it's valid and in the future
+        if (Number.isFinite(existingTrialEnd.getTime()) && existingTrialEnd.getTime() > Date.now()) {
+          trialEndTimestamp = Math.floor(existingTrialEnd.getTime() / 1000);
+        }
+      } else {
+        // No trial date set - create new 30-day trial
+        const newTrialEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        trialEndTimestamp = Math.floor(newTrialEnd.getTime() / 1000);
+        shouldUpdateTrialDate = true;
+      }
+
+      // Create Checkout Session with trial if applicable
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [{
+          price: priceId,
+          quantity: 1,
+        }],
+        subscription_data: trialEndTimestamp ? {
+          trial_end: trialEndTimestamp,
+        } : undefined,
+        success_url: `${req.headers.origin || 'http://localhost:5000'}/seller-dashboard?subscription=success`,
+        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/products?subscription=cancelled`,
+        metadata: {
+          userId: user.id,
+          plan: plan,
+        },
       });
 
-      // Update user with subscription info
-      const updatedUser = await storage.upsertUser({
-        ...user,
-        stripeSubscriptionId: subscription.id,
-        subscriptionStatus: subscription.status === "trialing" ? "trial" : "active",
-        subscriptionPlan: plan,
-      });
+      // Update trial end date if new trial was created
+      if (shouldUpdateTrialDate) {
+        const newTrialEndDate = new Date(trialEndTimestamp! * 1000);
+        await storage.upsertUser({
+          ...user,
+          trialEndsAt: newTrialEndDate,
+        });
+      }
 
       res.json({ 
-        message: "Subscription created successfully", 
-        subscription,
-        user: updatedUser,
+        checkoutUrl: session.url,
+        sessionId: session.id,
       });
     } catch (error: any) {
       console.error("Create subscription error:", error);
-      res.status(500).json({ error: "Failed to create subscription" });
+      res.status(500).json({ error: "Failed to create subscription checkout" });
     }
   });
 

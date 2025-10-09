@@ -14,6 +14,7 @@ import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
 
 type CardSize = "compact" | "medium" | "large";
 
@@ -36,6 +37,7 @@ export default function Products() {
     colors: [],
     sortBy: "newest",
   });
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
   const { addItem } = useCart();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
@@ -144,6 +146,23 @@ export default function Products() {
       title: "Added to cart",
       description: `${product.name} has been added to your cart`,
     });
+  };
+
+  // Check subscription status and handle store activation
+  const handleStoreToggle = (checked: boolean) => {
+    if (checked) {
+      // Activating store - check subscription
+      const hasActiveSubscription = user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial';
+      
+      if (!hasActiveSubscription) {
+        // No active subscription - show pricing dialog
+        setShowSubscriptionDialog(true);
+        return;
+      }
+    }
+    
+    // Either deactivating or has active subscription - proceed with toggle
+    toggleStoreMutation.mutate(checked ? 1 : 0);
   };
 
   // Toggle store active status
@@ -273,7 +292,7 @@ export default function Products() {
               <Switch
                 id="store-active"
                 checked={user?.storeActive === 1}
-                onCheckedChange={(checked) => toggleStoreMutation.mutate(checked ? 1 : 0)}
+                onCheckedChange={handleStoreToggle}
                 disabled={toggleStoreMutation.isPending}
                 data-testid="switch-store-active"
               />
@@ -387,6 +406,12 @@ export default function Products() {
           </div>
         )}
       </div>
+
+      {/* Subscription Pricing Dialog */}
+      <SubscriptionPricingDialog 
+        open={showSubscriptionDialog}
+        onOpenChange={setShowSubscriptionDialog}
+      />
     </div>
   );
 }
