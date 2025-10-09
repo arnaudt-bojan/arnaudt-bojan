@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Papa from "papaparse";
 
 interface SubscriberGroup {
   id: string;
@@ -66,12 +67,15 @@ export default function NewsletterPage() {
   const { toast } = useToast();
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [isSubscriberDialogOpen, setIsSubscriberDialogOpen] = useState(false);
+  const [isCsvUploadDialogOpen, setIsCsvUploadDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [subscriberEmail, setSubscriberEmail] = useState("");
   const [subscriberName, setSubscriberName] = useState("");
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<{ email: string; name?: string }[]>([]);
   
   // Newsletter composer state
   const [newsletterSubject, setNewsletterSubject] = useState("");
@@ -192,6 +196,31 @@ export default function NewsletterPage() {
     },
   });
 
+  const bulkImportMutation = useMutation({
+    mutationFn: async (subscribers: { email: string; name?: string }[]) => {
+      const response = await apiRequest("POST", "/api/subscribers/bulk", { subscribers });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Import Complete",
+        description: data.message || "Subscribers imported successfully.",
+      });
+      setIsCsvUploadDialogOpen(false);
+      setCsvFile(null);
+      setCsvPreview([]);
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriber-groups"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import subscribers.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const sendNewsletterMutation = useMutation({
     mutationFn: async (params: { subject: string; content: string; recipients: string[] }) => {
       console.log('[Newsletter] Sending with params:', { ...params, recipients: params.recipients?.length || 'undefined' });
@@ -295,6 +324,63 @@ export default function NewsletterPage() {
     });
   };
 
+  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCsvFile(file);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const parsed = results.data.map((row: any) => ({
+          email: row.email || row.Email || '',
+          name: row.name || row.Name || '',
+        })).filter(item => item.email.trim() !== '');
+
+        setCsvPreview(parsed);
+        
+        if (parsed.length === 0) {
+          toast({
+            title: "Empty File",
+            description: "No valid email addresses found in CSV.",
+            variant: "destructive",
+          });
+        }
+      },
+      error: (error) => {
+        toast({
+          title: "Parse Error",
+          description: error.message || "Failed to parse CSV file.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleBulkImport = () => {
+    if (csvPreview.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please upload a CSV file with email addresses.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    bulkImportMutation.mutate(csvPreview);
+  };
+
   if (groupsLoading || subscribersLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -327,6 +413,15 @@ export default function NewsletterPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsCsvUploadDialogOpen(true)}
+              className="gap-2"
+              data-testid="button-import-csv"
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
             <Button
               variant="outline"
               onClick={exportSubscribers}
@@ -963,6 +1058,82 @@ export default function NewsletterPage() {
               data-testid="button-save-subscriber"
             >
               {createSubscriberMutation.isPending ? "Adding..." : "Add Subscriber"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Upload Dialog */}
+      <Dialog open={isCsvUploadDialogOpen} onOpenChange={setIsCsvUploadDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Import Subscribers from CSV</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file with email addresses. The file should have columns: email, name (optional)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="csv-file">CSV File</Label>
+              <Input
+                id="csv-file"
+                type="file"
+                accept=".csv"
+                onChange={handleCsvUpload}
+                data-testid="input-csv-file"
+              />
+              <p className="text-sm text-muted-foreground">
+                Expected format: email,name (one subscriber per row)
+              </p>
+            </div>
+
+            {csvPreview.length > 0 && (
+              <div className="space-y-2">
+                <Label>Preview ({csvPreview.length} subscribers found)</Label>
+                <div className="border rounded-md max-h-[200px] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Name</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {csvPreview.slice(0, 10).map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-mono text-sm">{item.email}</TableCell>
+                          <TableCell>{item.name || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {csvPreview.length > 10 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      And {csvPreview.length - 10} more...
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCsvUploadDialogOpen(false);
+                setCsvFile(null);
+                setCsvPreview([]);
+              }}
+              data-testid="button-cancel-csv-upload"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={csvPreview.length === 0 || bulkImportMutation.isPending}
+              data-testid="button-import-csv-submit"
+            >
+              {bulkImportMutation.isPending ? "Importing..." : `Import ${csvPreview.length} Subscribers`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -112,6 +112,7 @@ export interface IStorage {
   getSubscribersByUserId(userId: string): Promise<Subscriber[]>;
   getSubscribersByGroupId(userId: string, groupId: string): Promise<Subscriber[]>;
   getSubscriber(id: string): Promise<Subscriber | undefined>;
+  getSubscriberByEmail(userId: string, email: string): Promise<Subscriber | undefined>;
   createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
   updateSubscriber(id: string, data: Partial<Subscriber>): Promise<Subscriber | undefined>;
   deleteSubscriber(id: string): Promise<boolean>;
@@ -611,6 +612,14 @@ export class DatabaseStorage implements IStorage {
   async getSubscriber(id: string): Promise<Subscriber | undefined> {
     await this.ensureInitialized();
     const result = await this.db.select().from(subscribers).where(eq(subscribers.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getSubscriberByEmail(userId: string, email: string): Promise<Subscriber | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(subscribers).where(
+      and(eq(subscribers.userId, userId), eq(subscribers.email, email))
+    ).limit(1);
     return result[0];
   }
 

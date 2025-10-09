@@ -2701,6 +2701,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk import subscribers from CSV
+  app.post("/api/subscribers/bulk", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { subscribers } = req.body; // Array of { email, name }
+
+      if (!Array.isArray(subscribers) || subscribers.length === 0) {
+        return res.status(400).json({ error: "Subscribers array is required" });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const results = {
+        success: [] as string[],
+        skipped: [] as { email: string; reason: string }[],
+        errors: [] as { email: string; reason: string }[],
+      };
+
+      for (const item of subscribers) {
+        const email = item.email?.trim().toLowerCase();
+        const name = item.name?.trim() || null;
+
+        // Validate email
+        if (!email) {
+          results.skipped.push({ email: item.email || 'unknown', reason: 'Empty email' });
+          continue;
+        }
+
+        if (!emailRegex.test(email)) {
+          results.skipped.push({ email, reason: 'Invalid email format' });
+          continue;
+        }
+
+        try {
+          // Check if subscriber already exists
+          const existing = await storage.getSubscriberByEmail(userId, email);
+          if (existing) {
+            results.skipped.push({ email, reason: 'Already exists' });
+            continue;
+          }
+
+          // Create subscriber
+          await storage.createSubscriber({
+            userId,
+            email,
+            name,
+          });
+
+          results.success.push(email);
+        } catch (error: any) {
+          results.errors.push({ email, reason: error.message || 'Failed to create' });
+        }
+      }
+
+      res.json({
+        total: subscribers.length,
+        ...results,
+        message: `Imported ${results.success.length} subscribers. ${results.skipped.length} skipped, ${results.errors.length} errors.`,
+      });
+    } catch (error) {
+      console.error("Bulk import subscribers error:", error);
+      res.status(500).json({ error: "Failed to import subscribers" });
+    }
+  });
+
   app.post("/api/subscribers", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
