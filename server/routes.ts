@@ -3710,9 +3710,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Handle CORS preflight requests for objects
+  app.options("/objects/:objectPath(*)", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.sendStatus(200);
+  });
+
   // Endpoint to serve uploaded images (public access)
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();
+    
+    // Set CORS headers for cross-origin image loading (needed for canvas/image editing)
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    
     try {
       // Extract just the object path (remove /objects/ prefix)
       const objectPath = req.params.objectPath || req.params[0];

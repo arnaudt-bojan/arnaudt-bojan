@@ -570,7 +570,7 @@ function CategoryManagement() {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [copiedUsername, setCopiedUsername] = useState(false);
@@ -901,6 +901,18 @@ export default function Settings() {
 
     checkStripeStatus();
   }, [stripeParam, user?.stripeConnectedAccountId]);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="text-lg text-muted-foreground">Loading settings...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
