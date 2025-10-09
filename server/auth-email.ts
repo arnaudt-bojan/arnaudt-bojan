@@ -43,10 +43,10 @@ router.post('/send-code', async (req: Request, res: Response) => {
       used: 0,
     });
 
-    // Send email with code
-    await notificationService.sendAuthCode(email, code);
+    // Send email with code and magic link for auto-login
+    await notificationService.sendAuthCode(email, code, token);
 
-    console.log(`[Auth] Sent code to ${email}`);
+    console.log(`[Auth] Sent code and auto-login link to ${email}`);
 
     res.json({ 
       success: true, 

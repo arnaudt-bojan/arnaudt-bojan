@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 import type { User, Order, Product, Notification, InsertNotification } from '../shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = 'Uppfirst <noreply@uppfirst.com>'; // Update with your verified domain
+const FROM_EMAIL = 'Uppfirst <noreply@upfirst.io>'; // Verified domain
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -195,10 +195,10 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send authentication code (6-digit code)
+   * Send authentication code (6-digit code) with auto-login link
    */
-  async sendAuthCode(email: string, code: string): Promise<void> {
-    const emailHtml = this.generateAuthCodeEmail(code);
+  async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<void> {
+    const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
 
     await this.sendEmail({
       to: email,
@@ -435,9 +435,12 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Generate auth code email
+   * Generate auth code email with auto-login button
    */
-  private generateAuthCodeEmail(code: string): string {
+  private generateAuthCodeEmail(code: string, magicLinkToken?: string): string {
+    const baseUrl = process.env.VITE_BASE_URL || 'http://localhost:5000';
+    const magicLink = magicLinkToken ? `${baseUrl}/api/auth/email/verify-magic-link?token=${magicLinkToken}` : null;
+
     return `
       <!DOCTYPE html>
       <html>
@@ -448,13 +451,26 @@ class NotificationServiceImpl implements NotificationService {
             .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; text-align: center; }
             .code-box { background: #f0f7ff; padding: 30px; border-radius: 8px; margin: 30px 0; }
             .code { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #000; margin: 10px 0; }
+            .button { display: inline-block; padding: 14px 40px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
+            .button:hover { background: #333; }
+            .divider { margin: 30px 0; color: #999; font-size: 14px; }
             .warning { color: #666; font-size: 14px; margin-top: 20px; }
           </style>
         </head>
         <body>
           <div class="container">
-            <h1>Your Login Code</h1>
-            <p>Enter this code to sign in to Uppfirst:</p>
+            <h1>Sign in to Uppfirst</h1>
+            
+            ${magicLink ? `
+              <p>Click the button below to sign in instantly:</p>
+              <a href="${magicLink}" class="button">Sign In to Uppfirst</a>
+              
+              <div class="divider">OR</div>
+              
+              <p>Enter this code manually:</p>
+            ` : `
+              <p>Enter this code to sign in:</p>
+            `}
             
             <div class="code-box">
               <div class="code">${code}</div>
