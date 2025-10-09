@@ -312,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let existingUser = allUsers.find(u => u.email?.toLowerCase().trim() === normalizedEmail);
 
       // Check if this is a seller email trying to checkout as a buyer
-      const sellerRoles = ['admin', 'editor', 'viewer', 'seller'];
+      const sellerRoles = ['admin', 'editor', 'viewer', 'seller', 'owner'];
       if (existingUser && sellerRoles.includes(existingUser.role)) {
         return res.status(403).json({ 
           error: "This is a seller account email. Sellers cannot checkout as buyers. Please use a different email address." 
