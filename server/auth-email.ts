@@ -23,7 +23,7 @@ function generateToken(): string {
  */
 router.post('/send-code', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { email, sellerContext } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -34,13 +34,14 @@ router.post('/send-code', async (req: Request, res: Response) => {
     const token = generateToken();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Save auth token to database
+    // Save auth token to database with seller context
     await storage.createAuthToken({
       email,
       token,
       code,
       expiresAt,
       used: 0,
+      sellerContext: sellerContext || null, // Store seller context with token
     });
 
     // Send email with code and magic link for auto-login
@@ -65,7 +66,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
  */
 router.post('/verify-code', async (req: any, res: Response) => {
   try {
-    const { email, code } = req.body;
+    const { email, code, sellerContext } = req.body;
 
     if (!email || !code) {
       return res.status(400).json({ error: 'Email and code are required' });
@@ -91,20 +92,17 @@ router.post('/verify-code', async (req: any, res: Response) => {
     // Mark as used
     await storage.markAuthTokenAsUsed(authToken.id);
 
-    // Determine if this is a seller or buyer signup based on domain
-    const host = req.get('host') || '';
+    // Determine seller context:
+    // 1. Prefer sellerContext from request body (supports cross-device login)
+    // 2. Fall back to sellerContext from token (original device context)
+    const finalSellerContext = sellerContext || authToken.sellerContext;
     
-    // Simplified domain logic for MVP:
-    // - Development (localhost, replit.dev, repl.co) = ALWAYS seller
-    // - Production: For now, all signups are sellers (buyer accounts created via guest checkout or seller invite)
-    // TODO: Implement proper storefront subdomain detection for production buyer signups
+    // If sellerContext exists, this is a buyer signup from a seller's storefront
+    // If no sellerContext, this is a seller signup from main domain
+    const isMainDomain = !finalSellerContext;
+    const sellerUsername = finalSellerContext;
     
-    const isDevEnvironment = host.includes('localhost') || host.includes('127.0.0.1') || 
-                             host.includes('replit.dev') || host.includes('repl.co');
-    
-    // For MVP: All email auth signups create seller accounts
-    // Buyers are created automatically during guest checkout
-    const isMainDomain = true; // Always seller for now
+    console.log(`[Auth] Domain context - isMainDomain: ${isMainDomain}, sellerContext from body: ${sellerContext}, from token: ${authToken.sellerContext}, final: ${finalSellerContext}`);
     
     // Get or create user (email lookup is case-insensitive in storage)
     let user = await storage.getUserByEmail(email);
@@ -119,21 +117,14 @@ router.post('/verify-code', async (req: any, res: Response) => {
         role,
       });
       
-      console.log(`[Auth] Created new ${role} user: ${email} (domain: ${host}, isMainDomain: ${isMainDomain})`);
+      console.log(`[Auth] Created new ${role} user: ${email} (isMainDomain: ${isMainDomain}, sellerContext: ${sellerUsername})`);
       
       // Send welcome email to new sellers
       if (role === 'admin') {
         await notificationService.sendSellerWelcome(user);
       }
     } else {
-      // Existing user: buyers should not use email auth (they use guest checkout)
-      if (user.role === 'buyer') {
-        return res.status(403).json({ 
-          error: 'Buyer accounts cannot login here. Please use guest checkout to place orders.' 
-        });
-      }
-      
-      console.log(`[Auth] Existing ${user.role} user logging in: ${email} (domain: ${host})`);
+      console.log(`[Auth] Existing ${user.role} user logging in: ${email}`);
     }
 
     // Create session compatible with isAuthenticated middleware
@@ -159,8 +150,23 @@ router.post('/verify-code', async (req: any, res: Response) => {
 
     console.log(`[Auth] User authenticated: ${email}`);
 
+    // Determine redirect URL based on role and domain
+    let redirectUrl: string;
+    
+    if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
+      // Sellers always go to their dashboard
+      redirectUrl = '/seller-dashboard';
+    } else if (user.role === 'buyer') {
+      // Buyers go to buyer dashboard
+      redirectUrl = '/buyer-dashboard';
+    } else {
+      // Fallback
+      redirectUrl = '/';
+    }
+
     res.json({
       success: true,
+      redirectUrl,
       user: {
         id: user.id,
         email: user.email,
@@ -181,7 +187,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
  */
 router.post('/send-magic-link', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { email, sellerContext } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -191,12 +197,13 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
     const token = generateToken();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Save auth token to database
+    // Save auth token to database with seller context
     await storage.createAuthToken({
       email,
       token,
       expiresAt,
       used: 0,
+      sellerContext: sellerContext || null, // Store seller context with token
     });
 
     // Generate magic link - points to API endpoint
@@ -251,27 +258,34 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     // Mark as used
     await storage.markAuthTokenAsUsed(authToken.id);
 
+    // Get seller context from the auth token (stored during send-magic-link)
+    const sellerContextFromToken = authToken.sellerContext;
+    
+    // If sellerContext exists, this is a buyer login from a seller's storefront
+    const isMainDomain = !sellerContextFromToken;
+    
+    console.log(`[Auth] Magic link - isMainDomain: ${isMainDomain}, sellerContext: ${sellerContextFromToken}`);
+    
     // Get or create user (normalized email)
     const normalizedEmail = authToken.email.toLowerCase().trim();
     let user = await storage.getUserByEmail(normalizedEmail);
     
     if (!user) {
-      // Create new seller account (all email auth users are sellers)
+      // Create new user account based on domain
+      const role = isMainDomain ? 'admin' : 'buyer';
+      
       user = await storage.upsertUser({
         email: normalizedEmail,
-        role: 'admin', // Email auth creates sellers
+        role,
       });
       
-      console.log(`[Auth] Created new admin user: ${normalizedEmail}`);
+      console.log(`[Auth] Created new ${role} user via magic link: ${normalizedEmail}`);
       
       // Send welcome email to new sellers
-      await notificationService.sendSellerWelcome(user);
-    } else {
-      // Existing user: buyers should not use email auth
-      if (user.role === 'buyer') {
-        return res.redirect('/login?error=buyer_account');
+      if (role === 'admin') {
+        await notificationService.sendSellerWelcome(user);
       }
-      
+    } else {
       console.log(`[Auth] Existing ${user.role} user logging in via magic link: ${normalizedEmail}`);
     }
 
@@ -298,8 +312,19 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
 
     console.log(`[Auth] User authenticated via magic link: ${normalizedEmail}`);
 
-    // Redirect to seller dashboard (all email auth users are sellers)
-    const redirectUrl = '/seller-dashboard';
+    // Determine redirect URL based on role
+    let redirectUrl: string;
+    
+    if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
+      // Sellers always go to their dashboard
+      redirectUrl = '/seller-dashboard';
+    } else if (user.role === 'buyer') {
+      // Buyers go to buyer dashboard
+      redirectUrl = '/buyer-dashboard';
+    } else {
+      // Fallback
+      redirectUrl = '/';
+    }
     
     res.redirect(redirectUrl);
   } catch (error: any) {

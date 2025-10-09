@@ -397,6 +397,7 @@ export const authTokens = pgTable("auth_tokens", {
   code: varchar("code", { length: 6 }), // 6-digit code for email authentication
   expiresAt: timestamp("expires_at").notNull(),
   used: integer("used").default(0), // 0 = false, 1 = true
+  sellerContext: text("seller_context"), // Seller username when logging in from seller storefront
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

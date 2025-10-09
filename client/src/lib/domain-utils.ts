@@ -41,7 +41,7 @@ export function detectDomain(): DomainInfo {
   const parts = hostname.split('.');
   
   // Main domain: upfirst.com
-  if (hostname === 'upfirst.com' || (parts.length === 2 && parts[0] === 'uppfirst')) {
+  if (hostname === 'upfirst.com' || (parts.length === 2 && parts[0] === 'upfirst')) {
     return {
       isMainDomain: true,
       isSellerDomain: false,
@@ -49,7 +49,7 @@ export function detectDomain(): DomainInfo {
   }
   
   // Seller subdomain: {username}.upfirst.com
-  if (parts.length === 3 && parts[1] === 'uppfirst' && parts[2] === 'com') {
+  if (parts.length === 3 && parts[1] === 'upfirst' && parts[2] === 'com') {
     return {
       isMainDomain: false,
       isSellerDomain: true,

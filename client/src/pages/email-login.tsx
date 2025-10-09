@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Mail, KeyRound, Loader2 } from "lucide-react";
+import { detectDomain } from "@/lib/domain-utils";
 
 export default function EmailLogin() {
   const [, setLocation] = useLocation();
@@ -18,9 +19,16 @@ export default function EmailLogin() {
   const [codeSent, setCodeSent] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
 
+  // Detect domain context to pass to backend
+  const domainInfo = detectDomain();
+  const sellerContext = domainInfo.isSellerDomain ? domainInfo.sellerUsername : undefined;
+
   const sendCodeMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest("POST", "/api/auth/email/send-code", { email });
+      const response = await apiRequest("POST", "/api/auth/email/send-code", { 
+        email,
+        sellerContext // Pass seller context to backend
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -41,7 +49,11 @@ export default function EmailLogin() {
 
   const verifyCodeMutation = useMutation({
     mutationFn: async ({ email, code }: { email: string; code: string }) => {
-      const response = await apiRequest("POST", "/api/auth/email/verify-code", { email, code });
+      const response = await apiRequest("POST", "/api/auth/email/verify-code", { 
+        email, 
+        code,
+        sellerContext // Pass seller context to backend
+      });
       return response.json();
     },
     onSuccess: (data) => {
@@ -50,12 +62,9 @@ export default function EmailLogin() {
         title: "Welcome!",
         description: `You're now logged in as ${data.user.email}`,
       });
-      // Redirect based on role
-      if (data.user.role === 'seller' || data.user.role === 'admin' || data.user.role === 'owner') {
-        setLocation('/seller-dashboard');
-      } else {
-        setLocation('/');
-      }
+      // Redirect to URL provided by backend
+      const redirectUrl = data.redirectUrl || '/';
+      setLocation(redirectUrl);
     },
     onError: (error: any) => {
       toast({
@@ -68,7 +77,10 @@ export default function EmailLogin() {
 
   const sendMagicLinkMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest("POST", "/api/auth/email/send-magic-link", { email });
+      const response = await apiRequest("POST", "/api/auth/email/send-magic-link", { 
+        email,
+        sellerContext // Pass seller context to backend
+      });
       return response.json();
     },
     onSuccess: () => {
