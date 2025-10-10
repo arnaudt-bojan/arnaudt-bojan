@@ -67,11 +67,27 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 
 ## Recent Changes (October 10, 2025)
 
-### Currency Symbol Display Fix
-- Fixed currency symbol to show universal symbol (¤) when Stripe not connected
-- API now returns `null` currency when no Stripe connection
-- getCurrencySymbol properly handles null/undefined and returns ¤
-- Updated: `server/routes.ts`, `client/src/lib/currency-utils.ts`
+### Mobile-First Design Improvements
+- **Banner Optimization**: Changed fixed heights to responsive aspect ratios (aspect-[21/9] mobile, aspect-[21/7] desktop) for iPhone 16+ optimization
+- **Seller Products Mobile**: Converted desktop table to mobile-friendly card layout with flex-wrap for proper button stacking on small screens
+- **Updated**: `client/src/pages/products.tsx`, `client/src/pages/seller-products.tsx`
+
+### Currency Symbol Fixes
+- Fixed shipping rate field to show dynamic currency symbol via getCurrencySymbol() instead of hardcoded $
+- API returns `null` currency when no Stripe connection, getCurrencySymbol returns universal symbol (¤)
+- **Updated**: `server/routes.ts`, `client/src/lib/currency-utils.ts`, `client/src/components/product-form-fields.tsx`
+
+### Product Detail Accordion Logic
+- Shipping & Returns accordions now conditionally render based on seller custom policies
+- Always show product-specific notices (pre-order ETA, made-to-order production time, final sale warning) regardless of seller policies
+- Accordions appear when seller has custom policy OR product type requires specific messaging
+- **Updated**: `client/src/pages/product-detail.tsx`
+
+### Logout Security & UX
+- Added returnUrl parameter to preserve storefront context after logout
+- Implemented sanitization to prevent open redirect attacks (only allows same-origin paths)
+- Works with both email auth and OIDC logout flows
+- **Updated**: `client/src/components/header.tsx`, `server/replitAuth.ts`
 
 ### Variant System Redesign (Size-First)
 - **Redesigned variant system** to be simpler and more intuitive
