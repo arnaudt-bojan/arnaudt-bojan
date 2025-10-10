@@ -22,7 +22,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 **System Design Choices & Feature Specifications:**
 - **Product Management**: Supports diverse product types with multi-image uploads and bulk CSV import. Features a sophisticated color-first variant system with optional images per color and styled selectors. Enhanced validation system with clear error messages for required fields (name, description, price, image, category) and explicit "(optional)" labels for optional fields (stock, discount, variants, etc.). Category selection uses real-time form field updates to prevent validation errors.
 - **Shopping & Checkout**: Includes a slide-over cart, persistent cart, guest checkout, and automatic shipping cost calculation. Carts enforce a single-seller constraint for proper payment routing and data isolation.
-- **Authentication & Authorization**: Email-based authentication for sellers (admin role). Buyers are created automatically via guest checkout. A 4-role system (admin, editor, viewer, buyer) with multi-tenant security ensures data isolation for sellers and buyers.
+- **Authentication & Authorization**: Email-based authentication with dual-token system. Login codes (6-digit, single-use, 15 min expiry) for manual verification. Magic links in emails (reusable, 6 month expiry) for one-click login. Sellers assigned admin role, buyers created automatically via guest checkout. 4-role system (admin, editor, viewer, buyer) with multi-tenant security ensures data isolation.
 - **Notification System**: Comprehensive email notifications using Resend, with planned support for 30+ types.
 - **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting credit cards and balance payments for pre-orders. Features borderless onboarding for sellers with automatic capability management - both `card_payments` and `transfers` capabilities are explicitly requested during account creation and auto-updated for existing accounts. This ensures proper payment routing with `on_behalf_of` parameter (seller name on customer statement). Note: Apple Pay and Google Pay are disabled in checkout as they require domain verification with Stripe (not feasible on Replit subdomains).
   - **Capability Status Monitoring**: UI displays real-time Stripe Connect capability status. Only shows "Fully Enabled" when both `card_payments` and `transfers` capabilities are "active". Any other status (inactive, pending, restricted) triggers a warning and "Complete Onboarding" button.
@@ -64,6 +64,27 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 3. Checkout normally and receive all buyer emails
 
 **Why This Works**: The cart clearing happens when you login as a seller. Guest/incognito sessions don't have seller authentication, so they work as normal buyer flows.
+
+## Recent Changes (October 10, 2025)
+
+### Authentication Token System Improvements
+- **Dual-Token System**: Separated login codes from magic links with distinct behavior
+  - Login codes: 6-digit, single-use, 15-minute expiry (for manual entry)
+  - Magic links: Reusable, 6-month expiry (for one-click email login)
+- **Schema Update**: Added `tokenType` field to `auth_tokens` table ('login_code' vs 'magic_link')
+- **Security Fix**: Legacy tokens (null tokenType) are treated as single-use to prevent replay attacks
+- **Implementation**: Updated token generation and verification logic in `server/auth-email.ts`
+
+### Store Activation Default
+- Changed `storeActive` default from 0 to 1 in users table
+- New sellers now have stores set to "Live" by default upon account creation
+- No manual activation required for new sellers
+
+### Subscription Sync Improvements
+- Fixed UI refresh issue after Stripe checkout completion
+- Added `queryClient.invalidateQueries` after subscription sync to ensure UI updates
+- Added user-facing toast notification when subscription status is synced
+- Updated: `client/src/components/subscription-pricing-dialog.tsx`
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
