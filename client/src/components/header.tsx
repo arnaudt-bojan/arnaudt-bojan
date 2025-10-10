@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShoppingCart, LogOut, User, Menu, Settings } from "lucide-react";
+import { ShoppingCart, LogOut, User, Menu, Settings, Sun, Moon, Bell, DollarSign } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -8,6 +8,8 @@ import { NotificationBell } from "./notification-bell";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +38,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const [location] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
   const domainInfo = detectDomain();
   const isSellerDomain = domainInfo.isSellerDomain;
 
@@ -52,6 +55,13 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   // Show burger menu on mobile for both sellers and buyers, or on seller domains
   const shouldShowMobileMenu = isSellerDomain || isAuthenticated;
 
+  // Notification count
+  const { data: notifications } = useQuery<any[]>({
+    queryKey: ["/api/notifications"],
+    enabled: isAuthenticated,
+  });
+  const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
@@ -63,131 +73,186 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-            <SheetContent side="left">
+            <SheetContent side="left" className="w-80">
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
-              <nav className="flex flex-col gap-4 mt-6">
-                {/* Only show Products on seller domains or for authenticated buyers */}
-                {(isSellerDomain || (isAuthenticated && user?.role === "buyer")) && (
-                  <Link
-                    href="/products"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                    data-testid="mobile-link-products"
-                  >
-                    Products
-                  </Link>
-                )}
-                {isAuthenticated && user?.role === "buyer" && (
-                  <>
-                    <Link
-                      href="/buyer-dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-buyer-dashboard"
-                    >
-                      My Orders
-                    </Link>
-                    <Link
-                      href="/wholesale/catalog"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-buyer-wholesale"
-                    >
-                      Wholesale Catalog
-                    </Link>
-                  </>
-                )}
-                {isAuthenticated && (user?.role === "admin" || user?.role === "editor" || user?.role === "viewer") && (
-                  <>
-                    <Link
-                      href="/seller-dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-seller-dashboard"
-                    >
-                      Dashboard
-                    </Link>
+              <div className="flex flex-col gap-6 mt-6">
+                {/* Navigation Links */}
+                <nav className="flex flex-col gap-2">
+                  {/* Only show Products on seller domains or for authenticated buyers */}
+                  {(isSellerDomain || (isAuthenticated && user?.role === "buyer")) && (
                     <Link
                       href="/products"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-preview-store"
+                      className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                      data-testid="mobile-link-products"
                     >
-                      Preview Store
+                      Products
                     </Link>
+                  )}
+                  {isAuthenticated && user?.role === "buyer" && (
+                    <>
+                      <Link
+                        href="/buyer-dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-buyer-dashboard"
+                      >
+                        My Orders
+                      </Link>
+                      <Link
+                        href="/wholesale/catalog"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-buyer-wholesale"
+                      >
+                        Wholesale Catalog
+                      </Link>
+                    </>
+                  )}
+                  {isAuthenticated && (user?.role === "admin" || user?.role === "editor" || user?.role === "viewer") && (
+                    <>
+                      <Link
+                        href="/seller-dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-seller-dashboard"
+                      >
+                        Dashboard
+                      </Link>
+                      <Link
+                        href="/products"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-preview-store"
+                      >
+                        Preview Store
+                      </Link>
+                      <Link
+                        href="/seller/products"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-seller-products"
+                      >
+                        My Products
+                      </Link>
+                      <Link
+                        href="/orders"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-orders"
+                      >
+                        Orders
+                      </Link>
+                      <Link
+                        href="/seller/wholesale/products"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-wholesale"
+                      >
+                        Wholesale
+                      </Link>
+                      <Link
+                        href="/social-ads-setup"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-social-ads"
+                      >
+                        Social Ads
+                      </Link>
+                      <Link
+                        href="/newsletter"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-newsletter"
+                      >
+                        Newsletter
+                      </Link>
+                      <Link
+                        href="/order-management"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-order-management"
+                      >
+                        Order Management
+                      </Link>
+                    </>
+                  )}
+                  {isAuthenticated && user?.role === "admin" && (
+                    <>
+                      <Link
+                        href="/team"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-team"
+                      >
+                        Team
+                      </Link>
+                      <Link
+                        href="/settings"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                        data-testid="mobile-link-settings"
+                      >
+                        Settings
+                      </Link>
+                    </>
+                  )}
+                </nav>
+
+                <Separator />
+
+                {/* Mobile-only controls */}
+                <div className="flex flex-col gap-3">
+                  <div className="text-xs font-semibold text-muted-foreground px-3">Preferences</div>
+                  
+                  {/* Currency Selector */}
+                  <div className="px-3 py-2 hover-elevate rounded-lg cursor-pointer">
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <CurrencySelector />
+                    </div>
+                  </div>
+
+                  {/* Notifications */}
+                  {isAuthenticated && (
                     <Link
-                      href="/seller/products"
+                      href="/notifications"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-seller-products"
+                      className="flex items-center gap-2 px-3 py-2 hover-elevate rounded-lg text-sm"
+                      data-testid="mobile-link-notifications"
                     >
-                      My Products
+                      <Bell className="h-4 w-4 text-muted-foreground" />
+                      <span>Notifications</span>
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs">
+                          {unreadCount}
+                        </Badge>
+                      )}
                     </Link>
-                    <Link
-                      href="/orders"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-orders"
-                    >
-                      Orders
-                    </Link>
-                    <Link
-                      href="/seller/wholesale/products"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-wholesale"
-                    >
-                      Wholesale
-                    </Link>
-                    <Link
-                      href="/social-ads-setup"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-social-ads"
-                    >
-                      Social Ads
-                    </Link>
-                    <Link
-                      href="/newsletter"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-newsletter"
-                    >
-                      Newsletter
-                    </Link>
-                    <Link
-                      href="/order-management"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-order-management"
-                    >
-                      Order Management
-                    </Link>
-                  </>
-                )}
-                {isAuthenticated && user?.role === "admin" && (
-                  <>
-                    <Link
-                      href="/team"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-team"
-                    >
-                      Team
-                    </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="text-lg font-medium hover-elevate px-3 py-2 rounded-lg"
-                      data-testid="mobile-link-settings"
-                    >
-                      Settings
-                    </Link>
-                  </>
-                )}
-              </nav>
+                  )}
+
+                  {/* Theme Toggle */}
+                  <button
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                    className="flex items-center gap-2 px-3 py-2 hover-elevate rounded-lg text-sm"
+                    data-testid="mobile-button-theme-toggle"
+                  >
+                    {theme === "dark" ? (
+                      <>
+                        <Sun className="h-4 w-4 text-muted-foreground" />
+                        <span>Light Mode</span>
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="h-4 w-4 text-muted-foreground" />
+                        <span>Dark Mode</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </SheetContent>
             </Sheet>
           )}
@@ -212,27 +277,15 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
           )}
         </div>
 
-        {/* Desktop navigation for authenticated sellers */}
-        {isAuthenticated && isSeller && !isSellerDomain && (
-          <nav className="hidden md:flex items-center gap-2 flex-1 justify-center">
-            <Link href="/seller-dashboard">
-              <Button variant={location === "/seller-dashboard" ? "secondary" : "ghost"} size="sm">
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/settings">
-              <Button variant={location === "/settings" ? "secondary" : "ghost"} size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-            </Link>
-          </nav>
-        )}
-
+        {/* Desktop controls - right side */}
         <div className="flex items-center gap-2">
-          <CurrencySelector />
-          {isAuthenticated && <NotificationBell />}
-          <ThemeToggle />
+          {/* Desktop-only: Currency, Notifications, Theme */}
+          <div className="hidden md:flex items-center gap-2">
+            <CurrencySelector />
+            {isAuthenticated && <NotificationBell />}
+            <ThemeToggle />
+          </div>
+          
           <Button
             variant="ghost"
             size="icon"
@@ -273,12 +326,14 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" data-testid="link-settings">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
+                  {isSeller && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" data-testid="link-settings">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <a href="/api/logout" data-testid="button-logout">
                       <LogOut className="mr-2 h-4 w-4" />

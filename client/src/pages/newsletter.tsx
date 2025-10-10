@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { BackToDashboard } from "@/components/back-to-dashboard";
 import { Users, Plus, Trash2, Mail, FolderOpen, Upload, Download, Send, Image as ImageIcon, Monitor, Smartphone, BarChart3, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -558,6 +559,7 @@ export default function NewsletterPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <BackToDashboard />
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>

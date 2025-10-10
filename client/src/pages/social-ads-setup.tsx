@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { BackToDashboard } from "@/components/back-to-dashboard";
 import { 
   CheckCircle, 
   ExternalLink, 
@@ -423,6 +424,7 @@ export default function SocialAdsSetup() {
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-5xl">
+        <BackToDashboard />
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Social Media Advertising</h1>
           <p className="text-muted-foreground">

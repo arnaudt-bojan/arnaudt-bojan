@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BackToDashboard } from "@/components/back-to-dashboard";
 import {
   Table,
   TableBody,
@@ -22,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { WholesaleProduct } from "@shared/schema";
-import { Plus, Package, Trash2, ArrowLeft, Mail } from "lucide-react";
+import { Plus, Package, Trash2, Mail } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -67,17 +68,10 @@ export default function WholesaleProducts() {
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-7xl">
+        <BackToDashboard />
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLocation("/seller-dashboard")}
-              data-testid="button-back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1">
+          <div className="flex items-center justify-between mb-4">
+            <div>
               <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
                 Wholesale Products
               </h1>

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle, Users, Megaphone, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
 import { OnboardingModal } from "@/components/onboarding-modal";
@@ -145,18 +145,17 @@ export default function SellerDashboard() {
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
-                Seller Dashboard
+                Dashboard
               </h1>
               <p className="text-muted-foreground">
-                Manage your orders and track your sales
+                Manage your store, track sales, and grow your business
               </p>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2">
               <Button
-                variant="outline"
                 onClick={() => {
                   if (user?.username) {
                     const currentDomain = window.location.hostname;
@@ -184,63 +183,36 @@ export default function SellerDashboard() {
                 data-testid="button-share-store"
               >
                 <Share2 className="h-4 w-4 mr-2" />
-                Share Store
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/seller/products")}
-                data-testid="button-manage-products"
-              >
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                Products
-              </Button>
-              <Button
-                onClick={() => setLocation("/seller/create-product")}
-                data-testid="button-create-product"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Product
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/seller/wholesale/products")}
-                data-testid="button-wholesale"
-              >
-                <Store className="h-4 w-4 mr-2" />
-                Wholesale
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/newsletter")}
-                data-testid="button-newsletter"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Newsletters
+                Share
               </Button>
             </div>
           </div>
           
           {/* Store Status Toggle */}
-          <div className="flex items-center justify-between gap-4 mb-6 bg-card border rounded-lg px-6 py-4">
-            <div className="flex items-center gap-4">
-              <Store className="h-6 w-6 text-muted-foreground" />
-              <div>
-                <Label htmlFor="dashboard-store-active" className="text-base font-semibold cursor-pointer">
-                  Store Status
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  {user?.storeActive === 1 ? "Your store is live and visible to customers" : "Your store is inactive and hidden from customers"}
-                </p>
+          <Card className="mb-6 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-lg ${user?.storeActive === 1 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                  <Store className={`h-6 w-6 ${user?.storeActive === 1 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <Label htmlFor="dashboard-store-active" className="text-base font-semibold cursor-pointer">
+                    Store Status
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {user?.storeActive === 1 ? "Your store is live and visible to customers" : "Your store is inactive and hidden from customers"}
+                  </p>
+                </div>
               </div>
+              <Switch
+                id="dashboard-store-active"
+                checked={user?.storeActive === 1}
+                onCheckedChange={handleStoreToggle}
+                disabled={toggleStoreMutation.isPending || !user}
+                data-testid="switch-dashboard-store-active"
+              />
             </div>
-            <Switch
-              id="dashboard-store-active"
-              checked={user?.storeActive === 1}
-              onCheckedChange={handleStoreToggle}
-              disabled={toggleStoreMutation.isPending || !user}
-              data-testid="switch-dashboard-store-active"
-            />
-          </div>
+          </Card>
 
           {user?.subscriptionStatus === 'trial' && user.trialEndsAt && (
             <Alert className="mb-6 border-blue-500/50 bg-blue-500/10" data-testid="alert-trial-active">
@@ -283,8 +255,88 @@ export default function SellerDashboard() {
               </AlertDescription>
             </Alert>
           )}
+
+          {/* Quick Actions */}
+          <div className="mb-8">
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">QUICK ACTIONS</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/seller/create-product")}
+                data-testid="button-create-product"
+              >
+                <Plus className="h-5 w-5" />
+                <span className="text-xs font-medium">Create Product</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/seller/products")}
+                data-testid="button-manage-products"
+              >
+                <LayoutGrid className="h-5 w-5" />
+                <span className="text-xs font-medium">My Products</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/orders")}
+                data-testid="button-orders"
+              >
+                <Package className="h-5 w-5" />
+                <span className="text-xs font-medium">Orders</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/seller/wholesale/products")}
+                data-testid="button-wholesale"
+              >
+                <Store className="h-5 w-5" />
+                <span className="text-xs font-medium">Wholesale</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/social-ads-setup")}
+                data-testid="button-social-ads"
+              >
+                <Megaphone className="h-5 w-5" />
+                <span className="text-xs font-medium">Social Ads</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/newsletter")}
+                data-testid="button-newsletter"
+              >
+                <Mail className="h-5 w-5" />
+                <span className="text-xs font-medium">Newsletter</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/order-management")}
+                data-testid="button-order-management"
+              >
+                <FileText className="h-5 w-5" />
+                <span className="text-xs font-medium">Order Mgmt</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setLocation("/team")}
+                data-testid="button-team"
+              >
+                <Users className="h-5 w-5" />
+                <span className="text-xs font-medium">Team</span>
+              </Button>
+            </div>
+          </div>
         </div>
 
+        {/* Analytics Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="p-6">
             <div className="flex items-center justify-between mb-2">

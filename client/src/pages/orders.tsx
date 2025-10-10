@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { Package, ShoppingBag, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
+import { BackToDashboard } from "@/components/back-to-dashboard";
 
 type Order = {
   id: string;
@@ -62,6 +63,7 @@ export default function Orders() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
+      {isSeller && <BackToDashboard />}
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2" data-testid="text-orders-title">
           {isSeller ? "All Orders" : "My Orders"}

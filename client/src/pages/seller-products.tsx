@@ -17,6 +17,7 @@ import type { Product } from "@shared/schema";
 import { Plus, Pencil, Trash2, Megaphone, Upload, CreditCard } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { BackToDashboard } from "@/components/back-to-dashboard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +80,7 @@ export default function SellerProducts() {
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-7xl">
+        <BackToDashboard />
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">

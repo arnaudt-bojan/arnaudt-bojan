@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { BackToDashboard } from "@/components/back-to-dashboard";
 import {
   Select,
   SelectContent,
@@ -172,6 +173,7 @@ export default function Team() {
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-6xl">
+        <BackToDashboard />
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold flex items-center gap-3" data-testid="text-page-title">
