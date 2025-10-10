@@ -72,11 +72,12 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
   - **API Architecture**: GET /api/orders/:orderId/items, PATCH /api/order-items/:id/tracking (accepts trackingNumber, trackingCarrier, trackingUrl, notifyCustomer), PATCH /api/order-items/:id/status with seller authorization
   - **Test Mode**: Stripe test mode bypasses Connect requirements for easier testing of order/tracking features
 - **Flexible Shipping System**: Three-tier shipping configuration for maximum seller flexibility:
-  - **Shipping Matrices**: Sellers create zone-based shipping rates (continent/country/city level) with custom names and estimated delivery times
+  - **Shipping Matrices**: Sellers create zone-based shipping rates (continent/country/city level) with custom names and estimated delivery times. Comprehensive multi-tenant security ensures sellers can only access/modify their own matrices.
   - **Product-Level Shipping Choice**: Each product can use: (1) Flat rate, (2) Saved matrix, (3) Shippo real-time rates, or (4) Free shipping
   - **Shippo Integration**: Real-time carrier rate calculation using package dimensions (weight/length/width/height) or carrier templates (USPS, FedEx, UPS boxes)
   - **Database Schema**: shipping_matrices table stores zone definitions; shipping_zones table contains rates per zone; products table includes shipping configuration fields (shippingType, flatShippingRate, shippingMatrixId, shippo dimensions/template)
   - **Settings UI**: Dedicated "Shipping Matrix" tab in Settings for creating and managing shipping zones with easy table interface
+  - **Product Form Integration**: Shipping Configuration section in product create/edit forms with conditional UI based on shipping type - displays flat rate input, matrix selector, Shippo dimensions/template fields, or free shipping message
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
