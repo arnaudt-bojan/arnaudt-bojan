@@ -226,9 +226,9 @@ router.post('/verify-code', async (req: any, res: Response) => {
  * Send magic link to email
  */
 router.post('/send-magic-link', async (req: Request, res: Response) => {
-  try {
-    const { email, sellerContext } = req.body;
+  const { email, sellerContext } = req.body;
 
+  try {
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }

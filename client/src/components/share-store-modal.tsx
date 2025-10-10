@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Copy, Share2, QrCode } from "lucide-react";
 import { SiFacebook, SiInstagram, SiTiktok, SiX } from "react-icons/si";
+import { getStoreUrl } from "@/lib/store-url";
 
 interface ShareStoreModalProps {
   open: boolean;
@@ -17,24 +18,7 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  // Get store URL based on username
-  const getStoreUrl = () => {
-    if (!user?.username) {
-      return `${window.location.origin}/products`;
-    }
-
-    const hostname = window.location.hostname;
-    
-    // Development/Replit environment - use query parameter with /products path for filtering
-    if (hostname.includes('replit') || hostname === 'localhost') {
-      return `${window.location.origin}/products?seller=${user.username}`;
-    }
-    
-    // Production - use subdomain (storefront mounts at root, not /products)
-    return `${window.location.protocol}//${user.username}.upfirst.io`;
-  };
-
-  const storeUrl = getStoreUrl();
+  const storeUrl = getStoreUrl(user?.username);
 
   const copyToClipboard = async () => {
     try {

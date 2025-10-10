@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet } from "lucide-react";
+import { SiInstagram } from "react-icons/si";
+import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -1211,194 +1213,163 @@ export default function Settings() {
 
         {isSeller && (
           <TabsContent value="store">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Instagram Connection</CardTitle>
-                  <CardDescription>Connect your Instagram account to use it as your store username</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isInstagramConnected ? (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md space-y-2">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                          <p className="text-sm font-medium text-green-800 dark:text-green-300">Instagram Connected</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Connected Account:</p>
-                          <code className="text-sm bg-background px-3 py-2 rounded border inline-block">
-                            @{user?.instagramUsername}
-                          </code>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                        <p className="text-sm font-medium">Your Store URL:</p>
-                        <div className="flex items-center gap-2">
-                          <code className="text-sm bg-background px-3 py-2 rounded border flex-1">
-                            {user?.username}.upshop.com
-                          </code>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyToClipboard(`${user?.username}.upshop.com`)}
-                            data-testid="button-copy-store-url"
-                          >
-                            {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">Your Storefront</CardTitle>
+                <CardDescription>
+                  Manage your store URL and branding
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Storename Section */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Your Storename</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your Instagram handle becomes your store name.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={user?.username ? getStoreUrl(user.username) : 'Set username below'}
+                      readOnly
+                      className="flex-1"
+                      data-testid="input-store-url-settings"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        if (!user?.username) return;
+                        const url = getStoreUrl(user.username);
+                        navigator.clipboard.writeText(url);
+                        setCopiedUsername(true);
+                        setTimeout(() => setCopiedUsername(false), 2000);
+                        toast({ title: "Copied!", description: "Store link copied to clipboard" });
+                      }}
+                      disabled={!user?.username}
+                      data-testid="button-copy-store-url"
+                    >
+                      {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
 
+                {/* Instagram Connection */}
+                <div className="space-y-3 pt-4 border-t">
+                  {isInstagramConnected ? (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <span className="font-medium">Instagram Connected</span>
+                        <span className="text-muted-foreground">@{user?.instagramUsername}</span>
+                      </div>
                       <Button
-                        variant="destructive"
+                        variant="outline"
+                        className="w-full justify-between"
                         onClick={() => disconnectInstagramMutation.mutate()}
                         disabled={disconnectInstagramMutation.isPending}
                         data-testid="button-disconnect-instagram"
                       >
-                        {disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md space-y-2">
-                        <h4 className="font-semibold text-sm">Why Connect Instagram?</h4>
-                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                          <li>Use your verified Instagram username as your store URL</li>
-                          <li>Build trust with customers using your established brand</li>
-                          <li>Automatic authentication ensures username ownership</li>
-                        </ul>
-                      </div>
-
-                      {user?.username && (
-                        <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                          <p className="text-sm font-medium">Current Store URL:</p>
-                          <code className="text-sm bg-background px-3 py-2 rounded border inline-block">
-                            {user?.username}.upshop.com
-                          </code>
+                        <div className="flex items-center gap-2">
+                          <SiInstagram className="h-5 w-5" />
+                          <span>{disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}</span>
                         </div>
-                      )}
-
-                      <div className="space-y-2">
-                        <Button
-                          onClick={handleConnectInstagram}
-                          data-testid="button-connect-instagram"
-                          className="w-full"
-                        >
-                          Connect Instagram Account
-                        </Button>
-                        <p className="text-xs text-muted-foreground text-center">
-                          Opens in a popup window. Make sure pop-ups are enabled.
-                        </p>
-                      </div>
-                      
-                      <div className="pt-4 border-t">
-                        <p className="text-sm font-medium mb-2">Or use a custom username:</p>
-                        <Form {...usernameForm}>
-                          <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-4">
-                            <FormField
-                              control={usernameForm.control}
-                              name="username"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Custom Username</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      {...field} 
-                                      placeholder="Enter a custom username" 
-                                      data-testid="input-username" 
-                                    />
-                                  </FormControl>
-                                  <FormDescription>
-                                    3-20 characters, letters, numbers, and underscores only
-                                  </FormDescription>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <Button 
-                              type="submit" 
-                              disabled={updateUsernameMutation.isPending}
-                              data-testid="button-save-username"
-                            >
-                              {updateUsernameMutation.isPending ? "Saving..." : "Update Username"}
-                            </Button>
-                          </form>
-                        </Form>
-                      </div>
-                    </div>
+                        <span>×</span>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        Connect your Instagram to use your verified handle as your store URL
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between"
+                        onClick={handleConnectInstagram}
+                        data-testid="button-connect-instagram"
+                      >
+                        <div className="flex items-center gap-2">
+                          <SiInstagram className="h-5 w-5" />
+                          <span>Connect Instagram</span>
+                        </div>
+                        <span>→</span>
+                      </Button>
+                    </>
                   )}
-                </CardContent>
-              </Card>
+                </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Custom Domain</CardTitle>
-                  <CardDescription>Connect your own domain to your store</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                {/* Custom Username Section */}
+                {!isInstagramConnected && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <p className="text-sm font-medium">Or use a custom username</p>
+                    <Form {...usernameForm}>
+                      <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-3">
+                        <FormField
+                          control={usernameForm.control}
+                          name="username"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="yourusername" 
+                                  data-testid="input-username" 
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                3-20 characters, letters, numbers, and underscores only
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button 
+                          type="submit" 
+                          className="w-full"
+                          disabled={updateUsernameMutation.isPending}
+                          data-testid="button-save-username"
+                        >
+                          {updateUsernameMutation.isPending ? "Saving..." : "Save Username"}
+                        </Button>
+                      </form>
+                    </Form>
+                  </div>
+                )}
+
+                {/* Custom Domain Section */}
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Custom Domain</p>
+                      <p className="text-xs text-muted-foreground mt-1">Coming Soon</p>
+                    </div>
+                  </div>
                   <Form {...customDomainForm}>
-                    <form onSubmit={customDomainForm.handleSubmit((data) => updateCustomDomainMutation.mutate(data))} className="space-y-4">
+                    <form onSubmit={customDomainForm.handleSubmit((data) => updateCustomDomainMutation.mutate(data))} className="space-y-3">
                       <FormField
                         control={customDomainForm.control}
                         name="customDomain"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Domain Name</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field} 
                                 placeholder="mystore.com" 
+                                disabled
                                 data-testid="input-custom-domain" 
                               />
                             </FormControl>
-                            <FormDescription>
-                              Enter your domain without "www" (e.g., mystore.com)
+                            <FormDescription className="text-xs">
+                              Connect your own domain to your store (coming soon)
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <Button 
-                        type="submit" 
-                        disabled={updateCustomDomainMutation.isPending}
-                        data-testid="button-save-custom-domain"
-                      >
-                        {updateCustomDomainMutation.isPending ? "Saving..." : "Save Domain"}
-                      </Button>
                     </form>
                   </Form>
-
-                  {user?.customDomain && (
-                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md space-y-3">
-                      <h4 className="font-semibold text-sm">DNS Configuration Required</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Add these DNS records to your domain registrar:
-                      </p>
-                      <div className="space-y-2">
-                        <div className="bg-background p-3 rounded border">
-                          <p className="text-xs font-mono">
-                            <span className="font-semibold">Type:</span> A<br />
-                            <span className="font-semibold">Name:</span> @ (or your domain)<br />
-                            <span className="font-semibold">Value:</span> [Contact support for IP]
-                          </p>
-                        </div>
-                        <div className="bg-background p-3 rounded border">
-                          <p className="text-xs font-mono">
-                            <span className="font-semibold">Type:</span> TXT<br />
-                            <span className="font-semibold">Name:</span> @ (or your domain)<br />
-                            <span className="font-semibold">Value:</span> [Contact support for verification code]
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        DNS changes can take 24-48 hours to propagate. Contact support if you need assistance.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
