@@ -151,16 +151,16 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   
-  // Content Security Policy
+  // Content Security Policy - Comprehensive Stripe Connect support
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect.stripe.com https://connect-js.stripe.com; " +
+    "style-src 'self' 'unsafe-inline' https://connect.stripe.com https://connect-js.stripe.com; " +
     "img-src 'self' data: https: blob:; " +
-    "font-src 'self' data:; " +
-    "connect-src 'self' https://api.stripe.com; " +
-    "frame-src https://js.stripe.com https://hooks.stripe.com; " +
+    "font-src 'self' data: https://connect.stripe.com https://connect-js.stripe.com; " +
+    "connect-src 'self' https://api.stripe.com https://connect.stripe.com https://connect-js.stripe.com; " +
+    "frame-src https://js.stripe.com https://hooks.stripe.com https://connect.stripe.com https://connect-js.stripe.com; " +
     "object-src 'none';"
   );
   
