@@ -166,6 +166,7 @@ function PaymentForm({
             wallets: {
               applePay: 'auto',
               googlePay: 'auto',
+              link: 'never', // Disable Link payment method
             },
             fields: {
               billingDetails: {
