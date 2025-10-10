@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet } from "lucide-react";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -24,6 +24,8 @@ import { CountrySelectorDialog } from "@/components/country-selector-dialog";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
+import { SavedAddressesManager } from "@/components/saved-addresses-manager";
+import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-manager";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -985,6 +987,12 @@ export default function Settings() {
                   <span>Profile</span>
                 </div>
               </SelectItem>
+              <SelectItem value="addresses-payments">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  <span>Addresses & Payments</span>
+                </div>
+              </SelectItem>
               {isSeller && (
                 <>
                   <SelectItem value="subscription">
@@ -1030,10 +1038,14 @@ export default function Settings() {
         </div>
 
         {/* Desktop: Tabs */}
-        <TabsList className={`hidden md:grid w-full ${isSeller ? 'grid-cols-7' : 'grid-cols-1'}`} data-testid="tabs-settings">
+        <TabsList className={`hidden md:grid w-full ${isSeller ? 'grid-cols-8' : 'grid-cols-2'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
+          </TabsTrigger>
+          <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments">
+            <Wallet className="h-4 w-4 mr-2" />
+            Addresses & Payments
           </TabsTrigger>
           {isSeller && (
             <>
@@ -1169,6 +1181,26 @@ export default function Settings() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="addresses-payments" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                Addresses & Payments
+              </CardTitle>
+              <CardDescription>
+                Manage your saved addresses and payment methods for faster checkout
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <SavedAddressesManager />
+              <div className="border-t pt-8">
+                <SavedPaymentMethodsManager />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {isSeller && (

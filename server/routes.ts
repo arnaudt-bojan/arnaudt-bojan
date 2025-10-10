@@ -1535,6 +1535,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create Setup Intent for saving payment methods (without immediate charge)
+  app.post("/api/payment/setup-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Create or retrieve Stripe Customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined,
+          metadata: {
+            userId: user.id,
+          },
+        });
+        customerId = customer.id;
+
+        // Save customer ID to user record
+        await storage.upsertUser({
+          ...user,
+          stripeCustomerId: customerId,
+        });
+      }
+
+      // Create Setup Intent for saving payment method
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        usage: 'off_session', // For future charges when customer is not present
+      });
+
+      res.json({ clientSecret: setupIntent.client_secret });
+    } catch (error: any) {
+      console.error("[Stripe] Setup intent creation failed:", error);
+      res.status(500).json({ error: error.message || "Failed to create setup intent" });
+    }
+  });
+
   // Order Items - Get items for an order
   app.get("/api/orders/:orderId/items", isAuthenticated, async (req: any, res) => {
     try {
