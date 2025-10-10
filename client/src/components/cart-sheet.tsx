@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useCart } from "@/lib/cart-context";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 interface CartSheetProps {
   open: boolean;
@@ -51,14 +51,30 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                   className="flex gap-4 p-4 rounded-lg border hover-elevate"
                   data-testid={`cart-item-${item.id}`}
                 >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-20 h-20 object-cover rounded-md"
-                  />
+                  <Link 
+                    href={`/product/${item.id}`}
+                    onClick={onClose}
+                    className="flex-shrink-0"
+                    data-testid={`link-product-${item.id}`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-20 h-20 object-cover rounded-md cursor-pointer hover:opacity-75 transition-opacity"
+                    />
+                  </Link>
                   <div className="flex-1 space-y-2">
                     <div className="flex justify-between gap-2">
-                      <h4 className="font-semibold text-sm line-clamp-2">{item.name}</h4>
+                      <Link 
+                        href={`/product/${item.id}`}
+                        onClick={onClose}
+                        className="flex-1"
+                        data-testid={`link-product-name-${item.id}`}
+                      >
+                        <h4 className="font-semibold text-sm line-clamp-2 cursor-pointer hover:underline">
+                          {item.name}
+                        </h4>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="icon"
