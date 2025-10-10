@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Globe } from "lucide-react";
+import { Globe, Info } from "lucide-react";
 
 interface CountrySelectorDialogProps {
   isOpen: boolean;
@@ -105,7 +105,11 @@ export function CountrySelectorDialog({ isOpen, onClose, onConfirm }: CountrySel
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
                 {STRIPE_COUNTRIES.map((country) => (
-                  <SelectItem key={country.code} value={country.code}>
+                  <SelectItem 
+                    key={country.code} 
+                    value={country.code}
+                    data-testid={`option-country-${country.code}`}
+                  >
                     {country.name}
                   </SelectItem>
                 ))}
@@ -113,9 +117,10 @@ export function CountrySelectorDialog({ isOpen, onClose, onConfirm }: CountrySel
             </Select>
           </div>
 
-          <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex gap-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-blue-900 dark:text-blue-100">
-              💡 Your selected country will be used for Stripe payment processing. Make sure to choose the country where your business is legally registered.
+              Your selected country will be used for Stripe payment processing. Make sure to choose the country where your business is legally registered.
             </p>
           </div>
         </div>
