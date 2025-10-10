@@ -87,6 +87,15 @@ export default function CreateProduct() {
     queryKey: ["/api/categories"],
   });
   
+  // Fetch payment setup status
+  const { data: paymentSetup } = useQuery<{
+    hasStripeConnected: boolean;
+    currency: string;
+    stripeChargesEnabled: boolean;
+  }>({
+    queryKey: ["/api/seller/payment-setup"],
+  });
+  
   const level1Categories = categories.filter(c => c.level === 1);
   const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
   const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
@@ -280,6 +289,23 @@ export default function CreateProduct() {
           <p className="text-muted-foreground">
             Choose your product type and add details
           </p>
+          
+          {!paymentSetup?.hasStripeConnected && (
+            <div className="mt-4 p-4 border border-yellow-600/20 bg-yellow-600/10 rounded-lg">
+              <p className="text-sm text-yellow-600 dark:text-yellow-500">
+                <strong>Currency Notice:</strong> Your product prices will be charged in the currency configured in your Stripe account. 
+                Please complete your Stripe setup in Settings to ensure the correct currency is used.
+              </p>
+            </div>
+          )}
+          
+          {paymentSetup?.hasStripeConnected && (
+            <div className="mt-4 p-4 border border-blue-600/20 bg-blue-600/10 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-500">
+                <strong>Currency:</strong> Products will be listed in {paymentSetup.currency} (from your Stripe account settings)
+              </p>
+            </div>
+          )}
         </div>
 
         <Form {...form}>

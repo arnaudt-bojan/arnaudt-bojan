@@ -223,6 +223,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Seller payment setup status
+  app.get("/api/seller/payment-setup", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const hasStripeConnected = !!user.stripeConnectedAccountId;
+      const currency = user.listingCurrency || 'USD';
+      
+      res.json({
+        hasStripeConnected,
+        currency,
+        stripeChargesEnabled: user.stripeChargesEnabled === 1,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch payment setup status" });
+    }
+  });
+
   // Seller-specific products (only products owned by this seller)
   app.get("/api/seller/products", isAuthenticated, async (req: any, res) => {
     try {
@@ -290,6 +313,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/products", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Check if Stripe is connected and sync currency if needed
+      if (user?.stripeConnectedAccountId && stripe) {
+        try {
+          const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+          const stripeCurrency = account.default_currency?.toUpperCase() || 'USD';
+          
+          // Update user currency if it's different from Stripe
+          if (user.listingCurrency !== stripeCurrency) {
+            await storage.upsertUser({
+              ...user,
+              listingCurrency: stripeCurrency,
+            });
+            console.log(`[Product Creation] Synced currency from Stripe: ${stripeCurrency}`);
+          }
+        } catch (error) {
+          console.error('[Product Creation] Failed to sync Stripe currency:', error);
+        }
+      }
       
       const validationResult = insertProductSchema.safeParse({
         ...req.body,
@@ -303,8 +346,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const product = await storage.createProduct(validationResult.data);
 
       // Auto-start 30-day trial if this is seller's first product
-      const user = await storage.getUser(userId);
-      
       if (user && !user.subscriptionStatus) {
         const allProducts = await storage.getAllProducts();
         const sellerProducts = allProducts.filter(p => p.sellerId === userId);
