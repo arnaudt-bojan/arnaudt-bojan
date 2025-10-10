@@ -2,64 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Package, ShoppingBag, AlertCircle, Wallet, Building2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useWallet } from "@/contexts/WalletContext";
+import { Package, ShoppingBag, AlertCircle, Building2 } from "lucide-react";
+import { useLocation } from "wouter";
 import type { SelectOrder } from "@shared/schema";
 
 export default function BuyerDashboard() {
-  const { toast } = useToast();
-  const [mintingOrderId, setMintingOrderId] = useState<string | null>(null);
-  const [isMinting, setIsMinting] = useState(false);
-  const { connected, publicKey, connecting, connect, disconnect } = useWallet();
+  const [, navigate] = useLocation();
 
   const { data: user, isLoading: userLoading } = useQuery<any>({ queryKey: ["/api/auth/user"] });
   const { data: orders, isLoading: ordersLoading } = useQuery<SelectOrder[]>({
     queryKey: ["/api/orders/my-orders"],
     enabled: !!user,
   });
-
-  const handleDisconnect = () => {
-    disconnect();
-  };
-
-  const handleMintNFT = async (order: SelectOrder) => {
-    if (!order || !connected || !publicKey) return;
-
-    setIsMinting(true);
-    try {
-      const items = JSON.parse(order.items);
-      
-      const response = await apiRequest("POST", "/api/nft/mint", {
-        orderId: order.id,
-        productData: items[0],
-        walletAddress: publicKey,
-      });
-
-      const result = await response.json();
-
-      if (result.signature) {
-        toast({
-          title: "NFT Minted Successfully!",
-          description: `Mint: ${result.mintAddress.substring(0, 20)}...`,
-        });
-        
-        queryClient.invalidateQueries({ queryKey: ["/api/orders/my-orders"] });
-        setMintingOrderId(null);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Minting Failed",
-        description: error.message || "Failed to mint NFT. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsMinting(false);
-    }
-  };
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
@@ -119,9 +73,9 @@ export default function BuyerDashboard() {
             <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">Login Required</h3>
             <p className="text-muted-foreground text-center mb-6 max-w-md">
-              Please log in to view your orders. If you placed an order as a guest, log in with the email address you used during checkout (password: 123456).
+              Please log in to view your orders. If you placed an order as a guest, log in with the email address you used during checkout.
             </p>
-            <Button onClick={() => window.location.href = "/email-login"} data-testid="button-login">
+            <Button onClick={() => navigate("/email-login")} data-testid="button-login">
               Go to Login
             </Button>
           </CardContent>
@@ -159,49 +113,12 @@ export default function BuyerDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
-              My Orders
-            </h1>
-            <p className="text-muted-foreground">
-              Welcome back, {user?.firstName || user?.email}! View your orders and mint NFTs.
-            </p>
-          </div>
-          {!connected ? (
-            <Button 
-              onClick={connect} 
-              disabled={connecting}
-              data-testid="button-connect-wallet"
-              className="gap-2"
-            >
-              <Wallet className="h-4 w-4" />
-              {connecting ? "Connecting..." : "Connect Wallet"}
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Card className="px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Connected</p>
-                    <p className="text-sm font-mono" data-testid="text-wallet-address">
-                      {publicKey?.substring(0, 4)}...{publicKey?.substring(publicKey.length - 4)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleDisconnect}
-                data-testid="button-disconnect-wallet"
-              >
-                Disconnect
-              </Button>
-            </div>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
+          My Orders
+        </h1>
+        <p className="text-muted-foreground">
+          Welcome back, {user?.firstName || user?.email}! View and track your orders.
+        </p>
       </div>
 
       <Card className="mb-6 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800">
@@ -213,7 +130,7 @@ export default function BuyerDashboard() {
               <CardDescription>Access exclusive wholesale products with special pricing</CardDescription>
             </div>
             <Button 
-              onClick={() => window.location.href = "/wholesale/catalog"}
+              onClick={() => navigate("/wholesale/catalog")}
               data-testid="button-wholesale-catalog"
               className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600"
             >
@@ -231,7 +148,7 @@ export default function BuyerDashboard() {
             <p className="text-muted-foreground text-center mb-6">
               You haven't placed any orders yet. Start shopping to see your orders here!
             </p>
-            <Button onClick={() => window.location.href = "/products"} data-testid="button-shop-now">
+            <Button onClick={() => navigate("/products")} data-testid="button-shop-now">
               Start Shopping
             </Button>
           </CardContent>
@@ -241,12 +158,17 @@ export default function BuyerDashboard() {
           {orders.map((order) => {
             const items = JSON.parse(order.items);
             return (
-              <Card key={order.id} className="hover-elevate" data-testid={`card-order-${order.id}`}>
+              <Card 
+                key={order.id} 
+                className="hover-elevate cursor-pointer" 
+                onClick={() => navigate(`/orders/${order.id}`)}
+                data-testid={`card-order-${order.id}`}
+              >
                 <CardHeader className="space-y-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg">
-                        Order #{order.id}
+                        Order #{order.id.slice(0, 8)}
                       </CardTitle>
                       <CardDescription className="truncate">
                         {new Date(order.createdAt).toLocaleDateString()}
@@ -300,22 +222,15 @@ export default function BuyerDashboard() {
                     <Button
                       className="w-full gap-2"
                       variant="outline"
-                      onClick={() => setMintingOrderId(order.id)}
-                      disabled={order.paymentStatus !== "fully_paid" || !connected}
-                      data-testid={`button-mint-nft-${order.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/orders/${order.id}`);
+                      }}
+                      data-testid={`button-view-order-${order.id}`}
                     >
-                      <Coins className="h-4 w-4" />
-                      Mint NFT
+                      <Package className="h-4 w-4" />
+                      View Order Details
                     </Button>
-                    {order.paymentStatus !== "fully_paid" ? (
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Complete payment to mint NFT
-                      </p>
-                    ) : !connected ? (
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Connect wallet to mint NFT
-                      </p>
-                    ) : null}
                   </div>
                 </CardContent>
               </Card>
@@ -323,52 +238,6 @@ export default function BuyerDashboard() {
           })}
         </div>
       )}
-
-      <Dialog open={mintingOrderId !== null} onOpenChange={() => setMintingOrderId(null)}>
-        <DialogContent data-testid="dialog-mint-nft">
-          <DialogHeader>
-            <DialogTitle>Mint Product NFT</DialogTitle>
-            <DialogDescription>
-              Create a unique NFT on Solana blockchain for your purchased product. This NFT will contain all product metadata and serve as proof of ownership.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-900 dark:text-blue-100">
-                <p className="font-medium mb-1">What you'll receive:</p>
-                <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
-                  <li>Unique Solana NFT with product metadata</li>
-                  <li>Proof of ownership on blockchain</li>
-                  <li>Transferable digital asset</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setMintingOrderId(null)}
-              disabled={isMinting}
-              data-testid="button-cancel-mint"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                const order = orders?.find(o => o.id === mintingOrderId);
-                if (order) handleMintNFT(order);
-              }}
-              disabled={isMinting}
-              data-testid="button-confirm-mint"
-            >
-              {isMinting ? "Minting..." : "Mint NFT"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
