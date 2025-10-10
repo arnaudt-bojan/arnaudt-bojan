@@ -23,6 +23,7 @@ import CreateProduct from "@/pages/create-product";
 import EditProduct from "@/pages/edit-product";
 import Orders from "@/pages/orders";
 import OrderDetail from "@/pages/order-detail";
+import BuyerOrderDetail from "@/pages/buyer-order-detail";
 import Settings from "@/pages/settings";
 import QuickAccess from "@/pages/quick-access";
 import Team from "@/pages/team";
@@ -80,7 +81,7 @@ function AppContent() {
           <Route path="/seller/products/:id/edit" component={EditProduct} />
           <Route path="/seller/order/:id" component={OrderDetail} />
           <Route path="/orders" component={Orders} />
-          <Route path="/orders/:id" component={OrderDetail} />
+          <Route path="/orders/:id" component={BuyerOrderDetail} />
           <Route path="/settings" component={Settings} />
           <Route path="/quick-access" component={QuickAccess} />
           <Route path="/team" component={Team} />
