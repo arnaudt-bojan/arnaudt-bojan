@@ -198,10 +198,12 @@ export default function SellerDashboard() {
                 onClick={() => {
                   if (!user?.username) {
                     toast({
-                      title: "Username Required",
-                      description: "Please set your store username in Settings > Store URL before previewing your store.",
-                      variant: "destructive",
+                      title: "Set Up Your Store First",
+                      description: "You need to configure your store username before previewing. Redirecting to Settings...",
                     });
+                    setTimeout(() => {
+                      setLocation("/settings");
+                    }, 1500);
                     return;
                   }
                   // Open actual storefront URL - same as share link
@@ -211,14 +213,26 @@ export default function SellerDashboard() {
                 }}
                 data-testid="button-preview-store"
                 className="flex-1 md:flex-none"
-                disabled={!user?.username}
+                variant={!user?.username ? "outline" : "default"}
               >
                 <Store className="h-4 w-4 mr-2" />
-                Preview Store
+                {!user?.username ? "Set Up Store" : "Preview Store"}
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setShareModalOpen(true)}
+                onClick={() => {
+                  if (!user?.username) {
+                    toast({
+                      title: "Set Up Your Store First",
+                      description: "You need to configure your store username before sharing. Redirecting to Settings...",
+                    });
+                    setTimeout(() => {
+                      setLocation("/settings");
+                    }, 1500);
+                    return;
+                  }
+                  setShareModalOpen(true);
+                }}
                 data-testid="button-share-store"
                 className="flex-1 md:flex-none"
               >
