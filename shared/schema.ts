@@ -568,8 +568,9 @@ export const authTokens = pgTable("auth_tokens", {
   email: varchar("email").notNull(),
   token: varchar("token").notNull().unique(),
   code: varchar("code", { length: 6 }), // 6-digit code for email authentication
+  tokenType: text("token_type").default("login_code"), // "login_code" (single-use, 15min) or "magic_link" (reusable, 6 months)
   expiresAt: timestamp("expires_at").notNull(),
-  used: integer("used").default(0), // 0 = false, 1 = true
+  used: integer("used").default(0), // 0 = false, 1 = true (only enforced for login_code type)
   sellerContext: text("seller_context"), // Seller username when logging in from seller storefront
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
