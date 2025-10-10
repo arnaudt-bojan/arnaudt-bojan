@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { storage } from './storage';
 import { createNotificationService } from './notifications';
 import { PDFService } from './pdf-service';
-import crypto from 'crypto';
 import type { Request, Response } from 'express';
+import { logger } from './logger';
+import { generateAuthCode, generateSecureToken, normalizeEmail } from './utils';
 
 const router = Router();
 
@@ -14,22 +15,12 @@ let notificationService: ReturnType<typeof createNotificationService>;
 try {
   pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
   notificationService = createNotificationService(storage, pdfService);
-  console.log('[Auth-Email] Services initialized successfully');
+  logger.info('Auth-Email services initialized successfully');
 } catch (error) {
-  console.error('[Auth-Email] CRITICAL: Failed to initialize services:', error);
+  logger.critical('Failed to initialize Auth-Email services', error);
   // Create stub services that will log errors
   pdfService = new PDFService(process.env.STRIPE_SECRET_KEY || '');
   notificationService = createNotificationService(storage, pdfService);
-}
-
-// Generate 6-digit code
-function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Generate secure token for magic link
-function generateToken(): string {
-  return crypto.randomBytes(32).toString('hex');
 }
 
 /**
@@ -44,9 +35,9 @@ router.post('/send-code', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Generate 6-digit code
-    const code = generateCode();
-    const token = generateToken();
+    // Generate 6-digit code and secure token
+    const code = generateAuthCode();
+    const token = generateSecureToken();
     const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes for code
     const magicLinkExpiresAt = new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000); // 6 months for magic link
 
@@ -78,22 +69,21 @@ router.post('/send-code', async (req: Request, res: Response) => {
     try {
       emailSent = await notificationService.sendAuthCode(email, code, token);
     } catch (emailError) {
-      console.error('[Auth] Email sending failed:', emailError);
+      logger.error('Email sending failed', emailError, { module: 'auth-email', email });
       emailSent = false;
     }
 
     // Only log verification code when email FAILS (security: don't expose codes in logs when emails work)
     if (!emailSent) {
-      console.log(`\n========================================`);
-      console.log(`[Auth] EMAIL FAILED ❌ - FALLBACK CODE AVAILABLE`);
-      console.log(`[Auth] Email: ${email}`);
-      console.log(`[Auth] Verification Code: ${code}`);
-      console.log(`[Auth] Valid for: 15 minutes`);
-      console.log(`[Auth] ⚠️  Email delivery failed - check Resend domain verification`);
-      console.log(`========================================\n`);
+      logger.warn('Email delivery failed - fallback code available', {
+        module: 'auth-email',
+        email,
+        code,
+        validFor: '15 minutes',
+        hint: 'Check Resend domain verification'
+      });
     } else {
-      // Success - just log confirmation without exposing the code
-      console.log(`[Auth] ✅ Verification code sent successfully to ${email}`);
+      logger.auth('Verification code sent successfully', { email });
     }
 
     // Return accurate status based on email delivery
@@ -107,8 +97,8 @@ router.post('/send-code', async (req: Request, res: Response) => {
       // In dev, include code for convenience. In production, include if email failed
       ...(((process.env.NODE_ENV === 'development') || !emailSent) && { devCode: code })
     });
-  } catch (error: any) {
-    console.error('[Auth] Critical error in send-code endpoint:', error);
+  } catch (error) {
+    logger.critical('Critical error in send-code endpoint', error, { module: 'auth-email', email });
     // Return failure status but include fallback code if available
     res.status(500).json({ 
       success: false, 
@@ -164,10 +154,16 @@ router.post('/verify-code', async (req: any, res: Response) => {
     const isMainDomain = !finalSellerContext;
     const sellerUsername = finalSellerContext;
     
-    console.log(`[Auth] Domain context - isMainDomain: ${isMainDomain}, sellerContext from body: ${sellerContext}, from token: ${authToken.sellerContext}, final: ${finalSellerContext}`);
+    logger.auth('Domain context determined', {
+      isMainDomain,
+      sellerContextFromBody: sellerContext,
+      sellerContextFromToken: authToken.sellerContext,
+      finalSellerContext
+    });
     
     // Get or create user (email lookup is case-insensitive in storage)
-    let user = await storage.getUserByEmail(email);
+    const normalizedEmail = normalizeEmail(email);
+    let user = await storage.getUserByEmail(normalizedEmail);
     
     if (!user) {
       // Create new user account
@@ -175,18 +171,28 @@ router.post('/verify-code', async (req: any, res: Response) => {
       const role = isMainDomain ? 'admin' : 'buyer';
       
       user = await storage.upsertUser({
-        email: email.toLowerCase().trim(), // Normalize email
+        email: normalizedEmail,
         role,
       });
       
-      console.log(`[Auth] Created new ${role} user: ${email} (isMainDomain: ${isMainDomain}, sellerContext: ${sellerUsername})`);
+      logger.auth('Created new user', {
+        role,
+        email: normalizedEmail,
+        isMainDomain,
+        sellerContext: sellerUsername,
+        userId: user.id
+      });
       
       // Send welcome email to new sellers
       if (role === 'admin') {
         await notificationService.sendSellerWelcome(user);
       }
     } else {
-      console.log(`[Auth] Existing ${user.role} user logging in: ${email}`);
+      logger.auth('Existing user logging in', {
+        role: user.role,
+        email: normalizedEmail,
+        userId: user.id
+      });
     }
 
     // Create session compatible with isAuthenticated middleware
@@ -204,13 +210,13 @@ router.post('/verify-code', async (req: any, res: Response) => {
     };
 
     await new Promise<void>((resolve, reject) => {
-      req.session.save((err: any) => {
+      req.session.save((err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
     });
 
-    console.log(`[Auth] User authenticated: ${email}`);
+    logger.auth('User authenticated successfully', { email: normalizedEmail, userId: user.id });
 
     // Determine redirect URL based on role and domain
     let redirectUrl: string;
@@ -237,8 +243,8 @@ router.post('/verify-code', async (req: any, res: Response) => {
         lastName: user.lastName,
       },
     });
-  } catch (error: any) {
-    console.error('[Auth] Verify code error:', error);
+  } catch (error) {
+    logger.error('Verify code error', error, { module: 'auth-email' });
     res.status(500).json({ error: 'Failed to verify code' });
   }
 });
@@ -255,8 +261,8 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Generate token
-    const token = generateToken();
+    // Generate secure token
+    const token = generateSecureToken();
     const expiresAt = new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000); // 6 months for reusable magic link
 
     // Save auth token to database with seller context
@@ -280,22 +286,21 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
     try {
       emailSent = await notificationService.sendMagicLink(email, magicLink);
     } catch (emailError) {
-      console.error('[Auth] Magic link email sending failed:', emailError);
+      logger.error('Magic link email sending failed', emailError, { module: 'auth-email', email });
       emailSent = false;
     }
 
     // Only log magic link when email FAILS (security: don't expose auth links in logs when emails work)
     if (!emailSent) {
-      console.log(`\n========================================`);
-      console.log(`[Auth] EMAIL FAILED ❌ - FALLBACK MAGIC LINK AVAILABLE`);
-      console.log(`[Auth] Email: ${email}`);
-      console.log(`[Auth] Magic Link: ${magicLink}`);
-      console.log(`[Auth] Valid for: 15 minutes`);
-      console.log(`[Auth] ⚠️  Email delivery failed - check Resend domain verification`);
-      console.log(`========================================\n`);
+      logger.warn('Magic link email delivery failed - fallback link available', {
+        module: 'auth-email',
+        email,
+        magicLink,
+        validFor: '6 months',
+        hint: 'Check Resend domain verification'
+      });
     } else {
-      // Success - just log confirmation without exposing the link
-      console.log(`[Auth] ✅ Magic link sent successfully to ${email}`);
+      logger.auth('Magic link sent successfully', { email });
     }
 
     // Return accurate status based on email delivery
@@ -309,8 +314,8 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       // If email failed, provide the magic link in response for manual access
       ...(!emailSent && { magicLink })
     });
-  } catch (error: any) {
-    console.error('[Auth] Critical error in send-magic-link endpoint:', error);
+  } catch (error) {
+    logger.critical('Critical error in send-magic-link endpoint', error, { module: 'auth-email', email });
     // Return failure status with clear error message
     res.status(500).json({ 
       success: false, 
@@ -363,10 +368,13 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     // If sellerContext exists, this is a buyer login from a seller's storefront
     const isMainDomain = !sellerContextFromToken;
     
-    console.log(`[Auth] Magic link - isMainDomain: ${isMainDomain}, sellerContext: ${sellerContextFromToken}`);
+    logger.auth('Magic link domain context', {
+      isMainDomain,
+      sellerContext: sellerContextFromToken
+    });
     
     // Get or create user (normalized email)
-    const normalizedEmail = authToken.email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(authToken.email);
     let user = await storage.getUserByEmail(normalizedEmail);
     
     if (!user) {
@@ -378,14 +386,22 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
         role,
       });
       
-      console.log(`[Auth] Created new ${role} user via magic link: ${normalizedEmail}`);
+      logger.auth('Created new user via magic link', {
+        role,
+        email: normalizedEmail,
+        userId: user.id
+      });
       
       // Send welcome email to new sellers
       if (role === 'admin') {
         await notificationService.sendSellerWelcome(user);
       }
     } else {
-      console.log(`[Auth] Existing ${user.role} user logging in via magic link: ${normalizedEmail}`);
+      logger.auth('Existing user logging in via magic link', {
+        role: user.role,
+        email: normalizedEmail,
+        userId: user.id
+      });
     }
 
     // Create session compatible with isAuthenticated middleware
@@ -403,13 +419,16 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     };
 
     await new Promise<void>((resolve, reject) => {
-      req.session.save((err: any) => {
+      req.session.save((err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
     });
 
-    console.log(`[Auth] User authenticated via magic link: ${normalizedEmail}`);
+    logger.auth('User authenticated via magic link', {
+      email: normalizedEmail,
+      userId: user.id
+    });
 
     // Determine redirect URL
     let redirectUrl: string;
@@ -418,7 +437,7 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     if (redirect && typeof redirect === 'string') {
       // Sanitize redirect URL - must start with /
       redirectUrl = redirect.startsWith('/') ? redirect : `/${redirect}`;
-      console.log(`[Auth] Using provided redirect: ${redirectUrl}`);
+      logger.debug('Using provided redirect', { redirectUrl });
     } else {
       // Default redirect based on role
       if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
@@ -434,8 +453,8 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     }
     
     res.redirect(redirectUrl);
-  } catch (error: any) {
-    console.error('[Auth] Verify magic link error:', error);
+  } catch (error) {
+    logger.error('Verify magic link error', error, { module: 'auth-email' });
     // Redirect to login with error
     res.redirect('/login?error=invalid_link');
   }
@@ -445,18 +464,19 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
  * POST /api/auth/logout
  * Logout and destroy session
  */
-router.post('/logout', async (req: any, res: Response) => {
+router.post('/logout', async (req: Request, res: Response) => {
   try {
     await new Promise<void>((resolve, reject) => {
-      req.session.destroy((err: any) => {
+      (req as any).session.destroy((err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
     });
 
+    logger.auth('User logged out successfully');
     res.json({ success: true, message: 'Logged out successfully' });
-  } catch (error: any) {
-    console.error('[Auth] Logout error:', error);
+  } catch (error) {
+    logger.error('Logout error', error, { module: 'auth-email' });
     res.status(500).json({ error: 'Failed to logout' });
   }
 });
