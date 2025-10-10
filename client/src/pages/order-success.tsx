@@ -25,13 +25,16 @@ export default function OrderSuccess() {
   
   const isAuthenticated = !!currentUser;
 
-  // Fetch order details - use authenticated endpoint if logged in, public lookup if guest
+  // Fetch order details - ALWAYS use email lookup if email provided (guest checkout)
+  // Only use authenticated endpoint if no email parameter (coming from orders list)
   const { data: order, isLoading: orderLoading } = useQuery<Order>({
-    queryKey: [`/api/orders/${orderId}`, isAuthenticated, email], // Stable key that includes auth state
+    queryKey: [`/api/orders/${orderId}`, email], // Include email in key
     queryFn: async () => {
-      const endpoint = isAuthenticated 
-        ? `/api/orders/${orderId}`
-        : `/api/orders/lookup/${orderId}?email=${encodeURIComponent(email || '')}`;
+      // If email parameter provided, use public lookup (even if authenticated)
+      // This handles guest checkout where order may not belong to current session
+      const endpoint = email
+        ? `/api/orders/lookup/${orderId}?email=${encodeURIComponent(email)}`
+        : `/api/orders/${orderId}`;
       
       const response = await fetch(endpoint);
       if (!response.ok) {
@@ -39,7 +42,7 @@ export default function OrderSuccess() {
       }
       return response.json();
     },
-    // Always enabled if we have an orderId - auth state and email are in queryKey so it refetches appropriately
+    // Always enabled if we have an orderId
     enabled: !!orderId,
     // Prevent caching of failed requests
     retry: false,

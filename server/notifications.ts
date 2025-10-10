@@ -324,7 +324,7 @@ class NotificationServiceImpl implements NotificationService {
     // Send email from verified domain with seller as reply-to
     const result = await this.sendEmail({
       to: buyerEmail,
-      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
+      from: FROM_EMAIL, // Use configured FROM_EMAIL to ensure domain is verified
       replyTo: seller.email || undefined,
       subject: `Order Confirmation #${order.id.slice(0, 8)} - ${seller.firstName || 'Your'} Store`,
       html: emailHtml,
@@ -355,7 +355,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
+      from: FROM_EMAIL,
       replyTo: seller.email || undefined,
       subject: `Your order has shipped! - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -408,7 +408,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
+      from: FROM_EMAIL,
       replyTo: seller.email || undefined,
       subject: `Item shipped from order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -1129,7 +1129,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
+      from: FROM_EMAIL,
       replyTo: seller.email || undefined,
       subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
