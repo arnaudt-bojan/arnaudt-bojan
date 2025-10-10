@@ -235,34 +235,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public products endpoint (for storefront - all products)
+  // Public products endpoint (for storefront - only active and coming-soon products)
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getAllProducts();
-      res.json(products);
+      // Filter to only show active and coming-soon products to public
+      const publicProducts = products.filter(p => 
+        p.status === "active" || p.status === "coming-soon"
+      );
+      res.json(publicProducts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch products" });
     }
   });
   
-  // Get products by seller ID (for seller storefronts)
+  // Get products by seller ID (for seller storefronts - only active and coming-soon)
   app.get("/api/products/seller/:sellerId", async (req, res) => {
     try {
       const { sellerId } = req.params;
       const allProducts = await storage.getAllProducts();
-      const sellerProducts = allProducts.filter(p => p.sellerId === sellerId);
+      // Filter to only show active and coming-soon products for public storefronts
+      const sellerProducts = allProducts.filter(p => 
+        p.sellerId === sellerId && 
+        (p.status === "active" || p.status === "coming-soon")
+      );
       res.json(sellerProducts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch seller products" });
     }
   });
 
-  app.get("/api/products/:id", async (req, res) => {
+  app.get("/api/products/:id", async (req: any, res) => {
     try {
       const product = await storage.getProduct(req.params.id);
       if (!product) {
         return res.status(404).json({ error: "Product not found" });
       }
+      
+      // Check if user is authenticated and is the product owner
+      const isAuthenticated = req.isAuthenticated() && req.user?.claims?.sub;
+      const isOwner = isAuthenticated && req.user.claims.sub === product.sellerId;
+      
+      // If not owner, only show active and coming-soon products
+      if (!isOwner && product.status !== "active" && product.status !== "coming-soon") {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
       res.json(product);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch product" });
