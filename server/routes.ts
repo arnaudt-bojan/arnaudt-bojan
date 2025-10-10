@@ -914,6 +914,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update product status (quick action)
+  app.patch("/api/products/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const { status } = req.body;
+      const validStatuses = ['draft', 'active', 'coming-soon', 'paused', 'out-of-stock', 'archived'];
+      
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(', ') });
+      }
+
+      const product = await storage.updateProduct(req.params.id, { status });
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update product status" });
+    }
+  });
+
   app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteProduct(req.params.id);
