@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getCurrencySymbol } from "@/lib/currency-utils";
 
 export type ProductVariant = {
   size: string;
@@ -65,6 +66,7 @@ interface ProductFormFieldsProps {
   level1Categories?: any[];
   level2Categories?: any[];
   level3Categories?: any[];
+  currency?: string;
 }
 
 // Standard package size presets with dimensions
@@ -148,6 +150,7 @@ export function ProductFormFields({
   level1Categories = [],
   level2Categories = [],
   level3Categories = [],
+  currency,
 }: ProductFormFieldsProps) {
   const { toast } = useToast();
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -690,7 +693,7 @@ export function ProductFormFields({
                       </FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{getCurrencySymbol(currency)}</span>
                           <Input
                             type="number"
                             step="0.01"
@@ -1002,7 +1005,7 @@ export function ProductFormFields({
                 <FormLabel className="text-base font-semibold">Product Price</FormLabel>
                 <FormControl>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">{getCurrencySymbol(currency)}</span>
                     <Input
                       type="number"
                       step="0.01"

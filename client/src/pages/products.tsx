@@ -398,43 +398,45 @@ export default function Products() {
 
       <div className="container mx-auto px-4 max-w-7xl py-8">
 
-        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-4">
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          {/* Left: Filters */}
           <div className="flex gap-2 items-center">
             <ProductFiltersSheet 
               onFilterChange={setFilters} 
               maxPrice={maxPrice}
             />
-            
-            <div className="flex gap-1 items-center ml-2">
-              <span className="text-sm text-muted-foreground mr-2">View:</span>
-              <Button
-                variant={cardSize === "compact" ? "default" : "outline"}
-                size="icon"
-                onClick={() => handleCardSizeChange("compact")}
-                data-testid="button-view-compact"
-                title="Compact view"
-              >
-                <Grip className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={cardSize === "medium" ? "default" : "outline"}
-                size="icon"
-                onClick={() => handleCardSizeChange("medium")}
-                data-testid="button-view-medium"
-                title="Medium view"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={cardSize === "large" ? "default" : "outline"}
-                size="icon"
-                onClick={() => handleCardSizeChange("large")}
-                data-testid="button-view-large"
-                title="Large view"
-              >
-                <Grid3x3 className="h-4 w-4" />
-              </Button>
-            </div>
+          </div>
+          
+          {/* Right: View Controls */}
+          <div className="flex gap-1 items-center">
+            <span className="text-sm text-muted-foreground mr-2">View:</span>
+            <Button
+              variant={cardSize === "compact" ? "default" : "outline"}
+              size="icon"
+              onClick={() => handleCardSizeChange("compact")}
+              data-testid="button-view-compact"
+              title="Compact view"
+            >
+              <Grip className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={cardSize === "medium" ? "default" : "outline"}
+              size="icon"
+              onClick={() => handleCardSizeChange("medium")}
+              data-testid="button-view-medium"
+              title="Medium view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={cardSize === "large" ? "default" : "outline"}
+              size="icon"
+              onClick={() => handleCardSizeChange("large")}
+              data-testid="button-view-large"
+              title="Large view"
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 

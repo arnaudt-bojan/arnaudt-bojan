@@ -331,6 +331,7 @@ export default function CreateProduct() {
               level1Categories={level1Categories}
               level2Categories={level2Categories}
               level3Categories={level3Categories}
+              currency={paymentSetup?.currency}
             />
 
             <div className="flex gap-4">
