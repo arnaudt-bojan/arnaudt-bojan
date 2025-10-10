@@ -86,7 +86,9 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
 // Frontend product schema (without sellerId - added by backend)
-export const frontendProductSchema = insertProductSchema.omit({ sellerId: true });
+export const frontendProductSchema = insertProductSchema.omit({ sellerId: true }).extend({
+  shippingType: z.enum(["flat", "matrix", "shippo", "free"]),
+});
 export type FrontendProduct = z.infer<typeof frontendProductSchema>;
 
 export const cartItems = pgTable("cart_items", {
