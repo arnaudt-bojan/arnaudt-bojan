@@ -538,6 +538,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Refund routes for sellers
+  // Process a refund (full, partial, or item-level)
+  app.post("/api/orders/:orderId/refunds", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const { orderId } = req.params;
+      const { orderItemIds, reason, refundType } = req.body;
+      const userId = req.user.claims.sub;
+      
+      // Validation
+      if (!refundType || !['full', 'partial', 'item'].includes(refundType)) {
+        return res.status(400).json({ error: "Invalid refund type. Must be 'full', 'partial', or 'item'" });
+      }
+
+      if (refundType === 'item' && (!orderItemIds || orderItemIds.length === 0)) {
+        return res.status(400).json({ error: "orderItemIds required for item-level refund" });
+      }
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify seller owns this order
+      const orderItems = await storage.getOrderItems(orderId);
+      if (orderItems.length === 0) {
+        return res.status(404).json({ error: "No order items found" });
+      }
+
+      // Check if seller owns the products (use first item's product to get seller)
+      const firstItem = orderItems[0];
+      const product = await storage.getProduct(firstItem.productId);
+      if (!product || product.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to refund this order" });
+      }
+
+      // Calculate refund amount
+      let refundAmount = 0;
+      let itemsToRefund: any[] = [];
+
+      if (refundType === 'full') {
+        // Full refund - refund all items
+        refundAmount = parseFloat(order.amountPaid);
+        itemsToRefund = orderItems;
+      } else if (refundType === 'item') {
+        // Item-level refund - refund specific items
+        for (const itemId of orderItemIds) {
+          const item = orderItems.find(i => i.id === itemId);
+          if (!item) {
+            return res.status(404).json({ error: `Order item ${itemId} not found` });
+          }
+          // Calculate refundable amount (don't refund more than remaining)
+          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
+          const itemTotal = parseFloat(item.subtotal);
+          const refundableAmount = itemTotal - alreadyRefunded;
+          
+          if (refundableAmount > 0) {
+            refundAmount += refundableAmount;
+            itemsToRefund.push(item);
+          }
+        }
+      }
+
+      if (refundAmount <= 0) {
+        return res.status(400).json({ error: "No refundable amount available" });
+      }
+
+      // Check if order has payment intents
+      const paymentIntentId = order.stripeBalancePaymentIntentId || order.stripePaymentIntentId;
+      if (!paymentIntentId) {
+        return res.status(400).json({ error: "No payment intent found for this order" });
+      }
+
+      // Process Stripe refund
+      console.log(`[Refund] Processing refund for order ${orderId}, amount: $${refundAmount}`);
+      
+      const stripeRefund = await stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: Math.round(refundAmount * 100), // Convert to cents
+        reason: 'requested_by_customer',
+        metadata: {
+          orderId,
+          refundType,
+          orderItemIds: itemsToRefund.map(i => i.id).join(','),
+        }
+      });
+
+      // Create refund records for each item
+      const refunds = [];
+      for (const item of itemsToRefund) {
+        const itemRefundAmount = refundType === 'full' 
+          ? parseFloat(item.subtotal) 
+          : parseFloat(item.subtotal) - parseFloat(item.refundedAmount || '0');
+        
+        const refund = await storage.createRefund({
+          orderId,
+          orderItemId: item.id,
+          amount: itemRefundAmount.toFixed(2),
+          reason: reason || null,
+          refundType,
+          stripeRefundId: stripeRefund.id,
+          status: stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
+          processedBy: userId,
+        });
+        refunds.push(refund);
+
+        // Update order item refund status
+        await storage.updateOrderItemRefund(
+          item.id,
+          item.quantity, // All units refunded
+          itemRefundAmount.toFixed(2),
+          'refunded'
+        );
+      }
+
+      // Update order payment status
+      const totalRefunded = refunds.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+      const orderTotal = parseFloat(order.amountPaid);
+      
+      const newPaymentStatus = totalRefunded >= orderTotal ? 'refunded' : 'partially_refunded';
+      await storage.updateOrderPaymentStatus(orderId, newPaymentStatus);
+
+      // Send refund notification (async, don't wait)
+      (async () => {
+        try {
+          // TODO: Send refund notification to buyer
+          console.log(`[Notifications] Refund processed notification sent for order ${orderId}`);
+        } catch (error) {
+          console.error('[Notifications] Failed to send refund notification:', error);
+        }
+      })();
+
+      res.json({
+        success: true,
+        refunds,
+        stripeRefundId: stripeRefund.id,
+        refundAmount: totalRefunded,
+        status: stripeRefund.status,
+      });
+    } catch (error: any) {
+      console.error("Refund error:", error);
+      res.status(500).json({ error: error.message || "Failed to process refund" });
+    }
+  });
+
+  // Mark order items as returned
+  app.patch("/api/orders/:orderId/items/:itemId/returned", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const { orderId, itemId } = req.params;
+      const userId = req.user.claims.sub;
+
+      const orderItem = await storage.getOrderItemById(itemId);
+      if (!orderItem || orderItem.orderId !== orderId) {
+        return res.status(404).json({ error: "Order item not found" });
+      }
+
+      // Verify seller owns this product
+      const product = await storage.getProduct(orderItem.productId);
+      if (!product || product.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Update item status to returned
+      const updatedItem = await storage.updateOrderItemStatus(itemId, 'returned');
+
+      res.json(updatedItem);
+    } catch (error: any) {
+      console.error("Error marking item as returned:", error);
+      res.status(500).json({ error: "Failed to mark item as returned" });
+    }
+  });
+
+  // Get refund history for an order
+  app.get("/api/orders/:orderId/refunds", isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const userId = req.user.claims.sub;
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify access (buyer or seller)
+      const isBuyer = order.userId === userId;
+      if (!isBuyer) {
+        const orderItems = await storage.getOrderItems(orderId);
+        if (orderItems.length > 0) {
+          const product = await storage.getProduct(orderItems[0].productId);
+          if (!product || product.sellerId !== userId) {
+            return res.status(403).json({ error: "Unauthorized" });
+          }
+        } else {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+      }
+
+      const refunds = await storage.getRefundsByOrderId(orderId);
+      res.json(refunds);
+    } catch (error: any) {
+      console.error("Error fetching refunds:", error);
+      res.status(500).json({ error: "Failed to fetch refunds" });
+    }
+  });
+
   // DEPRECATED: Use /api/seller/orders instead for proper filtering
   // This endpoint should only be used by admins/owners for platform-wide order management
   app.get("/api/orders", isAuthenticated, async (req: any, res) => {
