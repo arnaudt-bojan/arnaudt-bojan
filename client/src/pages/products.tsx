@@ -105,6 +105,13 @@ export default function Products() {
       fetchSeller(domainInfo.sellerUsername);
     }
   }, [domainInfo.sellerUsername, previewUsername, sellerUsername]);
+
+  // Check if logged-in user is viewing their own store (fallback)
+  const targetUsername = domainInfo.sellerUsername || previewUsername || sellerUsername;
+  const isOwnStore = isSeller && user && user.username === targetUsername;
+  
+  // Use logged-in seller as fallback if they're viewing their own store
+  const effectiveSellerInfo = sellerNotFound && isOwnStore ? user : sellerInfo;
   
   // Fetch products - filter by seller if:
   // 1. On seller subdomain, OR
@@ -112,16 +119,16 @@ export default function Products() {
   // 3. In seller filter mode (share link with ?seller=username), OR
   // 4. Logged in as seller viewing their own products
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: (domainInfo.isSellerDomain || isPreviewMode || isSellerFilterMode) && sellerInfo?.id 
-      ? ["/api/products/seller", sellerInfo.id]
+    queryKey: (domainInfo.isSellerDomain || isPreviewMode || isSellerFilterMode) && effectiveSellerInfo?.id 
+      ? ["/api/products/seller", effectiveSellerInfo.id]
       : isSeller && user?.id && !isPreviewMode && !isSellerFilterMode
       ? ["/api/products/seller", user.id]
       : ["/api/products"],
     // SECURITY: Only enable query if:
     // - Not on seller domain/preview/filter mode (show all products), OR
-    // - On seller domain/preview/filter mode AND seller found (show seller products)
-    // - Never show all products when on seller domain but seller not found
-    enabled: (!domainInfo.isSellerDomain && !isPreviewMode && !isSellerFilterMode) || (!!sellerInfo && !sellerNotFound),
+    // - On seller domain/preview/filter mode AND seller found OR fallback to own store (show seller products)
+    // - Never show all products when on seller domain but seller not found AND not own store
+    enabled: (!domainInfo.isSellerDomain && !isPreviewMode && !isSellerFilterMode) || (!!effectiveSellerInfo && (!sellerNotFound || isOwnStore)),
   });
 
   const { data: sellers } = useQuery<any[]>({
@@ -283,11 +290,11 @@ export default function Products() {
   };
 
   const sellerWithBanner = sellers?.find(s => s.storeBanner);
-  const currentSellerHasBanner = sellerInfo?.storeBanner || user?.storeBanner;
-  const currentSellerLogo = sellerInfo?.storeLogo || user?.storeLogo;
+  const currentSellerHasBanner = effectiveSellerInfo?.storeBanner || user?.storeBanner;
+  const currentSellerLogo = effectiveSellerInfo?.storeLogo || user?.storeLogo;
 
   // Check if viewing a seller domain with inactive store
-  const isViewingInactiveStore = domainInfo.isSellerDomain && sellerInfo && sellerInfo.storeActive === 0;
+  const isViewingInactiveStore = domainInfo.isSellerDomain && effectiveSellerInfo && effectiveSellerInfo.storeActive === 0;
 
   // Show store unavailable page for buyers viewing inactive seller stores
   if (isViewingInactiveStore && !isSeller) {
@@ -295,33 +302,46 @@ export default function Products() {
       <div className="min-h-screen">
         <div className="container mx-auto px-4 max-w-7xl">
           <StoreUnavailable 
-            sellerName={sellerInfo.firstName || sellerInfo.username}
-            sellerEmail={sellerInfo.email}
+            sellerName={effectiveSellerInfo.firstName || effectiveSellerInfo.username}
+            sellerEmail={effectiveSellerInfo.email}
           />
         </div>
       </div>
     );
   }
-
-  // Show error page when seller not found on seller domain
-  if ((domainInfo.isSellerDomain || isPreviewMode || isSellerFilterMode) && sellerNotFound) {
+  
+  // If seller not found on seller domain/preview/filter mode, show storefront with message (stay in context)
+  if ((domainInfo.isSellerDomain || isPreviewMode || isSellerFilterMode) && sellerNotFound && !isOwnStore) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="container mx-auto px-4 max-w-2xl text-center">
-          <div className="bg-card border rounded-lg p-8">
-            <div className="mb-4">
-              <Store className="h-16 w-16 mx-auto text-muted-foreground" />
+      <div className="min-h-screen">
+        {/* Store Header - Show username even if seller not found */}
+        <div className="border-b bg-card">
+          <div className="container py-8">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
+                <Store className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">
+                  {targetUsername}'s Store
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  This store is currently unavailable
+                </p>
+              </div>
             </div>
-            <h1 className="text-3xl font-bold mb-4">Store Not Found</h1>
-            <p className="text-muted-foreground mb-6">
-              The store "{domainInfo.sellerUsername || previewUsername || sellerUsername}" could not be found.
-              {' '}This storefront may not exist or has been removed.
+          </div>
+        </div>
+
+        {/* Empty State - Stay in storefront context */}
+        <div className="container py-12">
+          <div className="text-center max-w-md mx-auto">
+            <Store className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Store Not Available</h2>
+            <p className="text-muted-foreground">
+              The store "@{targetUsername}" could not be found or is not currently active. 
+              The store owner may need to activate their store or complete setup.
             </p>
-            <Link href="/">
-              <Button data-testid="button-back-home">
-                Go to Homepage
-              </Button>
-            </Link>
           </div>
         </div>
       </div>
@@ -353,7 +373,7 @@ export default function Products() {
               )}
               <div>
                 <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "Featured Store"}
+                  {user?.firstName || effectiveSellerInfo?.firstName ? `${user?.firstName || effectiveSellerInfo?.firstName}'s Store` : "Featured Store"}
                 </h2>
                 <p className="text-white/90 text-lg">
                   Discover amazing products
