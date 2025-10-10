@@ -59,12 +59,14 @@ function PaymentForm({
   onSuccess, 
   amount, 
   orderData,
-  paymentType
+  paymentType,
+  billingDetails
 }: { 
   onSuccess: (orderId: string) => void; 
   amount: number; 
   orderData: InsertOrder;
   paymentType: 'deposit' | 'full';
+  billingDetails: CheckoutForm;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -94,16 +96,16 @@ function PaymentForm({
         confirmParams: {
           payment_method_data: {
             billing_details: {
-              email: orderData.customerEmail,
-              name: orderData.customerName,
-              phone: orderData.phone,
+              email: billingDetails.customerEmail,
+              name: billingDetails.customerName,
+              phone: billingDetails.phone,
               address: {
-                line1: orderData.addressLine1,
-                line2: orderData.addressLine2 || undefined,
-                city: orderData.city,
-                state: orderData.state,
-                postal_code: orderData.postalCode,
-                country: orderData.country,
+                line1: billingDetails.addressLine1,
+                line2: billingDetails.addressLine2 || undefined,
+                city: billingDetails.city,
+                state: billingDetails.state,
+                postal_code: billingDetails.postalCode,
+                country: billingDetails.country,
               },
             },
           },
@@ -211,6 +213,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<InsertOrder | null>(null);
+  const [billingDetails, setBillingDetails] = useState<CheckoutForm | null>(null);
   const [orderComplete, setOrderComplete] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
@@ -343,6 +346,7 @@ export default function Checkout() {
       };
 
       setOrderData(newOrderData);
+      setBillingDetails(data); // Store billing details for Stripe
 
       // Create payment intent
       const response = await apiRequest("POST", "/api/create-payment-intent", {
@@ -684,7 +688,7 @@ export default function Checkout() {
             </Card>
 
             {/* Payment Section */}
-            {clientSecret && orderData && (
+            {clientSecret && orderData && billingDetails && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -711,6 +715,7 @@ export default function Checkout() {
                       amount={amountToPay}
                       orderData={orderData}
                       paymentType={paymentInfo.payingDepositOnly ? 'deposit' : 'full'}
+                      billingDetails={billingDetails!}
                     />
                   </Elements>
                 </CardContent>
