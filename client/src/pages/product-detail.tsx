@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { VariantColorSelector } from "@/components/variant-color-selector";
+import { VariantSizeSelector } from "@/components/variant-size-selector";
+import type { ColorVariant } from "@/components/product-variant-manager";
 
 interface Category {
   id: string;
@@ -35,6 +38,8 @@ export default function ProductDetail() {
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", productId],
@@ -62,6 +67,50 @@ export default function ProductDetail() {
   };
 
   const categoryPath = getCategoryPath();
+
+  // Detect variant format - new format has colorName and images array
+  const isNewVariantFormat = product?.variants && 
+    Array.isArray(product.variants) && 
+    product.variants.length > 0 &&
+    'colorName' in product.variants[0] && 
+    Array.isArray((product.variants[0] as any).images);
+
+  // Extract variant data (only for new format)
+  const colorVariants = isNewVariantFormat ? (product?.variants as ColorVariant[]) : [];
+  const hasNewVariants = colorVariants.length > 0;
+  
+  // Get color options for selector
+  const colorOptions = hasNewVariants ? colorVariants.map(cv => ({
+    name: cv.colorName,
+    hex: cv.colorHex
+  })) : [];
+  
+  // Get current color variant
+  const currentColorVariant = selectedColor 
+    ? colorVariants.find(cv => cv.colorName === selectedColor)
+    : null;
+  
+  // Get size options for selected color
+  const sizeOptions = currentColorVariant 
+    ? currentColorVariant.sizes.map(s => s.size)
+    : [];
+  
+  // Get images to display (selected color's images or product images)
+  const displayImages = currentColorVariant && currentColorVariant.images && currentColorVariant.images.length > 0
+    ? currentColorVariant.images
+    : (product?.images && product.images.length > 0 ? product.images : [product?.image || ""]);
+
+  // Auto-select first color when product loads (only for new format)
+  useEffect(() => {
+    if (hasNewVariants && !selectedColor && colorVariants.length > 0) {
+      setSelectedColor(colorVariants[0].colorName);
+    }
+  }, [hasNewVariants, colorVariants, selectedColor]);
+
+  // Reset image index when color changes
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [selectedColor]);
 
   const handleAddToCart = () => {
     if (product) {
@@ -160,16 +209,16 @@ export default function ProductDetail() {
           <div className="space-y-4">
             <Card className="overflow-hidden">
               <img
-                src={product.images && product.images.length > 0 ? product.images[selectedImageIndex] : product.image}
+                src={displayImages[selectedImageIndex] || product.image}
                 alt={product.name}
                 className="w-full aspect-square object-cover"
                 data-testid="img-product-detail"
               />
             </Card>
             
-            {product.images && product.images.length > 1 && (
+            {displayImages.length > 1 && (
               <div className="grid grid-cols-5 gap-3">
-                {product.images.map((img, index) => (
+                {displayImages.map((img, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
@@ -244,6 +293,26 @@ export default function ProductDetail() {
                 <span className="font-medium" data-testid="text-stock">
                   {product.stock || 0} available
                 </span>
+              </div>
+            )}
+
+            {/* Variant Selectors - Only for new variant format */}
+            {hasNewVariants && (
+              <div className="space-y-4 py-4 border-y">
+                {colorOptions.length > 0 && (
+                  <VariantColorSelector
+                    colors={colorOptions}
+                    selectedColor={selectedColor}
+                    onSelectColor={setSelectedColor}
+                  />
+                )}
+                {sizeOptions.length > 0 && (
+                  <VariantSizeSelector
+                    sizes={sizeOptions}
+                    selectedSize={selectedSize}
+                    onSelectSize={setSelectedSize}
+                  />
+                )}
               </div>
             )}
 

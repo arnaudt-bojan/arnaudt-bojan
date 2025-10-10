@@ -25,6 +25,7 @@ import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image 
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
+import { ProductVariantManager, type ColorVariant } from "@/components/product-variant-manager";
 import {
   Dialog,
   DialogContent,
@@ -932,95 +933,19 @@ export function ProductFormFields({
         </div>
       </Card>
 
-      {/* Product Variants */}
+      {/* Product Variants - New System */}
       <Card className="p-6 space-y-6">
         <div className="space-y-2">
           <h3 className="text-xl font-semibold">Product Variants (Optional)</h3>
           <p className="text-sm text-muted-foreground">
-            Add size and color options for this product
+            Add color variants with images, then specify sizes for each color
           </p>
         </div>
 
-        {variants.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed rounded-lg">
-            <div className="bg-muted/30 rounded-full p-4 w-fit mx-auto mb-4">
-              <Upload className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-              No variants added yet. Add size and color options to offer multiple versions of this product.
-            </p>
-            <Button type="button" variant="outline" onClick={addVariant} data-testid="button-add-variant">
-              <Plus className="h-4 w-4 mr-2" />
-              Add First Variant
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {variants.map((variant, index) => (
-              <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    Variant {index + 1}
-                  </h4>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeVariant(index)}
-                    data-testid={`button-remove-variant-${index}`}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input
-                    placeholder="Size (e.g., S, M, L)"
-                    value={variant.size}
-                    onChange={(e) => updateVariant(index, "size", e.target.value)}
-                    data-testid={`input-variant-size-${index}`}
-                    className="text-base"
-                  />
-                  <Input
-                    placeholder="Color"
-                    value={variant.color}
-                    onChange={(e) => updateVariant(index, "color", e.target.value)}
-                    data-testid={`input-variant-color-${index}`}
-                    className="text-base"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Stock"
-                    value={variant.stock === 0 ? "" : variant.stock}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      updateVariant(index, "stock", value === "" ? 0 : parseInt(value) || 0);
-                    }}
-                    data-testid={`input-variant-stock-${index}`}
-                    className="text-base"
-                  />
-                  <Input
-                    placeholder="Image URL"
-                    value={variant.image}
-                    onChange={(e) => updateVariant(index, "image", e.target.value)}
-                    data-testid={`input-variant-image-${index}`}
-                    className="text-base"
-                  />
-                </div>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addVariant}
-              className="w-full"
-              data-testid="button-add-another-variant"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Another Variant
-            </Button>
-          </div>
-        )}
+        <ProductVariantManager
+          colorVariants={variants as any}
+          onChange={(newVariants) => setVariants(newVariants as any)}
+        />
       </Card>
     </div>
   );
