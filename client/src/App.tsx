@@ -45,10 +45,15 @@ import NotFound from "@/pages/not-found";
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { itemsCount } = useCart();
+  
+  // Detect preview mode (hide header when in preview)
+  const isPreviewMode = new URLSearchParams(window.location.search).get('preview');
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
+      {!isPreviewMode && (
+        <Header cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
+      )}
       <main className="flex-1">
         <Switch>
           <Route path="/" component={Home} />
@@ -85,7 +90,9 @@ function AppContent() {
           <Route component={NotFound} />
         </Switch>
       </main>
-      <CartSheet open={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      {!isPreviewMode && (
+        <CartSheet open={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      )}
     </div>
   );
 }

@@ -62,24 +62,35 @@ export default function Products() {
   const domainInfo = detectDomain();
   const [sellerInfo, setSellerInfo] = useState<any>(null);
   
-  // Get seller info if on seller domain
+  // Check for preview mode (from settings page)
+  const urlParams = new URLSearchParams(window.location.search);
+  const previewUsername = urlParams.get('preview');
+  const isPreviewMode = !!previewUsername;
+  
+  // Get seller info if on seller domain OR in preview mode
   useEffect(() => {
-    if (domainInfo.isSellerDomain && domainInfo.sellerUsername) {
+    if (previewUsername) {
+      // Preview mode: fetch seller by username (secure endpoint)
+      fetch(`/api/sellers/${previewUsername}`)
+        .then(res => res.json())
+        .then(data => setSellerInfo(data))
+        .catch(console.error);
+    } else if (domainInfo.isSellerDomain && domainInfo.sellerUsername) {
       fetch(`/api/sellers/${domainInfo.sellerUsername}`)
         .then(res => res.json())
         .then(data => setSellerInfo(data))
         .catch(console.error);
     }
-  }, [domainInfo.sellerUsername]);
+  }, [domainInfo.sellerUsername, previewUsername]);
   
-  // Fetch products - filter by seller if on seller subdomain OR if logged in as seller
+  // Fetch products - filter by seller if on seller subdomain OR if logged in as seller OR in preview mode
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: domainInfo.isSellerDomain && sellerInfo?.id 
+    queryKey: (domainInfo.isSellerDomain || isPreviewMode) && sellerInfo?.id 
       ? ["/api/products/seller", sellerInfo.id]
-      : isSeller && user?.id
+      : isSeller && user?.id && !isPreviewMode
       ? ["/api/products/seller", user.id]
       : ["/api/products"],
-    enabled: !domainInfo.isSellerDomain || !!sellerInfo,
+    enabled: (!domainInfo.isSellerDomain && !isPreviewMode) || !!sellerInfo,
   });
 
   const { data: sellers } = useQuery<any[]>({
@@ -295,7 +306,7 @@ export default function Products() {
             </div>
           </div>
         </div>
-      ) : isSeller ? (
+      ) : isSeller && !isPreviewMode ? (
         <div className="relative h-[200px] w-full overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <ImagePlus className="h-12 w-12 text-muted-foreground mb-3" />
@@ -318,7 +329,7 @@ export default function Products() {
             </h1>
           </div>
           
-          {isSeller && (
+          {isSeller && !isPreviewMode && (
             <div className="flex items-center gap-3 bg-card border rounded-lg px-4 py-3">
               <Store className="h-5 w-5 text-muted-foreground" />
               <div className="flex flex-col gap-1">
@@ -401,7 +412,7 @@ export default function Products() {
             ))}
             
             {/* New Listing Card for Sellers - Last Position */}
-            {isSeller && (
+            {isSeller && !isPreviewMode && (
               <Link href="/seller/create-product">
                 <div 
                   className="group relative aspect-square bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-3 hover-elevate active-elevate-2 cursor-pointer transition-all"
@@ -418,7 +429,7 @@ export default function Products() {
               </Link>
             )}
           </div>
-        ) : isSeller ? (
+        ) : isSeller && !isPreviewMode ? (
           <div className={getGridClasses()}>
             {/* New Listing Card for Sellers when no products */}
             <Link href="/seller/create-product">

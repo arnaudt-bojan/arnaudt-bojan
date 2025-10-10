@@ -33,8 +33,16 @@ const profileSchema = z.object({
 });
 
 const brandingSchema = z.object({
-  storeBanner: z.string().url("Must be a valid URL").or(z.literal("")),
-  storeLogo: z.string().url("Must be a valid URL").or(z.literal("")),
+  storeBanner: z.string()
+    .refine(
+      (val) => val === "" || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"),
+      "Must be a valid URL or path"
+    ),
+  storeLogo: z.string()
+    .refine(
+      (val) => val === "" || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"),
+      "Must be a valid URL or path"
+    ),
 });
 
 const usernameSchema = z.object({
@@ -1339,39 +1347,57 @@ export default function Settings() {
                       <TabsTrigger value="mobile">iPhone</TabsTrigger>
                     </TabsList>
                     <TabsContent value="desktop" className="mt-4">
-                      <div className="border rounded-lg overflow-hidden bg-muted/50">
-                        <div className="aspect-video w-full">
-                          <iframe
-                            src={`/${user?.username || 'store'}`}
-                            className="w-full h-full"
-                            title="Desktop Preview"
-                          />
+                      {user?.username ? (
+                        <div className="border rounded-lg overflow-hidden bg-muted/50">
+                          <div className="aspect-video w-full">
+                            <iframe
+                              src={`/products?preview=${user.username}`}
+                              className="w-full h-full"
+                              title="Desktop Preview"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden bg-muted/50 p-8 text-center">
+                          <p className="text-muted-foreground">Please set a username to preview your storefront</p>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2">Desktop view (1920×1080)</p>
                     </TabsContent>
                     <TabsContent value="tablet" className="mt-4">
-                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '768px' }}>
-                        <div className="aspect-[4/3] w-full">
-                          <iframe
-                            src={`/${user?.username || 'store'}`}
-                            className="w-full h-full"
-                            title="iPad Preview"
-                          />
+                      {user?.username ? (
+                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '768px' }}>
+                          <div className="aspect-[4/3] w-full">
+                            <iframe
+                              src={`/products?preview=${user.username}`}
+                              className="w-full h-full"
+                              title="iPad Preview"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto p-8 text-center" style={{ maxWidth: '768px' }}>
+                          <p className="text-muted-foreground">Please set a username to preview your storefront</p>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2 text-center">iPad view (768×1024)</p>
                     </TabsContent>
                     <TabsContent value="mobile" className="mt-4">
-                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '375px' }}>
-                        <div className="aspect-[9/16] w-full">
-                          <iframe
-                            src={`/${user?.username || 'store'}`}
-                            className="w-full h-full"
-                            title="iPhone Preview"
-                          />
+                      {user?.username ? (
+                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '375px' }}>
+                          <div className="aspect-[9/16] w-full">
+                            <iframe
+                              src={`/products?preview=${user.username}`}
+                              className="w-full h-full"
+                              title="iPhone Preview"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto p-8 text-center" style={{ maxWidth: '375px' }}>
+                          <p className="text-muted-foreground">Please set a username to preview your storefront</p>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2 text-center">iPhone view (375×667)</p>
                     </TabsContent>
                   </Tabs>

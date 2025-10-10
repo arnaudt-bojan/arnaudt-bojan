@@ -127,17 +127,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sellers = allUsers.filter(u => 
         u.role === "seller" || u.role === "owner" || u.role === "admin"
       );
-      res.json(sellers);
+      
+      // Return only public fields for each seller
+      const publicSellers = sellers.map(seller => ({
+        id: seller.id,
+        username: seller.username,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        profileImageUrl: seller.profileImageUrl,
+        logo: seller.logo,
+        banner: seller.banner,
+        storeActive: seller.storeActive,
+      }));
+      
+      res.json(publicSellers);
     } catch (error) {
       console.error("Error fetching sellers:", error);
       res.status(500).json({ error: "Failed to fetch sellers" });
     }
   });
   
-  // Get seller by username
+  // Get seller by username (public endpoint for storefronts and previews)
   app.get("/api/sellers/:username", async (req, res) => {
     try {
       const { username } = req.params;
+      
+      if (!username || username.trim() === '') {
+        return res.status(400).json({ error: "Username is required" });
+      }
+      
       const allUsers = await storage.getAllUsers();
       const seller = allUsers.find(u => 
         u.username === username && (u.role === "seller" || u.role === "owner" || u.role === "admin")
@@ -147,7 +165,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Seller not found" });
       }
       
-      res.json(seller);
+      // Return only public fields for storefront display
+      const publicSellerInfo = {
+        id: seller.id,
+        username: seller.username,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        profileImageUrl: seller.profileImageUrl,
+        logo: seller.logo,
+        banner: seller.banner,
+        storeActive: seller.storeActive,
+      };
+      
+      res.json(publicSellerInfo);
     } catch (error) {
       console.error("Error fetching seller:", error);
       res.status(500).json({ error: "Failed to fetch seller" });
