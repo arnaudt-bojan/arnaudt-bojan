@@ -12,6 +12,7 @@ import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
 import { PDFService } from "./pdf-service";
 import documentRoutes from "./routes/documents";
+import { DocumentGenerator } from "./services/document-generator";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -920,6 +921,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const order = await storage.updateOrderStatus(req.params.id, validationResult.data.status);
+      
+      // Auto-generate documents based on status change
+      void (async () => {
+        try {
+          const newStatus = validationResult.data.status;
+          
+          // Auto-generate invoice when order is paid
+          if (newStatus === 'paid') {
+            console.log(`[Auto-Generate] Generating invoice for order ${order.id}`);
+            const documentGenerator = new DocumentGenerator(storage);
+            
+            // Get seller ID from order
+            const items = JSON.parse(order.items);
+            if (items.length === 0) {
+              console.error('[Auto-Generate] Cannot generate invoice: order has no items');
+              return;
+            }
+            
+            const allProducts = await storage.getAllProducts();
+            const firstProduct = allProducts.find(p => p.id === items[0].productId);
+            if (!firstProduct) {
+              console.error('[Auto-Generate] Cannot generate invoice: product not found');
+              return;
+            }
+            
+            const sellerId = firstProduct.sellerId;
+            const seller = await storage.getUser(sellerId);
+            if (!seller) {
+              console.error('[Auto-Generate] Cannot generate invoice: seller not found');
+              return;
+            }
+            
+            // Determine order type based on product types
+            // If any item is wholesale, it's a wholesale order
+            const orderType = items.some((item: any) => item.productType === 'wholesale') ? 'wholesale' : 'b2c';
+            
+            await documentGenerator.generateInvoice({
+              order,
+              seller,
+              orderType,
+              generatedBy: userId, // System-triggered by user's status change
+              generationTrigger: 'automatic',
+            });
+            
+            console.log(`[Auto-Generate] Invoice generated successfully for order ${order.id}`);
+          }
+          
+          // Auto-generate packing slip when order is ready to ship
+          if (newStatus === 'ready_to_ship') {
+            console.log(`[Auto-Generate] Generating packing slip for order ${order.id}`);
+            const documentGenerator = new DocumentGenerator(storage);
+            
+            // Get seller ID from order
+            const items = JSON.parse(order.items);
+            if (items.length === 0) {
+              console.error('[Auto-Generate] Cannot generate packing slip: order has no items');
+              return;
+            }
+            
+            const allProducts = await storage.getAllProducts();
+            const firstProduct = allProducts.find(p => p.id === items[0].productId);
+            if (!firstProduct) {
+              console.error('[Auto-Generate] Cannot generate packing slip: product not found');
+              return;
+            }
+            
+            const sellerId = firstProduct.sellerId;
+            const seller = await storage.getUser(sellerId);
+            if (!seller) {
+              console.error('[Auto-Generate] Cannot generate packing slip: seller not found');
+              return;
+            }
+            
+            await documentGenerator.generatePackingSlip({
+              order,
+              seller,
+              generatedBy: userId, // System-triggered by user's status change
+              generationTrigger: 'automatic',
+            });
+            
+            console.log(`[Auto-Generate] Packing slip generated successfully for order ${order.id}`);
+          }
+        } catch (error) {
+          console.error('[Auto-Generate] Failed to generate document:', error);
+          // Don't fail the status update if document generation fails
+        }
+      })();
+      
       res.json(order);
     } catch (error) {
       res.status(500).json({ error: "Failed to update order status" });
