@@ -38,40 +38,34 @@ export function detectDomain(): DomainInfo {
     };
   }
   
-  // For Replit deployment domains (pattern: {project}-{username}.replit.app or replit.dev)
-  // Example: shop-swift-mirtorabi.replit.app -> seller username is "mirtorabi"
+  // For Replit deployment domains (all replit.app and replit.dev URLs)
+  // Treat as MAIN domain by default - seller context only determined by routes or params
   if (hostname.includes('replit')) {
-    // Parse subdomain for seller username
-    const subdomain = parts[0]; // e.g., "shop-swift-mirtorabi"
-    
-    // Extract seller username from pattern: {project}-{username}
-    if (subdomain.includes('-')) {
-      const subdomainParts = subdomain.split('-');
-      // Seller username is the last part (e.g., "mirtorabi" from "shop-swift-mirtorabi")
-      const sellerUsername = subdomainParts[subdomainParts.length - 1];
-      
-      if (sellerUsername) {
-        return {
-          isMainDomain: false,
-          isSellerDomain: true,
-          sellerUsername: sellerUsername,
-        };
-      }
-    }
-    
-    // Check for seller parameter as fallback
+    // Check for explicit seller parameter for testing/sharing
     const urlParams = new URLSearchParams(window.location.search);
-    const testSeller = urlParams.get('seller');
+    const sellerParam = urlParams.get('seller');
     
-    if (testSeller) {
+    if (sellerParam) {
       return {
         isMainDomain: false,
         isSellerDomain: true,
-        sellerUsername: testSeller,
+        sellerUsername: sellerParam,
       };
     }
     
-    // Default to main domain if no seller identified
+    // Check if we're on a /s/:username route (storefront route)
+    const pathname = window.location.pathname;
+    const storefrontMatch = pathname.match(/^\/s\/([^\/]+)/);
+    
+    if (storefrontMatch && storefrontMatch[1]) {
+      return {
+        isMainDomain: false,
+        isSellerDomain: true,
+        sellerUsername: storefrontMatch[1],
+      };
+    }
+    
+    // Default: Replit deployment URLs are treated as main domain
     return {
       isMainDomain: true,
       isSellerDomain: false,
