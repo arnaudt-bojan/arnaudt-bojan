@@ -51,6 +51,30 @@ export default function SellerDashboard() {
     }
   }, [user]);
 
+  // Auto-activate store after successful subscription
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldActivateStore = params.get('activateStore') === 'true';
+    const subscriptionSuccess = params.get('subscription') === 'success';
+    
+    if (shouldActivateStore && subscriptionSuccess && user) {
+      const hasActiveSubscription = user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial';
+      
+      if (hasActiveSubscription && user.storeActive !== 1) {
+        // Auto-activate the store
+        toggleStoreMutation.mutate(1);
+        
+        // Clean up URL
+        params.delete('activateStore');
+        params.delete('subscription');
+        const newUrl = params.toString() 
+          ? `${window.location.pathname}?${params.toString()}`
+          : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [user]);
+
   const getStatusVariant = (status: string) => {
     switch (status) {
       case "pending":
