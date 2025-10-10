@@ -547,16 +547,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { orderId } = req.params;
-      const { orderItemIds, reason, refundType } = req.body;
+      const { refundItems, reason, refundType } = req.body;
       const userId = req.user.claims.sub;
       
       // Validation
-      if (!refundType || !['full', 'partial', 'item'].includes(refundType)) {
-        return res.status(400).json({ error: "Invalid refund type. Must be 'full', 'partial', or 'item'" });
+      if (!refundType || !['full', 'item'].includes(refundType)) {
+        return res.status(400).json({ error: "Invalid refund type. Must be 'full' or 'item'" });
       }
 
-      if (refundType === 'item' && (!orderItemIds || orderItemIds.length === 0)) {
-        return res.status(400).json({ error: "orderItemIds required for item-level refund" });
+      if (refundType === 'item' && (!refundItems || refundItems.length === 0)) {
+        return res.status(400).json({ error: "refundItems required for item-level refund" });
       }
 
       const order = await storage.getOrder(orderId);
@@ -577,30 +577,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Unauthorized to refund this order" });
       }
 
-      // Calculate refund amount
+      // Calculate refund amount and validate - NEVER trust client-supplied amounts
       let refundAmount = 0;
-      let itemsToRefund: any[] = [];
+      const itemsToRefund: Map<string, { item: any; quantity: number; amount: number }> = new Map();
 
       if (refundType === 'full') {
-        // Full refund - refund all items
-        refundAmount = parseFloat(order.amountPaid);
-        itemsToRefund = orderItems;
-      } else if (refundType === 'item') {
-        // Item-level refund - refund specific items
-        for (const itemId of orderItemIds) {
-          const item = orderItems.find(i => i.id === itemId);
-          if (!item) {
-            return res.status(404).json({ error: `Order item ${itemId} not found` });
+        // Full refund - calculate from remaining refundable amounts
+        for (const item of orderItems) {
+          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
+          const refundedQty = item.refundedQuantity || 0;
+          const refundableQty = item.quantity - refundedQty;
+          const itemTotal = parseFloat(item.subtotal);
+          const itemRefundAmount = itemTotal - alreadyRefunded;
+          
+          if (refundableQty > 0 && itemRefundAmount > 0) {
+            refundAmount += itemRefundAmount;
+            itemsToRefund.set(item.id, {
+              item,
+              quantity: refundableQty,
+              amount: itemRefundAmount,
+            });
           }
-          // Calculate refundable amount (don't refund more than remaining)
+        }
+      } else if (refundType === 'item') {
+        // Item-level refund with specified quantities
+        // SECURITY: Always recompute amount from price × quantity, never trust client
+        for (const refundItem of refundItems) {
+          const item = orderItems.find(i => i.id === refundItem.itemId);
+          if (!item) {
+            return res.status(404).json({ error: `Order item ${refundItem.itemId} not found` });
+          }
+
+          const refundedQty = item.refundedQuantity || 0;
+          const refundableQty = item.quantity - refundedQty;
+          
+          if (refundItem.quantity > refundableQty) {
+            return res.status(400).json({ 
+              error: `Cannot refund ${refundItem.quantity} units of item ${item.productName}. Only ${refundableQty} units available for refund.` 
+            });
+          }
+
+          // SECURITY: Recompute refund amount from stored price - never trust client amount
+          const pricePerUnit = parseFloat(item.price);
+          const serverCalculatedAmount = pricePerUnit * refundItem.quantity;
+          
+          // Validate client amount matches (with small tolerance for floating point)
+          const clientAmount = refundItem.amount || 0;
+          const difference = Math.abs(serverCalculatedAmount - clientAmount);
+          if (difference > 0.01) {
+            console.warn(`[Refund Security] Client amount mismatch for item ${item.id}: client=${clientAmount}, server=${serverCalculatedAmount}`);
+          }
+
+          // Validate against remaining refundable balance
           const alreadyRefunded = parseFloat(item.refundedAmount || '0');
           const itemTotal = parseFloat(item.subtotal);
-          const refundableAmount = itemTotal - alreadyRefunded;
+          const maxRefundable = itemTotal - alreadyRefunded;
           
-          if (refundableAmount > 0) {
-            refundAmount += refundableAmount;
-            itemsToRefund.push(item);
+          if (serverCalculatedAmount > maxRefundable + 0.01) {
+            return res.status(400).json({ 
+              error: `Refund amount $${serverCalculatedAmount.toFixed(2)} exceeds remaining refundable amount $${maxRefundable.toFixed(2)} for item ${item.productName}` 
+            });
           }
+
+          refundAmount += serverCalculatedAmount;
+          itemsToRefund.set(item.id, {
+            item,
+            quantity: refundItem.quantity,
+            amount: serverCalculatedAmount, // Use server-computed amount, not client amount
+          });
         }
       }
 
@@ -624,35 +668,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           orderId,
           refundType,
-          orderItemIds: itemsToRefund.map(i => i.id).join(','),
+          orderItemIds: Array.from(itemsToRefund.keys()).join(','),
         }
       });
 
       // Create refund records for each item
       const refunds = [];
-      for (const item of itemsToRefund) {
-        const itemRefundAmount = refundType === 'full' 
-          ? parseFloat(item.subtotal) 
-          : parseFloat(item.subtotal) - parseFloat(item.refundedAmount || '0');
+      for (const [itemId, refundData] of itemsToRefund.entries()) {
+        const { item, quantity, amount } = refundData;
         
         const refund = await storage.createRefund({
           orderId,
           orderItemId: item.id,
-          amount: itemRefundAmount.toFixed(2),
+          amount: amount.toFixed(2),
           reason: reason || null,
-          refundType,
+          refundType: 'item',
           stripeRefundId: stripeRefund.id,
           status: stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
           processedBy: userId,
         });
         refunds.push(refund);
 
-        // Update order item refund status
+        // Update order item refund tracking
+        const newRefundedQty = (item.refundedQuantity || 0) + quantity;
+        const newRefundedAmount = parseFloat(item.refundedAmount || '0') + amount;
+        const newStatus = newRefundedQty >= item.quantity ? 'refunded' : item.itemStatus;
+        
         await storage.updateOrderItemRefund(
           item.id,
-          item.quantity, // All units refunded
-          itemRefundAmount.toFixed(2),
-          'refunded'
+          newRefundedQty,
+          newRefundedAmount.toFixed(2),
+          newStatus
         );
       }
 
