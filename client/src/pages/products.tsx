@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
-import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus, Store, Search } from "lucide-react";
+import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus, Store, Search, AlertCircle } from "lucide-react";
 import { detectDomain } from "@/lib/domain-utils";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { useAuth } from "@/hooks/useAuth";
@@ -352,35 +352,13 @@ export default function Products() {
     <div className="min-h-screen">
       {/* Banner Section */}
       {currentSellerHasBanner ? (
-        <div className="relative h-[400px] md:h-[500px] w-full overflow-hidden mb-8">
+        <div className="relative h-[400px] md:h-[500px] w-full overflow-hidden">
           <img 
             src={currentSellerHasBanner} 
             alt="Store Banner" 
             className="w-full h-full object-cover"
             data-testid="img-store-banner"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-            <div className="container mx-auto px-4 py-8 flex items-end gap-6">
-              {currentSellerLogo && (
-                <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/20 bg-white flex-shrink-0">
-                  <img 
-                    src={currentSellerLogo} 
-                    alt="Store Logo" 
-                    className="w-full h-full object-cover"
-                    data-testid="img-store-logo"
-                  />
-                </div>
-              )}
-              <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {user?.firstName || effectiveSellerInfo?.firstName ? `${user?.firstName || effectiveSellerInfo?.firstName}'s Store` : "Featured Store"}
-                </h2>
-                <p className="text-white/90 text-lg">
-                  Discover amazing products
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       ) : isSeller && !isPreviewMode ? (
         <div className="relative h-[300px] md:h-[400px] w-full overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
@@ -397,37 +375,28 @@ export default function Products() {
         </div>
       ) : null}
 
-      <div className="container mx-auto px-4 max-w-7xl py-12">
-        <div className="mb-8 md:mb-12">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
-            <div className="flex-1">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold" data-testid="text-page-title">
-                {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "All Products"}
-              </h1>
-            </div>
-            
-            {isSeller && !isPreviewMode && (
-              <div className="flex items-center gap-3 bg-card border rounded-lg px-4 py-3 w-full md:w-auto">
-                <Store className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                <div className="flex flex-col gap-1 flex-1">
-                  <Label htmlFor="store-active" className="text-sm font-medium cursor-pointer">
-                    Store Status
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {user?.storeActive === 1 ? "Active & Visible" : "Inactive & Hidden"}
-                  </p>
-                </div>
-                <Switch
-                  id="store-active"
-                  checked={user?.storeActive === 1}
-                  onCheckedChange={handleStoreToggle}
-                  disabled={toggleStoreMutation.isPending || !user}
-                  data-testid="switch-store-active"
-                />
+      {/* Store Offline Message Bar */}
+      {isSeller && !isPreviewMode && user?.storeActive !== 1 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Your storefront is currently offline and hidden from customers.
+                </p>
               </div>
-            )}
+              <Link href="/seller-dashboard">
+                <Button size="sm" variant="outline" className="flex-shrink-0">
+                  Activate Store
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
+      )}
+
+      <div className="container mx-auto px-4 max-w-7xl py-8">
 
         <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-4">
           <div className="flex gap-2 items-center">
