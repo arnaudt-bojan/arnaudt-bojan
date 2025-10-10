@@ -15,9 +15,10 @@ export interface DomainInfo {
  */
 export function detectDomain(): DomainInfo {
   const hostname = window.location.hostname;
+  const parts = hostname.split('.');
   
-  // For development/preview environments
-  if (hostname.includes('replit') || hostname === 'localhost') {
+  // For localhost development
+  if (hostname === 'localhost') {
     // Check if there's a seller parameter in URL for testing
     const urlParams = new URLSearchParams(window.location.search);
     const testSeller = urlParams.get('seller');
@@ -37,8 +38,47 @@ export function detectDomain(): DomainInfo {
     };
   }
   
+  // For Replit deployment domains (pattern: {project}-{username}.replit.app or replit.dev)
+  // Example: shop-swift-mirtorabi.replit.app -> seller username is "mirtorabi"
+  if (hostname.includes('replit')) {
+    // Parse subdomain for seller username
+    const subdomain = parts[0]; // e.g., "shop-swift-mirtorabi"
+    
+    // Extract seller username from pattern: {project}-{username}
+    if (subdomain.includes('-')) {
+      const subdomainParts = subdomain.split('-');
+      // Seller username is the last part (e.g., "mirtorabi" from "shop-swift-mirtorabi")
+      const sellerUsername = subdomainParts[subdomainParts.length - 1];
+      
+      if (sellerUsername) {
+        return {
+          isMainDomain: false,
+          isSellerDomain: true,
+          sellerUsername: sellerUsername,
+        };
+      }
+    }
+    
+    // Check for seller parameter as fallback
+    const urlParams = new URLSearchParams(window.location.search);
+    const testSeller = urlParams.get('seller');
+    
+    if (testSeller) {
+      return {
+        isMainDomain: false,
+        isSellerDomain: true,
+        sellerUsername: testSeller,
+      };
+    }
+    
+    // Default to main domain if no seller identified
+    return {
+      isMainDomain: true,
+      isSellerDomain: false,
+    };
+  }
+  
   // Production logic
-  const parts = hostname.split('.');
   
   // Main domain: upfirst.io
   if (hostname === 'upfirst.io' || (parts.length === 2 && parts[0] === 'upfirst')) {
