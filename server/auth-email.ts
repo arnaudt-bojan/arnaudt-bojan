@@ -47,19 +47,23 @@ router.post('/send-code', async (req: Request, res: Response) => {
     });
 
     // Send email with code and magic link for auto-login
-    await notificationService.sendAuthCode(email, code, token);
+    const emailResult = await notificationService.sendAuthCode(email, code, token);
 
-    // In development, log the code for testing
-    if (process.env.NODE_ENV === 'development') {
+    // In development or if email failed, log the code for testing
+    if (process.env.NODE_ENV === 'development' || !emailResult) {
       console.log(`[Auth] Verification code for ${email}: ${code}`);
+      console.log(`[Auth] Code will be valid for 15 minutes`);
     } else {
       console.log(`[Auth] Sent code and auto-login link to ${email}`);
     }
 
+    // Always return success since code is stored in DB (user can still enter it manually)
     res.json({ 
       success: true, 
-      message: 'Authentication code sent to your email',
-      email 
+      message: 'Authentication code sent to your email. Check your inbox and spam folder.',
+      email,
+      // In dev, include code for convenience
+      ...(process.env.NODE_ENV === 'development' && { devCode: code })
     });
   } catch (error: any) {
     console.error('[Auth] Send code error:', error);

@@ -4476,11 +4476,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint to upload file directly through backend (avoids CORS issues)
   app.post("/api/objects/upload-file", isAuthenticated, async (req: any, res) => {
     try {
+      console.log('[Upload] Received upload request');
+      console.log('[Upload] Files:', req.files ? Object.keys(req.files) : 'none');
+      console.log('[Upload] Body:', req.body);
+      
       if (!req.files || !req.files.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+        console.error('[Upload] No file found in request');
+        return res.status(400).json({ error: "No file uploaded. Please select an image file." });
       }
 
       const file = req.files.file;
+      console.log('[Upload] File details:', { name: file.name, size: file.size, mimetype: file.mimetype });
+      
       const objectStorageService = new ObjectStorageService();
       
       // Get upload URL
@@ -4497,7 +4504,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload to storage');
+        const errorText = await uploadResponse.text();
+        console.error('[Upload] Storage upload failed:', uploadResponse.status, errorText);
+        throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
       }
       
       // Normalize the path and set public ACL
@@ -4511,10 +4520,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[Upload] File uploaded successfully:', objectPath);
       
-      res.json({ objectPath });
+      // Remove /objects/ prefix if present (frontend will add it)
+      const cleanPath = objectPath.replace(/^\/objects\//, '');
+      
+      res.json({ objectPath: cleanPath });
     } catch (error) {
-      console.error("Error uploading file:", error);
-      console.error("Error details:", error instanceof Error ? error.message : error);
+      console.error("[Upload] Error uploading file:", error);
+      console.error("[Upload] Error details:", error instanceof Error ? error.message : error);
       res.status(500).json({ error: "Failed to upload file" });
     }
   });

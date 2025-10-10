@@ -14,7 +14,7 @@ export interface NotificationService {
   sendOrderShipped(order: Order, seller: User): Promise<void>;
   sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void>;
   sendProductListed(seller: User, product: Product): Promise<void>;
-  sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<void>;
+  sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean>;
   sendMagicLink(email: string, link: string): Promise<void>;
   
   // Phase 1: Critical Revenue-Impacting Notifications
@@ -415,8 +415,9 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Send authentication code (6-digit code) with auto-login link
+   * Returns true if email was sent successfully, false otherwise
    */
-  async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<void> {
+  async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean> {
     try {
       const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
 
@@ -428,14 +429,14 @@ class NotificationServiceImpl implements NotificationService {
 
       if (!result.success) {
         console.error(`[Notifications] Failed to send auth code to ${email}:`, result.error);
-        // Don't throw - development mode fallback already logged the code to console
+        return false;
       } else {
         console.log(`[Notifications] Auth code sent to ${email}`);
+        return true;
       }
     } catch (error: any) {
       console.error(`[Notifications] Error in sendAuthCode:`, error);
-      // Don't throw - allow authentication to continue even if email fails
-      // In development, the code is logged to console anyway
+      return false;
     }
   }
 
