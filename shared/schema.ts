@@ -9,8 +9,11 @@ export type ProductType = z.infer<typeof productTypeEnum>;
 export const orderStatusEnum = z.enum(["pending", "processing", "shipped", "delivered", "cancelled"]);
 export type OrderStatus = z.infer<typeof orderStatusEnum>;
 
-export const paymentStatusEnum = z.enum(["pending", "deposit_paid", "fully_paid", "refunded"]);
+export const paymentStatusEnum = z.enum(["pending", "deposit_paid", "fully_paid", "refunded", "partially_refunded"]);
 export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
+
+export const itemStatusEnum = z.enum(["pending", "processing", "ready_to_ship", "shipped", "delivered", "cancelled", "returned", "refunded"]);
+export type ItemStatus = z.infer<typeof itemStatusEnum>;
 
 export const userRoleEnum = z.enum(["admin", "editor", "viewer", "buyer"]);
 export type UserRole = z.infer<typeof userRoleEnum>;
@@ -130,13 +133,20 @@ export const orderItems = pgTable("order_items", {
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
   requiresDeposit: integer("requires_deposit").default(0),
   variant: jsonb("variant"), // {size, color} if applicable
-  itemStatus: text("item_status").notNull().default("pending"), // "pending", "processing", "shipped", "delivered", "cancelled"
+  itemStatus: text("item_status").notNull().default("pending"), // "pending", "processing", "ready_to_ship", "shipped", "delivered", "cancelled", "returned", "refunded"
   trackingNumber: varchar("tracking_number"),
   trackingCarrier: varchar("tracking_carrier"), // e.g., UPS, FedEx, USPS
   trackingUrl: text("tracking_url"), // Full tracking URL
   trackingLink: text("tracking_link"), // Legacy - for backward compatibility
   shippedAt: timestamp("shipped_at"),
   deliveredAt: timestamp("delivered_at"),
+  
+  // Refund tracking
+  refundedQuantity: integer("refunded_quantity").default(0), // How many units of this item have been refunded
+  refundedAmount: decimal("refunded_amount", { precision: 10, scale: 2 }).default("0"), // Total refunded amount for this item
+  returnedAt: timestamp("returned_at"), // When item was marked as returned
+  refundedAt: timestamp("refunded_at"), // When refund was processed
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -149,6 +159,27 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type SelectOrderItem = typeof orderItems.$inferSelect;
+
+// Refunds - track all refund transactions
+export const refunds = pgTable("refunds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  orderItemId: varchar("order_item_id"), // References order_items.id (null for shipping refunds)
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Refund amount
+  reason: text("reason"), // Refund reason (optional)
+  refundType: text("refund_type").notNull(), // "full", "partial", "item", "shipping"
+  stripeRefundId: varchar("stripe_refund_id"), // Stripe refund ID
+  status: text("status").notNull().default("pending"), // "pending", "succeeded", "failed"
+  processedBy: varchar("processed_by").notNull(), // User ID who processed the refund
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRefundSchema = createInsertSchema(refunds).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertRefund = z.infer<typeof insertRefundSchema>;
+export type Refund = typeof refunds.$inferSelect;
 
 export const sessions = pgTable(
   "sessions",
