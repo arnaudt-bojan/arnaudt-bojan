@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FrontendProduct } from "@shared/schema";
 import {
@@ -156,12 +156,76 @@ export function ProductFormFields({
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryLevel, setCategoryLevel] = useState<1 | 2 | 3>(1);
+  const [selectedPreset, setSelectedPreset] = useState<string>("none");
+  const [unitSystem, setUnitSystem] = useState<"imperial" | "metric">("imperial");
+  const previousUnitSystem = useRef<"imperial" | "metric">("imperial");
 
   // Fetch shipping matrices for dropdown
   const { data: shippingMatrices = [] } = useQuery<any[]>({
     queryKey: ["/api/shipping-matrices"],
   });
   const selectedType = form.watch("productType");
+  
+  // Handle package preset selection
+  const handlePresetChange = (value: string) => {
+    setSelectedPreset(value);
+    if (value === "none") return;
+    
+    const preset = packagePresets.find(p => p.value === value);
+    if (!preset) return;
+    
+    // Auto-populate form fields based on unit system
+    if (unitSystem === "imperial") {
+      form.setValue("shippoWeight", preset.weight_lbs.toString());
+      form.setValue("shippoLength", preset.length_in.toString());
+      form.setValue("shippoWidth", preset.width_in.toString());
+      form.setValue("shippoHeight", preset.height_in.toString());
+    } else {
+      form.setValue("shippoWeight", preset.weight_kg.toString());
+      form.setValue("shippoLength", preset.length_cm.toString());
+      form.setValue("shippoWidth", preset.width_cm.toString());
+      form.setValue("shippoHeight", preset.height_cm.toString());
+    }
+  };
+  
+  // Convert units when toggling between imperial and metric
+  useEffect(() => {
+    // Only convert if unit system actually changed
+    if (previousUnitSystem.current === unitSystem) return;
+    
+    const weight = parseFloat(form.getValues("shippoWeight") || "0");
+    const length = parseFloat(form.getValues("shippoLength") || "0");
+    const width = parseFloat(form.getValues("shippoWidth") || "0");
+    const height = parseFloat(form.getValues("shippoHeight") || "0");
+    
+    // Skip if no values to convert
+    if (!weight && !length && !width && !height) {
+      previousUnitSystem.current = unitSystem;
+      return;
+    }
+    
+    if (unitSystem === "imperial" && previousUnitSystem.current === "metric") {
+      // Convert from metric to imperial
+      form.setValue("shippoWeight", (weight / 0.453592).toFixed(2)); // kg to lbs
+      form.setValue("shippoLength", (length / 2.54).toFixed(2)); // cm to in
+      form.setValue("shippoWidth", (width / 2.54).toFixed(2)); // cm to in
+      form.setValue("shippoHeight", (height / 2.54).toFixed(2)); // cm to in
+    } else if (unitSystem === "metric" && previousUnitSystem.current === "imperial") {
+      // Convert from imperial to metric
+      form.setValue("shippoWeight", (weight * 0.453592).toFixed(2)); // lbs to kg
+      form.setValue("shippoLength", (length * 2.54).toFixed(1)); // in to cm
+      form.setValue("shippoWidth", (width * 2.54).toFixed(1)); // in to cm
+      form.setValue("shippoHeight", (height * 2.54).toFixed(1)); // in to cm
+    }
+    
+    // Reset preset selection when manually converting
+    if (selectedPreset !== "none") {
+      setSelectedPreset("none");
+    }
+    
+    // Update previous unit system
+    previousUnitSystem.current = unitSystem;
+  }, [unitSystem]);
   
   // Top-level deposit validation - runs for all product types
   const priceValue = form.watch("price");
@@ -846,14 +910,59 @@ export function ProductFormFields({
           {form.watch("shippingType") === "shippo" && (
             <>
               <div className="space-y-4">
-                <p className="text-sm font-medium">Package Dimensions</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Package Dimensions</p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={unitSystem === "imperial" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setUnitSystem("imperial")}
+                      data-testid="button-unit-imperial"
+                    >
+                      Imperial (lb/in)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={unitSystem === "metric" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setUnitSystem("metric")}
+                      data-testid="button-unit-metric"
+                    >
+                      Metric (kg/cm)
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">Quick Select Package Size</label>
+                  <Select onValueChange={handlePresetChange} value={selectedPreset}>
+                    <SelectTrigger data-testid="select-package-preset">
+                      <SelectValue placeholder="Choose a standard package size..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Custom Dimensions</SelectItem>
+                      {packagePresets.map((preset) => (
+                        <SelectItem key={preset.value} value={preset.value}>
+                          {preset.label} ({unitSystem === "imperial" 
+                            ? `${preset.weight_lbs} lb, ${preset.length_in}×${preset.width_in}×${preset.height_in} in` 
+                            : `${preset.weight_kg} kg, ${preset.length_cm}×${preset.width_cm}×${preset.height_cm} cm`})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select a standard package size to auto-fill dimensions, or enter custom values below
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
                     name="shippoWeight"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Weight (lbs)</FormLabel>
+                        <FormLabel>Weight ({unitSystem === "imperial" ? "lb" : "kg"})</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -874,7 +983,7 @@ export function ProductFormFields({
                     name="shippoLength"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Length (in)</FormLabel>
+                        <FormLabel>Length ({unitSystem === "imperial" ? "in" : "cm"})</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -895,7 +1004,7 @@ export function ProductFormFields({
                     name="shippoWidth"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Width (in)</FormLabel>
+                        <FormLabel>Width ({unitSystem === "imperial" ? "in" : "cm"})</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -916,7 +1025,7 @@ export function ProductFormFields({
                     name="shippoHeight"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Height (in)</FormLabel>
+                        <FormLabel>Height ({unitSystem === "imperial" ? "in" : "cm"})</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
