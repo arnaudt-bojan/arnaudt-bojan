@@ -189,6 +189,70 @@ export const insertRefundSchema = createInsertSchema(refunds).omit({
 export type InsertRefund = z.infer<typeof insertRefundSchema>;
 export type Refund = typeof refunds.$inferSelect;
 
+// Cancellation Requests - track buyer cancellation requests for pre-shipment orders
+export const cancellationRequests = pgTable("cancellation_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  buyerEmail: text("buyer_email").notNull(), // Buyer who made the request
+  buyerName: text("buyer_name").notNull(),
+  reason: text("reason"), // Cancellation reason
+  status: text("status").notNull().default("pending"), // "pending", "approved", "rejected"
+  sellerId: varchar("seller_id").notNull(), // Seller who needs to review
+  reviewedBy: varchar("reviewed_by"), // User ID who reviewed the request
+  reviewedAt: timestamp("reviewed_at"), // When request was reviewed
+  rejectionReason: text("rejection_reason"), // Why request was rejected (if applicable)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCancellationRequestSchema = createInsertSchema(cancellationRequests).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertCancellationRequest = z.infer<typeof insertCancellationRequestSchema>;
+export type CancellationRequest = typeof cancellationRequests.$inferSelect;
+
+// Return Requests - track buyer return requests for delivered orders
+export const returnRequests = pgTable("return_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  orderItemId: varchar("order_item_id"), // Optional: specific item being returned (null for full order return)
+  buyerEmail: text("buyer_email").notNull(), // Buyer who made the request
+  buyerName: text("buyer_name").notNull(),
+  reason: text("reason"), // Return reason
+  status: text("status").notNull().default("pending"), // "pending", "approved", "rejected", "label_uploaded", "in_transit", "received", "completed"
+  sellerId: varchar("seller_id").notNull(), // Seller who needs to review
+  reviewedBy: varchar("reviewed_by"), // User ID who reviewed the request
+  reviewedAt: timestamp("reviewed_at"), // When request was reviewed
+  rejectionReason: text("rejection_reason"), // Why request was rejected
+  
+  // Return shipping method chosen by seller
+  returnMethod: text("return_method"), // "seller_label" (seller uploads label) or "buyer_ships" (buyer ships and provides tracking)
+  shippingLabelUrl: text("shipping_label_url"), // URL to seller-uploaded shipping label PDF
+  
+  // Buyer-provided tracking (if buyer_ships method)
+  buyerTrackingNumber: varchar("buyer_tracking_number"),
+  buyerTrackingCarrier: varchar("buyer_tracking_carrier"),
+  buyerTrackingImage: text("buyer_tracking_image"), // Image of shipping receipt uploaded by buyer
+  buyerShippedAt: timestamp("buyer_shipped_at"),
+  
+  // Seller confirmation
+  receivedAt: timestamp("received_at"), // When seller marks return as received
+  refundProcessedAt: timestamp("refund_processed_at"), // When refund was issued
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertReturnRequestSchema = createInsertSchema(returnRequests).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertReturnRequest = z.infer<typeof insertReturnRequestSchema>;
+export type ReturnRequest = typeof returnRequests.$inferSelect;
+
 export const sessions = pgTable(
   "sessions",
   {
