@@ -15,7 +15,7 @@ export interface NotificationService {
   sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void>;
   sendProductListed(seller: User, product: Product): Promise<void>;
   sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean>;
-  sendMagicLink(email: string, link: string): Promise<void>;
+  sendMagicLink(email: string, link: string): Promise<boolean>;
   
   // Phase 1: Critical Revenue-Impacting Notifications
   sendSellerWelcome(seller: User): Promise<void>;
@@ -452,17 +452,33 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Send magic link authentication
+   * Returns true if email was sent successfully, false otherwise
    */
-  async sendMagicLink(email: string, link: string): Promise<void> {
-    const emailHtml = this.generateMagicLinkEmail(link);
+  async sendMagicLink(email: string, link: string): Promise<boolean> {
+    try {
+      console.log(`[Notifications] Attempting to send magic link to ${email}`);
+      console.log(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
+      console.log(`[Notifications] Environment: ${process.env.NODE_ENV}`);
+      
+      const emailHtml = this.generateMagicLinkEmail(link);
 
-    await this.sendEmail({
-      to: email,
-      subject: 'Sign in to Upfirst',
-      html: emailHtml,
-    });
+      const result = await this.sendEmail({
+        to: email,
+        subject: 'Sign in to Upfirst',
+        html: emailHtml,
+      });
 
-    console.log(`[Notifications] Magic link sent to ${email}`);
+      if (!result.success) {
+        console.error(`[Notifications] Failed to send magic link to ${email}:`, result.error);
+        return false;
+      } else {
+        console.log(`[Notifications] Magic link sent successfully to ${email}, emailId: ${result.emailId}`);
+        return true;
+      }
+    } catch (error: any) {
+      console.error(`[Notifications] Error in sendMagicLink:`, error);
+      return false;
+    }
   }
 
   /**

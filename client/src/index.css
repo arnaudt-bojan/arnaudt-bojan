@@ -469,4 +469,28 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* ReactQuill Editor - Force text wrapping */
+  .ql-editor {
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    max-width: 100%;
+  }
+
+  .ql-editor p,
+  .ql-editor div,
+  .ql-editor span {
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+  }
+
+  /* Prevent horizontal scrolling in Quill container */
+  .ql-container {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
 }

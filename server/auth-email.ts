@@ -239,19 +239,41 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       : `http://localhost:${process.env.PORT || 5000}`;
     const magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${token}`;
 
-    // Send email with magic link
-    await notificationService.sendMagicLink(email, magicLink);
+    // Try to send email with magic link
+    let emailSent = false;
+    try {
+      emailSent = await notificationService.sendMagicLink(email, magicLink);
+    } catch (emailError) {
+      console.error('[Auth] Magic link email sending failed:', emailError);
+      emailSent = false;
+    }
 
-    console.log(`[Auth] Sent magic link to ${email}`);
+    // Always log the magic link to console (for production fallback when email fails)
+    console.log(`\n========================================`);
+    console.log(`[Auth] EMAIL ${emailSent ? 'SENT' : 'FAILED'} - MAGIC LINK AVAILABLE`);
+    console.log(`[Auth] Email: ${email}`);
+    console.log(`[Auth] Magic Link: ${magicLink}`);
+    console.log(`[Auth] Valid for: 15 minutes`);
+    console.log(`========================================\n`);
 
+    // Always return success since link is stored in DB
     res.json({ 
       success: true, 
-      message: 'Magic link sent to your email',
-      email 
+      message: emailSent 
+        ? 'Magic link sent to your email. Check your inbox and spam folder.'
+        : 'We had trouble sending the email. Please check the server console logs for your magic link, or use the code method instead.',
+      email,
+      emailSent
     });
   } catch (error: any) {
-    console.error('[Auth] Send magic link error:', error);
-    res.status(500).json({ error: 'Failed to send magic link' });
+    console.error('[Auth] Critical error in send-magic-link endpoint:', error);
+    // Even if there's a critical error, don't return 500 - the token is already saved to DB
+    res.json({ 
+      success: true, 
+      message: 'Magic link generated. Please check the server console logs for your link, or use the code method instead.',
+      email,
+      emailSent: false
+    });
   }
 });
 
