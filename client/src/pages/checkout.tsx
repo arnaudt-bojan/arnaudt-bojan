@@ -275,7 +275,7 @@ export default function Checkout() {
         const depositPerItem = parseFloat(item.depositAmount);
         depositTotal += depositPerItem * item.quantity;
         
-        // Track pre-order dates
+        // Track pre-order dates only - delivery estimates should come from seller's shipping policies
         if ((item as any).preOrderDate) {
           const preOrderDate = new Date((item as any).preOrderDate);
           if (!earliestDeliveryDate || preOrderDate < earliestDeliveryDate) {
@@ -284,19 +284,6 @@ export default function Checkout() {
           if (!latestDeliveryDate || preOrderDate > latestDeliveryDate) {
             latestDeliveryDate = preOrderDate;
           }
-        }
-      } else if (item.productType === "in-stock") {
-        // In-stock items: 3-7 business days
-        const minDate = new Date();
-        minDate.setDate(minDate.getDate() + 3);
-        const maxDate = new Date();
-        maxDate.setDate(maxDate.getDate() + 7);
-        
-        if (!earliestDeliveryDate || minDate < earliestDeliveryDate) {
-          earliestDeliveryDate = minDate;
-        }
-        if (!latestDeliveryDate || maxDate > latestDeliveryDate) {
-          latestDeliveryDate = maxDate;
         }
       }
       

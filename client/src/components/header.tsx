@@ -299,8 +299,8 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             <ThemeToggle />
           </div>
           
-          {/* Only show cart for buyers and guests */}
-          {!isSeller && (
+          {/* Only show cart on seller storefronts and product pages, not on main Upfirst landing */}
+          {!isSeller && (isSellerDomain || location.includes('/products') || location.includes('/checkout')) && (
             <Button
               variant="ghost"
               size="icon"
