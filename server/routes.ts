@@ -2497,24 +2497,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Use country from request body, fallback to IP geolocation headers if not provided
-      const countryCode = country?.toUpperCase() || 
-                          (req.headers['x-replit-user-geo-country-code'] as string || 
-                          req.headers['cf-ipcountry'] as string || 
-                          'US').toUpperCase();
+      console.log(`[Stripe Express] Creating borderless Express account for user ${userId} - user will select country during onboarding`);
 
-      console.log(`[Stripe Express] Creating account for user ${userId} with country: ${countryCode} (source: ${country ? 'user-selected' : 'auto-detected'})`);
-
-      // Create new Express account with minimal requirements
+      // Create new Express account with borderless onboarding
+      // NOTE: By NOT setting country or capabilities, users can select their country
+      // during the Stripe onboarding flow. This enables international sellers from
+      // 46+ countries to connect. Capabilities are auto-configured based on selected country.
       const account = await stripe.accounts.create({
         type: 'express',
-        country: countryCode,
         email: user.email || undefined,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-        business_type: 'individual', // Start with individual, can upgrade later
+        // Don't set country - allows user to select during onboarding
+        // Don't set capabilities - auto-configured based on user's selected country
         settings: {
           payouts: {
             debit_negative_balances: true,
@@ -2523,13 +2516,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Save account ID and initial status
+      // Note: country and currency may be null until user completes onboarding
       await storage.upsertUser({
         ...user,
         stripeConnectedAccountId: account.id,
         stripeChargesEnabled: account.charges_enabled ? 1 : 0,
         stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
         stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
-        listingCurrency: account.default_currency?.toUpperCase() || 'USD',
+        // Currency will be set after user selects their country during onboarding
+        listingCurrency: account.default_currency?.toUpperCase() || user.listingCurrency || 'USD',
       });
 
       console.log(`[Stripe Express] Created account ${account.id} for user ${userId}`);

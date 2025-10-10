@@ -22,7 +22,6 @@ import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
-import { CountrySelectorDialog } from "@/components/country-selector-dialog";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
@@ -808,17 +807,11 @@ export default function Settings() {
   };
 
   const handleConnectStripe = async (reset = false) => {
-    // Show country selector first
-    setResetMode(reset);
-    setIsCountrySelectorOpen(true);
-  };
-
-  const handleCountryConfirm = async (countryCode: string) => {
     try {
-      // Create or get the Stripe Express account with selected country
+      // Create or get the Stripe Express account with borderless onboarding
+      // User will select their country during Stripe's onboarding flow
       const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", { 
-        reset: resetMode,
-        country: countryCode 
+        reset
       });
       const accountData = await createResponse.json();
       
@@ -844,7 +837,7 @@ export default function Settings() {
       setIsStripeModalOpen(true);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
-      if (resetMode) {
+      if (reset) {
         toast({
           title: "Starting Fresh",
           description: "Stripe onboarding has been reset. You can now start from the beginning.",
@@ -889,8 +882,6 @@ export default function Settings() {
   const isInstagramConnected = user?.instagramUsername;
   const [isStripeModalOpen, setIsStripeModalOpen] = useState(false);
   const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
-  const [isCountrySelectorOpen, setIsCountrySelectorOpen] = useState(false);
-  const [resetMode, setResetMode] = useState(false);
   
   // Check if charges are enabled but payouts are not (progressive onboarding state)
   const canAcceptPayments = user?.stripeChargesEnabled === 1;
@@ -1830,13 +1821,6 @@ export default function Settings() {
           </TabsContent>
         )}
       </Tabs>
-
-      {/* Country Selector Dialog */}
-      <CountrySelectorDialog
-        isOpen={isCountrySelectorOpen}
-        onClose={() => setIsCountrySelectorOpen(false)}
-        onConfirm={handleCountryConfirm}
-      />
 
       {/* Stripe Embedded Onboarding Modal */}
       {user?.stripeConnectedAccountId && (
