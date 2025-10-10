@@ -2576,6 +2576,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
+      // Retrieve account to verify country is set correctly
+      const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+      console.log(`[Stripe Account Session] Account ${account.id} country: ${account.country}, default_currency: ${account.default_currency}`);
+
       // Create account session for embedded onboarding or payout setup
       // For Express accounts: don't include external_account_collection for initial onboarding
       const components: any = {
@@ -2599,6 +2603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         clientSecret: accountSession.client_secret,
         accountId: user.stripeConnectedAccountId,
+        country: account.country, // Include country for debugging
       });
     } catch (error: any) {
       console.error("Stripe Account Session error:", error);
