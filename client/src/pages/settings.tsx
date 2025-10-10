@@ -999,7 +999,7 @@ export default function Settings() {
           )}
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
@@ -1059,6 +1059,50 @@ export default function Settings() {
               </Form>
             </CardContent>
           </Card>
+
+          {isSeller && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Store Username</CardTitle>
+                <CardDescription>
+                  Your unique store username determines your storefront URL
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...usernameForm}>
+                  <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-4">
+                    <FormField
+                      control={usernameForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="yourstorename"
+                              data-testid="input-username" 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            3-20 characters, letters, numbers, and underscores only. Your store will be at: {field.value || 'username'}.upfirst.io
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={updateUsernameMutation.isPending}
+                      data-testid="button-save-username"
+                    >
+                      {updateUsernameMutation.isPending ? "Saving..." : "Update Username"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {isSeller && (

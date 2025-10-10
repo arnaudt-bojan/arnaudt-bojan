@@ -72,22 +72,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[Auth] Send code error:', error);
-    
-    // Don't return 500 - still allow authentication via console fallback
-    const code = generateCode();
-    console.log(`\n========================================`);
-    console.log(`[Auth] CRITICAL ERROR - CONSOLE FALLBACK`);
-    console.log(`[Auth] Email: ${email}`);
-    console.log(`[Auth] Verification Code: ${code}`);
-    console.log(`[Auth] Valid for: 15 minutes`);
-    console.log(`========================================\n`);
-    
-    res.json({ 
-      success: true, 
-      message: 'There was an error with email delivery. Your authentication code has been logged to the console.',
-      email,
-      emailSent: false
-    });
+    res.status(500).json({ error: 'Failed to send authentication code. Please try again.' });
   }
 });
 
