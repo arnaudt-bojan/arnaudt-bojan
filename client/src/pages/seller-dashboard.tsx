@@ -157,9 +157,9 @@ export default function SellerDashboard() {
             <div className="flex gap-2">
               <Button
                 onClick={() => {
-                  // Always navigate to /products to preview storefront
-                  // If logged in as seller, they'll see their own products
-                  window.open('/products', '_blank');
+                  // Open storefront in new tab - sellers can see their products as customers see them
+                  const baseUrl = window.location.origin;
+                  window.open(`${baseUrl}/products`, '_blank');
                 }}
                 data-testid="button-preview-store"
                 className="flex-1 md:flex-none"
