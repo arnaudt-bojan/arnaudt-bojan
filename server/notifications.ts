@@ -419,6 +419,10 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean> {
     try {
+      console.log(`[Notifications] Attempting to send auth code to ${email}`);
+      console.log(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
+      console.log(`[Notifications] Environment: ${process.env.NODE_ENV}`);
+      
       const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
 
       const result = await this.sendEmail({
@@ -427,11 +431,17 @@ class NotificationServiceImpl implements NotificationService {
         html: emailHtml,
       });
 
+      console.log(`[Notifications] Send result:`, JSON.stringify({
+        success: result.success,
+        emailId: result.emailId,
+        error: result.error
+      }));
+
       if (!result.success) {
         console.error(`[Notifications] Failed to send auth code to ${email}:`, result.error);
         return false;
       } else {
-        console.log(`[Notifications] Auth code sent to ${email}`);
+        console.log(`[Notifications] Auth code sent successfully to ${email}, emailId: ${result.emailId}`);
         return true;
       }
     } catch (error: any) {
