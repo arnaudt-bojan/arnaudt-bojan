@@ -70,7 +70,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return prev; // Don't modify cart
       }
       
-      return [...prev, { ...product, quantity: 1 }];
+      // Calculate actual price (apply discount if active)
+      let actualPrice = product.price;
+      if (product.promotionActive && product.discountPercentage && parseFloat(product.discountPercentage) > 0) {
+        const discountDecimal = parseFloat(product.discountPercentage) / 100;
+        const discountedPrice = parseFloat(product.price) * (1 - discountDecimal);
+        actualPrice = discountedPrice.toString();
+      }
+      
+      return [...prev, { ...product, price: actualPrice, quantity: 1 }];
     });
     
     if (error) {

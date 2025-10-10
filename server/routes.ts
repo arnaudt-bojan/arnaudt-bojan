@@ -1779,7 +1779,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trackingSchema = z.object({
         trackingNumber: z.string().min(1, "Tracking number is required"),
         trackingCarrier: z.string().optional(),
-        trackingUrl: z.string().url("Invalid tracking URL").or(z.literal("")).optional(),
+        trackingUrl: z.string().optional().refine(
+          (val) => !val || val === "" || /^https?:\/\/.+/.test(val),
+          { message: "Tracking URL must be a valid URL starting with http:// or https://" }
+        ),
         notifyCustomer: z.boolean().optional(),
       });
       
