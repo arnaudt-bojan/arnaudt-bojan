@@ -745,7 +745,7 @@ export function ProductFormFields({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Shipping Method</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || "flat"}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-shipping-type">
                       <SelectValue placeholder="Choose shipping method" />
