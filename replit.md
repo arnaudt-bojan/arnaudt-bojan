@@ -24,7 +24,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Shopping & Checkout**: Includes a slide-over cart, persistent cart, guest checkout, and automatic shipping cost calculation. Carts enforce a single-seller constraint for proper payment routing and data isolation.
 - **Authentication & Authorization**: Email-based authentication for sellers (admin role). Buyers are created automatically via guest checkout. A 4-role system (admin, editor, viewer, buyer) with multi-tenant security ensures data isolation for sellers and buyers.
 - **Notification System**: Comprehensive email notifications using Resend, with planned support for 30+ types.
-- **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting various methods (Apple Pay, Google Pay, credit cards) and balance payments for pre-orders. Features borderless onboarding for sellers.
+- **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting credit cards and balance payments for pre-orders. Features borderless onboarding for sellers. Note: Apple Pay and Google Pay are disabled in checkout as they require domain verification with Stripe (not feasible on Replit subdomains).
 - **Subscription System**: Monthly/annual subscription model for sellers with a free trial, managed via Stripe Customer objects, enabling store activation/deactivation.
 - **Multi-Currency Support**: IP-based currency detection with a user-selectable currency switcher and real-time exchange rates.
 - **NFT Minting**: Allows buyers to mint NFTs on the Solana devnet for fully paid orders, integrated with Phantom wallet.

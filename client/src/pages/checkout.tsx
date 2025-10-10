@@ -167,9 +167,9 @@ function PaymentForm({
               defaultCollapsed: false,
             },
             wallets: {
-              applePay: 'auto',
-              googlePay: 'auto',
-              link: 'never', // Disable Link payment method
+              applePay: 'never', // Disabled - requires domain verification with Stripe
+              googlePay: 'never', // Disabled - requires domain verification with Stripe
+              link: 'never',
             },
             fields: {
               billingDetails: {
