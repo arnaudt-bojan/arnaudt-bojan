@@ -48,6 +48,10 @@ import {
   type InsertPackingSlip,
   type Refund,
   type InsertRefund,
+  type SavedAddress,
+  type InsertSavedAddress,
+  type SavedPaymentMethod,
+  type InsertSavedPaymentMethod,
   users,
   products,
   orders,
@@ -73,7 +77,9 @@ import {
   shippingMatrices,
   shippingZones,
   invoices,
-  packingSlips
+  packingSlips,
+  savedAddresses,
+  savedPaymentMethods
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -242,6 +248,22 @@ export interface IStorage {
   getPackingSlip(id: string): Promise<PackingSlip | undefined>;
   getPackingSlipByNumber(packingSlipNumber: string): Promise<PackingSlip | undefined>;
   createPackingSlip(packingSlip: InsertPackingSlip): Promise<PackingSlip>;
+  
+  // Saved Addresses
+  getSavedAddressesByUserId(userId: string): Promise<SavedAddress[]>;
+  getSavedAddress(id: string): Promise<SavedAddress | undefined>;
+  createSavedAddress(address: InsertSavedAddress): Promise<SavedAddress>;
+  updateSavedAddress(id: string, address: Partial<InsertSavedAddress>): Promise<SavedAddress | undefined>;
+  deleteSavedAddress(id: string): Promise<boolean>;
+  setDefaultAddress(userId: string, addressId: string): Promise<void>;
+  
+  // Saved Payment Methods
+  getSavedPaymentMethodsByUserId(userId: string): Promise<SavedPaymentMethod[]>;
+  getSavedPaymentMethod(id: string): Promise<SavedPaymentMethod | undefined>;
+  getSavedPaymentMethodByStripeId(stripePaymentMethodId: string): Promise<SavedPaymentMethod | undefined>;
+  createSavedPaymentMethod(paymentMethod: InsertSavedPaymentMethod): Promise<SavedPaymentMethod>;
+  deleteSavedPaymentMethod(id: string): Promise<boolean>;
+  setDefaultPaymentMethod(userId: string, paymentMethodId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1445,6 +1467,116 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.insert(packingSlips).values(packingSlip).returning();
     return result[0];
+  }
+
+  // Saved Address Methods
+  async getSavedAddressesByUserId(userId: string): Promise<SavedAddress[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(savedAddresses)
+      .where(eq(savedAddresses.userId, userId))
+      .orderBy(desc(savedAddresses.isDefault), desc(savedAddresses.createdAt));
+  }
+
+  async getSavedAddress(id: string): Promise<SavedAddress | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(savedAddresses)
+      .where(eq(savedAddresses.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createSavedAddress(address: InsertSavedAddress): Promise<SavedAddress> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(savedAddresses).values(address).returning();
+    return result[0];
+  }
+
+  async updateSavedAddress(id: string, address: Partial<InsertSavedAddress>): Promise<SavedAddress | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(savedAddresses)
+      .set({ ...address, updatedAt: new Date() })
+      .where(eq(savedAddresses.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSavedAddress(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(savedAddresses).where(eq(savedAddresses.id, id));
+    return true;
+  }
+
+  async setDefaultAddress(userId: string, addressId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.db
+      .update(savedAddresses)
+      .set({ isDefault: 0 })
+      .where(eq(savedAddresses.userId, userId));
+    
+    await this.db
+      .update(savedAddresses)
+      .set({ isDefault: 1, updatedAt: new Date() })
+      .where(eq(savedAddresses.id, addressId));
+  }
+
+  // Saved Payment Method Methods
+  async getSavedPaymentMethodsByUserId(userId: string): Promise<SavedPaymentMethod[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(savedPaymentMethods)
+      .where(eq(savedPaymentMethods.userId, userId))
+      .orderBy(desc(savedPaymentMethods.isDefault), desc(savedPaymentMethods.createdAt));
+  }
+
+  async getSavedPaymentMethod(id: string): Promise<SavedPaymentMethod | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(savedPaymentMethods)
+      .where(eq(savedPaymentMethods.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getSavedPaymentMethodByStripeId(stripePaymentMethodId: string): Promise<SavedPaymentMethod | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(savedPaymentMethods)
+      .where(eq(savedPaymentMethods.stripePaymentMethodId, stripePaymentMethodId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createSavedPaymentMethod(paymentMethod: InsertSavedPaymentMethod): Promise<SavedPaymentMethod> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(savedPaymentMethods).values(paymentMethod).returning();
+    return result[0];
+  }
+
+  async deleteSavedPaymentMethod(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(savedPaymentMethods).where(eq(savedPaymentMethods.id, id));
+    return true;
+  }
+
+  async setDefaultPaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.db
+      .update(savedPaymentMethods)
+      .set({ isDefault: 0 })
+      .where(eq(savedPaymentMethods.userId, userId));
+    
+    await this.db
+      .update(savedPaymentMethods)
+      .set({ isDefault: 1, updatedAt: new Date() })
+      .where(eq(savedPaymentMethods.id, paymentMethodId));
   }
 }
 
