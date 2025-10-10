@@ -2834,6 +2834,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Migration endpoint: Fix old users' subscription status
+  app.post("/api/admin/migrate-subscriptions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only allow admin users to run migrations
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const allUsers = await storage.getAllUsers();
+      const sellersToMigrate = allUsers.filter(u => 
+        (u.role === 'admin' || u.role === 'editor' || u.role === 'viewer') && 
+        !u.subscriptionStatus
+      );
+
+      console.log(`[Migration] Found ${sellersToMigrate.length} sellers to migrate`);
+
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+
+      for (const seller of sellersToMigrate) {
+        await storage.upsertUser({
+          ...seller,
+          subscriptionStatus: "trial",
+          trialEndsAt,
+        });
+        console.log(`[Migration] Migrated user ${seller.email} to trial status`);
+      }
+
+      res.json({ 
+        message: `Successfully migrated ${sellersToMigrate.length} users to trial status`,
+        count: sellersToMigrate.length,
+        migratedUsers: sellersToMigrate.map(u => ({
+          id: u.id,
+          email: u.email,
+          username: u.username
+        }))
+      });
+    } catch (error: any) {
+      console.error("Subscription migration error:", error);
+      res.status(500).json({ error: "Failed to migrate subscriptions" });
+    }
+  });
+
   // Stripe Webhook Handler
   app.post("/api/stripe/webhook", async (req, res) => {
     try {

@@ -898,6 +898,14 @@ export default function Settings() {
   const stripeParam = searchParams.get('stripe');
   const [defaultTab, setDefaultTab] = useState(tabParam || "profile");
 
+  // Sync tab state with URL changes
+  useEffect(() => {
+    const newTab = new URLSearchParams(window.location.search).get('tab');
+    if (newTab && newTab !== defaultTab) {
+      setDefaultTab(newTab);
+    }
+  }, [window.location.search]);
+
   // Check Stripe status when returning from Stripe Connect
   useEffect(() => {
     const checkStripeStatus = async () => {
