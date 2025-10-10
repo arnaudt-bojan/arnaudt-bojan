@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { storage } from './storage';
 import { createNotificationService } from './notifications';
+import { PDFService } from './pdf-service';
 import crypto from 'crypto';
 import type { Request, Response } from 'express';
 
 const router = Router();
-const notificationService = createNotificationService(storage);
+const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
+const notificationService = createNotificationService(storage, pdfService);
 
 // Generate 6-digit code
 function generateCode(): string {

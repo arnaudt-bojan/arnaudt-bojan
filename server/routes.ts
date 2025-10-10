@@ -10,9 +10,13 @@ import { getExchangeRates, getUserCurrency } from "./currencyService";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
+import { PDFService } from "./pdf-service";
+
+// Initialize PDF service with Stripe secret key
+const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
 
 // Initialize notification service
-const notificationService = createNotificationService(storage);
+const notificationService = createNotificationService(storage, pdfService);
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -463,8 +467,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get canonical owner ID:
       // - For owner/seller/buyer roles: use their own ID (they own their products/orders)
-      // - For team roles (admin/editor/viewer): use their sellerId (products owned by store owner)
-      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role);
+      // - For team roles (admin/editor/viewer): use their sellerId if they're a team member (sellerId is set)
+      // - For admins who ARE the seller (sellerId is null): use their own ID
+      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role) && currentUser.sellerId;
       const canonicalOwnerId = isTeamMember ? currentUser.sellerId : currentUser.id;
       
       if (!canonicalOwnerId) {
@@ -1058,8 +1063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the order item to find the order
-      const items = await storage.getOrderItems('');
-      const item = items.find(i => i.id === req.params.id);
+      const item = await storage.getOrderItemById(req.params.id);
       
       if (!item) {
         return res.status(404).json({ error: "Order item not found" });
@@ -1148,8 +1152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the order item to find the order
-      const items = await storage.getOrderItems('');
-      const item = items.find(i => i.id === req.params.id);
+      const item = await storage.getOrderItemById(req.params.id);
       
       if (!item) {
         return res.status(404).json({ error: "Order item not found" });

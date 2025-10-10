@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem } from '../shared/schema';
+import { PDFService } from './pdf-service';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 // Using verified domain upfirst.io
@@ -66,9 +67,30 @@ interface SendEmailParams {
 
 class NotificationServiceImpl implements NotificationService {
   private storage: any; // Will be injected
+  private pdfService: PDFService;
 
-  constructor(storage: any) {
+  constructor(storage: any, pdfService: PDFService) {
     this.storage = storage;
+    this.pdfService = pdfService;
+  }
+
+  /**
+   * Build Stripe business details with fallback
+   */
+  private async getStripeBusinessDetails(seller: User): Promise<any> {
+    if (seller.stripeConnectAccountId) {
+      try {
+        return await this.pdfService.getStripeBusinessDetails(seller.stripeConnectAccountId);
+      } catch (error) {
+        console.error('[Notifications] Failed to fetch Stripe business details:', error);
+      }
+    }
+    
+    // Fallback if Stripe details unavailable
+    return {
+      businessName: [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store',
+      email: seller.email || undefined,
+    };
   }
 
   /**
@@ -202,6 +224,40 @@ class NotificationServiceImpl implements NotificationService {
     // Generate branded email HTML with magic link
     const emailHtml = this.generateOrderConfirmationEmail(order, seller, products, buyerName, magicLink);
 
+    // Generate invoice PDF
+    let attachments: EmailAttachment[] = [];
+    try {
+      // Fetch order items
+      const orderItems = await this.storage.getOrderItems(order.id);
+      
+      // Get Stripe business details
+      const stripeDetails = await this.getStripeBusinessDetails(seller);
+      
+      // Build invoice data
+      const invoiceData = {
+        order,
+        orderItems,
+        seller,
+        buyer: {
+          name: order.customerName,
+          email: order.customerEmail,
+          address: order.customerAddress,
+        },
+        stripeDetails,
+      };
+      
+      const invoiceBuffer = await this.pdfService.generateInvoice(invoiceData);
+      attachments.push({
+        filename: `invoice-${order.id.slice(0, 8)}.pdf`,
+        content: invoiceBuffer,
+        contentType: 'application/pdf',
+      });
+      console.log(`[Notifications] Invoice PDF generated for order ${order.id}`);
+    } catch (error) {
+      console.error('[Notifications] Failed to generate invoice PDF:', error);
+      // Continue sending email without attachment
+    }
+
     // Send email from verified domain with seller as reply-to
     const result = await this.sendEmail({
       to: buyerEmail,
@@ -209,6 +265,7 @@ class NotificationServiceImpl implements NotificationService {
       replyTo: seller.email || undefined,
       subject: `Order Confirmation #${order.id.slice(0, 8)} - ${seller.firstName || 'Your'} Store`,
       html: emailHtml,
+      attachments,
     });
 
     // Create in-app notification for seller
@@ -263,12 +320,36 @@ class NotificationServiceImpl implements NotificationService {
   async sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void> {
     const emailHtml = this.generateItemTrackingEmail(order, item, seller);
 
+    // Generate packing slip PDF for this specific item
+    let attachments: EmailAttachment[] = [];
+    try {
+      // Build packing slip data
+      const packingSlipData = {
+        order,
+        orderItems: [item], // Just this item
+        seller,
+        shippingAddress: order.customerAddress,
+      };
+      
+      const packingSlipBuffer = await this.pdfService.generatePackingSlip(packingSlipData);
+      attachments.push({
+        filename: `packing-slip-${order.id.slice(0, 8)}-${item.id.slice(0, 8)}.pdf`,
+        content: packingSlipBuffer,
+        contentType: 'application/pdf',
+      });
+      console.log(`[Notifications] Packing slip PDF generated for item ${item.id}`);
+    } catch (error) {
+      console.error('[Notifications] Failed to generate packing slip PDF:', error);
+      // Continue sending email without attachment
+    }
+
     const result = await this.sendEmail({
       to: order.customerEmail,
       from: `${seller.firstName || 'Store'} via Upfirst <hello@upfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `Item shipped from order #${order.id.slice(0, 8)}`,
       html: emailHtml,
+      attachments,
     });
 
     // Create in-app notification for buyer (if they have an account)
@@ -1605,6 +1686,6 @@ class NotificationServiceImpl implements NotificationService {
   }
 }
 
-export const createNotificationService = (storage: any): NotificationService => {
-  return new NotificationServiceImpl(storage);
+export const createNotificationService = (storage: any, pdfService: PDFService): NotificationService => {
+  return new NotificationServiceImpl(storage, pdfService);
 };

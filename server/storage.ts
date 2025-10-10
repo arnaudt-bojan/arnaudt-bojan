@@ -93,6 +93,7 @@ export interface IStorage {
   
   // Order Items
   getOrderItems(orderId: string): Promise<OrderItem[]>;
+  getOrderItemById(itemId: string): Promise<OrderItem | undefined>;
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
   createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]>;
   updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined>;
@@ -373,6 +374,12 @@ export class DatabaseStorage implements IStorage {
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
     await this.ensureInitialized();
     return await this.db.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(orderItems.createdAt);
+  }
+
+  async getOrderItemById(itemId: string): Promise<OrderItem | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(orderItems).where(eq(orderItems.id, itemId)).limit(1);
+    return result[0];
   }
 
   async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
