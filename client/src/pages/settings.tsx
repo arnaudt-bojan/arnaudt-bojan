@@ -963,8 +963,66 @@ export default function Settings() {
         </div>
       )}
 
-      <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className={`grid w-full ${isSeller ? 'grid-cols-6' : 'grid-cols-1'}`} data-testid="tabs-settings">
+      <Tabs defaultValue={defaultTab} className="space-y-6" onValueChange={(value) => setDefaultTab(value)}>
+        {/* Mobile: Dropdown Select */}
+        <div className="md:hidden">
+          <Select value={defaultTab} onValueChange={setDefaultTab}>
+            <SelectTrigger className="w-full" data-testid="select-settings-mobile">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="profile">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <span>Profile</span>
+                </div>
+              </SelectItem>
+              {isSeller && (
+                <>
+                  <SelectItem value="subscription">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span>Subscription</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="store">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      <span>Store</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="branding">
+                    <div className="flex items-center gap-2">
+                      <Image className="h-4 w-4" />
+                      <span>Branding</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="payment">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      <span>Payment</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="categories">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      <span>Categories</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="shipping-matrix">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      <span>Shipping Matrix</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Desktop: Tabs */}
+        <TabsList className={`hidden md:grid w-full ${isSeller ? 'grid-cols-7' : 'grid-cols-1'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
