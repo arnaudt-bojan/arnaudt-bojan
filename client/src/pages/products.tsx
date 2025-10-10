@@ -279,7 +279,7 @@ export default function Products() {
     <div className="min-h-screen">
       {/* Banner Section */}
       {currentSellerHasBanner ? (
-        <div className="relative h-[300px] w-full overflow-hidden mb-8">
+        <div className="relative h-[400px] md:h-[500px] w-full overflow-hidden mb-8">
           <img 
             src={currentSellerHasBanner} 
             alt="Store Banner" 
@@ -289,7 +289,7 @@ export default function Products() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
             <div className="container mx-auto px-4 py-8 flex items-end gap-6">
               {currentSellerLogo && (
-                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/20 bg-white flex-shrink-0">
+                <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/20 bg-white flex-shrink-0">
                   <img 
                     src={currentSellerLogo} 
                     alt="Store Logo" 
@@ -299,7 +299,7 @@ export default function Products() {
                 </div>
               )}
               <div>
-                <h2 className="text-3xl font-bold text-white mb-2">
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
                   {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "Featured Store"}
                 </h2>
                 <p className="text-white/90 text-lg">
@@ -310,11 +310,11 @@ export default function Products() {
           </div>
         </div>
       ) : isSeller && !isPreviewMode ? (
-        <div className="relative h-[200px] w-full overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
+        <div className="relative h-[300px] md:h-[400px] w-full overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <ImagePlus className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground mb-2">Add a banner to showcase your brand</p>
-            <p className="text-sm text-muted-foreground/70 mb-4">Recommended size: 1920x300px</p>
+            <p className="text-sm text-muted-foreground/70 mb-4">Recommended size: 2000x500px</p>
             <Link href="/settings?tab=branding">
               <Button variant="outline" data-testid="button-add-banner">
                 Add Banner
