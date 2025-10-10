@@ -55,6 +55,16 @@ export const products = pgTable("products", {
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }), // Discount percentage (0-100)
   promotionActive: integer("promotion_active").default(0), // 0 = false, 1 = true
   promotionEndDate: timestamp("promotion_end_date"), // When promotion ends
+  
+  // Shipping configuration
+  shippingType: text("shipping_type").default("flat"), // "flat", "matrix", "shippo", "free"
+  flatShippingRate: decimal("flat_shipping_rate", { precision: 10, scale: 2 }), // For flat shipping
+  shippingMatrixId: varchar("shipping_matrix_id"), // References shipping_matrices.id
+  shippoWeight: decimal("shippo_weight", { precision: 10, scale: 2 }), // Weight in lbs for Shippo
+  shippoLength: decimal("shippo_length", { precision: 10, scale: 2 }), // Length in inches
+  shippoWidth: decimal("shippo_width", { precision: 10, scale: 2 }), // Width in inches
+  shippoHeight: decimal("shippo_height", { precision: 10, scale: 2 }), // Height in inches
+  shippoTemplate: varchar("shippo_template"), // Carrier template token (e.g., "USPS_FlatRateBox")
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
@@ -456,6 +466,42 @@ export const authTokens = pgTable("auth_tokens", {
 export const insertAuthTokenSchema = createInsertSchema(authTokens).omit({ id: true, createdAt: true });
 export type InsertAuthToken = z.infer<typeof insertAuthTokenSchema>;
 export type AuthToken = typeof authTokens.$inferSelect;
+
+// Shipping configuration enums
+export const shippingTypeEnum = z.enum(["flat", "matrix", "shippo", "free"]);
+export type ShippingType = z.infer<typeof shippingTypeEnum>;
+
+export const zoneTypeEnum = z.enum(["continent", "country", "city"]);
+export type ZoneType = z.infer<typeof zoneTypeEnum>;
+
+// Shipping Matrices - seller-defined shipping rate tables
+export const shippingMatrices = pgTable("shipping_matrices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(),
+  name: text("name").notNull(), // e.g., "Standard International", "Express US"
+  description: text("description"), // Optional description
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertShippingMatrixSchema = createInsertSchema(shippingMatrices).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShippingMatrix = z.infer<typeof insertShippingMatrixSchema>;
+export type ShippingMatrix = typeof shippingMatrices.$inferSelect;
+
+// Shipping Zones - individual zone rates within a matrix
+export const shippingZones = pgTable("shipping_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matrixId: varchar("matrix_id").notNull(), // References shipping_matrices.id
+  zoneType: text("zone_type").notNull(), // "continent", "country", "city"
+  zoneName: text("zone_name").notNull(), // e.g., "North America", "United States", "New York"
+  zoneCode: varchar("zone_code"), // Optional: ISO code (US, CA, NY, etc.)
+  rate: decimal("rate", { precision: 10, scale: 2 }).notNull(), // Shipping cost
+  estimatedDays: integer("estimated_days"), // Optional delivery estimate
+});
+
+export const insertShippingZoneSchema = createInsertSchema(shippingZones).omit({ id: true });
+export type InsertShippingZone = z.infer<typeof insertShippingZoneSchema>;
+export type ShippingZone = typeof shippingZones.$inferSelect;
 
 // Notifications (unified email + in-app)
 export const notificationTypeEnum = z.enum([
