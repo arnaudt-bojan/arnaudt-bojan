@@ -1856,6 +1856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const statusSchema = z.object({
         status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled']),
+        reason: z.string().optional(), // Optional reason for cancellation
       });
       
       const validationResult = statusSchema.safeParse(req.body);
@@ -1910,10 +1911,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update order fulfillment status
       await storage.updateOrderFulfillmentStatus(item.orderId);
       
+      // Send notification emails based on status change
+      void (async () => {
+        try {
+          const seller = await storage.getUser(userId);
+          if (!seller) return;
+
+          // Send appropriate email based on new status
+          if (validationResult.data.status === 'delivered') {
+            await notificationService.sendItemDelivered(order, updatedItem, seller);
+            console.log(`[Notifications] Item delivered notification sent for item ${updatedItem.id}`);
+          } else if (validationResult.data.status === 'cancelled') {
+            const reason = req.body.reason; // Optional cancellation reason
+            await notificationService.sendItemCancelled(order, updatedItem, seller, reason);
+            console.log(`[Notifications] Item cancelled notification sent for item ${updatedItem.id}`);
+          }
+        } catch (error) {
+          console.error('[Notifications] Failed to send status update notification:', error);
+        }
+      })();
+      
       res.json(updatedItem);
     } catch (error) {
       console.error('[Order Items] Failed to update status:', error);
       res.status(500).json({ error: "Failed to update status" });
+    }
+  });
+
+  // Order Items - Process refund
+  app.post("/api/order-items/:id/refund", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+      
+      const refundSchema = z.object({
+        quantity: z.number().min(1, "Quantity must be at least 1"),
+        amount: z.number().min(0.5, "Refund amount must be at least $0.50"),
+      });
+      
+      const validationResult = refundSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+      
+      // Get the order item
+      const item = await storage.getOrderItemById(req.params.id);
+      
+      if (!item) {
+        return res.status(404).json({ error: "Order item not found" });
+      }
+      
+      const order = await storage.getOrder(item.orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Authorization: only seller can process refund
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      if (!isAdmin) {
+        try {
+          const orderItems = JSON.parse(order.items);
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = orderItems.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      // Process Stripe refund
+      let refundId;
+      try {
+        const paymentIntentId = order.stripePaymentIntentId;
+        if (!paymentIntentId) {
+          return res.status(400).json({ error: "No payment found for this order" });
+        }
+
+        const refund = await stripe.refunds.create({
+          payment_intent: paymentIntentId,
+          amount: Math.round(validationResult.data.amount * 100), // Convert to cents
+        });
+
+        refundId = refund.id;
+      } catch (stripeError: any) {
+        console.error("Stripe refund error:", stripeError);
+        return res.status(500).json({ error: `Refund failed: ${stripeError.message}` });
+      }
+      
+      // Update item with refund info
+      const updatedItem = await storage.updateOrderItemRefund(
+        req.params.id,
+        validationResult.data.quantity,
+        validationResult.data.amount.toString(),
+        'refunded'
+      );
+      
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Failed to update item refund status" });
+      }
+
+      // Create refund record
+      await storage.createRefund({
+        orderId: order.id,
+        amount: validationResult.data.amount.toString(),
+        stripeRefundId: refundId,
+        status: 'completed',
+        reason: req.body.reason || 'Customer request',
+      });
+      
+      // Update order fulfillment status
+      await storage.updateOrderFulfillmentStatus(item.orderId);
+      
+      // Send refund notification email
+      void (async () => {
+        try {
+          const seller = await storage.getUser(userId);
+          if (seller) {
+            await notificationService.sendItemRefunded(
+              order, 
+              updatedItem, 
+              seller,
+              validationResult.data.amount,
+              validationResult.data.quantity
+            );
+            console.log(`[Notifications] Refund notification sent for item ${updatedItem.id}`);
+          }
+        } catch (error) {
+          console.error('[Notifications] Failed to send refund notification:', error);
+        }
+      })();
+      
+      res.json({
+        success: true,
+        item: updatedItem,
+        refundId,
+        message: `Refund of $${validationResult.data.amount.toFixed(2)} processed successfully`,
+      });
+    } catch (error) {
+      console.error('[Order Items] Failed to process refund:', error);
+      res.status(500).json({ error: "Failed to process refund" });
     }
   });
 

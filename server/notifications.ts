@@ -437,6 +437,111 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
+   * Send item delivered notification (Seller → Buyer)
+   */
+  async sendItemDelivered(order: Order, item: OrderItem, seller: User): Promise<void> {
+    const emailHtml = this.generateItemDeliveredEmail(order, item, seller);
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: FROM_EMAIL,
+      replyTo: seller.email || undefined,
+      subject: `Item delivered from order #${order.id.slice(0, 8)}`,
+      html: emailHtml,
+    });
+
+    // Create in-app notification for buyer
+    if (order.userId) {
+      await this.createNotification({
+        userId: order.userId,
+        type: 'order_delivered',
+        title: 'Item Delivered!',
+        message: `${item.productName} from order #${order.id.slice(0, 8)} has been delivered`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { 
+          orderId: order.id, 
+          itemId: item.id,
+          productName: item.productName
+        },
+      });
+    }
+
+    console.log(`[Notifications] Item delivered notification sent for ${item.productName}:`, result.success);
+  }
+
+  /**
+   * Send item cancelled notification (Seller → Buyer)
+   */
+  async sendItemCancelled(order: Order, item: OrderItem, seller: User, reason?: string): Promise<void> {
+    const emailHtml = this.generateItemCancelledEmail(order, item, seller, reason);
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: FROM_EMAIL,
+      replyTo: seller.email || undefined,
+      subject: `Item cancelled from order #${order.id.slice(0, 8)}`,
+      html: emailHtml,
+    });
+
+    // Create in-app notification for buyer
+    if (order.userId) {
+      await this.createNotification({
+        userId: order.userId,
+        type: 'order_cancelled',
+        title: 'Item Cancelled',
+        message: `${item.productName} from order #${order.id.slice(0, 8)} has been cancelled${reason ? `: ${reason}` : ''}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { 
+          orderId: order.id, 
+          itemId: item.id,
+          productName: item.productName,
+          reason
+        },
+      });
+    }
+
+    console.log(`[Notifications] Item cancelled notification sent for ${item.productName}:`, result.success);
+  }
+
+  /**
+   * Send item refunded notification (Seller → Buyer)
+   */
+  async sendItemRefunded(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number): Promise<void> {
+    const emailHtml = this.generateItemRefundedEmail(order, item, seller, refundAmount, refundedQuantity);
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: FROM_EMAIL,
+      replyTo: seller.email || undefined,
+      subject: `Refund processed for order #${order.id.slice(0, 8)}`,
+      html: emailHtml,
+    });
+
+    // Create in-app notification for buyer
+    if (order.userId) {
+      await this.createNotification({
+        userId: order.userId,
+        type: 'order_refunded',
+        title: 'Refund Processed',
+        message: `$${refundAmount.toFixed(2)} refund processed for ${item.productName} from order #${order.id.slice(0, 8)}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { 
+          orderId: order.id, 
+          itemId: item.id,
+          productName: item.productName,
+          refundAmount,
+          refundedQuantity
+        },
+      });
+    }
+
+    console.log(`[Notifications] Item refunded notification sent for ${item.productName}:`, result.success);
+  }
+
+  /**
    * Send product listed confirmation (Upfirst → Seller)
    */
   async sendProductListed(seller: User, product: Product): Promise<void> {
@@ -813,6 +918,217 @@ class NotificationServiceImpl implements NotificationService {
             <div class="footer">
               <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
               <p>This is an automated notification from Upfirst.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate item delivered email (Seller → Buyer, branded)
+   */
+  private generateItemDeliveredEmail(order: Order, item: OrderItem, seller: User): string {
+    const bannerUrl = seller.storeBanner || '';
+    const logoUrl = seller.storeLogo || '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; }
+            .banner { width: 100%; height: 200px; object-fit: cover; }
+            .header { padding: 30px; text-align: center; }
+            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
+            .content { padding: 0 30px 30px; }
+            .product-item { display: flex; gap: 15px; padding: 20px; background: #f9f9f9; border-radius: 8px; margin: 20px 0; }
+            .product-image { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
+            .status-badge { display: inline-block; padding: 6px 12px; background: #22c55e; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 10px 0; }
+            .button { display: inline-block; padding: 12px 24px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 30px; background: #f9f9f9; text-align: center; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
+            
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="Store Logo" class="logo">` : ''}
+              <h1>Item Delivered! 📦</h1>
+              <p>Your item from order #${order.id.slice(0, 8)} has been delivered</p>
+            </div>
+
+            <div class="content">
+              <div class="product-item">
+                ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="product-image">` : ''}
+                <div style="flex: 1;">
+                  <h3 style="margin: 0 0 10px 0;">${item.productName}</h3>
+                  <span class="status-badge">DELIVERED</span>
+                  <p style="color: #666; margin: 10px 0 0 0;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
+                </div>
+              </div>
+
+              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; font-weight: 600; color: #0369a1;">We hope you love your purchase!</p>
+                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">If you have any questions or concerns, please reply to this email.</p>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p style="margin: 0 0 10px 0;">Thank you for shopping with ${seller.firstName || 'us'}!</p>
+              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${seller.firstName || 'Store'}. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate item cancelled email (Seller → Buyer, branded)
+   */
+  private generateItemCancelledEmail(order: Order, item: OrderItem, seller: User, reason?: string): string {
+    const bannerUrl = seller.storeBanner || '';
+    const logoUrl = seller.storeLogo || '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; }
+            .banner { width: 100%; height: 200px; object-fit: cover; }
+            .header { padding: 30px; text-align: center; }
+            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
+            .content { padding: 0 30px 30px; }
+            .product-item { display: flex; gap: 15px; padding: 20px; background: #f9f9f9; border-radius: 8px; margin: 20px 0; }
+            .product-image { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
+            .status-badge { display: inline-block; padding: 6px 12px; background: #ef4444; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 10px 0; }
+            .button { display: inline-block; padding: 12px 24px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 30px; background: #f9f9f9; text-align: center; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
+            
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="Store Logo" class="logo">` : ''}
+              <h1>Item Cancelled</h1>
+              <p>An item from your order #${order.id.slice(0, 8)} has been cancelled</p>
+            </div>
+
+            <div class="content">
+              <div class="product-item">
+                ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="product-image">` : ''}
+                <div style="flex: 1;">
+                  <h3 style="margin: 0 0 10px 0;">${item.productName}</h3>
+                  <span class="status-badge">CANCELLED</span>
+                  <p style="color: #666; margin: 10px 0 0 0;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
+                </div>
+              </div>
+
+              ${reason ? `
+                <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                  <p style="margin: 0; font-weight: 600; color: #991b1b;">Cancellation Reason:</p>
+                  <p style="margin: 10px 0 0 0; color: #666;">${reason}</p>
+                </div>
+              ` : ''}
+
+              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; font-weight: 600; color: #0369a1;">Refund Information</p>
+                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">If you were charged for this item, you'll receive a refund within 5-10 business days.</p>
+              </div>
+
+              <p style="color: #666;">If you have any questions, please reply to this email and we'll be happy to help.</p>
+            </div>
+
+            <div class="footer">
+              <p style="margin: 0 0 10px 0;">Thank you for shopping with ${seller.firstName || 'us'}.</p>
+              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${seller.firstName || 'Store'}. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate item refunded email (Seller → Buyer, branded)
+   */
+  private generateItemRefundedEmail(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number): string {
+    const bannerUrl = seller.storeBanner || '';
+    const logoUrl = seller.storeLogo || '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; }
+            .banner { width: 100%; height: 200px; object-fit: cover; }
+            .header { padding: 30px; text-align: center; }
+            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
+            .content { padding: 0 30px 30px; }
+            .product-item { display: flex; gap: 15px; padding: 20px; background: #f9f9f9; border-radius: 8px; margin: 20px 0; }
+            .product-image { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
+            .status-badge { display: inline-block; padding: 6px 12px; background: #3b82f6; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 10px 0; }
+            .refund-amount { font-size: 32px; font-weight: bold; color: #22c55e; margin: 20px 0; }
+            .button { display: inline-block; padding: 12px 24px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 30px; background: #f9f9f9; text-align: center; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
+            
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="Store Logo" class="logo">` : ''}
+              <h1>Refund Processed</h1>
+              <p>Your refund for order #${order.id.slice(0, 8)} has been processed</p>
+            </div>
+
+            <div class="content">
+              <div style="text-align: center; padding: 30px; background: #f0fdf4; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0; color: #166534; font-weight: 600;">Refund Amount</p>
+                <div class="refund-amount">$${refundAmount.toFixed(2)}</div>
+                <p style="margin: 0; color: #666; font-size: 14px;">This amount will appear in your account within 5-10 business days</p>
+              </div>
+
+              <div class="product-item">
+                ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="product-image">` : ''}
+                <div style="flex: 1;">
+                  <h3 style="margin: 0 0 10px 0;">${item.productName}</h3>
+                  <span class="status-badge">REFUNDED</span>
+                  <p style="color: #666; margin: 10px 0 0 0;">Refunded Quantity: ${refundedQuantity} • $${(refundAmount / refundedQuantity).toFixed(2)} each</p>
+                </div>
+              </div>
+
+              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; font-weight: 600; color: #0369a1;">Refund Details</p>
+                <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #666; font-size: 14px;">
+                  <li>The refund has been issued to your original payment method</li>
+                  <li>Processing time: 5-10 business days</li>
+                  <li>You'll see the credit from your bank or card issuer</li>
+                </ul>
+              </div>
+
+              <p style="color: #666;">If you have any questions about this refund, please reply to this email.</p>
+            </div>
+
+            <div class="footer">
+              <p style="margin: 0 0 10px 0;">Thank you for shopping with ${seller.firstName || 'us'}.</p>
+              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${seller.firstName || 'Store'}. All rights reserved.</p>
             </div>
           </div>
         </body>
