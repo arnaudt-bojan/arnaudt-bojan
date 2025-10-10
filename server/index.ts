@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { importQueue } from "./import-queue";
 
 const app = express();
 
@@ -72,5 +73,20 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start import queue
+    importQueue.start();
+  });
+  
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    log('[ImportQueue] SIGTERM received, stopping job queue');
+    importQueue.stop();
+    
+    // Wait a bit for jobs to cleanup
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    log('[ImportQueue] Shutdown complete');
+    process.exit(0);
   });
 })();

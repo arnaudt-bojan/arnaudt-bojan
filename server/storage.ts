@@ -214,7 +214,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  private db;
+  public db; // Made public for import queue access
   private initialized: Promise<void>;
   private initError: Error | null = null;
 
