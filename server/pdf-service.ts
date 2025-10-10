@@ -243,9 +243,10 @@ export class PDFService {
       doc.fontSize(18).text(sellerName, 50, startY);
     }
 
-    // Seller contact info on right
+    // Seller contact info on right - use contactEmail if set, otherwise fallback to email
     doc.fontSize(10);
-    doc.text(data.seller.email || '', 350, startY, { align: 'right' });
+    const contactEmail = (data.seller as any).contactEmail || data.seller.email || '';
+    doc.text(contactEmail, 350, startY, { align: 'right' });
     
     // Draw line under header
     doc.moveDown();
@@ -260,7 +261,8 @@ export class PDFService {
                        'Store';
     
     doc.fontSize(16).text(sellerName, 50, startY);
-    doc.fontSize(10).text(data.seller.email || '', 50, doc.y);
+    const contactEmail = (data.seller as any).contactEmail || data.seller.email || '';
+    doc.fontSize(10).text(contactEmail, 50, doc.y);
     
     doc.moveDown();
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();

@@ -187,31 +187,36 @@ export default function BuyerOrderDetail() {
                     className="border rounded-lg p-4"
                     data-testid={`item-${index}`}
                   >
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                       {item.image && (
                         <img 
                           src={item.image} 
                           alt={item.name}
-                          className="w-16 h-16 object-cover rounded-md"
+                          className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-md flex-shrink-0"
                         />
                       )}
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium">{item.name}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-base">{item.name}</p>
                             {item.variant && (
                               <p className="text-sm text-muted-foreground">Variant: {item.variant}</p>
                             )}
-                            <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                            <div className="flex gap-4 mt-1">
+                              <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Price: ${parseFloat(item.price).toFixed(2)} each
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold">
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-semibold text-lg">
                               ${(parseFloat(item.price) * item.quantity).toFixed(2)}
                             </p>
                             {trackingInfo && (
                               <Badge
                                 variant="outline"
-                                className={getStatusColor(trackingInfo.itemStatus)}
+                                className={`${getStatusColor(trackingInfo.itemStatus)} mt-1`}
                               >
                                 {trackingInfo.itemStatus.charAt(0).toUpperCase() + trackingInfo.itemStatus.slice(1)}
                               </Badge>
@@ -286,17 +291,28 @@ export default function BuyerOrderDetail() {
                 <>
                   <Separator />
                   <div>
-                    <h3 className="font-semibold mb-3">Contact Seller</h3>
+                    <h3 className="font-semibold mb-3">Seller Information</h3>
+                    <div className="space-y-2 text-sm mb-3">
+                      <p>
+                        <span className="text-muted-foreground">Store:</span>{" "}
+                        <span className="font-medium">{seller.firstName || seller.username || 'Seller'}</span>
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Contact:</span>{" "}
+                        <span className="font-medium">{seller.contactEmail || seller.email}</span>
+                      </p>
+                    </div>
                     <Button
                       variant="outline"
                       className="w-full"
                       onClick={() => {
-                        window.location.href = `mailto:${seller.email}?subject=Order ${order.id.slice(0, 8).toUpperCase()}`;
+                        const contactEmail = seller.contactEmail || seller.email;
+                        window.location.href = `mailto:${contactEmail}?subject=Order ${order.id.slice(0, 8).toUpperCase()}`;
                       }}
                       data-testid="button-contact-seller"
                     >
                       <Mail className="h-4 w-4 mr-2" />
-                      Email {seller.firstName || 'Seller'}
+                      Contact Seller
                     </Button>
                   </div>
                 </>

@@ -304,6 +304,7 @@ export const users = pgTable("users", {
   storeActive: integer("store_active").default(1), // Store is active and visible (0=inactive, 1=active)
   shippingPolicy: text("shipping_policy"), // Optional: Custom shipping & delivery policy text
   returnsPolicy: text("returns_policy"), // Optional: Custom returns & exchanges policy text
+  contactEmail: varchar("contact_email"), // Optional: Custom contact email for seller inquiries (fallback to email if not set)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

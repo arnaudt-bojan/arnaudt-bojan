@@ -208,6 +208,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: seller.username,
         firstName: seller.firstName,
         lastName: seller.lastName,
+        email: seller.email, // Include email for contact
+        contactEmail: seller.contactEmail, // Include custom contact email if set
         profileImageUrl: seller.profileImageUrl,
         logo: seller.storeLogo,
         banner: seller.storeBanner,
@@ -2377,10 +2379,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName } = req.body;
+      const { firstName, lastName, contactEmail } = req.body;
 
       if (!firstName || !lastName) {
         return res.status(400).json({ error: "First name and last name are required" });
+      }
+
+      // Validate contactEmail if provided
+      if (contactEmail && contactEmail !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+        return res.status(400).json({ error: "Invalid contact email format" });
       }
 
       const user = await storage.getUser(userId);
@@ -2392,6 +2399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...user,
         firstName,
         lastName,
+        contactEmail: contactEmail || null, // Save contactEmail or null if empty
       });
 
       res.json({ message: "Profile updated successfully", user: updatedUser });

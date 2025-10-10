@@ -35,6 +35,7 @@ const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email(),
+  contactEmail: z.string().email().optional().or(z.literal("")),
 });
 
 const brandingSchema = z.object({
@@ -855,8 +856,21 @@ export default function Settings() {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       email: user?.email || "",
+      contactEmail: user?.contactEmail || "",
     },
   });
+
+  // Update form when user data changes
+  useEffect(() => {
+    if (user) {
+      profileForm.reset({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        contactEmail: user.contactEmail || "",
+      });
+    }
+  }, [user, profileForm]);
 
   const brandingForm = useForm<BrandingForm>({
     resolver: zodResolver(brandingSchema),
@@ -1345,6 +1359,24 @@ export default function Settings() {
                       </FormItem>
                     )}
                   />
+                  {isSeller && (
+                    <FormField
+                      control={profileForm.control}
+                      name="contactEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Contact Email (optional)</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="support@yourdomain.com" data-testid="input-contactEmail" />
+                          </FormControl>
+                          <FormDescription>
+                            Custom email for customer inquiries (defaults to login email if not set)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <Button 
                     type="submit" 
                     disabled={updateProfileMutation.isPending}

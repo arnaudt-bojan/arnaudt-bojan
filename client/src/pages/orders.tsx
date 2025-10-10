@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { Package, ShoppingBag, ChevronRight } from "lucide-react";
+import { Package, ShoppingBag, ChevronRight, Store } from "lucide-react";
 import { useLocation } from "wouter";
 import { BackToDashboard } from "@/components/back-to-dashboard";
+import type { Product, User } from "@shared/schema";
 
 type Order = {
   id: string;
@@ -19,6 +20,33 @@ type Order = {
   createdAt: string;
   userId?: string;
 };
+
+// Component to fetch and display seller info for an order
+function OrderSellerInfo({ items }: { items: string }) {
+  const parsedItems = JSON.parse(items);
+  const firstProductId = parsedItems[0]?.productId;
+  
+  const { data: product } = useQuery<Product>({
+    queryKey: [`/api/products/${firstProductId}`],
+    enabled: !!firstProductId,
+  });
+  
+  const { data: seller } = useQuery<User>({
+    queryKey: [`/api/sellers/id/${product?.sellerId}`],
+    enabled: !!product?.sellerId,
+  });
+  
+  if (!seller) return null;
+  
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+      <Store className="h-4 w-4" />
+      <span>
+        Sold by <span className="font-medium text-foreground">{seller.firstName || seller.username || 'Seller'}</span>
+      </span>
+    </div>
+  );
+}
 
 export default function Orders() {
   const { isAuthenticated, user } = useAuth();
@@ -108,11 +136,13 @@ export default function Orders() {
                       <CardDescription>
                         Placed on {format(new Date(order.createdAt), "PPP")}
                       </CardDescription>
-                      {isSeller && (
+                      {isSeller ? (
                         <div className="mt-2 text-sm text-muted-foreground">
                           <p><span className="font-medium">Customer:</span> {order.userId ? order.customerName : `${order.customerEmail} (Guest)`}</p>
                           {order.userId && <p><span className="font-medium">Email:</span> {order.customerEmail}</p>}
                         </div>
+                      ) : (
+                        <OrderSellerInfo items={order.items} />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -131,17 +161,28 @@ export default function Orders() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Items</h4>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {parsedItems.map((item: any, index: number) => (
                           <div
                             key={index}
-                            className="flex justify-between items-center text-sm"
+                            className="flex gap-3 items-start text-sm"
                             data-testid={`item-${order.id}-${index}`}
                           >
-                            <span>
-                              {item.name} x {item.quantity}
-                            </span>
-                            <span className="font-medium">
+                            {item.image && (
+                              <img 
+                                src={item.image} 
+                                alt={item.name}
+                                className="w-12 h-12 object-cover rounded-md flex-shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">{item.name}</p>
+                              {item.variant && (
+                                <p className="text-xs text-muted-foreground">{item.variant}</p>
+                              )}
+                              <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                            </div>
+                            <span className="font-medium flex-shrink-0">
                               ${(parseFloat(item.price) * item.quantity).toFixed(2)}
                             </span>
                           </div>
