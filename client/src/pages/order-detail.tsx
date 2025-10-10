@@ -224,8 +224,6 @@ export default function OrderDetail() {
   const { id } = useParams() as { id: string };
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [trackingNumber, setTrackingNumber] = useState("");
-  const [trackingLink, setTrackingLink] = useState("");
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 
   const { data: order, isLoading } = useQuery<Order>({
@@ -248,14 +246,6 @@ export default function OrderDetail() {
     enabled: !!order,
   });
 
-  // Update tracking fields when order data loads
-  useEffect(() => {
-    if (order) {
-      setTrackingNumber(order.trackingNumber || "");
-      setTrackingLink(order.trackingLink || "");
-    }
-  }, [order]);
-
   const updateStatusMutation = useMutation({
     mutationFn: async (status: string) => {
       return await apiRequest("PATCH", `/api/orders/${id}/status`, { status });
@@ -267,31 +257,6 @@ export default function OrderDetail() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update order status", variant: "destructive" });
-    },
-  });
-
-  const updateTrackingMutation = useMutation({
-    mutationFn: async ({ notifyCustomer }: { notifyCustomer: boolean }) => {
-      return await apiRequest("PATCH", `/api/orders/${id}/tracking`, {
-        trackingNumber,
-        trackingLink,
-        notifyCustomer,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
-      toast({ 
-        title: "Tracking updated", 
-        description: "Tracking information has been saved and customer notified" 
-      });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Error", 
-        description: error.message || "Failed to update tracking information", 
-        variant: "destructive" 
-      });
     },
   });
 
@@ -617,42 +582,6 @@ export default function OrderDetail() {
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-semibold mb-4 flex items-center gap-2">
-                <Truck className="h-4 w-4" />
-                Tracking Information
-              </h4>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="tracking-number">Tracking Number</Label>
-                  <Input
-                    id="tracking-number"
-                    placeholder="Enter tracking number"
-                    value={trackingNumber}
-                    onChange={(e) => setTrackingNumber(e.target.value)}
-                    data-testid="input-tracking-number"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="tracking-link">Tracking Link</Label>
-                  <Input
-                    id="tracking-link"
-                    placeholder="https://tracking.example.com/..."
-                    value={trackingLink}
-                    onChange={(e) => setTrackingLink(e.target.value)}
-                    data-testid="input-tracking-link"
-                  />
-                </div>
-                <Button
-                  onClick={() => updateTrackingMutation.mutate({ notifyCustomer: true })}
-                  disabled={!trackingNumber || updateTrackingMutation.isPending}
-                  data-testid="button-save-notify"
-                >
-                  {updateTrackingMutation.isPending ? "Saving..." : "Save & Notify Customer"}
-                </Button>
-              </div>
             </div>
 
             {parseFloat(order.remainingBalance) > 0 && (
