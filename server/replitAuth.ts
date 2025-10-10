@@ -454,7 +454,9 @@ export const isSeller: RequestHandler = async (req, res, next) => {
   const userId = user.claims.sub;
   const dbUser = await storage.getUser(userId);
   
-  if (dbUser?.role !== "seller") {
+  // Allow admin, owner, editor roles (all seller roles)
+  const sellerRoles = ["admin", "owner", "editor", "seller"];
+  if (!dbUser || !sellerRoles.includes(dbUser.role)) {
     return res.status(403).json({ message: "Forbidden - Seller access required" });
   }
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { RefundDialog } from "@/components/refund-dialog";
 import {
   Select,
   SelectContent,
@@ -37,9 +38,22 @@ import type { Order } from "@shared/schema";
 export default function OrderManagement() {
   const { toast } = useToast();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [selectedOrderForRefund, setSelectedOrderForRefund] = useState<Order | null>(null);
 
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],
+  });
+
+  // Fetch order items when refund dialog is opened
+  const { data: orderItems } = useQuery<any[]>({
+    queryKey: ["/api/orders", selectedOrderForRefund?.id, "items"],
+    queryFn: async () => {
+      const res = await fetch(`/api/orders/${selectedOrderForRefund?.id}/items`);
+      if (!res.ok) throw new Error("Failed to fetch order items");
+      return res.json();
+    },
+    enabled: !!selectedOrderForRefund && refundDialogOpen,
   });
 
   const updateStatusMutation = useMutation({
@@ -395,6 +409,22 @@ export default function OrderManagement() {
                                     </div>
                                   </div>
                                 )}
+
+                                {/* Refund Button */}
+                                {parseFloat(order.amountPaid || "0") > 0 && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedOrderForRefund(order);
+                                      setRefundDialogOpen(true);
+                                    }}
+                                    data-testid={`button-process-refund-${order.id}`}
+                                    className="w-full"
+                                  >
+                                    Process Refund
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -418,6 +448,22 @@ export default function OrderManagement() {
           </Card>
         )}
       </div>
+
+      {/* Refund Dialog */}
+      {selectedOrderForRefund && orderItems && (
+        <RefundDialog
+          key={selectedOrderForRefund.id}
+          open={refundDialogOpen}
+          onOpenChange={(open) => {
+            setRefundDialogOpen(open);
+            if (!open) setSelectedOrderForRefund(null);
+          }}
+          orderId={selectedOrderForRefund.id}
+          orderItems={orderItems}
+          orderTotal={selectedOrderForRefund.total}
+          amountPaid={selectedOrderForRefund.amountPaid || "0"}
+        />
+      )}
     </div>
   );
 }

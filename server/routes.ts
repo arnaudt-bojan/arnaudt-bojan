@@ -654,23 +654,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if order has payment intents
       const paymentIntentId = order.stripeBalancePaymentIntentId || order.stripePaymentIntentId;
-      if (!paymentIntentId) {
-        return res.status(400).json({ error: "No payment intent found for this order" });
-      }
-
-      // Process Stripe refund
-      console.log(`[Refund] Processing refund for order ${orderId}, amount: $${refundAmount}`);
       
-      const stripeRefund = await stripe.refunds.create({
-        payment_intent: paymentIntentId,
-        amount: Math.round(refundAmount * 100), // Convert to cents
-        reason: 'requested_by_customer',
-        metadata: {
-          orderId,
-          refundType,
-          orderItemIds: Array.from(itemsToRefund.keys()).join(','),
-        }
-      });
+      let stripeRefund = null;
+      
+      // Process Stripe refund only if payment was made through Stripe
+      if (paymentIntentId && order.paymentType !== 'manual' && order.paymentType !== 'cash') {
+        console.log(`[Refund] Processing Stripe refund for order ${orderId}, amount: $${refundAmount}`);
+        
+        stripeRefund = await stripe.refunds.create({
+          payment_intent: paymentIntentId,
+          amount: Math.round(refundAmount * 100), // Convert to cents
+          reason: 'requested_by_customer',
+          metadata: {
+            orderId,
+            refundType,
+            orderItemIds: Array.from(itemsToRefund.keys()).join(','),
+          }
+        });
+      } else {
+        console.log(`[Refund] Skipping Stripe refund for manual/cash payment - order ${orderId}, amount: $${refundAmount}`);
+      }
 
       // Create refund records for each item
       const refunds = [];
@@ -683,8 +686,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           amount: amount.toFixed(2),
           reason: reason || null,
           refundType: 'item',
-          stripeRefundId: stripeRefund.id,
-          status: stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending',
+          stripeRefundId: stripeRefund?.id || null,
+          status: stripeRefund ? (stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending') : 'succeeded',
           processedBy: userId,
         });
         refunds.push(refund);
@@ -725,9 +728,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         refunds,
-        stripeRefundId: stripeRefund.id,
-        refundAmount: totalRefunded,
-        status: stripeRefund.status,
+        stripeRefundId: stripeRefund?.id || null,
+        refundAmount: refundAmount,
+        status: stripeRefund?.status || 'succeeded',
       });
     } catch (error: any) {
       console.error("Refund error:", error);

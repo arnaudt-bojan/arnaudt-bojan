@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ArrowLeft, Package, Mail, MapPin, DollarSign, Truck, CreditCard } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { RefundDialog } from "@/components/refund-dialog";
 
 type Order = {
   id: string;
@@ -225,6 +226,7 @@ export default function OrderDetail() {
   const { toast } = useToast();
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingLink, setTrackingLink] = useState("");
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 
   const { data: order, isLoading } = useQuery<Order>({
     queryKey: ["/api/orders", id],
@@ -557,10 +559,22 @@ export default function OrderDetail() {
             </div>
 
             <div className="border-t pt-4">
-              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Payment Details
-              </h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Payment Details
+                </h4>
+                {parseFloat(order.amountPaid) > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRefundDialogOpen(true)}
+                    data-testid="button-process-refund"
+                  >
+                    Process Refund
+                  </Button>
+                )}
+              </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total:</span>
@@ -663,6 +677,18 @@ export default function OrderDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Refund Dialog */}
+      {orderItems && orderItems.length > 0 && (
+        <RefundDialog
+          open={refundDialogOpen}
+          onOpenChange={setRefundDialogOpen}
+          orderId={id}
+          orderItems={orderItems}
+          orderTotal={order.total}
+          amountPaid={order.amountPaid}
+        />
+      )}
     </div>
   );
 }
