@@ -2571,7 +2571,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If user already has a connected account and not resetting, return its status
       if (user.stripeConnectedAccountId && !reset) {
-        const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+        let account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+        
+        // Check if account needs card_payments capability (required for on_behalf_of)
+        const hasCardPayments = account.capabilities?.card_payments === 'active' || 
+                                account.capabilities?.card_payments === 'pending';
+        const hasTransfers = account.capabilities?.transfers === 'active' || 
+                            account.capabilities?.transfers === 'pending';
+        
+        // If missing capabilities, request them and re-fetch account
+        if (!hasCardPayments || !hasTransfers) {
+          console.log(`[Stripe] Account ${account.id} missing capabilities. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
+          console.log(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
+          
+          try {
+            await stripe.accounts.update(user.stripeConnectedAccountId, {
+              capabilities: {
+                card_payments: { requested: true },
+                transfers: { requested: true },
+              },
+            });
+            
+            // Re-fetch account to get updated capability status
+            account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+            console.log(`[Stripe] Capabilities updated for account ${account.id}. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
+            
+          } catch (capError: any) {
+            console.error(`[Stripe] Failed to request capabilities for account ${account.id}:`, capError.message);
+            return res.status(500).json({ 
+              error: "Failed to update Stripe account capabilities",
+              message: "Please complete your Stripe onboarding or contact support",
+              stripeError: capError.message
+            });
+          }
+        }
         
         // Update user with latest account status
         await storage.upsertUser({
@@ -2588,20 +2621,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           payoutsEnabled: account.payouts_enabled,
           detailsSubmitted: account.details_submitted,
           currency: account.default_currency,
+          capabilities: account.capabilities, // Include capabilities in response for debugging
         });
       }
 
       console.log(`[Stripe Express] Creating borderless Express account for user ${userId} - user will select country during onboarding`);
 
       // Create new Express account with borderless onboarding
-      // NOTE: By NOT setting country or capabilities, users can select their country
-      // during the Stripe onboarding flow. This enables international sellers from
-      // 46+ countries to connect. Capabilities are auto-configured based on selected country.
+      // Request both card_payments and transfers capabilities for Stripe Connect
+      // card_payments: Required to use on_behalf_of parameter (seller name on statement)
+      // transfers: Required to transfer funds to connected accounts
       const account = await stripe.accounts.create({
         type: 'express',
         email: user.email || undefined,
-        // Don't set country - allows user to select during onboarding
-        // Don't set capabilities - auto-configured based on user's selected country
+        // Don't set country - allows user to select during onboarding for borderless support
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
         settings: {
           payouts: {
             debit_negative_balances: true,
