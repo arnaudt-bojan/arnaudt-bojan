@@ -487,10 +487,24 @@ export function ProductFormFields({
                   </SelectContent>
                 </Select>
 
-                {selectedLevel1 && setSelectedLevel2 && level2Categories.length > 0 && (
-                  <Select value={selectedLevel2} onValueChange={setSelectedLevel2}>
-                    <SelectTrigger data-testid="select-level2" className="text-base">
-                      <SelectValue placeholder="Subcategory" />
+                {selectedLevel1 && setSelectedLevel2 && (
+                  <Select 
+                    value={selectedLevel2} 
+                    onValueChange={setSelectedLevel2}
+                    disabled={level2Categories.length === 0}
+                  >
+                    <SelectTrigger 
+                      data-testid="select-level2" 
+                      className={cn(
+                        "text-base",
+                        level2Categories.length === 0 && "opacity-60 cursor-not-allowed"
+                      )}
+                    >
+                      <SelectValue placeholder={
+                        level2Categories.length === 0 
+                          ? "No subcategories - Click Add Category" 
+                          : "Subcategory (Optional)"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
                       {level2Categories.map((cat) => (
@@ -502,10 +516,24 @@ export function ProductFormFields({
                   </Select>
                 )}
 
-                {selectedLevel2 && setSelectedLevel3 && level3Categories.length > 0 && (
-                  <Select value={selectedLevel3} onValueChange={setSelectedLevel3}>
-                    <SelectTrigger data-testid="select-level3" className="text-base">
-                      <SelectValue placeholder="Sub-category" />
+                {selectedLevel2 && setSelectedLevel3 && (
+                  <Select 
+                    value={selectedLevel3} 
+                    onValueChange={setSelectedLevel3}
+                    disabled={level3Categories.length === 0}
+                  >
+                    <SelectTrigger 
+                      data-testid="select-level3" 
+                      className={cn(
+                        "text-base",
+                        level3Categories.length === 0 && "opacity-60 cursor-not-allowed"
+                      )}
+                    >
+                      <SelectValue placeholder={
+                        level3Categories.length === 0 
+                          ? "No sub-subcategories - Click Add Category" 
+                          : "Sub-category (Optional)"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
                       {level3Categories.map((cat) => (
