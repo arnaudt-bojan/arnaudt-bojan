@@ -2611,6 +2611,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // If resetting, delete the old account first
+      if (user.stripeConnectedAccountId && reset) {
+        console.log(`[Stripe Express] Resetting account for user ${userId}. Deleting old account ${user.stripeConnectedAccountId}...`);
+        try {
+          await stripe.accounts.del(user.stripeConnectedAccountId);
+          console.log(`[Stripe Express] Successfully deleted old account ${user.stripeConnectedAccountId}`);
+        } catch (delError: any) {
+          console.error(`[Stripe Express] Failed to delete old account:`, delError.message);
+          // Continue anyway - create new account even if deletion fails
+        }
+        
+        // Clear the connected account ID so we create a new one below
+        await storage.upsertUser({
+          ...user,
+          stripeConnectedAccountId: null,
+          stripeChargesEnabled: 0,
+          stripePayoutsEnabled: 0,
+          stripeDetailsSubmitted: 0,
+        });
+        user.stripeConnectedAccountId = null;
+      }
+      
       // If user already has a connected account and not resetting, return its status
       if (user.stripeConnectedAccountId && !reset) {
         let account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
