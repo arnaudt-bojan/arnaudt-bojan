@@ -64,6 +64,7 @@ export default function Products() {
   // Detect which seller's store we're viewing
   const domainInfo = detectDomain();
   const [sellerInfo, setSellerInfo] = useState<any>(null);
+  const [sellerNotFound, setSellerNotFound] = useState(false);
   
   // Check for preview mode (from settings page) or seller filter (from share link)
   const urlParams = new URLSearchParams(window.location.search);
@@ -74,23 +75,34 @@ export default function Products() {
   
   // Get seller info if on seller domain OR in preview mode OR in seller filter mode (share link)
   useEffect(() => {
+    const fetchSeller = async (username: string) => {
+      try {
+        const res = await fetch(`/api/sellers/${username}`);
+        if (!res.ok) {
+          // Seller not found
+          setSellerNotFound(true);
+          setSellerInfo(null);
+          return;
+        }
+        const data = await res.json();
+        setSellerInfo(data);
+        setSellerNotFound(false);
+      } catch (error) {
+        console.error('Error fetching seller:', error);
+        setSellerNotFound(true);
+        setSellerInfo(null);
+      }
+    };
+
     if (previewUsername) {
       // Preview mode: fetch seller by username (secure endpoint)
-      fetch(`/api/sellers/${previewUsername}`)
-        .then(res => res.json())
-        .then(data => setSellerInfo(data))
-        .catch(console.error);
+      fetchSeller(previewUsername);
     } else if (sellerUsername) {
       // Share link mode: fetch seller by username
-      fetch(`/api/sellers/${sellerUsername}`)
-        .then(res => res.json())
-        .then(data => setSellerInfo(data))
-        .catch(console.error);
+      fetchSeller(sellerUsername);
     } else if (domainInfo.isSellerDomain && domainInfo.sellerUsername) {
-      fetch(`/api/sellers/${domainInfo.sellerUsername}`)
-        .then(res => res.json())
-        .then(data => setSellerInfo(data))
-        .catch(console.error);
+      // Seller storefront: fetch seller by username from domain
+      fetchSeller(domainInfo.sellerUsername);
     }
   }, [domainInfo.sellerUsername, previewUsername, sellerUsername]);
   
@@ -105,7 +117,11 @@ export default function Products() {
       : isSeller && user?.id && !isPreviewMode && !isSellerFilterMode
       ? ["/api/products/seller", user.id]
       : ["/api/products"],
-    enabled: (!domainInfo.isSellerDomain && !isPreviewMode && !isSellerFilterMode) || !!sellerInfo,
+    // SECURITY: Only enable query if:
+    // - Not on seller domain/preview/filter mode (show all products), OR
+    // - On seller domain/preview/filter mode AND seller found (show seller products)
+    // - Never show all products when on seller domain but seller not found
+    enabled: (!domainInfo.isSellerDomain && !isPreviewMode && !isSellerFilterMode) || (!!sellerInfo && !sellerNotFound),
   });
 
   const { data: sellers } = useQuery<any[]>({
@@ -282,6 +298,31 @@ export default function Products() {
             sellerName={sellerInfo.firstName || sellerInfo.username}
             sellerEmail={sellerInfo.email}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // Show error page when seller not found on seller domain
+  if ((domainInfo.isSellerDomain || isPreviewMode || isSellerFilterMode) && sellerNotFound) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="container mx-auto px-4 max-w-2xl text-center">
+          <div className="bg-card border rounded-lg p-8">
+            <div className="mb-4">
+              <Store className="h-16 w-16 mx-auto text-muted-foreground" />
+            </div>
+            <h1 className="text-3xl font-bold mb-4">Store Not Found</h1>
+            <p className="text-muted-foreground mb-6">
+              The store "{domainInfo.sellerUsername || previewUsername || sellerUsername}" could not be found.
+              {' '}This storefront may not exist or has been removed.
+            </p>
+            <Link href="/">
+              <Button data-testid="button-back-home">
+                Go to Homepage
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
