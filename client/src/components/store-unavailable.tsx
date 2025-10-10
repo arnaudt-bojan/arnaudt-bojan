@@ -19,10 +19,10 @@ export function StoreUnavailable({ sellerName, sellerEmail }: StoreUnavailablePr
           {/* Heading */}
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">
-              {sellerName ? `${sellerName}'s Store` : "Store"} is Currently Unavailable
+              {sellerName ? `${sellerName}'s Store` : "Store"} is Under Construction
             </h2>
             <p className="text-muted-foreground">
-              This store is temporarily inactive and not accepting orders at this time.
+              This store is currently being set up and will be live soon!
             </p>
           </div>
 
@@ -33,7 +33,7 @@ export function StoreUnavailable({ sellerName, sellerEmail }: StoreUnavailablePr
               <div className="flex-1">
                 <p className="font-medium text-sm">Store Status</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  The store owner has temporarily paused operations
+                  The store owner is preparing their products and setting up their storefront
                 </p>
               </div>
             </div>

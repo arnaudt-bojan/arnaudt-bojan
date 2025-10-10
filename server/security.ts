@@ -160,7 +160,7 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
     "img-src 'self' data: https: blob:; " +
     "font-src 'self' data: https://connect.stripe.com https://connect-js.stripe.com; " +
     "connect-src 'self' https://api.stripe.com https://connect.stripe.com https://connect-js.stripe.com; " +
-    "frame-src https://js.stripe.com https://hooks.stripe.com https://connect.stripe.com https://connect-js.stripe.com; " +
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://connect.stripe.com https://connect-js.stripe.com; " +
     "object-src 'none';"
   );
   
