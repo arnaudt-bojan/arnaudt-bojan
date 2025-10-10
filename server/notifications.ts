@@ -3,9 +3,21 @@ import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem } from '../shared/schema';
 import { PDFService } from './pdf-service';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-// Using verified sender from environment or fallback
+// Check if RESEND_API_KEY is configured
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Upfirst <hello@upfirst.io>';
+
+if (!RESEND_API_KEY) {
+  console.error('\n❌ CRITICAL: RESEND_API_KEY environment variable is NOT SET!');
+  console.error('Emails will NOT be sent. Please configure RESEND_API_KEY in your environment.');
+  console.error('For development: Add to .env file');
+  console.error('For production/deployment: Add to deployment secrets\n');
+} else {
+  console.log('✅ Resend API key is configured');
+  console.log(`📧 FROM_EMAIL: ${FROM_EMAIL}\n`);
+}
+
+const resend = new Resend(RESEND_API_KEY);
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;

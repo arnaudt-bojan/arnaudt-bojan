@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, ProductType } from "@shared/schema";
-import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus, Store } from "lucide-react";
+import { Package, Grid3x3, LayoutGrid, Grip, ImagePlus, Plus, Store, Search } from "lucide-react";
 import { detectDomain } from "@/lib/domain-utils";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,8 @@ import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
 import { StoreUnavailable } from "@/components/store-unavailable";
+import { Footer } from "@/components/footer";
+import { Input } from "@/components/ui/input";
 
 type CardSize = "compact" | "medium" | "large";
 
@@ -30,6 +32,7 @@ interface FilterOptions {
 
 export default function Products() {
   const [cardSize, setCardSize] = useState<CardSize>("medium");
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterOptions>({
     categories: [],
     productTypes: [],
