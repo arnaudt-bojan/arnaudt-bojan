@@ -57,7 +57,8 @@ export default function EditProduct() {
         stock: product.stock || 0,
         depositAmount: product.depositAmount || undefined,
         requiresDeposit: product.requiresDeposit || 0,
-      });
+        additionalImages: product.images || [],
+      } as any);
       
       // Load variants if they exist
       if (product.variants && Array.isArray(product.variants)) {
