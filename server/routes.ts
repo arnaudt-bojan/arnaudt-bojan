@@ -1427,6 +1427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
+          allow_redirects: 'never',
         },
         metadata: {
           orderId: order.id,
@@ -1495,6 +1496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: "usd",
         automatic_payment_methods: {
           enabled: true, // Enables Apple Pay, Google Pay, and other payment methods
+          allow_redirects: 'never', // Disables Stripe Link
         },
         metadata: {
           orderId: orderId || "",
@@ -3436,6 +3438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
+          allow_redirects: 'never',
         },
         metadata: {
           orderId: order.id,

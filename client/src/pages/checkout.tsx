@@ -142,6 +142,11 @@ function PaymentForm({
               applePay: 'auto',
               googlePay: 'auto',
             },
+            fields: {
+              billingDetails: {
+                email: 'never',
+              }
+            }
           }}
         />
       </div>
@@ -672,6 +677,7 @@ export default function Checkout() {
                           borderRadius: '8px',
                         },
                       },
+                      loader: 'auto',
                     }}
                   >
                     <PaymentForm

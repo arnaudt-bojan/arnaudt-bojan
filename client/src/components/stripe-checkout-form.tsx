@@ -65,7 +65,15 @@ export default function StripeCheckoutForm({ onSuccess, amount, buttonText = "Pa
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="min-h-[200px]">
-        <PaymentElement />
+        <PaymentElement 
+          options={{
+            fields: {
+              billingDetails: {
+                email: 'never',
+              }
+            }
+          }}
+        />
       </div>
       
       <Button
