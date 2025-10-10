@@ -43,7 +43,7 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
   - Phase 1 notifications implemented: seller welcome (triggered on signup)
   - Phase 1 templates ready: Stripe onboarding reminders, payment failures, inventory alerts, payout failures (require webhook integration)
   - 30+ notification types planned across 3 phases (see docs/notification-system-design.md)
-- **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting Apple Pay, Google Pay, and credit cards. Supports balance payments for pre-orders. Each order contains products from a single seller only - payment routes directly to that seller's Stripe Connect account.
+- **Payment Processing**: Integrated with **Stripe Connect** for multi-seller payments, supporting Apple Pay, Google Pay, and credit cards. Supports balance payments for pre-orders. Each order contains products from a single seller only - payment routes directly to that seller's Stripe Connect account. **Borderless onboarding** - sellers from 45+ countries can select their country during Stripe Connect setup instead of relying on IP geolocation, ensuring accurate payment processing and currency handling.
 - **Subscription System**: 
   - Sellers pay a monthly ($9.99) or annual ($99) fee with a 30-day free trial
   - New sellers default to inactive store status (storeActive: 0)
