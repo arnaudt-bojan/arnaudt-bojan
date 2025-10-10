@@ -689,6 +689,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Shipping Matrix Routes
+  app.get("/api/shipping-matrices", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      const matrices = await storage.getShippingMatricesBySellerId(sellerId);
+      res.json(matrices);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch shipping matrices" });
+    }
+  });
+
+  app.post("/api/shipping-matrices", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      const matrix = await storage.createShippingMatrix({
+        ...req.body,
+        sellerId,
+      });
+      res.status(201).json(matrix);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create shipping matrix" });
+    }
+  });
+
+  app.put("/api/shipping-matrices/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      
+      // Verify ownership
+      const existing = await storage.getShippingMatrix(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Shipping matrix not found" });
+      }
+      if (existing.sellerId !== sellerId) {
+        return res.status(403).json({ error: "Unauthorized to modify this shipping matrix" });
+      }
+      
+      const matrix = await storage.updateShippingMatrix(req.params.id, req.body);
+      res.json(matrix);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update shipping matrix" });
+    }
+  });
+
+  app.delete("/api/shipping-matrices/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      
+      // Verify ownership
+      const existing = await storage.getShippingMatrix(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Shipping matrix not found" });
+      }
+      if (existing.sellerId !== sellerId) {
+        return res.status(403).json({ error: "Unauthorized to delete this shipping matrix" });
+      }
+      
+      await storage.deleteShippingMatrix(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete shipping matrix" });
+    }
+  });
+
+  // Shipping Zone Routes
+  app.get("/api/shipping-matrices/:matrixId/zones", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      
+      // Verify matrix ownership
+      const matrix = await storage.getShippingMatrix(req.params.matrixId);
+      if (!matrix) {
+        return res.status(404).json({ error: "Shipping matrix not found" });
+      }
+      if (matrix.sellerId !== sellerId) {
+        return res.status(403).json({ error: "Unauthorized to view zones for this matrix" });
+      }
+      
+      const zones = await storage.getShippingZonesByMatrixId(req.params.matrixId);
+      res.json(zones);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch shipping zones" });
+    }
+  });
+
+  app.post("/api/shipping-zones", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      
+      // Verify matrix ownership
+      const matrix = await storage.getShippingMatrix(req.body.matrixId);
+      if (!matrix) {
+        return res.status(404).json({ error: "Shipping matrix not found" });
+      }
+      if (matrix.sellerId !== sellerId) {
+        return res.status(403).json({ error: "Unauthorized to add zones to this matrix" });
+      }
+      
+      const zone = await storage.createShippingZone(req.body);
+      res.status(201).json(zone);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create shipping zone" });
+    }
+  });
+
+  app.put("/api/shipping-zones/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      
+      // Verify matrix ownership through zone
+      const existing = await storage.getShippingZone(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Shipping zone not found" });
+      }
+      const matrix = await storage.getShippingMatrix(existing.matrixId);
+      if (!matrix || matrix.sellerId !== sellerId) {
+        return res.status(403).json({ error: "Unauthorized to modify this shipping zone" });
+      }
+      
+      const zone = await storage.updateShippingZone(req.params.id, req.body);
+      res.json(zone);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update shipping zone" });
+    }
+  });
+
+  app.delete("/api/shipping-zones/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+      
+      // Verify matrix ownership through zone
+      const existing = await storage.getShippingZone(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Shipping zone not found" });
+      }
+      const matrix = await storage.getShippingMatrix(existing.matrixId);
+      if (!matrix || matrix.sellerId !== sellerId) {
+        return res.status(403).json({ error: "Unauthorized to delete this shipping zone" });
+      }
+      
+      await storage.deleteShippingZone(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete shipping zone" });
+    }
+  });
+
   app.patch("/api/orders/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

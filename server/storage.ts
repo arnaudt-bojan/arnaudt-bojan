@@ -38,6 +38,10 @@ import {
   type InsertNotification,
   type AuthToken,
   type InsertAuthToken,
+  type ShippingMatrix,
+  type InsertShippingMatrix,
+  type ShippingZone,
+  type InsertShippingZone,
   users,
   products,
   orders,
@@ -58,7 +62,9 @@ import {
   wholesaleInvitations,
   categories,
   notifications,
-  authTokens
+  authTokens,
+  shippingMatrices,
+  shippingZones
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -191,6 +197,20 @@ export interface IStorage {
   getAuthTokenByCode(email: string, code: string): Promise<AuthToken | undefined>;
   markAuthTokenAsUsed(id: string): Promise<AuthToken | undefined>;
   deleteExpiredAuthTokens(): Promise<number>;
+  
+  // Shipping Matrices
+  getShippingMatricesBySellerId(sellerId: string): Promise<ShippingMatrix[]>;
+  getShippingMatrix(id: string): Promise<ShippingMatrix | undefined>;
+  createShippingMatrix(matrix: InsertShippingMatrix): Promise<ShippingMatrix>;
+  updateShippingMatrix(id: string, matrix: Partial<InsertShippingMatrix>): Promise<ShippingMatrix | undefined>;
+  deleteShippingMatrix(id: string): Promise<boolean>;
+  
+  // Shipping Zones
+  getShippingZonesByMatrixId(matrixId: string): Promise<ShippingZone[]>;
+  getShippingZone(id: string): Promise<ShippingZone | undefined>;
+  createShippingZone(zone: InsertShippingZone): Promise<ShippingZone>;
+  updateShippingZone(id: string, zone: Partial<InsertShippingZone>): Promise<ShippingZone | undefined>;
+  deleteShippingZone(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1160,6 +1180,92 @@ export class DatabaseStorage implements IStorage {
       .where(lt(authTokens.expiresAt, new Date()))
       .returning();
     return result.length;
+  }
+
+  // Shipping Matrix Methods
+  async getShippingMatricesBySellerId(sellerId: string): Promise<ShippingMatrix[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(shippingMatrices)
+      .where(eq(shippingMatrices.sellerId, sellerId))
+      .orderBy(desc(shippingMatrices.createdAt));
+  }
+
+  async getShippingMatrix(id: string): Promise<ShippingMatrix | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(shippingMatrices)
+      .where(eq(shippingMatrices.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createShippingMatrix(matrix: InsertShippingMatrix): Promise<ShippingMatrix> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(shippingMatrices).values(matrix).returning();
+    return result[0];
+  }
+
+  async updateShippingMatrix(id: string, matrix: Partial<InsertShippingMatrix>): Promise<ShippingMatrix | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(shippingMatrices)
+      .set({ ...matrix, updatedAt: new Date() })
+      .where(eq(shippingMatrices.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteShippingMatrix(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    // Delete associated zones first
+    await this.db.delete(shippingZones).where(eq(shippingZones.matrixId, id));
+    // Delete the matrix
+    await this.db.delete(shippingMatrices).where(eq(shippingMatrices.id, id));
+    return true;
+  }
+
+  // Shipping Zone Methods
+  async getShippingZonesByMatrixId(matrixId: string): Promise<ShippingZone[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(shippingZones)
+      .where(eq(shippingZones.matrixId, matrixId));
+  }
+
+  async getShippingZone(id: string): Promise<ShippingZone | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(shippingZones)
+      .where(eq(shippingZones.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createShippingZone(zone: InsertShippingZone): Promise<ShippingZone> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(shippingZones).values(zone).returning();
+    return result[0];
+  }
+
+  async updateShippingZone(id: string, zone: Partial<InsertShippingZone>): Promise<ShippingZone | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(shippingZones)
+      .set(zone)
+      .where(eq(shippingZones.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteShippingZone(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(shippingZones).where(eq(shippingZones.id, id));
+    return true;
   }
 }
 

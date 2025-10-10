@@ -15,7 +15,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package } from "lucide-react";
+import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
@@ -970,6 +971,10 @@ export default function Settings() {
                 <Tag className="h-4 w-4 mr-2" />
                 Categories
               </TabsTrigger>
+              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix">
+                <Package className="h-4 w-4 mr-2" />
+                Shipping Matrix
+              </TabsTrigger>
             </>
           )}
         </TabsList>
@@ -1383,9 +1388,28 @@ export default function Settings() {
         )}
 
         {isSeller && (
-          <TabsContent value="categories">
-            <CategoryManagement />
-          </TabsContent>
+          <>
+            <TabsContent value="categories">
+              <CategoryManagement />
+            </TabsContent>
+
+            <TabsContent value="shipping-matrix">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Shipping Matrix
+                  </CardTitle>
+                  <CardDescription>
+                    Create zone-based shipping rates for your products
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ShippingMatrixManager />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </>
         )}
 
         {isSeller && (
