@@ -67,6 +67,19 @@ interface ProductFormFieldsProps {
   level3Categories?: any[];
 }
 
+// Standard package size presets with dimensions
+const packagePresets = [
+  // Small packages
+  { value: "envelope", label: "Envelope / Letter", weight_lbs: 0.1, weight_kg: 0.05, length_in: 12, width_in: 9, height_in: 0.25, length_cm: 30, width_cm: 23, height_cm: 0.6 },
+  { value: "small_parcel", label: "Small Parcel", weight_lbs: 1, weight_kg: 0.5, length_in: 8, width_in: 6, height_in: 4, length_cm: 20, width_cm: 15, height_cm: 10 },
+  { value: "medium_parcel", label: "Medium Parcel", weight_lbs: 5, weight_kg: 2.3, length_in: 12, width_in: 10, height_in: 8, length_cm: 30, width_cm: 25, height_cm: 20 },
+  { value: "large_parcel", label: "Large Parcel", weight_lbs: 10, weight_kg: 4.5, length_in: 18, width_in: 14, height_in: 12, length_cm: 46, width_cm: 36, height_cm: 30 },
+  { value: "extra_large", label: "Extra Large Box", weight_lbs: 20, weight_kg: 9, length_in: 24, width_in: 18, height_in: 18, length_cm: 61, width_cm: 46, height_cm: 46 },
+  // Standard boxes
+  { value: "shoe_box", label: "Shoe Box Size", weight_lbs: 2, weight_kg: 0.9, length_in: 14, width_in: 9, height_in: 5, length_cm: 36, width_cm: 23, height_cm: 13 },
+  { value: "wine_box", label: "Wine Box (6 bottles)", weight_lbs: 15, weight_kg: 6.8, length_in: 17, width_in: 13, height_in: 8, length_cm: 43, width_cm: 33, height_cm: 20 },
+];
+
 const productTypes = [
   {
     value: "in-stock",
