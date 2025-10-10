@@ -4,14 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Product } from "@shared/schema";
 import { Plus, Pencil, Trash2, Megaphone, Upload, CreditCard, Eye, EyeOff, Archive, AlertCircle, Sparkles, MoreVertical, Check } from "lucide-react";
@@ -246,48 +238,51 @@ export default function SellerProducts() {
           </Alert>
         )}
 
-        <Card className="p-6">
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : filteredProducts && filteredProducts.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id} data-testid={`product-row-${product.id}`}>
-                      <TableCell>
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{getStatusBadge(product.status)}</TableCell>
-                      <TableCell>{getProductTypeBadge(product.productType)}</TableCell>
-                      <TableCell>${product.price}</TableCell>
-                      <TableCell>
-                        {product.productType === "in-stock" ? product.stock : "N/A"}
-                      </TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Card key={i} className="p-6">
+                <Skeleton className="h-32 w-full" />
+              </Card>
+            ))}
+          </div>
+        ) : filteredProducts && filteredProducts.length > 0 ? (
+          <div className="space-y-4">
+            {filteredProducts.map((product) => (
+              <Card key={product.id} className="overflow-hidden hover-elevate transition-all" data-testid={`product-row-${product.id}`}>
+                <div className="flex flex-col md:flex-row gap-4 p-4 md:p-6">
+                  {/* Product Image */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full md:w-24 md:h-24 aspect-square object-cover rounded-md"
+                    />
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-lg mb-1">{product.name}</h3>
+                      <p className="text-sm text-muted-foreground">{product.category}</p>
+                    </div>
+
+                    {/* Badges & Price */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {getStatusBadge(product.status || undefined)}
+                      {getProductTypeBadge(product.productType)}
+                      <span className="font-semibold text-lg">${product.price}</span>
+                      {product.productType === "in-stock" && (
+                        <Badge variant="outline" className="text-xs">
+                          Stock: {product.stock}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex md:flex-col gap-2 flex-shrink-0">
+                    <div className="flex flex-wrap gap-2 flex-1 md:flex-initial">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -404,14 +399,14 @@ export default function SellerProducts() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">
                 {statusFilter !== "all" ? `No ${statusFilter} products` : "No products yet"}
@@ -427,8 +422,8 @@ export default function SellerProducts() {
                 </Button>
               )}
             </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
     </div>
   );

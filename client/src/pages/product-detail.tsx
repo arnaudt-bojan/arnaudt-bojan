@@ -446,82 +446,70 @@ export default function ProductDetail() {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="shipping" data-testid="accordion-shipping">
-                <AccordionTrigger className="text-lg font-semibold">
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-5 w-5" />
-                    Shipping & Delivery
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-3 text-sm pt-2">
-                    {sellerInfo?.shippingPolicy ? (
-                      <p className="text-muted-foreground whitespace-pre-wrap">{sellerInfo.shippingPolicy}</p>
-                    ) : (
-                      <p className="text-muted-foreground">
-                        Standard shipping available to most locations. Shipping costs calculated at checkout based on your location.
-                      </p>
-                    )}
-                    {product.productType === "pre-order" && (product as any).preOrderDate && (
-                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                        <p className="text-sm font-medium">
-                          Expected Delivery: {new Date((product as any).preOrderDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Pre-order items will ship when they become available
-                        </p>
-                      </div>
-                    )}
-                    {product.productType === "made-to-order" && (
-                      <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-                        <p className="text-sm font-medium">
-                          Production Time: 2-4 weeks
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Made-to-order items are crafted specifically for you
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="returns" data-testid="accordion-returns">
-                <AccordionTrigger className="text-lg font-semibold">
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="h-5 w-5" />
-                    Returns & Exchanges
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-3 text-sm pt-2">
-                    {sellerInfo?.returnsPolicy ? (
-                      <p className="text-muted-foreground whitespace-pre-wrap">{sellerInfo.returnsPolicy}</p>
-                    ) : (
-                      <>
-                        <p className="text-muted-foreground">
-                          We offer a 30-day return policy on most items. Items must be in original condition with tags attached.
-                        </p>
-                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                          <li>Free returns on orders over $50</li>
-                          <li>Exchanges available within 30 days</li>
-                          <li>Refunds processed within 5-7 business days</li>
-                        </ul>
-                      </>
-                    )}
-                    {product.productType === "made-to-order" && (
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mt-3">
-                        <p className="text-sm font-medium">
-                          Made-to-order items are final sale
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Custom items cannot be returned or exchanged
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+              {(sellerInfo?.shippingPolicy || product.productType === "pre-order" || product.productType === "made-to-order") && (
+                <AccordionItem value="shipping" data-testid="accordion-shipping">
+                  <AccordionTrigger className="text-lg font-semibold">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-5 w-5" />
+                      Shipping & Delivery
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 text-sm pt-2">
+                      {sellerInfo?.shippingPolicy && (
+                        <p className="text-muted-foreground whitespace-pre-wrap">{sellerInfo.shippingPolicy}</p>
+                      )}
+                      {product.productType === "pre-order" && (product as any).preOrderDate && (
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                          <p className="text-sm font-medium">
+                            Expected Delivery: {new Date((product as any).preOrderDate).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Pre-order items will ship when they become available
+                          </p>
+                        </div>
+                      )}
+                      {product.productType === "made-to-order" && (
+                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+                          <p className="text-sm font-medium">
+                            Production Time: 2-4 weeks
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Made-to-order items are crafted specifically for you
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+              {(sellerInfo?.returnsPolicy || product.productType === "made-to-order") && (
+                <AccordionItem value="returns" data-testid="accordion-returns">
+                  <AccordionTrigger className="text-lg font-semibold">
+                    <div className="flex items-center gap-2">
+                      <RotateCcw className="h-5 w-5" />
+                      Returns & Exchanges
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 text-sm pt-2">
+                      {sellerInfo?.returnsPolicy && (
+                        <p className="text-muted-foreground whitespace-pre-wrap">{sellerInfo.returnsPolicy}</p>
+                      )}
+                      {product.productType === "made-to-order" && (
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mt-3">
+                          <p className="text-sm font-medium">
+                            Made-to-order items are final sale
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Custom items cannot be returned or exchanged
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
             </Accordion>
           </div>
         </div>

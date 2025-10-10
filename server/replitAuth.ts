@@ -393,14 +393,30 @@ export async function setupAuth(app: Express) {
   app.get("/api/logout", (req, res) => {
     const accessToken = (req.user as any)?.access_token;
     const isLocalOrEmailAuth = accessToken === 'local-auth' || accessToken === 'email-auth';
+    const rawReturnUrl = req.query.returnUrl as string || "/";
+    
+    // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
+    let returnUrl = "/";
+    try {
+      const decodedUrl = decodeURIComponent(rawReturnUrl);
+      // Only allow paths starting with / and not // (protocol-relative URLs)
+      if (decodedUrl.startsWith("/") && !decodedUrl.startsWith("//")) {
+        returnUrl = decodedUrl;
+      }
+    } catch (e) {
+      // Invalid URL encoding, use default
+      console.warn("[Logout] Invalid returnUrl encoding, using default:", rawReturnUrl);
+    }
+    
     req.logout(() => {
       if (isLocalOrEmailAuth) {
-        res.redirect("/");
+        res.redirect(returnUrl);
       } else {
+        const fullReturnUrl = `${req.protocol}://${req.hostname}${returnUrl}`;
         res.redirect(
           client.buildEndSessionUrl(config, {
             client_id: process.env.REPL_ID!,
-            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+            post_logout_redirect_uri: fullReturnUrl,
           }).href
         );
       }

@@ -351,7 +351,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem asChild>
-                    <a href="/api/logout" data-testid="button-logout">
+                    <a href={`/api/logout?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`} data-testid="button-logout">
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
                     </a>

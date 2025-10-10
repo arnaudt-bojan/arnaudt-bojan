@@ -352,7 +352,7 @@ export default function Products() {
     <div className="min-h-screen">
       {/* Banner Section */}
       {currentSellerHasBanner ? (
-        <div className="relative h-[400px] md:h-[500px] w-full overflow-hidden">
+        <div className="relative w-full aspect-[21/9] md:aspect-[21/7] overflow-hidden">
           <img 
             src={currentSellerHasBanner} 
             alt="Store Banner" 
@@ -361,7 +361,7 @@ export default function Products() {
           />
         </div>
       ) : isSeller && !isPreviewMode ? (
-        <div className="relative h-[300px] md:h-[400px] w-full overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
+        <div className="relative w-full aspect-[21/9] md:aspect-[21/7] overflow-hidden mb-8 bg-muted/30 border-2 border-dashed border-muted-foreground/20">
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <ImagePlus className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground mb-2">Add a banner to showcase your brand</p>
