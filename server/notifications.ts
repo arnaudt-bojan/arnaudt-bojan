@@ -11,13 +11,15 @@ if (!RESEND_API_KEY) {
   console.error('\n❌ CRITICAL: RESEND_API_KEY environment variable is NOT SET!');
   console.error('Emails will NOT be sent. Please configure RESEND_API_KEY in your environment.');
   console.error('For development: Add to .env file');
-  console.error('For production/deployment: Add to deployment secrets\n');
+  console.error('For production/deployment: Add to deployment secrets');
+  console.error('After adding secrets, you MUST redeploy for changes to take effect.\n');
 } else {
   console.log('✅ Resend API key is configured');
   console.log(`📧 FROM_EMAIL: ${FROM_EMAIL}\n`);
 }
 
-const resend = new Resend(RESEND_API_KEY);
+// Initialize Resend client - use dummy key if not configured to prevent initialization errors
+const resend = new Resend(RESEND_API_KEY || 'dummy-key-not-configured');
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -155,6 +157,32 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }> {
     try {
+      // CRITICAL: Check if Resend API key is configured
+      if (!RESEND_API_KEY || RESEND_API_KEY === 'dummy-key-not-configured') {
+        console.error('[Notifications] ❌ Cannot send email - RESEND_API_KEY is not configured');
+        console.error('[Notifications] Email details:', {
+          to: params.to,
+          subject: params.subject,
+          from: params.from || FROM_EMAIL
+        });
+        
+        // Extract verification code if it's an auth email
+        const codeMatch = params.html.match(/\b\d{6}\b/);
+        if (codeMatch) {
+          console.log('\n═══════════════════════════════════════════════════════');
+          console.log('🔑 VERIFICATION CODE FALLBACK (API Key Not Configured)');
+          console.log('═══════════════════════════════════════════════════════');
+          console.log(`To: ${params.to}`);
+          console.log(`Code: ${codeMatch[0]}`);
+          console.log('═══════════════════════════════════════════════════════\n');
+        }
+        
+        return { 
+          success: false, 
+          error: 'RESEND_API_KEY not configured. Please add to deployment secrets and redeploy.' 
+        };
+      }
+
       const emailPayload: any = {
         from: params.from || FROM_EMAIL,
         to: params.to,
