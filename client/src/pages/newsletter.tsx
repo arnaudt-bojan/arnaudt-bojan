@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -757,17 +757,21 @@ export default function NewsletterPage() {
         </TabsContent>
 
         <TabsContent value="compose" className="space-y-4">
-          {/* Templates Section */}
-          {templates && templates.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Saved Templates
-                </CardTitle>
-                <CardDescription>Load a previously saved template</CardDescription>
-              </CardHeader>
-              <CardContent>
+          {/* Templates Section - Always visible */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5" />
+                Saved Templates
+              </CardTitle>
+              <CardDescription>
+                {templates && templates.length > 0 
+                  ? "Load a previously saved template or save your current content as a new template"
+                  : "Save your newsletter content as a template for future use"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {templates && templates.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {templates.map((template) => (
                     <Card key={template.id} className="hover-elevate">
@@ -809,9 +813,15 @@ export default function NewsletterPage() {
                     </Card>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-medium">No templates saved yet</p>
+                  <p className="text-xs mt-1">Compose a newsletter below and save it as a template</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>

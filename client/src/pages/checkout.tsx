@@ -113,6 +113,9 @@ function PaymentForm({
       });
 
       if (error) {
+        console.error("[Checkout] Stripe payment error:", error);
+        console.error("[Checkout] Error type:", error.type);
+        console.error("[Checkout] Error code:", error.code);
         toast({
           title: "Payment Failed",
           description: error.message || "Payment could not be processed",
