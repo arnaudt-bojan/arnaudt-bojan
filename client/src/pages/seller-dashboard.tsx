@@ -142,15 +142,15 @@ export default function SellerDashboard() {
   const pendingOrders = orders?.filter(o => o.status === "pending").length || 0;
 
   return (
-    <div className="min-h-screen py-12">
+    <div className="min-h-screen py-6 md:py-12">
       <div className="container mx-auto px-4 max-w-7xl">
-        <div className="mb-8">
-          <div className="flex items-start justify-between mb-6">
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2" data-testid="text-page-title">
                 Dashboard
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm md:text-base text-muted-foreground">
                 Manage your store, track sales, and grow your business
               </p>
             </div>
@@ -161,8 +161,8 @@ export default function SellerDashboard() {
                     const currentDomain = window.location.hostname;
                     const isLocalhost = currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1');
                     const storeUrl = isLocalhost 
-                      ? `http://${user.username}.localhost:${window.location.port || 5000}`
-                      : `https://${user.username}.upfirst.app`;
+                      ? `http://${user.username}.localhost:${window.location.port || 5000}/products`
+                      : `https://${user.username}.upfirst.app/products`;
                     window.open(storeUrl, '_blank');
                   } else {
                     toast({
@@ -173,6 +173,7 @@ export default function SellerDashboard() {
                   }
                 }}
                 data-testid="button-preview-store"
+                className="flex-1 md:flex-none"
               >
                 <Store className="h-4 w-4 mr-2" />
                 Preview Store
@@ -181,6 +182,7 @@ export default function SellerDashboard() {
                 variant="outline"
                 onClick={() => setShareModalOpen(true)}
                 data-testid="button-share-store"
+                className="flex-1 md:flex-none"
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
@@ -257,81 +259,105 @@ export default function SellerDashboard() {
           )}
 
           {/* Quick Actions */}
-          <div className="mb-8">
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">QUICK ACTIONS</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+          <div className="mb-6 md:mb-8">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/seller/create-product")}
                 data-testid="button-create-product"
               >
-                <Plus className="h-5 w-5" />
-                <span className="text-xs font-medium">Create Product</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Plus className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Create Product</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/seller/products")}
                 data-testid="button-manage-products"
               >
-                <LayoutGrid className="h-5 w-5" />
-                <span className="text-xs font-medium">My Products</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-blue-500/10">
+                    <LayoutGrid className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">My Products</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/orders")}
                 data-testid="button-orders"
               >
-                <Package className="h-5 w-5" />
-                <span className="text-xs font-medium">Orders</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-purple-500/10">
+                    <Package className="h-5 w-5 md:h-6 md:w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Orders</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/seller/wholesale/products")}
                 data-testid="button-wholesale"
               >
-                <Store className="h-5 w-5" />
-                <span className="text-xs font-medium">Wholesale</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-green-500/10">
+                    <Store className="h-5 w-5 md:h-6 md:w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Wholesale</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/social-ads-setup")}
                 data-testid="button-social-ads"
               >
-                <Megaphone className="h-5 w-5" />
-                <span className="text-xs font-medium">Social Ads</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-orange-500/10">
+                    <Megaphone className="h-5 w-5 md:h-6 md:w-6 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Social Ads</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/newsletter")}
                 data-testid="button-newsletter"
               >
-                <Mail className="h-5 w-5" />
-                <span className="text-xs font-medium">Newsletter</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-cyan-500/10">
+                    <Mail className="h-5 w-5 md:h-6 md:w-6 text-cyan-600 dark:text-cyan-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Newsletter</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/order-management")}
                 data-testid="button-order-management"
               >
-                <FileText className="h-5 w-5" />
-                <span className="text-xs font-medium">Order Mgmt</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto flex-col gap-2 py-4"
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-pink-500/10">
+                    <FileText className="h-5 w-5 md:h-6 md:w-6 text-pink-600 dark:text-pink-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Order Mgmt</span>
+                </div>
+              </Card>
+              <Card
+                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/team")}
                 data-testid="button-team"
               >
-                <Users className="h-5 w-5" />
-                <span className="text-xs font-medium">Team</span>
-              </Button>
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="p-3 rounded-full bg-indigo-500/10">
+                    <Users className="h-5 w-5 md:h-6 md:w-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <span className="text-xs md:text-sm font-semibold">Team</span>
+                </div>
+              </Card>
             </div>
           </div>
         </div>
