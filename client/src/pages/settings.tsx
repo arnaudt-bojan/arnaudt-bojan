@@ -978,9 +978,9 @@ export default function Settings() {
         <div className="md:hidden">
           <Select value={defaultTab} onValueChange={setDefaultTab}>
             <SelectTrigger className="w-full" data-testid="select-settings-mobile">
-              <SelectValue />
+              <SelectValue placeholder="Select a tab" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[400px]">
               <SelectItem value="profile">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
@@ -1038,40 +1038,40 @@ export default function Settings() {
         </div>
 
         {/* Desktop: Tabs */}
-        <TabsList className={`hidden md:grid w-full ${isSeller ? 'grid-cols-8' : 'grid-cols-2'}`} data-testid="tabs-settings">
-          <TabsTrigger value="profile" data-testid="tab-profile">
-            <User className="h-4 w-4 mr-2" />
-            Profile
+        <TabsList className={`hidden md:grid w-full gap-2 ${isSeller ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`} data-testid="tabs-settings">
+          <TabsTrigger value="profile" data-testid="tab-profile" className="flex items-center justify-center gap-2">
+            <User className="h-4 w-4" />
+            <span className="hidden lg:inline">Profile</span>
           </TabsTrigger>
-          <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments">
-            <Wallet className="h-4 w-4 mr-2" />
-            Addresses & Payments
+          <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments" className="flex items-center justify-center gap-2">
+            <Wallet className="h-4 w-4" />
+            <span className="hidden lg:inline">Addresses & Payments</span>
           </TabsTrigger>
           {isSeller && (
             <>
-              <TabsTrigger value="subscription" data-testid="tab-subscription">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Subscription
+              <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center justify-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                <span className="hidden lg:inline">Subscription</span>
               </TabsTrigger>
-              <TabsTrigger value="store" data-testid="tab-store">
-                <Globe className="h-4 w-4 mr-2" />
-                Store
+              <TabsTrigger value="store" data-testid="tab-store" className="flex items-center justify-center gap-2">
+                <Globe className="h-4 w-4" />
+                <span className="hidden lg:inline">Store</span>
               </TabsTrigger>
-              <TabsTrigger value="branding" data-testid="tab-branding">
-                <Image className="h-4 w-4 mr-2" />
-                Branding
+              <TabsTrigger value="branding" data-testid="tab-branding" className="flex items-center justify-center gap-2">
+                <Image className="h-4 w-4" />
+                <span className="hidden lg:inline">Branding</span>
               </TabsTrigger>
-              <TabsTrigger value="payment" data-testid="tab-payment">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Payment
+              <TabsTrigger value="payment" data-testid="tab-payment" className="flex items-center justify-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                <span className="hidden lg:inline">Payment</span>
               </TabsTrigger>
-              <TabsTrigger value="categories" data-testid="tab-categories">
-                <Tag className="h-4 w-4 mr-2" />
-                Categories
+              <TabsTrigger value="categories" data-testid="tab-categories" className="flex items-center justify-center gap-2">
+                <Tag className="h-4 w-4" />
+                <span className="hidden lg:inline">Categories</span>
               </TabsTrigger>
-              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix">
-                <Package className="h-4 w-4 mr-2" />
-                Shipping Matrix
+              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center justify-center gap-2">
+                <Package className="h-4 w-4" />
+                <span className="hidden lg:inline">Shipping Matrix</span>
               </TabsTrigger>
             </>
           )}
