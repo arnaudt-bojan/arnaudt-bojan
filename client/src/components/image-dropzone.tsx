@@ -4,6 +4,7 @@ import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiRequest } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface ImageDropzoneProps {
   value: string | string[];
@@ -22,6 +23,7 @@ export function ImageDropzone({
 }: ImageDropzoneProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  const { toast } = useToast();
 
   const images = Array.isArray(value) ? value : value ? [value] : [];
   const isSingle = mode === 'single';
@@ -34,32 +36,26 @@ export function ImageDropzone({
 
     try {
       for (const file of acceptedFiles) {
-        // Get presigned upload URL
-        const uploadResponse = await apiRequest('POST', '/api/objects/upload');
-        const uploadData = await uploadResponse.json() as { uploadURL: string };
-        const { uploadURL } = uploadData;
+        // Create FormData for upload
+        const formData = new FormData();
+        formData.append('file', file);
 
-        // Upload to object storage
-        const putResponse = await fetch(uploadURL, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
+        // Upload directly through backend
+        const uploadResponse = await fetch('/api/objects/upload-file', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
         });
 
-        if (!putResponse.ok) {
-          throw new Error('Upload failed');
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.error || 'Upload failed');
         }
 
-        // Normalize the path and set ACL policy
-        const normalizeResponse = await apiRequest('PUT', '/api/product-images', {
-          imageURL: uploadURL,
-        });
-        const normalizeData = await normalizeResponse.json() as { objectPath: string };
-
+        const uploadData = await uploadResponse.json() as { objectPath: string };
+        
         // Prepend /objects/ prefix to create fetchable URL
-        const imageUrl = `/objects/${normalizeData.objectPath.replace(/^\/+/, '')}`;
+        const imageUrl = `/objects/${uploadData.objectPath.replace(/^\/+/, '')}`;
         uploadedUrls.push(imageUrl);
         setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
       }
@@ -71,13 +67,25 @@ export function ImageDropzone({
         const newImages = [...images, ...uploadedUrls].slice(0, maxFiles);
         onChange(newImages);
       }
+      
+      toast({
+        title: "Upload Successful",
+        description: `Successfully uploaded ${uploadedUrls.length} ${uploadedUrls.length === 1 ? 'image' : 'images'}`,
+      });
     } catch (error) {
       console.error('Upload error:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
       setUploadProgress({});
     }
-  }, [images, isSingle, maxFiles, onChange]);
+  }, [images, isSingle, maxFiles, onChange, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

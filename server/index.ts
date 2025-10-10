@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import fileUpload from "express-fileupload";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { importQueue } from "./import-queue";
@@ -19,6 +20,15 @@ app.set('trust proxy', true);
 
 // Security headers - apply to all routes
 app.use(securityHeadersMiddleware);
+
+// File upload middleware (must come before JSON parsing to handle multipart/form-data)
+app.use(fileUpload({
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
+  abortOnLimit: true,
+  responseOnLimit: 'File size exceeds the 10MB limit',
+  useTempFiles: false,
+  debug: false,
+}));
 
 // Stripe webhook needs raw body for signature verification
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '10mb' }));

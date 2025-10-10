@@ -4473,11 +4473,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Object Storage endpoints - from javascript_object_storage integration
-  // Endpoint to get presigned upload URL
-  app.post("/api/objects/upload", async (req, res) => {
+  // Endpoint to upload file directly through backend (avoids CORS issues)
+  app.post("/api/objects/upload-file", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.files || !req.files.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const file = req.files.file;
+      const objectStorageService = new ObjectStorageService();
+      
+      // Get upload URL
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      console.log('[Upload] Generated presigned URL for file:', file.name);
+      
+      // Upload file to object storage
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file.data,
+        headers: {
+          'Content-Type': file.mimetype,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload to storage');
+      }
+      
+      // Normalize the path and set public ACL
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        uploadURL,
+        {
+          owner: "system",
+          visibility: "public",
+        }
+      );
+      
+      console.log('[Upload] File uploaded successfully:', objectPath);
+      
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      console.error("Error details:", error instanceof Error ? error.message : error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+  
+  // Endpoint to get presigned upload URL (deprecated - kept for backward compatibility)
+  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      console.log('[Upload] Generated presigned URL');
       res.json({ uploadURL });
     } catch (error) {
       console.error("Error getting upload URL:", error);
@@ -4486,13 +4533,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Endpoint to normalize uploaded image path (after upload completes)
-  app.put("/api/product-images", async (req, res) => {
+  app.put("/api/product-images", isAuthenticated, async (req, res) => {
     if (!req.body.imageURL) {
       return res.status(400).json({ error: "imageURL is required" });
     }
 
     try {
       const objectStorageService = new ObjectStorageService();
+      console.log('[Upload] Normalizing image path:', req.body.imageURL);
       // Normalize the path and set public ACL (product images are public)
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         req.body.imageURL,
@@ -4501,12 +4549,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           visibility: "public", // Product images are publicly accessible
         }
       );
+      console.log('[Upload] Image normalized to:', objectPath);
 
       res.status(200).json({
         objectPath: objectPath,
       });
     } catch (error) {
       console.error("Error setting product image:", error);
+      console.error("Error details:", error instanceof Error ? error.message : error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
