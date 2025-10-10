@@ -46,10 +46,13 @@ import {
   type InsertInvoice,
   type PackingSlip,
   type InsertPackingSlip,
+  type Refund,
+  type InsertRefund,
   users,
   products,
   orders,
   orderItems,
+  refunds,
   invitations,
   metaSettings,
   tiktokSettings,
@@ -110,6 +113,14 @@ export interface IStorage {
   createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]>;
   updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined>;
   updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined>;
+  updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined>;
+  
+  // Refunds
+  createRefund(refund: InsertRefund): Promise<Refund>;
+  getRefund(id: string): Promise<Refund | undefined>;
+  getRefundsByOrderId(orderId: string): Promise<Refund[]>;
+  updateRefundStatus(id: string, status: string, stripeRefundId?: string): Promise<Refund | undefined>;
+  updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<Order | undefined>;
   
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
@@ -472,6 +483,64 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orderItems.id, itemId))
       .returning();
     
+    return result[0];
+  }
+
+  async updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined> {
+    await this.ensureInitialized();
+    const updateData: any = {
+      refundedQuantity,
+      refundedAmount,
+      itemStatus: status,
+      updatedAt: new Date()
+    };
+    
+    // Set timestamps based on status
+    if (status === 'returned') {
+      updateData.returnedAt = new Date();
+    } else if (status === 'refunded') {
+      updateData.refundedAt = new Date();
+    }
+    
+    const result = await this.db.update(orderItems)
+      .set(updateData)
+      .where(eq(orderItems.id, itemId))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Refund methods
+  async createRefund(refund: InsertRefund): Promise<Refund> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(refunds).values(refund).returning();
+    return result[0];
+  }
+
+  async getRefund(id: string): Promise<Refund | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(refunds).where(eq(refunds.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getRefundsByOrderId(orderId: string): Promise<Refund[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(refunds).where(eq(refunds.orderId, orderId)).orderBy(desc(refunds.createdAt));
+  }
+
+  async updateRefundStatus(id: string, status: string, stripeRefundId?: string): Promise<Refund | undefined> {
+    await this.ensureInitialized();
+    const updateData: any = { status };
+    if (stripeRefundId) {
+      updateData.stripeRefundId = stripeRefundId;
+    }
+    const result = await this.db.update(refunds).set(updateData).where(eq(refunds.id, id)).returning();
+    return result[0];
+  }
+
+  async updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<Order | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orders).set({ paymentStatus }).where(eq(orders.id, orderId)).returning();
     return result[0];
   }
 
