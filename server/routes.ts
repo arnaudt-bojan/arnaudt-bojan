@@ -234,7 +234,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const hasStripeConnected = !!user.stripeConnectedAccountId;
-      const currency = user.listingCurrency || 'USD';
+      // Only return currency if Stripe is connected and has a currency set
+      const currency = hasStripeConnected ? (user.listingCurrency || null) : null;
       
       res.json({
         hasStripeConnected,
