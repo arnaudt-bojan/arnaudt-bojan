@@ -41,6 +41,7 @@ import WholesaleProductDetail from "@/pages/wholesale-product-detail";
 import WholesaleAcceptInvitation from "@/pages/wholesale-accept-invitation";
 import BulkProductUpload from "@/pages/bulk-product-upload";
 import OrderSuccess from "@/pages/order-success";
+import SellerStorefront from "@/pages/seller-storefront";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -65,6 +66,7 @@ function AppContent() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/email-login" component={EmailLogin} />
+          <Route path="/s/:username" component={SellerStorefront} />
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/checkout" component={Checkout} />

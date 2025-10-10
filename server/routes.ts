@@ -1597,6 +1597,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
+        // Check and request capabilities if needed (critical for on_behalf_of parameter)
+        try {
+          const account = await stripe.accounts.retrieve(sellerConnectedAccountId);
+          const hasCardPayments = account.capabilities?.card_payments === 'active' || 
+                                  account.capabilities?.card_payments === 'pending';
+          const hasTransfers = account.capabilities?.transfers === 'active' || 
+                              account.capabilities?.transfers === 'pending';
+          
+          if (!hasCardPayments || !hasTransfers) {
+            console.log(`[Stripe] Account ${account.id} missing capabilities. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
+            console.log(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
+            
+            await stripe.accounts.update(sellerConnectedAccountId, {
+              capabilities: {
+                card_payments: { requested: true },
+                transfers: { requested: true },
+              },
+            });
+            
+            // Re-fetch to check updated status
+            const updatedAccount = await stripe.accounts.retrieve(sellerConnectedAccountId);
+            console.log(`[Stripe] Capabilities after request - card_payments: ${updatedAccount.capabilities?.card_payments}, transfers: ${updatedAccount.capabilities?.transfers}`);
+            
+            // Allow pending/unrequested capabilities to proceed - Stripe will return a proper error if they're actually required
+            // Blocking here prevents legitimate borderless accounts from transacting while their capabilities activate
+            if (updatedAccount.capabilities?.card_payments === 'inactive' || 
+                updatedAccount.capabilities?.transfers === 'inactive') {
+              console.log(`[Stripe] Capabilities inactive - payment may fail. Account may need additional information.`);
+              return res.status(400).json({ 
+                error: "This store needs to complete payment setup. Please contact the store owner to finish their Stripe onboarding.",
+                errorCode: "STRIPE_CAPABILITIES_INACTIVE"
+              });
+            }
+          }
+        } catch (capError: any) {
+          console.error(`[Stripe] Capability check failed:`, capError.message);
+          return res.status(500).json({ 
+            error: "Payment processing setup error. Please contact the store owner.",
+            errorCode: "STRIPE_CAPABILITY_ERROR"
+          });
+        }
+
         paymentIntentParams.application_fee_amount = platformFeeAmount;
         paymentIntentParams.on_behalf_of = sellerConnectedAccountId; // Seller name appears on statement
         paymentIntentParams.transfer_data = {
