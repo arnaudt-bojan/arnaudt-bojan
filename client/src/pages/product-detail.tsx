@@ -279,10 +279,10 @@ export default function ProductDetail() {
           <div className="space-y-6">
             <div className="space-y-2">
               <ProductTypeBadge type={product.productType as any} />
-              <h1 className="text-4xl font-bold" data-testid="text-product-name">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold" data-testid="text-product-name">
                 {product.name}
               </h1>
-              <p className="text-lg text-muted-foreground">{product.category}</p>
+              <p className="text-base md:text-lg text-muted-foreground">{product.category}</p>
             </div>
 
             {product.productType === "pre-order" && product.depositAmount ? (

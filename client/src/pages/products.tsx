@@ -398,36 +398,38 @@ export default function Products() {
       ) : null}
 
       <div className="container mx-auto px-4 max-w-7xl py-12">
-        <div className="mb-12 flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex-1">
-            <h1 className="text-4xl md:text-5xl font-bold" data-testid="text-page-title">
-              {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "All Products"}
-            </h1>
-          </div>
-          
-          {isSeller && !isPreviewMode && (
-            <div className="flex items-center gap-3 bg-card border rounded-lg px-4 py-3">
-              <Store className="h-5 w-5 text-muted-foreground" />
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="store-active" className="text-sm font-medium cursor-pointer">
-                  Store Status
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {user?.storeActive === 1 ? "Active & Visible" : "Inactive & Hidden"}
-                </p>
-              </div>
-              <Switch
-                id="store-active"
-                checked={user?.storeActive === 1}
-                onCheckedChange={handleStoreToggle}
-                disabled={toggleStoreMutation.isPending || !user}
-                data-testid="switch-store-active"
-              />
+        <div className="mb-8 md:mb-12">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+            <div className="flex-1">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold" data-testid="text-page-title">
+                {user?.firstName || sellerInfo?.firstName ? `${user?.firstName || sellerInfo?.firstName}'s Store` : "All Products"}
+              </h1>
             </div>
-          )}
+            
+            {isSeller && !isPreviewMode && (
+              <div className="flex items-center gap-3 bg-card border rounded-lg px-4 py-3 w-full md:w-auto">
+                <Store className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <div className="flex flex-col gap-1 flex-1">
+                  <Label htmlFor="store-active" className="text-sm font-medium cursor-pointer">
+                    Store Status
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {user?.storeActive === 1 ? "Active & Visible" : "Inactive & Hidden"}
+                  </p>
+                </div>
+                <Switch
+                  id="store-active"
+                  checked={user?.storeActive === 1}
+                  onCheckedChange={handleStoreToggle}
+                  disabled={toggleStoreMutation.isPending || !user}
+                  data-testid="switch-store-active"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="mb-8 flex items-center justify-end gap-4 flex-wrap">
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-4">
           <div className="flex gap-2 items-center">
             <ProductFiltersSheet 
               onFilterChange={setFilters} 
