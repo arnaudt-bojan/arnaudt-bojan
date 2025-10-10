@@ -109,6 +109,12 @@ function PaymentForm({
         };
 
         const response = await apiRequest("POST", "/api/orders", updatedOrderData);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create order");
+        }
+        
         const createdOrder = await response.json();
         queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
         

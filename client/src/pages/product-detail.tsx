@@ -21,6 +21,9 @@ import {
 import { VariantColorSelector } from "@/components/variant-color-selector";
 import { VariantSizeSelector } from "@/components/variant-size-selector";
 import type { ColorVariant } from "@/components/product-variant-manager";
+import { StoreUnavailable } from "@/components/store-unavailable";
+import { useAuth } from "@/hooks/useAuth";
+import { detectDomain } from "@/lib/domain-utils";
 
 interface Category {
   id: string;
@@ -37,9 +40,14 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [sellerInfo, setSellerInfo] = useState<any>(null);
+
+  const domainInfo = detectDomain();
+  const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer' || user?.role === 'seller' || user?.role === 'owner';
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", productId],
@@ -49,6 +57,16 @@ export default function ProductDetail() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
+
+  // Fetch seller info when product loads
+  useEffect(() => {
+    if (product?.sellerId) {
+      fetch(`/api/users/${product.sellerId}`)
+        .then(res => res.json())
+        .then(data => setSellerInfo(data))
+        .catch(console.error);
+    }
+  }, [product?.sellerId]);
 
   const getCategoryPath = () => {
     const path: Category[] = [];
@@ -172,6 +190,23 @@ export default function ProductDetail() {
           <Link href="/products">
             <Button>Back to Products</Button>
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if viewing a seller's product from an inactive store
+  const isViewingInactiveStore = sellerInfo && sellerInfo.storeActive === 0;
+  
+  // Show store unavailable page for buyers viewing inactive seller stores
+  if (isViewingInactiveStore && !isSeller) {
+    return (
+      <div className="min-h-screen py-12">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <StoreUnavailable 
+            sellerName={sellerInfo.firstName || sellerInfo.username}
+            sellerEmail={sellerInfo.email}
+          />
         </div>
       </div>
     );
