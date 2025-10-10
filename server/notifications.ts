@@ -89,9 +89,9 @@ class NotificationServiceImpl implements NotificationService {
    * Build Stripe business details with fallback
    */
   private async getStripeBusinessDetails(seller: User): Promise<any> {
-    if (seller.stripeConnectAccountId) {
+    if (seller.stripeConnectedAccountId) {
       try {
-        return await this.pdfService.getStripeBusinessDetails(seller.stripeConnectAccountId);
+        return await this.pdfService.getStripeBusinessDetails(seller.stripeConnectedAccountId);
       } catch (error) {
         console.error('[Notifications] Failed to fetch Stripe business details:', error);
       }
@@ -167,7 +167,8 @@ class NotificationServiceImpl implements NotificationService {
         
         // In development, if domain is not verified, log email to console
         const errorMsg = result.error.message || '';
-        const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || result.error.statusCode === 403;
+        const statusCode = (result.error as any).statusCode;
+        const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || statusCode === 403;
         
         if (process.env.NODE_ENV === 'development' && isDomainError) {
           console.log('\n═══════════════════════════════════════════════════════');
@@ -1528,7 +1529,8 @@ class NotificationServiceImpl implements NotificationService {
         
         // In development, if domain/validation error, log and succeed anyway
         const errorMsg = result.error.message || '';
-        const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || errorMsg.includes('not verified') || result.error.statusCode === 422 || result.error.statusCode === 403;
+        const statusCode = (result.error as any).statusCode;
+        const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || errorMsg.includes('not verified') || statusCode === 422 || statusCode === 403;
         
         if (process.env.NODE_ENV === 'development' && isValidationError) {
           console.log('\n═══════════════════════════════════════════════════════');
