@@ -896,7 +896,7 @@ export default function Settings() {
   const searchParams = new URLSearchParams(window.location.search);
   const tabParam = searchParams.get('tab');
   const stripeParam = searchParams.get('stripe');
-  const defaultTab = tabParam || "profile";
+  const [defaultTab, setDefaultTab] = useState(tabParam || "profile");
 
   // Check Stripe status when returning from Stripe Connect
   useEffect(() => {
