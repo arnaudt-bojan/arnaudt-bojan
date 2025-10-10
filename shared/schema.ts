@@ -77,6 +77,12 @@ export const products = pgTable("products", {
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
+  name: z.string().min(1, "Product name is required").max(200, "Name must be 200 characters or less"),
+  description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
+  price: z.string().min(1, "Price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+  image: z.string().min(1, "At least one product image is required"),
+  category: z.string().min(1, "Category is required"),
+  productType: z.string().min(1, "Product type is required"),
   preOrderDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
   discountPercentage: z.string().optional().nullable().transform(val => val || undefined),
   promotionEndDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
