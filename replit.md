@@ -26,7 +26,7 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
 - **Dashboard Design**: Seller dashboard includes revenue analytics and order management. Buyer dashboard offers order tracking and NFT minting access.
 
 **Technical Implementations & Feature Specifications:**
-- **Product Management**: Supports diverse product types (in-stock, pre-order, made-to-order, wholesale) with multi-image uploads and bulk CSV upload functionality.
+- **Product Management**: Supports diverse product types (in-stock, pre-order, made-to-order, wholesale) with multi-image uploads and bulk CSV upload functionality. **Product Variant System**: Sophisticated color-first variant architecture with optional images per color, size options per color, styled selectors (color circles, size boxes) on PDP, and automatic image switching. Color variant images are optional - if not provided, main product images are used. Full backward compatibility maintained for legacy products.
 - **Shopping & Checkout**: Features a slide-over cart, quantity adjustment, persistent cart, and guest checkout. Shipping costs are fetched from seller settings and automatically added to the total. All orders require customerEmail and create/use buyer accounts. **Cart enforces single-seller constraint** - products from different sellers cannot be mixed in one cart to ensure proper payment routing (Stripe Connect) and data isolation.
 - **Authentication & Authorization**: 
   - Email-based authentication (verification code and magic link) for sellers only - creates admin role accounts
@@ -71,6 +71,8 @@ Upfirst is built with a modern web stack. The frontend uses **React, TypeScript,
   - **Backward Compatibility**: Legacy items JSON field and order-level tracking fields maintained; new orders create both JSON and order_items records
   - **API Architecture**: GET /api/orders/:orderId/items, PATCH /api/order-items/:id/tracking (accepts trackingNumber, trackingCarrier, trackingUrl, notifyCustomer), PATCH /api/order-items/:id/status with seller authorization
   - **Test Mode**: Stripe test mode bypasses Connect requirements for easier testing of order/tracking features
+- **Universal Image Upload**: Comprehensive image management with drag-drop upload, URL paste, hero selection, image editing (crop/zoom/rotate/filters), and graceful error handling (shows fallback icon for failed images instead of hiding).
+- **Bulk Product Upload**: CSV-based bulk import supports new variant format via JSON column. Proper CSV escaping, comprehensive validation, and user-facing error reporting for invalid variant data. Products with invalid variants are created without variants (graceful degradation).
 - **Flexible Shipping System**: Three-tier shipping configuration for maximum seller flexibility:
   - **Shipping Matrices**: Sellers create zone-based shipping rates (continent/country/city level) with custom names and estimated delivery times. Comprehensive multi-tenant security ensures sellers can only access/modify their own matrices.
   - **Product-Level Shipping Choice**: Each product can use: (1) Flat rate, (2) Saved matrix, (3) Shippo real-time rates, or (4) Free shipping
