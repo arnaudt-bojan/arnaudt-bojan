@@ -889,3 +889,67 @@ export const dailyAnalytics = pgTable("daily_analytics", {
 export const insertDailyAnalyticsSchema = createInsertSchema(dailyAnalytics).omit({ id: true, createdAt: true });
 export type InsertDailyAnalytics = z.infer<typeof insertDailyAnalyticsSchema>;
 export type DailyAnalytics = typeof dailyAnalytics.$inferSelect;
+
+// Saved Addresses - For both buyers and sellers
+export const savedAddresses = pgTable("saved_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  
+  // Address fields
+  fullName: varchar("full_name").notNull(),
+  addressLine1: text("address_line_1").notNull(),
+  addressLine2: text("address_line_2"),
+  city: varchar("city").notNull(),
+  state: varchar("state").notNull(),
+  postalCode: varchar("postal_code").notNull(),
+  country: varchar("country").notNull().default("US"),
+  
+  // Phone number (optional but recommended for shipping)
+  phone: varchar("phone"),
+  
+  // Metadata
+  isDefault: integer("is_default").default(0), // 0 = no, 1 = yes (only one can be default per user)
+  label: varchar("label"), // e.g., "Home", "Work", "Office"
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index("saved_addresses_user_id_idx").on(table.userId),
+  };
+});
+
+export const insertSavedAddressSchema = createInsertSchema(savedAddresses).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSavedAddress = z.infer<typeof insertSavedAddressSchema>;
+export type SavedAddress = typeof savedAddresses.$inferSelect;
+
+// Saved Payment Methods - ONLY stores Stripe Payment Method IDs (PCI-compliant)
+// NEVER stores raw card numbers, CVV, or sensitive data
+export const savedPaymentMethods = pgTable("saved_payment_methods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  
+  // Stripe Payment Method ID (this is the secure token)
+  stripePaymentMethodId: varchar("stripe_payment_method_id").notNull().unique(),
+  
+  // Display information ONLY (safe to store, provided by Stripe)
+  cardBrand: varchar("card_brand"), // "visa", "mastercard", "amex"
+  cardLast4: varchar("card_last4"), // Last 4 digits for display
+  cardExpMonth: integer("card_exp_month"),
+  cardExpYear: integer("card_exp_year"),
+  
+  // Metadata
+  isDefault: integer("is_default").default(0), // 0 = no, 1 = yes
+  label: varchar("label"), // e.g., "Personal", "Business"
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index("saved_payment_methods_user_id_idx").on(table.userId),
+  };
+});
+
+export const insertSavedPaymentMethodSchema = createInsertSchema(savedPaymentMethods).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSavedPaymentMethod = z.infer<typeof insertSavedPaymentMethodSchema>;
+export type SavedPaymentMethod = typeof savedPaymentMethods.$inferSelect;
