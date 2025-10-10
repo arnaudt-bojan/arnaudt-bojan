@@ -55,9 +55,9 @@ export default function SellerDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shouldActivateStore = params.get('activateStore') === 'true';
-    const subscriptionSuccess = params.get('subscription') === 'success';
+    const subscriptionStatus = params.get('subscription');
     
-    if (shouldActivateStore && subscriptionSuccess && user) {
+    if (subscriptionStatus === 'success' && shouldActivateStore && user) {
       const hasActiveSubscription = user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial';
       
       if (hasActiveSubscription && user.storeActive !== 1) {
@@ -72,8 +72,22 @@ export default function SellerDashboard() {
           : window.location.pathname;
         window.history.replaceState({}, '', newUrl);
       }
+    } else if (subscriptionStatus === 'cancelled') {
+      // Subscription was cancelled - store remains off
+      toast({
+        title: "Subscription Cancelled",
+        description: "Your store remains inactive. You can subscribe anytime to activate it.",
+        variant: "default",
+      });
+      
+      // Clean up URL
+      params.delete('subscription');
+      const newUrl = params.toString() 
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
     }
-  }, [user]);
+  }, [user, toast]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -226,7 +240,11 @@ export default function SellerDashboard() {
                     Store Status
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    {user?.storeActive === 1 ? "Your store is live and visible to customers" : "Your store is inactive and hidden from customers"}
+                    {user?.storeActive === 1 
+                      ? "Your store is live and visible to customers" 
+                      : (user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial')
+                        ? "Your store is inactive and hidden from customers"
+                        : "Your store is inactive. Subscribe to activate and start selling"}
                   </p>
                 </div>
               </div>
