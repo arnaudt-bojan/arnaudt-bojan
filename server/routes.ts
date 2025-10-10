@@ -3555,16 +3555,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customer: user.stripeCustomerId,
               limit: 5,
             });
-            billingHistory = invoices.data.map(inv => ({
-              id: inv.id,
-              amount: inv.amount_paid,
-              currency: inv.currency,
-              status: inv.status,
-              date: new Date(inv.created * 1000),
-              invoiceUrl: inv.hosted_invoice_url,
-              invoicePdf: inv.invoice_pdf,
-              number: inv.number,
-            }));
+            console.log(`[Subscription Status] Retrieved ${invoices.data.length} invoices for customer ${user.stripeCustomerId}`);
+            billingHistory = invoices.data.map(inv => {
+              console.log(`[Subscription Status] Invoice ${inv.id}: amount_paid=${inv.amount_paid}, total=${inv.total}, status=${inv.status}`);
+              return {
+                id: inv.id,
+                amount: inv.amount_paid,
+                currency: inv.currency,
+                status: inv.status,
+                date: new Date(inv.created * 1000),
+                invoiceUrl: inv.hosted_invoice_url,
+                invoicePdf: inv.invoice_pdf,
+                number: inv.number,
+              };
+            });
           }
 
           cancelAtPeriodEnd = subscription.cancel_at_period_end;
