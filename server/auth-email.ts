@@ -138,8 +138,9 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Invalid code' });
     }
 
-    // Check if already used (only for login_code type, magic_link tokens are reusable)
-    if (authToken.tokenType === 'login_code' && authToken.used === 1) {
+    // Check if already used (magic_link tokens are reusable, everything else is single-use)
+    // Treat null/unknown tokenType as single-use for security (legacy tokens)
+    if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
       return res.status(401).json({ error: 'Code already used' });
     }
 
@@ -148,8 +149,8 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Code expired' });
     }
 
-    // Mark as used (only for login_code type)
-    if (authToken.tokenType === 'login_code') {
+    // Mark as used (only magic_link tokens are reusable)
+    if (authToken.tokenType !== 'magic_link') {
       await storage.markAuthTokenAsUsed(authToken.id);
     }
 
@@ -340,8 +341,9 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    // Check if already used (only for login_code type, magic_link tokens are reusable)
-    if (authToken.tokenType === 'login_code' && authToken.used === 1) {
+    // Check if already used (magic_link tokens are reusable, everything else is single-use)
+    // Treat null/unknown tokenType as single-use for security (legacy tokens)
+    if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
       return res.status(401).json({ error: 'Token already used' });
     }
 
@@ -350,8 +352,8 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Token expired' });
     }
 
-    // Mark as used (only for login_code type)
-    if (authToken.tokenType === 'login_code') {
+    // Mark as used (only magic_link tokens are reusable)
+    if (authToken.tokenType !== 'magic_link') {
       await storage.markAuthTokenAsUsed(authToken.id);
     }
 
