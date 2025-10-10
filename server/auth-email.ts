@@ -24,9 +24,9 @@ function generateToken(): string {
  * Send 6-digit authentication code to email
  */
 router.post('/send-code', async (req: Request, res: Response) => {
-  try {
-    const { email, sellerContext } = req.body;
+  const { email, sellerContext } = req.body;
 
+  try {
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }

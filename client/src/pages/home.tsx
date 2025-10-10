@@ -68,8 +68,12 @@ export default function Home() {
   }, [domainInfo.isSellerDomain, setLocation]);
 
   useEffect(() => {
-    if (!isLoading && user && (user.role === "admin" || user.role === "editor" || user.role === "viewer")) {
-      setLocation("/seller-dashboard");
+    if (!isLoading && user) {
+      if (user.role === "admin" || user.role === "editor" || user.role === "viewer") {
+        setLocation("/seller-dashboard");
+      } else if (user.role === "buyer") {
+        setLocation("/buyer-dashboard");
+      }
     }
   }, [user, isLoading, setLocation]);
 
