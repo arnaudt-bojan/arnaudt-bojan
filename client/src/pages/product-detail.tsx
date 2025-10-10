@@ -205,19 +205,19 @@ export default function ProductDetail() {
           </nav>
         )}
 
-        <div className="grid md:grid-cols-2 gap-12">
+        <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           <div className="space-y-4">
             <Card className="overflow-hidden">
               <img
                 src={displayImages[selectedImageIndex] || product.image}
                 alt={product.name}
-                className="w-full aspect-square object-cover"
+                className="w-full aspect-square object-cover hover:scale-105 transition-transform duration-500"
                 data-testid="img-product-detail"
               />
             </Card>
             
             {displayImages.length > 1 && (
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
                 {displayImages.map((img, index) => (
                   <button
                     key={index}
