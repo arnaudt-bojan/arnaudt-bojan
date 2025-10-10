@@ -70,7 +70,7 @@ export function ProductFiltersSheet({
     { value: "in-stock", label: "In Stock" },
     { value: "pre-order", label: "Pre-Order" },
     { value: "made-to-order", label: "Made to Order" },
-    { value: "wholesale", label: "Wholesale" },
+    { value: "wholesale", label: "Trade" },
   ];
 
   const sortOptions = [
