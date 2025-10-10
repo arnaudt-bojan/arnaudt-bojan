@@ -824,3 +824,68 @@ export const insertPackingSlipSchema = createInsertSchema(packingSlips)
   .omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPackingSlip = z.infer<typeof insertPackingSlipSchema>;
 export type PackingSlip = typeof packingSlips.$inferSelect;
+
+// Analytics Events - Track all user activities for admin dashboard
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  userEmail: varchar("user_email"), // Duplicate for faster queries without joins
+  eventType: varchar("event_type").notNull(), // signup, product_listed, sale_made, login, etc.
+  eventCategory: varchar("event_category").notNull(), // user, product, order, etc.
+  eventData: jsonb("event_data"), // Additional context about the event
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index("analytics_events_user_id_idx").on(table.userId),
+    eventTypeIdx: index("analytics_events_event_type_idx").on(table.eventType),
+    createdAtIdx: index("analytics_events_created_at_idx").on(table.createdAt),
+  };
+});
+
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({ id: true, createdAt: true });
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+
+// Feature Adoptions - Track which features users have seen/adopted
+export const featureAdoptions = pgTable("feature_adoptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  featureKey: varchar("feature_key").notNull(), // e.g., "wholesale_2024", "shipping_matrix_v2"
+  featureName: varchar("feature_name").notNull(), // Human-readable name
+  status: varchar("status").notNull().default("pending"), // pending, seen, adopted, dismissed
+  adoptedAt: timestamp("adopted_at"), // When user clicked "Got it" or used the feature
+  dismissedAt: timestamp("dismissed_at"), // When user clicked "Don't show again"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userFeatureIdx: uniqueIndex("feature_adoptions_user_feature_idx").on(table.userId, table.featureKey),
+    statusIdx: index("feature_adoptions_status_idx").on(table.status),
+  };
+});
+
+export const insertFeatureAdoptionSchema = createInsertSchema(featureAdoptions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertFeatureAdoption = z.infer<typeof insertFeatureAdoptionSchema>;
+export type FeatureAdoption = typeof featureAdoptions.$inferSelect;
+
+// Daily Analytics Aggregates - Pre-computed for fast dashboard loading
+export const dailyAnalytics = pgTable("daily_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull(), // Date this data is for
+  newSignups: integer("new_signups").default(0),
+  newSellers: integer("new_sellers").default(0),
+  newBuyers: integer("new_buyers").default(0),
+  productsListed: integer("products_listed").default(0),
+  ordersPlaced: integer("orders_placed").default(0),
+  revenue: decimal("revenue", { precision: 12, scale: 2 }).default("0"),
+  activeUsers: integer("active_users").default(0), // Users who took any action
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    dateIdx: uniqueIndex("daily_analytics_date_idx").on(table.date),
+  };
+});
+
+export const insertDailyAnalyticsSchema = createInsertSchema(dailyAnalytics).omit({ id: true, createdAt: true });
+export type InsertDailyAnalytics = z.infer<typeof insertDailyAnalyticsSchema>;
+export type DailyAnalytics = typeof dailyAnalytics.$inferSelect;
