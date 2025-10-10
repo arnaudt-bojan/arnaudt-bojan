@@ -19,6 +19,7 @@ interface UniversalImageUploadProps {
   allowUpload?: boolean;
   aspectRatio?: "square" | "wide" | "auto";
   heroSelection?: boolean;
+  size?: "default" | "compact";
   className?: string;
 }
 
@@ -32,6 +33,7 @@ export function UniversalImageUpload({
   allowUpload = true,
   aspectRatio = "square",
   heroSelection = true,
+  size = "default",
   className,
 }: UniversalImageUploadProps) {
   const [showUrlDialog, setShowUrlDialog] = useState(false);
@@ -193,23 +195,30 @@ export function UniversalImageUpload({
       {/* Image Grid */}
       {images.length > 0 && (
         <div className={cn(
-          "grid gap-4",
-          isSingle ? "grid-cols-1 max-w-md" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          "grid",
+          size === "compact" ? "gap-2" : "gap-4",
+          isSingle ? "grid-cols-1" : 
+          size === "compact" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10" :
+          "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
         )}>
           {images.map((imageUrl, index) => (
             <Card
               key={index}
               className={cn(
                 "relative group overflow-hidden",
-                heroSelection && index === heroIndex && "ring-2 ring-primary"
+                heroSelection && index === heroIndex && "ring-2 ring-primary",
+                isSingle && aspectRatio === "wide" ? "max-w-4xl" : isSingle ? "max-w-md" : ""
               )}
             >
               {/* Hero badge */}
               {heroSelection && !isSingle && index === heroIndex && (
-                <div className="absolute top-2 left-2 z-10">
-                  <div className="bg-primary text-primary-foreground px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-current" />
-                    Hero
+                <div className={cn("absolute z-10", size === "compact" ? "top-0.5 left-0.5" : "top-2 left-2")}>
+                  <div className={cn(
+                    "bg-primary text-primary-foreground rounded-md font-semibold flex items-center gap-1",
+                    size === "compact" ? "px-1 py-0.5 text-[10px]" : "px-2 py-1 text-xs"
+                  )}>
+                    <Star className={cn("fill-current", size === "compact" ? "h-2 w-2" : "h-3 w-3")} />
+                    {size !== "compact" && "Hero"}
                   </div>
                 </div>
               )}
@@ -247,47 +256,53 @@ export function UniversalImageUpload({
               </div>
 
               {/* Action buttons */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+              <div className={cn(
+                "absolute opacity-0 group-hover:opacity-100 transition-opacity flex gap-1",
+                size === "compact" ? "top-0.5 right-0.5" : "top-2 right-2"
+              )}>
                 {heroSelection && !isSingle && index !== heroIndex && (
                   <Button
                     type="button"
                     size="icon"
                     variant="secondary"
-                    className="h-7 w-7"
+                    className={cn(size === "compact" ? "h-5 w-5" : "h-7 w-7")}
                     onClick={() => setAsHero(index)}
                     title="Set as hero image"
                     data-testid={`button-set-hero-${index}`}
                   >
-                    <Star className="h-3 w-3" />
+                    <Star className={cn(size === "compact" ? "h-2 w-2" : "h-3 w-3")} />
                   </Button>
                 )}
                 <Button
                   type="button"
                   size="icon"
                   variant="secondary"
-                  className="h-7 w-7"
+                  className={cn(size === "compact" ? "h-5 w-5" : "h-7 w-7")}
                   onClick={() => handleEditImage(index)}
                   title="Edit image"
                   data-testid={`button-edit-image-${index}`}
                 >
-                  <Pencil className="h-3 w-3" />
+                  <Pencil className={cn(size === "compact" ? "h-2 w-2" : "h-3 w-3")} />
                 </Button>
                 <Button
                   type="button"
                   size="icon"
                   variant="destructive"
-                  className="h-7 w-7"
+                  className={cn(size === "compact" ? "h-5 w-5" : "h-7 w-7")}
                   onClick={() => removeImage(index)}
                   title="Remove image"
                   data-testid={`button-remove-image-${index}`}
                 >
-                  <X className="h-3 w-3" />
+                  <X className={cn(size === "compact" ? "h-2 w-2" : "h-3 w-3")} />
                 </Button>
               </div>
 
               {/* Position indicator */}
               {!isSingle && (
-                <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-0.5 rounded text-xs">
+                <div className={cn(
+                  "absolute bg-black/50 text-white px-2 py-0.5 rounded",
+                  size === "compact" ? "bottom-0.5 left-0.5 text-[10px]" : "bottom-2 left-2 text-xs"
+                )}>
                   #{index + 1}
                 </div>
               )}

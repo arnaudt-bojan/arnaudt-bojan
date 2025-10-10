@@ -269,6 +269,7 @@ export function ProductVariantManager({
                 maxImages={10}
                 aspectRatio="square"
                 heroSelection={true}
+                size="compact"
                 allowUrl={true}
                 allowUpload={true}
               />

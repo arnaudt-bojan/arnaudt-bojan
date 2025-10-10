@@ -1501,57 +1501,39 @@ export default function Settings() {
                       <TabsTrigger value="mobile">iPhone</TabsTrigger>
                     </TabsList>
                     <TabsContent value="desktop" className="mt-4">
-                      {user?.username ? (
-                        <div className="border rounded-lg overflow-hidden bg-muted/50">
-                          <div className="aspect-video w-full">
-                            <iframe
-                              src={`/products?preview=${user.username}`}
-                              className="w-full h-full"
-                              title="Desktop Preview"
-                            />
-                          </div>
+                      <div className="border rounded-lg overflow-hidden bg-muted/50">
+                        <div className="aspect-video w-full">
+                          <iframe
+                            src={user?.username ? `/products?preview=${user.username}` : '/products'}
+                            className="w-full h-full"
+                            title="Desktop Preview"
+                          />
                         </div>
-                      ) : (
-                        <div className="border rounded-lg overflow-hidden bg-muted/50 p-8 text-center">
-                          <p className="text-muted-foreground">Please set a username to preview your storefront</p>
-                        </div>
-                      )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-2">Desktop view (1920×1080)</p>
                     </TabsContent>
                     <TabsContent value="tablet" className="mt-4">
-                      {user?.username ? (
-                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '768px' }}>
-                          <div className="aspect-[4/3] w-full">
-                            <iframe
-                              src={`/products?preview=${user.username}`}
-                              className="w-full h-full"
-                              title="iPad Preview"
-                            />
-                          </div>
+                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '768px' }}>
+                        <div className="aspect-[4/3] w-full">
+                          <iframe
+                            src={user?.username ? `/products?preview=${user.username}` : '/products'}
+                            className="w-full h-full"
+                            title="iPad Preview"
+                          />
                         </div>
-                      ) : (
-                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto p-8 text-center" style={{ maxWidth: '768px' }}>
-                          <p className="text-muted-foreground">Please set a username to preview your storefront</p>
-                        </div>
-                      )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-2 text-center">iPad view (768×1024)</p>
                     </TabsContent>
                     <TabsContent value="mobile" className="mt-4">
-                      {user?.username ? (
-                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '375px' }}>
-                          <div className="aspect-[9/16] w-full">
-                            <iframe
-                              src={`/products?preview=${user.username}`}
-                              className="w-full h-full"
-                              title="iPhone Preview"
-                            />
-                          </div>
+                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '375px' }}>
+                        <div className="aspect-[9/16] w-full">
+                          <iframe
+                            src={user?.username ? `/products?preview=${user.username}` : '/products'}
+                            className="w-full h-full"
+                            title="iPhone Preview"
+                          />
                         </div>
-                      ) : (
-                        <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto p-8 text-center" style={{ maxWidth: '375px' }}>
-                          <p className="text-muted-foreground">Please set a username to preview your storefront</p>
-                        </div>
-                      )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-2 text-center">iPhone view (375×667)</p>
                     </TabsContent>
                   </Tabs>

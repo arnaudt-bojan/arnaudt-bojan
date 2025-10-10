@@ -25,12 +25,12 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
 
     const hostname = window.location.hostname;
     
-    // Development/Replit environment - use query parameter
+    // Development/Replit environment - use query parameter with /products path for filtering
     if (hostname.includes('replit') || hostname === 'localhost') {
-      return `${window.location.origin}?seller=${user.username}`;
+      return `${window.location.origin}/products?seller=${user.username}`;
     }
     
-    // Production - use subdomain
+    // Production - use subdomain (storefront mounts at root, not /products)
     return `${window.location.protocol}//${user.username}.upfirst.io`;
   };
 

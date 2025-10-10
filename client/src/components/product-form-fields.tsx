@@ -422,6 +422,7 @@ export function ProductFormFields({
                   maxImages={10}
                   aspectRatio="square"
                   heroSelection={true}
+                  size="compact"
                   allowUrl={true}
                   allowUpload={true}
                 />
