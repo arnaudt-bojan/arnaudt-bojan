@@ -3194,26 +3194,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (userId && plan && session.subscription) {
             const user = await storage.getUser(userId);
             if (user) {
-              // Retrieve the actual subscription to get correct status
-              const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+              // Retrieve the subscription with expanded payment method
+              const subscription = await stripe.subscriptions.retrieve(session.subscription as string, {
+                expand: ['default_payment_method', 'latest_invoice']
+              });
+              
+              // CRITICAL: Only activate subscription if payment method is actually attached
+              // Check for default_payment_method or payment_intent success
+              let hasValidPaymentMethod = false;
+              
+              if (subscription.default_payment_method) {
+                hasValidPaymentMethod = true;
+              } else if (subscription.latest_invoice && typeof subscription.latest_invoice === 'object') {
+                const invoice = subscription.latest_invoice as Stripe.Invoice;
+                if (invoice.payment_intent && typeof invoice.payment_intent === 'object') {
+                  const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+                  hasValidPaymentMethod = paymentIntent.status === 'succeeded';
+                } else if (invoice.paid === true) {
+                  hasValidPaymentMethod = true;
+                }
+              }
               
               let status: string;
-              switch (subscription.status) {
-                case 'trialing':
-                  status = 'trial';
-                  break;
-                case 'active':
-                  status = 'active';
-                  break;
-                case 'past_due':
-                  status = 'past_due';
-                  break;
-                case 'canceled':
-                case 'unpaid':
-                  status = 'canceled';
-                  break;
-                default:
-                  status = subscription.status;
+              
+              // Only activate trial or paid subscription if payment method is confirmed
+              if (subscription.status === 'trialing' && hasValidPaymentMethod) {
+                status = 'trial';
+                console.log(`[Webhook] Checkout completed - user ${userId} starting trial with confirmed payment method`);
+              } else if (subscription.status === 'active' && hasValidPaymentMethod) {
+                status = 'active';
+                console.log(`[Webhook] Checkout completed - user ${userId} subscription active (paid)`);
+              } else {
+                // No valid payment method - don't activate subscription
+                console.log(`[Webhook] Checkout completed - user ${userId} subscription status ${subscription.status} without payment method, awaiting payment`);
+                await storage.upsertUser({
+                  ...user,
+                  stripeSubscriptionId: subscription.id,
+                  subscriptionPlan: plan,
+                  // Don't set subscriptionStatus - keep it null until payment confirmed
+                });
+                break;
               }
 
               await storage.upsertUser({
@@ -3222,13 +3242,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 subscriptionStatus: status,
                 subscriptionPlan: plan,
               });
-              console.log(`[Webhook] Checkout completed - user ${userId} subscription status: ${status}`);
             }
           }
           break;
         }
 
-        case 'customer.subscription.created':
+        case 'customer.subscription.created': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const customerId = subscription.customer as string;
+          
+          // Find user by Stripe customer ID (indexed lookup)
+          const user = await storage.getUserByStripeCustomerId(customerId);
+
+          if (user) {
+            // Only update subscription ID, don't change status yet
+            // Status will be set by checkout.session.completed or invoice.payment_succeeded
+            await storage.upsertUser({
+              ...user,
+              stripeSubscriptionId: subscription.id,
+            });
+            console.log(`[Webhook] Subscription created for user ${user.id}, awaiting payment confirmation`);
+          }
+          break;
+        }
+
         case 'customer.subscription.updated': {
           const subscription = event.data.object as Stripe.Subscription;
           const customerId = subscription.customer as string;
@@ -3277,8 +3314,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...user,
               subscriptionStatus: 'canceled',
               stripeSubscriptionId: null,
+              storeActive: 0, // CRITICAL: Deactivate store when subscription is cancelled
             });
-            console.log(`[Webhook] Cancelled subscription for user ${user.id}`);
+            console.log(`[Webhook] Cancelled subscription for user ${user.id} and deactivated store`);
           }
           break;
         }
@@ -3290,11 +3328,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUserByStripeCustomerId(customerId);
 
           if (user) {
+            // Retrieve subscription to check attempt count
+            let shouldDeactivateStore = false;
+            if (user.stripeSubscriptionId && stripe) {
+              try {
+                const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+                // If subscription is unpaid or cancelled due to payment failures, deactivate store
+                if (subscription.status === 'unpaid' || subscription.status === 'canceled') {
+                  shouldDeactivateStore = true;
+                }
+              } catch (error) {
+                console.error(`[Webhook] Error retrieving subscription:`, error);
+              }
+            }
+
             await storage.upsertUser({
               ...user,
               subscriptionStatus: 'past_due',
+              storeActive: shouldDeactivateStore ? 0 : user.storeActive, // Deactivate if subscription is dead
             });
-            console.log(`[Webhook] Marked user ${user.id} subscription as past_due`);
+            console.log(`[Webhook] Marked user ${user.id} subscription as past_due${shouldDeactivateStore ? ' and deactivated store' : ''}`);
             
             // TODO: Send notification email to user about failed payment
           }
@@ -3308,8 +3361,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUserByStripeCustomerId(customerId);
 
           if (user) {
-            // Restore subscription if it was past_due
-            if (user.subscriptionStatus === 'past_due') {
+            // CRITICAL: Activate subscription on first successful payment
+            // This handles cases where trial period ends and first payment is collected
+            // Or when user subscribes without trial
+            const shouldActivate = !user.subscriptionStatus || 
+                                  user.subscriptionStatus === 'past_due' || 
+                                  user.subscriptionStatus === null;
+            
+            if (shouldActivate) {
+              await storage.upsertUser({
+                ...user,
+                subscriptionStatus: 'active',
+              });
+              console.log(`[Webhook] Activated user ${user.id} subscription (first payment succeeded)`);
+            } else if (user.subscriptionStatus === 'past_due') {
               await storage.upsertUser({
                 ...user,
                 subscriptionStatus: 'active',
