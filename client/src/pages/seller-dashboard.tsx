@@ -158,6 +158,14 @@ export default function SellerDashboard() {
             <div className="flex gap-2">
               <Button
                 onClick={() => {
+                  if (!user?.username) {
+                    toast({
+                      title: "Username Required",
+                      description: "Please set your store username in Settings > Store URL before previewing your store.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
                   // Open actual storefront URL - same as share link
                   // When owner visits, edit buttons will show. When buyers visit, they won't.
                   const storeUrl = getStoreUrl(user?.username);
@@ -165,6 +173,7 @@ export default function SellerDashboard() {
                 }}
                 data-testid="button-preview-store"
                 className="flex-1 md:flex-none"
+                disabled={!user?.username}
               >
                 <Store className="h-4 w-4 mr-2" />
                 Preview Store

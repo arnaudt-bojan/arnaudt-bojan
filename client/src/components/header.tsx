@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
   const domainInfo = detectDomain();
   const isSellerDomain = domainInfo.isSellerDomain;
 
@@ -121,14 +123,27 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                       >
                         Dashboard
                       </Link>
-                      <Link
-                        href="/products"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                      <button
+                        onClick={() => {
+                          if (!user?.username) {
+                            toast({
+                              title: "Username Required",
+                              description: "Please set your store username in Settings > Store URL first.",
+                              variant: "destructive",
+                            });
+                            setMobileMenuOpen(false);
+                            return;
+                          }
+                          const storeUrl = `/s/${user.username}`;
+                          window.location.href = storeUrl;
+                          setMobileMenuOpen(false);
+                        }}
+                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="mobile-link-preview-store"
+                        disabled={!user?.username}
                       >
                         Preview Store
-                      </Link>
+                      </button>
                       <Link
                         href="/seller/products"
                         onClick={() => setMobileMenuOpen(false)}
