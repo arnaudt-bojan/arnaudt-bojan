@@ -217,20 +217,9 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
 
                   {/* Notifications */}
                   {isAuthenticated && (
-                    <Link
-                      href="/notifications"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 hover-elevate rounded-lg text-sm"
-                      data-testid="mobile-link-notifications"
-                    >
-                      <Bell className="h-4 w-4 text-muted-foreground" />
-                      <span>Notifications</span>
-                      {unreadCount > 0 && (
-                        <Badge variant="destructive" className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs">
-                          {unreadCount}
-                        </Badge>
-                      )}
-                    </Link>
+                    <div className="px-3 py-2">
+                      <NotificationBell />
+                    </div>
                   )}
 
                   {/* Theme Toggle */}
