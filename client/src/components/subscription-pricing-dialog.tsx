@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Zap } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Check, Sparkles, Zap, ExternalLink, Loader2, CheckCircle } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -25,6 +26,72 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("monthly");
+  const [checkoutWindow, setCheckoutWindow] = useState<Window | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+
+  // Poll for subscription status while checkout window is open
+  const { data: userData, refetch: refetchUser } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+    enabled: isPolling,
+    refetchInterval: isPolling ? 2000 : false, // Poll every 2 seconds
+  });
+
+  // Check if subscription became active
+  useEffect(() => {
+    if (isPolling && userData?.subscriptionStatus === 'active') {
+      setIsPolling(false);
+      if (checkoutWindow && !checkoutWindow.closed) {
+        checkoutWindow.close();
+      }
+      setCheckoutWindow(null);
+      
+      toast({
+        title: "Subscription Active!",
+        description: "Your store has been successfully activated.",
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      onOpenChange(false);
+      
+      // Refresh page if store should be activated
+      if (activateStoreAfter) {
+        window.location.reload();
+      }
+    }
+  }, [isPolling, userData, checkoutWindow, activateStoreAfter, toast, onOpenChange]);
+
+  // Cleanup when dialog closes
+  useEffect(() => {
+    if (!open) {
+      // Stop polling when dialog closes
+      setIsPolling(false);
+      // Close checkout window if still open
+      if (checkoutWindow && !checkoutWindow.closed) {
+        checkoutWindow.close();
+      }
+      setCheckoutWindow(null);
+    }
+  }, [open, checkoutWindow]);
+
+  // Check if checkout window was closed
+  useEffect(() => {
+    if (!checkoutWindow || !isPolling) return;
+
+    const checkWindowClosed = setInterval(() => {
+      if (checkoutWindow.closed) {
+        setIsPolling(false);
+        setCheckoutWindow(null);
+        clearInterval(checkWindowClosed);
+        
+        // Give it a moment then check final status
+        setTimeout(() => {
+          refetchUser();
+        }, 1000);
+      }
+    }, 500);
+
+    return () => clearInterval(checkWindowClosed);
+  }, [checkoutWindow, isPolling, refetchUser]);
 
   const createSubscriptionMutation = useMutation({
     mutationFn: async (plan: "monthly" | "annual") => {
@@ -40,8 +107,18 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
     },
     onSuccess: (data) => {
       if (data.checkoutUrl) {
-        // Redirect to Stripe Checkout
-        window.location.href = data.checkoutUrl;
+        // Open Stripe Checkout in a new tab
+        const newWindow = window.open(data.checkoutUrl, '_blank', 'width=800,height=800');
+        if (newWindow) {
+          setCheckoutWindow(newWindow);
+          setIsPolling(true);
+        } else {
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups for this site and try again.",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Error",
@@ -78,7 +155,7 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-subscription-pricing">
+      <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-subscription-pricing">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
@@ -90,6 +167,21 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Checkout Status Alert */}
+          {isPolling && (
+            <Alert className="border-primary/50 bg-primary/5">
+              <div className="flex items-start gap-3">
+                <Loader2 className="h-5 w-5 text-primary animate-spin mt-0.5" />
+                <div className="flex-1">
+                  <AlertDescription className="text-sm">
+                    <span className="font-semibold block mb-1">Complete checkout in the new tab</span>
+                    We're monitoring your subscription status. Once payment is complete, we'll automatically activate your store.
+                  </AlertDescription>
+                </div>
+              </div>
+            </Alert>
+          )}
+
           {/* Plan Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card 
@@ -198,25 +290,37 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
           </Card>
         </div>
 
-        <div className="flex gap-3 pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             className="flex-1"
+            disabled={isPolling}
             data-testid="button-cancel"
           >
-            Cancel
+            {isPolling ? "Waiting..." : "Cancel"}
           </Button>
           <Button
             onClick={handleSubscribe}
-            disabled={createSubscriptionMutation.isPending}
+            disabled={createSubscriptionMutation.isPending || isPolling}
             className="flex-1"
             data-testid="button-start-subscription"
           >
             {createSubscriptionMutation.isPending ? (
-              "Processing..."
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : isPolling ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Checkout Open...
+              </>
             ) : (
-              `Subscribe - ${selectedPlan === "monthly" ? "$9.99/mo" : "$99/year"}`
+              <>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Subscribe - ${selectedPlan === "monthly" ? "9.99/mo" : "99/year"}
+              </>
             )}
           </Button>
         </div>
