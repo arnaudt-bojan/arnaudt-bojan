@@ -301,8 +301,8 @@ function SubscriptionTab({ user }: { user: any }) {
           </CardContent>
         </Card>
 
-        {/* Billing Details */}
-        {subscriptionStatus?.status && subscriptionStatus.status !== "canceled" && (
+        {/* Billing Details - Only show for active paid subscriptions */}
+        {subscriptionStatus?.status === "active" && (
           <Card>
             <CardHeader>
               <CardTitle>Billing Details</CardTitle>
@@ -374,8 +374,8 @@ function SubscriptionTab({ user }: { user: any }) {
           </Card>
         )}
 
-        {/* Billing History */}
-        {subscriptionStatus?.billingHistory && subscriptionStatus.billingHistory.length > 0 && (
+        {/* Billing History - Only show for active subscriptions with history */}
+        {subscriptionStatus?.status === "active" && subscriptionStatus.billingHistory && subscriptionStatus.billingHistory.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Billing History</CardTitle>
