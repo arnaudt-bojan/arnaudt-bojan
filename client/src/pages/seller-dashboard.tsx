@@ -23,6 +23,7 @@ import { OnboardingModal } from "@/components/onboarding-modal";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getStoreUrl } from "@/lib/store-url";
 
 export default function SellerDashboard() {
   const [, setLocation] = useLocation();
@@ -157,9 +158,10 @@ export default function SellerDashboard() {
             <div className="flex gap-2">
               <Button
                 onClick={() => {
-                  // Open storefront in new tab - sellers can see their products as customers see them
-                  const baseUrl = window.location.origin;
-                  window.open(`${baseUrl}/products`, '_blank');
+                  // Open actual storefront URL - same as share link
+                  // When owner visits, edit buttons will show. When buyers visit, they won't.
+                  const storeUrl = getStoreUrl(user?.username);
+                  window.open(storeUrl, '_blank');
                 }}
                 data-testid="button-preview-store"
                 className="flex-1 md:flex-none"
