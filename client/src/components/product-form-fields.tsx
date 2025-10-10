@@ -21,8 +21,9 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical } from "lucide-react";
+import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 export type ProductVariant = {
   size: string;
@@ -123,6 +124,10 @@ export function ProductFormFields({
   level2Categories = [],
   level3Categories = [],
 }: ProductFormFieldsProps) {
+  // Fetch shipping matrices for dropdown
+  const { data: shippingMatrices = [] } = useQuery<any[]>({
+    queryKey: ["/api/shipping-matrices"],
+  });
   const selectedType = form.watch("productType");
   const [images, setImages] = useState<string[]>([]);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
@@ -637,6 +642,252 @@ export function ProductFormFields({
               />
               <p className="text-sm text-muted-foreground">
                 How many days after purchase will this item be ready?
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Shipping Configuration */}
+      <Card className="p-6 space-y-6">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold flex items-center gap-2">
+            <div className="bg-primary/10 rounded-lg p-2">
+              <Truck className="h-5 w-5 text-primary" />
+            </div>
+            Shipping Configuration
+          </h3>
+          <p className="text-sm text-muted-foreground">Configure how this product will be shipped</p>
+        </div>
+
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="shippingType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Shipping Method</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || "flat"}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-shipping-type">
+                      <SelectValue placeholder="Choose shipping method" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="flat">Flat Rate</SelectItem>
+                    <SelectItem value="matrix">Shipping Matrix</SelectItem>
+                    <SelectItem value="shippo">Shippo (Real-time Rates)</SelectItem>
+                    <SelectItem value="free">Free Shipping</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Select how shipping costs will be calculated
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {form.watch("shippingType") === "flat" && (
+            <FormField
+              control={form.control}
+              name="flatShippingRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Flat Shipping Rate</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        value={field.value || ""}
+                        data-testid="input-flat-shipping-rate"
+                        className="pl-8 text-base"
+                      />
+                    </div>
+                  </FormControl>
+                  <FormDescription>
+                    Fixed shipping cost for this product
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {form.watch("shippingType") === "matrix" && (
+            <FormField
+              control={form.control}
+              name="shippingMatrixId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select Shipping Matrix</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-shipping-matrix">
+                        <SelectValue placeholder="Choose a shipping matrix" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {shippingMatrices.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          No shipping matrices available. Create one in Settings.
+                        </div>
+                      ) : (
+                        shippingMatrices.map((matrix) => (
+                          <SelectItem key={matrix.id} value={matrix.id}>
+                            {matrix.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Use a saved shipping matrix with zone-based rates
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {form.watch("shippingType") === "shippo" && (
+            <>
+              <div className="space-y-4">
+                <p className="text-sm font-medium">Package Dimensions</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="shippoWeight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Weight (lbs)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.0"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-shippo-weight"
+                            className="text-base"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="shippoLength"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Length (in)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.0"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-shippo-length"
+                            className="text-base"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="shippoWidth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Width (in)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.0"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-shippo-width"
+                            className="text-base"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="shippoHeight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Height (in)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.0"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-shippo-height"
+                            className="text-base"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Or use a carrier template:</p>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="shippoTemplate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Carrier Template (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "none"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-shippo-template">
+                          <SelectValue placeholder="Choose a carrier template" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None (use dimensions)</SelectItem>
+                        <SelectItem value="USPS_FlatRateEnvelope">USPS Flat Rate Envelope</SelectItem>
+                        <SelectItem value="USPS_FlatRateCardboardEnvelope">USPS Flat Rate Cardboard Envelope</SelectItem>
+                        <SelectItem value="USPS_SmallFlatRateBox">USPS Small Flat Rate Box</SelectItem>
+                        <SelectItem value="USPS_MediumFlatRateBox">USPS Medium Flat Rate Box</SelectItem>
+                        <SelectItem value="USPS_LargeFlatRateBox">USPS Large Flat Rate Box</SelectItem>
+                        <SelectItem value="FedEx_SmallBox">FedEx Small Box</SelectItem>
+                        <SelectItem value="FedEx_MediumBox">FedEx Medium Box</SelectItem>
+                        <SelectItem value="FedEx_LargeBox">FedEx Large Box</SelectItem>
+                        <SelectItem value="UPS_SmallExpressBox">UPS Small Express Box</SelectItem>
+                        <SelectItem value="UPS_MediumExpressBox">UPS Medium Express Box</SelectItem>
+                        <SelectItem value="UPS_LargeExpressBox">UPS Large Express Box</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Use a standard carrier box size or custom dimensions
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+
+          {form.watch("shippingType") === "free" && (
+            <div className="p-4 bg-muted/50 rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground">
+                This product will ship for free. No additional shipping charges will be applied at checkout.
               </p>
             </div>
           )}
