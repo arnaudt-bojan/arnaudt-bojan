@@ -61,7 +61,7 @@ function PaymentForm({
   orderData,
   paymentType
 }: { 
-  onSuccess: () => void; 
+  onSuccess: (orderId: string) => void; 
   amount: number; 
   orderData: InsertOrder;
   paymentType: 'deposit' | 'full';
@@ -108,14 +108,15 @@ function PaymentForm({
           stripePaymentIntentId: paymentIntent.id,
         };
 
-        await apiRequest("POST", "/api/orders", updatedOrderData);
+        const response = await apiRequest("POST", "/api/orders", updatedOrderData);
+        const createdOrder = await response.json();
         queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
         
         toast({
           title: "Payment Successful",
           description: "Your order has been confirmed",
         });
-        onSuccess();
+        onSuccess(createdOrder.id);
       }
     } catch (error: any) {
       toast({
@@ -352,9 +353,9 @@ export default function Checkout() {
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (orderId: string) => {
     clearCart();
-    setOrderComplete(true);
+    setLocation(`/order-success/${orderId}`);
   };
 
   if (items.length === 0 && !orderComplete) {

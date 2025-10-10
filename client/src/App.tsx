@@ -40,6 +40,7 @@ import BuyerWholesaleCatalog from "@/pages/buyer-wholesale-catalog";
 import WholesaleProductDetail from "@/pages/wholesale-product-detail";
 import WholesaleAcceptInvitation from "@/pages/wholesale-accept-invitation";
 import BulkProductUpload from "@/pages/bulk-product-upload";
+import OrderSuccess from "@/pages/order-success";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -61,6 +62,7 @@ function AppContent() {
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/checkout" component={Checkout} />
+          <Route path="/order-success/:orderId" component={OrderSuccess} />
           <Route path="/buyer-dashboard" component={BuyerDashboard} />
           <Route path="/seller-dashboard" component={SellerDashboard} />
           <Route path="/seller/dashboard" component={SellerDashboard} />
