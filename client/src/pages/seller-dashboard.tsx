@@ -202,6 +202,7 @@ export default function SellerDashboard() {
                 disabled={toggleStoreMutation.isPending || !user}
                 data-testid="switch-dashboard-store-active"
               />
+            </div>
           </Card>
 
           {user?.subscriptionStatus === 'trial' && user.trialEndsAt && (
