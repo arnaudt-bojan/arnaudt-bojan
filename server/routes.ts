@@ -1685,6 +1685,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // CRITICAL: Validate subscription status before allowing activation
+      if (storeActive === 1) {
+        const hasActiveSubscription = user.subscriptionStatus === 'active' || user.subscriptionStatus === 'trial';
+        
+        if (!hasActiveSubscription) {
+          return res.status(403).json({ 
+            error: "Active subscription required", 
+            message: "You need an active subscription to activate your store. Please subscribe to continue.",
+            requiresSubscription: true
+          });
+        }
+      }
+
       const updatedUser = await storage.upsertUser({
         ...user,
         storeActive,
@@ -2626,12 +2639,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const user = await storage.getUserByStripeCustomerId(customerId);
 
-          if (user && user.subscriptionStatus === 'past_due') {
-            await storage.upsertUser({
-              ...user,
-              subscriptionStatus: 'active',
-            });
-            console.log(`[Webhook] Restored user ${user.id} subscription to active`);
+          if (user) {
+            // Restore subscription if it was past_due
+            if (user.subscriptionStatus === 'past_due') {
+              await storage.upsertUser({
+                ...user,
+                subscriptionStatus: 'active',
+              });
+              console.log(`[Webhook] Restored user ${user.id} subscription to active`);
+            }
+
+            // Send invoice email for all successful subscription payments
+            try {
+              const periodStart = new Date(invoice.period_start * 1000).toLocaleDateString();
+              const periodEnd = new Date(invoice.period_end * 1000).toLocaleDateString();
+
+              await notificationService.sendSubscriptionInvoice(user, {
+                amount: invoice.amount_paid,
+                currency: invoice.currency,
+                invoiceNumber: invoice.number || invoice.id,
+                invoiceUrl: invoice.hosted_invoice_url || undefined,
+                periodStart,
+                periodEnd,
+                plan: user.subscriptionPlan || 'monthly',
+              });
+              
+              console.log(`[Webhook] Subscription invoice email sent to ${user.email}`);
+            } catch (emailError) {
+              console.error(`[Webhook] Failed to send invoice email:`, emailError);
+              // Continue processing - don't fail webhook if email fails
+            }
           }
           break;
         }

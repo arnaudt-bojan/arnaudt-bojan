@@ -29,6 +29,17 @@ export interface NotificationService {
   // Balance Payment Request
   sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void>;
   
+  // Subscription Invoice Email
+  sendSubscriptionInvoice(user: User, invoiceData: {
+    amount: number;
+    currency: string;
+    invoiceNumber: string;
+    invoiceUrl?: string;
+    periodStart: string;
+    periodEnd: string;
+    plan: string;
+  }): Promise<void>;
+  
   // Newsletter Functions
   sendNewsletter(params: SendNewsletterParams): Promise<{ success: boolean; batchId?: string; error?: string }>;
   trackNewsletterEvent(
@@ -1061,6 +1072,42 @@ class NotificationServiceImpl implements NotificationService {
     console.log(`[Notifications] Balance payment request sent to ${order.customerEmail}:`, result.success);
   }
 
+  async sendSubscriptionInvoice(user: User, invoiceData: {
+    amount: number;
+    currency: string;
+    invoiceNumber: string;
+    invoiceUrl?: string;
+    periodStart: string;
+    periodEnd: string;
+    plan: string;
+  }): Promise<void> {
+    if (!user.email) {
+      console.error('[Notifications] Cannot send subscription invoice - no email');
+      return;
+    }
+
+    const emailHtml = this.generateSubscriptionInvoiceEmail(user, invoiceData);
+
+    const result = await this.sendEmail({
+      to: user.email,
+      subject: `Upfirst Subscription Invoice - ${invoiceData.invoiceNumber}`,
+      html: emailHtml,
+    });
+
+    // Create in-app notification
+    await this.createNotification({
+      userId: user.id,
+      type: 'subscription_charged',
+      title: 'Subscription Payment Processed',
+      message: `Your Upfirst ${invoiceData.plan} subscription has been charged $${(invoiceData.amount / 100).toFixed(2)}`,
+      emailSent: result.success ? 1 : 0,
+      emailId: result.emailId,
+      metadata: invoiceData,
+    });
+
+    console.log(`[Notifications] Subscription invoice sent to ${user.email}:`, result.success);
+  }
+
   /**
    * ============================================
    * EMAIL TEMPLATE GENERATORS - PHASE 1
@@ -1678,6 +1725,110 @@ class NotificationServiceImpl implements NotificationService {
             <div class="footer">
               <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
               <p>${seller.username ? `${seller.username}.upfirst.io` : 'upfirst.io'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generateSubscriptionInvoiceEmail(user: User, invoiceData: {
+    amount: number;
+    currency: string;
+    invoiceNumber: string;
+    invoiceUrl?: string;
+    periodStart: string;
+    periodEnd: string;
+    plan: string;
+  }): string {
+    const formattedAmount = (invoiceData.amount / 100).toFixed(2);
+    const planName = invoiceData.plan === 'annual' ? 'Annual' : 'Monthly';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
+            .header { text-align: center; padding-bottom: 30px; border-bottom: 2px solid #f0f0f0; }
+            .logo { font-size: 28px; font-weight: bold; color: #000; margin-bottom: 10px; }
+            .content { padding: 30px 0; }
+            .invoice-box { background: #f9f9f9; padding: 25px; border-radius: 8px; margin: 25px 0; }
+            .invoice-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e5e5e5; }
+            .invoice-row:last-child { border-bottom: none; font-weight: bold; font-size: 18px; }
+            .total-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 25px 0; }
+            .total-amount { font-size: 36px; font-weight: bold; margin: 10px 0; }
+            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5; color: #666; font-size: 14px; text-align: center; }
+            .success-badge { background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; display: inline-block; margin: 20px 0; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">Upfirst</div>
+              <p style="color: #666; margin: 0;">Subscription Invoice</p>
+            </div>
+
+            <div class="content">
+              <div class="success-badge">✓ Payment Successful</div>
+              
+              <p>Hi ${user.firstName || 'there'},</p>
+              
+              <p>Thank you for your continued subscription to Upfirst Pro! Your payment has been processed successfully.</p>
+
+              <div class="invoice-box">
+                <h3 style="margin-top: 0;">Invoice Details</h3>
+                <div class="invoice-row">
+                  <span>Invoice Number</span>
+                  <span>${invoiceData.invoiceNumber}</span>
+                </div>
+                <div class="invoice-row">
+                  <span>Plan</span>
+                  <span>Upfirst Pro - ${planName}</span>
+                </div>
+                <div class="invoice-row">
+                  <span>Billing Period</span>
+                  <span>${invoiceData.periodStart} - ${invoiceData.periodEnd}</span>
+                </div>
+                <div class="invoice-row">
+                  <span>Amount</span>
+                  <span>$${formattedAmount} ${invoiceData.currency.toUpperCase()}</span>
+                </div>
+              </div>
+
+              <div class="total-box">
+                <p style="margin: 0 0 10px; opacity: 0.9;">Total Charged</p>
+                <div class="total-amount">$${formattedAmount}</div>
+              </div>
+
+              ${invoiceData.invoiceUrl ? `
+                <div style="text-align: center;">
+                  <a href="${invoiceData.invoiceUrl}" class="button">View Full Invoice</a>
+                </div>
+              ` : ''}
+
+              <p><strong>What's Included:</strong></p>
+              <ul>
+                <li>Unlimited product listings</li>
+                <li>Multi-currency support</li>
+                <li>Stripe Connect payments</li>
+                <li>Advanced social media advertising</li>
+                <li>Email notifications</li>
+                <li>Custom domain support</li>
+                <li>Analytics dashboard</li>
+              </ul>
+
+              <p style="margin-top: 30px; color: #666;">
+                Questions about your subscription or billing? Contact us at support@upfirst.io
+              </p>
+            </div>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
+              <p>This is an automated receipt for your Upfirst Pro subscription.</p>
             </div>
           </div>
         </body>

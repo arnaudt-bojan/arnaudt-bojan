@@ -86,7 +86,12 @@ export default function SellerDashboard() {
 
   const toggleStoreMutation = useMutation({
     mutationFn: async (storeActive: number) => {
-      return await apiRequest("PATCH", "/api/user/store-status", { storeActive });
+      const response = await apiRequest("PATCH", "/api/user/store-status", { storeActive });
+      if (!response.ok) {
+        const error = await response.json();
+        throw error;
+      }
+      return response.json();
     },
     onMutate: async (newStatus) => {
       await queryClient.cancelQueries({ queryKey: ["/api/auth/user"] });
@@ -106,15 +111,26 @@ export default function SellerDashboard() {
           : "Your store is now hidden from customers",
       });
     },
-    onError: (error, variables, context) => {
+    onError: (error: any, variables, context) => {
       if (context?.previousUser) {
         queryClient.setQueryData(["/api/auth/user"], context.previousUser);
       }
-      toast({
-        title: "Error",
-        description: "Failed to update store status",
-        variant: "destructive",
-      });
+      
+      // If backend says subscription required, show the pricing dialog
+      if (error.requiresSubscription) {
+        toast({
+          title: "Subscription Required",
+          description: error.message || "You need an active subscription to activate your store",
+          variant: "destructive",
+        });
+        setShowSubscriptionDialog(true);
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update store status",
+          variant: "destructive",
+        });
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
