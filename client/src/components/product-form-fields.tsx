@@ -631,7 +631,9 @@ export function ProductFormFields({
               name="stock"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Stock Quantity</FormLabel>
+                  <FormLabel>
+                    Stock Quantity <span className="text-muted-foreground font-normal">(optional)</span>
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -658,7 +660,9 @@ export function ProductFormFields({
           {selectedType === "pre-order" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <FormLabel>Expected Delivery Date</FormLabel>
+                <FormLabel>
+                  Expected Delivery Date <span className="text-muted-foreground font-normal">(optional)</span>
+                </FormLabel>
                 <Input
                   type="date"
                   value={preOrderDate}
@@ -681,7 +685,9 @@ export function ProductFormFields({
                   
                   return (
                     <FormItem>
-                      <FormLabel>Deposit Amount (Optional)</FormLabel>
+                      <FormLabel>
+                        Deposit Amount <span className="text-muted-foreground font-normal">(optional)</span>
+                      </FormLabel>
                       <FormControl>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -709,7 +715,9 @@ export function ProductFormFields({
 
           {selectedType === "made-to-order" && (
             <div className="space-y-2">
-              <FormLabel>Production Time (Days)</FormLabel>
+              <FormLabel>
+                Production Time (Days) <span className="text-muted-foreground font-normal">(optional)</span>
+              </FormLabel>
               <Input
                 type="number"
                 value={madeToOrderDays}
@@ -1017,7 +1025,9 @@ export function ProductFormFields({
           <div className="border-t pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <FormLabel>Discount % (Optional)</FormLabel>
+                <FormLabel>
+                  Discount % <span className="text-muted-foreground font-normal">(optional)</span>
+                </FormLabel>
                 <div className="relative">
                   <Input
                     type="number"
@@ -1038,7 +1048,9 @@ export function ProductFormFields({
               </div>
 
               <div className="space-y-2">
-                <FormLabel>Promotion End Date (Optional)</FormLabel>
+                <FormLabel>
+                  Promotion End Date <span className="text-muted-foreground font-normal">(optional)</span>
+                </FormLabel>
                 <Input
                   type="date"
                   value={promotionEndDate}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -108,6 +108,29 @@ export default function CreateProduct() {
   });
 
   const selectedType = form.watch("productType");
+
+  // Update form category field when category selections change
+  useEffect(() => {
+    if (selectedLevel1 || selectedLevel2 || selectedLevel3) {
+      const categoryNames = [];
+      if (selectedLevel1) {
+        const level1 = categories.find(c => c.id === selectedLevel1);
+        if (level1) categoryNames.push(level1.name);
+      }
+      if (selectedLevel2) {
+        const level2 = categories.find(c => c.id === selectedLevel2);
+        if (level2) categoryNames.push(level2.name);
+      }
+      if (selectedLevel3) {
+        const level3 = categories.find(c => c.id === selectedLevel3);
+        if (level3) categoryNames.push(level3.name);
+      }
+      const categoryValue = categoryNames.join(" > ") || "General";
+      form.setValue("category", categoryValue, { shouldValidate: true });
+    }
+    // Note: We don't set to empty when all levels are cleared to avoid premature validation errors
+    // The form schema will catch empty category on submit
+  }, [selectedLevel1, selectedLevel2, selectedLevel3, categories, form]);
 
   const addVariant = () => {
     setVariants([...variants, { size: "", color: "", stock: 0, image: "" }]);
