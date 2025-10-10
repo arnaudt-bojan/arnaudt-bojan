@@ -56,7 +56,6 @@ export function ProductVariantManager({
 
   const saveColorVariant = () => {
     if (!newColorName.trim()) return;
-    if (newColorImages.length === 0) return;
 
     const colorVariant: ColorVariant = {
       colorName: newColorName.trim(),
@@ -112,7 +111,7 @@ export function ProductVariantManager({
             <Palette className="h-8 w-8 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-            No color variants added yet. Add colors with their own images, then specify sizes for each color.
+            No color variants added yet. Add colors with optional images, then specify sizes for each color.
           </p>
           <Button type="button" variant="outline" onClick={openAddColorDialog} data-testid="button-add-color-variant">
             <Plus className="h-4 w-4 mr-2" />
@@ -254,14 +253,14 @@ export function ProductVariantManager({
               {editingColorIndex !== null ? "Edit Color Variant" : "Add Color Variant"}
             </DialogTitle>
             <DialogDescription>
-              Add images for this color and give it a name. You'll be able to add sizes for this color afterwards.
+              Add a color name and optional images. If no images are added, the product's main images will be used. You can add sizes afterwards.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             {/* Images first - most important */}
             <div className="space-y-2">
-              <Label className="text-base">Color Images *</Label>
+              <Label className="text-base">Color Images (Optional)</Label>
               <UniversalImageUpload
                 value={newColorImages}
                 onChange={(value) => setNewColorImages(Array.isArray(value) ? value : [value])}
@@ -274,7 +273,7 @@ export function ProductVariantManager({
                 allowUpload={true}
               />
               <p className="text-sm text-muted-foreground">
-                Upload images showing this color. First image will be the hero image.
+                Upload images showing this color (optional). If not added, main product images will be shown on PDP when this color is selected.
               </p>
             </div>
 
