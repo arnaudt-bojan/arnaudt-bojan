@@ -257,11 +257,11 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             </Sheet>
           )}
           {sellerInfo?.instagramUsername ? (
-            <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
             </Link>
           ) : sellerInfo?.storeLogo ? (
-            <Link href={isSeller ? "/seller-dashboard" : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-8 max-w-[200px] object-contain" />
             </Link>
           ) : isSeller ? (
@@ -271,7 +271,7 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </Button>
             </Link>
           ) : (
-            <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <img src={logoImage} alt="Upfirst" className="h-8" />
             </Link>
           )}
