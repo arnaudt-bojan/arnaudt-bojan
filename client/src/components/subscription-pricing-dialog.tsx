@@ -83,9 +83,18 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
         setCheckoutWindow(null);
         clearInterval(checkWindowClosed);
         
-        // Give it a moment then check final status
-        setTimeout(() => {
-          refetchUser();
+        // Sync subscription status from Stripe, then check if activated
+        setTimeout(async () => {
+          try {
+            // Call sync endpoint to fetch latest status from Stripe
+            await apiRequest("POST", "/api/subscription/sync", {});
+            // Then refetch user to get updated status
+            await refetchUser();
+          } catch (error) {
+            console.error("Failed to sync subscription:", error);
+            // Still try to refetch user even if sync fails
+            refetchUser();
+          }
         }, 1000);
       }
     }, 500);

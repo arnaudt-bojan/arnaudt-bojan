@@ -3240,6 +3240,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync subscription status from Stripe (fallback when webhook not configured)
+  app.post("/api/subscription/sync", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(404).json({ error: "No Stripe customer found" });
+      }
+
+      // Fetch all subscriptions for this customer from Stripe
+      const subscriptions = await stripe.subscriptions.list({
+        customer: user.stripeCustomerId,
+        limit: 1,
+        status: 'all',
+      });
+
+      if (subscriptions.data.length > 0) {
+        const subscription = subscriptions.data[0];
+        
+        // Map Stripe status to our app status
+        let status = null;
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          status = 'active';
+        } else if (subscription.status === 'past_due') {
+          status = 'past_due';
+        } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+          status = 'canceled';
+        }
+
+        // Update user with subscription info
+        await storage.upsertUser({
+          ...user,
+          stripeSubscriptionId: subscription.id,
+          subscriptionStatus: status,
+          subscriptionPlan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
+        });
+
+        console.log(`[Subscription Sync] Updated user ${userId} with status: ${status}`);
+
+        res.json({
+          status,
+          plan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
+          subscriptionId: subscription.id,
+        });
+      } else {
+        // No subscription found
+        res.json({
+          status: null,
+          plan: null,
+        });
+      }
+    } catch (error: any) {
+      console.error("Sync subscription error:", error);
+      res.status(500).json({ error: "Failed to sync subscription status" });
+    }
+  });
+
   // Get subscription status
   app.get("/api/subscription/status", isAuthenticated, async (req: any, res) => {
     try {
