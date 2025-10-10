@@ -768,32 +768,45 @@ export default function NewsletterPage() {
                 <CardDescription>Load a previously saved template</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2 overflow-x-auto pb-2">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {templates.map((template) => (
-                    <div key={template.id} className="flex items-center gap-2 border rounded-lg p-3 min-w-[200px]">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{template.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{template.subject}</p>
-                      </div>
-                      <div className="flex gap-1">
+                    <Card key={template.id} className="hover-elevate">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm truncate">{template.name}</h4>
+                            <p className="text-xs text-muted-foreground truncate mt-1">{template.subject}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(template.createdAt).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteTemplateMutation.mutate(template.id)}
+                            data-testid={`button-delete-template-${template.id}`}
+                            className="h-8 w-8 shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardFooter className="pt-0">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => loadTemplate(template)}
                           data-testid={`button-load-template-${template.id}`}
+                          className="w-full"
                         >
-                          Load
+                          Load Template
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteTemplateMutation.mutate(template.id)}
-                          data-testid={`button-delete-template-${template.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                      </CardFooter>
+                    </Card>
                   ))}
                 </div>
               </CardContent>

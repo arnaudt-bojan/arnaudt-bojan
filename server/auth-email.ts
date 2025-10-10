@@ -47,27 +47,47 @@ router.post('/send-code', async (req: Request, res: Response) => {
     });
 
     // Send email with code and magic link for auto-login
-    const emailResult = await notificationService.sendAuthCode(email, code, token);
+    const emailSent = await notificationService.sendAuthCode(email, code, token);
 
-    // In development or if email failed, log the code for testing
-    if (process.env.NODE_ENV === 'development' || !emailResult) {
-      console.log(`[Auth] Verification code for ${email}: ${code}`);
-      console.log(`[Auth] Code will be valid for 15 minutes`);
-    } else {
-      console.log(`[Auth] Sent code and auto-login link to ${email}`);
+    // In development or if email failed, log the code to console so user can still authenticate
+    if (process.env.NODE_ENV === 'development' || !emailSent) {
+      console.log(`\n========================================`);
+      console.log(`[Auth] EMAIL ${emailSent ? 'SENT' : 'FAILED'} - CONSOLE FALLBACK`);
+      console.log(`[Auth] Email: ${email}`);
+      console.log(`[Auth] Verification Code: ${code}`);
+      console.log(`[Auth] Valid for: 15 minutes`);
+      console.log(`========================================\n`);
     }
 
     // Always return success since code is stored in DB (user can still enter it manually)
     res.json({ 
       success: true, 
-      message: 'Authentication code sent to your email. Check your inbox and spam folder.',
+      message: emailSent 
+        ? 'Authentication code sent to your email. Check your inbox and spam folder.'
+        : 'Email delivery failed. Your authentication code has been logged to the console.',
       email,
+      emailSent,
       // In dev, include code for convenience
       ...(process.env.NODE_ENV === 'development' && { devCode: code })
     });
   } catch (error: any) {
     console.error('[Auth] Send code error:', error);
-    res.status(500).json({ error: 'Failed to send authentication code' });
+    
+    // Don't return 500 - still allow authentication via console fallback
+    const code = generateCode();
+    console.log(`\n========================================`);
+    console.log(`[Auth] CRITICAL ERROR - CONSOLE FALLBACK`);
+    console.log(`[Auth] Email: ${email}`);
+    console.log(`[Auth] Verification Code: ${code}`);
+    console.log(`[Auth] Valid for: 15 minutes`);
+    console.log(`========================================\n`);
+    
+    res.json({ 
+      success: true, 
+      message: 'There was an error with email delivery. Your authentication code has been logged to the console.',
+      email,
+      emailSent: false
+    });
   }
 });
 

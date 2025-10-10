@@ -188,13 +188,13 @@ function SubscriptionTab({ user }: { user: any }) {
             {!subscriptionStatus?.status && (
               <div className="bg-muted border rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-4">
-                  Subscribe to activate your store and start selling. Get 30 days free trial when you sign up.
+                  Subscribe to activate your store and start selling.
                 </p>
                 <Button 
                   onClick={() => setShowSubscriptionDialog(true)}
                   data-testid="button-subscribe"
                 >
-                  Subscribe Now - 30 Days Free
+                  Subscribe Now
                 </Button>
               </div>
             )}

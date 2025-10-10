@@ -4591,11 +4591,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     
     try {
-      // Extract just the object path (remove /objects/ prefix)
-      const objectPath = req.params.objectPath || req.params[0];
-      const objectFile = await objectStorageService.getObjectEntityFile(
-        objectPath,
-      );
+      // Extract the object path from URL params (everything after /objects/)
+      const pathSegment = req.params.objectPath || req.params[0];
+      // Add /objects/ prefix back for getObjectEntityFile (it expects full path)
+      const fullPath = `/objects/${pathSegment}`;
+      const objectFile = await objectStorageService.getObjectEntityFile(fullPath);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       console.error("Error accessing object:", error);

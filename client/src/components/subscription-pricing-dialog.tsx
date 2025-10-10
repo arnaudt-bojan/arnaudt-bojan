@@ -153,7 +153,7 @@ export function SubscriptionPricingDialog({ open, onOpenChange }: SubscriptionPr
             </Card>
           </div>
 
-          {/* Trial Information */}
+          {/* Billing Information */}
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
@@ -161,9 +161,9 @@ export function SubscriptionPricingDialog({ open, onOpenChange }: SubscriptionPr
                   <Sparkles className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h4 className="font-semibold mb-1">30-Day Free Trial</h4>
+                  <h4 className="font-semibold mb-1">Flexible Billing</h4>
                   <p className="text-sm text-muted-foreground">
-                    Start your free trial today. Your card won't be charged until the trial period ends. Cancel anytime during the trial with no charges.
+                    Start your subscription today. Cancel anytime with no long-term commitments or cancellation fees.
                   </p>
                 </div>
               </div>
@@ -207,12 +207,12 @@ export function SubscriptionPricingDialog({ open, onOpenChange }: SubscriptionPr
             onClick={handleSubscribe}
             disabled={createSubscriptionMutation.isPending}
             className="flex-1"
-            data-testid="button-start-trial"
+            data-testid="button-start-subscription"
           >
             {createSubscriptionMutation.isPending ? (
               "Processing..."
             ) : (
-              `Start Free Trial - ${selectedPlan === "monthly" ? "$9.99/mo" : "$99/year"}`
+              `Subscribe - ${selectedPlan === "monthly" ? "$9.99/mo" : "$99/year"}`
             )}
           </Button>
         </div>
