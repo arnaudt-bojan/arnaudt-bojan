@@ -37,6 +37,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Document Generation System**: Professional PDF invoice and packing slip generation using pdfkit, with templates for B2C and wholesale, object storage integration, and automatic generation triggers.
 - **Saved Addresses & Payment Methods**: PCI-DSS compliant system allowing all users (buyers and sellers) to securely save shipping addresses and payment methods for faster checkout. Addresses stored directly in database with full details. Payment methods use Stripe Payment Methods API - only Stripe tokens and display metadata stored (never raw card data). Available in Settings > Addresses & Payments tab.
 - **Cart System**: Shopping cart stored in browser localStorage with automatic single-seller constraint enforcement. Sellers' carts are automatically cleared on login to prevent confusion (sellers don't shop on their own platform).
+- **Domain Detection System**: Intelligent domain routing that treats Replit deployment URLs as the main application domain. Seller storefronts are only identified through explicit `/s/:username` routes or `?seller=username` query parameters. This prevents false "Store Not Found" errors when users navigate the main application. Supports future custom domain mapping for sellers.
 
 ## Testing Buyer Experience as a Seller
 
