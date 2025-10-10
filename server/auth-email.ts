@@ -47,16 +47,30 @@ router.post('/send-code', async (req: Request, res: Response) => {
     // Generate 6-digit code
     const code = generateCode();
     const token = generateToken();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const codeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes for code
+    const magicLinkExpiresAt = new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000); // 6 months for magic link
 
-    // Save auth token to database with seller context
+    // Save TWO auth tokens: one for code (single-use), one for magic link (reusable)
+    // 1. Login code token (single-use, 15 min)
     await storage.createAuthToken({
       email,
-      token,
+      token: `${token}-code`, // Unique token for code
       code,
-      expiresAt,
+      tokenType: 'login_code',
+      expiresAt: codeExpiresAt,
       used: 0,
-      sellerContext: sellerContext || null, // Store seller context with token
+      sellerContext: sellerContext || null,
+    });
+
+    // 2. Magic link token (reusable, 6 months)
+    await storage.createAuthToken({
+      email,
+      token, // Original token for magic link
+      code: null, // No code for magic link
+      tokenType: 'magic_link',
+      expiresAt: magicLinkExpiresAt,
+      used: 0,
+      sellerContext: sellerContext || null,
     });
 
     // Try to send email with code and magic link for auto-login
@@ -124,8 +138,8 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Invalid code' });
     }
 
-    // Check if already used
-    if (authToken.used === 1) {
+    // Check if already used (only for login_code type, magic_link tokens are reusable)
+    if (authToken.tokenType === 'login_code' && authToken.used === 1) {
       return res.status(401).json({ error: 'Code already used' });
     }
 
@@ -134,8 +148,10 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Code expired' });
     }
 
-    // Mark as used
-    await storage.markAuthTokenAsUsed(authToken.id);
+    // Mark as used (only for login_code type)
+    if (authToken.tokenType === 'login_code') {
+      await storage.markAuthTokenAsUsed(authToken.id);
+    }
 
     // Determine seller context:
     // 1. Prefer sellerContext from request body (supports cross-device login)
@@ -240,12 +256,13 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
 
     // Generate token
     const token = generateToken();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const expiresAt = new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000); // 6 months for reusable magic link
 
     // Save auth token to database with seller context
     await storage.createAuthToken({
       email,
       token,
+      tokenType: 'magic_link', // Reusable magic link
       expiresAt,
       used: 0,
       sellerContext: sellerContext || null, // Store seller context with token
@@ -323,8 +340,8 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    // Check if already used
-    if (authToken.used === 1) {
+    // Check if already used (only for login_code type, magic_link tokens are reusable)
+    if (authToken.tokenType === 'login_code' && authToken.used === 1) {
       return res.status(401).json({ error: 'Token already used' });
     }
 
@@ -333,8 +350,10 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'Token expired' });
     }
 
-    // Mark as used
-    await storage.markAuthTokenAsUsed(authToken.id);
+    // Mark as used (only for login_code type)
+    if (authToken.tokenType === 'login_code') {
+      await storage.markAuthTokenAsUsed(authToken.id);
+    }
 
     // Get seller context from the auth token (stored during send-magic-link)
     const sellerContextFromToken = authToken.sellerContext;
