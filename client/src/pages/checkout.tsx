@@ -212,8 +212,8 @@ export default function Checkout() {
     let depositTotal = 0;
     let fullTotal = 0;
     let hasPreOrders = false;
-    let earliestDeliveryDate: Date | null = null;
-    let latestDeliveryDate: Date | null = null;
+    let earliestDeliveryDate: Date | undefined = undefined;
+    let latestDeliveryDate: Date | undefined = undefined;
 
     items.forEach((item) => {
       const itemTotal = parseFloat(item.price) * item.quantity;
@@ -753,23 +753,19 @@ export default function Checkout() {
                     </div>
 
                     {/* Delivery Estimate */}
-                    {paymentInfo.earliestDeliveryDate && paymentInfo.latestDeliveryDate && (() => {
-                      const earliestDate = paymentInfo.earliestDeliveryDate;
-                      const latestDate = paymentInfo.latestDeliveryDate;
-                      return (
-                        <div className="mb-6 p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-start gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            <div className="text-xs">
-                              <p className="font-medium mb-1">Estimated Delivery</p>
-                              <p className="text-muted-foreground">
-                                {earliestDate!.toLocaleDateString()} - {latestDate!.toLocaleDateString()}
-                              </p>
-                            </div>
+                    {paymentInfo.earliestDeliveryDate && paymentInfo.latestDeliveryDate && (
+                      <div className="mb-6 p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div className="text-xs">
+                            <p className="font-medium mb-1">Estimated Delivery</p>
+                            <p className="text-muted-foreground">
+                              {new Date(paymentInfo.earliestDeliveryDate).toLocaleDateString()} - {new Date(paymentInfo.latestDeliveryDate).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
 
                     {/* Pre-order Notice */}
                     {paymentInfo.hasPreOrders && paymentInfo.payingDepositOnly && (
