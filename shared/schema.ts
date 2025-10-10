@@ -564,3 +564,156 @@ export const notifications = pgTable("notifications", {
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+// ===== CATALOG IMPORT SYSTEM =====
+
+// Sync state enum
+export const syncStateEnum = z.enum(["active", "deleted", "error"]);
+export type SyncState = z.infer<typeof syncStateEnum>;
+
+// Import platform enum
+export const importPlatformEnum = z.enum(["shopify", "bigcommerce", "etsy", "woocommerce"]);
+export type ImportPlatform = z.infer<typeof importPlatformEnum>;
+
+// Import auth type enum
+export const importAuthTypeEnum = z.enum(["oauth2", "api_key", "app_credentials"]);
+export type ImportAuthType = z.infer<typeof importAuthTypeEnum>;
+
+// Import source status enum
+export const importSourceStatusEnum = z.enum(["active", "inactive", "error"]);
+export type ImportSourceStatus = z.infer<typeof importSourceStatusEnum>;
+
+// Import job type enum
+export const importJobTypeEnum = z.enum(["full", "delta"]);
+export type ImportJobType = z.infer<typeof importJobTypeEnum>;
+
+// Import job status enum
+export const importJobStatusEnum = z.enum(["queued", "running", "success", "failed", "partial"]);
+export type ImportJobStatus = z.infer<typeof importJobStatusEnum>;
+
+// Import job log level enum
+export const importJobLogLevelEnum = z.enum(["info", "warn", "error"]);
+export type ImportJobLogLevel = z.infer<typeof importJobLogLevelEnum>;
+
+// Import job error stage enum
+export const importJobErrorStageEnum = z.enum(["fetch", "transform", "persist", "webhook"]);
+export type ImportJobErrorStage = z.infer<typeof importJobErrorStageEnum>;
+
+// Import Sources - Store platform connections with credentials
+export const importSources = pgTable("import_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull().references(() => users.id), // Owner of this import source
+  platform: text("platform").notNull(), // "shopify", "bigcommerce", "etsy", "woocommerce"
+  authType: text("auth_type").notNull(), // "oauth2", "api_key", "app_credentials"
+  credentialsJson: jsonb("credentials_json").notNull(), // Encrypted credentials (API keys, tokens, etc.)
+  status: text("status").notNull().default("active"), // "active", "inactive", "error"
+  metadata: jsonb("metadata"), // Platform-specific metadata (store URL, shop name, etc.)
+  autoPublish: integer("auto_publish").default(0), // 0 = draft, 1 = publish imported products automatically
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertImportSourceSchema = createInsertSchema(importSources)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    platform: importPlatformEnum,
+    authType: importAuthTypeEnum,
+    status: importSourceStatusEnum.optional(),
+  });
+export type InsertImportSource = z.infer<typeof insertImportSourceSchema>;
+export type ImportSource = typeof importSources.$inferSelect;
+
+// Import Jobs - Track import job execution
+export const importJobs = pgTable("import_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceId: varchar("source_id").notNull().references(() => importSources.id, { onDelete: "cascade" }), // References import_sources.id
+  type: text("type").notNull(), // "full", "delta"
+  status: text("status").notNull().default("queued"), // "queued", "running", "success", "failed", "partial"
+  totalItems: integer("total_items").default(0),
+  processedItems: integer("processed_items").default(0),
+  errorCount: integer("error_count").default(0),
+  lastCheckpoint: text("last_checkpoint"), // Cursor/token/timestamp for resuming
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  createdBy: varchar("created_by").notNull().references(() => users.id), // User who initiated the job
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertImportJobSchema = createInsertSchema(importJobs)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    type: importJobTypeEnum,
+    status: importJobStatusEnum.optional(),
+  });
+export type InsertImportJob = z.infer<typeof insertImportJobSchema>;
+export type ImportJob = typeof importJobs.$inferSelect;
+
+// Import Job Logs - Structured logging for import jobs
+export const importJobLogs = pgTable("import_job_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => importJobs.id, { onDelete: "cascade" }), // References import_jobs.id
+  level: text("level").notNull(), // "info", "warn", "error"
+  message: text("message").notNull(),
+  detailsJson: jsonb("details_json"), // Additional context
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertImportJobLogSchema = createInsertSchema(importJobLogs)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    level: importJobLogLevelEnum,
+  });
+export type InsertImportJobLog = z.infer<typeof insertImportJobLogSchema>;
+export type ImportJobLog = typeof importJobLogs.$inferSelect;
+
+// Import Job Errors - Track errors for retry logic
+export const importJobErrors = pgTable("import_job_errors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => importJobs.id, { onDelete: "cascade" }), // References import_jobs.id
+  externalId: text("external_id"), // External platform product/item ID
+  stage: text("stage").notNull(), // "fetch", "transform", "persist", "webhook"
+  errorCode: text("error_code"),
+  errorMessage: text("error_message").notNull(),
+  retryCount: integer("retry_count").default(0),
+  resolved: integer("resolved").default(0), // 0 = false, 1 = true
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertImportJobErrorSchema = createInsertSchema(importJobErrors)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    stage: importJobErrorStageEnum,
+  });
+export type InsertImportJobError = z.infer<typeof insertImportJobErrorSchema>;
+export type ImportJobError = typeof importJobErrors.$inferSelect;
+
+// Product Source Mappings - Link Upfirst products to external platform products
+export const productSourceMappings = pgTable("product_source_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull().references(() => products.id, { onDelete: "cascade" }), // References products.id
+  sourceId: varchar("source_id").notNull().references(() => importSources.id, { onDelete: "cascade" }), // References import_sources.id
+  externalProductId: text("external_product_id").notNull(), // Platform's product ID
+  externalVariantId: text("external_variant_id"), // Platform's variant ID (if applicable)
+  externalHandle: text("external_handle"), // Platform's product handle/slug
+  lastSyncedAt: timestamp("last_synced_at").notNull().defaultNow(),
+  syncState: text("sync_state").notNull().default("active"), // "active", "deleted", "error"
+  checksum: text("checksum"), // Hash of product data to detect changes
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    // Unique constraint: one mapping per product/source combination
+    uniqueProductSource: uniqueIndex("product_source_mappings_product_source_unique").on(table.productId, table.sourceId),
+    // Unique constraint: one mapping per product/source/external ID combination
+    uniqueMapping: uniqueIndex("unique_product_source_mapping").on(table.productId, table.sourceId, table.externalProductId),
+  };
+});
+
+export const insertProductSourceMappingSchema = createInsertSchema(productSourceMappings)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    syncState: syncStateEnum.optional(),
+  });
+export type InsertProductSourceMapping = z.infer<typeof insertProductSourceMappingSchema>;
+export type ProductSourceMapping = typeof productSourceMappings.$inferSelect;
