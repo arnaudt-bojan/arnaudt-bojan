@@ -2,7 +2,6 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Response } from "express";
 import { randomUUID } from "crypto";
-import { logger } from './logger';
 import {
   ObjectAclPolicy,
   ObjectPermission,
@@ -125,7 +124,7 @@ export class ObjectStorageService {
 
       stream.pipe(res);
     } catch (error) {
-      logger.error("Error downloading file", error);
+      console.error("Error downloading file:", error);
       if (!res.headersSent) {
         res.status(500).json({ error: "Error downloading file" });
       }

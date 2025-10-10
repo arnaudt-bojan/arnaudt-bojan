@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { logger } from './logger';
 
 /**
  * =============================================
@@ -239,7 +238,7 @@ export function validateStripeWebhook(
   secret: string
 ): { valid: boolean; error?: string } {
   if (!secret) {
-    logger.error("[Security] CRITICAL: STRIPE_WEBHOOK_SECRET is not configured!");
+    console.error('[Security] CRITICAL: STRIPE_WEBHOOK_SECRET is not configured!');
     return { valid: false, error: 'Webhook secret not configured' };
   }
 
@@ -272,13 +271,13 @@ export function validateStripeWebhook(
     );
 
     if (!isValid) {
-      logger.warn("[Security] Stripe webhook signature verification failed");
+      console.warn('[Security] Stripe webhook signature verification failed');
       return { valid: false, error: 'Invalid signature' };
     }
 
     return { valid: true };
   } catch (error: any) {
-    logger.error("[Security] Webhook validation error:", error);
+    console.error('[Security] Webhook validation error:', error);
     return { valid: false, error: error.message };
   }
 }

@@ -85,7 +85,6 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { eq, desc, sql, and, lt } from "drizzle-orm";
 import ws from "ws";
-import { logger } from './logger';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -963,7 +962,7 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
       // Re-throw other database errors
-      logger.error("[Storage] Newsletter event creation error:", error);
+      console.error('[Storage] Newsletter event creation error:', error);
       throw error;
     }
   }

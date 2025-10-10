@@ -69,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedNotification = await storage.markNotificationAsRead(id);
       res.json(updatedNotification);
     } catch (error) {
-      logger.error("Failed to mark notification as read", error, { notificationId: req.params.id, userId: req.user?.claims?.sub });
+      logger.error("Failed to mark notification as read", error, { notificationId: id, userId: req.user.claims.sub });
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
@@ -91,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteNotification(id);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Failed to delete notification", error, { notificationId: req.params.id, userId: req.user?.claims?.sub });
+      logger.error("Failed to delete notification", error, { notificationId: id, userId: req.user.claims.sub });
       res.status(500).json({ error: "Failed to delete notification" });
     }
   });
@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(publicSellers);
     } catch (error) {
-      logger.error("Error fetching sellers", error);
+      console.error("Error fetching sellers:", error);
       res.status(500).json({ error: "Failed to fetch sellers" });
     }
   });
@@ -170,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(publicSellerInfo);
     } catch (error) {
-      logger.error("Error fetching seller", error);
+      console.error("Error fetching seller:", error);
       res.status(500).json({ error: "Failed to fetch seller" });
     }
   });
@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(publicSellerInfo);
     } catch (error) {
-      logger.error("Error fetching seller by ID", error);
+      console.error("Error fetching seller by ID:", error);
       res.status(500).json({ error: "Failed to fetch seller" });
     }
   });
@@ -314,10 +314,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...user,
               listingCurrency: stripeCurrency,
             });
-            logger.info(`[Product Creation] Synced currency from Stripe: ${stripeCurrency}`);
+            console.log(`[Product Creation] Synced currency from Stripe: ${stripeCurrency}`);
           }
         } catch (error) {
-          logger.error("[Product Creation] Failed to sync Stripe currency:", error);
+          console.error('[Product Creation] Failed to sync Stripe currency:', error);
         }
       }
       
@@ -392,16 +392,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
 
-          logger.info(`[Notifications] Product listing confirmation sent to ${user.email}`);
+          console.log(`[Notifications] Product listing confirmation sent to ${user.email}`);
         } catch (error) {
-          logger.error("[Notifications] Failed to send product listing notifications:", error);
+          console.error('[Notifications] Failed to send product listing notifications:', error);
           // Don't fail the request if notifications fail
         }
       }
 
       res.status(201).json(product);
     } catch (error) {
-      logger.error("Error creating product", error);
+      console.error("Error creating product:", error);
       res.status(500).json({ error: "Failed to create product" });
     }
   });
@@ -504,7 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           password: null, // Guest buyers have no password (cannot login via email auth)
         });
 
-        logger.info(`[Guest Checkout] Created new buyer account for ${normalizedEmail} with username ${username}`);
+        console.log(`[Guest Checkout] Created new buyer account for ${normalizedEmail} with username ${username}`);
       }
 
       userId = existingUser.id;
@@ -536,9 +536,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
         
         await storage.createOrderItems(orderItemsToCreate);
-        logger.info(`[Order Items] Created ${orderItemsToCreate.length} order items for order ${order.id}`);
+        console.log(`[Order Items] Created ${orderItemsToCreate.length} order items for order ${order.id}`);
       } catch (error) {
-        logger.error("[Order Items] Failed to create order items:", error);
+        console.error('[Order Items] Failed to create order items:', error);
         // Don't fail the order if items creation fails - legacy items field still works
       }
       
@@ -557,17 +557,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (seller) {
               // Send order confirmation email to buyer with seller branding
               await notificationService.sendOrderConfirmation(order, seller, products);
-              logger.info(`[Notifications] Order confirmation sent for order ${order.id}`);
+              console.log(`[Notifications] Order confirmation sent for order ${order.id}`);
             }
           }
         } catch (error) {
-          logger.error("[Notifications] Failed to send order notifications:", error);
+          console.error('[Notifications] Failed to send order notifications:', error);
         }
       })();
       
       res.status(201).json(order);
     } catch (error) {
-      logger.error("Order creation error", error);
+      console.error("Order creation error:", error);
       res.status(500).json({ error: "Failed to create order" });
     }
   });
@@ -613,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(sellerOrders);
     } catch (error) {
-      logger.error("Error fetching seller orders", error);
+      console.error("Error fetching seller orders:", error);
       res.status(500).json({ error: "Failed to fetch orders" });
     }
   });
@@ -739,7 +739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Process Stripe refund only if payment was made through Stripe
       if (paymentIntentId && order.paymentType !== 'manual' && order.paymentType !== 'cash') {
-        logger.info(`[Refund] Processing Stripe refund for order ${orderId}, amount: $${refundAmount}`);
+        console.log(`[Refund] Processing Stripe refund for order ${orderId}, amount: $${refundAmount}`);
         
         stripeRefund = await stripe.refunds.create({
           payment_intent: paymentIntentId,
@@ -752,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       } else {
-        logger.info(`[Refund] Skipping Stripe refund for manual/cash payment - order ${orderId}, amount: $${refundAmount}`);
+        console.log(`[Refund] Skipping Stripe refund for manual/cash payment - order ${orderId}, amount: $${refundAmount}`);
       }
 
       // Create refund records for each item
@@ -813,9 +813,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
           }
           
-          logger.info(`[Notifications] Refund notification emails sent for order ${orderId}, ${itemsToRefund.size} items`);
+          console.log(`[Notifications] Refund notification emails sent for order ${orderId}, ${itemsToRefund.size} items`);
         } catch (error) {
-          logger.error("[Notifications] Failed to send refund notification:", error);
+          console.error('[Notifications] Failed to send refund notification:', error);
         }
       })();
 
@@ -827,7 +827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: stripeRefund?.status || 'succeeded',
       });
     } catch (error: any) {
-      logger.error("Refund error", error);
+      console.error("Refund error:", error);
       res.status(500).json({ error: error.message || "Failed to process refund" });
     }
   });
@@ -854,7 +854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(updatedItem);
     } catch (error: any) {
-      logger.error("Error marking item as returned", error);
+      console.error("Error marking item as returned:", error);
       res.status(500).json({ error: "Failed to mark item as returned" });
     }
   });
@@ -887,7 +887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const refunds = await storage.getRefundsByOrderId(orderId);
       res.json(refunds);
     } catch (error: any) {
-      logger.error("Error fetching refunds", error);
+      console.error("Error fetching refunds:", error);
       res.status(500).json({ error: "Failed to fetch refunds" });
     }
   });
@@ -974,7 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(order);
     } catch (error) {
-      logger.error("Order lookup error", error);
+      console.error("Order lookup error:", error);
       res.status(500).json({ error: "Failed to fetch order" });
     }
   });
@@ -1331,27 +1331,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Auto-generate invoice when order is paid
           if (newStatus === 'paid') {
-            logger.info(`[Auto-Generate] Generating invoice for order ${order.id}`);
+            console.log(`[Auto-Generate] Generating invoice for order ${order.id}`);
             const documentGenerator = new DocumentGenerator(storage);
             
             // Get seller ID from order
             const items = JSON.parse(order.items);
             if (items.length === 0) {
-              logger.error("[Auto-Generate] Cannot generate invoice: order has no items");
+              console.error('[Auto-Generate] Cannot generate invoice: order has no items');
               return;
             }
             
             const allProducts = await storage.getAllProducts();
             const firstProduct = allProducts.find(p => p.id === items[0].productId);
             if (!firstProduct) {
-              logger.error("[Auto-Generate] Cannot generate invoice: product not found");
+              console.error('[Auto-Generate] Cannot generate invoice: product not found');
               return;
             }
             
             const sellerId = firstProduct.sellerId;
             const seller = await storage.getUser(sellerId);
             if (!seller) {
-              logger.error("[Auto-Generate] Cannot generate invoice: seller not found");
+              console.error('[Auto-Generate] Cannot generate invoice: seller not found');
               return;
             }
             
@@ -1367,32 +1367,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
               generationTrigger: 'automatic',
             });
             
-            logger.info(`[Auto-Generate] Invoice generated successfully for order ${order.id}`);
+            console.log(`[Auto-Generate] Invoice generated successfully for order ${order.id}`);
           }
           
           // Auto-generate packing slip when order is ready to ship
           if (newStatus === 'ready_to_ship') {
-            logger.info(`[Auto-Generate] Generating packing slip for order ${order.id}`);
+            console.log(`[Auto-Generate] Generating packing slip for order ${order.id}`);
             const documentGenerator = new DocumentGenerator(storage);
             
             // Get seller ID from order
             const items = JSON.parse(order.items);
             if (items.length === 0) {
-              logger.error("[Auto-Generate] Cannot generate packing slip: order has no items");
+              console.error('[Auto-Generate] Cannot generate packing slip: order has no items');
               return;
             }
             
             const allProducts = await storage.getAllProducts();
             const firstProduct = allProducts.find(p => p.id === items[0].productId);
             if (!firstProduct) {
-              logger.error("[Auto-Generate] Cannot generate packing slip: product not found");
+              console.error('[Auto-Generate] Cannot generate packing slip: product not found');
               return;
             }
             
             const sellerId = firstProduct.sellerId;
             const seller = await storage.getUser(sellerId);
             if (!seller) {
-              logger.error("[Auto-Generate] Cannot generate packing slip: seller not found");
+              console.error('[Auto-Generate] Cannot generate packing slip: seller not found');
               return;
             }
             
@@ -1403,10 +1403,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               generationTrigger: 'automatic',
             });
             
-            logger.info(`[Auto-Generate] Packing slip generated successfully for order ${order.id}`);
+            console.log(`[Auto-Generate] Packing slip generated successfully for order ${order.id}`);
           }
         } catch (error) {
-          logger.error("[Auto-Generate] Failed to generate document:", error);
+          console.error('[Auto-Generate] Failed to generate document:', error);
           // Don't fail the status update if document generation fails
         }
       })();
@@ -1487,11 +1487,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (seller) {
                 // Send order shipped email to buyer
                 await notificationService.sendOrderShipped(order, seller);
-                logger.info(`[Notifications] Shipping notification sent for order ${order.id}`);
+                console.log(`[Notifications] Shipping notification sent for order ${order.id}`);
               }
             }
           } catch (error) {
-            logger.error("[Notifications] Failed to send shipping notification:", error);
+            console.error('[Notifications] Failed to send shipping notification:', error);
           }
         })();
       }
@@ -1561,7 +1561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateOrderBalancePaymentIntent(order.id, paymentIntent.id);
 
       // TODO: Send email to customer with payment link
-      logger.info(`[Balance Request] Payment link sent to ${order.customerEmail} for order ${order.id}`);
+      console.log(`[Balance Request] Payment link sent to ${order.customerEmail} for order ${order.id}`);
 
       res.json({ 
         clientSecret: paymentIntent.client_secret,
@@ -1569,7 +1569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Balance payment request sent successfully",
       });
     } catch (error: any) {
-      logger.error("Balance request error", error);
+      console.error("Balance request error:", error);
       res.status(500).json({ error: "Failed to request balance payment" });
     }
   });
@@ -1580,7 +1580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
       if (!stripe) {
-        logger.info("[Stripe] Cannot create payment intent - Stripe is not configured");
+        console.log('[Stripe] Cannot create payment intent - Stripe is not configured');
         return res.status(500).json({ 
           error: "Stripe is not configured. Please contact the store owner to set up payments." 
         });
@@ -1649,7 +1649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!hasCardPayments || !hasTransfers) {
             console.log(`[Stripe] Account ${account.id} missing capabilities. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
-            logger.info(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
+            console.log(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
             
             await stripe.accounts.update(sellerConnectedAccountId, {
               capabilities: {
@@ -1660,13 +1660,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Re-fetch to check updated status
             const updatedAccount = await stripe.accounts.retrieve(sellerConnectedAccountId);
-            logger.info(`[Stripe] Capabilities after request - card_payments: ${updatedAccount.capabilities?.card_payments}, transfers: ${updatedAccount.capabilities?.transfers}`);
+            console.log(`[Stripe] Capabilities after request - card_payments: ${updatedAccount.capabilities?.card_payments}, transfers: ${updatedAccount.capabilities?.transfers}`);
             
             // Allow pending/unrequested capabilities to proceed - Stripe will return a proper error if they're actually required
             // Blocking here prevents legitimate borderless accounts from transacting while their capabilities activate
             if (updatedAccount.capabilities?.card_payments === 'inactive' || 
                 updatedAccount.capabilities?.transfers === 'inactive') {
-              logger.info(`[Stripe] Capabilities inactive - payment may fail. Account may need additional information.`);
+              console.log(`[Stripe] Capabilities inactive - payment may fail. Account may need additional information.`);
               return res.status(400).json({ 
                 error: "This store needs to complete payment setup. Please contact the store owner to finish their Stripe onboarding.",
                 errorCode: "STRIPE_CAPABILITIES_INACTIVE"
@@ -1706,7 +1706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntentId: paymentIntent.id,
       });
     } catch (error: any) {
-      logger.error("Stripe payment intent error", error);
+      console.error("Stripe payment intent error:", error);
       res.status(500).json({ 
         error: "Error creating payment intent: " + error.message 
       });
@@ -1755,7 +1755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ clientSecret: setupIntent.client_secret });
     } catch (error: any) {
-      logger.error("[Stripe] Setup intent creation failed", error);
+      console.error("[Stripe] Setup intent creation failed:", error);
       res.status(500).json({ error: error.message || "Failed to create setup intent" });
     }
   });
@@ -1878,17 +1878,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (seller) {
               // Send item tracking notification to buyer
               await notificationService.sendItemTracking(order, updatedItem, seller);
-              logger.info(`[Notifications] Item tracking notification sent for item ${updatedItem.id}`);
+              console.log(`[Notifications] Item tracking notification sent for item ${updatedItem.id}`);
             }
           } catch (error) {
-            logger.error("[Notifications] Failed to send item tracking notification:", error);
+            console.error('[Notifications] Failed to send item tracking notification:', error);
           }
         })();
       }
       
       res.json(updatedItem);
     } catch (error) {
-      logger.error("[Order Items] Failed to update tracking:", error);
+      console.error('[Order Items] Failed to update tracking:', error);
       res.status(500).json({ error: "Failed to update tracking information" });
     }
   });
@@ -1965,20 +1965,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Send appropriate email based on new status
           if (validationResult.data.status === 'delivered') {
             await notificationService.sendItemDelivered(order, updatedItem, seller);
-            logger.info(`[Notifications] Item delivered notification sent for item ${updatedItem.id}`);
+            console.log(`[Notifications] Item delivered notification sent for item ${updatedItem.id}`);
           } else if (validationResult.data.status === 'cancelled') {
             const reason = req.body.reason; // Optional cancellation reason
             await notificationService.sendItemCancelled(order, updatedItem, seller, reason);
-            logger.info(`[Notifications] Item cancelled notification sent for item ${updatedItem.id}`);
+            console.log(`[Notifications] Item cancelled notification sent for item ${updatedItem.id}`);
           }
         } catch (error) {
-          logger.error("[Notifications] Failed to send status update notification:", error);
+          console.error('[Notifications] Failed to send status update notification:', error);
         }
       })();
       
       res.json(updatedItem);
     } catch (error) {
-      logger.error("[Order Items] Failed to update status:", error);
+      console.error('[Order Items] Failed to update status:', error);
       res.status(500).json({ error: "Failed to update status" });
     }
   });
@@ -2092,10 +2092,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               validationResult.data.amount,
               validationResult.data.quantity
             );
-            logger.info(`[Notifications] Refund notification sent for item ${updatedItem.id}`);
+            console.log(`[Notifications] Refund notification sent for item ${updatedItem.id}`);
           }
         } catch (error) {
-          logger.error("[Notifications] Failed to send refund notification:", error);
+          console.error('[Notifications] Failed to send refund notification:', error);
         }
       })();
       
@@ -2106,7 +2106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Refund of $${validationResult.data.amount.toFixed(2)} processed successfully`,
       });
     } catch (error) {
-      logger.error("[Order Items] Failed to process refund:", error);
+      console.error('[Order Items] Failed to process refund:', error);
       res.status(500).json({ error: "Failed to process refund" });
     }
   });
@@ -2156,7 +2156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invitationLink, // For testing purposes
       });
     } catch (error: any) {
-      logger.error("Invitation error", error);
+      console.error("Invitation error:", error);
       res.status(500).json({ error: "Failed to create invitation" });
     }
   });
@@ -2267,7 +2267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: invitation.email
       });
     } catch (error) {
-      logger.error("Accept invitation error", error);
+      console.error("Accept invitation error:", error);
       res.status(500).json({ error: "Failed to accept invitation" });
     }
   });
@@ -2388,7 +2388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Profile updated successfully", user: updatedUser });
     } catch (error) {
-      logger.error("Profile update error", error);
+      console.error("Profile update error:", error);
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
@@ -2413,7 +2413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Branding updated successfully", user: updatedUser });
     } catch (error) {
-      logger.error("Branding update error", error);
+      console.error("Branding update error:", error);
       res.status(500).json({ error: "Failed to update branding" });
     }
   });
@@ -2453,7 +2453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Store status updated successfully", user: updatedUser, storeActive });
     } catch (error) {
-      logger.error("Store status update error", error);
+      console.error("Store status update error:", error);
       res.status(500).json({ error: "Failed to update store status" });
     }
   });
@@ -2479,7 +2479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Payment provider updated successfully", user: updatedUser });
     } catch (error) {
-      logger.error("Payment provider update error", error);
+      console.error("Payment provider update error:", error);
       res.status(500).json({ error: "Failed to update payment provider" });
     }
   });
@@ -2514,7 +2514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Username updated successfully", user: updatedUser });
     } catch (error: any) {
-      logger.error("Username update error", error);
+      console.error("Username update error:", error);
       res.status(500).json({ error: "Failed to update username" });
     }
   });
@@ -2542,7 +2542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Custom domain updated successfully", user: updatedUser });
     } catch (error) {
-      logger.error("Custom domain update error", error);
+      console.error("Custom domain update error:", error);
       res.status(500).json({ error: "Failed to update custom domain" });
     }
   });
@@ -2570,7 +2570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Shipping price updated successfully", user: updatedUser });
     } catch (error) {
-      logger.error("Shipping price update error", error);
+      console.error("Shipping price update error:", error);
       res.status(500).json({ error: "Failed to update shipping price" });
     }
   });
@@ -2582,7 +2582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const addresses = await storage.getSavedAddressesByUserId(userId);
       res.json(addresses);
     } catch (error) {
-      logger.error("Error fetching saved addresses", error);
+      console.error("Error fetching saved addresses:", error);
       res.status(500).json({ error: "Failed to fetch saved addresses" });
     }
   });
@@ -2604,7 +2604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const address = await storage.createSavedAddress(validationResult.data);
       res.status(201).json(address);
     } catch (error) {
-      logger.error("Error creating saved address", error);
+      console.error("Error creating saved address:", error);
       res.status(500).json({ error: "Failed to create saved address" });
     }
   });
@@ -2626,7 +2626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedAddress = await storage.updateSavedAddress(id, req.body);
       res.json(updatedAddress);
     } catch (error) {
-      logger.error("Error updating saved address", error);
+      console.error("Error updating saved address:", error);
       res.status(500).json({ error: "Failed to update saved address" });
     }
   });
@@ -2648,7 +2648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteSavedAddress(id);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Error deleting saved address", error);
+      console.error("Error deleting saved address:", error);
       res.status(500).json({ error: "Failed to delete saved address" });
     }
   });
@@ -2670,7 +2670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.setDefaultAddress(userId, id);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Error setting default address", error);
+      console.error("Error setting default address:", error);
       res.status(500).json({ error: "Failed to set default address" });
     }
   });
@@ -2682,7 +2682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentMethods = await storage.getSavedPaymentMethodsByUserId(userId);
       res.json(paymentMethods);
     } catch (error) {
-      logger.error("Error fetching saved payment methods", error);
+      console.error("Error fetching saved payment methods:", error);
       res.status(500).json({ error: "Failed to fetch saved payment methods" });
     }
   });
@@ -2723,7 +2723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(savedPaymentMethod);
     } catch (error: any) {
-      logger.error("Error saving payment method", error);
+      console.error("Error saving payment method:", error);
       res.status(500).json({ error: error.message || "Failed to save payment method" });
     }
   });
@@ -2753,7 +2753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteSavedPaymentMethod(id);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Error deleting saved payment method", error);
+      console.error("Error deleting saved payment method:", error);
       res.status(500).json({ error: "Failed to delete saved payment method" });
     }
   });
@@ -2775,7 +2775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.setDefaultPaymentMethod(userId, id);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Error setting default payment method", error);
+      console.error("Error setting default payment method:", error);
       res.status(500).json({ error: "Failed to set default payment method" });
     }
   });
@@ -2790,7 +2790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ shippingPrice });
     } catch (error) {
-      logger.error("Error fetching shipping settings", error);
+      console.error("Error fetching shipping settings:", error);
       res.status(500).json({ error: "Failed to fetch shipping settings" });
     }
   });
@@ -2813,10 +2813,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If resetting, delete the old account first
       if (user.stripeConnectedAccountId && reset) {
-        logger.info(`[Stripe Express] Resetting account for user ${userId}. Deleting old account ${user.stripeConnectedAccountId}...`);
+        console.log(`[Stripe Express] Resetting account for user ${userId}. Deleting old account ${user.stripeConnectedAccountId}...`);
         try {
           await stripe.accounts.del(user.stripeConnectedAccountId);
-          logger.info(`[Stripe Express] Successfully deleted old account ${user.stripeConnectedAccountId}`);
+          console.log(`[Stripe Express] Successfully deleted old account ${user.stripeConnectedAccountId}`);
         } catch (delError: any) {
           console.error(`[Stripe Express] Failed to delete old account:`, delError.message);
           // Continue anyway - create new account even if deletion fails
@@ -2846,7 +2846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If missing capabilities, request them and re-fetch account
         if (!hasCardPayments || !hasTransfers) {
           console.log(`[Stripe] Account ${account.id} missing capabilities. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
-          logger.info(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
+          console.log(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
           
           try {
             await stripe.accounts.update(user.stripeConnectedAccountId, {
@@ -2889,7 +2889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      logger.info(`[Stripe Express] Creating borderless Express account for user ${userId} - user will select country during onboarding`);
+      console.log(`[Stripe Express] Creating borderless Express account for user ${userId} - user will select country during onboarding`);
 
       // Create new Express account with borderless onboarding
       // Request both card_payments and transfers capabilities for Stripe Connect
@@ -2922,7 +2922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         listingCurrency: account.default_currency?.toUpperCase() || user.listingCurrency || 'USD',
       });
 
-      logger.info(`[Stripe Express] Created account ${account.id} for user ${userId}`);
+      console.log(`[Stripe Express] Created account ${account.id} for user ${userId}`);
 
       res.json({
         accountId: account.id,
@@ -2932,7 +2932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: account.default_currency,
       });
     } catch (error: any) {
-      logger.error("Stripe Express account creation error", error);
+      console.error("Stripe Express account creation error:", error);
       
       // Check for specific Stripe Connect error
       if (error.message && error.message.includes("signed up for Connect")) {
@@ -2996,7 +2996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         country: account.country, // Include country for debugging
       });
     } catch (error: any) {
-      logger.error("Stripe Account Session error", error);
+      console.error("Stripe Account Session error:", error);
       res.status(500).json({ error: "Failed to create account session" });
     }
   });
@@ -3031,7 +3031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ url: accountLink.url });
     } catch (error: any) {
-      logger.error("Stripe Account Link error", error);
+      console.error("Stripe Account Link error:", error);
       res.status(500).json({ error: "Failed to generate account link" });
     }
   });
@@ -3080,7 +3080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error: any) {
-      logger.error("Stripe account status error", error);
+      console.error("Stripe account status error:", error);
       res.status(500).json({ error: "Failed to check account status" });
     }
   });
@@ -3177,7 +3177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error('No action URL returned from PayPal');
       }
     } catch (error: any) {
-      logger.error("PayPal partner referral error", error);
+      console.error("PayPal partner referral error:", error);
       res.status(500).json({ error: "Failed to create PayPal partner referral" });
     }
   });
@@ -3200,7 +3200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         merchantId: user.paypalMerchantId,
       });
     } catch (error: any) {
-      logger.error("PayPal merchant status error", error);
+      console.error("PayPal merchant status error:", error);
       res.status(500).json({ error: "Failed to check PayPal status" });
     }
   });
@@ -3222,7 +3222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Stripe account disconnected successfully" });
     } catch (error: any) {
-      logger.error("Stripe disconnect error", error);
+      console.error("Stripe disconnect error:", error);
       res.status(500).json({ error: "Failed to disconnect Stripe account" });
     }
   });
@@ -3255,7 +3255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Trial started successfully", user: updatedUser });
     } catch (error: any) {
-      logger.error("Start trial error", error);
+      console.error("Start trial error:", error);
       res.status(500).json({ error: "Failed to start trial" });
     }
   });
@@ -3304,7 +3304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId,
       });
     } catch (error: any) {
-      logger.error("Setup payment error", error);
+      console.error("Setup payment error:", error);
       res.status(500).json({ error: "Failed to setup payment method" });
     }
   });
@@ -3435,7 +3435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId: session.id,
       });
     } catch (error: any) {
-      logger.error("Create subscription error", error);
+      console.error("Create subscription error:", error);
       res.status(500).json({ error: "Failed to create subscription checkout" });
     }
   });
@@ -3482,7 +3482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subscriptionPlan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
         });
 
-        logger.info(`[Subscription Sync] Updated user ${userId} with status: ${status}`);
+        console.log(`[Subscription Sync] Updated user ${userId} with status: ${status}`);
 
         res.json({
           status,
@@ -3497,7 +3497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error: any) {
-      logger.error("Sync subscription error", error);
+      console.error("Sync subscription error:", error);
       res.status(500).json({ error: "Failed to sync subscription status" });
     }
   });
@@ -3539,7 +3539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             nextBillingDate = new Date(upcomingInvoice.period_end * 1000);
           } catch (invoiceError) {
             // No upcoming invoice (subscription might be canceled)
-            logger.info("No upcoming invoice found");
+            console.log("No upcoming invoice found");
           }
 
           // Get billing history (last 5 invoices)
@@ -3548,7 +3548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customer: user.stripeCustomerId,
               limit: 5,
             });
-            logger.info(`[Subscription Status] Retrieved ${invoices.data.length} invoices for customer ${user.stripeCustomerId}`);
+            console.log(`[Subscription Status] Retrieved ${invoices.data.length} invoices for customer ${user.stripeCustomerId}`);
             billingHistory = invoices.data.map(inv => {
               console.log(`[Subscription Status] Invoice ${inv.id}: amount_paid=${inv.amount_paid}, total=${inv.total}, status=${inv.status}`);
               return {
@@ -3566,7 +3566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           cancelAtPeriodEnd = subscription.cancel_at_period_end;
         } catch (error) {
-          logger.error("Error fetching subscription details", error);
+          console.error("Error fetching subscription details:", error);
         }
       }
 
@@ -3587,7 +3587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : null,
       });
     } catch (error: any) {
-      logger.error("Get subscription status error", error);
+      console.error("Get subscription status error:", error);
       res.status(500).json({ error: "Failed to get subscription status" });
     }
   });
@@ -3621,7 +3621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         periodEnd: new Date(subscription.current_period_end * 1000),
       });
     } catch (error: any) {
-      logger.error("Cancel subscription error", error);
+      console.error("Cancel subscription error:", error);
       res.status(500).json({ error: "Failed to cancel subscription" });
     }
   });
@@ -3651,7 +3651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       });
     } catch (error: any) {
-      logger.error("Reactivate subscription error", error);
+      console.error("Reactivate subscription error:", error);
       res.status(500).json({ error: "Failed to reactivate subscription" });
     }
   });
@@ -3673,7 +3673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         !u.subscriptionStatus
       );
 
-      logger.info(`[Migration] Found ${sellersToMigrate.length} sellers to migrate`);
+      console.log(`[Migration] Found ${sellersToMigrate.length} sellers to migrate`);
 
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + 30);
@@ -3684,7 +3684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subscriptionStatus: "trial",
           trialEndsAt,
         });
-        logger.info(`[Migration] Migrated user ${seller.email} to trial status`);
+        console.log(`[Migration] Migrated user ${seller.email} to trial status`);
       }
 
       res.json({ 
@@ -3697,7 +3697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
       });
     } catch (error: any) {
-      logger.error("Subscription migration error", error);
+      console.error("Subscription migration error:", error);
       res.status(500).json({ error: "Failed to migrate subscriptions" });
     }
   });
@@ -3713,7 +3713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
       if (!sig || !webhookSecret) {
-        logger.error("Webhook signature or secret missing");
+        console.error("Webhook signature or secret missing");
         return res.status(400).send("Webhook signature or secret missing");
       }
 
@@ -3727,7 +3727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
-      logger.info(`[Webhook] Received event: ${event.type}`);
+      console.log(`[Webhook] Received event: ${event.type}`);
 
       // Handle different event types
       switch (event.type) {
@@ -3765,13 +3765,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Only activate trial or paid subscription if payment method is confirmed
               if (subscription.status === 'trialing' && hasValidPaymentMethod) {
                 status = 'trial';
-                logger.info(`[Webhook] Checkout completed - user ${userId} starting trial with confirmed payment method`);
+                console.log(`[Webhook] Checkout completed - user ${userId} starting trial with confirmed payment method`);
               } else if (subscription.status === 'active' && hasValidPaymentMethod) {
                 status = 'active';
-                logger.info(`[Webhook] Checkout completed - user ${userId} subscription active (paid)`);
+                console.log(`[Webhook] Checkout completed - user ${userId} subscription active (paid)`);
               } else {
                 // No valid payment method - don't activate subscription
-                logger.info(`[Webhook] Checkout completed - user ${userId} subscription status ${subscription.status} without payment method, awaiting payment`);
+                console.log(`[Webhook] Checkout completed - user ${userId} subscription status ${subscription.status} without payment method, awaiting payment`);
                 await storage.upsertUser({
                   ...user,
                   stripeSubscriptionId: subscription.id,
@@ -3806,7 +3806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...user,
               stripeSubscriptionId: subscription.id,
             });
-            logger.info(`[Webhook] Subscription created for user ${user.id}, awaiting payment confirmation`);
+            console.log(`[Webhook] Subscription created for user ${user.id}, awaiting payment confirmation`);
           }
           break;
         }
@@ -3843,7 +3843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               stripeSubscriptionId: subscription.id,
               subscriptionStatus: status,
             });
-            logger.info(`[Webhook] Updated user ${user.id} subscription status to ${status}`);
+            console.log(`[Webhook] Updated user ${user.id} subscription status to ${status}`);
           }
           break;
         }
@@ -3861,7 +3861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               stripeSubscriptionId: null,
               storeActive: 0, // CRITICAL: Deactivate store when subscription is cancelled
             });
-            logger.info(`[Webhook] Cancelled subscription for user ${user.id} and deactivated store`);
+            console.log(`[Webhook] Cancelled subscription for user ${user.id} and deactivated store`);
           }
           break;
         }
@@ -3892,7 +3892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               subscriptionStatus: 'past_due',
               storeActive: shouldDeactivateStore ? 0 : user.storeActive, // Deactivate if subscription is dead
             });
-            logger.info(`[Webhook] Marked user ${user.id} subscription as past_due${shouldDeactivateStore ? ' and deactivated store' : ''}`);
+            console.log(`[Webhook] Marked user ${user.id} subscription as past_due${shouldDeactivateStore ? ' and deactivated store' : ''}`);
             
             // TODO: Send notification email to user about failed payment
           }
@@ -3918,13 +3918,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ...user,
                 subscriptionStatus: 'active',
               });
-              logger.info(`[Webhook] Activated user ${user.id} subscription (first payment succeeded)`);
+              console.log(`[Webhook] Activated user ${user.id} subscription (first payment succeeded)`);
             } else if (user.subscriptionStatus === 'past_due') {
               await storage.upsertUser({
                 ...user,
                 subscriptionStatus: 'active',
               });
-              logger.info(`[Webhook] Restored user ${user.id} subscription to active`);
+              console.log(`[Webhook] Restored user ${user.id} subscription to active`);
             }
 
             // Send invoice email for all successful subscription payments
@@ -3942,7 +3942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 plan: user.subscriptionPlan || 'monthly',
               });
               
-              logger.info(`[Webhook] Subscription invoice email sent to ${user.email}`);
+              console.log(`[Webhook] Subscription invoice email sent to ${user.email}`);
             } catch (emailError) {
               console.error(`[Webhook] Failed to send invoice email:`, emailError);
               // Continue processing - don't fail webhook if email fails
@@ -3952,12 +3952,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         default:
-          logger.info(`[Webhook] Unhandled event type: ${event.type}`);
+          console.log(`[Webhook] Unhandled event type: ${event.type}`);
       }
 
       res.status(200).json({ received: true });
     } catch (error: any) {
-      logger.error("[Webhook] Error processing webhook", error);
+      console.error("[Webhook] Error processing webhook:", error);
       res.status(500).send("Webhook processing error");
     }
   });
@@ -4015,7 +4015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: remainingBalance,
       });
     } catch (error: any) {
-      logger.error("Balance payment error", error);
+      console.error("Balance payment error:", error);
       res.status(500).json({ 
         error: "Error creating balance payment: " + error.message 
       });
@@ -4085,7 +4085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `);
     } catch (error) {
-      logger.error("Meta OAuth error", error);
+      console.error("Meta OAuth error:", error);
       res.send(`
         <html>
           <script>
@@ -4188,7 +4188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Campaign created successfully!",
       });
     } catch (error: any) {
-      logger.error("Meta campaign error", error);
+      console.error("Meta campaign error:", error);
       res.status(500).json({ error: error.message || "Failed to create campaign" });
     }
   });
@@ -4282,7 +4282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `);
     } catch (error) {
-      logger.error("TikTok OAuth error", error);
+      console.error("TikTok OAuth error:", error);
       res.send(`
         <html>
           <script>
@@ -4404,7 +4404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(newsletter);
     } catch (error) {
-      logger.error("Newsletter creation error", error);
+      console.error("Newsletter creation error:", error);
       res.status(500).json({ error: "Failed to create newsletter" });
     }
   });
@@ -4466,7 +4466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         batchId: result.batchId 
       });
     } catch (error) {
-      logger.error("Newsletter send error", error);
+      console.error("Newsletter send error:", error);
       res.status(500).json({ error: "Failed to send newsletter" });
     }
   });
@@ -4529,7 +4529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Test email sent to ${testEmail}` 
       });
     } catch (error) {
-      logger.error("Test email send error", error);
+      console.error("Test email send error:", error);
       res.status(500).json({ error: "Failed to send test email" });
     }
   });
@@ -4564,7 +4564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.end(pixel);
     } catch (error) {
-      logger.error("Newsletter tracking error", error);
+      console.error("Newsletter tracking error:", error);
       // Still return pixel even on error to prevent broken images
       const pixel = Buffer.from(
         'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
@@ -4655,7 +4655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `);
     } catch (error) {
-      logger.error("Unsubscribe error", error);
+      console.error("Unsubscribe error:", error);
       res.status(500).send("An error occurred while unsubscribing. Please try again.");
     }
   });
@@ -4667,7 +4667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const templates = await storage.getNewsletterTemplatesByUserId(userId);
       res.json(templates);
     } catch (error) {
-      logger.error("Get newsletter templates error", error);
+      console.error("Get newsletter templates error:", error);
       res.status(500).json({ error: "Failed to get newsletter templates" });
     }
   });
@@ -4696,7 +4696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(template);
     } catch (error) {
-      logger.error("Create newsletter template error", error);
+      console.error("Create newsletter template error:", error);
       res.status(500).json({ error: "Failed to create newsletter template" });
     }
   });
@@ -4714,7 +4714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteNewsletterTemplate(templateId);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Delete newsletter template error", error);
+      console.error("Delete newsletter template error:", error);
       res.status(500).json({ error: "Failed to delete newsletter template" });
     }
   });
@@ -4736,7 +4736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(groupsWithCounts);
     } catch (error) {
-      logger.error("Get subscriber groups error", error);
+      console.error("Get subscriber groups error:", error);
       res.status(500).json({ error: "Failed to get subscriber groups" });
     }
   });
@@ -4758,7 +4758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(group);
     } catch (error) {
-      logger.error("Create subscriber group error", error);
+      console.error("Create subscriber group error:", error);
       res.status(500).json({ error: "Failed to create subscriber group" });
     }
   });
@@ -4776,7 +4776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteSubscriberGroup(groupId);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Delete subscriber group error", error);
+      console.error("Delete subscriber group error:", error);
       res.status(500).json({ error: "Failed to delete subscriber group" });
     }
   });
@@ -4788,7 +4788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analytics = await storage.getNewsletterAnalyticsByUserId(userId);
       res.json(analytics);
     } catch (error) {
-      logger.error("Get newsletter analytics error", error);
+      console.error("Get newsletter analytics error:", error);
       res.status(500).json({ error: "Failed to get newsletter analytics" });
     }
   });
@@ -4810,7 +4810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(subscribers);
     } catch (error) {
-      logger.error("Get subscribers error", error);
+      console.error("Get subscribers error:", error);
       res.status(500).json({ error: "Failed to get subscribers" });
     }
   });
@@ -4874,7 +4874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Imported ${results.success.length} subscribers. ${results.skipped.length} skipped, ${results.errors.length} errors.`,
       });
     } catch (error) {
-      logger.error("Bulk import subscribers error", error);
+      console.error("Bulk import subscribers error:", error);
       res.status(500).json({ error: "Failed to import subscribers" });
     }
   });
@@ -4908,7 +4908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(subscriber);
     } catch (error: any) {
-      logger.error("Create subscriber error", error);
+      console.error("Create subscriber error:", error);
       if (error.message?.includes('unique constraint')) {
         return res.status(400).json({ error: "Subscriber with this email already exists" });
       }
@@ -4929,7 +4929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteSubscriber(subscriberId);
       res.json({ success: true });
     } catch (error) {
-      logger.error("Delete subscriber error", error);
+      console.error("Delete subscriber error:", error);
       res.status(500).json({ error: "Failed to delete subscriber" });
     }
   });
@@ -5008,7 +5008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "NFT minted successfully on Solana blockchain!"
       });
     } catch (error: any) {
-      logger.error("NFT minting error", error);
+      console.error("NFT minting error:", error);
       
       if (error.message?.includes("SOLANA_PAYER_PRIVATE_KEY")) {
         return res.status(500).json({ 
@@ -5028,7 +5028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const products = await storage.getAllWholesaleProducts();
       res.json(products);
     } catch (error) {
-      logger.error("Error fetching wholesale products", error);
+      console.error("Error fetching wholesale products:", error);
       res.status(500).json({ message: "Failed to fetch wholesale products" });
     }
   });
@@ -5039,7 +5039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const products = await storage.getWholesaleProductsBySellerId(sellerId);
       res.json(products);
     } catch (error) {
-      logger.error("Error fetching seller wholesale products", error);
+      console.error("Error fetching seller wholesale products:", error);
       res.status(500).json({ message: "Failed to fetch seller wholesale products" });
     }
   });
@@ -5053,7 +5053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(product);
     } catch (error) {
-      logger.error("Error fetching wholesale product", error);
+      console.error("Error fetching wholesale product:", error);
       res.status(500).json({ message: "Failed to fetch wholesale product" });
     }
   });
@@ -5070,7 +5070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const product = await storage.createWholesaleProduct(productData);
       res.status(201).json(product);
     } catch (error) {
-      logger.error("Error creating wholesale product", error);
+      console.error("Error creating wholesale product:", error);
       res.status(500).json({ message: "Failed to create wholesale product" });
     }
   });
@@ -5185,7 +5185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Successfully created ${created.length} products${errors.length > 0 ? `, ${errors.length} errors` : ''}`
       });
     } catch (error: any) {
-      logger.error("Bulk upload error", error);
+      console.error("Bulk upload error:", error);
       res.status(500).json({ error: error.message || "Bulk upload failed" });
     }
   });
@@ -5207,7 +5207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedProduct = await storage.updateWholesaleProduct(id, req.body);
       res.json(updatedProduct);
     } catch (error) {
-      logger.error("Error updating wholesale product", error);
+      console.error("Error updating wholesale product:", error);
       res.status(500).json({ message: "Failed to update wholesale product" });
     }
   });
@@ -5229,7 +5229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteWholesaleProduct(id);
       res.json({ message: "Wholesale product deleted successfully" });
     } catch (error) {
-      logger.error("Error deleting wholesale product", error);
+      console.error("Error deleting wholesale product:", error);
       res.status(500).json({ message: "Failed to delete wholesale product" });
     }
   });
@@ -5241,7 +5241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invitations = await storage.getWholesaleInvitationsBySellerId(userId);
       res.json(invitations);
     } catch (error) {
-      logger.error("Error fetching wholesale invitations", error);
+      console.error("Error fetching wholesale invitations:", error);
       res.status(500).json({ message: "Failed to fetch wholesale invitations" });
     }
   });
@@ -5258,7 +5258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invitation = await storage.createWholesaleInvitation(invitationData);
       res.status(201).json(invitation);
     } catch (error) {
-      logger.error("Error creating wholesale invitation", error);
+      console.error("Error creating wholesale invitation:", error);
       res.status(500).json({ message: "Failed to create wholesale invitation" });
     }
   });
@@ -5272,7 +5272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(invitation);
     } catch (error) {
-      logger.error("Error fetching wholesale invitation", error);
+      console.error("Error fetching wholesale invitation:", error);
       res.status(500).json({ message: "Failed to fetch wholesale invitation" });
     }
   });
@@ -5294,7 +5294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await storage.acceptWholesaleInvitation(token, userId);
       res.json(updated);
     } catch (error) {
-      logger.error("Error accepting wholesale invitation", error);
+      console.error("Error accepting wholesale invitation:", error);
       res.status(500).json({ message: "Failed to accept wholesale invitation" });
     }
   });
@@ -5305,7 +5305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteWholesaleInvitation(id);
       res.json({ message: "Wholesale invitation deleted successfully" });
     } catch (error) {
-      logger.error("Error deleting wholesale invitation", error);
+      console.error("Error deleting wholesale invitation:", error);
       res.status(500).json({ message: "Failed to delete wholesale invitation" });
     }
   });
@@ -5329,7 +5329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ hasAccess: hasAcceptedInvitations });
     } catch (error) {
-      logger.error("Error checking wholesale access", error);
+      console.error("Error checking wholesale access:", error);
       res.status(500).json({ message: "Failed to check wholesale access" });
     }
   });
@@ -5361,7 +5361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(invitedProducts);
     } catch (error) {
-      logger.error("Error fetching buyer wholesale catalog", error);
+      console.error("Error fetching buyer wholesale catalog:", error);
       res.status(500).json({ message: "Failed to fetch catalog" });
     }
   });
@@ -5396,7 +5396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(product);
     } catch (error) {
-      logger.error("Error fetching wholesale product", error);
+      console.error("Error fetching wholesale product:", error);
       res.status(500).json({ message: "Failed to fetch product" });
     }
   });
@@ -5421,7 +5421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ authUrl });
     } catch (error) {
-      logger.error("Error initiating Instagram OAuth", error);
+      console.error("Error initiating Instagram OAuth:", error);
       res.status(500).json({ message: "Failed to initiate Instagram connection" });
     }
   });
@@ -5493,7 +5493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.redirect('/settings?instagram=success');
     } catch (error) {
-      logger.error("Error in Instagram OAuth callback", error);
+      console.error("Error in Instagram OAuth callback:", error);
       res.redirect('/settings?instagram=error');
     }
   });
@@ -5514,7 +5514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Instagram disconnected successfully" });
     } catch (error) {
-      logger.error("Error disconnecting Instagram", error);
+      console.error("Error disconnecting Instagram:", error);
       res.status(500).json({ message: "Failed to disconnect Instagram" });
     }
   });
@@ -5525,7 +5525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ratesData = await getExchangeRates();
       res.json(ratesData);
     } catch (error) {
-      logger.error("Error fetching exchange rates", error);
+      console.error("Error fetching exchange rates:", error);
       res.status(500).json({ error: "Failed to fetch exchange rates" });
     }
   });
@@ -5539,7 +5539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currency = await getUserCurrency(countryCode);
       res.json({ currency, countryCode: countryCode || 'US' });
     } catch (error) {
-      logger.error("Error detecting currency", error);
+      console.error("Error detecting currency:", error);
       res.json({ currency: 'USD', countryCode: 'US' });
     }
   });
@@ -5548,12 +5548,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint to upload file directly through backend (avoids CORS issues)
   app.post("/api/objects/upload-file", isAuthenticated, async (req: any, res) => {
     try {
-      logger.info("[Upload] Received upload request");
+      console.log('[Upload] Received upload request');
       console.log('[Upload] Files:', req.files ? Object.keys(req.files) : 'none');
       console.log('[Upload] Body:', req.body);
       
       if (!req.files || !req.files.file) {
-        logger.error("[Upload] No file found in request");
+        console.error('[Upload] No file found in request');
         return res.status(400).json({ error: "No file uploaded. Please select an image file." });
       }
 
@@ -5597,7 +5597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ objectPath: cleanPath });
     } catch (error) {
-      logger.error("[Upload] Error uploading file", error);
+      console.error("[Upload] Error uploading file:", error);
       console.error("[Upload] Error details:", error instanceof Error ? error.message : error);
       res.status(500).json({ error: "Failed to upload file" });
     }
@@ -5608,10 +5608,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const objectStorageService = new ObjectStorageService();
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      logger.info("[Upload] Generated presigned URL");
+      console.log('[Upload] Generated presigned URL');
       res.json({ uploadURL });
     } catch (error) {
-      logger.error("Error getting upload URL", error);
+      console.error("Error getting upload URL:", error);
       res.status(500).json({ error: "Failed to get upload URL" });
     }
   });
@@ -5639,7 +5639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         objectPath: objectPath,
       });
     } catch (error) {
-      logger.error("Error setting product image", error);
+      console.error("Error setting product image:", error);
       console.error("Error details:", error instanceof Error ? error.message : error);
       res.status(500).json({ error: "Internal server error" });
     }
@@ -5670,7 +5670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const objectFile = await objectStorageService.getObjectEntityFile(fullPath);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      logger.error("Error accessing object", error);
+      console.error("Error accessing object:", error);
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }

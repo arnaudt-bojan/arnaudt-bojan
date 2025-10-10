@@ -7,6 +7,8 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { logger } from "./logger";
+import { generateUniqueUsername } from "./utils";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -44,36 +46,24 @@ export function getSession() {
   });
 }
 
+interface SessionUser {
+  claims?: Record<string, unknown>;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
+}
+
 function updateUserSession(
-  user: any,
+  user: SessionUser,
   tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
-) {
+): void {
   user.claims = tokens.claims();
   user.access_token = tokens.access_token;
   user.refresh_token = tokens.refresh_token;
-  user.expires_at = user.claims?.exp;
+  user.expires_at = user.claims?.exp as number | undefined;
 }
 
-function generateRandomUsername(): string {
-  // Generate 8-digit random username
-  return Math.floor(10000000 + Math.random() * 90000000).toString();
-}
-
-async function generateUniqueUsername(): Promise<string> {
-  const allUsers = await storage.getAllUsers();
-  let username = generateRandomUsername();
-  let attempts = 0;
-  
-  // Keep generating until we find a unique one (max 10 attempts)
-  while (allUsers.some(u => u.username === username) && attempts < 10) {
-    username = generateRandomUsername();
-    attempts++;
-  }
-  
-  return username;
-}
-
-async function upsertUser(claims: any, intendedRole?: string) {
+async function upsertUser(claims: Record<string, unknown>, intendedRole?: string): Promise<void> {
   const existingUser = await storage.getUser(claims["sub"]);
   
   // If user exists, keep their role and username
@@ -121,10 +111,10 @@ async function upsertUser(claims: any, intendedRole?: string) {
 }
 
 // Setup test users for local authentication
-async function setupTestUsers() {
+async function setupTestUsers(): Promise<void> {
   const testUsers = [
-    { email: "testbuyer@test.com", password: "123456", role: "buyer", firstName: "Test", lastName: "Buyer" },
-    { email: "testseller@test.com", password: "123456", role: "admin", firstName: "Test", lastName: "Seller" }
+    { email: "testbuyer@test.com", password: "123456", role: "buyer" as const, firstName: "Test", lastName: "Buyer" },
+    { email: "testseller@test.com", password: "123456", role: "admin" as const, firstName: "Test", lastName: "Seller" }
   ];
 
   for (const testUser of testUsers) {
@@ -135,7 +125,11 @@ async function setupTestUsers() {
       
       if (existingUser) {
         // Update existing user with password and correct role, but keep username if they have one
-        console.log(`[Setup] Updating test user: ${testUser.email} (ID: ${existingUser.id})`);
+        logger.info('Updating test user', {
+          module: 'setup',
+          email: testUser.email,
+          userId: existingUser.id
+        });
         await storage.upsertUser({
           id: existingUser.id,
           email: testUser.email,
@@ -143,14 +137,18 @@ async function setupTestUsers() {
           firstName: testUser.firstName,
           lastName: testUser.lastName,
           profileImageUrl: existingUser.profileImageUrl,
-          role: testUser.role as any,
+          role: testUser.role,
           password: testUser.password
         });
       } else {
         // Create new user
         const userId = `local-${testUser.email}`;
         const username = await generateUniqueUsername();
-        console.log(`[Setup] Creating test user: ${testUser.email} (ID: ${userId})`);
+        logger.info('Creating test user', {
+          module: 'setup',
+          email: testUser.email,
+          userId
+        });
         await storage.upsertUser({
           id: userId,
           email: testUser.email,
@@ -158,12 +156,15 @@ async function setupTestUsers() {
           firstName: testUser.firstName,
           lastName: testUser.lastName,
           profileImageUrl: null,
-          role: testUser.role as any,
+          role: testUser.role,
           password: testUser.password
         });
       }
     } catch (error) {
-      console.error(`[Setup] Error setting up test user ${testUser.email}:`, error);
+      logger.error('Error setting up test user', error, {
+        module: 'setup',
+        email: testUser.email
+      });
     }
   }
 }
@@ -182,27 +183,30 @@ export async function setupAuth(app: Express) {
     { usernameField: 'email' },
     async (email, password, done) => {
       try {
-        console.log(`[LocalAuth] Attempting login for: ${email}`);
+        logger.auth('Attempting local login', { email });
         // Look up user by email
         const allUsers = await storage.getAllUsers();
         const user = allUsers.find(u => u.email === email);
         
         if (!user) {
-          console.log(`[LocalAuth] User not found: ${email}`);
+          logger.warn('User not found for local auth', { email });
           return done(null, false, { message: 'Invalid credentials' });
         }
         
-        console.log(`[LocalAuth] User found. ID: ${user.id}, Password in DB: ${user.password ? 'set' : 'not set'}`);
+        logger.debug('User found for local auth', {
+          userId: user.id,
+          hasPassword: !!user.password
+        });
         
         if (user.password !== password) {
-          console.log(`[LocalAuth] Password mismatch for ${email}`);
+          logger.warn('Password mismatch for local auth', { email });
           return done(null, false, { message: 'Invalid credentials' });
         }
 
-        console.log(`[LocalAuth] Login successful for ${email}`);
+        logger.auth('Local login successful', { email, userId: user.id });
         
         // Create a session user object similar to OIDC
-        const sessionUser = {
+        const sessionUser: SessionUser & { claims: Record<string, unknown> } = {
           claims: {
             sub: user.id,
             email: user.email,
@@ -215,7 +219,7 @@ export async function setupAuth(app: Express) {
 
         return done(null, sessionUser);
       } catch (error) {
-        console.error('[LocalAuth] Error during authentication:', error);
+        logger.error('Error during local authentication', error);
         return done(error);
       }
     }
@@ -384,8 +388,8 @@ export async function setupAuth(app: Express) {
         return res.json({ success: true, redirectUrl });
       });
 
-    } catch (error: any) {
-      console.error("Signup error:", error);
+    } catch (error) {
+      logger.error('Signup error', error, { module: 'auth' });
       return res.status(500).json({ error: "Failed to create account" });
     }
   });
@@ -405,7 +409,10 @@ export async function setupAuth(app: Express) {
       }
     } catch (e) {
       // Invalid URL encoding, use default
-      console.warn("[Logout] Invalid returnUrl encoding, using default:", rawReturnUrl);
+      logger.warn('Invalid returnUrl encoding, using default', {
+        module: 'auth',
+        returnUrl: rawReturnUrl
+      });
     }
     
     req.logout(() => {

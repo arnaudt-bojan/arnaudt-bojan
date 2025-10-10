@@ -2,7 +2,6 @@ import { Resend } from 'resend';
 import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem } from '../shared/schema';
 import { PDFService } from './pdf-service';
-import { logger } from './logger';
 
 // Check if RESEND_API_KEY is configured
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -21,7 +20,7 @@ if (!RESEND_API_KEY) {
   process.stdout.write(successMsg + '\n');
   process.stdout.write(`📧 FROM_EMAIL: ${FROM_EMAIL}\n\n`);
   console.log(successMsg);
-  logger.info(`📧 FROM_EMAIL: ${FROM_EMAIL}\n`);
+  console.log(`📧 FROM_EMAIL: ${FROM_EMAIL}\n`);
 }
 
 // Initialize Resend client - use dummy key if not configured to prevent initialization errors
@@ -113,7 +112,7 @@ class NotificationServiceImpl implements NotificationService {
       try {
         return await this.pdfService.getStripeBusinessDetails(seller.stripeConnectedAccountId);
       } catch (error) {
-        logger.error("[Notifications] Failed to fetch Stripe business details:", error);
+        console.error('[Notifications] Failed to fetch Stripe business details:', error);
       }
     }
     
@@ -165,7 +164,7 @@ class NotificationServiceImpl implements NotificationService {
     try {
       // CRITICAL: Check if Resend API key is configured
       if (!RESEND_API_KEY || RESEND_API_KEY === 'dummy-key-not-configured') {
-        logger.error("[Notifications] ❌ Cannot send email - RESEND_API_KEY is not configured");
+        console.error('[Notifications] ❌ Cannot send email - RESEND_API_KEY is not configured');
         console.error('[Notifications] Email details:', {
           to: params.to,
           subject: params.subject,
@@ -175,12 +174,12 @@ class NotificationServiceImpl implements NotificationService {
         // Extract verification code if it's an auth email
         const codeMatch = params.html.match(/\b\d{6}\b/);
         if (codeMatch) {
-          logger.info("\n═══════════════════════════════════════════════════════");
-          logger.info("🔑 VERIFICATION CODE FALLBACK (API Key Not Configured)");
-          logger.info("═══════════════════════════════════════════════════════");
-          logger.info(`To: ${params.to}`);
-          logger.info(`Code: ${codeMatch[0]}`);
-          logger.info("═══════════════════════════════════════════════════════\n");
+          console.log('\n═══════════════════════════════════════════════════════');
+          console.log('🔑 VERIFICATION CODE FALLBACK (API Key Not Configured)');
+          console.log('═══════════════════════════════════════════════════════');
+          console.log(`To: ${params.to}`);
+          console.log(`Code: ${codeMatch[0]}`);
+          console.log('═══════════════════════════════════════════════════════\n');
         }
         
         return { 
@@ -222,7 +221,7 @@ class NotificationServiceImpl implements NotificationService {
         const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || statusCode === 403;
         
         // CRITICAL: Log the actual Resend error prominently
-        logger.error("\n❌❌❌ RESEND API ERROR ❌❌❌");
+        console.error('\n❌❌❌ RESEND API ERROR ❌❌❌');
         console.error('Error:', result.error);
         console.error('Status Code:', statusCode);
         console.error('Message:', errorMsg);
@@ -230,8 +229,8 @@ class NotificationServiceImpl implements NotificationService {
         console.error('To Email:', params.to);
         
         if (isDomainError) {
-          logger.error("\n🚨 DOMAIN VERIFICATION REQUIRED 🚨");
-          logger.error("The domain in FROM_EMAIL is not verified in Resend.");
+          console.error('\n🚨 DOMAIN VERIFICATION REQUIRED 🚨');
+          console.error('The domain in FROM_EMAIL is not verified in Resend.');
           console.error('Go to https://resend.com/domains and verify:', FROM_EMAIL);
           console.error('Current FROM_EMAIL:', FROM_EMAIL);
           
@@ -239,19 +238,19 @@ class NotificationServiceImpl implements NotificationService {
           const codeMatch = params.html.match(/\b\d{6}\b/);
           if (codeMatch) {
             console.error('\n🔑 FALLBACK VERIFICATION CODE:', codeMatch[0]);
-            logger.error("Email could not be sent. Use this code manually.");
+            console.error('Email could not be sent. Use this code manually.');
           }
-          logger.error("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+          console.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n');
         }
         
         // ALWAYS return actual failure status - don't lie to the caller
         return { success: false, error: result.error.message };
       }
 
-      logger.info(`[Notifications] ✅ Email sent successfully via Resend. ID: ${result.data?.id}`);
+      console.log(`[Notifications] ✅ Email sent successfully via Resend. ID: ${result.data?.id}`);
       return { success: true, emailId: result.data?.id };
     } catch (error: any) {
-      logger.error("[Notifications] Email send exception:", error);
+      console.error('[Notifications] Email send exception:', error);
       return { success: false, error: error.message };
     }
   }
@@ -263,7 +262,7 @@ class NotificationServiceImpl implements NotificationService {
     try {
       return await this.storage.createNotification(notification);
     } catch (error) {
-      logger.error("[Notifications] Create notification error:", error);
+      console.error('[Notifications] Create notification error:', error);
       return null;
     }
   }
@@ -279,7 +278,7 @@ class NotificationServiceImpl implements NotificationService {
     // Use seller.username with fallback to seller.id to ensure sellerContext is never null for buyer emails
     const sellerContext = seller.username || seller.id;
     if (!sellerContext) {
-      logger.error("[Notifications] Cannot generate buyer magic link - seller has no username or ID");
+      console.error('[Notifications] Cannot generate buyer magic link - seller has no username or ID');
       throw new Error('Seller must have username or ID to send buyer emails');
     }
     
@@ -316,9 +315,9 @@ class NotificationServiceImpl implements NotificationService {
         content: invoiceBuffer,
         contentType: 'application/pdf',
       });
-      logger.info(`[Notifications] Invoice PDF generated for order ${order.id}`);
+      console.log(`[Notifications] Invoice PDF generated for order ${order.id}`);
     } catch (error) {
-      logger.error("[Notifications] Failed to generate invoice PDF:", error);
+      console.error('[Notifications] Failed to generate invoice PDF:', error);
       // Continue sending email without attachment
     }
 
@@ -401,9 +400,9 @@ class NotificationServiceImpl implements NotificationService {
         content: packingSlipBuffer,
         contentType: 'application/pdf',
       });
-      logger.info(`[Notifications] Packing slip PDF generated for item ${item.id}`);
+      console.log(`[Notifications] Packing slip PDF generated for item ${item.id}`);
     } catch (error) {
-      logger.error("[Notifications] Failed to generate packing slip PDF:", error);
+      console.error('[Notifications] Failed to generate packing slip PDF:', error);
       // Continue sending email without attachment
     }
 
@@ -573,9 +572,9 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean> {
     try {
-      logger.info(`[Notifications] Attempting to send auth code to ${email}`);
-      logger.info(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
-      logger.info(`[Notifications] Environment: ${process.env.NODE_ENV}`);
+      console.log(`[Notifications] Attempting to send auth code to ${email}`);
+      console.log(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
+      console.log(`[Notifications] Environment: ${process.env.NODE_ENV}`);
       
       const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
 
@@ -595,7 +594,7 @@ class NotificationServiceImpl implements NotificationService {
         console.error(`[Notifications] Failed to send auth code to ${email}:`, result.error);
         return false;
       } else {
-        logger.info(`[Notifications] Auth code sent successfully to ${email}, emailId: ${result.emailId}`);
+        console.log(`[Notifications] Auth code sent successfully to ${email}, emailId: ${result.emailId}`);
         return true;
       }
     } catch (error: any) {
@@ -610,9 +609,9 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendMagicLink(email: string, link: string): Promise<boolean> {
     try {
-      logger.info(`[Notifications] Attempting to send magic link to ${email}`);
-      logger.info(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
-      logger.info(`[Notifications] Environment: ${process.env.NODE_ENV}`);
+      console.log(`[Notifications] Attempting to send magic link to ${email}`);
+      console.log(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
+      console.log(`[Notifications] Environment: ${process.env.NODE_ENV}`);
       
       const emailHtml = this.generateMagicLinkEmail(link);
 
@@ -626,7 +625,7 @@ class NotificationServiceImpl implements NotificationService {
         console.error(`[Notifications] Failed to send magic link to ${email}:`, result.error);
         return false;
       } else {
-        logger.info(`[Notifications] Magic link sent successfully to ${email}, emailId: ${result.emailId}`);
+        console.log(`[Notifications] Magic link sent successfully to ${email}, emailId: ${result.emailId}`);
         return true;
       }
     } catch (error: any) {
@@ -1348,7 +1347,7 @@ class NotificationServiceImpl implements NotificationService {
       html: emailHtml,
     });
 
-    logger.info(`[Notifications] Buyer payment failed sent to ${buyerEmail}`);
+    console.log(`[Notifications] Buyer payment failed sent to ${buyerEmail}`);
   }
 
   /**
@@ -1478,7 +1477,7 @@ class NotificationServiceImpl implements NotificationService {
     plan: string;
   }): Promise<void> {
     if (!user.email) {
-      logger.error("[Notifications] Cannot send subscription invoice - no email");
+      console.error('[Notifications] Cannot send subscription invoice - no email');
       return;
     }
 
@@ -1928,20 +1927,20 @@ class NotificationServiceImpl implements NotificationService {
         const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || errorMsg.includes('not verified') || statusCode === 422 || statusCode === 403;
         
         if (process.env.NODE_ENV === 'development' && isValidationError) {
-          logger.info("\n═══════════════════════════════════════════════════════");
-          logger.info("📧 NEWSLETTER (Development Mode - Validation Error)");
-          logger.info("═══════════════════════════════════════════════════════");
-          logger.info(`Subject: ${subject}`);
-          logger.info(`From: ${from}`);
-          logger.info(`Recipients: ${recipients.map(r => r.email).join(', ')}`);
-          logger.info("───────────────────────────────────────────────────────");
-          logger.info("⚠️  Resend validation error (expected in development):");
-          logger.info(`   ${errorMsg}`);
-          logger.info("───────────────────────────────────────────────────────");
-          logger.info("💡 Newsletter logged to console. To send real emails:");
-          logger.info("   1. Use allowed test addresses (delivered@resend.dev)");
-          logger.info("   2. Or verify your domain at: https://resend.com/domains");
-          logger.info("═══════════════════════════════════════════════════════\n");
+          console.log('\n═══════════════════════════════════════════════════════');
+          console.log('📧 NEWSLETTER (Development Mode - Validation Error)');
+          console.log('═══════════════════════════════════════════════════════');
+          console.log(`Subject: ${subject}`);
+          console.log(`From: ${from}`);
+          console.log(`Recipients: ${recipients.map(r => r.email).join(', ')}`);
+          console.log('───────────────────────────────────────────────────────');
+          console.log('⚠️  Resend validation error (expected in development):');
+          console.log(`   ${errorMsg}`);
+          console.log('───────────────────────────────────────────────────────');
+          console.log('💡 Newsletter logged to console. To send real emails:');
+          console.log('   1. Use allowed test addresses (delivered@resend.dev)');
+          console.log('   2. Or verify your domain at: https://resend.com/domains');
+          console.log('═══════════════════════════════════════════════════════\n');
           
           // Still create analytics in development so the flow completes
           await this.storage.createNewsletterAnalytics({
@@ -1974,10 +1973,10 @@ class NotificationServiceImpl implements NotificationService {
         totalUnsubscribed: 0,
       });
 
-      logger.info(`[Newsletter] Batch sent to ${recipients.length} recipients`);
+      console.log(`[Newsletter] Batch sent to ${recipients.length} recipients`);
       return { success: true, batchId: result.data?.id };
     } catch (error: any) {
-      logger.error("[Newsletter] Send exception:", error);
+      console.error('[Newsletter] Send exception:', error);
       return { success: false, error: error.message };
     }
   }
@@ -1997,7 +1996,7 @@ class NotificationServiceImpl implements NotificationService {
       if (webhookEventId) {
         const existingEvent = await this.storage.getNewsletterEventByWebhookId(webhookEventId);
         if (existingEvent) {
-          logger.info(`[Newsletter] Duplicate webhook event ${webhookEventId}, skipping`);
+          console.log(`[Newsletter] Duplicate webhook event ${webhookEventId}, skipping`);
           return;
         }
       }
@@ -2013,7 +2012,7 @@ class NotificationServiceImpl implements NotificationService {
 
       // Only update analytics if this is a new unique event
       if (!eventCreated) {
-        logger.info(`[Newsletter] Duplicate ${eventType} event for ${recipientEmail}, skipping analytics update`);
+        console.log(`[Newsletter] Duplicate ${eventType} event for ${recipientEmail}, skipping analytics update`);
         return;
       }
 
@@ -2050,7 +2049,7 @@ class NotificationServiceImpl implements NotificationService {
       await this.storage.updateNewsletterAnalytics(newsletterId, updates);
       console.log(`[Newsletter] Tracked unique ${eventType} for ${recipientEmail} in newsletter:`, newsletterId);
     } catch (error) {
-      logger.error("[Newsletter] Track event error:", error);
+      console.error('[Newsletter] Track event error:', error);
     }
   }
 

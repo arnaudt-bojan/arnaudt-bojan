@@ -2,7 +2,6 @@ import PDFDocument from 'pdfkit';
 import { Storage } from '@google-cloud/storage';
 import Stripe from 'stripe';
 import type { Order, OrderItem, User } from '../shared/schema';
-import { logger } from './logger';
 
 const storage = new Storage();
 const BUCKET_NAME = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
@@ -77,7 +76,7 @@ export class PDFService {
         phone: account.business_profile?.support_phone || undefined,
       };
     } catch (error) {
-      logger.error("[PDF Service] Error fetching Stripe business details:", error);
+      console.error('[PDF Service] Error fetching Stripe business details:', error);
       // Return fallback details
       return {
         businessName: 'Business',
@@ -219,7 +218,7 @@ export class PDFService {
         return buffer;
       }
     } catch (error) {
-      logger.error("[PDF Service] Cache check error:", error);
+      console.error('[PDF Service] Cache check error:', error);
     }
     
     return null;
