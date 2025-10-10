@@ -91,6 +91,23 @@ function PaymentForm({
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         redirect: "if_required",
+        confirmParams: {
+          payment_method_data: {
+            billing_details: {
+              email: orderData.customerEmail,
+              name: orderData.customerName,
+              phone: orderData.phone,
+              address: {
+                line1: orderData.addressLine1,
+                line2: orderData.addressLine2 || undefined,
+                city: orderData.city,
+                state: orderData.state,
+                postal_code: orderData.postalCode,
+                country: orderData.country,
+              },
+            },
+          },
+        },
       });
 
       if (error) {
@@ -152,7 +169,10 @@ function PaymentForm({
               billingDetails: {
                 email: 'never',
               }
-            }
+            },
+            terms: {
+              card: 'never',
+            },
           }}
         />
       </div>
