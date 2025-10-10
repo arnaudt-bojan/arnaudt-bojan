@@ -1030,41 +1030,43 @@ export default function Settings() {
           </Select>
         </div>
 
-        {/* Desktop: Tabs */}
-        <TabsList className={`hidden md:grid w-full gap-2 ${isSeller ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`} data-testid="tabs-settings">
-          <TabsTrigger value="profile" data-testid="tab-profile" className="flex items-center justify-center gap-2">
+        {/* Desktop/Tablet: Wrapping Tabs Grid */}
+        <TabsList className="hidden md:flex w-full flex-wrap gap-2 h-auto p-2" data-testid="tabs-settings">
+          <TabsTrigger value="profile" data-testid="tab-profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
-            <span className="hidden lg:inline">Profile</span>
+            <span>Profile</span>
           </TabsTrigger>
-          <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments" className="flex items-center justify-center gap-2">
+          <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments" className="flex items-center gap-2">
             <Wallet className="h-4 w-4" />
-            <span className="hidden lg:inline">Addresses & Payments</span>
+            <span className="hidden md:inline xl:hidden">Addresses</span>
+            <span className="hidden xl:inline">Addresses & Payments</span>
           </TabsTrigger>
           {isSeller && (
             <>
-              <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center justify-center gap-2">
+              <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
-                <span className="hidden lg:inline">Subscription</span>
+                <span>Subscription</span>
               </TabsTrigger>
-              <TabsTrigger value="store" data-testid="tab-store" className="flex items-center justify-center gap-2">
+              <TabsTrigger value="store" data-testid="tab-store" className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                <span className="hidden lg:inline">Store</span>
+                <span>Store</span>
               </TabsTrigger>
-              <TabsTrigger value="branding" data-testid="tab-branding" className="flex items-center justify-center gap-2">
+              <TabsTrigger value="branding" data-testid="tab-branding" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
-                <span className="hidden lg:inline">Branding</span>
+                <span>Branding</span>
               </TabsTrigger>
-              <TabsTrigger value="payment" data-testid="tab-payment" className="flex items-center justify-center gap-2">
+              <TabsTrigger value="payment" data-testid="tab-payment" className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
-                <span className="hidden lg:inline">Payment</span>
+                <span>Payment</span>
               </TabsTrigger>
-              <TabsTrigger value="categories" data-testid="tab-categories" className="flex items-center justify-center gap-2">
+              <TabsTrigger value="categories" data-testid="tab-categories" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
-                <span className="hidden lg:inline">Categories</span>
+                <span>Categories</span>
               </TabsTrigger>
-              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center justify-center gap-2">
+              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                <span className="hidden lg:inline">Shipping Matrix</span>
+                <span className="hidden md:inline xl:hidden">Shipping</span>
+                <span className="hidden xl:inline">Shipping Matrix</span>
               </TabsTrigger>
             </>
           )}

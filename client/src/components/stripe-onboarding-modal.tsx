@@ -45,9 +45,9 @@ export function StripeOnboardingModal({ isOpen, onClose, accountId, onComplete, 
           appearance: {
             overlays: 'dialog',
             variables: {
-              colorPrimary: 'hsl(262.1 83.3% 57.8%)',
+              colorPrimary: '#8b5cf6',
               fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-              borderRadius: '0.5rem',
+              borderRadius: '8px',
             },
           },
         });
