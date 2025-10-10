@@ -2874,6 +2874,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         detailsSubmitted: account.details_submitted,
         currency: account.default_currency,
         requirements: account.requirements,
+        capabilities: {
+          card_payments: account.capabilities?.card_payments || 'inactive',
+          transfers: account.capabilities?.transfers || 'inactive',
+        },
       });
     } catch (error: any) {
       console.error("Stripe account status error:", error);
@@ -3113,7 +3117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.claims.sub;
-      const { plan } = req.body; // "monthly" or "annual"
+      const { plan, activateStore = false } = req.body; // "monthly" or "annual", auto-activate store
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -3209,8 +3213,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscription_data: trialEndTimestamp ? {
           trial_end: trialEndTimestamp,
         } : undefined,
-        success_url: `${req.headers.origin || 'http://localhost:5000'}/seller-dashboard?subscription=success`,
-        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/products?subscription=cancelled`,
+        success_url: `${req.headers.origin || 'http://localhost:5000'}/seller-dashboard?subscription=success${activateStore ? '&activateStore=true' : ''}`,
+        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/seller-dashboard?subscription=cancelled`,
         metadata: {
           userId: user.id,
           plan: plan,

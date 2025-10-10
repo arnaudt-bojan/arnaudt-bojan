@@ -75,8 +75,8 @@ export default function SellerDashboard() {
       const hasActiveSubscription = user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trial';
       
       if (!hasActiveSubscription) {
-        // No active subscription - show pricing dialog
-        setShowSubscriptionDialog(true);
+        // No active subscription - redirect to subscription with auto-activate flag
+        setLocation('/settings?tab=subscription&activateStoreAfter=true');
         return;
       }
     }

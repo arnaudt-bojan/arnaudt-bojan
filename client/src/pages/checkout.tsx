@@ -359,6 +359,11 @@ export default function Checkout() {
         items: items,
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create payment intent");
+      }
+
       const paymentData = await response.json();
 
       if (!paymentData.clientSecret) {
@@ -376,8 +381,13 @@ export default function Checkout() {
     } catch (error: any) {
       const errorMsg = error.message || "Failed to initialize payment";
       
-      if (errorMsg.includes("hasn't set up payments") || errorMsg.includes("connect a payment provider")) {
-        setStripeError("This store hasn't set up payments yet. Please contact the seller.");
+      // Check for various payment setup errors
+      if (errorMsg.includes("hasn't set up payment") || 
+          errorMsg.includes("needs to complete payment setup") ||
+          errorMsg.includes("complete payment setup") ||
+          errorMsg.includes("finish their Stripe onboarding") ||
+          errorMsg.includes("connect a payment provider")) {
+        setStripeError("This store hasn't completed payment setup yet. Please contact the seller to complete their payment processing setup.");
       } else {
         setStripeError(errorMsg);
       }

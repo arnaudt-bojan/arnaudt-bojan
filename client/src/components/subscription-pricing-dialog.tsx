@@ -18,6 +18,7 @@ import { useLocation } from "wouter";
 interface SubscriptionPricingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  activateStoreAfter?: boolean; // Auto-activate store after successful subscription
 }
 
 export function SubscriptionPricingDialog({ open, onOpenChange }: SubscriptionPricingDialogProps) {
