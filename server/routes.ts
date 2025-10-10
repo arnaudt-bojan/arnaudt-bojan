@@ -3054,11 +3054,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let subscription = null;
+      let paymentMethod = null;
+      let upcomingInvoice = null;
+      let billingHistory: any[] = [];
+      let nextBillingDate = null;
+      let cancelAtPeriodEnd = false;
+
       if (user.stripeSubscriptionId && stripe) {
         try {
-          subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+          // Get subscription with expanded data
+          subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
+            expand: ['default_payment_method']
+          });
+
+          // Get payment method details if available
+          if (subscription.default_payment_method) {
+            paymentMethod = subscription.default_payment_method;
+          }
+
+          // Get upcoming invoice for next billing date and amount
+          try {
+            upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+              customer: user.stripeCustomerId as string,
+            });
+            nextBillingDate = new Date(upcomingInvoice.period_end * 1000);
+          } catch (invoiceError) {
+            // No upcoming invoice (subscription might be canceled)
+            console.log("No upcoming invoice found");
+          }
+
+          // Get billing history (last 5 invoices)
+          if (user.stripeCustomerId) {
+            const invoices = await stripe.invoices.list({
+              customer: user.stripeCustomerId,
+              limit: 5,
+            });
+            billingHistory = invoices.data.map(inv => ({
+              id: inv.id,
+              amount: inv.amount_paid,
+              currency: inv.currency,
+              status: inv.status,
+              date: new Date(inv.created * 1000),
+              invoiceUrl: inv.hosted_invoice_url,
+              invoicePdf: inv.invoice_pdf,
+              number: inv.number,
+            }));
+          }
+
+          cancelAtPeriodEnd = subscription.cancel_at_period_end;
         } catch (error) {
-          console.error("Error fetching subscription:", error);
+          console.error("Error fetching subscription details:", error);
         }
       }
 
@@ -3068,6 +3113,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trialEndsAt: user.trialEndsAt,
         hasPaymentMethod: !!user.stripeCustomerId,
         subscription,
+        paymentMethod,
+        nextBillingDate,
+        cancelAtPeriodEnd,
+        billingHistory,
+        upcomingInvoice: upcomingInvoice ? {
+          amount: upcomingInvoice.amount_due,
+          currency: upcomingInvoice.currency,
+          date: nextBillingDate,
+        } : null,
       });
     } catch (error: any) {
       console.error("Get subscription status error:", error);

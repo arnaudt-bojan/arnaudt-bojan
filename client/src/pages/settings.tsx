@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -135,6 +136,7 @@ function PaymentSetupForm({ clientSecret, onSuccess }: { clientSecret: string; o
 function SubscriptionTab({ user }: { user: any }) {
   const { toast } = useToast();
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   
   const { data: subscriptionStatus, refetch: refetchSubscription } = useQuery<{
     status: string | null;
@@ -142,13 +144,68 @@ function SubscriptionTab({ user }: { user: any }) {
     trialEndsAt: string | null;
     hasPaymentMethod: boolean;
     subscription: any | null;
+    paymentMethod: any | null;
+    nextBillingDate: string | null;
+    cancelAtPeriodEnd: boolean;
+    billingHistory: Array<{
+      id: string;
+      amount: number;
+      currency: string;
+      status: string;
+      date: string;
+      invoiceUrl: string;
+      invoicePdf: string;
+      number: string;
+    }>;
+    upcomingInvoice: {
+      amount: number;
+      currency: string;
+      date: string;
+    } | null;
   }>({
     queryKey: ["/api/subscription/status"],
+  });
+
+  const cancelSubscriptionMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/subscription/cancel", {});
+    },
+    onSuccess: () => {
+      refetchSubscription();
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Subscription Canceled",
+        description: "Your subscription has been canceled. You'll have access until the end of your billing period.",
+      });
+      setShowCancelDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to cancel subscription",
+        variant: "destructive",
+      });
+    },
   });
 
   const daysRemaining = subscriptionStatus?.trialEndsAt 
     ? Math.ceil((new Date(subscriptionStatus.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : null;
+
+  const formatCurrency = (amount: number, currency: string) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
 
   return (
     <>
@@ -168,11 +225,18 @@ function SubscriptionTab({ user }: { user: any }) {
                   <Clock className="h-5 w-5 text-blue-600" />
                   <h3 className="font-semibold text-blue-900 dark:text-blue-100">Free Trial Active</h3>
                 </div>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
                   {daysRemaining !== null && daysRemaining > 0
                     ? `${daysRemaining} days remaining in your trial`
                     : "Your trial has ended"}
                 </p>
+                <Button 
+                  onClick={() => setShowSubscriptionDialog(true)}
+                  size="sm"
+                  data-testid="button-upgrade-from-trial"
+                >
+                  Upgrade to Paid Plan
+                </Button>
               </div>
             )}
 
@@ -183,7 +247,19 @@ function SubscriptionTab({ user }: { user: any }) {
                   <h3 className="font-semibold text-green-900 dark:text-green-100">Active Subscription</h3>
                 </div>
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  Your {subscriptionStatus.plan} plan is active
+                  Your {subscriptionStatus.plan === "monthly" ? "Monthly" : "Annual"} plan is active
+                </p>
+              </div>
+            )}
+
+            {subscriptionStatus?.cancelAtPeriodEnd && (
+              <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  <h3 className="font-semibold text-orange-900 dark:text-orange-100">Subscription Ending</h3>
+                </div>
+                <p className="text-sm text-orange-700 dark:text-orange-300">
+                  Your subscription will end on {subscriptionStatus.nextBillingDate ? formatDate(subscriptionStatus.nextBillingDate) : "the billing date"}
                 </p>
               </div>
             )}
@@ -204,40 +280,154 @@ function SubscriptionTab({ user }: { user: any }) {
           </CardContent>
         </Card>
 
-        {/* Manage Subscription */}
-        {subscriptionStatus?.status && (
+        {/* Billing Details */}
+        {subscriptionStatus?.status && subscriptionStatus.status !== "canceled" && (
           <Card>
             <CardHeader>
-              <CardTitle>Manage Subscription</CardTitle>
+              <CardTitle>Billing Details</CardTitle>
               <CardDescription>
-                Update your subscription plan or payment method
+                Manage your subscription and billing information
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Current Plan</p>
+                  <p className="text-lg font-semibold">
+                    {subscriptionStatus.plan === "monthly" ? "Monthly ($9.99/mo)" : "Annual ($99/year)"}
+                  </p>
+                </div>
+                {subscriptionStatus.nextBillingDate && !subscriptionStatus.cancelAtPeriodEnd && (
                   <div>
-                    <p className="font-medium">Current Plan</p>
-                    <p className="text-sm text-muted-foreground">
-                      {subscriptionStatus.plan === "monthly" ? "Monthly ($9.99/mo)" : "Annual ($99/year)"}
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Next Billing Date</p>
+                    <p className="text-lg font-semibold">
+                      {formatDate(subscriptionStatus.nextBillingDate)}
                     </p>
                   </div>
-                  {subscriptionStatus.status !== "trial" && (
-                    <Button variant="outline" size="sm">
-                      Change Plan
-                    </Button>
-                  )}
+                )}
+              </div>
+
+              {subscriptionStatus.upcomingInvoice && !subscriptionStatus.cancelAtPeriodEnd && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Next Payment</p>
+                  <p className="text-lg font-semibold">
+                    {formatCurrency(subscriptionStatus.upcomingInvoice.amount, subscriptionStatus.upcomingInvoice.currency)}
+                  </p>
                 </div>
+              )}
+
+              {subscriptionStatus.paymentMethod && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Payment Method</p>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    <span>
+                      {subscriptionStatus.paymentMethod.card?.brand?.toUpperCase()} •••• {subscriptionStatus.paymentMethod.card?.last4}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                {subscriptionStatus.status !== "trial" && !subscriptionStatus.cancelAtPeriodEnd && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCancelDialog(true)}
+                    data-testid="button-cancel-subscription"
+                  >
+                    Cancel Subscription
+                  </Button>
+                )}
+                {subscriptionStatus.cancelAtPeriodEnd && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSubscriptionDialog(true)}
+                    data-testid="button-reactivate-subscription"
+                  >
+                    Reactivate Subscription
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Billing History */}
+        {subscriptionStatus?.billingHistory && subscriptionStatus.billingHistory.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Billing History</CardTitle>
+              <CardDescription>View your past invoices and payments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {subscriptionStatus.billingHistory.map((invoice) => (
+                  <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{formatCurrency(invoice.amount, invoice.currency)}</p>
+                        <Badge variant={invoice.status === "paid" ? "default" : "secondary"}>
+                          {invoice.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(invoice.date)} • {invoice.number || invoice.id}
+                      </p>
+                    </div>
+                    {invoice.invoiceUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(invoice.invoiceUrl, '_blank')}
+                        data-testid={`button-view-invoice-${invoice.id}`}
+                      >
+                        View Invoice
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         )}
       </div>
 
+      {/* Subscription Pricing Dialog */}
       <SubscriptionPricingDialog 
         open={showSubscriptionDialog} 
         onOpenChange={setShowSubscriptionDialog} 
       />
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent data-testid="dialog-cancel-subscription">
+          <DialogHeader>
+            <DialogTitle>Cancel Subscription?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+              className="flex-1"
+              data-testid="button-keep-subscription"
+            >
+              Keep Subscription
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => cancelSubscriptionMutation.mutate()}
+              disabled={cancelSubscriptionMutation.isPending}
+              className="flex-1"
+              data-testid="button-confirm-cancel"
+            >
+              {cancelSubscriptionMutation.isPending ? "Canceling..." : "Yes, Cancel"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
