@@ -21,14 +21,17 @@ interface SubscriptionPricingDialogProps {
   activateStoreAfter?: boolean; // Auto-activate store after successful subscription
 }
 
-export function SubscriptionPricingDialog({ open, onOpenChange }: SubscriptionPricingDialogProps) {
+export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAfter }: SubscriptionPricingDialogProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("monthly");
 
   const createSubscriptionMutation = useMutation({
     mutationFn: async (plan: "monthly" | "annual") => {
-      const response = await apiRequest("POST", "/api/subscription/create", { plan });
+      const response = await apiRequest("POST", "/api/subscription/create", { 
+        plan,
+        activateStore: activateStoreAfter 
+      });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to create subscription");
