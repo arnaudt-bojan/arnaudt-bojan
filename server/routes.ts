@@ -190,6 +190,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch seller" });
     }
   });
+  
+  // Get seller by ID (public endpoint for order success pages)
+  app.get("/api/sellers/id/:sellerId", async (req, res) => {
+    try {
+      const { sellerId } = req.params;
+      
+      const seller = await storage.getUser(sellerId);
+      
+      if (!seller || (seller.role !== 'seller' && seller.role !== 'owner' && seller.role !== 'admin')) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+      
+      // Return only public fields for order display
+      const publicSellerInfo = {
+        id: seller.id,
+        username: seller.username,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        profileImageUrl: seller.profileImageUrl,
+        logo: seller.storeLogo,
+        banner: seller.storeBanner,
+        storeActive: seller.storeActive,
+        shippingPolicy: seller.shippingPolicy,
+        returnsPolicy: seller.returnsPolicy,
+      };
+      
+      res.json(publicSellerInfo);
+    } catch (error) {
+      console.error("Error fetching seller by ID:", error);
+      res.status(500).json({ error: "Failed to fetch seller" });
+    }
+  });
 
   // Seller-specific products (only products owned by this seller)
   app.get("/api/seller/products", isAuthenticated, async (req: any, res) => {
@@ -856,6 +888,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(orders);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // Public order lookup (for guest checkout - no auth required)
+  app.get("/api/orders/lookup/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { email } = req.query;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required for order lookup" });
+      }
+
+      const order = await storage.getOrder(id);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Verify email matches (case-insensitive)
+      if (order.customerEmail.toLowerCase() !== (email as string).toLowerCase()) {
+        return res.status(403).json({ error: "Invalid email for this order" });
+      }
+      
+      res.json(order);
+    } catch (error) {
+      console.error("Order lookup error:", error);
+      res.status(500).json({ error: "Failed to fetch order" });
     }
   });
 

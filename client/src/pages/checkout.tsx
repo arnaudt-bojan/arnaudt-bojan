@@ -394,7 +394,9 @@ export default function Checkout() {
 
   const handlePaymentSuccess = (orderId: string) => {
     clearCart();
-    setLocation(`/order-success/${orderId}`);
+    // Pass email for public order lookup (guest checkout users)
+    const email = encodeURIComponent(billingDetails?.email || '');
+    setLocation(`/order-success/${orderId}?email=${email}`);
   };
 
   if (items.length === 0 && !orderComplete) {

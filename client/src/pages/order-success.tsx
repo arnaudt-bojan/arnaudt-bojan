@@ -13,28 +13,64 @@ export default function OrderSuccess() {
   const [, params] = useRoute("/order-success/:orderId");
   const [, setLocation] = useLocation();
   const orderId = params?.orderId;
+  
+  // Get email from URL query parameter for public order lookup
+  const urlParams = new URLSearchParams(window.location.search);
+  const email = urlParams.get('email');
+  
+  // Check if user is authenticated
+  const { data: currentUser } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+  
+  const isAuthenticated = !!currentUser;
 
-  // Fetch order details
+  // Fetch order details - use authenticated endpoint if logged in, public lookup if guest
   const { data: order, isLoading: orderLoading } = useQuery<Order>({
-    queryKey: ["/api", "orders", orderId],
+    queryKey: [`/api/orders/${orderId}`, isAuthenticated, email], // Stable key that includes auth state
+    queryFn: async () => {
+      const endpoint = isAuthenticated 
+        ? `/api/orders/${orderId}`
+        : `/api/orders/lookup/${orderId}?email=${encodeURIComponent(email || '')}`;
+      
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        throw new Error('Failed to fetch order');
+      }
+      return response.json();
+    },
+    // Always enabled if we have an orderId - auth state and email are in queryKey so it refetches appropriately
     enabled: !!orderId,
+    // Prevent caching of failed requests
+    retry: false,
   });
-
-  // Fetch authenticated user to get seller info
-  const { data: user } = useQuery<User>({
-    queryKey: ["/api", "auth", "user"],
-  });
-
-  // Fetch all products to get product details from order items
-  const { data: products } = useQuery<Product[]>({
-    queryKey: ["/api", "products"],
-  });
-
-  // Use user as seller (the authenticated user is the seller for their own orders)
-  const seller = user;
 
   // Parse order items
   const orderItems = order?.items ? JSON.parse(order.items) : [];
+  
+  // Get seller ID from first product in order
+  const firstProductId = orderItems[0]?.productId;
+  
+  // Fetch first product to get seller ID
+  const { data: firstProduct } = useQuery<Product>({
+    queryKey: [`/api/products/${firstProductId}`],
+    enabled: !!firstProductId,
+  });
+  
+  const sellerId = firstProduct?.sellerId;
+  
+  // Fetch seller info using public endpoint
+  const { data: sellerUser } = useQuery<User>({
+    queryKey: [`/api/sellers/id/${sellerId}`],
+    enabled: !!sellerId,
+  });
+  
+  // Fetch all products to get product details from order items
+  const { data: products } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const seller = sellerUser;
 
   // Get payment info
   const paymentStatus = order?.paymentStatus;
