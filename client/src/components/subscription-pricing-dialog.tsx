@@ -88,11 +88,18 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
           try {
             // Call sync endpoint to fetch latest status from Stripe
             await apiRequest("POST", "/api/subscription/sync", {});
-            // Then refetch user to get updated status
+            // Invalidate and refetch user to get updated status
+            await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
             await refetchUser();
+            
+            toast({
+              title: "Subscription Updated",
+              description: "Your subscription status has been synced successfully.",
+            });
           } catch (error) {
             console.error("Failed to sync subscription:", error);
-            // Still try to refetch user even if sync fails
+            // Still try to invalidate and refetch even if sync fails
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
             refetchUser();
           }
         }, 1000);
