@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { X, Star, Link as LinkIcon, ImagePlus, Pencil } from "lucide-react";
+import { X, Star, Link as LinkIcon, ImagePlus, Pencil, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ImageDropzone } from "@/components/image-dropzone";
@@ -38,6 +38,7 @@ export function UniversalImageUpload({
   const [urlInput, setUrlInput] = useState("");
   const [heroIndex, setHeroIndex] = useState(0);
   const [editingImage, setEditingImage] = useState<{ index: number; url: string } | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   // Normalize value to array for easier handling
   const images = Array.isArray(value) ? value : value ? [value] : [];
@@ -215,19 +216,32 @@ export function UniversalImageUpload({
 
               {/* Image preview */}
               <div className={cn("bg-muted", aspectRatioClass)}>
-                {imageUrl ? (
+                {imageUrl && !imageErrors.has(index) ? (
                   <img
                     src={imageUrl}
                     alt={`Image ${index + 1}`}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = '';
-                      e.currentTarget.classList.add('hidden');
+                    onError={() => {
+                      setImageErrors(prev => new Set(Array.from(prev).concat(index)));
+                    }}
+                    onLoad={() => {
+                      setImageErrors(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(index);
+                        return newSet;
+                      });
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                    {imageUrl ? (
+                      <>
+                        <ImageOff className="h-8 w-8 text-destructive" />
+                        <p className="text-xs text-muted-foreground px-2 text-center">Image failed to load</p>
+                      </>
+                    ) : (
+                      <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                    )}
                   </div>
                 )}
               </div>
