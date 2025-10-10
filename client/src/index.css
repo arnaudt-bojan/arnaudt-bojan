@@ -352,4 +352,121 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Glass Morphism Effects */
+  .glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .dark .glass-strong {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* Premium Gradients */
+  .gradient-mesh {
+    background: 
+      radial-gradient(at 27% 37%, hsla(217, 91%, 60%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 97% 21%, hsla(142, 71%, 45%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 52% 99%, hsla(280, 65%, 60%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 10% 29%, hsla(25, 95%, 53%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 97% 96%, hsla(340, 82%, 52%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 33% 50%, hsla(217, 91%, 60%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 79% 53%, hsla(142, 71%, 45%, 0.1) 0px, transparent 50%);
+  }
+
+  .dark .gradient-mesh {
+    background: 
+      radial-gradient(at 27% 37%, hsla(217, 91%, 60%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 97% 21%, hsla(142, 71%, 45%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 52% 99%, hsla(280, 65%, 60%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 10% 29%, hsla(25, 95%, 53%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 97% 96%, hsla(340, 82%, 52%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 33% 50%, hsla(217, 91%, 60%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 79% 53%, hsla(142, 71%, 45%, 0.15) 0px, transparent 50%);
+  }
+
+  /* Smooth Transitions */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-smooth-slow {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Animated Gradients */
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  /* Floating Animation */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Pulse Glow */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(217, 91, 60, 0.2); }
+    50% { box-shadow: 0 0 40px rgba(217, 91, 60, 0.4); }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  /* Shimmer Effect */
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* Scroll Reveal */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .scroll-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
