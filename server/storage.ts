@@ -42,6 +42,10 @@ import {
   type InsertShippingMatrix,
   type ShippingZone,
   type InsertShippingZone,
+  type Invoice,
+  type InsertInvoice,
+  type PackingSlip,
+  type InsertPackingSlip,
   users,
   products,
   orders,
@@ -64,7 +68,9 @@ import {
   notifications,
   authTokens,
   shippingMatrices,
-  shippingZones
+  shippingZones,
+  invoices,
+  packingSlips
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -211,6 +217,20 @@ export interface IStorage {
   createShippingZone(zone: InsertShippingZone): Promise<ShippingZone>;
   updateShippingZone(id: string, zone: Partial<InsertShippingZone>): Promise<ShippingZone | undefined>;
   deleteShippingZone(id: string): Promise<boolean>;
+  
+  // Invoices
+  getInvoicesByOrderId(orderId: string): Promise<Invoice[]>;
+  getInvoicesBySellerId(sellerId: string): Promise<Invoice[]>;
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  
+  // Packing Slips
+  getPackingSlipsByOrderId(orderId: string): Promise<PackingSlip[]>;
+  getPackingSlipsBySellerId(sellerId: string): Promise<PackingSlip[]>;
+  getPackingSlip(id: string): Promise<PackingSlip | undefined>;
+  getPackingSlipByNumber(packingSlipNumber: string): Promise<PackingSlip | undefined>;
+  createPackingSlip(packingSlip: InsertPackingSlip): Promise<PackingSlip>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1266,6 +1286,96 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(shippingZones).where(eq(shippingZones.id, id));
     return true;
+  }
+
+  // Invoice Methods
+  async getInvoicesByOrderId(orderId: string): Promise<Invoice[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.orderId, orderId))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoicesBySellerId(sellerId: string): Promise<Invoice[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.sellerId, sellerId))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.invoiceNumber, invoiceNumber))
+      .limit(1);
+    return result[0];
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(invoices).values(invoice).returning();
+    return result[0];
+  }
+
+  // Packing Slip Methods
+  async getPackingSlipsByOrderId(orderId: string): Promise<PackingSlip[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(packingSlips)
+      .where(eq(packingSlips.orderId, orderId))
+      .orderBy(desc(packingSlips.createdAt));
+  }
+
+  async getPackingSlipsBySellerId(sellerId: string): Promise<PackingSlip[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(packingSlips)
+      .where(eq(packingSlips.sellerId, sellerId))
+      .orderBy(desc(packingSlips.createdAt));
+  }
+
+  async getPackingSlip(id: string): Promise<PackingSlip | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(packingSlips)
+      .where(eq(packingSlips.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getPackingSlipByNumber(packingSlipNumber: string): Promise<PackingSlip | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(packingSlips)
+      .where(eq(packingSlips.packingSlipNumber, packingSlipNumber))
+      .limit(1);
+    return result[0];
+  }
+
+  async createPackingSlip(packingSlip: InsertPackingSlip): Promise<PackingSlip> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(packingSlips).values(packingSlip).returning();
+    return result[0];
   }
 }
 

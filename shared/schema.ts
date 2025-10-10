@@ -717,3 +717,79 @@ export const insertProductSourceMappingSchema = createInsertSchema(productSource
   });
 export type InsertProductSourceMapping = z.infer<typeof insertProductSourceMappingSchema>;
 export type ProductSourceMapping = typeof productSourceMappings.$inferSelect;
+
+// Invoices - Track generated invoices for orders
+export const documentTypeEnum = z.enum(["invoice", "packing_slip"]);
+export type DocumentType = z.infer<typeof documentTypeEnum>;
+
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  sellerId: varchar("seller_id").notNull(), // Seller who owns this order
+  invoiceNumber: varchar("invoice_number").notNull().unique(), // INV-YYYYMMDD-XXXXX
+  documentUrl: text("document_url").notNull(), // URL to PDF in object storage
+  documentType: text("document_type").notNull().default("invoice"), // "invoice" (for invoices table)
+  orderType: text("order_type").notNull(), // "b2c" or "wholesale"
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
+  
+  // Wholesale-specific fields
+  poNumber: varchar("po_number"), // Purchase Order number
+  vatNumber: varchar("vat_number"), // VAT/Tax ID
+  incoterms: varchar("incoterms"), // e.g., "FOB", "CIF", "DDP"
+  paymentTerms: varchar("payment_terms"), // e.g., "Net 30", "Net 60"
+  
+  // Metadata
+  generatedBy: varchar("generated_by"), // User ID who manually generated (null for auto)
+  generationTrigger: varchar("generation_trigger").notNull(), // "auto_on_payment", "auto_on_ship", "manual"
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    // Index for fast order lookup
+    orderIdIdx: index("invoices_order_id_idx").on(table.orderId),
+    // Index for seller's invoices
+    sellerIdIdx: index("invoices_seller_id_idx").on(table.sellerId),
+  };
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+
+// Packing Slips - Track generated packing slips for orders
+export const packingSlips = pgTable("packing_slips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  sellerId: varchar("seller_id").notNull(), // Seller who owns this order
+  packingSlipNumber: varchar("packing_slip_number").notNull().unique(), // PS-YYYYMMDD-XXXXX
+  documentUrl: text("document_url").notNull(), // URL to PDF in object storage
+  documentType: text("document_type").notNull().default("packing_slip"), // "packing_slip" (for packing_slips table)
+  
+  // Packing-specific fields
+  warehouseNotes: text("warehouse_notes"), // Special handling instructions
+  giftMessage: text("gift_message"), // Gift message if order is a gift
+  includesPricing: integer("includes_pricing").default(0), // 0 = no prices (standard), 1 = include prices
+  
+  // Metadata
+  generatedBy: varchar("generated_by"), // User ID who manually generated (null for auto)
+  generationTrigger: varchar("generation_trigger").notNull(), // "auto_on_ready_to_ship", "manual"
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    // Index for fast order lookup
+    orderIdIdx: index("packing_slips_order_id_idx").on(table.orderId),
+    // Index for seller's packing slips
+    sellerIdIdx: index("packing_slips_seller_id_idx").on(table.sellerId),
+  };
+});
+
+export const insertPackingSlipSchema = createInsertSchema(packingSlips)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPackingSlip = z.infer<typeof insertPackingSlipSchema>;
+export type PackingSlip = typeof packingSlips.$inferSelect;

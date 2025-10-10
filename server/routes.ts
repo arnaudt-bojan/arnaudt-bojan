@@ -11,6 +11,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
 import { PDFService } from "./pdf-service";
+import documentRoutes from "./routes/documents";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -50,6 +51,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Email-based authentication routes
   app.use("/api/auth/email", emailAuthRoutes);
+
+  // Document generation routes (invoices & packing slips)
+  app.use("/api/documents", documentRoutes);
 
   // Notification routes
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
