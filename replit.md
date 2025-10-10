@@ -34,6 +34,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Image Editing System**: Built-in image editor (crop, zoom, rotate, flip, filters) for logos and banners using `react-easy-crop`.
 - **Flexible Shipping System**: Three-tier configuration allowing sellers to define zone-based shipping matrices, flat rates, real-time rates via Shippo, or free shipping.
 - **Document Generation System**: Professional PDF invoice and packing slip generation using pdfkit, with templates for B2C and wholesale, object storage integration, and automatic generation triggers.
+- **Saved Addresses & Payment Methods**: PCI-DSS compliant system allowing all users (buyers and sellers) to securely save shipping addresses and payment methods for faster checkout. Addresses stored directly in database with full details. Payment methods use Stripe Payment Methods API - only Stripe tokens and display metadata stored (never raw card data). Available in Settings > Addresses & Payments tab.
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
