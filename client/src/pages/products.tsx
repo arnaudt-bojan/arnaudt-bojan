@@ -65,16 +65,24 @@ export default function Products() {
   const domainInfo = detectDomain();
   const [sellerInfo, setSellerInfo] = useState<any>(null);
   
-  // Check for preview mode (from settings page)
+  // Check for preview mode (from settings page) or seller filter (from share link)
   const urlParams = new URLSearchParams(window.location.search);
   const previewUsername = urlParams.get('preview');
+  const sellerUsername = urlParams.get('seller'); // Share link parameter
   const isPreviewMode = !!previewUsername;
+  const isSellerFilterMode = !!sellerUsername; // Share link mode
   
-  // Get seller info if on seller domain OR in preview mode
+  // Get seller info if on seller domain OR in preview mode OR in seller filter mode (share link)
   useEffect(() => {
     if (previewUsername) {
       // Preview mode: fetch seller by username (secure endpoint)
       fetch(`/api/sellers/${previewUsername}`)
+        .then(res => res.json())
+        .then(data => setSellerInfo(data))
+        .catch(console.error);
+    } else if (sellerUsername) {
+      // Share link mode: fetch seller by username
+      fetch(`/api/sellers/${sellerUsername}`)
         .then(res => res.json())
         .then(data => setSellerInfo(data))
         .catch(console.error);
@@ -84,16 +92,20 @@ export default function Products() {
         .then(data => setSellerInfo(data))
         .catch(console.error);
     }
-  }, [domainInfo.sellerUsername, previewUsername]);
+  }, [domainInfo.sellerUsername, previewUsername, sellerUsername]);
   
-  // Fetch products - filter by seller if on seller subdomain OR if logged in as seller OR in preview mode
+  // Fetch products - filter by seller if:
+  // 1. On seller subdomain, OR
+  // 2. In preview mode, OR
+  // 3. In seller filter mode (share link with ?seller=username), OR
+  // 4. Logged in as seller viewing their own products
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: (domainInfo.isSellerDomain || isPreviewMode) && sellerInfo?.id 
+    queryKey: (domainInfo.isSellerDomain || isPreviewMode || isSellerFilterMode) && sellerInfo?.id 
       ? ["/api/products/seller", sellerInfo.id]
-      : isSeller && user?.id && !isPreviewMode
+      : isSeller && user?.id && !isPreviewMode && !isSellerFilterMode
       ? ["/api/products/seller", user.id]
       : ["/api/products"],
-    enabled: (!domainInfo.isSellerDomain && !isPreviewMode) || !!sellerInfo,
+    enabled: (!domainInfo.isSellerDomain && !isPreviewMode && !isSellerFilterMode) || !!sellerInfo,
   });
 
   const { data: sellers } = useQuery<any[]>({
@@ -255,8 +267,8 @@ export default function Products() {
   };
 
   const sellerWithBanner = sellers?.find(s => s.storeBanner);
-  const currentSellerHasBanner = user?.storeBanner || sellerInfo?.storeBanner;
-  const currentSellerLogo = user?.storeLogo || sellerInfo?.storeLogo;
+  const currentSellerHasBanner = sellerInfo?.storeBanner || user?.storeBanner;
+  const currentSellerLogo = sellerInfo?.storeLogo || user?.storeLogo;
 
   // Check if viewing a seller domain with inactive store
   const isViewingInactiveStore = domainInfo.isSellerDomain && sellerInfo && sellerInfo.storeActive === 0;
