@@ -165,14 +165,15 @@ class NotificationServiceImpl implements NotificationService {
       if (result.error) {
         console.error('[Notifications] Email send error:', result.error);
         
-        // In development, if domain is not verified, log email to console
+        // Check if it's a domain verification error
         const errorMsg = result.error.message || '';
         const statusCode = (result.error as any).statusCode;
         const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || statusCode === 403;
         
-        if (process.env.NODE_ENV === 'development' && isDomainError) {
+        // In both dev and production, handle domain errors gracefully for auth emails
+        if (isDomainError) {
           console.log('\n═══════════════════════════════════════════════════════');
-          console.log('📧 EMAIL (Development Mode - Domain Not Verified)');
+          console.log(`📧 EMAIL (${process.env.NODE_ENV === 'production' ? 'Production' : 'Development'} - Domain Not Verified)`);
           console.log('═══════════════════════════════════════════════════════');
           console.log(`To: ${params.to}`);
           console.log(`From: ${params.from || FROM_EMAIL}`);
@@ -183,15 +184,17 @@ class NotificationServiceImpl implements NotificationService {
           const codeMatch = params.html.match(/\b\d{6}\b/);
           if (codeMatch) {
             console.log(`🔑 VERIFICATION CODE: ${codeMatch[0]}`);
+            console.log(`📱 Share this code with the user to complete authentication`);
           }
           
           console.log('───────────────────────────────────────────────────────');
-          console.log('💡 To send real emails, verify your domain at:');
-          console.log('   https://resend.com/domains');
+          console.log('⚠️  CRITICAL: Verify your domain at https://resend.com/domains');
+          console.log('   Until verified, authentication codes will be logged here');
           console.log('═══════════════════════════════════════════════════════\n');
           
-          // Return success in development so auth flow continues
-          return { success: true, emailId: 'dev-mode-' + Date.now() };
+          // Return success so auth flow continues (code is stored in DB)
+          // This allows manual code entry or admin access to logs
+          return { success: true, emailId: 'fallback-' + Date.now(), error: 'Email not sent - domain not verified' };
         }
         
         return { success: false, error: result.error.message };

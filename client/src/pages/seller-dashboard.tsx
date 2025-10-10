@@ -157,6 +157,29 @@ export default function SellerDashboard() {
             <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
+                onClick={() => {
+                  if (user?.username) {
+                    const currentDomain = window.location.hostname;
+                    const isLocalhost = currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1');
+                    const storeUrl = isLocalhost 
+                      ? `http://${user.username}.localhost:${window.location.port || 5000}`
+                      : `https://${user.username}.upfirst.app`;
+                    window.open(storeUrl, '_blank');
+                  } else {
+                    toast({
+                      title: "Username required",
+                      description: "Please set a username in settings to preview your store",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                data-testid="button-preview-store"
+              >
+                <Store className="h-4 w-4 mr-2" />
+                Preview Store
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setShareModalOpen(true)}
                 data-testid="button-share-store"
               >
