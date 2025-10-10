@@ -157,20 +157,9 @@ export default function SellerDashboard() {
             <div className="flex gap-2">
               <Button
                 onClick={() => {
-                  if (user?.username) {
-                    const currentDomain = window.location.hostname;
-                    const isLocalhost = currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1');
-                    const storeUrl = isLocalhost 
-                      ? `http://${user.username}.localhost:${window.location.port || 5000}/products`
-                      : `https://${user.username}.upfirst.app/products`;
-                    window.open(storeUrl, '_blank');
-                  } else {
-                    toast({
-                      title: "Username required",
-                      description: "Please set a username in settings to preview your store",
-                      variant: "destructive",
-                    });
-                  }
+                  // Always navigate to /products to preview storefront
+                  // If logged in as seller, they'll see their own products
+                  window.open('/products', '_blank');
                 }}
                 data-testid="button-preview-store"
                 className="flex-1 md:flex-none"
