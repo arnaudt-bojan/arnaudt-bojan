@@ -38,8 +38,25 @@ export default function BulkProductUpload() {
       "depositAmount",
       "requiresDeposit",
       "madeToOrderDays",
-      "preOrderDate"
+      "preOrderDate",
+      "variants"
     ];
+
+    const exampleVariants = JSON.stringify([
+      {
+        colorName: "Black",
+        colorHex: "#000000",
+        images: [],
+        sizes: [
+          { size: "S", stock: 10 },
+          { size: "M", stock: 20 },
+          { size: "L", stock: 15 }
+        ]
+      }
+    ]);
+
+    // Properly escape the JSON for CSV by doubling internal quotes
+    const escapedVariants = exampleVariants.replace(/"/g, '""');
 
     const exampleRow = [
       "Example Product",
@@ -52,7 +69,8 @@ export default function BulkProductUpload() {
       "",
       "0",
       "",
-      ""
+      "",
+      `"${escapedVariants}"`
     ];
 
     const instructions = [
@@ -64,6 +82,8 @@ export default function BulkProductUpload() {
       "# - depositAmount: required if requiresDeposit is 1",
       "# - madeToOrderDays: required if productType is made-to-order",
       "# - preOrderDate: required if productType is pre-order (format: YYYY-MM-DD)",
+      "# - variants: (optional) JSON array of color variants with sizes",
+      "#   Format: [{\"colorName\":\"Black\",\"colorHex\":\"#000000\",\"images\":[],\"sizes\":[{\"size\":\"S\",\"stock\":10}]}]",
       "# - Delete this instruction section before uploading",
       "",
     ];
@@ -143,23 +163,65 @@ export default function BulkProductUpload() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
+        // Track parsing errors
+        const variantParseErrors: string[] = [];
+
         // Filter out instruction rows (starting with #)
         const products = results.data.filter((row: any) => 
           !row.name?.startsWith("#") && row.name && row.name.trim()
-        ).map((row: any) => ({
-          name: row.name.trim(),
-          description: row.description?.trim() || "",
-          price: row.price?.trim() || "",
-          image: row.image?.trim() || "",
-          images: row.image?.trim() ? [row.image.trim()] : [],
-          category: row.category?.trim() || "",
-          productType: row.productType?.trim() || "",
-          stock: row.stock?.trim() ? parseInt(row.stock.trim()) : 0,
-          depositAmount: row.depositAmount?.trim() || null,
-          requiresDeposit: row.requiresDeposit?.trim() ? parseInt(row.requiresDeposit.trim()) : 0,
-          madeToOrderDays: row.madeToOrderDays?.trim() ? parseInt(row.madeToOrderDays.trim()) : null,
-          preOrderDate: row.preOrderDate?.trim() ? new Date(row.preOrderDate.trim()) : null,
-        }));
+        ).map((row: any, index: number) => {
+          // Parse variants if present
+          let variants = null;
+          if (row.variants?.trim()) {
+            try {
+              variants = JSON.parse(row.variants.trim());
+              
+              // Validate variant structure
+              if (!Array.isArray(variants)) {
+                variantParseErrors.push(`Row ${index + 1} (${row.name}): Variants must be an array`);
+                variants = null;
+              } else {
+                // Validate each variant has required fields
+                for (const variant of variants) {
+                  if (!variant.colorName || !variant.colorHex || !Array.isArray(variant.sizes)) {
+                    variantParseErrors.push(`Row ${index + 1} (${row.name}): Invalid variant structure. Each variant must have colorName, colorHex, and sizes array`);
+                    variants = null;
+                    break;
+                  }
+                }
+              }
+            } catch (e) {
+              variantParseErrors.push(`Row ${index + 1} (${row.name}): Invalid JSON in variants column`);
+              variants = null;
+            }
+          }
+
+          return {
+            name: row.name.trim(),
+            description: row.description?.trim() || "",
+            price: row.price?.trim() || "",
+            image: row.image?.trim() || "",
+            images: row.image?.trim() ? [row.image.trim()] : [],
+            category: row.category?.trim() || "",
+            productType: row.productType?.trim() || "",
+            stock: row.stock?.trim() ? parseInt(row.stock.trim()) : 0,
+            depositAmount: row.depositAmount?.trim() || null,
+            requiresDeposit: row.requiresDeposit?.trim() ? parseInt(row.requiresDeposit.trim()) : 0,
+            madeToOrderDays: row.madeToOrderDays?.trim() ? parseInt(row.madeToOrderDays.trim()) : null,
+            preOrderDate: row.preOrderDate?.trim() ? new Date(row.preOrderDate.trim()) : null,
+            variants: variants,
+          };
+        });
+
+        // Show variant parse errors if any
+        if (variantParseErrors.length > 0) {
+          toast({
+            title: "Variant parsing warnings",
+            description: `${variantParseErrors.length} products had invalid variants data. Products will be created without variants. Check console for details.`,
+            variant: "destructive",
+          });
+          console.warn("Variant parsing errors:", variantParseErrors);
+        }
 
         if (products.length === 0) {
           toast({
