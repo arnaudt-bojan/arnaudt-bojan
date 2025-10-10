@@ -1839,7 +1839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      const { reset = false } = req.body; // Allow resetting/recreating the account
+      const { reset = false, country } = req.body; // Accept country from request body
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1867,12 +1867,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Get country from IP geolocation headers
-      const countryCode = (req.headers['x-replit-user-geo-country-code'] as string || 
+      // Use country from request body, fallback to IP geolocation headers if not provided
+      const countryCode = country?.toUpperCase() || 
+                          (req.headers['x-replit-user-geo-country-code'] as string || 
                           req.headers['cf-ipcountry'] as string || 
                           'US').toUpperCase();
 
-      console.log(`[Stripe Express] Creating account for user ${userId} with country: ${countryCode}`);
+      console.log(`[Stripe Express] Creating account for user ${userId} with country: ${countryCode} (source: ${country ? 'user-selected' : 'auto-detected'})`);
 
       // Create new Express account with minimal requirements
       const account = await stripe.accounts.create({
