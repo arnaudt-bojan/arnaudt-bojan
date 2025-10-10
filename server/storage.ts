@@ -283,9 +283,10 @@ export class DatabaseStorage implements IStorage {
 
   private async init(): Promise<void> {
     try {
-      await this.seedProducts();
+      // Seed products removed - test users can create their own products
+      // await this.seedProducts();
     } catch (err) {
-      console.error("Failed to seed database:", err);
+      console.error("Failed to initialize database:", err);
       this.initError = err instanceof Error ? err : new Error(String(err));
     }
   }
@@ -625,90 +626,6 @@ export class DatabaseStorage implements IStorage {
   async getAllInvitations(): Promise<Invitation[]> {
     await this.ensureInitialized();
     return await this.db.select().from(invitations).orderBy(desc(invitations.createdAt));
-  }
-
-  private async seedProducts() {
-    const existingProducts = await this.db.select().from(products).limit(1);
-    if (existingProducts.length > 0) {
-      return;
-    }
-
-    const seedData: InsertProduct[] = [
-      {
-        name: "Modern Minimalist Sneakers",
-        description: "Premium white sneakers crafted with attention to detail. Features clean lines and comfortable fit for everyday wear.",
-        price: "129.99",
-        image: "/attached_assets/generated_images/White_minimalist_sneaker_product_66628b47.png",
-        category: "Footwear",
-        productType: "in-stock",
-        stock: 25,
-      },
-      {
-        name: "Luxury Leather Handbag",
-        description: "Elegant black leather handbag with spacious interior. Perfect for professional or casual occasions.",
-        price: "249.99",
-        image: "/attached_assets/generated_images/Black_leather_luxury_handbag_4a25ef5d.png",
-        category: "Accessories",
-        productType: "pre-order",
-        stock: 0,
-      },
-      {
-        name: "Contemporary Streetwear Hoodie",
-        description: "Comfortable charcoal gray hoodie with modern fit. Made from premium cotton blend fabric.",
-        price: "89.99",
-        image: "/attached_assets/generated_images/Gray_streetwear_hoodie_product_63dbef8c.png",
-        category: "Apparel",
-        productType: "made-to-order",
-        stock: 0,
-      },
-      {
-        name: "Artisan Ceramic Vase",
-        description: "Handcrafted terracotta vase perfect for home decor. Each piece is unique with natural variations.",
-        price: "79.99",
-        image: "/attached_assets/generated_images/Terracotta_artisan_ceramic_vase_488f5cee.png",
-        category: "Home Decor",
-        productType: "in-stock",
-        stock: 15,
-      },
-      {
-        name: "Premium Silver Watch",
-        description: "Sophisticated timepiece with silver case and black leather strap. Precision movement with elegant design.",
-        price: "399.99",
-        image: "/attached_assets/generated_images/Premium_silver_watch_product_aa3b209e.png",
-        category: "Accessories",
-        productType: "wholesale",
-        stock: 0,
-      },
-      {
-        name: "Geometric Black Sunglasses",
-        description: "Modern sunglasses with geometric frame design. UV protection with style.",
-        price: "149.99",
-        image: "/attached_assets/generated_images/Black_geometric_sunglasses_product_8988d4ff.png",
-        category: "Accessories",
-        productType: "in-stock",
-        stock: 40,
-      },
-      {
-        name: "Luxury Boutique Candle",
-        description: "Hand-poured candle in elegant glass container. Premium fragrance oils for a refined ambiance.",
-        price: "45.99",
-        image: "/attached_assets/generated_images/Luxury_boutique_candle_product_4eca2118.png",
-        category: "Home Decor",
-        productType: "pre-order",
-        stock: 0,
-      },
-      {
-        name: "Sustainable Canvas Tote",
-        description: "Eco-friendly tote bag with leather straps. Spacious and durable for everyday use.",
-        price: "59.99",
-        image: "/attached_assets/generated_images/Canvas_tote_bag_product_cc1a5697.png",
-        category: "Accessories",
-        productType: "in-stock",
-        stock: 30,
-      },
-    ];
-
-    await this.db.insert(products).values(seedData);
   }
 
   async saveMetaSettings(userId: string, settings: Partial<MetaSettings>): Promise<MetaSettings> {
