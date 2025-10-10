@@ -358,7 +358,7 @@ export function ProductFormFields({
 
         <FormField
           control={form.control}
-          name="additionalImages"
+          name="images"
           render={({ field }) => (
             <FormItem>
               <FormControl>
@@ -717,7 +717,7 @@ export function ProductFormFields({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Select Shipping Matrix</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger data-testid="select-shipping-matrix">
                         <SelectValue placeholder="Choose a shipping matrix" />
