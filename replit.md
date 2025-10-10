@@ -20,7 +20,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Dashboard Design**: Seller dashboard includes revenue analytics and order management; buyer dashboard offers order tracking and NFT minting access.
 
 **System Design Choices & Feature Specifications:**
-- **Product Management**: Supports diverse product types with multi-image uploads and bulk CSV import. Features a sophisticated color-first variant system with optional images per color and styled selectors.
+- **Product Management**: Supports diverse product types with multi-image uploads and bulk CSV import. Features a sophisticated color-first variant system with optional images per color and styled selectors. Enhanced validation system with clear error messages for required fields (name, description, price, image, category) and explicit "(optional)" labels for optional fields (stock, discount, variants, etc.). Category selection uses real-time form field updates to prevent validation errors.
 - **Shopping & Checkout**: Includes a slide-over cart, persistent cart, guest checkout, and automatic shipping cost calculation. Carts enforce a single-seller constraint for proper payment routing and data isolation.
 - **Authentication & Authorization**: Email-based authentication for sellers (admin role). Buyers are created automatically via guest checkout. A 4-role system (admin, editor, viewer, buyer) with multi-tenant security ensures data isolation for sellers and buyers.
 - **Notification System**: Comprehensive email notifications using Resend, with planned support for 30+ types.
