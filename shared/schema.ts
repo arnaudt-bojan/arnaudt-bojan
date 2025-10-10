@@ -302,6 +302,8 @@ export const users = pgTable("users", {
   instagramAccessToken: text("instagram_access_token"), // Instagram access token (encrypted in production)
   shippingPrice: decimal("shipping_price", { precision: 10, scale: 2 }).default("0"), // Flat shipping rate for seller
   storeActive: integer("store_active").default(0), // Store is active and visible (0=inactive, 1=active)
+  shippingPolicy: text("shipping_policy"), // Optional: Custom shipping & delivery policy text
+  returnsPolicy: text("returns_policy"), // Optional: Custom returns & exchanges policy text
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

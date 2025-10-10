@@ -455,9 +455,13 @@ export default function ProductDetail() {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-3 text-sm pt-2">
-                    <p className="text-muted-foreground">
-                      Standard shipping available to most locations. Shipping costs calculated at checkout based on your location.
-                    </p>
+                    {sellerInfo?.shippingPolicy ? (
+                      <p className="text-muted-foreground whitespace-pre-wrap">{sellerInfo.shippingPolicy}</p>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        Standard shipping available to most locations. Shipping costs calculated at checkout based on your location.
+                      </p>
+                    )}
                     {product.productType === "pre-order" && (product as any).preOrderDate && (
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                         <p className="text-sm font-medium">
@@ -491,14 +495,20 @@ export default function ProductDetail() {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-3 text-sm pt-2">
-                    <p className="text-muted-foreground">
-                      We offer a 30-day return policy on most items. Items must be in original condition with tags attached.
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                      <li>Free returns on orders over $50</li>
-                      <li>Exchanges available within 30 days</li>
-                      <li>Refunds processed within 5-7 business days</li>
-                    </ul>
+                    {sellerInfo?.returnsPolicy ? (
+                      <p className="text-muted-foreground whitespace-pre-wrap">{sellerInfo.returnsPolicy}</p>
+                    ) : (
+                      <>
+                        <p className="text-muted-foreground">
+                          We offer a 30-day return policy on most items. Items must be in original condition with tags attached.
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                          <li>Free returns on orders over $50</li>
+                          <li>Exchanges available within 30 days</li>
+                          <li>Refunds processed within 5-7 business days</li>
+                        </ul>
+                      </>
+                    )}
                     {product.productType === "made-to-order" && (
                       <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mt-3">
                         <p className="text-sm font-medium">

@@ -180,6 +180,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logo: seller.storeLogo,
         banner: seller.storeBanner,
         storeActive: seller.storeActive,
+        shippingPolicy: seller.shippingPolicy,
+        returnsPolicy: seller.returnsPolicy,
       };
       
       res.json(publicSellerInfo);
@@ -1504,16 +1506,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sellerId: sellerId || "",
         },
       };
-
-      // In test mode with test keys, skip Stripe Connect and use direct payments
-      // This enables testing order/tracking features without full Connect onboarding
-      const isTestMode = process.env.STRIPE_SECRET_KEY?.includes('_test_');
       
-      if (sellerConnectedAccountId && sellerId && !isTestMode) {
-        // Production mode: use Stripe Connect
+      // Use Stripe Connect if seller has connected account (works in both test and live mode)
+      if (sellerConnectedAccountId && sellerId) {
         const seller = await storage.getUser(sellerId);
         
-        // Check if seller can accept charges (doesn't need full verification for this)
+        // Check if seller can accept charges
         if (!seller?.stripeChargesEnabled) {
           return res.status(400).json({ 
             error: "This store is still setting up payment processing. Please check back soon.",
@@ -1531,14 +1529,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntentParams.currency = (seller.listingCurrency || 'USD').toLowerCase();
         
         console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} ${paymentIntentParams.currency.toUpperCase()} fee to platform, rest to seller ${sellerId}`);
-      } else if (isTestMode) {
-        // Test mode: create direct payment intent without Connect
-        console.log('[Stripe Test Mode] Creating direct payment intent (bypassing Connect for testing)');
-        // Direct payment - funds go to platform account
-      } else {
-        // Production mode without Connect: seller must set up
+      } else if (sellerId) {
+        // Seller exists but hasn't connected Stripe account
         return res.status(400).json({ 
-          error: "This store hasn't set up payment processing yet. Please contact the seller to complete their setup.",
+          error: "This store hasn't set up payment processing yet. Please contact the seller to complete their Stripe setup.",
           errorCode: "STRIPE_NOT_CONNECTED"
         });
       }
@@ -1931,11 +1925,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark invitation as accepted
       await storage.updateInvitationStatus(invitation.token, "accepted");
 
+      // Generate auth token for auto-login
+      const authToken = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+      const authExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      
+      await storage.createAuthToken({
+        email: invitation.email,
+        token: authToken,
+        expiresAt: authExpiresAt,
+        used: 0,
+        sellerContext: null, // Team member is on main domain
+      });
+
+      // Generate magic link URL
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : `http://localhost:${process.env.PORT || 5000}`;
+      const magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${authToken}&redirect=/seller-dashboard`;
+
       // Send magic link for auto-login
-      await notificationService.sendMagicLink(invitation.email, '/dashboard');
+      await notificationService.sendMagicLink(invitation.email, magicLink);
 
       res.json({ 
-        message: "Invitation accepted successfully", 
+        message: "Invitation accepted successfully. Check your email for login link.", 
         role: invitation.role,
         requiresLogin: true,
         email: invitation.email
@@ -2064,7 +2076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/user/branding", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { storeBanner, storeLogo } = req.body;
+      const { storeBanner, storeLogo, shippingPolicy, returnsPolicy } = req.body;
 
       const user = await storage.getUser(userId);
       if (!user) {
@@ -2075,6 +2087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...user,
         storeBanner: storeBanner || null,
         storeLogo: storeLogo || null,
+        shippingPolicy: shippingPolicy || null,
+        returnsPolicy: returnsPolicy || null,
       });
 
       res.json({ message: "Branding updated successfully", user: updatedUser });

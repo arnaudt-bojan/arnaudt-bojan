@@ -48,6 +48,8 @@ const brandingSchema = z.object({
       (val) => val === "" || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"),
       "Must be a valid URL or path"
     ),
+  shippingPolicy: z.string().optional(),
+  returnsPolicy: z.string().optional(),
 });
 
 const usernameSchema = z.object({
@@ -861,6 +863,8 @@ export default function Settings() {
     defaultValues: {
       storeBanner: user?.storeBanner || "",
       storeLogo: user?.storeLogo || "",
+      shippingPolicy: user?.shippingPolicy || "",
+      returnsPolicy: user?.returnsPolicy || "",
     },
   });
 
@@ -870,6 +874,8 @@ export default function Settings() {
       brandingForm.reset({
         storeBanner: user.storeBanner || "",
         storeLogo: user.storeLogo || "",
+        shippingPolicy: user.shippingPolicy || "",
+        returnsPolicy: user.returnsPolicy || "",
       });
     }
   }, [user?.storeBanner, user?.storeLogo]);
@@ -1647,13 +1653,71 @@ export default function Settings() {
                         />
                       </div>
 
+                      {/* Store Policies Section */}
+                      <div className="space-y-6 pt-6 border-t">
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold">Store Policies (Optional)</h3>
+                          <p className="text-sm text-muted-foreground">Customize shipping and returns information displayed on product pages</p>
+                        </div>
+
+                        {/* Shipping Policy */}
+                        <FormField
+                          control={brandingForm.control}
+                          name="shippingPolicy"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Label htmlFor="shipping-policy">Shipping & Delivery Policy</Label>
+                              <FormControl>
+                                <textarea
+                                  {...field}
+                                  id="shipping-policy"
+                                  value={field.value || ""}
+                                  placeholder="e.g., Free shipping on orders over $50. Standard shipping takes 3-5 business days."
+                                  className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                  data-testid="textarea-shipping-policy"
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                Leave blank to show default policy. This text will replace the default shipping information on product pages.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {/* Returns Policy */}
+                        <FormField
+                          control={brandingForm.control}
+                          name="returnsPolicy"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Label htmlFor="returns-policy">Returns & Exchanges Policy</Label>
+                              <FormControl>
+                                <textarea
+                                  {...field}
+                                  id="returns-policy"
+                                  value={field.value || ""}
+                                  placeholder="e.g., 30-day returns on all items. Items must be in original condition with tags attached."
+                                  className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                  data-testid="textarea-returns-policy"
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                Leave blank to show default policy. This text will replace the default returns information on product pages.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
                       <Button 
                         type="submit" 
                         disabled={updateBrandingMutation.isPending}
                         data-testid="button-save-branding"
                         className="w-full sm:w-auto"
                       >
-                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
+                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding & Policies"}
                       </Button>
                     </form>
                   </Form>
