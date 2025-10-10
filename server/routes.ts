@@ -442,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const items = JSON.parse(order.items);
         const orderItemsToCreate = items.map((item: any) => ({
           orderId: order.id,
-          productId: item.id, // Cart items always have 'id' field (product ID)
+          productId: item.productId || item.id, // Cart items use productId field
           productName: item.name,
           productImage: item.image || null,
           productType: item.productType || 'in-stock',
