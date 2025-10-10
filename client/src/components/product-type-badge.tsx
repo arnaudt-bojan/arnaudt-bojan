@@ -30,7 +30,7 @@ export function ProductTypeBadge({ type }: ProductTypeBadgeProps) {
       case "made-to-order":
         return "Made to Order";
       case "wholesale":
-        return "Wholesale";
+        return "Trade";
       default:
         return productType;
     }

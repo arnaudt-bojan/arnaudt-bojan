@@ -23,7 +23,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { UniversalImageUpload } from "@/components/universal-image-upload";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export type ProductVariant = {
   size: string;
@@ -91,7 +102,7 @@ const productTypes = [
   },
   {
     value: "wholesale",
-    label: "Wholesale",
+    label: "Trade",
     description: "Bulk orders for businesses",
     icon: Building2,
     gradient: "from-orange-500/10 to-amber-500/10",
@@ -124,33 +135,79 @@ export function ProductFormFields({
   level2Categories = [],
   level3Categories = [],
 }: ProductFormFieldsProps) {
+  const { toast } = useToast();
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryLevel, setCategoryLevel] = useState<1 | 2 | 3>(1);
+
   // Fetch shipping matrices for dropdown
   const { data: shippingMatrices = [] } = useQuery<any[]>({
     queryKey: ["/api/shipping-matrices"],
   });
   const selectedType = form.watch("productType");
-  const [images, setImages] = useState<string[]>([]);
-  const [heroImageIndex, setHeroImageIndex] = useState(0);
-
-  // Sync images state with form values on mount and when form resets (important for edit mode)
+  
+  // Top-level deposit validation - runs for all product types
+  const priceValue = form.watch("price");
+  const depositValue = form.watch("depositAmount");
+  
   useEffect(() => {
-    const formImages = form.getValues("additionalImages" as any) || [];
-    setImages(formImages);
-    if (formImages.length > 0 && heroImageIndex >= formImages.length) {
-      setHeroImageIndex(0);
-    }
-  }, []);
-
-  // Watch for external form updates (like from form.reset in edit mode)
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === "additionalImages") {
-        const newImages = value.additionalImages || [];
-        setImages(newImages);
+    const price = parseFloat(priceValue as string || "0") || 0; // Handle NaN
+    const deposit = parseFloat(depositValue as string || "0") || 0; // Handle NaN
+    
+    // Only validate deposit for pre-order products
+    if (selectedType === "pre-order") {
+      if (deposit > 0 && deposit > price) {
+        form.setError("depositAmount", {
+          type: "manual",
+          message: price > 0 
+            ? `Deposit cannot exceed price ($${price.toFixed(2)})`
+            : "Please set product price before deposit amount"
+        });
+      } else {
+        // Only clear if this specific error exists
+        const currentError = form.formState.errors.depositAmount;
+        if (currentError?.type === "manual") {
+          form.clearErrors("depositAmount");
+        }
       }
+    } else {
+      // Clear deposit errors when not in pre-order mode
+      const currentError = form.formState.errors.depositAmount;
+      if (currentError?.type === "manual") {
+        form.clearErrors("depositAmount");
+      }
+    }
+  }, [priceValue, depositValue, selectedType, form]);
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; level: number; parentId: string | null }) => {
+      const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return await apiRequest("POST", "/api/categories", { ...data, slug });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setNewCategoryName("");
+      setShowCategoryDialog(false);
+      toast({ title: "Category created", description: "The category has been added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create category", variant: "destructive" });
+    },
+  });
+
+  const handleCreateCategory = () => {
+    if (!newCategoryName.trim()) return;
+    
+    let parentId: string | null = null;
+    if (categoryLevel === 2) parentId = selectedLevel1 || null;
+    if (categoryLevel === 3) parentId = selectedLevel2 || null;
+
+    createCategoryMutation.mutate({
+      name: newCategoryName.trim(),
+      level: categoryLevel,
+      parentId,
     });
-    return () => subscription.unsubscribe();
-  }, [form]);
+  };
 
   const addVariant = () => {
     setVariants([...variants, { size: "", color: "", stock: 0, image: "" }]);
@@ -164,43 +221,6 @@ export function ProductFormFields({
     const updated = [...variants];
     updated[index] = { ...updated[index], [field]: value };
     setVariants(updated);
-  };
-
-  const handleAddImage = (url: string) => {
-    if (url.trim() && !images.includes(url)) {
-      const newImages = [...images, url];
-      setImages(newImages);
-      form.setValue("additionalImages" as any, newImages);
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index);
-    setImages(newImages);
-    form.setValue("additionalImages" as any, newImages);
-    if (heroImageIndex === index) {
-      setHeroImageIndex(0);
-    } else if (heroImageIndex > index) {
-      setHeroImageIndex(heroImageIndex - 1);
-    }
-  };
-
-  const handleSetHero = (index: number) => {
-    setHeroImageIndex(index);
-    // Reorder images to put hero first
-    const newImages = [images[index], ...images.filter((_, i) => i !== index)];
-    setImages(newImages);
-    form.setValue("additionalImages" as any, newImages);
-    form.setValue("image", newImages[0]);
-  };
-
-  const moveImage = (fromIndex: number, toIndex: number) => {
-    if (toIndex < 0 || toIndex >= images.length) return;
-    const newImages = [...images];
-    const [movedImage] = newImages.splice(fromIndex, 1);
-    newImages.splice(toIndex, 0, movedImage);
-    setImages(newImages);
-    form.setValue("additionalImages" as any, newImages);
   };
 
   return (
@@ -298,50 +318,33 @@ export function ProductFormFields({
             )}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Price</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...field}
-                        data-testid="input-price"
-                        className="pl-8 text-base"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="image"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Main Image URL (Fallback)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://..." {...field} data-testid="input-image" className="text-base" />
-                  </FormControl>
-                  <FormDescription className="text-xs">Or upload images below</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          <FormField
+            control={form.control}
+            name="price"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Price</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      data-testid="input-price"
+                      className="pl-8 text-base"
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
       </Card>
 
-      {/* Advanced Image Uploader with Carousel Preview */}
+      {/* Product Images with UniversalImageUpload */}
       <Card className="p-6 space-y-6">
         <div className="space-y-2">
           <h3 className="text-xl font-semibold flex items-center gap-2">
@@ -350,147 +353,39 @@ export function ProductFormFields({
             </div>
             Product Images
           </h3>
-          <p className="text-sm text-muted-foreground">Add up to 10 images. First image is the hero image shown on cards.</p>
+          <p className="text-sm text-muted-foreground">Upload or paste image URLs. First image is the hero image.</p>
         </div>
 
-        {/* Image Input */}
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Paste image URL and press Enter"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddImage(e.currentTarget.value);
-                  e.currentTarget.value = '';
-                }
-              }}
-              disabled={images.length >= 10}
-              className="text-base"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                if (input.value) {
-                  handleAddImage(input.value);
-                  input.value = '';
-                }
-              }}
-              disabled={images.length >= 10}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          {images.length < 10 && (
-            <p className="text-xs text-muted-foreground">
-              {10 - images.length} {images.length === 9 ? 'image' : 'images'} remaining
-            </p>
+        <FormField
+          control={form.control}
+          name="additionalImages"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <UniversalImageUpload
+                  value={field.value || []}
+                  onChange={(newImages) => {
+                    field.onChange(newImages);
+                    // Set first image as primary
+                    if (Array.isArray(newImages) && newImages.length > 0) {
+                      form.setValue("image", newImages[0]);
+                    } else {
+                      form.setValue("image", "");
+                    }
+                  }}
+                  label=""
+                  mode="multiple"
+                  maxImages={10}
+                  aspectRatio="square"
+                  heroSelection={true}
+                  allowUrl={true}
+                  allowUpload={true}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
-        </div>
-
-        {/* Carousel Preview Cards */}
-        {images.length > 0 ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Image Gallery Preview</p>
-              <Badge variant="outline">{images.length} {images.length === 1 ? 'image' : 'images'}</Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {images.map((img, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "group relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover-elevate",
-                    index === 0 ? "ring-2 ring-primary/40 border-primary/40" : "border-border"
-                  )}
-                >
-                  {/* Hero Badge */}
-                  {index === 0 && (
-                    <div className="absolute top-2 left-2 z-10">
-                      <Badge className="bg-primary text-primary-foreground text-xs gap-1 shadow-lg">
-                        <Star className="h-3 w-3 fill-current" />
-                        Hero
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  {/* Image */}
-                  <img
-                    src={img}
-                    alt={`Product ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* Hover Actions */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
-                    {index !== 0 && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleSetHero(index)}
-                        className="w-full text-xs h-7"
-                        data-testid={`button-set-hero-${index}`}
-                      >
-                        <Star className="h-3 w-3 mr-1" />
-                        Set Hero
-                      </Button>
-                    )}
-                    
-                    <div className="flex gap-1 w-full">
-                      {index > 0 && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => moveImage(index, index - 1)}
-                          className="flex-1 h-7 px-2"
-                        >
-                          <MoveUp className="h-3 w-3" />
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleRemoveImage(index)}
-                        className="flex-1 h-7 px-2"
-                        data-testid={`button-remove-image-${index}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* Image Number */}
-                  <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                    {index + 1}
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="bg-muted/50 border border-dashed rounded-lg p-4">
-              <p className="text-sm text-muted-foreground text-center">
-                <strong>Preview:</strong> This is how images will appear in the product carousel. Drag to reorder or set any image as hero.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed rounded-lg p-12 text-center">
-            <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground mb-2">
-              No images added yet
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Add image URLs to see carousel preview
-            </p>
-          </div>
-        )}
+        />
       </Card>
 
       {/* Category & Type Specific Settings */}
@@ -504,7 +399,22 @@ export function ProductFormFields({
           {/* Category Selection */}
           {setSelectedLevel1 && (
             <div className="space-y-3">
-              <FormLabel>Product Category</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Product Category</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowCategoryDialog(true);
+                    setCategoryLevel(selectedLevel2 ? 3 : selectedLevel1 ? 2 : 1);
+                  }}
+                  data-testid="button-add-category"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Category
+                </Button>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Select value={selectedLevel1} onValueChange={setSelectedLevel1}>
                   <SelectTrigger data-testid="select-level1" className="text-base">
@@ -551,6 +461,82 @@ export function ProductFormFields({
               </div>
             </div>
           )}
+
+          {/* Quick Add Category Dialog */}
+          <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Category</DialogTitle>
+                <DialogDescription>
+                  Create a new category to organize your products
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <FormLabel>Category Name</FormLabel>
+                  <Input
+                    placeholder="e.g., Electronics, Clothing, Home & Garden"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCreateCategory();
+                      }
+                    }}
+                    data-testid="input-new-category-name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <FormLabel>Category Level</FormLabel>
+                  <Select
+                    value={categoryLevel.toString()}
+                    onValueChange={(val) => setCategoryLevel(parseInt(val) as 1 | 2 | 3)}
+                  >
+                    <SelectTrigger data-testid="select-category-level">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Level 1 (Main Category)</SelectItem>
+                      {selectedLevel1 && <SelectItem value="2">Level 2 (Subcategory)</SelectItem>}
+                      {selectedLevel2 && <SelectItem value="3">Level 3 (Sub-subcategory)</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                  {categoryLevel > 1 && (
+                    <p className="text-xs text-muted-foreground">
+                      Will be added under: {categoryLevel === 2 
+                        ? level1Categories.find(c => c.id === selectedLevel1)?.name 
+                        : level2Categories.find(c => c.id === selectedLevel2)?.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCategoryDialog(false);
+                    setNewCategoryName("");
+                  }}
+                  data-testid="button-cancel-category"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                  data-testid="button-create-category"
+                >
+                  {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Type-Specific Fields */}
           {selectedType === "in-stock" && (
@@ -602,29 +588,35 @@ export function ProductFormFields({
               <FormField
                 control={form.control}
                 name="depositAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Deposit Amount (Optional)</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          {...field}
-                          value={field.value || ""}
-                          data-testid="input-deposit"
-                          className="pl-8 text-base"
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>
-                      Require a deposit for pre-orders
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const price = parseFloat(priceValue as string || "0") || 0;
+                  const deposit = parseFloat(field.value as string || "0") || 0;
+                  const hasError = deposit > 0 && deposit > price;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Deposit Amount (Optional)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-deposit"
+                            className={cn("pl-8 text-base", hasError && "border-destructive focus-visible:ring-destructive")}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Require a deposit for pre-orders (cannot exceed total price)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
           )}
@@ -999,8 +991,11 @@ export function ProductFormFields({
                   <Input
                     type="number"
                     placeholder="Stock"
-                    value={variant.stock}
-                    onChange={(e) => updateVariant(index, "stock", parseInt(e.target.value) || 0)}
+                    value={variant.stock === 0 ? "" : variant.stock}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateVariant(index, "stock", value === "" ? 0 : parseInt(value) || 0);
+                    }}
                     data-testid={`input-variant-stock-${index}`}
                     className="text-base"
                   />

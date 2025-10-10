@@ -56,7 +56,7 @@ const productTypes = [
   },
   {
     value: "wholesale",
-    label: "Wholesale",
+    label: "Trade",
     description: "Bulk orders for businesses",
     icon: Building2,
     color: "text-orange-600 dark:text-orange-400",
