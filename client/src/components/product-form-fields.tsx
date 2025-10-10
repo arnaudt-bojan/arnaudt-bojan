@@ -25,7 +25,7 @@ import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image 
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
-import { ProductVariantManager, type ColorVariant } from "@/components/product-variant-manager";
+import { SimpleVariantManager, type SizeVariant, type ColorVariant } from "@/components/simple-variant-manager";
 import {
   Dialog,
   DialogContent,
@@ -38,17 +38,17 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrencySymbol } from "@/lib/currency-utils";
 
-export type ProductVariant = {
-  size: string;
-  color: string;
-  stock: number;
-  image: string;
-};
-
 interface ProductFormFieldsProps {
   form: UseFormReturn<FrontendProduct>;
-  variants: ProductVariant[];
-  setVariants: (variants: ProductVariant[]) => void;
+  // New variant system
+  hasColors: boolean;
+  setHasColors: (value: boolean) => void;
+  sizes: SizeVariant[];
+  setSizes: (sizes: SizeVariant[]) => void;
+  colors: ColorVariant[];
+  setColors: (colors: ColorVariant[]) => void;
+  mainProductImages?: string[]; // For pre-populating first color
+  
   madeToOrderDays: number;
   setMadeToOrderDays: (days: number) => void;
   preOrderDate: string;
@@ -131,8 +131,13 @@ const productTypes = [
 
 export function ProductFormFields({
   form,
-  variants,
-  setVariants,
+  hasColors,
+  setHasColors,
+  sizes,
+  setSizes,
+  colors,
+  setColors,
+  mainProductImages = [],
   madeToOrderDays,
   setMadeToOrderDays,
   preOrderDate,
@@ -290,19 +295,6 @@ export function ProductFormFields({
     });
   };
 
-  const addVariant = () => {
-    setVariants([...variants, { size: "", color: "", stock: 0, image: "" }]);
-  };
-
-  const removeVariant = (index: number) => {
-    setVariants(variants.filter((_, i) => i !== index));
-  };
-
-  const updateVariant = (index: number, field: keyof ProductVariant, value: string | number) => {
-    const updated = [...variants];
-    updated[index] = { ...updated[index], [field]: value };
-    setVariants(updated);
-  };
 
   return (
     <div className="space-y-8">
@@ -850,7 +842,7 @@ export function ProductFormFields({
                   <FormLabel>Flat Shipping Rate</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{getCurrencySymbol(currency)}</span>
                       <Input
                         type="number"
                         step="0.01"
@@ -1221,18 +1213,23 @@ export function ProductFormFields({
         </div>
       </Card>
 
-      {/* Product Variants - New System */}
+      {/* Product Variants - Simplified System */}
       <Card className="p-6 space-y-6">
         <div className="space-y-2">
           <h3 className="text-xl font-semibold">Product Variants (Optional)</h3>
           <p className="text-sm text-muted-foreground">
-            Add color variants with images, then specify sizes for each color
+            Most products just need sizes. Enable colors if your product comes in multiple colors.
           </p>
         </div>
 
-        <ProductVariantManager
-          colorVariants={variants as any}
-          onChange={(newVariants) => setVariants(newVariants as any)}
+        <SimpleVariantManager
+          hasColors={hasColors}
+          onHasColorsChange={setHasColors}
+          sizes={sizes}
+          onSizesChange={setSizes}
+          colors={colors}
+          onColorsChange={setColors}
+          mainProductImages={mainProductImages}
         />
       </Card>
     </div>

@@ -24,13 +24,7 @@ import { ArrowLeft, Package, Clock, Hammer, Building2, Check, Plus, X, ImagePlus
 import { BulkImageInput } from "@/components/bulk-image-input";
 import { cn } from "@/lib/utils";
 import { ProductFormFields } from "@/components/product-form-fields";
-
-type ProductVariant = {
-  size: string;
-  color: string;
-  stock: number;
-  image: string;
-};
+import { SimpleVariantManager, type SizeVariant, type ColorVariant } from "@/components/simple-variant-manager";
 
 const productTypes = [
   {
@@ -74,7 +68,12 @@ interface Category {
 export default function CreateProduct() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  
+  // New variant system
+  const [hasColors, setHasColors] = useState(false);
+  const [sizes, setSizes] = useState<SizeVariant[]>([]);
+  const [colors, setColors] = useState<ColorVariant[]>([]);
+  
   const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
   const [preOrderDate, setPreOrderDate] = useState<string>("");
   const [discountPercentage, setDiscountPercentage] = useState<string>("");
@@ -141,19 +140,6 @@ export default function CreateProduct() {
     // The form schema will catch empty category on submit
   }, [selectedLevel1, selectedLevel2, selectedLevel3, categories, form]);
 
-  const addVariant = () => {
-    setVariants([...variants, { size: "", color: "", stock: 0, image: "" }]);
-  };
-
-  const removeVariant = (index: number) => {
-    setVariants(variants.filter((_, i) => i !== index));
-  };
-
-  const updateVariant = (index: number, field: keyof ProductVariant, value: string | number) => {
-    const updated = [...variants];
-    updated[index] = { ...updated[index], [field]: value };
-    setVariants(updated);
-  };
 
   const createMutation = useMutation({
     mutationFn: async (data: FrontendProduct) => {
@@ -213,9 +199,19 @@ export default function CreateProduct() {
         data.image = validImages[0]; // Set first image as primary (hero)
       }
       
-      // Add variants if any
-      if (variants.length > 0) {
-        (data as any).variants = variants;
+      // Add variants based on mode
+      if (hasColors) {
+        // Color mode: store color variants with their sizes
+        if (colors.length > 0) {
+          (data as any).variants = colors;
+          (data as any).hasColors = true;
+        }
+      } else {
+        // Size-only mode: store simple size array
+        if (sizes.length > 0) {
+          (data as any).variants = sizes;
+          (data as any).hasColors = false;
+        }
       }
       
       // Add readiness dates based on product type
@@ -312,8 +308,13 @@ export default function CreateProduct() {
           <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-8">
             <ProductFormFields
               form={form}
-              variants={variants}
-              setVariants={setVariants}
+              hasColors={hasColors}
+              setHasColors={setHasColors}
+              sizes={sizes}
+              setSizes={setSizes}
+              colors={colors}
+              setColors={setColors}
+              mainProductImages={form.watch("additionalImages" as any) || []}
               madeToOrderDays={madeToOrderDays}
               setMadeToOrderDays={setMadeToOrderDays}
               preOrderDate={preOrderDate}

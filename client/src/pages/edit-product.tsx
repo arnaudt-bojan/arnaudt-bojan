@@ -11,13 +11,18 @@ import { Form } from "@/components/ui/form";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Package } from "lucide-react";
-import { ProductFormFields, type ProductVariant } from "@/components/product-form-fields";
+import { ProductFormFields } from "@/components/product-form-fields";
+import { type SizeVariant, type ColorVariant } from "@/components/simple-variant-manager";
 
 export default function EditProduct() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  
+  // New variant system
+  const [hasColors, setHasColors] = useState(false);
+  const [sizes, setSizes] = useState<SizeVariant[]>([]);
+  const [colors, setColors] = useState<ColorVariant[]>([]);
   const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
   const [preOrderDate, setPreOrderDate] = useState<string>("");
   const [discountPercentage, setDiscountPercentage] = useState<string>("");
@@ -62,7 +67,71 @@ export default function EditProduct() {
       
       // Load variants if they exist
       if (product.variants && Array.isArray(product.variants)) {
-        setVariants(product.variants as ProductVariant[]);
+        const hasColorsFlag = (product as any).hasColors;
+        const firstVariant = product.variants[0];
+        
+        // Handle new color-based variants
+        if (hasColorsFlag && firstVariant?.colorName) {
+          setHasColors(true);
+          setColors(product.variants as ColorVariant[]);
+        }
+        // Handle new size-only variants
+        else if (!hasColorsFlag && firstVariant?.size && !firstVariant.color) {
+          setHasColors(false);
+          setSizes(product.variants as SizeVariant[]);
+        }
+        // Handle LEGACY variants (old structure with {size, color, stock, image})
+        else if (firstVariant?.color || firstVariant?.image) {
+          console.log('[Edit Product] Detected legacy variant structure, converting...');
+          
+          // Legacy variants have color - convert to new color-based structure
+          const legacyVariants = product.variants as any[];
+          
+          // Group by color
+          const colorMap = new Map<string, { sizes: SizeVariant[], images: string[] }>();
+          
+          for (const v of legacyVariants) {
+            const colorKey = v.color || 'default';
+            if (!colorMap.has(colorKey)) {
+              colorMap.set(colorKey, { sizes: [], images: [] });
+            }
+            const colorData = colorMap.get(colorKey)!;
+            
+            // Add size
+            if (v.size) {
+              colorData.sizes.push({ size: v.size, stock: v.stock || 0 });
+            }
+            
+            // Add image if present
+            if (v.image && !colorData.images.includes(v.image)) {
+              colorData.images.push(v.image);
+            }
+          }
+          
+          // Convert to new color variant structure
+          if (colorMap.size > 1 || (colorMap.size === 1 && Array.from(colorMap.keys())[0] !== 'default')) {
+            // Has multiple colors or explicit color - use color mode
+            const convertedColors: ColorVariant[] = [];
+            Array.from(colorMap.entries()).forEach(([colorName, colorData]) => {
+              convertedColors.push({
+                colorName,
+                colorHex: '#000000', // Default color, user can change
+                images: colorData.images,
+                sizes: colorData.sizes,
+              });
+            });
+            setHasColors(true);
+            setColors(convertedColors);
+          } else {
+            // Only one color or no color - convert to size-only mode
+            const allSizes: SizeVariant[] = [];
+            Array.from(colorMap.values()).forEach(colorData => {
+              allSizes.push(...colorData.sizes);
+            });
+            setHasColors(false);
+            setSizes(allSizes);
+          }
+        }
       }
       
       // Load readiness dates
@@ -87,11 +156,25 @@ export default function EditProduct() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: FrontendProduct) => {
-      // Add variants if any
-      if (variants.length > 0) {
-        (data as any).variants = variants;
+      // Add variants based on mode
+      if (hasColors) {
+        // Color mode: store color variants with their sizes
+        if (colors.length > 0) {
+          (data as any).variants = colors;
+          (data as any).hasColors = true;
+        } else {
+          (data as any).variants = null;
+          (data as any).hasColors = false;
+        }
       } else {
-        (data as any).variants = null;
+        // Size-only mode: store simple size array
+        if (sizes.length > 0) {
+          (data as any).variants = sizes;
+          (data as any).hasColors = false;
+        } else {
+          (data as any).variants = null;
+          (data as any).hasColors = false;
+        }
       }
       
       // Add readiness dates based on product type
@@ -204,8 +287,13 @@ export default function EditProduct() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <ProductFormFields
                 form={form}
-                variants={variants}
-                setVariants={setVariants}
+                hasColors={hasColors}
+                setHasColors={setHasColors}
+                sizes={sizes}
+                setSizes={setSizes}
+                colors={colors}
+                setColors={setColors}
+                mainProductImages={product?.images || []}
                 madeToOrderDays={madeToOrderDays}
                 setMadeToOrderDays={setMadeToOrderDays}
                 preOrderDate={preOrderDate}

@@ -20,7 +20,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Dashboard Design**: Seller dashboard includes revenue analytics and order management; buyer dashboard offers order tracking and order details access.
 
 **System Design Choices & Feature Specifications:**
-- **Product Management**: Supports diverse product types with multi-image uploads and bulk CSV import. Features a sophisticated color-first variant system with optional images per color and styled selectors. Enhanced validation system with clear error messages for required fields (name, description, price, image, category) and explicit "(optional)" labels for optional fields (stock, discount, variants, etc.). Category selection uses real-time form field updates to prevent validation errors.
+- **Product Management**: Supports diverse product types with multi-image uploads and bulk CSV import. Features a **simplified size-first variant system** where most products list color in the product name (e.g., "Red T-Shirt") then add size variants (S, M, L, XL). Optional color mode available for products that come in multiple colors - when enabled, first color automatically pre-populates with main product images (deletable). Enhanced validation system with clear error messages for required fields (name, description, price, image, category) and explicit "(optional)" labels for optional fields (stock, discount, variants, etc.). Category selection uses real-time form field updates to prevent validation errors. **Shipping system includes package preset dropdown with imperial/metric unit toggle, international carrier templates (US, UK, Europe, Canada, Australia), and zone-based shipping matrices**.
 - **Shopping & Checkout**: Includes a slide-over cart, persistent cart, guest checkout, and automatic shipping cost calculation. Carts enforce a single-seller constraint for proper payment routing and data isolation.
 - **Authentication & Authorization**: Email-based authentication with dual-token system. Login codes (6-digit, single-use, 15 min expiry) for manual verification. Magic links in emails (reusable, 6 month expiry) for one-click login. Sellers assigned admin role, buyers created automatically via guest checkout. 4-role system (admin, editor, viewer, buyer) with multi-tenant security ensures data isolation.
 - **Notification System**: Comprehensive email notifications using Resend, with planned support for 30+ types.
@@ -66,6 +66,36 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 **Why This Works**: The cart clearing happens when you login as a seller. Guest/incognito sessions don't have seller authentication, so they work as normal buyer flows.
 
 ## Recent Changes (October 10, 2025)
+
+### Currency Symbol Display Fix
+- Fixed currency symbol to show universal symbol (¤) when Stripe not connected
+- API now returns `null` currency when no Stripe connection
+- getCurrencySymbol properly handles null/undefined and returns ¤
+- Updated: `server/routes.ts`, `client/src/lib/currency-utils.ts`
+
+### Variant System Redesign (Size-First)
+- **Redesigned variant system** to be simpler and more intuitive
+- **Default mode**: Size-only variants (most common use case - e.g., "Red T-Shirt" in S, M, L, XL)
+- **Optional color mode**: Toggle to enable colors for products in multiple colors
+- **First color pre-population**: When adding first color, automatically includes main product images (deletable)
+- **Implementation**: New `SimpleVariantManager` component replaces old `ProductVariantManager`
+- **Data structure**: Stores `hasColors` flag with either size array (simple) or color variants (complex)
+- **Updated files**: 
+  - `client/src/components/simple-variant-manager.tsx` (new)
+  - `client/src/components/product-form-fields.tsx` (updated)
+  - `client/src/pages/create-product.tsx` (updated)
+  - `client/src/pages/edit-product.tsx` (updated)
+
+### Shipping System Enhancements
+- **Package presets**: Dropdown with standard sizes (envelope, small box, medium box, large box, tube, wine box)
+- **Unit toggle**: Switch between Imperial (lb/in) and Metric (kg/cm) with proper conversion
+- **International carriers**: Expanded from US-only to international templates:
+  - US: USPS, FedEx, UPS (envelopes, paks, boxes)
+  - UK: Royal Mail, Parcelforce
+  - Europe: DHL, DPD, Hermes
+  - Canada: Canada Post
+  - Australia: Australia Post
+- **Updated**: `client/src/components/product-form-fields.tsx`
 
 ### Authentication Token System Improvements
 - **Dual-Token System**: Separated login codes from magic links with distinct behavior
