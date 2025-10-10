@@ -5,15 +5,38 @@ import { importQueue } from "./import-queue";
 import { processShopifyImport } from "./adapters/shopify";
 import { importSources } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { 
+  securityHeadersMiddleware, 
+  rateLimitMiddleware, 
+  authRateLimitMiddleware,
+  sanitizeInputMiddleware
+} from "./security";
 
 const app = express();
 
-// Stripe webhook needs raw body for signature verification
-app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+// Trust proxy if behind load balancer (for rate limiting by real IP)
+app.set('trust proxy', true);
 
-// Regular JSON parsing for all other routes
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Security headers - apply to all routes
+app.use(securityHeadersMiddleware);
+
+// Stripe webhook needs raw body for signature verification
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '10mb' }));
+
+// Regular JSON parsing for all other routes with built-in size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Input sanitization - remove dangerous characters (skips raw buffers)
+app.use(sanitizeInputMiddleware);
+
+// Strict rate limiting for authentication endpoints
+app.use('/api/auth/send-code', authRateLimitMiddleware());
+app.use('/api/auth/verify-code', authRateLimitMiddleware());
+app.use('/api/auth/magic-link', authRateLimitMiddleware());
+
+// General rate limiting for all API routes
+app.use('/api', rateLimitMiddleware({ maxRequests: 100, windowMs: 60 * 1000 }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -49,6 +72,11 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    // Prevent double responses
+    if (res.headersSent) {
+      return _next(err);
+    }
+
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
