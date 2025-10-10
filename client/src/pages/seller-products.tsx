@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Product } from "@shared/schema";
-import { Plus, Pencil, Trash2, Megaphone, Upload, CreditCard } from "lucide-react";
+import { Plus, Pencil, Trash2, Megaphone, Upload, CreditCard, Eye, EyeOff, Archive, AlertCircle, Sparkles, MoreVertical, Check } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { BackToDashboard } from "@/components/back-to-dashboard";
@@ -29,10 +29,27 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useState } from "react";
 
 export default function SellerProducts() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/seller/products"],
@@ -62,6 +79,26 @@ export default function SellerProducts() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ productId, status }: { productId: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/products/${productId}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
+      toast({
+        title: "Status updated",
+        description: "Product status has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update product status",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getProductTypeBadge = (type: string) => {
     switch (type) {
       case "in-stock":
@@ -76,6 +113,59 @@ export default function SellerProducts() {
         return <Badge>{type}</Badge>;
     }
   };
+
+  const getStatusBadge = (status: string = 'draft') => {
+    switch (status) {
+      case "active":
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1 w-fit">
+            <Eye className="h-3 w-3" />
+            Active
+          </Badge>
+        );
+      case "draft":
+        return (
+          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            Draft
+          </Badge>
+        );
+      case "coming-soon":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-1 w-fit">
+            <Sparkles className="h-3 w-3" />
+            Coming Soon
+          </Badge>
+        );
+      case "paused":
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 flex items-center gap-1 w-fit">
+            <EyeOff className="h-3 w-3" />
+            Paused
+          </Badge>
+        );
+      case "out-of-stock":
+        return (
+          <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 flex items-center gap-1 w-fit">
+            <AlertCircle className="h-3 w-3" />
+            Out of Stock
+          </Badge>
+        );
+      case "archived":
+        return (
+          <Badge variant="outline" className="flex items-center gap-1 w-fit text-muted-foreground">
+            <Archive className="h-3 w-3" />
+            Archived
+          </Badge>
+        );
+      default:
+        return <Badge variant="secondary">Draft</Badge>;
+    }
+  };
+
+  const filteredProducts = products?.filter((product) => {
+    if (statusFilter === "all") return true;
+    return (product.status || 'draft') === statusFilter;
+  });
 
   return (
     <div className="min-h-screen py-12">
@@ -109,6 +199,32 @@ export default function SellerProducts() {
           </div>
         </div>
         
+        {/* Status Filter */}
+        <Card className="p-4 mb-6">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium">Filter by Status:</span>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
+                <SelectValue placeholder="All Products" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="coming-soon">Coming Soon</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+            {statusFilter !== "all" && (
+              <span className="text-sm text-muted-foreground">
+                {filteredProducts?.length || 0} of {products?.length || 0} products
+              </span>
+            )}
+          </div>
+        </Card>
+        
         {user && !user.stripeConnectedAccountId && (
           <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-not-connected">
             <CreditCard className="h-4 w-4" />
@@ -137,13 +253,14 @@ export default function SellerProducts() {
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : products && products.length > 0 ? (
+          ) : filteredProducts && filteredProducts.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Image</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Stock</TableHead>
@@ -152,7 +269,7 @@ export default function SellerProducts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((product) => (
+                  {filteredProducts.map((product) => (
                     <TableRow key={product.id} data-testid={`product-row-${product.id}`}>
                       <TableCell>
                         <img
@@ -162,6 +279,7 @@ export default function SellerProducts() {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell>{getStatusBadge(product.status)}</TableCell>
                       <TableCell>{getProductTypeBadge(product.productType)}</TableCell>
                       <TableCell>${product.price}</TableCell>
                       <TableCell>
@@ -170,6 +288,76 @@ export default function SellerProducts() {
                       <TableCell>{product.category}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                data-testid={`button-status-menu-${product.id}`}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => updateStatusMutation.mutate({ productId: product.id, status: "active" })}
+                                data-testid={`menu-item-active-${product.id}`}
+                                className="gap-2"
+                              >
+                                <Eye className="h-4 w-4 text-green-600" />
+                                <span>Active</span>
+                                {product.status === "active" && <Check className="h-4 w-4 ml-auto" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatusMutation.mutate({ productId: product.id, status: "draft" })}
+                                data-testid={`menu-item-draft-${product.id}`}
+                                className="gap-2"
+                              >
+                                <span className="w-4" />
+                                <span>Draft</span>
+                                {(!product.status || product.status === "draft") && <Check className="h-4 w-4 ml-auto" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatusMutation.mutate({ productId: product.id, status: "coming-soon" })}
+                                data-testid={`menu-item-coming-soon-${product.id}`}
+                                className="gap-2"
+                              >
+                                <Sparkles className="h-4 w-4 text-blue-600" />
+                                <span>Coming Soon</span>
+                                {product.status === "coming-soon" && <Check className="h-4 w-4 ml-auto" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatusMutation.mutate({ productId: product.id, status: "paused" })}
+                                data-testid={`menu-item-paused-${product.id}`}
+                                className="gap-2"
+                              >
+                                <EyeOff className="h-4 w-4 text-yellow-600" />
+                                <span>Paused</span>
+                                {product.status === "paused" && <Check className="h-4 w-4 ml-auto" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatusMutation.mutate({ productId: product.id, status: "out-of-stock" })}
+                                data-testid={`menu-item-out-of-stock-${product.id}`}
+                                className="gap-2"
+                              >
+                                <AlertCircle className="h-4 w-4 text-orange-600" />
+                                <span>Out of Stock</span>
+                                {product.status === "out-of-stock" && <Check className="h-4 w-4 ml-auto" />}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => updateStatusMutation.mutate({ productId: product.id, status: "archived" })}
+                                data-testid={`menu-item-archived-${product.id}`}
+                                className="gap-2"
+                              >
+                                <Archive className="h-4 w-4 text-muted-foreground" />
+                                <span>Archive</span>
+                                {product.status === "archived" && <Check className="h-4 w-4 ml-auto" />}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -225,11 +413,19 @@ export default function SellerProducts() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No products yet</p>
-              <Button onClick={() => setLocation("/seller/create-product")} data-testid="button-create-first-product">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Product
-              </Button>
+              <p className="text-muted-foreground mb-4">
+                {statusFilter !== "all" ? `No ${statusFilter} products` : "No products yet"}
+              </p>
+              {statusFilter !== "all" ? (
+                <Button variant="outline" onClick={() => setStatusFilter("all")} data-testid="button-clear-filter">
+                  Clear Filter
+                </Button>
+              ) : (
+                <Button onClick={() => setLocation("/seller/create-product")} data-testid="button-create-first-product">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Product
+                </Button>
+              )}
             </div>
           )}
         </Card>
