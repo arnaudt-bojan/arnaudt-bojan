@@ -68,16 +68,19 @@ router.post('/send-code', async (req: Request, res: Response) => {
       emailSent = false;
     }
 
-    // Always log the code to console (for dev convenience and production fallback)
-    console.log(`\n========================================`);
-    console.log(`[Auth] EMAIL ${emailSent ? 'SENT ✅' : 'FAILED ❌'} - CODE AVAILABLE`);
-    console.log(`[Auth] Email: ${email}`);
-    console.log(`[Auth] Verification Code: ${code}`);
-    console.log(`[Auth] Valid for: 15 minutes`);
+    // Only log verification code when email FAILS (security: don't expose codes in logs when emails work)
     if (!emailSent) {
+      console.log(`\n========================================`);
+      console.log(`[Auth] EMAIL FAILED ❌ - FALLBACK CODE AVAILABLE`);
+      console.log(`[Auth] Email: ${email}`);
+      console.log(`[Auth] Verification Code: ${code}`);
+      console.log(`[Auth] Valid for: 15 minutes`);
       console.log(`[Auth] ⚠️  Email delivery failed - check Resend domain verification`);
+      console.log(`========================================\n`);
+    } else {
+      // Success - just log confirmation without exposing the code
+      console.log(`[Auth] ✅ Verification code sent successfully to ${email}`);
     }
-    console.log(`========================================\n`);
 
     // Return accurate status based on email delivery
     res.json({ 
@@ -263,16 +266,19 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       emailSent = false;
     }
 
-    // Always log the magic link to console (for production fallback when email fails)
-    console.log(`\n========================================`);
-    console.log(`[Auth] EMAIL ${emailSent ? 'SENT ✅' : 'FAILED ❌'} - MAGIC LINK AVAILABLE`);
-    console.log(`[Auth] Email: ${email}`);
-    console.log(`[Auth] Magic Link: ${magicLink}`);
-    console.log(`[Auth] Valid for: 15 minutes`);
+    // Only log magic link when email FAILS (security: don't expose auth links in logs when emails work)
     if (!emailSent) {
+      console.log(`\n========================================`);
+      console.log(`[Auth] EMAIL FAILED ❌ - FALLBACK MAGIC LINK AVAILABLE`);
+      console.log(`[Auth] Email: ${email}`);
+      console.log(`[Auth] Magic Link: ${magicLink}`);
+      console.log(`[Auth] Valid for: 15 minutes`);
       console.log(`[Auth] ⚠️  Email delivery failed - check Resend domain verification`);
+      console.log(`========================================\n`);
+    } else {
+      // Success - just log confirmation without exposing the link
+      console.log(`[Auth] ✅ Magic link sent successfully to ${email}`);
     }
-    console.log(`========================================\n`);
 
     // Return accurate status based on email delivery
     res.json({ 
