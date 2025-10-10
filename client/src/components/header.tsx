@@ -64,6 +64,13 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   });
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
+  // Check if user has wholesale access (accepted invitations)
+  const { data: wholesaleAccess } = useQuery<{ hasAccess: boolean }>({
+    queryKey: ["/api/wholesale/buyer/access"],
+    enabled: isAuthenticated && user?.role === "buyer",
+  });
+  const hasWholesaleAccess = wholesaleAccess?.hasAccess ?? false;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
@@ -103,14 +110,16 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
                       >
                         My Orders
                       </Link>
-                      <Link
-                        href="/wholesale/catalog"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
-                        data-testid="mobile-link-buyer-wholesale"
-                      >
-                        Wholesale Catalog
-                      </Link>
+                      {hasWholesaleAccess && (
+                        <Link
+                          href="/wholesale/catalog"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
+                          data-testid="mobile-link-buyer-wholesale"
+                        >
+                          Wholesale Catalog
+                        </Link>
+                      )}
                     </>
                   )}
                   {isAuthenticated && (user?.role === "admin" || user?.role === "editor" || user?.role === "viewer") && (

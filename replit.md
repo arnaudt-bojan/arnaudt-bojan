@@ -29,7 +29,7 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
   - **Checkout Error Handling**: Clear error messages when seller hasn't completed Stripe setup, preventing generic Stripe errors for buyers. Payment success toast only appears AFTER order is successfully created in database, preventing confusion when order creation fails after payment.
 - **Subscription System**: Monthly/annual subscription model for sellers with a free trial, managed via Stripe Customer objects, enabling store activation/deactivation.
 - **Multi-Currency Support**: IP-based currency detection with a user-selectable currency switcher and real-time exchange rates.
-- **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders.
+- **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders. Buyers only see the wholesale catalog link (in dashboard and mobile menu) if they have accepted invitations from sellers. Backend filters products to only show items from sellers who invited that specific buyer.
 - **Social Ads System**: Multi-platform social advertising (Meta, TikTok, X) with AI optimization, creative controls, and budget management.
 - **Item-Level Order Tracking**: Comprehensive per-item fulfillment system with independent status, tracking, and shipping for each product in an order. Includes automated buyer notifications.
 - **Image Editing System**: Built-in image editor (crop, zoom, rotate, flip, filters) for logos and banners using `react-easy-crop`.

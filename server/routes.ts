@@ -5045,6 +5045,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Buyer Wholesale Routes (Invitation-Protected)
+  // Check if buyer has wholesale access (accepted invitations)
+  app.get("/api/wholesale/buyer/access", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.email) {
+        return res.json({ hasAccess: false });
+      }
+
+      // Check if user has any accepted invitations
+      const allInvitations = await storage.getAllWholesaleInvitations();
+      const hasAcceptedInvitations = allInvitations.some(
+        inv => inv.buyerEmail === user.email && inv.status === "accepted"
+      );
+
+      res.json({ hasAccess: hasAcceptedInvitations });
+    } catch (error) {
+      console.error("Error checking wholesale access:", error);
+      res.status(500).json({ message: "Failed to check wholesale access" });
+    }
+  });
+
   app.get("/api/wholesale/buyer/catalog", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
