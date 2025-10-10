@@ -4,8 +4,8 @@ import type { User, Order, Product, Notification, InsertNotification, OrderItem 
 import { PDFService } from './pdf-service';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-// Using verified domain upfirst.io
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Upfirst <hello@upfirst.io>';
+// Using verified sender from environment or fallback
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Upfirst <hello@upfirst.io>';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;

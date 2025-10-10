@@ -1437,18 +1437,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
       if (!stripe) {
-        // Test mode bypass for notification/checkout testing without Stripe onboarding
-        // Only use mock when Stripe is not configured at all
-        if (process.env.NODE_ENV === 'development' || process.env.STRIPE_TEST_MODE === 'true') {
-          console.log('[Stripe Test Mode] Returning mock payment intent (no Stripe keys configured)');
-          return res.json({
-            clientSecret: 'pi_test_mock_1234567890_secret_abcdefghijklmnop',
-            paymentIntentId: 'pi_test_mock_1234567890',
-          });
-        }
-        
+        console.log('[Stripe] Cannot create payment intent - Stripe is not configured');
         return res.status(500).json({ 
-          error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets." 
+          error: "Stripe is not configured. Please contact the store owner to set up payments." 
         });
       }
 
