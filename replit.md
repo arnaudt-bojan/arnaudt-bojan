@@ -35,6 +35,33 @@ Upfirst is built with a modern web stack. The frontend utilizes **React, TypeScr
 - **Flexible Shipping System**: Three-tier configuration allowing sellers to define zone-based shipping matrices, flat rates, real-time rates via Shippo, or free shipping.
 - **Document Generation System**: Professional PDF invoice and packing slip generation using pdfkit, with templates for B2C and wholesale, object storage integration, and automatic generation triggers.
 - **Saved Addresses & Payment Methods**: PCI-DSS compliant system allowing all users (buyers and sellers) to securely save shipping addresses and payment methods for faster checkout. Addresses stored directly in database with full details. Payment methods use Stripe Payment Methods API - only Stripe tokens and display metadata stored (never raw card data). Available in Settings > Addresses & Payments tab.
+- **Cart System**: Shopping cart stored in browser localStorage with automatic single-seller constraint enforcement. Sellers' carts are automatically cleared on login to prevent confusion (sellers don't shop on their own platform).
+
+## Testing Buyer Experience as a Seller
+
+**Problem**: Sellers need to test the complete buyer flow (checkout, emails, order confirmation) but their seller account can't shop.
+
+**Solutions**:
+
+### Option 1: Guest Checkout (Recommended)
+1. Open an **Incognito/Private Browser Window**
+2. Navigate to your storefront URL (from Share Store link)
+3. Add products to cart and checkout as a guest
+4. Use your personal email to receive buyer notifications
+5. Check order in seller dashboard
+
+### Option 2: Create Test Buyer Account
+1. Use a different email (e.g., `yourname+buyer@gmail.com`)
+2. Checkout as guest with that email
+3. Buyer account is auto-created
+4. Check that email inbox for order confirmations
+
+### Option 3: Use Another Browser
+1. If not using incognito, use a completely different browser
+2. Your seller session stays in Chrome, buyer session in Firefox/Safari
+3. Checkout normally and receive all buyer emails
+
+**Why This Works**: The cart clearing happens when you login as a seller. Guest/incognito sessions don't have seller authentication, so they work as normal buyer flows.
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)

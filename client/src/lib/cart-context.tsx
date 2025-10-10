@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { Product } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CartItem extends Product {
   quantity: number;
@@ -18,6 +19,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("cart");
@@ -25,6 +27,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
     return [];
   });
+
+  // Clear cart for sellers automatically (once per seller session)
+  useEffect(() => {
+    const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer' || user?.role === 'seller' || user?.role === 'owner';
+    const hasCleared = sessionStorage.getItem('cart-cleared-for-seller');
+    
+    // If user is seller and cart has items and hasn't been cleared yet
+    if (isSeller && items.length > 0 && !hasCleared) {
+      console.log('[Cart] Clearing cart for seller user (one-time per session)');
+      setItems([]);
+      localStorage.removeItem("cart");
+      sessionStorage.setItem('cart-cleared-for-seller', 'true');
+    }
+    
+    // If user is NOT seller (buyer/guest/null), reset the flag for next seller login
+    if (!isSeller && hasCleared) {
+      sessionStorage.removeItem('cart-cleared-for-seller');
+    }
+  }, [user?.role, items.length]);
 
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(items));
