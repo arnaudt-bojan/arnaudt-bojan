@@ -103,6 +103,7 @@ export default function CreateProduct() {
       stock: undefined,
       depositAmount: undefined,
       requiresDeposit: 0,
+      status: "active",
     },
   });
 

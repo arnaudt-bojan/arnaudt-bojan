@@ -21,7 +21,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck } from "lucide-react";
+import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck, Eye, EyeOff, Archive, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
@@ -226,6 +226,73 @@ export function ProductFormFields({
 
   return (
     <div className="space-y-8">
+      {/* Product Status Selection */}
+      <Card className="p-6 space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold">Product Visibility</h3>
+          <p className="text-sm text-muted-foreground">Control how this product appears in your store</p>
+        </div>
+        
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || "active"}>
+                <FormControl>
+                  <SelectTrigger data-testid="select-product-status">
+                    <SelectValue placeholder="Select product status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="active">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-green-600" />
+                      <span>Active - Visible in store</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="draft">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-gray-600" />
+                      <span>Draft - Not published</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="coming-soon">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-blue-600" />
+                      <span>Coming Soon - Teaser mode</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="paused">
+                    <div className="flex items-center gap-2">
+                      <EyeOff className="h-4 w-4 text-yellow-600" />
+                      <span>Paused - Temporarily hidden</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="out-of-stock">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                      <span>Out of Stock - Not available</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="archived">
+                    <div className="flex items-center gap-2">
+                      <Archive className="h-4 w-4 text-gray-400" />
+                      <span>Archived - Kept for records</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Choose when and how this product should be visible to customers
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </Card>
+
       {/* Product Type Selection - Beautiful Cards at Top */}
       <div className="space-y-4">
         <div className="space-y-2">
@@ -313,30 +380,6 @@ export function ProductFormFields({
                     data-testid="input-description"
                     className="text-base resize-none"
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Price</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...field}
-                      data-testid="input-price"
-                      className="pl-8 text-base"
-                    />
-                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -887,48 +930,86 @@ export function ProductFormFields({
         </div>
       </Card>
 
-      {/* Discount & Promotion */}
+      {/* Pricing & Promotions */}
       <Card className="p-6 space-y-6">
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold">Pricing & Promotions</h3>
-          <p className="text-sm text-muted-foreground">Optional discount and promotional settings</p>
+          <h3 className="text-xl font-semibold flex items-center gap-2">
+            <div className="bg-primary/10 rounded-lg p-2">
+              <Star className="h-5 w-5 text-primary" />
+            </div>
+            Pricing & Promotions
+          </h3>
+          <p className="text-sm text-muted-foreground">Set your product price and optional discounts</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <FormLabel>Discount % (Optional)</FormLabel>
-            <div className="relative">
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                placeholder="0"
-                value={discountPercentage}
-                onChange={(e) => setDiscountPercentage(e.target.value)}
-                data-testid="input-discount"
-                className="pr-8 text-base"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Discount percentage (0-100%)
-            </p>
-          </div>
+        <div className="space-y-4">
+          {/* Base Price - NOW FIRST */}
+          <FormField
+            control={form.control}
+            name="price"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-base font-semibold">Product Price</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      data-testid="input-price"
+                      className="pl-8 text-base font-medium h-12"
+                    />
+                  </div>
+                </FormControl>
+                <FormDescription>
+                  The base price for this product
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <div className="space-y-2">
-            <FormLabel>Promotion End Date (Optional)</FormLabel>
-            <Input
-              type="date"
-              value={promotionEndDate}
-              onChange={(e) => setPromotionEndDate(e.target.value)}
-              disabled={!discountPercentage || parseFloat(discountPercentage) === 0}
-              data-testid="input-promotion-end"
-              className="text-base"
-            />
-            <p className="text-sm text-muted-foreground">
-              When the promotion ends
-            </p>
+          {/* Discount & Promotion */}
+          <div className="border-t pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <FormLabel>Discount % (Optional)</FormLabel>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    placeholder="0"
+                    value={discountPercentage}
+                    onChange={(e) => setDiscountPercentage(e.target.value)}
+                    data-testid="input-discount"
+                    className="pr-8 text-base"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Discount percentage (0-100%)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <FormLabel>Promotion End Date (Optional)</FormLabel>
+                <Input
+                  type="date"
+                  value={promotionEndDate}
+                  onChange={(e) => setPromotionEndDate(e.target.value)}
+                  disabled={!discountPercentage || parseFloat(discountPercentage) === 0}
+                  data-testid="input-promotion-end"
+                  className="text-base"
+                />
+                <p className="text-sm text-muted-foreground">
+                  When the promotion ends
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </Card>

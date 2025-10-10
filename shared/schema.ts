@@ -21,6 +21,9 @@ export type UserRole = z.infer<typeof userRoleEnum>;
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
 
+export const productStatusEnum = z.enum(["active", "draft", "coming-soon", "paused", "out-of-stock", "archived"]);
+export type ProductStatus = z.infer<typeof productStatusEnum>;
+
 // Categories table with hierarchical structure (3 levels max)
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -68,6 +71,9 @@ export const products = pgTable("products", {
   shippoWidth: decimal("shippo_width", { precision: 10, scale: 2 }), // Width in inches
   shippoHeight: decimal("shippo_height", { precision: 10, scale: 2 }), // Height in inches
   shippoTemplate: varchar("shippo_template"), // Carrier template token (e.g., "USPS_FlatRateBox")
+  
+  // Product visibility and status
+  status: text("status").default("draft"), // "active", "draft", "coming-soon", "paused", "out-of-stock", "archived"
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
