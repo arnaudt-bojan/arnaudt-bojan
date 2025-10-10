@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (items && items.length > 0) {
         // Get first product to determine seller
-        const firstProductId = items[0].id;
+        const firstProductId = items[0].productId || items[0].id; // Support both formats
         const product = await storage.getProduct(firstProductId);
         
         if (product) {
