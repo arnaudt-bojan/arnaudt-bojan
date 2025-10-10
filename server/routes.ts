@@ -768,10 +768,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateOrderPaymentStatus(orderId, newPaymentStatus);
 
       // Send refund notification (async, don't wait)
-      (async () => {
+      void (async () => {
         try {
-          // TODO: Send refund notification to buyer
-          console.log(`[Notifications] Refund processed notification sent for order ${orderId}`);
+          const seller = await storage.getUser(userId);
+          if (!seller) return;
+
+          // Send email notification for each refunded item
+          for (const [itemId, refundData] of itemsToRefund.entries()) {
+            const { item, quantity, amount } = refundData;
+            await notificationService.sendItemRefunded(
+              order,
+              item,
+              seller,
+              amount,
+              quantity
+            );
+          }
+          
+          console.log(`[Notifications] Refund notification emails sent for order ${orderId}, ${itemsToRefund.size} items`);
         } catch (error) {
           console.error('[Notifications] Failed to send refund notification:', error);
         }
