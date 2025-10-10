@@ -70,32 +70,34 @@ router.post('/send-code', async (req: Request, res: Response) => {
 
     // Always log the code to console (for dev convenience and production fallback)
     console.log(`\n========================================`);
-    console.log(`[Auth] EMAIL ${emailSent ? 'SENT' : 'FAILED'} - CODE AVAILABLE`);
+    console.log(`[Auth] EMAIL ${emailSent ? 'SENT ✅' : 'FAILED ❌'} - CODE AVAILABLE`);
     console.log(`[Auth] Email: ${email}`);
     console.log(`[Auth] Verification Code: ${code}`);
     console.log(`[Auth] Valid for: 15 minutes`);
+    if (!emailSent) {
+      console.log(`[Auth] ⚠️  Email delivery failed - check Resend domain verification`);
+    }
     console.log(`========================================\n`);
 
-    // Always return success since code is stored in DB (user can still enter it manually)
+    // Return accurate status based on email delivery
     res.json({ 
-      success: true, 
+      success: emailSent, // TRUE only if email was actually sent
       message: emailSent 
         ? 'Authentication code sent to your email. Check your inbox and spam folder.'
-        : 'We had trouble sending the email. Please check the console logs for your verification code, or contact support.',
+        : '❌ Email delivery failed. This usually means the sending domain is not verified in Resend. Check server logs for the verification code.',
       email,
       emailSent,
-      // In dev, include code for convenience
-      ...(process.env.NODE_ENV === 'development' && { devCode: code })
+      // In dev, include code for convenience. In production, include if email failed
+      ...(((process.env.NODE_ENV === 'development') || !emailSent) && { devCode: code })
     });
   } catch (error: any) {
     console.error('[Auth] Critical error in send-code endpoint:', error);
-    // Even if there's a critical error, don't return 500 - the code is already saved to DB
-    // Just log it and tell user to check console
-    res.json({ 
-      success: true, 
-      message: 'Authentication code generated. Please check the server console logs for your code.',
-      email,
-      emailSent: false
+    // Return failure status but include fallback code if available
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process authentication request',
+      message: 'An error occurred while generating your authentication code. Please try again or contact support.',
+      email
     });
   }
 });
@@ -263,27 +265,33 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
 
     // Always log the magic link to console (for production fallback when email fails)
     console.log(`\n========================================`);
-    console.log(`[Auth] EMAIL ${emailSent ? 'SENT' : 'FAILED'} - MAGIC LINK AVAILABLE`);
+    console.log(`[Auth] EMAIL ${emailSent ? 'SENT ✅' : 'FAILED ❌'} - MAGIC LINK AVAILABLE`);
     console.log(`[Auth] Email: ${email}`);
     console.log(`[Auth] Magic Link: ${magicLink}`);
     console.log(`[Auth] Valid for: 15 minutes`);
+    if (!emailSent) {
+      console.log(`[Auth] ⚠️  Email delivery failed - check Resend domain verification`);
+    }
     console.log(`========================================\n`);
 
-    // Always return success since link is stored in DB
+    // Return accurate status based on email delivery
     res.json({ 
-      success: true, 
+      success: emailSent, // TRUE only if email was actually sent
       message: emailSent 
         ? 'Magic link sent to your email. Check your inbox and spam folder.'
-        : 'We had trouble sending the email. Please check the server console logs for your magic link, or use the code method instead.',
+        : '❌ Email delivery failed. This usually means the sending domain is not verified in Resend. Please use the verification code method instead.',
       email,
-      emailSent
+      emailSent,
+      // If email failed, provide the magic link in response for manual access
+      ...(!emailSent && { magicLink })
     });
   } catch (error: any) {
     console.error('[Auth] Critical error in send-magic-link endpoint:', error);
-    // Even if there's a critical error, don't return 500 - the token is already saved to DB
-    res.json({ 
-      success: true, 
-      message: 'Magic link generated. Please check the server console logs for your link, or use the code method instead.',
+    // Return failure status with clear error message
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process magic link request',
+      message: 'An error occurred while generating your magic link. Please try the verification code method instead.',
       email,
       emailSent: false
     });

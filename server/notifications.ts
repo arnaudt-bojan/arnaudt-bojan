@@ -205,46 +205,49 @@ class NotificationServiceImpl implements NotificationService {
         }));
       }
 
+      // Log email attempt for debugging
+      console.log(`[Notifications] Attempting to send email via Resend:`, {
+        to: params.to,
+        from: emailPayload.from,
+        subject: params.subject,
+        env: process.env.NODE_ENV
+      });
+
       const result = await resend.emails.send(emailPayload);
 
       if (result.error) {
-        console.error('[Notifications] Email send error:', result.error);
-        
-        // Check if it's a domain verification error
         const errorMsg = result.error.message || '';
         const statusCode = (result.error as any).statusCode;
         const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || statusCode === 403;
         
-        // In both dev and production, handle domain errors gracefully for auth emails
+        // CRITICAL: Log the actual Resend error prominently
+        console.error('\n❌❌❌ RESEND API ERROR ❌❌❌');
+        console.error('Error:', result.error);
+        console.error('Status Code:', statusCode);
+        console.error('Message:', errorMsg);
+        console.error('From Email:', emailPayload.from);
+        console.error('To Email:', params.to);
+        
         if (isDomainError) {
-          console.log('\n═══════════════════════════════════════════════════════');
-          console.log(`📧 EMAIL (${process.env.NODE_ENV === 'production' ? 'Production' : 'Development'} - Domain Not Verified)`);
-          console.log('═══════════════════════════════════════════════════════');
-          console.log(`To: ${params.to}`);
-          console.log(`From: ${params.from || FROM_EMAIL}`);
-          console.log(`Subject: ${params.subject}`);
-          console.log('───────────────────────────────────────────────────────');
+          console.error('\n🚨 DOMAIN VERIFICATION REQUIRED 🚨');
+          console.error('The domain in FROM_EMAIL is not verified in Resend.');
+          console.error('Go to https://resend.com/domains and verify:', FROM_EMAIL);
+          console.error('Current FROM_EMAIL:', FROM_EMAIL);
           
           // Extract verification code if it's an auth email
           const codeMatch = params.html.match(/\b\d{6}\b/);
           if (codeMatch) {
-            console.log(`🔑 VERIFICATION CODE: ${codeMatch[0]}`);
-            console.log(`📱 Share this code with the user to complete authentication`);
+            console.error('\n🔑 FALLBACK VERIFICATION CODE:', codeMatch[0]);
+            console.error('Email could not be sent. Use this code manually.');
           }
-          
-          console.log('───────────────────────────────────────────────────────');
-          console.log('⚠️  CRITICAL: Verify your domain at https://resend.com/domains');
-          console.log('   Until verified, authentication codes will be logged here');
-          console.log('═══════════════════════════════════════════════════════\n');
-          
-          // Return success so auth flow continues (code is stored in DB)
-          // This allows manual code entry or admin access to logs
-          return { success: true, emailId: 'fallback-' + Date.now(), error: 'Email not sent - domain not verified' };
+          console.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n');
         }
         
+        // ALWAYS return actual failure status - don't lie to the caller
         return { success: false, error: result.error.message };
       }
 
+      console.log(`[Notifications] ✅ Email sent successfully via Resend. ID: ${result.data?.id}`);
       return { success: true, emailId: result.data?.id };
     } catch (error: any) {
       console.error('[Notifications] Email send exception:', error);
