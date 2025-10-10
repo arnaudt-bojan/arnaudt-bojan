@@ -3129,7 +3129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cancel subscription
+  // Cancel subscription (schedule cancellation at period end)
   app.post("/api/subscription/cancel", isAuthenticated, async (req: any, res) => {
     try {
       if (!stripe) {
@@ -3143,22 +3143,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No active subscription" });
       }
 
-      // Cancel subscription
-      await stripe.subscriptions.cancel(user.stripeSubscriptionId);
-
-      // Update user
-      const updatedUser = await storage.upsertUser({
-        ...user,
-        subscriptionStatus: "canceled",
+      // Schedule subscription cancellation at the end of the billing period
+      // This ensures the user keeps access through the period they've already paid for
+      const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
+        cancel_at_period_end: true,
       });
 
+      // User remains active until the period ends - webhook will handle final cancellation
+      // Don't update subscriptionStatus here, keep it as 'active' until period ends
       res.json({ 
-        message: "Subscription canceled successfully",
-        user: updatedUser,
+        message: "Subscription will be canceled at the end of your billing period",
+        subscription,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        periodEnd: new Date(subscription.current_period_end * 1000),
       });
     } catch (error: any) {
       console.error("Cancel subscription error:", error);
       res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  });
+
+  // Reactivate subscription (remove scheduled cancellation)
+  app.post("/api/subscription/reactivate", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeSubscriptionId) {
+        return res.status(400).json({ error: "No active subscription" });
+      }
+
+      // Remove the scheduled cancellation
+      const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
+        cancel_at_period_end: false,
+      });
+
+      res.json({ 
+        message: "Subscription reactivated successfully",
+        subscription,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      });
+    } catch (error: any) {
+      console.error("Reactivate subscription error:", error);
+      res.status(500).json({ error: "Failed to reactivate subscription" });
     }
   });
 

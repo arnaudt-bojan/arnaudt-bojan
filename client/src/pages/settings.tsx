@@ -188,6 +188,27 @@ function SubscriptionTab({ user }: { user: any }) {
     },
   });
 
+  const reactivateSubscriptionMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/subscription/reactivate", {});
+    },
+    onSuccess: () => {
+      refetchSubscription();
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Subscription Reactivated",
+        description: "Your subscription has been reactivated and will continue as normal.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reactivate subscription",
+        variant: "destructive",
+      });
+    },
+  });
+
   const daysRemaining = subscriptionStatus?.trialEndsAt 
     ? Math.ceil((new Date(subscriptionStatus.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : null;
@@ -341,10 +362,11 @@ function SubscriptionTab({ user }: { user: any }) {
                 {subscriptionStatus.cancelAtPeriodEnd && (
                   <Button
                     variant="outline"
-                    onClick={() => setShowSubscriptionDialog(true)}
+                    onClick={() => reactivateSubscriptionMutation.mutate()}
+                    disabled={reactivateSubscriptionMutation.isPending}
                     data-testid="button-reactivate-subscription"
                   >
-                    Reactivate Subscription
+                    {reactivateSubscriptionMutation.isPending ? "Reactivating..." : "Reactivate Subscription"}
                   </Button>
                 )}
               </div>
