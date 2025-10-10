@@ -707,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update order payment status based on CUMULATIVE refunds
       // Get all refunds for this order (including the ones we just created)
-      const allOrderRefunds = await storage.getRefunds(orderId);
+      const allOrderRefunds = await storage.getRefundsByOrderId(orderId);
       const totalRefundedAmount = allOrderRefunds.reduce((sum, r) => sum + parseFloat(r.amount), 0);
       const orderTotal = parseFloat(order.amountPaid);
       
