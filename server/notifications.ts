@@ -8,13 +8,18 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Upfirst <hello@upfirst.io>';
 
 if (!RESEND_API_KEY) {
-  console.error('\n❌ CRITICAL: RESEND_API_KEY environment variable is NOT SET!');
-  console.error('Emails will NOT be sent. Please configure RESEND_API_KEY in your environment.');
-  console.error('For development: Add to .env file');
-  console.error('For production/deployment: Add to deployment secrets');
-  console.error('After adding secrets, you MUST redeploy for changes to take effect.\n');
+  const errorMsg = '\n❌ CRITICAL: RESEND_API_KEY environment variable is NOT SET!';
+  process.stderr.write(errorMsg + '\n');
+  process.stderr.write('Emails will NOT be sent. Please configure RESEND_API_KEY in your environment.\n');
+  process.stderr.write('For development: Add to .env file\n');
+  process.stderr.write('For production/deployment: Add to deployment secrets\n');
+  process.stderr.write('After adding secrets, you MUST redeploy for changes to take effect.\n\n');
+  console.error(errorMsg);
 } else {
-  console.log('✅ Resend API key is configured');
+  const successMsg = '✅ Resend API key is configured';
+  process.stdout.write(successMsg + '\n');
+  process.stdout.write(`📧 FROM_EMAIL: ${FROM_EMAIL}\n\n`);
+  console.log(successMsg);
   console.log(`📧 FROM_EMAIL: ${FROM_EMAIL}\n`);
 }
 

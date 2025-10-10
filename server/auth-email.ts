@@ -6,8 +6,21 @@ import crypto from 'crypto';
 import type { Request, Response } from 'express';
 
 const router = Router();
-const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
-const notificationService = createNotificationService(storage, pdfService);
+
+// Initialize services with error handling for missing env vars
+let pdfService: PDFService;
+let notificationService: ReturnType<typeof createNotificationService>;
+
+try {
+  pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
+  notificationService = createNotificationService(storage, pdfService);
+  console.log('[Auth-Email] Services initialized successfully');
+} catch (error) {
+  console.error('[Auth-Email] CRITICAL: Failed to initialize services:', error);
+  // Create stub services that will log errors
+  pdfService = new PDFService(process.env.STRIPE_SECRET_KEY || '');
+  notificationService = createNotificationService(storage, pdfService);
+}
 
 // Generate 6-digit code
 function generateCode(): string {
