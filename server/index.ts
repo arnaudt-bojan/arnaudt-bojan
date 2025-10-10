@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { importQueue } from "./import-queue";
+import { processShopifyImport } from "./adapters/shopify";
+import { importSources } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const app = express();
 
@@ -73,6 +76,32 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Register platform adapters
+    importQueue.registerProcessor(async (job, signal) => {
+      const source = await storage.db
+        .select()
+        .from(importSources)
+        .where(eq(importSources.id, job.sourceId))
+        .limit(1);
+
+      if (!source[0]) {
+        throw new Error(`Import source ${job.sourceId} not found`);
+      }
+
+      const platform = source[0].platform;
+
+      switch (platform) {
+        case "shopify":
+          return await processShopifyImport(job, signal);
+        // Future adapters will be added here:
+        // case "bigcommerce": return await processBigCommerceImport(job, signal);
+        // case "etsy": return await processEtsyImport(job, signal);
+        // case "woocommerce": return await processWooCommerceImport(job, signal);
+        default:
+          throw new Error(`Unsupported platform: ${platform}`);
+      }
+    });
     
     // Start import queue
     importQueue.start();
