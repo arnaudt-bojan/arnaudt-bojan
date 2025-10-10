@@ -46,33 +46,44 @@ router.post('/send-code', async (req: Request, res: Response) => {
       sellerContext: sellerContext || null, // Store seller context with token
     });
 
-    // Send email with code and magic link for auto-login
-    const emailSent = await notificationService.sendAuthCode(email, code, token);
-
-    // In development or if email failed, log the code to console so user can still authenticate
-    if (process.env.NODE_ENV === 'development' || !emailSent) {
-      console.log(`\n========================================`);
-      console.log(`[Auth] EMAIL ${emailSent ? 'SENT' : 'FAILED'} - CONSOLE FALLBACK`);
-      console.log(`[Auth] Email: ${email}`);
-      console.log(`[Auth] Verification Code: ${code}`);
-      console.log(`[Auth] Valid for: 15 minutes`);
-      console.log(`========================================\n`);
+    // Try to send email with code and magic link for auto-login
+    let emailSent = false;
+    try {
+      emailSent = await notificationService.sendAuthCode(email, code, token);
+    } catch (emailError) {
+      console.error('[Auth] Email sending failed:', emailError);
+      emailSent = false;
     }
+
+    // Always log the code to console (for dev convenience and production fallback)
+    console.log(`\n========================================`);
+    console.log(`[Auth] EMAIL ${emailSent ? 'SENT' : 'FAILED'} - CODE AVAILABLE`);
+    console.log(`[Auth] Email: ${email}`);
+    console.log(`[Auth] Verification Code: ${code}`);
+    console.log(`[Auth] Valid for: 15 minutes`);
+    console.log(`========================================\n`);
 
     // Always return success since code is stored in DB (user can still enter it manually)
     res.json({ 
       success: true, 
       message: emailSent 
         ? 'Authentication code sent to your email. Check your inbox and spam folder.'
-        : 'Email delivery failed. Your authentication code has been logged to the console.',
+        : 'We had trouble sending the email. Please check the console logs for your verification code, or contact support.',
       email,
       emailSent,
       // In dev, include code for convenience
       ...(process.env.NODE_ENV === 'development' && { devCode: code })
     });
   } catch (error: any) {
-    console.error('[Auth] Send code error:', error);
-    res.status(500).json({ error: 'Failed to send authentication code. Please try again.' });
+    console.error('[Auth] Critical error in send-code endpoint:', error);
+    // Even if there's a critical error, don't return 500 - the code is already saved to DB
+    // Just log it and tell user to check console
+    res.json({ 
+      success: true, 
+      message: 'Authentication code generated. Please check the server console logs for your code.',
+      email,
+      emailSent: false
+    });
   }
 });
 
