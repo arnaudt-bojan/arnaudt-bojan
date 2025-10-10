@@ -1462,56 +1462,96 @@ export default function Settings() {
                     <Globe className="h-5 w-5" />
                     Storefront Preview
                   </CardTitle>
-                  <CardDescription>See how your store appears to buyers</CardDescription>
+                  <CardDescription>See how your store appears to buyers on different devices</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Tabs defaultValue="desktop" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="desktop">Desktop</TabsTrigger>
-                      <TabsTrigger value="tablet">iPad</TabsTrigger>
-                      <TabsTrigger value="mobile">iPhone</TabsTrigger>
+                      <TabsTrigger value="desktop" data-testid="tab-preview-desktop">Desktop</TabsTrigger>
+                      <TabsTrigger value="tablet" data-testid="tab-preview-tablet">iPad</TabsTrigger>
+                      <TabsTrigger value="mobile" data-testid="tab-preview-mobile">iPhone</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="desktop" className="mt-4">
-                      <div className="border rounded-lg overflow-hidden bg-muted/50">
-                        <div className="aspect-video w-full">
-                          <iframe
-                            src={user?.username ? `/products?preview=${user.username}` : '/products'}
-                            className="w-full h-full"
-                            title="Desktop Preview"
-                          />
+                    
+                    {/* Desktop Preview */}
+                    <TabsContent value="desktop" className="mt-6" data-testid="preview-desktop">
+                      <div className="flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-muted/10 rounded-lg">
+                        <div className="w-full max-w-5xl">
+                          {/* Desktop Device Frame */}
+                          <div className="relative bg-gray-800 dark:bg-gray-900 rounded-t-lg p-2 shadow-2xl">
+                            {/* MacBook-style notch/camera */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-700 dark:bg-gray-800 rounded-b-lg" />
+                            {/* Screen bezel */}
+                            <div className="bg-black rounded-lg p-1">
+                              {/* Actual screen */}
+                              <div className="bg-white dark:bg-gray-950 rounded overflow-hidden aspect-video">
+                                <iframe
+                                  src={user?.username ? `/products?preview=${user.username}` : '/products'}
+                                  className="w-full h-full"
+                                  title="Desktop Preview"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          {/* MacBook base */}
+                          <div className="h-2 bg-gray-300 dark:bg-gray-700 rounded-b-xl shadow-lg mx-auto" style={{ width: '110%', marginLeft: '-5%' }} />
+                          <p className="text-xs text-muted-foreground mt-4 text-center">Desktop · 1920×1080</p>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">Desktop view (1920×1080)</p>
                     </TabsContent>
-                    <TabsContent value="tablet" className="mt-4">
-                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '768px' }}>
-                        <div className="aspect-[4/3] w-full">
-                          <iframe
-                            src={user?.username ? `/products?preview=${user.username}` : '/products'}
-                            className="w-full h-full"
-                            title="iPad Preview"
-                          />
+
+                    {/* Tablet Preview */}
+                    <TabsContent value="tablet" className="mt-6" data-testid="preview-tablet">
+                      <div className="flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-muted/10 rounded-lg">
+                        <div className="w-full max-w-2xl">
+                          {/* iPad Device Frame */}
+                          <div className="relative bg-gray-900 dark:bg-black rounded-2xl p-3 shadow-2xl">
+                            {/* iPad camera */}
+                            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 dark:bg-gray-700 rounded-full" />
+                            {/* Screen */}
+                            <div className="bg-white dark:bg-gray-950 rounded-xl overflow-hidden aspect-[4/3]">
+                              <iframe
+                                src={user?.username ? `/products?preview=${user.username}` : '/products'}
+                                className="w-full h-full"
+                                title="iPad Preview"
+                              />
+                            </div>
+                            {/* Home indicator */}
+                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-20 h-1 bg-gray-800 dark:bg-gray-700 rounded-full" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-4 text-center">iPad · 768×1024</p>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2 text-center">iPad view (768×1024)</p>
                     </TabsContent>
-                    <TabsContent value="mobile" className="mt-4">
-                      <div className="border rounded-lg overflow-hidden bg-muted/50 mx-auto" style={{ maxWidth: '375px' }}>
-                        <div className="aspect-[9/16] w-full">
-                          <iframe
-                            src={user?.username ? `/products?preview=${user.username}` : '/products'}
-                            className="w-full h-full"
-                            title="iPhone Preview"
-                          />
+
+                    {/* Mobile Preview */}
+                    <TabsContent value="mobile" className="mt-6" data-testid="preview-mobile">
+                      <div className="flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-muted/10 rounded-lg">
+                        <div className="w-full max-w-sm">
+                          {/* iPhone Device Frame */}
+                          <div className="relative bg-gray-900 dark:bg-black rounded-[3rem] p-3 shadow-2xl">
+                            {/* iPhone Dynamic Island */}
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-7 bg-black rounded-full" />
+                            {/* Screen */}
+                            <div className="bg-white dark:bg-gray-950 rounded-[2.5rem] overflow-hidden aspect-[9/19.5]">
+                              <iframe
+                                src={user?.username ? `/products?preview=${user.username}` : '/products'}
+                                className="w-full h-full"
+                                title="iPhone Preview"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-4 text-center">iPhone · 375×812</p>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2 text-center">iPhone view (375×667)</p>
                     </TabsContent>
                   </Tabs>
+                  
                   <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <Image className="h-4 w-4 text-blue-600" />
+                    <Image className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <p className="text-sm text-blue-900 dark:text-blue-100">
-                      Save your branding changes above to see them reflected in the preview
+                      {user?.username 
+                        ? "Save your branding changes above to see them reflected in the preview" 
+                        : "Set up your store username in the Store URL tab to preview your custom storefront"}
                     </p>
                   </div>
                 </CardContent>
