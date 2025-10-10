@@ -1057,23 +1057,64 @@ export function ProductFormFields({
                           <SelectValue placeholder="Choose a carrier template" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None (use dimensions)</SelectItem>
-                        <SelectItem value="USPS_FlatRateEnvelope">USPS Flat Rate Envelope</SelectItem>
-                        <SelectItem value="USPS_FlatRateCardboardEnvelope">USPS Flat Rate Cardboard Envelope</SelectItem>
-                        <SelectItem value="USPS_SmallFlatRateBox">USPS Small Flat Rate Box</SelectItem>
-                        <SelectItem value="USPS_MediumFlatRateBox">USPS Medium Flat Rate Box</SelectItem>
-                        <SelectItem value="USPS_LargeFlatRateBox">USPS Large Flat Rate Box</SelectItem>
-                        <SelectItem value="FedEx_SmallBox">FedEx Small Box</SelectItem>
-                        <SelectItem value="FedEx_MediumBox">FedEx Medium Box</SelectItem>
-                        <SelectItem value="FedEx_LargeBox">FedEx Large Box</SelectItem>
-                        <SelectItem value="UPS_SmallExpressBox">UPS Small Express Box</SelectItem>
-                        <SelectItem value="UPS_MediumExpressBox">UPS Medium Express Box</SelectItem>
-                        <SelectItem value="UPS_LargeExpressBox">UPS Large Express Box</SelectItem>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="none">None (use custom dimensions)</SelectItem>
+                        
+                        {/* US Carriers */}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">United States</div>
+                        <SelectItem value="USPS_FlatRateEnvelope">USPS - Flat Rate Envelope</SelectItem>
+                        <SelectItem value="USPS_FlatRateCardboardEnvelope">USPS - Flat Rate Cardboard Envelope</SelectItem>
+                        <SelectItem value="USPS_SmallFlatRateBox">USPS - Small Flat Rate Box</SelectItem>
+                        <SelectItem value="USPS_MediumFlatRateBox">USPS - Medium Flat Rate Box</SelectItem>
+                        <SelectItem value="USPS_LargeFlatRateBox">USPS - Large Flat Rate Box</SelectItem>
+                        <SelectItem value="FedEx_SmallBox">FedEx - Small Box</SelectItem>
+                        <SelectItem value="FedEx_MediumBox">FedEx - Medium Box</SelectItem>
+                        <SelectItem value="FedEx_LargeBox">FedEx - Large Box</SelectItem>
+                        <SelectItem value="FedEx_Envelope">FedEx - Envelope</SelectItem>
+                        <SelectItem value="FedEx_Pak">FedEx - Pak</SelectItem>
+                        <SelectItem value="UPS_SmallExpressBox">UPS - Small Express Box</SelectItem>
+                        <SelectItem value="UPS_MediumExpressBox">UPS - Medium Express Box</SelectItem>
+                        <SelectItem value="UPS_LargeExpressBox">UPS - Large Express Box</SelectItem>
+                        <SelectItem value="UPS_Envelope">UPS - Envelope</SelectItem>
+                        <SelectItem value="UPS_Pak">UPS - Pak</SelectItem>
+                        
+                        {/* UK Carriers */}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">United Kingdom</div>
+                        <SelectItem value="RoyalMail_SmallParcel">Royal Mail - Small Parcel</SelectItem>
+                        <SelectItem value="RoyalMail_MediumParcel">Royal Mail - Medium Parcel</SelectItem>
+                        <SelectItem value="RoyalMail_LargeParcel">Royal Mail - Large Parcel</SelectItem>
+                        <SelectItem value="RoyalMail_LargeLetter">Royal Mail - Large Letter</SelectItem>
+                        <SelectItem value="Parcelforce_SmallBox">Parcelforce - Small Box</SelectItem>
+                        <SelectItem value="Parcelforce_MediumBox">Parcelforce - Medium Box</SelectItem>
+                        
+                        {/* European Carriers */}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Europe</div>
+                        <SelectItem value="DHL_SmallParcel">DHL - Small Parcel</SelectItem>
+                        <SelectItem value="DHL_MediumParcel">DHL - Medium Parcel</SelectItem>
+                        <SelectItem value="DHL_LargeParcel">DHL - Large Parcel</SelectItem>
+                        <SelectItem value="DHL_Envelope">DHL - Envelope</SelectItem>
+                        <SelectItem value="DPD_SmallParcel">DPD - Small Parcel</SelectItem>
+                        <SelectItem value="DPD_MediumParcel">DPD - Medium Parcel</SelectItem>
+                        <SelectItem value="Hermes_SmallParcel">Hermes - Small Parcel</SelectItem>
+                        <SelectItem value="Hermes_MediumParcel">Hermes - Medium Parcel</SelectItem>
+                        
+                        {/* Canadian Carriers */}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Canada</div>
+                        <SelectItem value="CanadaPost_SmallPacket">Canada Post - Small Packet</SelectItem>
+                        <SelectItem value="CanadaPost_MediumPacket">Canada Post - Medium Packet</SelectItem>
+                        <SelectItem value="CanadaPost_Expedited">Canada Post - Expedited Parcel</SelectItem>
+                        <SelectItem value="CanadaPost_Xpresspost">Canada Post - Xpresspost</SelectItem>
+                        
+                        {/* Australian Carriers */}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Australia</div>
+                        <SelectItem value="AustraliaPost_SmallBox">Australia Post - Small Box</SelectItem>
+                        <SelectItem value="AustraliaPost_MediumBox">Australia Post - Medium Box</SelectItem>
+                        <SelectItem value="AustraliaPost_LargeBox">Australia Post - Large Box</SelectItem>
+                        <SelectItem value="AustraliaPost_Satchel">Australia Post - Satchel</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Use a standard carrier box size or custom dimensions
+                      Select a standard carrier template or use custom dimensions above
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
