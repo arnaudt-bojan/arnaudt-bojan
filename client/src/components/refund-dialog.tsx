@@ -121,7 +121,7 @@ export function RefundDialog({
     }
 
     let total = 0;
-    for (const refundData of selectedItems.values()) {
+    for (const refundData of Array.from(selectedItems.values())) {
       total += refundData.amount;
     }
     return total;
@@ -217,13 +217,13 @@ export function RefundDialog({
                             ${pricePerUnit.toFixed(2)} per unit • {item.quantity} total
                             {refundedQty > 0 && ` • ${refundedQty} refunded`}
                           </p>
-                          {item.variant && typeof item.variant === 'object' && (
+                          {item.variant && typeof item.variant === 'object' ? (
                             <p className="text-xs text-muted-foreground">
-                              {(item.variant as any).size && `Size: ${(item.variant as any).size}`}
-                              {(item.variant as any).size && (item.variant as any).color && " • "}
-                              {(item.variant as any).color && `Color: ${(item.variant as any).color}`}
+                              {(item.variant as any).size ? `Size: ${(item.variant as any).size}` : null}
+                              {(item.variant as any).size && (item.variant as any).color ? " • " : null}
+                              {(item.variant as any).color ? `Color: ${(item.variant as any).color}` : null}
                             </p>
-                          )}
+                          ) : null}
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">${parseFloat(item.subtotal).toFixed(2)}</p>
