@@ -130,21 +130,34 @@ function PaymentForm({
           stripePaymentIntentId: paymentIntent.id,
         };
 
-        const response = await apiRequest("POST", "/api/orders", updatedOrderData);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to create order");
+        try {
+          const response = await apiRequest("POST", "/api/orders", updatedOrderData);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to create order");
+          }
+          
+          const createdOrder = await response.json();
+          queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+          
+          toast({
+            title: "Payment Successful",
+            description: "Your order has been confirmed",
+          });
+          onSuccess(createdOrder.id);
+        } catch (orderError: any) {
+          // Payment succeeded but order creation failed - show specific error
+          // Don't rethrow - payment already succeeded, this is a post-payment issue
+          console.error("[Checkout] Order creation failed after successful payment:", orderError);
+          toast({
+            title: "Order Creation Failed",
+            description: orderError.message || "Payment was processed but order could not be created. Please contact support with payment ID.",
+            variant: "destructive",
+          });
+          // Don't throw - prevents duplicate error toast from outer catch
+          return;
         }
-        
-        const createdOrder = await response.json();
-        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-        
-        toast({
-          title: "Payment Successful",
-          description: "Your order has been confirmed",
-        });
-        onSuccess(createdOrder.id);
       }
     } catch (error: any) {
       toast({
