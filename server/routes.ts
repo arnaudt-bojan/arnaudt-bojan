@@ -4464,6 +4464,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk upload wholesale products from CSV
+  app.post("/api/wholesale/products/bulk-upload", isAuthenticated, isSeller, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!req.files || !req.files.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const file = req.files.file as any;
+      const fileContent = file.data.toString('utf8');
+      
+      // Parse CSV using papaparse
+      const Papa = (await import('papaparse')).default;
+      const parsed = Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+      });
+
+      if (parsed.errors.length > 0) {
+        return res.status(400).json({ 
+          error: "CSV parsing failed", 
+          details: parsed.errors 
+        });
+      }
+
+      const products = parsed.data as any[];
+      const created: any[] = [];
+      const errors: any[] = [];
+
+      // Process each row
+      for (let i = 0; i < products.length; i++) {
+        const row = products[i];
+        
+        try {
+          // Map and coerce CSV columns to product data with proper types
+          const rawData = {
+            sellerId: userId,
+            name: (row['Name'] || row['name'] || '').trim(),
+            description: (row['Description'] || row['description'] || '').trim(),
+            image: (row['Image URL'] || row['image'] || row['Image'] || '').trim(),
+            category: (row['Category'] || row['category'] || '').trim(),
+            rrp: row['RRP'] || row['rrp'],
+            wholesalePrice: row['Wholesale Price'] || row['wholesalePrice'] || row['wholesale_price'],
+            moq: row['MOQ'] || row['moq'],
+            stock: row['Stock'] || row['stock'] || '0',
+            depositAmount: row['Deposit Amount'] || row['depositAmount'] || null,
+            requiresDeposit: row['Requires Deposit'] || row['requiresDeposit'] || '0',
+            readinessDays: row['Readiness Days'] || row['readinessDays'] || null,
+          };
+
+          // Validate required fields first
+          if (!rawData.name || !rawData.description || !rawData.image || 
+              !rawData.category || !rawData.rrp || !rawData.wholesalePrice || !rawData.moq) {
+            errors.push({
+              row: i + 2, // +2 because header is row 1
+              error: "Missing required fields",
+              data: row
+            });
+            continue;
+          }
+
+          // Convert to proper numeric types (round to 2 decimals for prices)
+          const rrpNum = parseFloat(rawData.rrp.toString().replace(/[^0-9.]/g, ''));
+          const wholesalePriceNum = parseFloat(rawData.wholesalePrice.toString().replace(/[^0-9.]/g, ''));
+          const depositNum = rawData.depositAmount ? parseFloat(rawData.depositAmount.toString().replace(/[^0-9.]/g, '')) : null;
+          
+          const productData = {
+            sellerId: rawData.sellerId,
+            name: rawData.name,
+            description: rawData.description,
+            image: rawData.image,
+            category: rawData.category,
+            rrp: (Math.round(rrpNum * 100) / 100).toString(), // Convert to 2 decimal string for schema
+            wholesalePrice: (Math.round(wholesalePriceNum * 100) / 100).toString(),
+            moq: parseInt(rawData.moq.toString().replace(/[^0-9]/g, '')) || 1,
+            stock: parseInt(rawData.stock.toString().replace(/[^0-9]/g, '')) || 0,
+            depositAmount: depositNum ? (Math.round(depositNum * 100) / 100).toString() : null,
+            requiresDeposit: parseInt(rawData.requiresDeposit.toString().replace(/[^0-9]/g, '')) || 0,
+            readinessDays: rawData.readinessDays ? parseInt(rawData.readinessDays.toString().replace(/[^0-9]/g, '')) : null,
+          };
+
+          // Validate numeric conversions
+          if (isNaN(rrpNum) || isNaN(wholesalePriceNum) || isNaN(productData.moq) || productData.moq < 1) {
+            errors.push({
+              row: i + 2,
+              error: "Invalid numeric values for RRP, Wholesale Price, or MOQ",
+              data: row
+            });
+            continue;
+          }
+
+          const product = await storage.createWholesaleProduct(productData);
+          created.push(product);
+        } catch (error: any) {
+          errors.push({
+            row: i + 2,
+            error: error.message || "Failed to create product",
+            data: row
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        created: created.length,
+        errors: errors.length > 0 ? errors : undefined,
+        message: `Successfully created ${created.length} products${errors.length > 0 ? `, ${errors.length} errors` : ''}`
+      });
+    } catch (error: any) {
+      console.error("Bulk upload error:", error);
+      res.status(500).json({ error: error.message || "Bulk upload failed" });
+    }
+  });
+
   app.patch("/api/wholesale/products/:id", isAuthenticated, isSeller, async (req: any, res) => {
     try {
       const { id } = req.params;
