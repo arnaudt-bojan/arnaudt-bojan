@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOrderSchema, insertProductSchema, orderStatusEnum } from "@shared/schema";
+import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isSeller } from "./replitAuth";
@@ -2169,6 +2169,211 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Shipping price update error:", error);
       res.status(500).json({ error: "Failed to update shipping price" });
+    }
+  });
+
+  // Saved Addresses Routes
+  app.get("/api/user/addresses", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addresses = await storage.getSavedAddressesByUserId(userId);
+      res.json(addresses);
+    } catch (error) {
+      console.error("Error fetching saved addresses:", error);
+      res.status(500).json({ error: "Failed to fetch saved addresses" });
+    }
+  });
+
+  app.post("/api/user/addresses", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const validationResult = insertSavedAddressSchema.safeParse({
+        ...req.body,
+        userId,
+      });
+      
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+
+      const address = await storage.createSavedAddress(validationResult.data);
+      res.status(201).json(address);
+    } catch (error) {
+      console.error("Error creating saved address:", error);
+      res.status(500).json({ error: "Failed to create saved address" });
+    }
+  });
+
+  app.patch("/api/user/addresses/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Verify address ownership
+      const existingAddress = await storage.getSavedAddress(id);
+      if (!existingAddress) {
+        return res.status(404).json({ error: "Address not found" });
+      }
+      if (existingAddress.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to update this address" });
+      }
+
+      const updatedAddress = await storage.updateSavedAddress(id, req.body);
+      res.json(updatedAddress);
+    } catch (error) {
+      console.error("Error updating saved address:", error);
+      res.status(500).json({ error: "Failed to update saved address" });
+    }
+  });
+
+  app.delete("/api/user/addresses/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Verify address ownership
+      const existingAddress = await storage.getSavedAddress(id);
+      if (!existingAddress) {
+        return res.status(404).json({ error: "Address not found" });
+      }
+      if (existingAddress.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to delete this address" });
+      }
+
+      await storage.deleteSavedAddress(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting saved address:", error);
+      res.status(500).json({ error: "Failed to delete saved address" });
+    }
+  });
+
+  app.post("/api/user/addresses/:id/set-default", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Verify address ownership
+      const existingAddress = await storage.getSavedAddress(id);
+      if (!existingAddress) {
+        return res.status(404).json({ error: "Address not found" });
+      }
+      if (existingAddress.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to update this address" });
+      }
+
+      await storage.setDefaultAddress(userId, id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      res.status(500).json({ error: "Failed to set default address" });
+    }
+  });
+
+  // Saved Payment Methods Routes
+  app.get("/api/user/payment-methods", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const paymentMethods = await storage.getSavedPaymentMethodsByUserId(userId);
+      res.json(paymentMethods);
+    } catch (error) {
+      console.error("Error fetching saved payment methods:", error);
+      res.status(500).json({ error: "Failed to fetch saved payment methods" });
+    }
+  });
+
+  app.post("/api/user/payment-methods", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { stripePaymentMethodId, label } = req.body;
+
+      if (!stripePaymentMethodId) {
+        return res.status(400).json({ error: "Stripe Payment Method ID is required" });
+      }
+
+      // Check if payment method already exists
+      const existing = await storage.getSavedPaymentMethodByStripeId(stripePaymentMethodId);
+      if (existing) {
+        return res.status(400).json({ error: "Payment method already saved" });
+      }
+
+      // Retrieve payment method details from Stripe
+      const paymentMethod = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+      
+      if (!paymentMethod.card) {
+        return res.status(400).json({ error: "Only card payment methods are supported" });
+      }
+
+      // Create saved payment method record with display info only
+      const savedPaymentMethod = await storage.createSavedPaymentMethod({
+        userId,
+        stripePaymentMethodId,
+        cardBrand: paymentMethod.card.brand,
+        cardLast4: paymentMethod.card.last4,
+        cardExpMonth: paymentMethod.card.exp_month,
+        cardExpYear: paymentMethod.card.exp_year,
+        label: label || null,
+        isDefault: 0,
+      });
+
+      res.status(201).json(savedPaymentMethod);
+    } catch (error: any) {
+      console.error("Error saving payment method:", error);
+      res.status(500).json({ error: error.message || "Failed to save payment method" });
+    }
+  });
+
+  app.delete("/api/user/payment-methods/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Verify payment method ownership
+      const existingPaymentMethod = await storage.getSavedPaymentMethod(id);
+      if (!existingPaymentMethod) {
+        return res.status(404).json({ error: "Payment method not found" });
+      }
+      if (existingPaymentMethod.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to delete this payment method" });
+      }
+
+      // Detach from Stripe (removes the payment method from the customer)
+      try {
+        await stripe.paymentMethods.detach(existingPaymentMethod.stripePaymentMethodId);
+      } catch (stripeError: any) {
+        console.error("Error detaching payment method from Stripe:", stripeError);
+        // Continue with deletion even if Stripe detach fails
+      }
+
+      await storage.deleteSavedPaymentMethod(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting saved payment method:", error);
+      res.status(500).json({ error: "Failed to delete saved payment method" });
+    }
+  });
+
+  app.post("/api/user/payment-methods/:id/set-default", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Verify payment method ownership
+      const existingPaymentMethod = await storage.getSavedPaymentMethod(id);
+      if (!existingPaymentMethod) {
+        return res.status(404).json({ error: "Payment method not found" });
+      }
+      if (existingPaymentMethod.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized to update this payment method" });
+      }
+
+      await storage.setDefaultPaymentMethod(userId, id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error setting default payment method:", error);
+      res.status(500).json({ error: "Failed to set default payment method" });
     }
   });
 
