@@ -1,0 +1,42 @@
+asted-I-think-B2C-and-B2b-wholesale-are-so-different-that-almost-we-need-to-replicate-witha-toggle-or-s-1760180959427_1760180959427.txt
+I think B2C and B2b (wholesale) are so different that almost we need to replicate witha. toggle or somethng at the top where the seller chooses in which environment they want to operrate in: 
+
+B2C as it is currently built
+Wholesale (it will be something similar)
+
+Lets go through it it will have a Dashboard call Wholesale dashboard, 
+Create products (we have the create of wholesale behdin it) - same 
+Managing accesses and invittees. 
+My products (the Wholesale listing)>
+Orders (whole sale orders) 
+No need for social ads, 
+No need for Newsletter
+Need for Order managerment, 
+
+The store set up / Settings / Benner / Name / logo is all set at the top level (shred between both) – of course the seller should have the ability to Preview The wholesale store front (as this will be different)
+
+The seller should be able to get back to dashboard from both B2C store front and Whole Sale store ffront. 
+
+The toggle of whatever we decide at the top which would allow seller to go into Wholesale or B2C should have a light indication where itt indicates if an order or something new sitting in each one. 
+
+Notification is the over arching on top; the same notification centre. 
+
+then we will have to develop the email flow (listings and notifications upfirst -> seller) remina more or less the same with all data, 
+The emails from seller  Buyer also similar, order confimraaiotn, invoice, etc but just different data. 
+
+So think very hard and develop the wholesale on the above basis where it is like two platform on your sales engine, all things sales you need will come here. 
+
+The wholesale store front should have its own toggle to go live etc but all the good things we have on this side should be on that side too (connect stripe…etc), set up store before preview store. It seems all these things that are shared should be a service so that when you change one both change. 
+
+in the wholesale I think taxes will not apply, it should be more of 
+
+
+
+
+So on shipping its different
+
+Its buyer pick up or freight collect which in each case the seller or buyer can / have to provide some details (this can be at the time of paying deposit) or through their order management cases; pay a lot of attention here. 
+
+I have below some indication I did of items that might be needed in create page and check out pages, of course the my orders section has to be different also both for the buyer and seller. 
+
+Design also the invitation for the access of the buyer to the wholesale page and also the management. 
