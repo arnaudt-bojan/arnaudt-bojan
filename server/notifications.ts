@@ -276,11 +276,11 @@ class NotificationServiceImpl implements NotificationService {
     }
 
     // Send email from verified domain with seller as reply-to
+    const template = this.messages.orderConfirmation(order, seller.firstName || seller.username || 'Store');
     const result = await this.sendEmail({
       to: buyerEmail,
-      from: FROM_EMAIL, // Use configured FROM_EMAIL to ensure domain is verified
       replyTo: seller.email || undefined,
-      subject: `Order Confirmation #${order.id.slice(0, 8)} - ${seller.firstName || 'Your'} Store`,
+      subject: template.emailSubject,
       html: emailHtml,
       attachments,
     });
@@ -306,12 +306,12 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendOrderShipped(order: Order, seller: User): Promise<void> {
     const emailHtml = this.generateOrderShippedEmail(order, seller);
+    const template = this.messages.orderShipped(order, seller.firstName || seller.username || 'Store', order.trackingNumber || undefined);
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: FROM_EMAIL,
       replyTo: seller.email || undefined,
-      subject: `Your order has shipped! - Order #${order.id.slice(0, 8)}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -362,7 +362,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: FROM_EMAIL,
+
       replyTo: seller.email || undefined,
       subject: `Item shipped from order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -398,7 +398,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: FROM_EMAIL,
+
       replyTo: seller.email || undefined,
       subject: `Item delivered from order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -432,7 +432,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: FROM_EMAIL,
+
       replyTo: seller.email || undefined,
       subject: `Item cancelled from order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -467,7 +467,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: FROM_EMAIL,
+
       replyTo: seller.email || undefined,
       subject: `Refund processed for order #${order.id.slice(0, 8)}`,
       html: emailHtml,
@@ -1236,12 +1236,12 @@ class NotificationServiceImpl implements NotificationService {
     const magicLink = await this.generateMagicLinkForEmail(seller.email || '', '/settings', undefined);
     
     const emailHtml = this.generateSellerWelcomeEmail(seller, magicLink);
+    const template = this.messages.sellerWelcome(seller);
 
     const result = await this.sendEmail({
       to: seller.email || '',
-      from: FROM_EMAIL,
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: `Welcome to Upfirst, ${seller.firstName || 'Seller'}!`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -1265,12 +1265,12 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendStripeOnboardingIncomplete(seller: User): Promise<void> {
     const emailHtml = this.generateStripeOnboardingIncompleteEmail(seller);
+    const template = this.messages.stripeOnboardingIncomplete(seller);
 
     const result = await this.sendEmail({
       to: seller.email || '',
-      from: FROM_EMAIL,
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: 'Complete Your Stripe Setup to Start Accepting Payments',
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -1297,7 +1297,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: seller.email || '',
-      from: FROM_EMAIL,
+
       replyTo: this.emailConfig.getSupportEmail(),
       subject: `Payment Failed for Order #${orderId.slice(0, 8)}`,
       html: emailHtml,
@@ -1321,14 +1321,14 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send buyer payment failed notification (Upfirst → Buyer)
    */
-  async sendBuyerPaymentFailed(buyerEmail: string, buyerName: string, amount: number, reason: string, retryLink?: string): Promise<void> {
+  async sendBuyerPaymentFailed(buyerEmail: string, buyerName: string, amount: number, reason: string, retryLink?: string, currency: string = 'USD'): Promise<void> {
     const emailHtml = this.generateBuyerPaymentFailedEmail(buyerName, amount, reason, retryLink);
+    const template = this.messages.buyerPaymentFailed(amount, currency, reason);
 
     await this.sendEmail({
       to: buyerEmail,
-      from: FROM_EMAIL,
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: 'Payment Failed - Please Try Again',
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -1338,14 +1338,14 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send subscription payment failed (Upfirst → Seller)
    */
-  async sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string): Promise<void> {
+  async sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string, currency: string = 'USD'): Promise<void> {
     const emailHtml = this.generateSubscriptionPaymentFailedEmail(seller, amount, reason);
+    const template = this.messages.subscriptionPaymentFailed(amount, currency, reason);
 
     const result = await this.sendEmail({
       to: seller.email || '',
-      from: FROM_EMAIL,
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: 'Your Upfirst Subscription Payment Failed',
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -1372,7 +1372,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: seller.email || '',
-      from: FROM_EMAIL,
+
       replyTo: this.emailConfig.getSupportEmail(),
       subject: `Product Out of Stock: ${product.name}`,
       html: emailHtml,
@@ -1396,14 +1396,14 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send payout failed notification (Upfirst → Seller)
    */
-  async sendPayoutFailed(seller: User, amount: number, reason: string): Promise<void> {
+  async sendPayoutFailed(seller: User, amount: number, reason: string, currency: string = 'USD'): Promise<void> {
     const emailHtml = this.generatePayoutFailedEmail(seller, amount, reason);
+    const template = this.messages.payoutFailed(amount, currency, reason);
 
     const result = await this.sendEmail({
       to: seller.email || '',
-      from: FROM_EMAIL,
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: 'Payout Failed - Action Required',
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -1430,7 +1430,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: FROM_EMAIL,
+
       replyTo: seller.email || undefined,
       subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
