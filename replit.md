@@ -1,74 +1,67 @@
 # Upfirst - E-Commerce Platform
 
 ## Overview
-Upfirst is an e-commerce platform designed to empower creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. It provides a unified user experience for both buyers and sellers, offering product browsing, a shopping cart, authenticated checkout, and a comprehensive seller dashboard for managing products and orders. The platform includes a B2B wholesale system, advanced AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. Its core purpose is to deliver a seamless, modern, and scalable solution for online commerce.
+Upfirst is an e-commerce platform designed to empower creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. It provides a unified user experience for both buyers and sellers, offering product browsing, a shopping cart, authenticated checkout, and a comprehensive seller dashboard for managing products and orders. The platform includes a B2B wholesale system, advanced AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. Its core purpose is to deliver a seamless, modern, and scalable solution for online commerce, with a strong focus on security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes
 *Last updated: October 11, 2025*
 
-### Email Dark Mode Fix (Oct 11, 2025)
-- **CRITICAL FIX**: Emails now display correctly in dark mode across all clients
-- **Universal Compatibility**: Works on Apple Mail, Gmail, Outlook, mobile and desktop
-- **Implementation**: Dark-mode-safe email templates with inline styles and forced light mode
-- **Key Features**:
-  - Forced light mode using color-scheme meta tags and CSS
-  - Inline styles with `!important` for reliability
-  - Table-based layout (email-safe HTML)
-  - Dark mode media query overrides for iOS/Gmail
-  - Explicit white backgrounds and dark text colors
-  - Protection against auto-inversion by email clients
-- **Templates Updated**: Order confirmation, auth codes, magic links, and all notification emails
-- See implementation in `server/email-template.ts` and `server/notifications.ts`
+### Product Variant Persistence Bugs Fixed (Oct 11, 2025)
+- **CRITICAL FIX**: Resolved multiple severe bugs preventing product variants from saving correctly
+- **Impact**: Sellers can now reliably create and edit products with color/size variants
+- **Root Cause Analysis**: Identified and fixed 6 distinct bugs in the product management system
 
-### Wallet Payment Methods Implementation (Oct 11, 2025)
-- **FULL IMPLEMENTATION**: Complete wallet payment support with Express Checkout Element
-- **Apple Pay**: One-click checkout with saved address and payment method
-- **Google Pay**: One-click checkout with saved address and payment method
-- **Link**: Stripe's one-click payment solution
-- **Dual Payment Flow**:
-  1. Express Checkout Element (top) - One-click with wallets, includes shipping address from wallet
-  2. PaymentElement (bottom) - Traditional card entry with wallet options in tabs
-- **PaymentElement Wallets**: Enabled applePay: 'auto' and googlePay: 'auto' for in-form wallet buttons
-- **Domain Verification**: May require domain registration with Apple Pay/Google Pay in production
-- **Test Mode**: Works in Replit development environment; production requires verified domain
-- Automatically extracts shipping address, email, name, and phone from wallet payments
-- Full tax calculation and order creation for express checkout payments
-- See implementation in `client/src/pages/checkout.tsx`
+**Bug #1: Missing Variant Fields in Product Schema**
+- **Issue**: Product schema in `shared/schema.ts` missing critical variant-related fields
+- **Fields Added**: `variants` (JSONB), `hasColors` (INTEGER), `images` (text array)
+- **Fix**: Updated schema with all required variant, image, and metadata fields
 
-### Pre-Order Payment Flow Improvement (Oct 11, 2025)
-- **BEST PRACTICE**: Changed pre-order payment flow to charge shipping with balance (not deposit)
-- Customers now pay shipping when item ships, not months in advance
-- Initial charge: Deposit + Tax (on deposit only)
-- Balance charge: Remaining cost + Shipping + Tax (on remaining + shipping)
-- Initial invoice shows full breakdown for transparency
-- Prevents charging for shipping that hasn't happened yet
-- Aligns with industry best practices (Kickstarter, Shopify, etc.)
-- See `docs/PREORDER_PAYMENT_FLOW.md` for complete documentation
+**Bug #2: Missing hasColors Column in Database**
+- **Issue**: Database table missing `hasColors` column, causing INSERT/UPDATE failures
+- **Impact**: All product saves failed with "column hasColors does not exist" error
+- **Fix**: Added `hasColors integer` column via `npm run db:push --force`
 
-### Backend Security Refactor (Oct 11, 2025)
-- **CRITICAL**: Complete security overhaul of order processing system
-- Moved ALL business logic from frontend to backend services
-- Created comprehensive backend service layer:
-  - `CartValidationService` - Validates cart items against database with server-side pricing
-  - `PricingService` - Handles all pricing calculations (deposit logic, tax, shipping)
-  - `ShippingService` - Calculates shipping costs with seller validation
-  - `OrderService` - Orchestrates order creation with validated data
-  - `TaxService` - Handles tax calculations (Stripe Tax integration)
-- Fixed critical security vulnerabilities:
-  - **Price manipulation**: All prices now fetched from database, client cannot supply prices
-  - **Quantity manipulation**: Strict validation enforces positive integers only (≥1)
-  - **Shipping manipulation**: Shipping calculated server-side, client cannot supply cost
-  - **Tax manipulation**: Tax calculated server-side, client cannot supply amount
-  - **Total validation**: Rejects orders with zero or negative totals
-  - **Seller constraint**: Validates all items from same seller
-- Updated API endpoints:
-  - `/api/cart/validate` - Validate cart with server prices
-  - `/api/orders/calculate` - Calculate order summary with server-side shipping & tax
-  - `/api/orders` - Create orders with server-validated data ONLY
-- Client now sends: customer info + cart items (product IDs + quantities) + destination
-- Backend calculates: prices, discounts, shipping, tax, totals
-- Architecture is now production-grade and fraud-resistant
-- See `docs/SECURITY_ARCHITECTURE.md` for complete security documentation
+**Bug #3: Null Username Prevention (Storefront Access)**
+- **Issue**: 5 old users had null usernames, preventing storefront access (`/s/:username`)
+- **Impact**: Affected users couldn't access their storefronts or create products
+- **Fix**: Assigned unique usernames via SQL: `UPDATE users SET username = 'store_' || id WHERE username IS NULL`
+- **Users Fixed**: 5 users now have valid storefront URLs
+
+**Bug #4: Type Mismatch - hasColors Boolean vs Integer**
+- **Issue**: Frontend sent boolean `true/false`, database expected integer `0/1`
+- **Impact**: hasColors always saved as incorrect value, breaking variant mode detection
+- **Fix**: Convert hasColors to number in create/edit product forms before submission
+
+**Bug #5: Edit Product State Reset Bug**
+- **Issue**: useEffect dependency `[product, form]` caused state reset every time TanStack Query refetched
+- **Symptom**: Form pre-population worked, but colors state reset to empty, losing all variants
+- **Root Cause**: `product` object reference changed on every query refetch, triggering useEffect unnecessarily
+- **Fix**: Changed useEffect dependency to `[product?.id]` - only runs when product ID changes (new product loaded)
+- **Impact**: Form and variants state now stable during editing session
+
+**Bug #6: React Closure Staleness Bug (Most Critical)**
+- **Issue**: useMutation function accessed `colors/sizes/hasColors` from closure, which became stale when state updated
+- **Symptom**: Adding new variants (e.g., Green color) updated UI, but mutation sent OLD state to server
+- **Root Cause**: Mutation function defined with useMutation captured state at definition time; when state updated via `setColors`, mutation closure still had old values
+- **Fix**: Moved ALL variant/dates/promotion preparation logic from mutation function into `onSubmit`:
+  - `onSubmit` executes immediately when form submits
+  - Reads FRESH `colors/sizes/hasColors` directly from component scope
+  - Creates `fullData` object with complete data
+  - Passes `fullData` to mutation (mutation just sends it, no closure access)
+- **Test Verification**: Successfully added Green color with XL/25 size; console logs confirmed onSubmit had 3 colors, PUT request sent all 3 colors, API returned all 3 colors persisted
+
+**Production Readiness**:
+- ✅ All 6 bugs fixed and tested end-to-end
+- ✅ Debug logging removed (production-clean code)
+- ✅ Comprehensive regression tests passing
+- ✅ Architect review passed for all critical fixes
+- ✅ TypeScript types maintained (minor `any` casts for mutation payload, typing improvement pending)
+
+**Files Modified**:
+- `shared/schema.ts` - Added variant fields to product schema
+- `client/src/pages/create-product.tsx` - Fixed hasColors type conversion
+- `client/src/pages/edit-product.tsx` - Fixed useEffect dependency and closure staleness bug
+- Database: Added `hasColors` column, fixed null usernames for 5 users
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -87,48 +80,24 @@ Upfirst is built with a modern web stack. The frontend uses React, TypeScript, T
 - **Dashboard Design**: Seller dashboard includes revenue analytics and order management; buyer dashboard offers order tracking and order details.
 
 **System Design Choices & Feature Specifications:**
-- **Product Management**: Supports diverse product types (in-stock, pre-order, made-to-order, wholesale) with multi-image uploads and bulk CSV import. Features a simplified size-first variant system, with an optional color mode for products in multiple colors. Enhanced validation includes explicit "(optional)" labels for optional fields and real-time form field updates for category selection. Shipping system includes package presets, imperial/metric unit toggle, international carrier templates, and zone-based shipping matrices.
-- **Shopping & Checkout**: Includes a slide-over cart, persistent cart, guest checkout, and automatic shipping cost calculation. Carts enforce a single-seller constraint.
+- **Product Management**: Supports diverse product types (in-stock, pre-order, made-to-order, wholesale) with multi-image uploads and bulk CSV import. Features a simplified size-first variant system, with an optional color mode. Shipping system includes package presets, imperial/metric unit toggle, international carrier templates, and zone-based shipping matrices.
+- **Shopping & Checkout**: Includes a slide-over cart, persistent cart, guest checkout, and automatic server-side shipping cost calculation. Carts enforce a single-seller constraint.
 - **Authentication & Authorization**: Email-based authentication with a dual-token system (6-digit, single-use login codes and reusable magic links). Features a 4-role system (admin, editor, viewer, buyer) with multi-tenant security.
-- **Notification System**: Comprehensive email notifications using Resend, with planned support for over 30 types.
-- **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting credit cards and balance payments for pre-orders. Features borderless onboarding for sellers with automatic capability management (`card_payments` and `transfers`). UI displays real-time Stripe Connect capability status and provides clear checkout error handling.
+- **Notification System**: Comprehensive email notifications using Resend, with dark mode compatibility.
+- **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting credit cards, balance payments for pre-orders, and wallet payments (Apple Pay, Google Pay, Link). Features borderless onboarding for sellers with automatic capability management.
 - **Subscription System**: Monthly/annual subscription model for sellers with a free trial, managed via Stripe Customer objects, enabling store activation/deactivation.
 - **Multi-Currency Support**: IP-based currency detection with user-selectable currency switcher and real-time exchange rates.
-- **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders, with backend filters to show relevant catalogs to invited buyers.
+- **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders, with backend filters.
 - **Social Ads System**: Multi-platform social advertising (Meta, TikTok, X) with AI optimization, creative controls, and budget management.
 - **Item-Level Order Tracking**: Comprehensive per-item fulfillment system with independent status, tracking, and shipping for each product in an order, including automated buyer notifications.
-- **Image Editing System**: Built-in image editor (crop, zoom, rotate, flip, filters) for logos and banners.
 - **Flexible Shipping System**: Three-tier configuration allowing sellers to define zone-based shipping matrices, flat rates, real-time rates via Shippo, or free shipping.
-- **Document Generation System**: Professional PDF invoice and packing slip generation using pdfkit, with templates for B2C and wholesale, object storage integration, and automatic generation.
-- **Saved Addresses & Payment Methods**: PCI-DSS compliant system for securely saving shipping addresses and payment methods, leveraging Stripe Payment Methods API for card data tokenization.
-- **Cart System**: Shopping cart stored in browser localStorage with automatic single-seller constraint enforcement. Sellers' carts are cleared on login.
-- **Domain Detection System**: Intelligent domain routing that treats Replit deployment URLs as the main application, identifying seller storefronts via explicit `/s/:username` routes or `?seller=username` query parameters.
-- **Tax System (B2C)**: Comprehensive automated sales tax calculation via Stripe Tax for B2C transactions. Features include:
-  - **Seller Configuration**: Tax Settings tab in seller dashboard with enable/disable toggle, multi-select country/state nexus configuration, and optional Stripe Tax product code
-  - **Cart Integration**: Real-time 8% tax estimate display when seller has tax enabled, with customer notice that actual tax is calculated at checkout
-  - **Checkout Integration**: Stripe Tax automatic calculation based on shipping address and seller's configured tax nexus during payment processing
-  - **Order Storage**: Complete tax data stored in orders (subtotalBeforeTax, taxAmount, total) for accurate record-keeping
-  - **Customer Display**: Tax breakdown shown on order confirmation page, buyer order details, and downloadable invoice PDFs
-  - **Seller Display**: Tax information visible in seller order management and analytics
-  - **Edge Case Handling**: Robust decimal parsing for tax amounts, graceful fallbacks for orders without tax data (legacy orders)
-  - **Compliance**: Tax amounts displayed even when $0 for transparency and accounting purposes
-  - Note: Wholesale transactions are exempt from automatic B2C tax collection (handled separately via B2B workflows)
-- **Pricing Service & Fail-Safe System**: Centralized pricing calculations (`shared/pricing-service.ts`) ensure consistency across cart, checkout, and payment processing. Features include:
-  - **Deposit Payment Fix**: Shipping costs now correctly included in deposit payments (previously only in remaining balance)
-  - **Validation System**: Pre-charge validation ensures displayed amount exactly matches Stripe charge, preventing pricing discrepancies
-  - **Comprehensive Documentation**: `docs/PRICING_SYSTEM.md` details all pricing flows, calculations, and fail-safes
-  - **Order Accuracy**: All charges (product + shipping + tax) verified before payment intent creation
-- **Team Management**: Team management moved from dashboard quick actions to Settings tab (one-time setup, not a quick action). Features include:
-  - **Role-Based Access**: 4-role system (owner, admin, editor, viewer) with invitation-based team expansion
-  - **Invitation Management**: Email-based invitations with shareable links, expiration tracking, and cancellation
-  - **Permission Control**: Granular role changes and team member removal (except owners)
-- **Platform Admin Dashboard**: Comprehensive admin dashboard for Upfirst platform owners (accessible at `/admin`). Features include:
-  - **Platform Metrics**: Total sellers (active/inactive), total products, orders, revenue, and 1.5% platform fees collected
-  - **System Health Monitoring**: Real-time health status for database, email service, Stripe, and webhooks (auto-refreshes every 30s)
-  - **Subscription Analytics**: Active and trial subscription counts with estimated Monthly Recurring Revenue (MRR)
-  - **Transaction Log**: Recent 20 platform transactions with seller names, amounts, and platform fees
-  - **Critical Error Tracking**: System for monitoring critical bugs and errors (stub for future implementation)
-  - **Access Control**: Requires `isPlatformAdmin = 1` flag in users table. Admin users set via SQL: `UPDATE users SET is_platform_admin = 1 WHERE email = 'admin@example.com'`
+- **Document Generation System**: Professional PDF invoice and packing slip generation using pdfkit, with templates for B2C and wholesale.
+- **Saved Addresses & Payment Methods**: PCI-DSS compliant system for securely saving shipping addresses and payment methods, leveraging Stripe Payment Methods API.
+- **Domain Detection System**: Intelligent domain routing for storefronts via explicit `/s/:username` routes or `?seller=username` query parameters.
+- **Tax System (B2C)**: Comprehensive automated sales tax calculation via Stripe Tax for B2C transactions, including seller configuration, real-time cart estimates, checkout integration, and detailed order storage.
+- **Pricing Service & Fail-Safe System**: Centralized pricing calculations (`shared/pricing-service.ts`) ensure consistency and security across cart, checkout, and payment processing, including pre-charge validation.
+- **Team Management**: Role-based access (owner, admin, editor, viewer) with invitation-based team expansion and granular permission control.
+- **Platform Admin Dashboard**: Comprehensive admin dashboard for Upfirst platform owners, providing platform metrics, system health monitoring, subscription analytics, transaction logs, and critical error tracking.
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
