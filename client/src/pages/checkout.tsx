@@ -61,13 +61,15 @@ function PaymentForm({
   amount, 
   orderData,
   paymentType,
-  billingDetails
+  billingDetails,
+  items
 }: { 
   onSuccess: (orderId: string) => void; 
   amount: number; 
   orderData: InsertOrder;
   paymentType: 'deposit' | 'full';
   billingDetails: CheckoutForm;
+  items: CartItem[];
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -142,8 +144,25 @@ function PaymentForm({
         }
         
         // Create order in database with payment info and tax data
+        // CRITICAL: Server expects items as array and destination object
         const updatedOrderData = {
           ...orderData,
+          items: items.map((item: any) => ({
+            productId: item.id,
+            price: item.price,
+            quantity: item.quantity,
+            productType: item.productType,
+            depositAmount: item.depositAmount || undefined,
+            requiresDeposit: item.requiresDeposit,
+          })),
+          destination: {
+            line1: billingDetails.addressLine1,
+            line2: billingDetails.addressLine2 || undefined,
+            city: billingDetails.city,
+            state: billingDetails.state,
+            postalCode: billingDetails.postalCode,
+            country: billingDetails.country,
+          },
           amountPaid: amount.toString(),
           paymentStatus: paymentType === 'deposit' ? "deposit_paid" : "fully_paid",
           stripePaymentIntentId: paymentIntent.id,
@@ -347,6 +366,7 @@ function ExpressCheckout({
         }
 
         // Step 6: Create order with wallet data
+        // CRITICAL: Server expects items as array and destination object
         const walletOrderData = {
           ...orderData,
           customerName: walletData.customerName,
@@ -358,6 +378,22 @@ function ExpressCheckout({
             walletData.customerAddress.country,
           ].filter(Boolean).join('\n'),
           phone: walletData.phone,
+          items: items.map((item: any) => ({
+            productId: item.id,
+            price: item.price,
+            quantity: item.quantity,
+            productType: item.productType,
+            depositAmount: item.depositAmount || undefined,
+            requiresDeposit: item.requiresDeposit,
+          })),
+          destination: {
+            line1: walletData.customerAddress.line1,
+            line2: walletData.customerAddress.line2 || undefined,
+            city: walletData.customerAddress.city,
+            state: walletData.customerAddress.state,
+            postalCode: walletData.customerAddress.postalCode,
+            country: walletData.customerAddress.country,
+          },
           amountPaid: amount.toString(),
           paymentStatus: paymentType === 'deposit' ? "deposit_paid" : "fully_paid",
           stripePaymentIntentId: paymentIntent.id,
@@ -974,6 +1010,7 @@ export default function Checkout() {
                       orderData={orderData}
                       paymentType={paymentInfo.payingDepositOnly ? 'deposit' : 'full'}
                       billingDetails={billingDetails!}
+                      items={items as any}
                     />
                   </Elements>
                 </CardContent>
