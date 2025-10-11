@@ -178,7 +178,7 @@ class NotificationServiceImpl implements NotificationService {
       }));
 
       // Send via provider abstraction
-      const result = await this.emailProvider.send({
+      const result = await this.emailProvider.sendEmail({
         to: params.to,
         from: fromEmail,
         replyTo: params.replyTo,
