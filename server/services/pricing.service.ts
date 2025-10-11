@@ -55,12 +55,16 @@ export interface PricingBreakdown {
 /**
  * Calculate complete pricing breakdown for a cart
  * Backend-only - never expose this logic to frontend
+ * 
+ * BEST PRACTICE FOR PRE-ORDERS:
+ * - Shipping is charged with BALANCE payment (when item ships), NOT with deposit
+ * - This prevents customers from paying shipping months before delivery
  */
 export function calculatePricing(
   items: CartItem[],
   shippingCost: number,
   taxAmount: number = 0,
-  includeShippingInDeposit: boolean = true
+  includeShippingInDeposit: boolean = false
 ): PricingBreakdown {
   let subtotal = 0;
   let depositAmount = 0;
@@ -79,10 +83,13 @@ export function calculatePricing(
   });
   
   // Calculate shipping distribution
+  // BEST PRACTICE: Charge shipping when item ships (with balance), not with deposit
   let shippingInDeposit = 0;
   let shippingInBalance = shippingCost;
   
   if (hasPreOrders && depositAmount > 0 && includeShippingInDeposit) {
+    // Only include shipping in deposit if explicitly requested
+    // Most pre-orders should NOT charge shipping until ready to ship
     shippingInDeposit = shippingCost;
     shippingInBalance = 0;
   }

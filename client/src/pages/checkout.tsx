@@ -307,7 +307,8 @@ export default function Checkout() {
       requiresDeposit: item.requiresDeposit,
     }));
 
-    const pricing = calculatePricing(cartItems, shippingPrice, true);
+    // Calculate pricing (shipping charged with balance for pre-orders)
+    const pricing = calculatePricing(cartItems, shippingPrice, 0, false);
 
     return {
       hasPreOrders: pricing.hasPreOrders,

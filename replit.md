@@ -6,6 +6,16 @@ Upfirst is an e-commerce platform designed to empower creators and brands to sel
 ## Recent Changes
 *Last updated: October 11, 2025*
 
+### Pre-Order Payment Flow Improvement (Oct 11, 2025)
+- **BEST PRACTICE**: Changed pre-order payment flow to charge shipping with balance (not deposit)
+- Customers now pay shipping when item ships, not months in advance
+- Initial charge: Deposit + Tax (on deposit only)
+- Balance charge: Remaining cost + Shipping + Tax (on remaining + shipping)
+- Initial invoice shows full breakdown for transparency
+- Prevents charging for shipping that hasn't happened yet
+- Aligns with industry best practices (Kickstarter, Shopify, etc.)
+- See `docs/PREORDER_PAYMENT_FLOW.md` for complete documentation
+
 ### Backend Security Refactor (Oct 11, 2025)
 - **CRITICAL**: Complete security overhaul of order processing system
 - Moved ALL business logic from frontend to backend services

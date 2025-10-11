@@ -40,8 +40,10 @@ export interface PricingBreakdown {
   payingDepositOnly: boolean;  // True if this is a deposit payment
   amountToCharge: number;      // Exact amount to charge Stripe (deposit or full)
   
-  // Tax (calculated by Stripe, displayed as estimate)
+  // Tax
   taxableAmount: number;       // Amount that tax will be calculated on
+  taxAmount: number;           // Actual tax amount
+  totalWithTax: number;        // Final total including tax
   
   // Flags
   hasPreOrders: boolean;
@@ -50,15 +52,22 @@ export interface PricingBreakdown {
 /**
  * Calculate complete pricing breakdown for a cart
  * 
+ * BEST PRACTICE FOR PRE-ORDERS:
+ * - Shipping is charged with BALANCE payment (when item ships), NOT with deposit
+ * - This prevents customers from paying shipping months before delivery
+ * - Initial invoice shows full breakdown for transparency
+ * 
  * @param items - Cart items
  * @param shippingCost - Calculated shipping cost
- * @param includeShippingInDeposit - Whether to include shipping in deposit payments (default: true)
+ * @param taxAmount - Tax amount to include in calculations (default: 0)
+ * @param includeShippingInDeposit - Whether to include shipping in deposit payments (default: false)
  * @returns Complete pricing breakdown
  */
 export function calculatePricing(
   items: CartItem[],
   shippingCost: number,
-  includeShippingInDeposit: boolean = true
+  taxAmount: number = 0,
+  includeShippingInDeposit: boolean = false
 ): PricingBreakdown {
   let subtotal = 0;
   let depositAmount = 0;
@@ -78,12 +87,13 @@ export function calculatePricing(
   });
   
   // Calculate shipping distribution
+  // BEST PRACTICE: Charge shipping when item ships (with balance), not with deposit
   let shippingInDeposit = 0;
   let shippingInBalance = shippingCost;
   
   if (hasPreOrders && depositAmount > 0 && includeShippingInDeposit) {
-    // Include full shipping in deposit payment
-    // This ensures customers pay shipping up front
+    // Only include shipping in deposit if explicitly requested
+    // Most pre-orders should NOT charge shipping until ready to ship
     shippingInDeposit = shippingCost;
     shippingInBalance = 0;
   }
@@ -97,8 +107,11 @@ export function calculatePricing(
   const payingDepositOnly = hasPreOrders && depositAmount > 0;
   const amountToCharge = payingDepositOnly ? depositTotal : fullTotal;
   
-  // Tax will be calculated on the amount charged
+  // Tax calculation:
+  // - For deposit payments: Tax on deposit amount only (shipping/balance tax charged later)
+  // - For full payments: Tax on full total (subtotal + shipping)
   const taxableAmount = amountToCharge;
+  const totalWithTax = amountToCharge + taxAmount;
   
   return {
     subtotal,
@@ -112,6 +125,8 @@ export function calculatePricing(
     payingDepositOnly,
     amountToCharge,
     taxableAmount,
+    taxAmount,
+    totalWithTax,
     hasPreOrders,
   };
 }
