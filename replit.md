@@ -46,6 +46,15 @@ Upfirst is built with a modern web stack. The frontend uses React, TypeScript, T
   - **Edge Case Handling**: Robust decimal parsing for tax amounts, graceful fallbacks for orders without tax data (legacy orders)
   - **Compliance**: Tax amounts displayed even when $0 for transparency and accounting purposes
   - Note: Wholesale transactions are exempt from automatic B2C tax collection (handled separately via B2B workflows)
+- **Pricing Service & Fail-Safe System**: Centralized pricing calculations (`shared/pricing-service.ts`) ensure consistency across cart, checkout, and payment processing. Features include:
+  - **Deposit Payment Fix**: Shipping costs now correctly included in deposit payments (previously only in remaining balance)
+  - **Validation System**: Pre-charge validation ensures displayed amount exactly matches Stripe charge, preventing pricing discrepancies
+  - **Comprehensive Documentation**: `docs/PRICING_SYSTEM.md` details all pricing flows, calculations, and fail-safes
+  - **Order Accuracy**: All charges (product + shipping + tax) verified before payment intent creation
+- **Team Management**: Team management moved from dashboard quick actions to Settings tab (one-time setup, not a quick action). Features include:
+  - **Role-Based Access**: 4-role system (owner, admin, editor, viewer) with invitation-based team expansion
+  - **Invitation Management**: Email-based invitations with shareable links, expiration tracking, and cancellation
+  - **Permission Control**: Granular role changes and team member removal (except owners)
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)

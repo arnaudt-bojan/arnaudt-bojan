@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import type { InsertOrder } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
+import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/pricing-service";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -278,7 +279,7 @@ export default function Checkout() {
 
   const shippingPrice = shippingData?.shippingPrice ?? 0;
 
-  // Calculate payment info with delivery estimates using pricing service
+  // Calculate payment info using centralized pricing service
   const paymentInfo = useMemo(() => {
     let earliestDeliveryDate: Date | undefined = undefined;
     let latestDeliveryDate: Date | undefined = undefined;
@@ -297,40 +298,33 @@ export default function Checkout() {
     });
 
     // Use centralized pricing service for accurate calculations
-    const pricing = {
-      subtotal: items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0),
-      shippingCost: shippingPrice,
-      depositAmount: items.reduce((sum, item) => {
-        if (item.productType === "pre-order" && item.requiresDeposit && item.depositAmount) {
-          return sum + parseFloat(item.depositAmount) * item.quantity;
-        }
-        return sum;
-      }, 0),
-      hasPreOrders: items.some(item => item.productType === "pre-order" && item.requiresDeposit && item.depositAmount),
-    };
+    const cartItems: CartItem[] = items.map(item => ({
+      id: item.id,
+      price: item.price,
+      quantity: item.quantity,
+      productType: item.productType,
+      depositAmount: item.depositAmount,
+      requiresDeposit: item.requiresDeposit,
+    }));
 
-    // CRITICAL FIX: Include shipping in deposit payment
-    // Customers must pay shipping up front, not in remaining balance
-    const shippingInDeposit = pricing.hasPreOrders && pricing.depositAmount > 0 ? shippingPrice : 0;
-    const depositTotal = pricing.depositAmount + shippingInDeposit;
-    const fullTotal = pricing.subtotal + shippingPrice;
-    const remainingBalance = fullTotal - depositTotal;
-    const payingDepositOnly = pricing.hasPreOrders && pricing.depositAmount > 0;
+    const pricing = calculatePricing(cartItems, shippingPrice, true);
 
     return {
       hasPreOrders: pricing.hasPreOrders,
-      depositTotal,
-      remainingBalance,
-      fullTotal,
+      depositTotal: pricing.depositTotal,
+      remainingBalance: pricing.remainingBalance,
+      fullTotal: pricing.fullTotal,
       subtotal: pricing.subtotal,
       shipping: shippingPrice,
-      payingDepositOnly,
+      payingDepositOnly: pricing.payingDepositOnly,
+      amountToCharge: pricing.amountToCharge,
       earliestDeliveryDate,
       latestDeliveryDate,
     };
   }, [items, shippingPrice]);
 
-  const amountToPay = paymentInfo.payingDepositOnly ? paymentInfo.depositTotal : paymentInfo.fullTotal;
+  // Use the pricing service's calculated amount to charge
+  const amountToPay = paymentInfo.amountToCharge;
 
   // Create payment intent when form is valid
   const onSubmit = async (data: CheckoutForm) => {
@@ -378,11 +372,13 @@ export default function Checkout() {
 
       // FAIL-SAFE: Validate that displayed amount matches what we're charging
       // This prevents discrepancies between UI and actual Stripe charge
-      const displayedAmount = payingDepositOnly ? paymentInfo.depositTotal : paymentInfo.fullTotal;
-      if (Math.abs(displayedAmount - amountToPay) > 0.01) {
+      const displayedAmount = payingDepositOnly ? depositTotal : fullTotal;
+      try {
+        validateChargeAmount(displayedAmount, amountToPay, 0.01);
+      } catch (error: any) {
         throw new Error(
-          `PRICING ERROR: Displayed amount ($${displayedAmount.toFixed(2)}) ` +
-          `does not match calculated charge ($${amountToPay.toFixed(2)}). ` +
+          `PRICING ERROR: The amount displayed ($${displayedAmount.toFixed(2)}) ` +
+          `does not match the charge amount ($${amountToPay.toFixed(2)}). ` +
           `Please refresh and try again.`
         );
       }

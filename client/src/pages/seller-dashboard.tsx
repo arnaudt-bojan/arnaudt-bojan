@@ -402,18 +402,6 @@ export default function SellerDashboard() {
                   <span className="text-xs md:text-sm font-semibold">Order Mgmt</span>
                 </div>
               </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/team")}
-                data-testid="button-team"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-indigo-500/10">
-                    <Users className="h-5 w-5 md:h-6 md:w-6 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Team</span>
-                </div>
-              </Card>
             </div>
           </div>
         </div>
