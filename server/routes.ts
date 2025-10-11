@@ -166,6 +166,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storeActive: seller.storeActive,
         shippingPolicy: seller.shippingPolicy,
         returnsPolicy: seller.returnsPolicy,
+        aboutStory: seller.aboutStory,
+        contactEmail: seller.contactEmail,
+        socialInstagram: seller.socialInstagram,
+        socialTwitter: seller.socialTwitter,
+        socialTiktok: seller.socialTiktok,
+        socialSnapchat: seller.socialSnapchat,
+        socialWebsite: seller.socialWebsite,
       };
       
       res.json(publicSellerInfo);

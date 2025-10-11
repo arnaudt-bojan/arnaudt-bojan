@@ -52,14 +52,6 @@ export function Footer({ sellerInfo }: FooterProps) {
     <footer className="bg-black text-white mt-auto">
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-8">
-          {/* About Story Section - Only show if seller has a story */}
-          {sellerInfo?.aboutStory && (
-            <div className="flex-1 max-w-md">
-              <h3 className="text-lg font-semibold mb-4">About</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">{sellerInfo.aboutStory}</p>
-            </div>
-          )}
-          
           {/* Service Links */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Service</h3>
