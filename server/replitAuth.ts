@@ -260,9 +260,19 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/login", (req, res, next) => {
     const intendedRole = req.query.role as string;
+    const returnUrl = req.query.returnUrl as string;
+    const loginContext = req.query.loginContext as string;
+    
     if (intendedRole) {
       (req.session as any).intendedRole = intendedRole;
     }
+    if (returnUrl) {
+      (req.session as any).returnUrl = returnUrl;
+    }
+    if (loginContext) {
+      (req.session as any).loginContext = loginContext;
+    }
+    
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -282,6 +292,47 @@ export async function setupAuth(app: Express) {
         
         const dbUser = await storage.getUser(user.claims.sub);
         
+        // Check for preserved returnUrl in session
+        const rawReturnUrl = (req.session as any)?.returnUrl;
+        const loginContext = (req.session as any)?.loginContext;
+        
+        // Clear session variables
+        delete (req.session as any).returnUrl;
+        delete (req.session as any).loginContext;
+        
+        // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
+        let returnUrl: string | null = null;
+        if (rawReturnUrl) {
+          try {
+            // Only allow paths starting with / and not // (protocol-relative URLs)
+            if (rawReturnUrl.startsWith("/") && !rawReturnUrl.startsWith("//")) {
+              returnUrl = rawReturnUrl;
+            } else {
+              logger.warn('Invalid returnUrl rejected', {
+                module: 'auth',
+                returnUrl: rawReturnUrl,
+                userId: dbUser?.id
+              });
+            }
+          } catch (e) {
+            logger.warn('returnUrl validation failed', {
+              module: 'auth',
+              returnUrl: rawReturnUrl
+            });
+          }
+        }
+        
+        // If sanitized returnUrl exists, use it
+        if (returnUrl) {
+          logger.auth('Redirecting to preserved returnUrl', { 
+            returnUrl, 
+            loginContext,
+            userId: dbUser?.id 
+          });
+          return res.redirect(returnUrl);
+        }
+        
+        // Otherwise, use default role-based redirect
         if (dbUser?.role === "buyer") {
           return res.redirect("/buyer-dashboard");
         } else if (dbUser?.role === "seller" || dbUser?.role === "owner" || dbUser?.role === "admin") {

@@ -28,7 +28,7 @@ try {
  * Send 6-digit authentication code to email
  */
 router.post('/send-code', async (req: Request, res: Response) => {
-  const { email, sellerContext } = req.body;
+  const { email, sellerContext, returnUrl, loginContext } = req.body;
 
   try {
     if (!email) {
@@ -51,6 +51,8 @@ router.post('/send-code', async (req: Request, res: Response) => {
       expiresAt: codeExpiresAt,
       used: 0,
       sellerContext: sellerContext || null,
+      returnUrl: returnUrl || null,
+      loginContext: loginContext || null,
     });
 
     // 2. Magic link token (reusable, 6 months)
@@ -62,6 +64,8 @@ router.post('/send-code', async (req: Request, res: Response) => {
       expiresAt: magicLinkExpiresAt,
       used: 0,
       sellerContext: sellerContext || null,
+      returnUrl: returnUrl || null,
+      loginContext: loginContext || null,
     });
 
     // Try to send email with code and magic link for auto-login
@@ -156,9 +160,9 @@ router.post('/verify-code', async (req: any, res: Response) => {
     
     logger.auth('Domain context determined', {
       isMainDomain,
-      sellerContextFromBody: sellerContext,
-      sellerContextFromToken: authToken.sellerContext,
-      finalSellerContext
+      sellerContextFromBody: sellerContext || undefined,
+      sellerContextFromToken: authToken.sellerContext || undefined,
+      finalSellerContext: finalSellerContext || undefined
     });
     
     // Get or create user (email lookup is case-insensitive in storage)
@@ -218,10 +222,40 @@ router.post('/verify-code', async (req: any, res: Response) => {
 
     logger.auth('User authenticated successfully', { email: normalizedEmail, userId: user.id });
 
-    // Determine redirect URL based on role and domain
+    // Determine redirect URL: preserved returnUrl takes priority over role-based defaults
     let redirectUrl: string;
     
-    if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
+    // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
+    let sanitizedReturnUrl: string | null = null;
+    if (authToken.returnUrl) {
+      try {
+        // Only allow paths starting with / and not // (protocol-relative URLs)
+        if (authToken.returnUrl.startsWith("/") && !authToken.returnUrl.startsWith("//")) {
+          sanitizedReturnUrl = authToken.returnUrl;
+        } else {
+          logger.warn('Invalid returnUrl rejected in verify-code', {
+            module: 'auth-email',
+            returnUrl: authToken.returnUrl,
+            userId: user.id
+          });
+        }
+      } catch (e) {
+        logger.warn('returnUrl validation failed in verify-code', {
+          module: 'auth-email',
+          returnUrl: authToken.returnUrl
+        });
+      }
+    }
+    
+    if (sanitizedReturnUrl) {
+      // Use sanitized preserved returnUrl from auth token
+      redirectUrl = sanitizedReturnUrl;
+      logger.auth('Using preserved returnUrl from auth token', {
+        returnUrl: sanitizedReturnUrl,
+        loginContext: authToken.loginContext || undefined,
+        userId: user.id
+      });
+    } else if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
       // Sellers always go to their dashboard
       redirectUrl = '/seller-dashboard';
     } else if (user.role === 'buyer') {
@@ -254,7 +288,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
  * Send magic link to email
  */
 router.post('/send-magic-link', async (req: Request, res: Response) => {
-  const { email, sellerContext } = req.body;
+  const { email, sellerContext, returnUrl, loginContext } = req.body;
 
   try {
     if (!email) {
@@ -273,6 +307,8 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       expiresAt,
       used: 0,
       sellerContext: sellerContext || null, // Store seller context with token
+      returnUrl: returnUrl || null,
+      loginContext: loginContext || null,
     });
 
     // Generate magic link - points to API endpoint
@@ -430,12 +466,41 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       userId: user.id
     });
 
-    // Determine redirect URL
+    // Determine redirect URL: preserved returnUrl takes priority
     let redirectUrl: string;
     
-    // Use provided redirect parameter if available
-    if (redirect && typeof redirect === 'string') {
-      // Sanitize redirect URL - must start with /
+    // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
+    let sanitizedReturnUrl: string | null = null;
+    if (authToken.returnUrl) {
+      try {
+        // Only allow paths starting with / and not // (protocol-relative URLs)
+        if (authToken.returnUrl.startsWith("/") && !authToken.returnUrl.startsWith("//")) {
+          sanitizedReturnUrl = authToken.returnUrl;
+        } else {
+          logger.warn('Invalid returnUrl rejected in verify-magic-link', {
+            module: 'auth-email',
+            returnUrl: authToken.returnUrl,
+            userId: user.id
+          });
+        }
+      } catch (e) {
+        logger.warn('returnUrl validation failed in verify-magic-link', {
+          module: 'auth-email',
+          returnUrl: authToken.returnUrl
+        });
+      }
+    }
+    
+    if (sanitizedReturnUrl) {
+      // Use sanitized preserved returnUrl from auth token (highest priority)
+      redirectUrl = sanitizedReturnUrl;
+      logger.auth('Using preserved returnUrl from auth token', {
+        returnUrl: sanitizedReturnUrl,
+        loginContext: authToken.loginContext || undefined,
+        userId: user.id
+      });
+    } else if (redirect && typeof redirect === 'string') {
+      // Use provided redirect parameter if available
       redirectUrl = redirect.startsWith('/') ? redirect : `/${redirect}`;
       logger.debug('Using provided redirect', { redirectUrl });
     } else {

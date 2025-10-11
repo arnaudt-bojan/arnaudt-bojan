@@ -651,6 +651,8 @@ export const authTokens = pgTable("auth_tokens", {
   expiresAt: timestamp("expires_at").notNull(),
   used: integer("used").default(0), // 0 = false, 1 = true (only enforced for login_code type)
   sellerContext: text("seller_context"), // Seller username when logging in from seller storefront
+  returnUrl: text("return_url"), // URL to redirect to after authentication
+  loginContext: text("login_context"), // Context for login (e.g., "storefront", "dashboard", "main")
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
