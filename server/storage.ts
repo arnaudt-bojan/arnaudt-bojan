@@ -60,6 +60,8 @@ import {
   type InsertHomepageMediaAsset,
   type MusicTrack,
   type InsertMusicTrack,
+  type UserStoreRole,
+  type InsertUserStoreRole,
   users,
   products,
   orders,
@@ -91,7 +93,8 @@ import {
   sellerHomepages,
   homepageCtaOptions,
   homepageMediaAssets,
-  musicTracks
+  musicTracks,
+  userStoreRoles
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -104,11 +107,18 @@ neonConfig.webSocketConstructor = ws;
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
+  updateWelcomeEmailSent(userId: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   getTeamMembersBySellerId(sellerId: string): Promise<User[]>;
   deleteTeamMember(userId: string, sellerId: string): Promise<boolean>;
+  
+  // User-Store Roles (context-specific roles)
+  getUserStoreRole(userId: string, storeOwnerId: string): Promise<UserStoreRole | undefined>;
+  setUserStoreRole(userId: string, storeOwnerId: string, role: "buyer" | "seller" | "owner"): Promise<UserStoreRole>;
+  getUserStoreRoles(userId: string): Promise<UserStoreRole[]>;
   
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -607,9 +617,21 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
   async updateUserRole(userId: string, role: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const result = await this.db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    return result[0];
+  }
+
+  async updateWelcomeEmailSent(userId: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(users).set({ welcomeEmailSent: 1, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
     return result[0];
   }
 
@@ -637,6 +659,44 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(users.id, userId), eq(users.sellerId, sellerId)))
       .returning();
     return result.length > 0;
+  }
+
+  async getUserStoreRole(userId: string, storeOwnerId: string): Promise<UserStoreRole | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(userStoreRoles)
+      .where(and(eq(userStoreRoles.userId, userId), eq(userStoreRoles.storeOwnerId, storeOwnerId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async setUserStoreRole(userId: string, storeOwnerId: string, role: "buyer" | "seller" | "owner"): Promise<UserStoreRole> {
+    await this.ensureInitialized();
+    // Upsert: update if exists, insert if not
+    const existing = await this.getUserStoreRole(userId, storeOwnerId);
+    if (existing) {
+      const result = await this.db
+        .update(userStoreRoles)
+        .set({ role })
+        .where(and(eq(userStoreRoles.userId, userId), eq(userStoreRoles.storeOwnerId, storeOwnerId)))
+        .returning();
+      return result[0];
+    } else {
+      const result = await this.db
+        .insert(userStoreRoles)
+        .values({ userId, storeOwnerId, role })
+        .returning();
+      return result[0];
+    }
+  }
+
+  async getUserStoreRoles(userId: string): Promise<UserStoreRole[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(userStoreRoles)
+      .where(eq(userStoreRoles.userId, userId));
   }
 
   async createInvitation(insertInvitation: InsertInvitation): Promise<Invitation> {
