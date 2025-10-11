@@ -35,6 +35,20 @@ router.post('/send-code', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
+    // Extract seller context from returnUrl if not provided directly
+    // In dev: /s/username/... paths indicate seller storefront
+    let finalSellerContext = sellerContext;
+    if (!finalSellerContext && returnUrl) {
+      const storefrontMatch = returnUrl.match(/^\/s\/([^\/]+)/);
+      if (storefrontMatch && storefrontMatch[1]) {
+        finalSellerContext = storefrontMatch[1];
+        logger.auth('Extracted seller context from returnUrl', {
+          returnUrl,
+          sellerContext: finalSellerContext
+        });
+      }
+    }
+
     // Generate 6-digit code and secure token
     const code = generateAuthCode();
     const token = generateSecureToken();
@@ -50,7 +64,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
       tokenType: 'login_code',
       expiresAt: codeExpiresAt,
       used: 0,
-      sellerContext: sellerContext || null,
+      sellerContext: finalSellerContext || null,
       returnUrl: returnUrl || null,
       loginContext: loginContext || null,
     });
@@ -63,7 +77,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
       tokenType: 'magic_link',
       expiresAt: magicLinkExpiresAt,
       used: 0,
-      sellerContext: sellerContext || null,
+      sellerContext: finalSellerContext || null,
       returnUrl: returnUrl || null,
       loginContext: loginContext || null,
     });
@@ -171,16 +185,19 @@ router.post('/verify-code', async (req: any, res: Response) => {
     
     if (!user) {
       // Create new user account
-      // Main domain = seller (admin role), subdomain = buyer
-      const role = isMainDomain ? 'admin' : 'buyer';
+      // Main domain = seller, subdomain = buyer
+      const userType = isMainDomain ? 'seller' : 'buyer';
+      const role = isMainDomain ? 'admin' : 'buyer'; // Legacy field for backward compatibility
       
       user = await storage.upsertUser({
         email: normalizedEmail,
         role,
+        userType,
       });
       
       logger.auth('Created new user', {
         role,
+        userType,
         email: normalizedEmail,
         isMainDomain,
         sellerContext: sellerUsername,
