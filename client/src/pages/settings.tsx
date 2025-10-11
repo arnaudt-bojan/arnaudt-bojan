@@ -7,7 +7,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -385,7 +385,7 @@ function SubscriptionTab({ user }: { user: any }) {
               )}
 
               <div className="flex gap-2 pt-4">
-                {subscriptionStatus.status !== "trial" && !subscriptionStatus.cancelAtPeriodEnd && (
+                {!subscriptionStatus.cancelAtPeriodEnd && (
                   <Button
                     variant="outline"
                     onClick={() => setShowCancelDialog(true)}

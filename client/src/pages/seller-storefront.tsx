@@ -101,49 +101,19 @@ export default function SellerStorefront() {
 
   return (
     <div className="min-h-screen">
-      {/* Store Header */}
-      <div className="border-b bg-card">
-        {/* Banner */}
-        {effectiveSeller.banner && (
-          <div className="w-full h-48 overflow-hidden">
-            <img 
-              src={effectiveSeller.banner} 
-              alt="Store banner" 
-              className="w-full h-full object-cover"
-              data-testid="img-store-banner"
-            />
-          </div>
-        )}
-        
-        <div className="container py-8">
-          <div className="flex items-center gap-4">
-            {effectiveSeller.logo ? (
-              <img 
-                src={effectiveSeller.logo} 
-                alt={effectiveSeller.storeName || `${effectiveSeller.username}'s Store`} 
-                className="h-16 w-16 rounded-lg object-cover"
-                data-testid="img-store-logo"
-              />
-            ) : (
-              <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
-                <Store className="h-8 w-8 text-muted-foreground" />
-              </div>
-            )}
-            <div>
-              <h1 className="text-3xl font-bold" data-testid="text-store-name">
-                {effectiveSeller.storeName || `${effectiveSeller.firstName || effectiveSeller.username}'s Store`}
-              </h1>
-              {effectiveSeller.storeDescription && (
-                <p className="text-muted-foreground mt-1" data-testid="text-store-description">
-                  {effectiveSeller.storeDescription}
-                </p>
-              )}
-            </div>
-          </div>
+      {/* Banner - Only show if uploaded */}
+      {effectiveSeller.storeBanner && (
+        <div className="w-full h-64 overflow-hidden">
+          <img 
+            src={effectiveSeller.storeBanner} 
+            alt="Store banner" 
+            className="w-full h-full object-cover"
+            data-testid="img-store-banner"
+          />
         </div>
-      </div>
+      )}
 
-      {/* Products Grid */}
+      {/* Products Section */}
       <div className="container py-8">
         {productsLoading ? (
           <div className="text-center py-12">
