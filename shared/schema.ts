@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, varchar, decimal, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -17,6 +17,12 @@ export type ItemStatus = z.infer<typeof itemStatusEnum>;
 
 export const userRoleEnum = z.enum(["admin", "editor", "viewer", "buyer"]);
 export type UserRole = z.infer<typeof userRoleEnum>;
+
+export const storeContextRoleEnum = z.enum(["buyer", "seller", "owner"]);
+export type StoreContextRole = z.infer<typeof storeContextRoleEnum>;
+
+// PostgreSQL enum for store context roles (buyer/seller/owner)
+export const storeContextRolePgEnum = pgEnum("store_context_role", ["buyer", "seller", "owner"]);
 
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
@@ -355,12 +361,34 @@ export const users = pgTable("users", {
   // Platform admin flag for Upfirst.io owners
   isPlatformAdmin: integer("is_platform_admin").default(0), // 0 = regular user, 1 = platform admin
   
+  // Welcome email tracking - prevent duplicate welcome emails
+  welcomeEmailSent: integer("welcome_email_sent").default(0), // 0 = not sent, 1 = sent
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// User-Store relationship table for context-specific roles
+// Tracks whether a user is a buyer or seller/owner for a specific store
+export const userStoreRoles = pgTable("user_store_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // FK to users.id
+  storeOwnerId: varchar("store_owner_id").notNull().references(() => users.id, { onDelete: "cascade" }), // FK to users.id (the store owner)
+  role: storeContextRolePgEnum("role").notNull(), // PostgreSQL enum enforcing buyer/seller/owner
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  // Unique constraint: one role per user per store
+  uniqueUserStore: uniqueIndex("unique_user_store").on(table.userId, table.storeOwnerId),
+}));
+
+export const insertUserStoreRoleSchema = createInsertSchema(userStoreRoles).omit({ id: true, createdAt: true }).extend({
+  role: storeContextRoleEnum, // Enforce enum validation at API layer
+});
+export type InsertUserStoreRole = z.infer<typeof insertUserStoreRoleSchema>;
+export type UserStoreRole = typeof userStoreRoles.$inferSelect;
 
 export const invitations = pgTable("invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
