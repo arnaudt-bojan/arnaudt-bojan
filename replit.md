@@ -4,7 +4,7 @@
 Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront accessible via subdomain in production (`username.upfirst.io`) or path-based routing in dev (`/s/username`), with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes (Oct 11, 2025)
-- **Auth System Complete Integration**: Full migration to new capability-based auth system complete (BACKEND + FRONTEND)
+- **Auth System Complete Integration**: Full migration to new capability-based auth system complete (BACKEND + FRONTEND + TESTING)
   - **Backend**: Successfully migrated all 156 route middleware uses from `isAuthenticated`/`isSeller` to `requireAuth`/`requireUserType`
   - **Backend**: Fixed critical authorization bypass vulnerability by adding seller protection to product/seller management routes
   - **Backend**: All seller routes now properly protected with `requireUserType('seller')`: /api/seller/*, /api/products (mutations), /api/wholesale/*
@@ -16,8 +16,11 @@ Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators 
   - **Frontend**: Harmonized useAuth and AuthStoreContext with identical role fallback logic for all user types
   - **Frontend**: Purchase prevention complete - sellers/collaborators blocked from Add to Cart/Buy Now buttons and checkout redirect
   - **Frontend**: Both useAuth and AuthStoreContext check userType with explicit role fallbacks (seller/admin/owner → seller, editor/viewer → collaborator, buyer → buyer)
+  - **Bug Fix #1**: Fixed new user creation to set userType field (was only setting legacy role field)
+  - **Bug Fix #2**: Fixed sellerContext extraction from returnUrl to properly classify storefront signups as buyers (not sellers)
+  - **Testing**: E2E tests verified seller purchase prevention (PASS), buyer signup with correct userType (PASS)
   - **Security**: All 34 migrated users properly classified, no privilege escalation, consistent auth checks across entire stack
-  - Ready for E2E testing across all user types
+  - **Status**: Production-ready - all 10 auth tasks completed and architect-approved
 - **Notification Service Refactoring**: Comprehensive refactoring of 2,200+ line notification system to eliminate ALL hardcoded values
   - Created service-oriented architecture with dependency injection: EmailConfigService, EmailProviderService, NotificationMessagesService
   - Eliminated ALL hardcoded email addresses (support@, hello@, FROM_EMAIL) - now using centralized config
