@@ -329,6 +329,22 @@ export default function BuyerOrderDetail() {
               </h3>
               
               <div className="space-y-3">
+                {order.subtotalBeforeTax && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span className="font-medium" data-testid="text-subtotal">
+                      ${parseFloat(order.subtotalBeforeTax).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {order.taxAmount && parseFloat(order.taxAmount) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Tax:</span>
+                    <span className="font-medium" data-testid="text-tax">
+                      ${parseFloat(order.taxAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total:</span>
                   <span className="font-medium">${parseFloat(order.total).toFixed(2)}</span>
