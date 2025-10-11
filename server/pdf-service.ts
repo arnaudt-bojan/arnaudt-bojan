@@ -336,17 +336,42 @@ export class PDFService {
     const labelX = 400;
     const valueX = 490;
 
+    // Helper to safely parse decimal values, handling null/undefined/empty strings
+    const parseDecimal = (value: string | null | undefined): number | null => {
+      if (value === null || value === undefined || value === '') {
+        return null;
+      }
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
     const total = parseFloat(order.total);
+    const subtotalBeforeTax = parseDecimal(order.subtotalBeforeTax);
+    const taxAmount = parseDecimal(order.taxAmount);
 
+    let currentY = startY;
     doc.fontSize(10);
-    doc.text('Subtotal:', labelX, startY);
-    doc.text(`$${total.toFixed(2)}`, valueX, startY);
-    
-    doc.fontSize(12).fillColor('#000000');
-    doc.text('Total:', labelX, startY + 20);
-    doc.text(`$${total.toFixed(2)}`, valueX, startY + 20);
 
-    doc.y = startY + 45;
+    // Show subtotal before tax if available
+    if (subtotalBeforeTax !== null) {
+      doc.text('Subtotal:', labelX, currentY);
+      doc.text(`$${subtotalBeforeTax.toFixed(2)}`, valueX, currentY);
+      currentY += 20;
+    }
+
+    // Show tax if available (independent of subtotal) - display even if $0 for transparency and compliance
+    if (taxAmount !== null) {
+      doc.text('Tax:', labelX, currentY);
+      doc.text(`$${taxAmount.toFixed(2)}`, valueX, currentY);
+      currentY += 20;
+    }
+    
+    // Total (bold and larger)
+    doc.fontSize(12).fillColor('#000000');
+    doc.text('Total:', labelX, currentY);
+    doc.text(`$${total.toFixed(2)}`, valueX, currentY);
+
+    doc.y = currentY + 25;
   }
 
   private addInvoiceFooter(doc: PDFKit.PDFDocument, details: StripeBusinessDetails) {
