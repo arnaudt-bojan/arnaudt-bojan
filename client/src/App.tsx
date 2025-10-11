@@ -8,7 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/lib/cart-context";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { AuthStoreProvider } from "@/contexts/auth-store-context";
-import { Header } from "@/components/header";
+import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
 import Home from "@/pages/home";
@@ -63,7 +63,7 @@ function AppContent() {
   return (
     <div className="min-h-screen flex flex-col">
       {!isPreviewMode && (
-        <Header cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
+        <MainHeader cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
       )}
       <main className="flex-1">
         <Switch>
