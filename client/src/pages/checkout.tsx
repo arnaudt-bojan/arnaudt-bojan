@@ -200,8 +200,8 @@ function PaymentForm({
               defaultCollapsed: false,
             },
             wallets: {
-              applePay: 'auto', // ✅ Enabled - will show if available on device
-              googlePay: 'auto', // ✅ Enabled - will show if available
+              applePay: 'auto', // ✅ Shows if available on device
+              googlePay: 'auto', // ✅ Shows if available
             },
             fields: {
               billingDetails: {
@@ -210,6 +210,7 @@ function PaymentForm({
             },
             terms: {
               card: 'never',
+              link: 'never', // ✅ Remove Link terms to close/limit optional save form
             },
           }}
         />
