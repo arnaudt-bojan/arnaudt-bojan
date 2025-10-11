@@ -27,6 +27,7 @@ import {
 import logoImage from "@assets/image_1759956321866.png";
 import { useAuthStore } from "@/contexts/auth-store-context";
 import { useQuery } from "@tanstack/react-query";
+import { getStoreUrl } from "@/lib/store-url";
 
 interface StorefrontHeaderProps {
   cartItemsCount?: number;
@@ -41,6 +42,10 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
   
   const isAuthenticated = !!currentUser;
   const isBuyer = currentUser?.role === "buyer";
+  
+  // Get store URL and determine if it's same-origin
+  const storeUrl = getStoreUrl(activeSeller?.username) || '/';
+  const isAbsoluteUrl = storeUrl.startsWith('http');
 
   // Check if user has wholesale access (accepted invitations)
   const { data: wholesaleAccess } = useQuery<{ hasAccess: boolean }>({
@@ -144,21 +149,43 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
           {isSellerDomain ? (
             // On seller storefront: show store logo, Instagram username, or store name - always link to seller's storefront
             activeSeller?.storeLogo ? (
-              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
-                <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
-              </Link>
+              isAbsoluteUrl ? (
+                <a href={storeUrl} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+                  <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+                </a>
+              ) : (
+                <Link href={storeUrl} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+                  <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+                </Link>
+              )
             ) : activeSeller?.instagramUsername ? (
-              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
-              </Link>
+              isAbsoluteUrl ? (
+                <a href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                  <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+                </a>
+              ) : (
+                <Link href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                  <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+                </Link>
+              )
             ) : activeSeller ? (
-              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                <div className="text-lg font-semibold">
-                  {activeSeller.firstName && activeSeller.lastName 
-                    ? `${activeSeller.firstName} ${activeSeller.lastName}`
-                    : activeSeller.username || 'Store'}
-                </div>
-              </Link>
+              isAbsoluteUrl ? (
+                <a href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                  <div className="text-lg font-semibold">
+                    {activeSeller.firstName && activeSeller.lastName 
+                      ? `${activeSeller.firstName} ${activeSeller.lastName}`
+                      : activeSeller.username || 'Store'}
+                  </div>
+                </a>
+              ) : (
+                <Link href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                  <div className="text-lg font-semibold">
+                    {activeSeller.firstName && activeSeller.lastName 
+                      ? `${activeSeller.firstName} ${activeSeller.lastName}`
+                      : activeSeller.username || 'Store'}
+                  </div>
+                </Link>
+              )
             ) : (
               <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
                 <div className="text-lg font-semibold">Store</div>

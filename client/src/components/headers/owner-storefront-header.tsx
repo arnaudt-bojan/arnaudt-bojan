@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import logoImage from "@assets/image_1759956321866.png";
 import { useAuthStore } from "@/contexts/auth-store-context";
+import { getStoreUrl } from "@/lib/store-url";
 
 interface OwnerStorefrontHeaderProps {
   cartItemsCount?: number;
@@ -37,6 +38,10 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const { currentUser, activeSeller } = useAuthStore();
+  
+  // Get store URL and determine if it's same-origin
+  const storeUrl = getStoreUrl(activeSeller?.username) || '/';
+  const isAbsoluteUrl = storeUrl.startsWith('http');
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -74,7 +79,7 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
                         setMobileMenuOpen(false);
                         return;
                       }
-                      const storeUrl = `/s/${currentUser.username}`;
+                      const storeUrl = getStoreUrl(currentUser.username);
                       window.location.href = storeUrl;
                       setMobileMenuOpen(false);
                     }}
@@ -198,22 +203,44 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
           
           {/* Logo/Branding - show store logo, Instagram, store name, or "Add Logo" button - always link to seller's storefront */}
           {activeSeller?.storeLogo ? (
-            <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
-              <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
-            </Link>
+            isAbsoluteUrl ? (
+              <a href={storeUrl} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+                <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+              </a>
+            ) : (
+              <Link href={storeUrl} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+                <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+              </Link>
+            )
           ) : activeSeller?.instagramUsername ? (
-            <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-              <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
-            </Link>
+            isAbsoluteUrl ? (
+              <a href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+              </a>
+            ) : (
+              <Link href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+              </Link>
+            )
           ) : activeSeller && (activeSeller.firstName || activeSeller.lastName || activeSeller.username) ? (
             <div className="flex items-center gap-2">
-              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                <div className="text-lg font-semibold">
-                  {activeSeller.firstName && activeSeller.lastName 
-                    ? `${activeSeller.firstName} ${activeSeller.lastName}`
-                    : activeSeller.username || 'Store'}
-                </div>
-              </Link>
+              {isAbsoluteUrl ? (
+                <a href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                  <div className="text-lg font-semibold">
+                    {activeSeller.firstName && activeSeller.lastName 
+                      ? `${activeSeller.firstName} ${activeSeller.lastName}`
+                      : activeSeller.username || 'Store'}
+                  </div>
+                </a>
+              ) : (
+                <Link href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                  <div className="text-lg font-semibold">
+                    {activeSeller.firstName && activeSeller.lastName 
+                      ? `${activeSeller.firstName} ${activeSeller.lastName}`
+                      : activeSeller.username || 'Store'}
+                  </div>
+                </Link>
+              )}
               <Link href="/settings?tab=branding">
                 <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
                   Add Logo
