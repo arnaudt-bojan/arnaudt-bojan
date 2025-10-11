@@ -163,6 +163,9 @@ export const orders = pgTable("orders", {
   taxBreakdown: jsonb("tax_breakdown"), // Detailed tax breakdown from Stripe Tax
   subtotalBeforeTax: decimal("subtotal_before_tax", { precision: 10, scale: 2 }), // Subtotal before tax
   
+  // Currency field - seller's listing currency at time of order
+  currency: varchar("currency", { length: 3 }).default("USD"), // ISO 4217 currency code (USD, GBP, EUR, etc.)
+  
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

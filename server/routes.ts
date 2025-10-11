@@ -591,6 +591,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         taxAmount
       );
 
+      // Get seller's currency from first product
+      let sellerCurrency = 'USD'; // Default fallback
+      if (validation.items.length > 0) {
+        const firstProduct = await storage.getProduct(validation.items[0].id);
+        if (firstProduct?.sellerId) {
+          const seller = await storage.getUser(firstProduct.sellerId);
+          if (seller?.listingCurrency) {
+            sellerCurrency = seller.listingCurrency;
+          }
+        }
+      }
+
       // Create order with SERVER-CALCULATED values only
       const orderData = {
         userId,
@@ -616,6 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending",
         subtotalBeforeTax: pricing.subtotal.toString(),
         taxAmount: taxAmount.toString(),
+        currency: sellerCurrency, // Seller's currency at time of order
       };
 
       const order = await storage.createOrder(orderData);
