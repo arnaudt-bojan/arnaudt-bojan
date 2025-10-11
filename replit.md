@@ -1,13 +1,17 @@
 # Upfirst - E-Commerce Platform
 
 ## Overview
-Upfirst is an e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. It offers a unified experience for buyers and sellers, featuring product browsing, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable online commerce solution with strong security, multi-currency support, and a comprehensive tax system.
+Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront (accessible via `/s/username`) with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes (Oct 11, 2025)
+- **D2C Architecture Enforcement**: Removed all cross-seller discovery features to enforce strict D2C model (like Big Cartel)
+  - Removed global `/products` page that showed all sellers' products
+  - Removed "Products" navigation link that led to cross-seller browsing
+  - Logo on storefronts now navigates to current seller's store (`/s/username`) instead of main landing page
+  - Cart visibility limited to seller storefronts and checkout only
 - **ReturnUrl Preservation**: Fixed email auth flow to preserve returnUrl through login, ensuring users return to the page they were viewing (e.g., storefronts) instead of being redirected to dashboard
 - **Storefront Branding**: Removed UPPFIRST logo from storefronts; now displays store logo > Instagram username > seller name (firstName + lastName or username) as fallback
 - **Reactive Domain Detection**: AuthStoreContext now tracks location changes using wouter's useLocation() to properly detect seller storefronts during client-side navigation
-- **Desktop Navigation**: StorefrontHeader displays Products link for guests on seller domains, buyers, and product pages
 - **Welcome Email**: Only sent once on first registration, tracked via welcomeEmailSent flag
 
 ## User Preferences

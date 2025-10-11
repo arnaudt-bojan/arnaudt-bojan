@@ -58,6 +58,12 @@ function AppContent() {
   
   // Detect preview mode (hide header when in preview)
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview');
+  
+  // Detect if on seller subdomain (username.upfirst.io)
+  const hostname = window.location.hostname;
+  const isSellerSubdomain = hostname.split('.').length === 3 && 
+                           hostname.includes('upfirst.io') && 
+                           hostname !== 'www.upfirst.io';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -66,41 +72,61 @@ function AppContent() {
       )}
       <main className="flex-1">
         <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/email-login" component={EmailLogin} />
-          <Route path="/s/:username" component={SellerStorefront} />
-          <Route path="/products/:id" component={ProductDetail} />
-          <Route path="/checkout" component={Checkout} />
-          <Route path="/order-success/:orderId" component={OrderSuccess} />
-          <Route path="/buyer-dashboard" component={BuyerDashboard} />
-          <Route path="/seller-dashboard" component={SellerDashboard} />
-          <Route path="/seller/dashboard" component={SellerDashboard} />
-          <Route path="/seller/products" component={SellerProducts} />
-          <Route path="/seller/create-product" component={CreateProduct} />
-          <Route path="/seller/bulk-upload" component={BulkProductUpload} />
-          <Route path="/seller/products/:id/edit" component={EditProduct} />
-          <Route path="/seller/order/:id" component={OrderDetail} />
-          <Route path="/orders" component={Orders} />
-          <Route path="/orders/:id" component={BuyerOrderDetail} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/quick-access" component={QuickAccess} />
-          <Route path="/team" component={Team} />
-          <Route path="/accept-invitation" component={AcceptInvitation} />
-          <Route path="/social-ads-setup" component={SocialAdsSetup} />
-          <Route path="/promote-product/:id" component={PromoteProduct} />
-          <Route path="/create-meta-campaign/:id" component={CreateMetaCampaign} />
-          <Route path="/create-ad-campaign" component={CreateAdCampaign} />
-          <Route path="/order-management" component={OrderManagement} />
-          <Route path="/newsletter" component={Newsletter} />
-          <Route path="/seller/wholesale/products" component={WholesaleProducts} />
-          <Route path="/seller/wholesale/create-product" component={CreateWholesaleProduct} />
-          <Route path="/seller/wholesale/invitations" component={WholesaleInvitations} />
-          <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
-          <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
-          <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
-          <Route path="/admin" component={AdminDashboard} />
-          <Route path="/subscription-success" component={SubscriptionSuccess} />
-          <Route component={NotFound} />
+          {/* On seller subdomain, root path shows storefront */}
+          {isSellerSubdomain ? (
+            <>
+              <Route path="/" component={SellerStorefront} />
+              <Route path="/products/:id" component={ProductDetail} />
+              <Route path="/checkout" component={Checkout} />
+              <Route path="/email-login" component={EmailLogin} />
+              <Route path="/order-success/:orderId" component={OrderSuccess} />
+              <Route path="/orders" component={Orders} />
+              <Route path="/orders/:id" component={BuyerOrderDetail} />
+              <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
+              <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
+              <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
+              <Route component={NotFound} />
+            </>
+          ) : (
+            <>
+              {/* Main domain or dev routes */}
+              <Route path="/" component={Home} />
+              <Route path="/email-login" component={EmailLogin} />
+              <Route path="/s/:username" component={SellerStorefront} />
+              <Route path="/products/:id" component={ProductDetail} />
+              <Route path="/checkout" component={Checkout} />
+              <Route path="/order-success/:orderId" component={OrderSuccess} />
+              <Route path="/buyer-dashboard" component={BuyerDashboard} />
+              <Route path="/seller-dashboard" component={SellerDashboard} />
+              <Route path="/seller/dashboard" component={SellerDashboard} />
+              <Route path="/seller/products" component={SellerProducts} />
+              <Route path="/seller/create-product" component={CreateProduct} />
+              <Route path="/seller/bulk-upload" component={BulkProductUpload} />
+              <Route path="/seller/products/:id/edit" component={EditProduct} />
+              <Route path="/seller/order/:id" component={OrderDetail} />
+              <Route path="/orders" component={Orders} />
+              <Route path="/orders/:id" component={BuyerOrderDetail} />
+              <Route path="/settings" component={Settings} />
+              <Route path="/quick-access" component={QuickAccess} />
+              <Route path="/team" component={Team} />
+              <Route path="/accept-invitation" component={AcceptInvitation} />
+              <Route path="/social-ads-setup" component={SocialAdsSetup} />
+              <Route path="/promote-product/:id" component={PromoteProduct} />
+              <Route path="/create-meta-campaign/:id" component={CreateMetaCampaign} />
+              <Route path="/create-ad-campaign" component={CreateAdCampaign} />
+              <Route path="/order-management" component={OrderManagement} />
+              <Route path="/newsletter" component={Newsletter} />
+              <Route path="/seller/wholesale/products" component={WholesaleProducts} />
+              <Route path="/seller/wholesale/create-product" component={CreateWholesaleProduct} />
+              <Route path="/seller/wholesale/invitations" component={WholesaleInvitations} />
+              <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
+              <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
+              <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
+              <Route path="/admin" component={AdminDashboard} />
+              <Route path="/subscription-success" component={SubscriptionSuccess} />
+              <Route component={NotFound} />
+            </>
+          )}
         </Switch>
       </main>
       {!isPreviewMode && (

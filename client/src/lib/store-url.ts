@@ -4,16 +4,16 @@
  */
 export function getStoreUrl(username: string | null | undefined): string {
   if (!username) {
-    return `${window.location.origin}/products`;
+    return `${window.location.origin}`;
   }
 
   const hostname = window.location.hostname;
   
-  // Development/Replit environment - use query parameter with /products path for filtering
+  // Development/Replit environment - use /s/username path
   if (hostname.includes('replit') || hostname === 'localhost') {
-    return `${window.location.origin}/products?seller=${username}`;
+    return `${window.location.origin}/s/${username}`;
   }
   
-  // Production - use subdomain (storefront mounts at root, not /products)
+  // Production - use subdomain architecture (username.upfirst.io)
   return `${window.location.protocol}//${username}.upfirst.io`;
 }
