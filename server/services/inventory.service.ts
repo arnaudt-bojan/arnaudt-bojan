@@ -4,6 +4,7 @@ import type {
   StockReservation,
   Product,
 } from '@shared/schema';
+import { stockReservations, products } from '@shared/schema';
 import { logger } from '../logger';
 import { eq } from 'drizzle-orm';
 
@@ -181,19 +182,19 @@ export class InventoryService {
     await this.storage.db.transaction(async (tx) => {
       // 1. Update reservation status
       await tx
-        .update(this.storage.stockReservations)
+        .update(stockReservations)
         .set({
           status: 'committed',
           committedAt: new Date(),
           orderId,
         })
-        .where(eq(this.storage.stockReservations.id, reservationId));
+        .where(eq(stockReservations.id, reservationId));
 
       // 2. Decrement stock (in same transaction)
       const product = await tx
         .select()
-        .from(this.storage.products)
-        .where(eq(this.storage.products.id, reservation.productId))
+        .from(products)
+        .where(eq(products.id, reservation.productId))
         .limit(1);
 
       if (!product[0]) {
@@ -214,15 +215,15 @@ export class InventoryService {
         });
 
         await tx
-          .update(this.storage.products)
+          .update(products)
           .set({ variants: updatedVariants })
-          .where(eq(this.storage.products.id, reservation.productId));
+          .where(eq(products.id, reservation.productId));
       } else {
         const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
         await tx
-          .update(this.storage.products)
+          .update(products)
           .set({ stock: newStock })
-          .where(eq(this.storage.products.id, reservation.productId));
+          .where(eq(products.id, reservation.productId));
       }
     });
 
@@ -254,19 +255,19 @@ export class InventoryService {
         for (const reservation of activeReservations) {
           // 1. Update reservation status
           await tx
-            .update(this.storage.stockReservations)
+            .update(stockReservations)
             .set({
               status: 'committed',
               committedAt: new Date(),
               orderId,
             })
-            .where(eq(this.storage.stockReservations.id, reservation.id));
+            .where(eq(stockReservations.id, reservation.id));
 
           // 2. Decrement stock (in same transaction)
           const product = await tx
             .select()
-            .from(this.storage.products)
-            .where(eq(this.storage.products.id, reservation.productId))
+            .from(products)
+            .where(eq(products.id, reservation.productId))
             .limit(1);
 
           if (!product[0]) {
@@ -287,15 +288,15 @@ export class InventoryService {
             });
 
             await tx
-              .update(this.storage.products)
+              .update(products)
               .set({ variants: updatedVariants })
-              .where(eq(this.storage.products.id, reservation.productId));
+              .where(eq(products.id, reservation.productId));
           } else {
             const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
             await tx
-              .update(this.storage.products)
+              .update(products)
               .set({ stock: newStock })
-              .where(eq(this.storage.products.id, reservation.productId));
+              .where(eq(products.id, reservation.productId));
           }
         }
       });
@@ -315,6 +316,9 @@ export class InventoryService {
         sessionId,
         orderId,
         error: error.message,
+        errorStack: error.stack,
+        errorName: error.name,
+        errorCode: error.code,
       });
 
       return {
