@@ -82,8 +82,6 @@ export default function EditProduct() {
         }
         // Handle LEGACY variants (old structure with {size, color, stock, image})
         else if (firstVariant?.color || firstVariant?.image) {
-          console.log('[Edit Product] Detected legacy variant structure, converting...');
-          
           // Legacy variants have color - convert to new color-based structure
           const legacyVariants = product.variants as any[];
           
@@ -179,8 +177,6 @@ export default function EditProduct() {
   });
 
   const onSubmit = (data: FrontendProduct) => {
-    console.log('[Edit Product] onSubmit - hasColors:', hasColors, 'colors:', colors, 'sizes:', sizes);
-    
     // Create full data object with FRESH state (avoiding closure staleness)
     const fullData = { ...data } as any;
     
@@ -231,16 +227,8 @@ export default function EditProduct() {
       fullData.promotionEndDate = null;
     }
     
-    console.log('[Edit Product] Submitting - fullData.variants:', fullData.variants, 'fullData.hasColors:', fullData.hasColors);
     updateMutation.mutate(fullData);
   };
-  
-  // Log form errors on any change
-  useEffect(() => {
-    if (Object.keys(form.formState.errors).length > 0) {
-      console.log('[Edit Product] Form validation errors:', form.formState.errors);
-    }
-  }, [form.formState.errors]);
 
   if (isLoading) {
     return (
