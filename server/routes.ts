@@ -6800,6 +6800,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auth system migration (admin only)
+  app.post("/api/admin/migrate-auth", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only platform admins can run migration
+      if (!user || user.isPlatformAdmin !== 1) {
+        return res.status(403).json({ error: "Forbidden - Platform admin access required" });
+      }
+
+      const { migrateAuthSystem } = await import("./scripts/migrate-auth-system");
+      const result = await migrateAuthSystem();
+      
+      res.json(result);
+    } catch (error) {
+      logger.error("Auth migration error", error);
+      res.status(500).json({ error: "Failed to run migration" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
