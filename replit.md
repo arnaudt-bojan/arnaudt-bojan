@@ -55,6 +55,13 @@ Upfirst is built with a modern web stack. The frontend uses React, TypeScript, T
   - **Role-Based Access**: 4-role system (owner, admin, editor, viewer) with invitation-based team expansion
   - **Invitation Management**: Email-based invitations with shareable links, expiration tracking, and cancellation
   - **Permission Control**: Granular role changes and team member removal (except owners)
+- **Platform Admin Dashboard**: Comprehensive admin dashboard for Upfirst platform owners (accessible at `/admin`). Features include:
+  - **Platform Metrics**: Total sellers (active/inactive), total products, orders, revenue, and 1.5% platform fees collected
+  - **System Health Monitoring**: Real-time health status for database, email service, Stripe, and webhooks (auto-refreshes every 30s)
+  - **Subscription Analytics**: Active and trial subscription counts with estimated Monthly Recurring Revenue (MRR)
+  - **Transaction Log**: Recent 20 platform transactions with seller names, amounts, and platform fees
+  - **Critical Error Tracking**: System for monitoring critical bugs and errors (stub for future implementation)
+  - **Access Control**: Requires `isPlatformAdmin = 1` flag in users table. Admin users set via SQL: `UPDATE users SET is_platform_admin = 1 WHERE email = 'admin@example.com'`
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)

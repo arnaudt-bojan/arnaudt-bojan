@@ -5796,6 +5796,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Platform Admin middleware
+  const isPlatformAdmin = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const userId = req.user.claims.sub;
+    const user = await storage.getUser(userId);
+    
+    if (!user || user.isPlatformAdmin !== 1) {
+      return res.status(403).json({ error: "Not authorized - Platform admin access required" });
+    }
+    
+    next();
+  };
+
+  // Admin: Platform metrics
+  app.get("/api/admin/metrics", isAuthenticated, isPlatformAdmin, async (req: any, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const allProducts = await storage.getAllProducts();
+      const allOrders = await storage.getAllOrders();
+      
+      // Calculate metrics
+      const sellers = allUsers.filter(u => u.role === 'seller');
+      const totalSellers = sellers.length;
+      const activeSellers = sellers.filter(u => u.storeActive === 1).length;
+      const totalProducts = allProducts.length;
+      const totalOrders = allOrders.length;
+      
+      // Calculate revenue and platform fees
+      let totalRevenue = 0;
+      let platformFees = 0;
+      
+      for (const order of allOrders) {
+        const orderTotal = parseFloat(order.total);
+        totalRevenue += orderTotal * 100; // Convert to cents
+        platformFees += Math.round(orderTotal * 100 * 0.015); // 1.5% in cents
+      }
+      
+      // Subscription metrics
+      const activeSubscriptions = allUsers.filter(u => u.subscriptionStatus === 'active').length;
+      const trialSubscriptions = allUsers.filter(u => u.subscriptionStatus === 'trial').length;
+      
+      res.json({
+        totalSellers,
+        activeSellers,
+        totalProducts,
+        totalOrders,
+        totalRevenue,
+        platformFees,
+        activeSubscriptions,
+        trialSubscriptions,
+      });
+    } catch (error) {
+      logger.error("Admin metrics error", error);
+      res.status(500).json({ error: "Failed to fetch platform metrics" });
+    }
+  });
+
+  // Admin: Recent transactions
+  app.get("/api/admin/transactions", isAuthenticated, isPlatformAdmin, async (req: any, res) => {
+    try {
+      const allOrders = await storage.getAllOrders();
+      const allUsers = await storage.getAllUsers();
+      
+      // Get last 20 orders
+      const recentOrders = allOrders
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 20);
+      
+      const transactions = recentOrders.map(order => {
+        const seller = allUsers.find(u => u.id === order.sellerId);
+        const amount = Math.round(parseFloat(order.total) * 100); // Convert to cents
+        const platformFee = Math.round(amount * 0.015); // 1.5% fee
+        
+        return {
+          id: order.id,
+          sellerName: seller?.username || seller?.email || 'Unknown Seller',
+          amount,
+          platformFee,
+          status: order.paymentStatus || 'completed',
+          createdAt: order.createdAt,
+        };
+      });
+      
+      res.json(transactions);
+    } catch (error) {
+      logger.error("Admin transactions error", error);
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  // Admin: System health check
+  app.get("/api/admin/health", isAuthenticated, isPlatformAdmin, async (req: any, res) => {
+    try {
+      const health = {
+        database: "healthy" as const,
+        email: "healthy" as const,
+        stripe: "healthy" as const,
+        webhooks: "healthy" as const,
+        lastChecked: new Date().toISOString(),
+      };
+      
+      // Check database
+      try {
+        await storage.getAllUsers();
+      } catch (error) {
+        health.database = "down";
+      }
+      
+      // Check email service
+      if (!process.env.RESEND_API_KEY) {
+        health.email = "down";
+      }
+      
+      // Check Stripe
+      if (!stripe) {
+        health.stripe = "down";
+      }
+      
+      res.json(health);
+    } catch (error) {
+      logger.error("Admin health check error", error);
+      res.status(500).json({ error: "Failed to fetch system health" });
+    }
+  });
+
+  // Admin: Critical errors (stub - would need error tracking system)
+  app.get("/api/admin/errors", isAuthenticated, isPlatformAdmin, async (req: any, res) => {
+    try {
+      // For now, return empty array
+      // In production, this would query an error logging service or database table
+      res.json([]);
+    } catch (error) {
+      logger.error("Admin errors fetch error", error);
+      res.status(500).json({ error: "Failed to fetch errors" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

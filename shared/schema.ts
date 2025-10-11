@@ -319,6 +319,9 @@ export const users = pgTable("users", {
   taxNexusStates: text("tax_nexus_states").array(), // US states where seller has tax nexus (e.g., ["NY", "CA", "TX"])
   taxProductCode: varchar("tax_product_code"), // Default Stripe Tax product code for all products (can be overridden per product)
   
+  // Platform admin flag for Upfirst.io owners
+  isPlatformAdmin: integer("is_platform_admin").default(0), // 0 = regular user, 1 = platform admin
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
