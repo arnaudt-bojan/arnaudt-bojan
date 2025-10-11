@@ -2594,6 +2594,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/user/about-contact", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { aboutStory, contactEmail, socialInstagram, socialTwitter, socialTiktok, socialSnapchat, socialWebsite } = req.body;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Validate contactEmail if provided
+      if (contactEmail && contactEmail !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+        return res.status(400).json({ error: "Invalid contact email format" });
+      }
+
+      // Validate socialWebsite if provided
+      if (socialWebsite && socialWebsite !== "") {
+        try {
+          new URL(socialWebsite);
+        } catch {
+          return res.status(400).json({ error: "Invalid website URL format" });
+        }
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        aboutStory: aboutStory || null,
+        contactEmail: contactEmail || null,
+        socialInstagram: socialInstagram || null,
+        socialTwitter: socialTwitter || null,
+        socialTiktok: socialTiktok || null,
+        socialSnapchat: socialSnapchat || null,
+        socialWebsite: socialWebsite || null,
+      });
+
+      res.json({ message: "About & Contact updated successfully", user: updatedUser });
+    } catch (error) {
+      logger.error("About & Contact update error", error);
+      res.status(500).json({ error: "Failed to update about & contact information" });
+    }
+  });
+
   // Toggle store active status
   app.patch("/api/user/store-status", isAuthenticated, async (req: any, res) => {
     try {

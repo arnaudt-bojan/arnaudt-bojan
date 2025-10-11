@@ -337,6 +337,14 @@ export const users = pgTable("users", {
   returnsPolicy: text("returns_policy"), // Optional: Custom returns & exchanges policy text
   contactEmail: varchar("contact_email"), // Optional: Custom contact email for seller inquiries (fallback to email if not set)
   
+  // About & Contact - displayed in storefront footer
+  aboutStory: text("about_story"), // Seller's story/about text (max 1000 chars in form validation)
+  socialInstagram: varchar("social_instagram"), // Instagram profile username
+  socialTwitter: varchar("social_twitter"), // Twitter/X profile username
+  socialTiktok: varchar("social_tiktok"), // TikTok profile username
+  socialSnapchat: varchar("social_snapchat"), // Snapchat profile username
+  socialWebsite: varchar("social_website"), // Website URL
+  
   // Tax settings (Stripe Tax integration - B2C only, not wholesale)
   taxEnabled: integer("tax_enabled").default(1), // Auto-collect tax at checkout (0=disabled, 1=enabled)
   taxNexusCountries: text("tax_nexus_countries").array(), // Countries where seller has tax nexus (e.g., ["US", "CA", "GB"])

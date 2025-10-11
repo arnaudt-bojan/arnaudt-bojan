@@ -55,6 +55,16 @@ const brandingSchema = z.object({
   returnsPolicy: z.string().optional(),
 });
 
+const aboutContactSchema = z.object({
+  aboutStory: z.string().max(1000, "Story must be 1000 characters or less").optional().or(z.literal("")),
+  contactEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
+  socialInstagram: z.string().optional().or(z.literal("")),
+  socialTwitter: z.string().optional().or(z.literal("")),
+  socialTiktok: z.string().optional().or(z.literal("")),
+  socialSnapchat: z.string().optional().or(z.literal("")),
+  socialWebsite: z.string().url("Invalid URL").optional().or(z.literal("")),
+});
+
 const usernameSchema = z.object({
   username: z.string()
     .min(3, "Username must be at least 3 characters")
@@ -74,6 +84,7 @@ const shippingSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
+type AboutContactForm = z.infer<typeof aboutContactSchema>;
 type UsernameForm = z.infer<typeof usernameSchema>;
 type CustomDomainForm = z.infer<typeof customDomainSchema>;
 type ShippingForm = z.infer<typeof shippingSchema>;
@@ -1554,6 +1565,34 @@ export default function Settings() {
     }
   }, [user?.storeBanner, user?.storeLogo]);
 
+  const aboutContactForm = useForm<AboutContactForm>({
+    resolver: zodResolver(aboutContactSchema),
+    defaultValues: {
+      aboutStory: user?.aboutStory || "",
+      contactEmail: user?.contactEmail || "",
+      socialInstagram: user?.socialInstagram || "",
+      socialTwitter: user?.socialTwitter || "",
+      socialTiktok: user?.socialTiktok || "",
+      socialSnapchat: user?.socialSnapchat || "",
+      socialWebsite: user?.socialWebsite || "",
+    },
+  });
+
+  // Reset about & contact form when user data changes
+  useEffect(() => {
+    if (user) {
+      aboutContactForm.reset({
+        aboutStory: user.aboutStory || "",
+        contactEmail: user.contactEmail || "",
+        socialInstagram: user.socialInstagram || "",
+        socialTwitter: user.socialTwitter || "",
+        socialTiktok: user.socialTiktok || "",
+        socialSnapchat: user.socialSnapchat || "",
+        socialWebsite: user.socialWebsite || "",
+      });
+    }
+  }, [user?.aboutStory, user?.contactEmail, user?.socialInstagram, user?.socialTwitter, user?.socialTiktok, user?.socialSnapchat, user?.socialWebsite]);
+
   const usernameForm = useForm<UsernameForm>({
     resolver: zodResolver(usernameSchema),
     defaultValues: {
@@ -1598,6 +1637,19 @@ export default function Settings() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update branding", variant: "destructive" });
+    },
+  });
+
+  const updateAboutContactMutation = useMutation({
+    mutationFn: async (data: AboutContactForm) => {
+      return await apiRequest("PATCH", "/api/user/about-contact", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "About & Contact updated", description: "Your store information has been updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update about & contact information", variant: "destructive" });
     },
   });
 
@@ -1904,6 +1956,12 @@ export default function Settings() {
                       <span>Branding</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="about-contact">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      <span>About & Contact</span>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="payment">
                     <div className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
@@ -1958,6 +2016,10 @@ export default function Settings() {
               <TabsTrigger value="branding" data-testid="tab-branding" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 <span>Branding</span>
+              </TabsTrigger>
+              <TabsTrigger value="about-contact" data-testid="tab-about-contact" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                <span>About & Contact</span>
               </TabsTrigger>
               <TabsTrigger value="payment" data-testid="tab-payment" className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
@@ -2535,6 +2597,211 @@ export default function Settings() {
                         : "Set up your store username in the Store URL tab to preview your custom storefront"}
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
+
+        {isSeller && (
+          <TabsContent value="about-contact">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>About & Contact</CardTitle>
+                  <CardDescription>This information will appear in your storefront footer</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Form {...aboutContactForm}>
+                    <form onSubmit={aboutContactForm.handleSubmit((data) => updateAboutContactMutation.mutate(data))} className="space-y-6">
+                      {/* About Story Section */}
+                      <FormField
+                        control={aboutContactForm.control}
+                        name="aboutStory"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Your Story</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <textarea
+                                  {...field}
+                                  value={field.value || ""}
+                                  placeholder="Enter your story"
+                                  maxLength={1000}
+                                  className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                  data-testid="textarea-about-story"
+                                />
+                                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                                  {(field.value || "").length} / 1000
+                                </div>
+                              </div>
+                            </FormControl>
+                            <FormDescription>Share your brand story (max 1000 characters)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Contact Details Section */}
+                      <div className="space-y-4 pt-4 border-t">
+                        <h3 className="text-lg font-semibold">Contact Details</h3>
+                        
+                        <FormField
+                          control={aboutContactForm.control}
+                          name="contactEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Customer Contact Email</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  type="email" 
+                                  placeholder="customer@example.com"
+                                  data-testid="input-contact-email"
+                                />
+                              </FormControl>
+                              <FormDescription>Email for customer inquiries</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Social Connections Section */}
+                      <div className="space-y-4 pt-4 border-t">
+                        <h3 className="text-lg font-semibold">Social Connections</h3>
+                        
+                        <FormField
+                          control={aboutContactForm.control}
+                          name="socialInstagram"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Instagram</FormLabel>
+                              <FormControl>
+                                <div className="flex items-center gap-2">
+                                  <SiInstagram className="h-4 w-4 text-muted-foreground" />
+                                  <Input 
+                                    {...field} 
+                                    placeholder="Enter your profile name"
+                                    data-testid="input-instagram"
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={aboutContactForm.control}
+                          name="socialTwitter"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Twitter</FormLabel>
+                              <FormControl>
+                                <div className="flex items-center gap-2">
+                                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                  </svg>
+                                  <Input 
+                                    {...field} 
+                                    placeholder="Enter your profile name"
+                                    data-testid="input-twitter"
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={aboutContactForm.control}
+                          name="socialTiktok"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>TikTok</FormLabel>
+                              <FormControl>
+                                <div className="flex items-center gap-2">
+                                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+                                  </svg>
+                                  <Input 
+                                    {...field} 
+                                    placeholder="Enter your profile name"
+                                    data-testid="input-tiktok"
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={aboutContactForm.control}
+                          name="socialSnapchat"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Snapchat</FormLabel>
+                              <FormControl>
+                                <div className="flex items-center gap-2">
+                                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.512-.104.42 0 .861.185 1.064.662.115.27.155.519.155.753 0 .424-.26.845-.68 1.066-.625.332-1.357.47-2.065.47-.196 0-.399-.01-.599-.035-.18-.024-.375-.035-.566-.035-.31 0-.62.04-.915.11-.376.094-.735.275-1.039.492-.47.329-.898.707-1.305 1.097-.05.05-.103.096-.157.142-.181.146-.361.29-.532.438-.146.122-.279.245-.408.368-.197.179-.385.369-.564.569-.103.12-.244.327-.38.512-.112.152-.223.301-.343.437-.182.204-.375.4-.586.58-.586.502-1.29.878-2.072 1.102-.432.124-.877.194-1.322.194-.54 0-1.082-.095-1.588-.28-.68-.246-1.29-.632-1.788-1.127-.485-.48-.862-1.066-1.117-1.735-.18-.478-.28-.989-.28-1.513 0-.334.057-.671.17-.993.128-.365.331-.7.604-.997.396-.43.893-.753 1.446-.943.392-.133.809-.198 1.228-.198.135 0 .27.011.405.033.27.042.531.12.781.233.345.154.665.368.951.636.245.232.459.494.64.783.12.192.216.4.285.617.07.215.104.442.104.669 0 .242-.033.484-.1.717-.095.337-.261.648-.488.913-.275.319-.622.579-1.017.76-.117.053-.24.096-.365.127-.118.03-.239.052-.362.065-.036.004-.072.007-.109.007-.211 0-.419-.059-.599-.17-.16-.1-.294-.241-.389-.408-.104-.182-.157-.394-.157-.609 0-.162.033-.322.098-.474.097-.226.262-.415.464-.538.093-.056.198-.095.308-.113.056-.009.113-.014.17-.014.143 0 .283.032.413.093.123.058.234.14.327.24.098.103.174.227.221.368.037.114.055.233.055.353 0 .118-.016.235-.048.347-.067.238-.215.437-.425.567-.105.065-.225.11-.35.127-.036.005-.072.008-.108.008-.172 0-.339-.068-.462-.188-.135-.131-.212-.31-.212-.497 0-.14.039-.275.113-.389.09-.14.222-.246.376-.302.055-.02.112-.03.17-.03.13 0 .255.045.353.127.087.072.155.165.196.27.028.071.042.146.042.222 0 .106-.029.209-.084.298-.071.114-.185.196-.317.228-.022.005-.044.007-.067.007-.092 0-.182-.027-.256-.077a.366.366 0 01-.136-.192z"/>
+                                  </svg>
+                                  <Input 
+                                    {...field} 
+                                    placeholder="Enter your profile name"
+                                    data-testid="input-snapchat"
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={aboutContactForm.control}
+                          name="socialWebsite"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Website</FormLabel>
+                              <FormControl>
+                                <div className="flex items-center gap-2">
+                                  <Globe className="h-4 w-4 text-muted-foreground" />
+                                  <Input 
+                                    {...field} 
+                                    placeholder="Enter your website"
+                                    data-testid="input-website"
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          onClick={() => aboutContactForm.reset()}
+                          data-testid="button-discard-changes"
+                        >
+                          Discard changes
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          disabled={updateAboutContactMutation.isPending}
+                          data-testid="button-save-about-contact"
+                        >
+                          {updateAboutContactMutation.isPending ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
             </div>
