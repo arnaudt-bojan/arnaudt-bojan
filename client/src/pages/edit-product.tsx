@@ -49,7 +49,7 @@ export default function EditProduct() {
   });
 
 
-  // Update form when product data loads (only run once when product ID changes)
+  // Update form when product data loads (run when product.id changes, which means new product loaded)
   useEffect(() => {
     if (product) {
       form.reset({
@@ -153,7 +153,7 @@ export default function EditProduct() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Only re-run when product ID changes, not when product object reference changes
+  }, [product?.id]); // Run when product.id changes (new product loaded), not when product object reference changes
 
   const updateMutation = useMutation({
     mutationFn: async (data: FrontendProduct) => {
