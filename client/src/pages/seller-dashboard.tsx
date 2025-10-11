@@ -24,13 +24,11 @@ import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dia
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getStoreUrl } from "@/lib/store-url";
+import { getCurrencySymbol, formatPrice } from "@/lib/currency-utils";
 
 // Format price in seller's currency (no conversion, just display)
 const formatDashboardPrice = (price: number, currency: string = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(price);
+  return formatPrice(price, currency);
 };
 
 export default function SellerDashboard() {
@@ -434,7 +432,9 @@ export default function SellerDashboard() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-muted-foreground">Total Revenue</span>
-              <DollarSign className="h-5 w-5 text-muted-foreground" />
+              <span className="text-xl font-bold text-muted-foreground" data-testid="text-currency-symbol">
+                {getCurrencySymbol(sellerCurrency)}
+              </span>
             </div>
             <div className="text-2xl font-bold" data-testid="text-total-revenue">
               {formatDashboardPrice(totalRevenue, sellerCurrency)}
@@ -464,7 +464,9 @@ export default function SellerDashboard() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-muted-foreground">Avg Order Value</span>
-              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+              <span className="text-xl font-bold text-muted-foreground">
+                {getCurrencySymbol(sellerCurrency)}
+              </span>
             </div>
             <div className="text-2xl font-bold" data-testid="text-avg-order">
               {formatDashboardPrice(totalOrders > 0 ? (totalRevenue / totalOrders) : 0, sellerCurrency)}
