@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useCart } from "@/lib/cart-context";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 interface CartSheetProps {
   open: boolean;
@@ -14,11 +15,24 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
   const { items, updateQuantity, removeItem, total, itemsCount } = useCart();
   const { formatPrice } = useCurrency();
   const [, setLocation] = useLocation();
+  
+  // Get seller ID from cart items (all items are from same seller)
+  const sellerId = items.length > 0 ? items[0].sellerId : null;
+  
+  // Fetch seller's tax settings
+  const { data: seller } = useQuery<any>({
+    queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
+    enabled: !!sellerId && open,
+  });
 
   const handleCheckout = () => {
     onClose();
     setLocation("/checkout");
   };
+  
+  // Calculate tax estimate (8% default rate if tax is enabled)
+  const taxEstimate = seller?.taxEnabled ? total * 0.08 : 0;
+  const estimatedTotal = total + taxEstimate;
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -119,10 +133,35 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
             </div>
 
             <div className="border-t pt-4 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Total</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Subtotal</span>
+                  <span className="font-semibold" data-testid="text-cart-subtotal">
+                    {formatPrice(total)}
+                  </span>
+                </div>
+                {seller?.taxEnabled ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Estimated Tax</span>
+                      <span className="font-semibold" data-testid="text-cart-tax-estimate">
+                        {formatPrice(taxEstimate)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground" data-testid="text-tax-notice">
+                      Actual tax calculated at checkout based on shipping address
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-muted-foreground" data-testid="text-tax-notice">
+                    Tax calculated at checkout
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t">
+                <span className="text-lg font-semibold">Estimated Total</span>
                 <span className="text-2xl font-bold" data-testid="text-cart-total">
-                  {formatPrice(total)}
+                  {formatPrice(estimatedTotal)}
                 </span>
               </div>
               <Button
