@@ -209,7 +209,9 @@ export default function SellerDashboard() {
                   // Open actual storefront URL - same as share link
                   // When owner visits, edit buttons will show. When buyers visit, they won't.
                   const storeUrl = getStoreUrl(user?.username);
-                  window.open(storeUrl, '_blank');
+                  if (storeUrl) {
+                    window.open(storeUrl, '_blank');
+                  }
                 }}
                 data-testid="button-preview-store"
                 className="flex-1 md:flex-none"

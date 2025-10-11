@@ -2244,6 +2244,7 @@ export default function Settings() {
                       onClick={() => {
                         if (!user?.username) return;
                         const url = getStoreUrl(user.username);
+                        if (!url) return;
                         navigator.clipboard.writeText(url);
                         setCopiedUsername(true);
                         setTimeout(() => setCopiedUsername(false), 2000);

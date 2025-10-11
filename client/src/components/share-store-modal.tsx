@@ -18,9 +18,10 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  const storeUrl = getStoreUrl(user?.username);
+  const storeUrl = getStoreUrl(user?.username) || '';
 
   const copyToClipboard = async () => {
+    if (!storeUrl) return;
     try {
       await navigator.clipboard.writeText(storeUrl);
       setCopied(true);
@@ -39,6 +40,7 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
   };
 
   const shareToSocial = (platform: string) => {
+    if (!storeUrl) return;
     const text = `Check out my store at ${storeUrl}`;
     const encodedUrl = encodeURIComponent(storeUrl);
     const encodedText = encodeURIComponent(text);

@@ -1,13 +1,20 @@
 # Upfirst - E-Commerce Platform
 
 ## Overview
-Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront (accessible via `/s/username`) with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
+Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront accessible via subdomain in production (`username.upfirst.io`) or path-based routing in dev (`/s/username`), with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes (Oct 11, 2025)
+- **Subdomain Architecture Implementation**: Implemented production-ready subdomain routing for seller storefronts
+  - Production: Sellers accessible at `username.upfirst.io` (root path `/` shows storefront)
+  - Dev/Replit: Sellers accessible at `/s/username` for local testing
+  - Smart navigation: Uses Wouter `<Link>` for same-origin SPA navigation, `<a>` tags for cross-origin subdomain navigation
+  - Environment-aware `getStoreUrl()` function returns relative paths in dev, absolute subdomain URLs in production
+  - Conditional routing in App.tsx based on domain detection: seller subdomains serve storefront routes, main domain serves admin routes
+  - All share links, preview buttons, and logo navigation properly handle environment-specific URLs
 - **D2C Architecture Enforcement**: Removed all cross-seller discovery features to enforce strict D2C model (like Big Cartel)
   - Removed global `/products` page that showed all sellers' products
   - Removed "Products" navigation link that led to cross-seller browsing
-  - Logo on storefronts now navigates to current seller's store (`/s/username`) instead of main landing page
+  - Logo on storefronts navigates to current seller's store using environment-aware URLs
   - Cart visibility limited to seller storefronts and checkout only
 - **ReturnUrl Preservation**: Fixed email auth flow to preserve returnUrl through login, ensuring users return to the page they were viewing (e.g., storefronts) instead of being redirected to dashboard
 - **Storefront Branding**: Removed UPPFIRST logo from storefronts; now displays store logo > Instagram username > seller name (firstName + lastName or username) as fallback
@@ -43,7 +50,13 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Item-Level Order Tracking**: Comprehensive per-item fulfillment system with independent status, tracking, and automated buyer notifications.
 - **Document Generation System**: Professional PDF invoice and packing slip generation (B2C and wholesale templates).
 - **Saved Addresses & Payment Methods**: PCI-DSS compliant system for securely saving shipping addresses and payment methods using Stripe Payment Methods API.
-- **Domain Detection System**: Intelligent domain routing for storefronts via `/s/:username` or `?seller=username`.
+- **Subdomain Architecture**: Environment-aware routing system for seller storefronts
+  - Production: `username.upfirst.io` serves storefront at root path `/`
+  - Dev/Replit: `/s/username` serves storefront for local testing
+  - Smart navigation: Conditional use of Wouter `<Link>` (same-origin SPA) vs `<a>` tags (cross-origin subdomain)
+  - `getStoreUrl(username)` utility: Returns relative paths in dev, absolute subdomain URLs in production
+  - Domain detection in App.tsx: Renders different route sets based on hostname (seller subdomain vs main domain)
+  - All navigation, sharing, and preview features respect environment-specific URL patterns
 - **Tax System (B2C)**: Automated sales tax calculation via Stripe Tax for B2C transactions, including real-time cart estimates.
 - **Pricing Service & Fail-Safe System**: Centralized pricing calculations (`shared/pricing-service.ts`) for consistency and security across cart, checkout, and payment processing.
 - **Team Management**: Role-based access (owner, admin, editor, viewer) with invitation-based team expansion and granular permissions.
