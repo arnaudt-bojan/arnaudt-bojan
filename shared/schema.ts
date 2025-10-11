@@ -1365,6 +1365,13 @@ export const insertSellerHomepageSchema = createInsertSchema(sellerHomepages).om
 export type InsertSellerHomepage = z.infer<typeof insertSellerHomepageSchema>;
 export type SellerHomepage = typeof sellerHomepages.$inferSelect;
 
+// Safe update schema - ONLY allows updating draft fields, NOT status or published snapshots
+export const updateSellerHomepageSchema = insertSellerHomepageSchema.omit({
+  sellerId: true, // Cannot change seller
+  status: true,   // Cannot change status directly (use publish/unpublish routes)
+}).partial(); // All fields optional for partial updates
+export type UpdateSellerHomepage = z.infer<typeof updateSellerHomepageSchema>;
+
 // Homepage CTA Options - Predefined CTAs
 export const homepageCtaOptions = pgTable("homepage_cta_options", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

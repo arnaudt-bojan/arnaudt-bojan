@@ -6228,6 +6228,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // HOMEPAGE BUILDER ROUTES
+  // ============================================================================
+
+  // Get seller homepage (for editing)
+  app.get("/api/homepage", isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user!.id;
+      const homepage = await storage.getHomepageBySellerId(sellerId);
+      
+      if (!homepage) {
+        return res.status(404).json({ error: "Homepage not found" });
+      }
+
+      res.json(homepage);
+    } catch (error) {
+      logger.error("Get homepage error", error);
+      res.status(500).json({ error: "Failed to get homepage" });
+    }
+  });
+
+  // Create seller homepage
+  app.post("/api/homepage", isAuthenticated, async (req: any, res) => {
+    try {
+      const sellerId = req.user!.id;
+
+      // Check if homepage already exists
+      const existing = await storage.getHomepageBySellerId(sellerId);
+      if (existing) {
+        return res.status(400).json({ error: "Homepage already exists" });
+      }
+
+      // Validate request body
+      const { insertSellerHomepageSchema } = await import("@shared/schema");
+      const validationResult = insertSellerHomepageSchema.safeParse({
+        ...req.body,
+        sellerId,
+        status: "draft" // Force draft status on creation
+      });
+
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid homepage data", 
+          details: validationResult.error.errors 
+        });
+      }
+
+      const homepage = await storage.createHomepage(validationResult.data);
+      res.json(homepage);
+    } catch (error) {
+      logger.error("Create homepage error", error);
+      res.status(500).json({ error: "Failed to create homepage" });
+    }
+  });
+
+  // Update seller homepage
+  app.put("/api/homepage/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const sellerId = req.user!.id;
+
+      // Verify ownership
+      const existing = await storage.getHomepageBySellerId(sellerId);
+      if (!existing || existing.id !== id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // SECURITY: Use safe update schema that excludes status and published fields
+      const { updateSellerHomepageSchema } = await import("@shared/schema");
+      const validationResult = updateSellerHomepageSchema.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid update data", 
+          details: validationResult.error.errors 
+        });
+      }
+
+      // Only allow updates if homepage is in draft or unpublished state
+      if (existing.status === 'published') {
+        return res.status(400).json({ 
+          error: "Cannot update published homepage. Unpublish it first to make changes." 
+        });
+      }
+
+      const homepage = await storage.updateHomepage(id, validationResult.data);
+      res.json(homepage);
+    } catch (error) {
+      logger.error("Update homepage error", error);
+      res.status(500).json({ error: "Failed to update homepage" });
+    }
+  });
+
+  // Publish homepage
+  app.post("/api/homepage/:id/publish", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const sellerId = req.user!.id;
+
+      // Verify ownership
+      const existing = await storage.getHomepageBySellerId(sellerId);
+      if (!existing || existing.id !== id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const homepage = await storage.publishHomepage(id);
+      res.json(homepage);
+    } catch (error) {
+      logger.error("Publish homepage error", error);
+      res.status(500).json({ error: "Failed to publish homepage" });
+    }
+  });
+
+  // Unpublish homepage
+  app.post("/api/homepage/:id/unpublish", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const sellerId = req.user!.id;
+
+      // Verify ownership
+      const existing = await storage.getHomepageBySellerId(sellerId);
+      if (!existing || existing.id !== id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const homepage = await storage.unpublishHomepage(id);
+      res.json(homepage);
+    } catch (error) {
+      logger.error("Unpublish homepage error", error);
+      res.status(500).json({ error: "Failed to unpublish homepage" });
+    }
+  });
+
+  // Get published homepage by username (public)
+  app.get("/api/homepage/public/:username", async (req, res) => {
+    try {
+      const { username } = req.params;
+      
+      // Find seller by username
+      const seller = await storage.getUserByUsername(username);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      const homepage = await storage.getHomepageBySellerId(seller.id);
+      
+      if (!homepage || homepage.status !== 'published') {
+        return res.status(404).json({ error: "Homepage not found or not published" });
+      }
+
+      // Return only published config
+      res.json({
+        id: homepage.id,
+        templateKey: homepage.templateKey,
+        desktopConfig: homepage.publishedDesktopConfig,
+        mobileConfig: homepage.publishedMobileConfig,
+        heroMediaId: homepage.heroMediaId,
+        heroMediaType: homepage.heroMediaType,
+        headline: homepage.headline,
+        bodyCopy: homepage.bodyCopy,
+        selectedCtaId: homepage.selectedCtaId,
+        musicTrackId: homepage.musicTrackId,
+        musicEnabled: homepage.musicEnabled,
+        lastPublishedAt: homepage.lastPublishedAt
+      });
+    } catch (error) {
+      logger.error("Get public homepage error", error);
+      res.status(500).json({ error: "Failed to get homepage" });
+    }
+  });
+
+  // Get all CTA options
+  app.get("/api/homepage/cta-options", async (req, res) => {
+    try {
+      const options = await storage.getAllCtaOptions();
+      res.json(options);
+    } catch (error) {
+      logger.error("Get CTA options error", error);
+      res.status(500).json({ error: "Failed to get CTA options" });
+    }
+  });
+
+  // Get homepage media assets
+  app.get("/api/homepage/:id/media", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const sellerId = req.user!.id;
+
+      // Verify ownership
+      const homepage = await storage.getHomepageBySellerId(sellerId);
+      if (!homepage || homepage.id !== id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const media = await storage.getHomepageMedia(id);
+      res.json(media);
+    } catch (error) {
+      logger.error("Get homepage media error", error);
+      res.status(500).json({ error: "Failed to get media" });
+    }
+  });
+
+  // Upload homepage media
+  app.post("/api/homepage/:id/media", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const sellerId = req.user!.id;
+
+      // Verify ownership
+      const homepage = await storage.getHomepageBySellerId(sellerId);
+      if (!homepage || homepage.id !== id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Validate media data
+      const { insertHomepageMediaAssetSchema } = await import("@shared/schema");
+      const validationResult = insertHomepageMediaAssetSchema.safeParse({
+        ...req.body,
+        homepageId: id
+      });
+
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid media data", 
+          details: validationResult.error.errors 
+        });
+      }
+
+      const media = await storage.createHomepageMedia(validationResult.data);
+      res.json(media);
+    } catch (error) {
+      logger.error("Upload homepage media error", error);
+      res.status(500).json({ error: "Failed to upload media" });
+    }
+  });
+
+  // Delete homepage media
+  app.delete("/api/homepage/media/:mediaId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { mediaId } = req.params;
+      const sellerId = req.user!.id;
+
+      // Verify ownership through homepage
+      const media = await storage.db
+        .select()
+        .from(require("@shared/schema").homepageMediaAssets)
+        .where(require("drizzle-orm").eq(require("@shared/schema").homepageMediaAssets.id, mediaId))
+        .limit(1);
+
+      if (!media[0]) {
+        return res.status(404).json({ error: "Media not found" });
+      }
+
+      const homepage = await storage.getHomepageBySellerId(sellerId);
+      if (!homepage || homepage.id !== media[0].homepageId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      await storage.deleteHomepageMedia(mediaId);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("Delete homepage media error", error);
+      res.status(500).json({ error: "Failed to delete media" });
+    }
+  });
+
+  // Search music tracks
+  app.get("/api/music/search", async (req, res) => {
+    try {
+      const { query, genre } = req.query;
+      const tracks = await storage.searchMusicTracks(
+        query as string || "", 
+        genre as string | undefined
+      );
+      res.json(tracks);
+    } catch (error) {
+      logger.error("Music search error", error);
+      res.status(500).json({ error: "Failed to search music" });
+    }
+  });
+
+  // Get music track by ID
+  app.get("/api/music/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const track = await storage.getMusicTrack(id);
+      
+      if (!track) {
+        return res.status(404).json({ error: "Track not found" });
+      }
+
+      res.json(track);
+    } catch (error) {
+      logger.error("Get music track error", error);
+      res.status(500).json({ error: "Failed to get track" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
