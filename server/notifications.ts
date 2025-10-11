@@ -8,31 +8,12 @@ import {
   createEmailButton, 
   createAlertBox, 
   createOrderItemsTable, 
-  createContentSection 
+  createContentSection,
+  formatPrice
 } from './email-template';
-
-// Check if RESEND_API_KEY is configured
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Upfirst <hello@upfirst.io>';
-
-if (!RESEND_API_KEY) {
-  const errorMsg = '\n❌ CRITICAL: RESEND_API_KEY environment variable is NOT SET!';
-  process.stderr.write(errorMsg + '\n');
-  process.stderr.write('Emails will NOT be sent. Please configure RESEND_API_KEY in your environment.\n');
-  process.stderr.write('For development: Add to .env file\n');
-  process.stderr.write('For production/deployment: Add to deployment secrets\n');
-  process.stderr.write('After adding secrets, you MUST redeploy for changes to take effect.\n\n');
-  console.error(errorMsg);
-} else {
-  const successMsg = '✅ Resend API key is configured';
-  process.stdout.write(successMsg + '\n');
-  process.stdout.write(`📧 FROM_EMAIL: ${FROM_EMAIL}\n\n`);
-  console.log(successMsg);
-  logger.info(`📧 FROM_EMAIL: ${FROM_EMAIL}\n`);
-}
-
-// Initialize Resend client - use dummy key if not configured to prevent initialization errors
-const resend = new Resend(RESEND_API_KEY || 'dummy-key-not-configured');
+import { EmailConfigService } from './services/email-config.service';
+import { IEmailProvider, ResendEmailProvider } from './services/email-provider.service';
+import { NotificationMessagesService } from './services/notification-messages.service';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -106,10 +87,26 @@ interface SendEmailParams {
 class NotificationServiceImpl implements NotificationService {
   private storage: any; // Will be injected
   private pdfService: PDFService;
+  private emailConfig: EmailConfigService;
+  private emailProvider: IEmailProvider;
+  private messages: NotificationMessagesService;
 
-  constructor(storage: any, pdfService: PDFService) {
+  constructor(
+    storage: any, 
+    pdfService: PDFService,
+    emailConfig?: EmailConfigService,
+    emailProvider?: IEmailProvider,
+    messages?: NotificationMessagesService
+  ) {
     this.storage = storage;
     this.pdfService = pdfService;
+    
+    // Use injected services or create defaults (for backward compatibility)
+    this.emailConfig = emailConfig || new EmailConfigService();
+    this.emailProvider = emailProvider || new ResendEmailProvider(
+      process.env.RESEND_API_KEY || 'dummy-key-not-configured'
+    );
+    this.messages = messages || new NotificationMessagesService();
   }
 
   /**
@@ -166,97 +163,46 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send email using Resend (with development fallback)
+   * Send email using email provider (with development fallback)
    */
   async sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }> {
     try {
-      // CRITICAL: Check if Resend API key is configured
-      if (!RESEND_API_KEY || RESEND_API_KEY === 'dummy-key-not-configured') {
-        logger.error("[Notifications] ❌ Cannot send email - RESEND_API_KEY is not configured");
-        console.error('[Notifications] Email details:', {
-          to: params.to,
-          subject: params.subject,
-          from: params.from || FROM_EMAIL
-        });
-        
-        // Extract verification code if it's an auth email
+      // Use email config service for from address
+      const fromEmail = params.from || this.emailConfig.getFromEmail();
+      
+      // Map attachments to provider format
+      const attachments = params.attachments?.map(att => ({
+        filename: att.filename,
+        content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
+        contentType: att.contentType,
+      }));
+
+      // Send via provider abstraction
+      const result = await this.emailProvider.send({
+        to: params.to,
+        from: fromEmail,
+        replyTo: params.replyTo,
+        subject: params.subject,
+        html: params.html,
+        attachments,
+      });
+
+      if (!result.success) {
+        // Extract verification code if it's an auth email (for fallback logging)
         const codeMatch = params.html.match(/\b\d{6}\b/);
         if (codeMatch) {
           logger.info("\n═══════════════════════════════════════════════════════");
-          logger.info("🔑 VERIFICATION CODE FALLBACK (API Key Not Configured)");
+          logger.info("🔑 VERIFICATION CODE FALLBACK");
           logger.info("═══════════════════════════════════════════════════════");
           logger.info(`To: ${params.to}`);
           logger.info(`Code: ${codeMatch[0]}`);
           logger.info("═══════════════════════════════════════════════════════\n");
         }
         
-        return { 
-          success: false, 
-          error: 'RESEND_API_KEY not configured. Please add to deployment secrets and redeploy.' 
-        };
+        return { success: false, error: result.error };
       }
 
-      const emailPayload: any = {
-        from: params.from || FROM_EMAIL,
-        to: params.to,
-        replyTo: params.replyTo,
-        subject: params.subject,
-        html: params.html,
-      };
-
-      // Add attachments if provided
-      if (params.attachments && params.attachments.length > 0) {
-        emailPayload.attachments = params.attachments.map(att => ({
-          filename: att.filename,
-          content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
-          ...(att.contentType && { content_type: att.contentType }),
-        }));
-      }
-
-      // Log email attempt for debugging
-      console.log(`[Notifications] Attempting to send email via Resend:`, {
-        to: params.to,
-        from: emailPayload.from,
-        subject: params.subject,
-        env: process.env.NODE_ENV
-      });
-
-      const result = await resend.emails.send(emailPayload);
-
-      if (result.error) {
-        const errorMsg = result.error.message || '';
-        const statusCode = (result.error as any).statusCode;
-        const isDomainError = errorMsg.includes('not verified') || errorMsg.includes('domain') || statusCode === 403;
-        
-        // CRITICAL: Log the actual Resend error prominently
-        logger.error("\n❌❌❌ RESEND API ERROR ❌❌❌");
-        console.error('Error:', result.error);
-        console.error('Status Code:', statusCode);
-        console.error('Message:', errorMsg);
-        console.error('From Email:', emailPayload.from);
-        console.error('To Email:', params.to);
-        
-        if (isDomainError) {
-          logger.error("\n🚨 DOMAIN VERIFICATION REQUIRED 🚨");
-          logger.error("The domain in FROM_EMAIL is not verified in Resend.");
-          console.error('Go to https://resend.com/domains and verify:', FROM_EMAIL);
-          console.error('Current FROM_EMAIL:', FROM_EMAIL);
-          
-          // Extract verification code if it's an auth email
-          const codeMatch = params.html.match(/\b\d{6}\b/);
-          if (codeMatch) {
-            console.error('\n🔑 FALLBACK VERIFICATION CODE:', codeMatch[0]);
-            logger.error("Email could not be sent. Use this code manually.");
-          }
-          logger.error("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
-        }
-        
-        // ALWAYS return actual failure status - don't lie to the caller
-        return { success: false, error: result.error.message };
-      }
-
-      logger.info(`[Notifications] ✅ Email sent successfully via Resend. ID: ${result.data?.id}`);
-      return { success: true, emailId: result.data?.id };
+      return { success: true, emailId: result.messageId };
     } catch (error: any) {
       logger.error("[Notifications] Email send exception:", error);
       return { success: false, error: error.message };
@@ -580,15 +526,15 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean> {
     try {
+      const template = this.messages.authCode(code);
       logger.info(`[Notifications] Attempting to send auth code to ${email}`);
-      logger.info(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
       logger.info(`[Notifications] Environment: ${process.env.NODE_ENV}`);
       
       const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
 
       const result = await this.sendEmail({
         to: email,
-        subject: `Your Upfirst Login Code: ${code}`,
+        subject: template.emailSubject,
         html: emailHtml,
       });
 
@@ -617,15 +563,15 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendMagicLink(email: string, link: string): Promise<boolean> {
     try {
+      const template = this.messages.magicLink();
       logger.info(`[Notifications] Attempting to send magic link to ${email}`);
-      logger.info(`[Notifications] FROM_EMAIL configured as: ${FROM_EMAIL}`);
       logger.info(`[Notifications] Environment: ${process.env.NODE_ENV}`);
       
       const emailHtml = this.generateMagicLinkEmail(link);
 
       const result = await this.sendEmail({
         to: email,
-        subject: 'Sign in to Upfirst',
+        subject: template.emailSubject,
         html: emailHtml,
       });
 
@@ -746,7 +692,7 @@ class NotificationServiceImpl implements NotificationService {
       </p>
 
       <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
-        If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
+        If you have any questions about your order, please reply to this email or contact us at ${seller.email || this.emailConfig.getSupportEmail()}.
       </p>
     `;
 
@@ -814,7 +760,7 @@ class NotificationServiceImpl implements NotificationService {
               <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
+                Questions? Reply to this email or contact us at ${seller.email || this.emailConfig.getSupportEmail()}.
               </p>
             </div>
 
@@ -895,7 +841,7 @@ class NotificationServiceImpl implements NotificationService {
               <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
+                Questions? Reply to this email or contact us at ${seller.email || this.emailConfig.getSupportEmail()}.
               </p>
             </div>
 
@@ -1294,7 +1240,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: `Welcome to Upfirst, ${seller.firstName || 'Seller'}!`,
       html: emailHtml,
     });
@@ -1323,7 +1269,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: 'Complete Your Stripe Setup to Start Accepting Payments',
       html: emailHtml,
     });
@@ -1352,7 +1298,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: `Payment Failed for Order #${orderId.slice(0, 8)}`,
       html: emailHtml,
     });
@@ -1381,7 +1327,7 @@ class NotificationServiceImpl implements NotificationService {
     await this.sendEmail({
       to: buyerEmail,
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: 'Payment Failed - Please Try Again',
       html: emailHtml,
     });
@@ -1398,7 +1344,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: 'Your Upfirst Subscription Payment Failed',
       html: emailHtml,
     });
@@ -1427,7 +1373,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: `Product Out of Stock: ${product.name}`,
       html: emailHtml,
     });
@@ -1456,7 +1402,7 @@ class NotificationServiceImpl implements NotificationService {
     const result = await this.sendEmail({
       to: seller.email || '',
       from: FROM_EMAIL,
-      replyTo: 'support@upfirst.io',
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: 'Payout Failed - Action Required',
       html: emailHtml,
     });
@@ -1646,7 +1592,7 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <p style="color: #666; font-size: 14px;">
-              Need help? Our support team is here: support@upfirst.io
+              Need help? Our support team is here: ${this.emailConfig.getSupportEmail()}
             </p>
 
             <div class="footer">
@@ -1743,7 +1689,7 @@ class NotificationServiceImpl implements NotificationService {
             ` : ''}
 
             <p style="color: #666; font-size: 14px;">
-              Need help? Contact support@upfirst.io
+              Need help? Contact ${this.emailConfig.getSupportEmail()}
             </p>
 
             <div class="footer">
@@ -1793,7 +1739,7 @@ class NotificationServiceImpl implements NotificationService {
             </a>
 
             <div class="footer">
-              <p>Questions? Contact support@upfirst.io</p>
+              <p>Questions? Contact ${this.emailConfig.getSupportEmail()}</p>
               <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
@@ -1901,7 +1847,7 @@ class NotificationServiceImpl implements NotificationService {
             </p>
 
             <div class="footer">
-              <p>Need help? Contact support@upfirst.io</p>
+              <p>Need help? Contact ${this.emailConfig.getSupportEmail()}</p>
               <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
             </div>
           </div>
@@ -2153,7 +2099,7 @@ class NotificationServiceImpl implements NotificationService {
               </ol>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact ${seller.email || 'support@upfirst.io'}
+                Questions? Reply to this email or contact ${seller.email || this.emailConfig.getSupportEmail()}
               </p>
             </div>
 
@@ -2257,7 +2203,7 @@ class NotificationServiceImpl implements NotificationService {
               </ul>
 
               <p style="margin-top: 30px; color: #666;">
-                Questions about your subscription or billing? Contact us at support@upfirst.io
+                Questions about your subscription or billing? Contact us at ${this.emailConfig.getSupportEmail()}
               </p>
             </div>
 
