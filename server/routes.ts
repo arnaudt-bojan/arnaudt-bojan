@@ -270,13 +270,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/seller/:sellerId", async (req, res) => {
     try {
       const { sellerId } = req.params;
+      
+      // Get seller's currency
+      const seller = await storage.getUser(sellerId);
+      const currency = seller?.listingCurrency || 'USD';
+      
       const allProducts = await storage.getAllProducts();
       // Filter to only show active and coming-soon products for public storefronts
       const sellerProducts = allProducts.filter(p => 
         p.sellerId === sellerId && 
         (p.status === "active" || p.status === "coming-soon")
       );
-      res.json(sellerProducts);
+      
+      // Add currency to each product
+      const productsWithCurrency = sellerProducts.map(p => ({
+        ...p,
+        currency,
+      }));
+      
+      res.json(productsWithCurrency);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch seller products" });
     }
@@ -298,7 +310,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Product not found" });
       }
       
-      res.json(product);
+      // Get seller's currency to include in response
+      const seller = await storage.getUser(product.sellerId);
+      const currency = seller?.listingCurrency || 'USD';
+      
+      res.json({
+        ...product,
+        currency, // Include seller's currency as single source of truth
+      });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch product" });
     }
@@ -1935,6 +1954,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       logger.error("Failed to retrieve tax data", error);
       res.status(500).json({ error: "Failed to retrieve tax data" });
+    }
+  });
+
+  // **PRICING API - Single Source of Truth**
+  // Calculate all pricing in seller's currency: subtotal, shipping, tax, total
+  app.post("/api/pricing/calculate", async (req, res) => {
+    try {
+      const { sellerId, items, shippingAddress } = req.body;
+      
+      logger.info(`[Pricing API] Calculating pricing for seller ${sellerId}`, {
+        itemCount: items?.length,
+        hasShippingAddress: !!shippingAddress
+      });
+
+      // Validate input
+      if (!sellerId || !items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "sellerId and items array are required" });
+      }
+
+      // Get seller to retrieve currency and shipping settings
+      const seller = await storage.getUser(sellerId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // Get seller's currency (single source of truth)
+      const currency = seller.listingCurrency || 'USD';
+      logger.info(`[Pricing API] Using seller's currency: ${currency}`);
+
+      // Calculate subtotal in seller's currency
+      let subtotal = 0;
+      const itemDetails = [];
+
+      for (const item of items) {
+        const product = await storage.getProduct(item.productId);
+        if (!product) {
+          return res.status(404).json({ error: `Product ${item.productId} not found` });
+        }
+
+        const itemPrice = parseFloat(product.price);
+        const itemTotal = itemPrice * item.quantity;
+        subtotal += itemTotal;
+
+        itemDetails.push({
+          productId: item.productId,
+          name: product.name,
+          price: itemPrice,
+          quantity: item.quantity,
+          total: itemTotal,
+          productType: product.productType,
+          depositAmount: product.depositAmount ? parseFloat(product.depositAmount) : null,
+        });
+      }
+
+      // Calculate shipping cost in seller's currency
+      const shippingCost = seller.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
+
+      // Calculate tax if shipping address provided
+      let taxAmount = 0;
+      let taxCalculationId = null;
+
+      if (shippingAddress && seller.taxEnabled && stripe) {
+        try {
+          // Create line items for Stripe Tax
+          const lineItems = itemDetails.map(item => ({
+            amount: Math.round(item.total * 100), // Convert to cents
+            reference: item.productId,
+            tax_code: seller.taxProductCode || 'txcd_99999999', // General merchandise
+          }));
+
+          // Add shipping as taxable line item
+          if (shippingCost > 0) {
+            lineItems.push({
+              amount: Math.round(shippingCost * 100),
+              reference: 'shipping',
+              tax_code: 'txcd_92010001', // Shipping tax code
+            });
+          }
+
+          const taxCalculation = await stripe.tax.calculations.create({
+            currency: currency.toLowerCase(),
+            line_items: lineItems,
+            customer_details: {
+              address: {
+                line1: shippingAddress.line1,
+                line2: shippingAddress.line2 || undefined,
+                city: shippingAddress.city,
+                state: shippingAddress.state || undefined,
+                postal_code: shippingAddress.postalCode,
+                country: shippingAddress.country,
+              },
+              address_source: 'shipping',
+            },
+            expand: ['line_items.data.tax_breakdown'],
+          });
+
+          taxAmount = taxCalculation.tax_amount_exclusive / 100; // Convert from cents
+          taxCalculationId = taxCalculation.id;
+
+          logger.info(`[Pricing API] Tax calculated via Stripe Tax: ${currency} ${taxAmount}`, {
+            calculationId: taxCalculationId,
+            taxBreakdown: taxCalculation.tax_breakdown
+          });
+        } catch (taxError: any) {
+          logger.error(`[Pricing API] Failed to calculate tax:`, taxError);
+          // Continue without tax if calculation fails
+        }
+      }
+
+      // Calculate totals
+      const subtotalWithShipping = subtotal + shippingCost;
+      const total = subtotalWithShipping + taxAmount;
+
+      const pricingBreakdown = {
+        currency,
+        subtotal,
+        shippingCost,
+        subtotalWithShipping,
+        taxAmount,
+        taxCalculationId,
+        total,
+        items: itemDetails,
+      };
+
+      logger.info(`[Pricing API] Pricing calculated successfully`, {
+        currency,
+        subtotal,
+        shippingCost,
+        taxAmount,
+        total
+      });
+
+      res.json(pricingBreakdown);
+    } catch (error: any) {
+      logger.error("[Pricing API] Error calculating pricing:", error);
+      res.status(500).json({ error: "Failed to calculate pricing" });
     }
   });
 
