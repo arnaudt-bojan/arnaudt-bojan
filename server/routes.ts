@@ -2609,12 +2609,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid contact email format" });
       }
 
-      // Validate socialWebsite if provided
+      // Validate socialWebsite if provided (accepts both bare domains and full URLs)
       if (socialWebsite && socialWebsite !== "") {
-        try {
-          new URL(socialWebsite);
-        } catch {
-          return res.status(400).json({ error: "Invalid website URL format" });
+        // If it already has protocol, validate as URL
+        if (socialWebsite.startsWith('http://') || socialWebsite.startsWith('https://')) {
+          try {
+            new URL(socialWebsite);
+          } catch {
+            return res.status(400).json({ error: "Invalid website URL format" });
+          }
+        } else {
+          // If it's a bare domain, prepend https:// and validate
+          try {
+            new URL(`https://${socialWebsite}`);
+          } catch {
+            return res.status(400).json({ error: "Invalid website domain format" });
+          }
         }
       }
 

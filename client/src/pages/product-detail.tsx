@@ -24,6 +24,7 @@ import type { ColorVariant } from "@/components/product-variant-manager";
 import { StoreUnavailable } from "@/components/store-unavailable";
 import { useAuth } from "@/hooks/useAuth";
 import { detectDomain } from "@/lib/domain-utils";
+import { Footer } from "@/components/footer";
 
 interface Category {
   id: string;
@@ -514,6 +515,9 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Footer with seller social links */}
+      <Footer sellerInfo={sellerInfo} />
     </div>
   );
 }

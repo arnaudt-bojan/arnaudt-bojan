@@ -62,7 +62,26 @@ const aboutContactSchema = z.object({
   socialTwitter: z.string().optional().or(z.literal("")),
   socialTiktok: z.string().optional().or(z.literal("")),
   socialSnapchat: z.string().optional().or(z.literal("")),
-  socialWebsite: z.string().url("Invalid URL").optional().or(z.literal("")),
+  socialWebsite: z.string().optional().or(z.literal("")).refine((val) => {
+    // Empty string is valid
+    if (!val) return true;
+    // If it already has protocol, validate as URL
+    if (val.startsWith('http://') || val.startsWith('https://')) {
+      try {
+        new URL(val);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    // If it's a bare domain, prepend https:// and validate
+    try {
+      new URL(`https://${val}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }, { message: "Invalid URL or domain" }),
 });
 
 const usernameSchema = z.object({
@@ -2682,11 +2701,12 @@ export default function Settings() {
                                   <SiInstagram className="h-4 w-4 text-muted-foreground" />
                                   <Input 
                                     {...field} 
-                                    placeholder="Enter your profile name"
+                                    placeholder="username or full URL"
                                     data-testid="input-instagram"
                                   />
                                 </div>
                               </FormControl>
+                              <FormDescription>Enter your Instagram username or profile URL</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -2705,11 +2725,12 @@ export default function Settings() {
                                   </svg>
                                   <Input 
                                     {...field} 
-                                    placeholder="Enter your profile name"
+                                    placeholder="username or full URL"
                                     data-testid="input-twitter"
                                   />
                                 </div>
                               </FormControl>
+                              <FormDescription>Enter your Twitter username or profile URL</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -2728,11 +2749,12 @@ export default function Settings() {
                                   </svg>
                                   <Input 
                                     {...field} 
-                                    placeholder="Enter your profile name"
+                                    placeholder="username or full URL"
                                     data-testid="input-tiktok"
                                   />
                                 </div>
                               </FormControl>
+                              <FormDescription>Enter your TikTok username or profile URL</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -2751,11 +2773,12 @@ export default function Settings() {
                                   </svg>
                                   <Input 
                                     {...field} 
-                                    placeholder="Enter your profile name"
+                                    placeholder="username or full URL"
                                     data-testid="input-snapchat"
                                   />
                                 </div>
                               </FormControl>
+                              <FormDescription>Enter your Snapchat username or profile URL</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -2772,11 +2795,12 @@ export default function Settings() {
                                   <Globe className="h-4 w-4 text-muted-foreground" />
                                   <Input 
                                     {...field} 
-                                    placeholder="Enter your website"
+                                    placeholder="https://yourwebsite.com"
                                     data-testid="input-website"
                                   />
                                 </div>
                               </FormControl>
+                              <FormDescription>Enter your website URL</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}

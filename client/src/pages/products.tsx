@@ -512,6 +512,9 @@ export default function Products() {
         open={showSubscriptionDialog}
         onOpenChange={setShowSubscriptionDialog}
       />
+
+      {/* Footer with seller social links */}
+      <Footer sellerInfo={effectiveSellerInfo} />
     </div>
   );
 }
