@@ -278,48 +278,53 @@ export default function Checkout() {
 
   const shippingPrice = shippingData?.shippingPrice ?? 0;
 
-  // Calculate payment info with delivery estimates
+  // Calculate payment info with delivery estimates using pricing service
   const paymentInfo = useMemo(() => {
-    let depositTotal = 0;
-    let fullTotal = 0;
-    let hasPreOrders = false;
     let earliestDeliveryDate: Date | undefined = undefined;
     let latestDeliveryDate: Date | undefined = undefined;
 
+    // Track pre-order dates for delivery estimates
     items.forEach((item) => {
-      const itemTotal = parseFloat(item.price) * item.quantity;
-      
-      if (item.productType === "pre-order" && item.requiresDeposit && item.depositAmount) {
-        hasPreOrders = true;
-        const depositPerItem = parseFloat(item.depositAmount);
-        depositTotal += depositPerItem * item.quantity;
-        
-        // Track pre-order dates only - delivery estimates should come from seller's shipping policies
-        if ((item as any).preOrderDate) {
-          const preOrderDate = new Date((item as any).preOrderDate);
-          if (!earliestDeliveryDate || preOrderDate < earliestDeliveryDate) {
-            earliestDeliveryDate = preOrderDate;
-          }
-          if (!latestDeliveryDate || preOrderDate > latestDeliveryDate) {
-            latestDeliveryDate = preOrderDate;
-          }
+      if (item.productType === "pre-order" && (item as any).preOrderDate) {
+        const preOrderDate = new Date((item as any).preOrderDate);
+        if (!earliestDeliveryDate || preOrderDate < earliestDeliveryDate) {
+          earliestDeliveryDate = preOrderDate;
+        }
+        if (!latestDeliveryDate || preOrderDate > latestDeliveryDate) {
+          latestDeliveryDate = preOrderDate;
         }
       }
-      
-      fullTotal += itemTotal;
     });
 
-    const fullTotalWithShipping = fullTotal + shippingPrice;
-    const remainingBalance = fullTotalWithShipping - depositTotal;
+    // Use centralized pricing service for accurate calculations
+    const pricing = {
+      subtotal: items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0),
+      shippingCost: shippingPrice,
+      depositAmount: items.reduce((sum, item) => {
+        if (item.productType === "pre-order" && item.requiresDeposit && item.depositAmount) {
+          return sum + parseFloat(item.depositAmount) * item.quantity;
+        }
+        return sum;
+      }, 0),
+      hasPreOrders: items.some(item => item.productType === "pre-order" && item.requiresDeposit && item.depositAmount),
+    };
+
+    // CRITICAL FIX: Include shipping in deposit payment
+    // Customers must pay shipping up front, not in remaining balance
+    const shippingInDeposit = pricing.hasPreOrders && pricing.depositAmount > 0 ? shippingPrice : 0;
+    const depositTotal = pricing.depositAmount + shippingInDeposit;
+    const fullTotal = pricing.subtotal + shippingPrice;
+    const remainingBalance = fullTotal - depositTotal;
+    const payingDepositOnly = pricing.hasPreOrders && pricing.depositAmount > 0;
 
     return {
-      hasPreOrders,
+      hasPreOrders: pricing.hasPreOrders,
       depositTotal,
       remainingBalance,
-      fullTotal: fullTotalWithShipping,
-      subtotal: fullTotal,
+      fullTotal,
+      subtotal: pricing.subtotal,
       shipping: shippingPrice,
-      payingDepositOnly: hasPreOrders && depositTotal > 0,
+      payingDepositOnly,
       earliestDeliveryDate,
       latestDeliveryDate,
     };
@@ -370,6 +375,17 @@ export default function Checkout() {
 
       setOrderData(newOrderData);
       setBillingDetails(data); // Store billing details for Stripe
+
+      // FAIL-SAFE: Validate that displayed amount matches what we're charging
+      // This prevents discrepancies between UI and actual Stripe charge
+      const displayedAmount = payingDepositOnly ? paymentInfo.depositTotal : paymentInfo.fullTotal;
+      if (Math.abs(displayedAmount - amountToPay) > 0.01) {
+        throw new Error(
+          `PRICING ERROR: Displayed amount ($${displayedAmount.toFixed(2)}) ` +
+          `does not match calculated charge ($${amountToPay.toFixed(2)}). ` +
+          `Please refresh and try again.`
+        );
+      }
 
       // Create payment intent with shipping address for tax calculation
       const response = await apiRequest("POST", "/api/create-payment-intent", {
