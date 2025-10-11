@@ -3737,8 +3737,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscription_data: trialEndTimestamp ? {
           trial_end: trialEndTimestamp,
         } : undefined,
-        success_url: `${req.headers.origin || 'http://localhost:5000'}/seller-dashboard?subscription=success${activateStore ? '&activateStore=true' : ''}`,
-        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/seller-dashboard?subscription=cancelled`,
+        success_url: `${req.headers.origin || 'http://localhost:5000'}/subscription-success`,
+        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/settings?subscription=cancelled`,
         metadata: {
           userId: user.id,
           plan: plan,

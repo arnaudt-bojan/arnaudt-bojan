@@ -43,6 +43,7 @@ import BulkProductUpload from "@/pages/bulk-product-upload";
 import OrderSuccess from "@/pages/order-success";
 import SellerStorefront from "@/pages/seller-storefront";
 import AdminDashboard from "@/pages/admin-dashboard";
+import SubscriptionSuccess from "@/pages/subscription-success";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -99,6 +100,7 @@ function AppContent() {
           <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
           <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/subscription-success" component={SubscriptionSuccess} />
           <Route component={NotFound} />
         </Switch>
       </main>

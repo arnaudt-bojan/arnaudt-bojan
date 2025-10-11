@@ -36,7 +36,62 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
     refetchInterval: isPolling ? 2000 : false, // Poll every 2 seconds
   });
 
-  // Check if subscription became active
+  // Listen for postMessage from subscription success page in popup
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify message is from our origin
+      if (event.origin !== window.location.origin) return;
+      
+      // Check if it's a subscription success message
+      if (event.data?.type === 'subscription_success') {
+        setIsPolling(false);
+        if (checkoutWindow && !checkoutWindow.closed) {
+          checkoutWindow.close();
+        }
+        setCheckoutWindow(null);
+        
+        // Sync subscription status from Stripe
+        setTimeout(async () => {
+          try {
+            await apiRequest("POST", "/api/subscription/sync", {});
+            await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+            await queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
+            
+            toast({
+              title: "Subscription Active!",
+              description: "Your store has been successfully activated.",
+            });
+            
+            onOpenChange(false);
+            
+            // Refresh page if requested
+            if (activateStoreAfter) {
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
+            }
+          } catch (error) {
+            console.error('Failed to sync subscription after success:', error);
+            // Still close dialog and invalidate queries
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
+            onOpenChange(false);
+            
+            if (activateStoreAfter) {
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
+            }
+          }
+        }, 500);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [checkoutWindow, activateStoreAfter, toast, onOpenChange]);
+
+  // Check if subscription became active (fallback polling)
   useEffect(() => {
     if (isPolling && userData?.subscriptionStatus === 'active') {
       setIsPolling(false);
