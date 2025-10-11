@@ -204,13 +204,13 @@ export default function CreateProduct() {
         // Color mode: store color variants with their sizes
         if (colors.length > 0) {
           (data as any).variants = colors;
-          (data as any).hasColors = true;
+          (data as any).hasColors = 1; // Convert boolean to number
         }
       } else {
         // Size-only mode: store simple size array
         if (sizes.length > 0) {
           (data as any).variants = sizes;
-          (data as any).hasColors = false;
+          (data as any).hasColors = 0; // Convert boolean to number
         }
       }
       
