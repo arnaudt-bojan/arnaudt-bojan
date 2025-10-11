@@ -1799,6 +1799,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update Payment Intent with wallet address for accurate tax calculation
+  app.post("/api/payment-intent/:paymentIntentId/update-address", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const { paymentIntentId } = req.params;
+      const { address, email, name, phone } = req.body;
+
+      // Defensive validation
+      if (!address || typeof address !== 'object') {
+        return res.status(400).json({ error: "Invalid address data" });
+      }
+
+      if (!address.country || !address.postalCode) {
+        return res.status(400).json({ error: "Country and postal code are required for tax calculation" });
+      }
+
+      // Update payment intent with shipping address for tax calculation
+      await stripe.paymentIntents.update(paymentIntentId, {
+        shipping: {
+          name: name || "Customer",
+          phone: phone || undefined,
+          address: {
+            line1: address.line1 || "",
+            line2: address.line2 || undefined,
+            city: address.city || "",
+            state: address.state || "",
+            postal_code: address.postalCode || "",
+            country: address.country || "",
+          },
+        },
+        receipt_email: email || undefined,
+      });
+
+      logger.info(`[Express Checkout] Updated PaymentIntent ${paymentIntentId} with wallet address`, {
+        city: address.city,
+        state: address.state,
+        country: address.country,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error("Failed to update payment intent with wallet address", error);
+      res.status(500).json({ error: "Failed to update payment intent" });
+    }
+  });
+
   // Retrieve Payment Intent with tax data after payment confirmation
   app.get("/api/payment-intent/:paymentIntentId/tax-data", async (req, res) => {
     try {

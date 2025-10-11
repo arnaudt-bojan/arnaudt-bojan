@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, ExpressCheckoutElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -200,9 +200,8 @@ function PaymentForm({
               defaultCollapsed: false,
             },
             wallets: {
-              applePay: 'never', // Disabled - requires domain verification with Stripe
-              googlePay: 'never', // Disabled - requires domain verification with Stripe
-              link: 'never',
+              applePay: 'auto', // ✅ Enabled - will show if available on device
+              googlePay: 'auto', // ✅ Enabled - will show if available
             },
             fields: {
               billingDetails: {
@@ -241,6 +240,196 @@ function PaymentForm({
         <span>Secured by Stripe • Your payment information is encrypted</span>
       </div>
     </form>
+  );
+}
+
+// Express Checkout Component - One-click payment with wallets
+function ExpressCheckout({
+  amount,
+  orderData,
+  paymentType,
+  onSuccess,
+  items,
+  clientSecret,
+}: {
+  amount: number;
+  orderData: Partial<InsertOrder>;
+  paymentType: 'deposit' | 'full';
+  onSuccess: (orderId: string) => void;
+  items: any[];
+  clientSecret: string;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { toast } = useToast();
+  const [isReady, setIsReady] = useState(false);
+
+  const handleExpressCheckout = async (event: any) => {
+    if (!stripe || !elements) {
+      return;
+    }
+
+    // CRITICAL: Prevent auto-confirmation to allow async address update
+    event.preventDefault();
+
+    try {
+      // Step 1: Submit elements for validation
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        toast({
+          title: "Validation Error",
+          description: submitError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Step 2: Extract shipping address from wallet BEFORE confirming payment
+      const shippingAddress = event.shippingAddress || event.address || {};
+      const walletData = {
+        customerName: event.name || event.payerName || "Customer",
+        customerEmail: event.email || event.payerEmail || "",
+        customerAddress: {
+          line1: shippingAddress.line1 || shippingAddress.addressLine?.[0] || "",
+          line2: shippingAddress.line2 || shippingAddress.addressLine?.[1] || "",
+          city: shippingAddress.city || "",
+          state: shippingAddress.state || "",
+          postalCode: shippingAddress.postalCode || shippingAddress.postal_code || "",
+          country: shippingAddress.country || "",
+        },
+        phone: event.phone || shippingAddress.phone || "",
+      };
+
+      // Step 3: Update PaymentIntent with wallet address for accurate tax calculation
+      await apiRequest("POST", `/api/payment-intent/${clientSecret.split('_secret_')[0]}/update-address`, {
+        address: walletData.customerAddress,
+        email: walletData.customerEmail,
+        name: walletData.customerName,
+        phone: walletData.phone,
+      });
+
+      // Step 4: Confirm payment using event.confirm() for proper wallet lifecycle
+      const { error: confirmError, paymentIntent } = await event.confirm({
+        elements,
+        clientSecret,
+        confirmParams: {
+          return_url: window.location.origin + '/checkout/complete',
+        },
+        redirect: 'if_required',
+      });
+
+      if (confirmError) {
+        toast({
+          title: "Payment Failed",
+          description: confirmError.message || "Payment could not be processed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // Step 5: Fetch tax data (now calculated with correct address)
+        let taxData = {
+          taxAmount: "0",
+          taxCalculationId: null,
+          taxBreakdown: null,
+          subtotalBeforeTax: orderData.total,
+        };
+
+        try {
+          const taxResponse = await apiRequest("GET", `/api/payment-intent/${paymentIntent.id}/tax-data`, null);
+          if (taxResponse.ok) {
+            taxData = await taxResponse.json();
+          }
+        } catch (taxError) {
+          console.error("[Express Checkout] Failed to retrieve tax data:", taxError);
+        }
+
+        // Step 6: Create order with wallet data
+        const walletOrderData = {
+          ...orderData,
+          customerName: walletData.customerName,
+          customerEmail: walletData.customerEmail,
+          customerAddress: [
+            walletData.customerAddress.line1,
+            walletData.customerAddress.line2,
+            `${walletData.customerAddress.city}, ${walletData.customerAddress.state} ${walletData.customerAddress.postalCode}`,
+            walletData.customerAddress.country,
+          ].filter(Boolean).join('\n'),
+          phone: walletData.phone,
+          amountPaid: amount.toString(),
+          paymentStatus: paymentType === 'deposit' ? "deposit_paid" : "fully_paid",
+          stripePaymentIntentId: paymentIntent.id,
+          ...taxData,
+        };
+
+        const response = await apiRequest("POST", "/api/orders", walletOrderData);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create order");
+        }
+        
+        const createdOrder = await response.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        
+        toast({
+          title: "Payment Successful",
+          description: "Your order has been confirmed",
+        });
+        onSuccess(createdOrder.id);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Payment Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="mb-6">
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            Express Checkout
+          </span>
+        </div>
+      </div>
+      
+      <div className="mt-4">
+        <ExpressCheckoutElement
+          onConfirm={handleExpressCheckout}
+          onReady={() => setIsReady(true)}
+          options={{
+            buttonType: {
+              applePay: 'buy',
+              googlePay: 'buy',
+            },
+            buttonTheme: {
+              applePay: 'black',
+              googlePay: 'black',
+            },
+            buttonHeight: 48,
+          }}
+        />
+      </div>
+      
+      <div className="relative mt-6">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            Or pay with card
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -767,6 +956,17 @@ export default function Checkout() {
                       loader: 'auto',
                     }}
                   >
+                    {/* Express Checkout - Apple Pay, Google Pay, Link */}
+                    <ExpressCheckout
+                      amount={amountToPay}
+                      orderData={orderData}
+                      paymentType={paymentInfo.payingDepositOnly ? 'deposit' : 'full'}
+                      onSuccess={handlePaymentSuccess}
+                      items={items}
+                      clientSecret={clientSecret}
+                    />
+                    
+                    {/* Regular Payment Form */}
                     <PaymentForm
                       onSuccess={handlePaymentSuccess}
                       amount={amountToPay}

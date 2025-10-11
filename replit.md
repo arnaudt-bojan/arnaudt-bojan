@@ -6,6 +6,21 @@ Upfirst is an e-commerce platform designed to empower creators and brands to sel
 ## Recent Changes
 *Last updated: October 11, 2025*
 
+### Wallet Payment Methods Implementation (Oct 11, 2025)
+- **FULL IMPLEMENTATION**: Complete wallet payment support with Express Checkout Element
+- **Apple Pay**: One-click checkout with saved address and payment method
+- **Google Pay**: One-click checkout with saved address and payment method
+- **Link**: Stripe's one-click payment solution
+- **Dual Payment Flow**:
+  1. Express Checkout Element (top) - One-click with wallets, includes shipping address from wallet
+  2. PaymentElement (bottom) - Traditional card entry with wallet options in tabs
+- **PaymentElement Wallets**: Enabled applePay: 'auto' and googlePay: 'auto' for in-form wallet buttons
+- **Domain Verification**: May require domain registration with Apple Pay/Google Pay in production
+- **Test Mode**: Works in Replit development environment; production requires verified domain
+- Automatically extracts shipping address, email, name, and phone from wallet payments
+- Full tax calculation and order creation for express checkout payments
+- See implementation in `client/src/pages/checkout.tsx`
+
 ### Pre-Order Payment Flow Improvement (Oct 11, 2025)
 - **BEST PRACTICE**: Changed pre-order payment flow to charge shipping with balance (not deposit)
 - Customers now pay shipping when item ships, not months in advance
