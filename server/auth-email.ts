@@ -187,9 +187,15 @@ router.post('/verify-code', async (req: any, res: Response) => {
         userId: user.id
       });
       
-      // Send welcome email to new sellers
-      if (role === 'admin') {
-        await notificationService.sendSellerWelcome(user);
+      // Send welcome email to new sellers (only once)
+      if (role === 'admin' && !user.welcomeEmailSent) {
+        try {
+          await notificationService.sendSellerWelcome(user);
+          await storage.updateWelcomeEmailSent(user.id);
+          logger.auth('Welcome email sent to new seller', { userId: user.id, email: normalizedEmail });
+        } catch (error) {
+          logger.error('Failed to send welcome email', error, { userId: user.id, email: normalizedEmail });
+        }
       }
     } else {
       logger.auth('Existing user logging in', {
@@ -428,9 +434,15 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
         userId: user.id
       });
       
-      // Send welcome email to new sellers
-      if (role === 'admin') {
-        await notificationService.sendSellerWelcome(user);
+      // Send welcome email to new sellers (only once)
+      if (role === 'admin' && !user.welcomeEmailSent) {
+        try {
+          await notificationService.sendSellerWelcome(user);
+          await storage.updateWelcomeEmailSent(user.id);
+          logger.auth('Welcome email sent to new seller', { userId: user.id, email: normalizedEmail });
+        } catch (error) {
+          logger.error('Failed to send welcome email', error, { userId: user.id, email: normalizedEmail });
+        }
       }
     } else {
       logger.auth('Existing user logging in via magic link', {
