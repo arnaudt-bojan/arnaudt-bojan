@@ -9,6 +9,14 @@ import { useLocation } from "wouter";
 import { BackToDashboard } from "@/components/back-to-dashboard";
 import type { Product, User } from "@shared/schema";
 
+// Format price in seller's currency
+const formatOrderPrice = (price: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
+
 type Order = {
   id: string;
   customerName: string;
@@ -20,6 +28,24 @@ type Order = {
   createdAt: string;
   userId?: string;
 };
+
+// Hook to get seller currency from order items
+function useOrderCurrency(items: string) {
+  const parsedItems = JSON.parse(items);
+  const firstProductId = parsedItems[0]?.productId;
+  
+  const { data: product } = useQuery<Product>({
+    queryKey: [`/api/products/${firstProductId}`],
+    enabled: !!firstProductId,
+  });
+  
+  const { data: seller } = useQuery<User>({
+    queryKey: [`/api/sellers/id/${product?.sellerId}`],
+    enabled: !!product?.sellerId,
+  });
+  
+  return seller?.listingCurrency || 'USD';
+}
 
 // Component to fetch and display seller info for an order
 function OrderSellerInfo({ items }: { items: string }) {
@@ -45,6 +71,99 @@ function OrderSellerInfo({ items }: { items: string }) {
         Sold by <span className="font-medium text-foreground">{seller.firstName || seller.username || 'Seller'}</span>
       </span>
     </div>
+  );
+}
+
+// Order card component with currency support
+function OrderCard({ order, isSeller, navigate, getStatusColor }: {
+  order: Order;
+  isSeller: boolean;
+  navigate: (path: string) => void;
+  getStatusColor: (status: string) => string;
+}) {
+  const parsedItems = JSON.parse(order.items);
+  // Get seller's currency from order items
+  const currency = useOrderCurrency(order.items);
+  
+  return (
+    <Card 
+      className="hover-elevate cursor-pointer transition-all"
+      onClick={() => navigate(`/orders/${order.id}`)}
+      data-testid={`card-order-${order.id}`}
+    >
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex-1">
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Order #{order.id.slice(0, 8)}
+            </CardTitle>
+            <CardDescription>
+              Placed on {format(new Date(order.createdAt), "PPP")}
+            </CardDescription>
+            {isSeller ? (
+              <div className="mt-2 text-sm text-muted-foreground">
+                <p><span className="font-medium">Customer:</span> {order.userId ? order.customerName : `${order.customerEmail} (Guest)`}</p>
+                {order.userId && <p><span className="font-medium">Email:</span> {order.customerEmail}</p>}
+              </div>
+            ) : (
+              <OrderSellerInfo items={order.items} />
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={getStatusColor(order.status)}
+              data-testid={`status-${order.id}`}
+            >
+              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+            </Badge>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-semibold mb-2">Items</h4>
+            <div className="space-y-3">
+              {parsedItems.map((item: any, index: number) => (
+                <div
+                  key={index}
+                  className="flex gap-3 items-start text-sm"
+                  data-testid={`item-${order.id}-${index}`}
+                >
+                  {item.image && (
+                    <img 
+                      src={item.image} 
+                      alt={item.name}
+                      className="w-12 h-12 object-cover rounded-md flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{item.name}</p>
+                    {item.variant && (
+                      <p className="text-xs text-muted-foreground">{item.variant}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                  </div>
+                  <span className="font-medium flex-shrink-0">
+                    {formatOrderPrice(parseFloat(item.price) * item.quantity, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t pt-4 flex justify-between items-center">
+            <span className="font-semibold">Total</span>
+            <span className="text-xl font-bold" data-testid={`total-${order.id}`}>
+              {formatOrderPrice(parseFloat(order.total), currency)}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -117,90 +236,15 @@ export default function Orders() {
         </div>
       ) : orders && orders.length > 0 ? (
         <div className="space-y-4">
-          {orders.map((order) => {
-            const parsedItems = JSON.parse(order.items);
-            return (
-              <Card 
-                key={order.id} 
-                className="hover-elevate cursor-pointer transition-all"
-                onClick={() => navigate(`/orders/${order.id}`)}
-                data-testid={`card-order-${order.id}`}
-              >
-                <CardHeader>
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Order #{order.id.slice(0, 8)}
-                      </CardTitle>
-                      <CardDescription>
-                        Placed on {format(new Date(order.createdAt), "PPP")}
-                      </CardDescription>
-                      {isSeller ? (
-                        <div className="mt-2 text-sm text-muted-foreground">
-                          <p><span className="font-medium">Customer:</span> {order.userId ? order.customerName : `${order.customerEmail} (Guest)`}</p>
-                          {order.userId && <p><span className="font-medium">Email:</span> {order.customerEmail}</p>}
-                        </div>
-                      ) : (
-                        <OrderSellerInfo items={order.items} />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={getStatusColor(order.status)}
-                        data-testid={`status-${order.id}`}
-                      >
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </Badge>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold mb-2">Items</h4>
-                      <div className="space-y-3">
-                        {parsedItems.map((item: any, index: number) => (
-                          <div
-                            key={index}
-                            className="flex gap-3 items-start text-sm"
-                            data-testid={`item-${order.id}-${index}`}
-                          >
-                            {item.image && (
-                              <img 
-                                src={item.image} 
-                                alt={item.name}
-                                className="w-12 h-12 object-cover rounded-md flex-shrink-0"
-                              />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium">{item.name}</p>
-                              {item.variant && (
-                                <p className="text-xs text-muted-foreground">{item.variant}</p>
-                              )}
-                              <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                            </div>
-                            <span className="font-medium flex-shrink-0">
-                              ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="border-t pt-4 flex justify-between items-center">
-                      <span className="font-semibold">Total</span>
-                      <span className="text-xl font-bold" data-testid={`total-${order.id}`}>
-                        ${parseFloat(order.total).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {orders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              isSeller={isSeller}
+              navigate={navigate}
+              getStatusColor={getStatusColor}
+            />
+          ))}
         </div>
       ) : (
         <Card>
