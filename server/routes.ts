@@ -18,6 +18,9 @@ import { DocumentGenerator } from "./services/document-generator";
 import { logger } from "./logger";
 import { generateUniqueUsername, generateOrderNumber } from "./utils";
 import { InventoryService } from "./services/inventory.service";
+import { OrderService } from "./services/order.service";
+import { CartValidationService } from "./services/cart-validation.service";
+import { ShippingService } from "./services/shipping.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -31,6 +34,10 @@ const authorizationService = new AuthorizationService(storage);
 // Initialize inventory service for stock management
 const inventoryService = new InventoryService(storage);
 
+// Initialize cart validation and shipping services
+const cartValidationService = new CartValidationService(storage);
+const shippingService = new ShippingService(storage);
+
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
 let stripe: Stripe | null = null;
@@ -39,6 +46,16 @@ if (process.env.STRIPE_SECRET_KEY) {
     apiVersion: "2025-09-30.clover",
   });
 }
+
+// Initialize order service with all dependencies (after stripe)
+const orderService = new OrderService(
+  storage,
+  inventoryService,
+  cartValidationService,
+  shippingService,
+  notificationService,
+  stripe || undefined
+);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -529,11 +546,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req: any, res) => {
     try {
-      let userId: string;
-
-      // SECURITY: Extract customer info and cart items (NOT totals/prices)
+      // Extract request data
       const { customerEmail, customerName, customerAddress, items, destination } = req.body;
       
+      // Basic validation (business logic validation happens in OrderService)
       if (!customerEmail) {
         return res.status(400).json({ error: "Customer email is required for all orders" });
       }
@@ -546,220 +562,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Shipping destination is required" });
       }
 
-      // Look up user by email (case-insensitive)
-      const allUsers = await storage.getAllUsers();
-      const normalizedEmail = customerEmail.toLowerCase().trim();
-      let existingUser = allUsers.find(u => u.email?.toLowerCase().trim() === normalizedEmail);
-
-      // Check if this is a seller email trying to checkout as a buyer
-      const sellerRoles = ['admin', 'editor', 'viewer', 'seller', 'owner'];
-      if (existingUser && sellerRoles.includes(existingUser.role)) {
-        return res.status(403).json({ 
-          error: "This is a seller account email. Sellers cannot checkout as buyers. Please use a different email address." 
-        });
-      }
-
-      if (!existingUser) {
-        // Auto-create buyer account for guest checkout
-        const newUserId = Math.random().toString(36).substring(2, 8);
-        const [firstName, ...lastNameParts] = (customerName || "Guest User").split(" ");
-        const username = await generateUniqueUsername();
-        
-        existingUser = await storage.upsertUser({
-          id: newUserId,
-          email: normalizedEmail,
-          username,
-          firstName: firstName || "Guest",
-          lastName: lastNameParts.join(" ") || "User",
-          profileImageUrl: null,
-          role: "buyer",
-          password: null,
-        });
-
-        logger.info(`[Guest Checkout] Created new buyer account for ${normalizedEmail} with username ${username}`);
-      }
-
-      userId = existingUser.id;
-
-      // SECURITY: Validate cart items and fetch server-side prices
-      const validation = await cartValidationService.validateCart(items);
-      
-      if (!validation.valid) {
-        return res.status(400).json({ 
-          error: "Invalid cart items", 
-          details: validation.errors 
-        });
-      }
-
-      // SECURITY: Calculate shipping server-side
-      const shipping = await shippingService.calculateShipping(
-        items.map(i => ({ id: i.productId, quantity: i.quantity })),
-        destination
-      );
-
-      // SECURITY: Calculate tax server-side
-      const taxableAmount = validation.total + shipping.cost;
-      const taxAmount = estimateTax(taxableAmount);
-
-      // SECURITY: Calculate order totals server-side using PricingService
-      const pricing = calculatePricing(
-        validation.items,
-        shipping.cost,
-        taxAmount
-      );
-
-      // Get seller's currency from first product
-      let sellerCurrency = 'USD'; // Default fallback
-      if (validation.items.length > 0) {
-        const firstProduct = await storage.getProduct(validation.items[0].id);
-        if (firstProduct?.sellerId) {
-          const seller = await storage.getUser(firstProduct.sellerId);
-          if (seller?.listingCurrency) {
-            sellerCurrency = seller.listingCurrency;
-          }
-        }
-      }
-
-      // INVENTORY: Reserve stock for all items before creating order
-      // Generate checkout session ID for tracking reservations
-      const checkoutSessionId = `checkout_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const failedReservations: any[] = [];
-      const successfulReservations: any[] = [];
-
-      for (const item of validation.items) {
-        const variantId = item.variant ? 
-          inventoryService.getVariantId(item.variant.size, item.variant.color) : 
-          undefined;
-
-        const reservationResult = await inventoryService.reserveStock(
-          item.id,
-          item.quantity,
-          checkoutSessionId,
-          {
-            variantId,
-            userId,
-            expirationMinutes: 30, // 30 min for checkout completion
-          }
-        );
-
-        if (!reservationResult.success) {
-          failedReservations.push({
-            productId: item.id,
-            productName: item.name,
-            error: reservationResult.error,
-            available: reservationResult.availability?.availableStock || 0,
-          });
-        } else {
-          successfulReservations.push(reservationResult.reservation);
-        }
-      }
-
-      // If ANY reservation failed, release all successful ones and return error
-      if (failedReservations.length > 0) {
-        logger.warn('[Order Creation] Stock reservation failed for some items', {
-          failed: failedReservations,
-          successful: successfulReservations.length,
-        });
-
-        // Release successful reservations
-        for (const reservation of successfulReservations) {
-          await inventoryService.releaseReservation(reservation!.id);
-        }
-
-        return res.status(400).json({
-          error: "Some items are no longer available",
-          details: failedReservations.map(f => 
-            `${f.productName}: ${f.error}`
-          ),
-        });
-      }
-
-      logger.info('[Order Creation] All items reserved successfully', {
-        checkoutSessionId,
-        itemCount: successfulReservations.length,
+      // Delegate to OrderService (service handles all orchestration)
+      const result = await orderService.createOrder({
+        customerEmail,
+        customerName,
+        customerAddress,
+        items,
+        destination,
       });
 
-      // Create order with SERVER-CALCULATED values only
-      const orderData = {
-        userId,
-        customerName,
-        customerEmail: normalizedEmail,
-        customerAddress,
-        items: JSON.stringify(
-          validation.items.map((item) => ({
-            productId: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            productType: item.productType,
-            depositAmount: item.depositAmount,
-            requiresDeposit: item.requiresDeposit,
-            variant: item.variant || null, // Include variant info
-          }))
-        ),
-        total: pricing.fullTotal.toString(),
-        amountPaid: "0", // Will be updated after payment
-        remainingBalance: pricing.payingDepositOnly ? pricing.remainingBalance.toString() : "0",
-        paymentType: pricing.payingDepositOnly ? "deposit" : "full",
-        paymentStatus: "pending",
-        status: "pending",
-        subtotalBeforeTax: pricing.subtotal.toString(),
-        taxAmount: taxAmount.toString(),
-        currency: sellerCurrency, // Seller's currency at time of order
-        metadata: JSON.stringify({ checkoutSessionId }), // Store session ID for inventory commit
-      };
-
-      const order = await storage.createOrder(orderData);
-      
-      // Create order items for item-level tracking
-      try {
-        const items = JSON.parse(order.items);
-        const orderItemsToCreate = items.map((item: any) => ({
-          orderId: order.id,
-          productId: item.productId || item.id, // Cart items use productId field
-          productName: item.name,
-          productImage: item.image || null,
-          productType: item.productType || 'in-stock',
-          quantity: item.quantity,
-          price: String(item.price),
-          subtotal: String(parseFloat(item.price) * item.quantity),
-          depositAmount: item.depositAmount ? String(item.depositAmount) : null,
-          requiresDeposit: item.requiresDeposit ? 1 : 0, // Coerce boolean to integer
-          variant: item.variant || null,
-          itemStatus: 'pending' as const,
-        }));
-        
-        await storage.createOrderItems(orderItemsToCreate);
-        logger.info(`[Order Items] Created ${orderItemsToCreate.length} order items for order ${order.id}`);
-      } catch (error) {
-        logger.error("[Order Items] Failed to create order items:", error);
-        // Don't fail the order if items creation fails - legacy items field still works
+      if (!result.success) {
+        return res.status(400).json({
+          error: result.error,
+          details: result.details,
+        });
       }
-      
-      // Send order notifications (async, don't block response)
-      void (async () => {
-        try {
-          const items = JSON.parse(order.items);
-          const allProducts = await storage.getAllProducts();
-          const products = items.map((item: any) => 
-            allProducts.find(p => p.id === item.productId)
-          ).filter(Boolean);
-          
-          // Get seller info (assuming first product's seller)
-          if (products.length > 0 && products[0]?.sellerId) {
-            const seller = await storage.getUser(products[0].sellerId);
-            if (seller) {
-              // Send order confirmation email to buyer with seller branding
-              await notificationService.sendOrderConfirmation(order, seller, products);
-              logger.info(`[Notifications] Order confirmation sent for order ${order.id}`);
-            }
-          }
-        } catch (error) {
-          logger.error("[Notifications] Failed to send order notifications:", error);
-        }
-      })();
-      
-      res.status(201).json(order);
+
+      res.status(201).json(result.order);
     } catch (error) {
       logger.error("Order creation error", error);
       res.status(500).json({ error: "Failed to create order" });
@@ -6540,19 +6359,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BACKEND SERVICES API - All business logic centralized on backend
   // =============================================================================
 
-  // Import services
+  // Import additional services only for this section
   const { CartService } = await import("./services/cart.service");
-  const { CartValidationService } = await import("./services/cart-validation.service");
-  const { ShippingService } = await import("./services/shipping.service");
-  const { OrderService } = await import("./services/order.service");
   const { TaxService } = await import("./services/tax.service");
   const { calculatePricing, estimateTax } = await import("./services/pricing.service");
 
   const cartService = new CartService(storage);
-  const cartValidationService = new CartValidationService(storage);
-  const shippingService = new ShippingService(storage);
-  const orderService = new OrderService(storage);
   const taxService = new TaxService();
+  
+  // Note: cartValidationService, shippingService, and orderService are already initialized at the top
 
   // Cart API - Backend cart management
   app.post("/api/cart/add", async (req: any, res) => {

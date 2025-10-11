@@ -214,6 +214,8 @@ export interface IStorage {
   updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined>;
   updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined>;
   updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined>;
+  deleteOrder(id: string): Promise<boolean>;
+  deleteOrderItems(orderId: string): Promise<boolean>;
   
   // Refunds
   createRefund(refund: InsertRefund): Promise<Refund>;
@@ -822,6 +824,18 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return result[0];
+  }
+
+  async deleteOrder(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db.delete(orders).where(eq(orders.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteOrderItems(orderId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db.delete(orderItems).where(eq(orderItems.orderId, orderId)).returning();
+    return result.length > 0;
   }
 
   // Refund methods

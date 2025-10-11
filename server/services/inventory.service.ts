@@ -234,20 +234,95 @@ export class InventoryService {
     });
   }
 
-  async commitReservationsBySession(sessionId: string, orderId: string): Promise<void> {
-    const reservations = await this.storage.getStockReservationsBySession(sessionId);
-    
-    for (const reservation of reservations) {
-      if (reservation.status === 'active') {
-        await this.commitReservation(reservation.id, orderId);
+  async commitReservationsBySession(sessionId: string, orderId: string): Promise<{
+    success: boolean;
+    committed: number;
+    error?: string;
+  }> {
+    try {
+      const reservations = await this.storage.getStockReservationsBySession(sessionId);
+      const activeReservations = reservations.filter(r => r.status === 'active');
+      
+      if (activeReservations.length === 0) {
+        logger.info('[InventoryService] No active reservations to commit', { sessionId });
+        return { success: true, committed: 0 };
       }
-    }
 
-    logger.info('[InventoryService] All session reservations committed', {
-      sessionId,
-      orderId,
-      count: reservations.length,
-    });
+      // ATOMIC: Wrap ALL commits in a SINGLE transaction to prevent partial commits
+      // Either ALL reservations commit and stock decrements, or NONE do
+      await this.storage.db.transaction(async (tx) => {
+        for (const reservation of activeReservations) {
+          // 1. Update reservation status
+          await tx
+            .update(this.storage.stockReservations)
+            .set({
+              status: 'committed',
+              committedAt: new Date(),
+              orderId,
+            })
+            .where(eq(this.storage.stockReservations.id, reservation.id));
+
+          // 2. Decrement stock (in same transaction)
+          const product = await tx
+            .select()
+            .from(this.storage.products)
+            .where(eq(this.storage.products.id, reservation.productId))
+            .limit(1);
+
+          if (!product[0]) {
+            throw new Error(`Product ${reservation.productId} not found during commit`);
+          }
+
+          const variantId = reservation.variantId;
+          if (variantId && product[0].variants) {
+            const variants = Array.isArray(product[0].variants) ? product[0].variants : [];
+            const updatedVariants = variants.map((v: any) => {
+              if (this.getVariantId(v.size, v.color) === variantId) {
+                return {
+                  ...v,
+                  stock: Math.max(0, (v.stock || 0) - reservation.quantity),
+                };
+              }
+              return v;
+            });
+
+            await tx
+              .update(this.storage.products)
+              .set({ variants: updatedVariants })
+              .where(eq(this.storage.products.id, reservation.productId));
+          } else {
+            const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
+            await tx
+              .update(this.storage.products)
+              .set({ stock: newStock })
+              .where(eq(this.storage.products.id, reservation.productId));
+          }
+        }
+      });
+
+      logger.info('[InventoryService] All session reservations committed atomically', {
+        sessionId,
+        orderId,
+        count: activeReservations.length,
+      });
+
+      return {
+        success: true,
+        committed: activeReservations.length,
+      };
+    } catch (error: any) {
+      logger.error('[InventoryService] Failed to commit session reservations (transaction rolled back)', {
+        sessionId,
+        orderId,
+        error: error.message,
+      });
+
+      return {
+        success: false,
+        committed: 0,
+        error: error.message || 'Failed to commit reservations',
+      };
+    }
   }
 
   async releaseExpiredReservations(): Promise<number> {
