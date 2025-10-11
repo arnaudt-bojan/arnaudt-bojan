@@ -10,6 +10,7 @@ import { Plus, Pencil, Trash2, Megaphone, Upload, CreditCard, Eye, EyeOff, Archi
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { BackToDashboard } from "@/components/back-to-dashboard";
+import { formatPrice } from "@/lib/currency-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -271,7 +272,7 @@ export default function SellerProducts() {
                     <div className="flex flex-wrap items-center gap-2">
                       {getStatusBadge(product.status || undefined)}
                       {getProductTypeBadge(product.productType)}
-                      <span className="font-semibold text-lg">${product.price}</span>
+                      <span className="font-semibold text-lg">{formatPrice(parseFloat(product.price), user?.listingCurrency)}</span>
                       {product.productType === "in-stock" && (
                         <Badge variant="outline" className="text-xs">
                           Stock: {product.stock}

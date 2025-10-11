@@ -7,14 +7,12 @@ import { format } from "date-fns";
 import { Package, ShoppingBag, ChevronRight, Store } from "lucide-react";
 import { useLocation } from "wouter";
 import { BackToDashboard } from "@/components/back-to-dashboard";
+import { formatPrice } from "@/lib/currency-utils";
 import type { Product, User } from "@shared/schema";
 
 // Format price in seller's currency
 const formatOrderPrice = (price: number, currency: string = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(price);
+  return formatPrice(price, currency);
 };
 
 type Order = {
@@ -27,25 +25,8 @@ type Order = {
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   createdAt: string;
   userId?: string;
+  currency?: string; // Seller's currency at time of order
 };
-
-// Hook to get seller currency from order items
-function useOrderCurrency(items: string) {
-  const parsedItems = JSON.parse(items);
-  const firstProductId = parsedItems[0]?.productId;
-  
-  const { data: product } = useQuery<Product>({
-    queryKey: [`/api/products/${firstProductId}`],
-    enabled: !!firstProductId,
-  });
-  
-  const { data: seller } = useQuery<User>({
-    queryKey: [`/api/sellers/id/${product?.sellerId}`],
-    enabled: !!product?.sellerId,
-  });
-  
-  return seller?.listingCurrency || 'USD';
-}
 
 // Component to fetch and display seller info for an order
 function OrderSellerInfo({ items }: { items: string }) {
@@ -82,8 +63,8 @@ function OrderCard({ order, isSeller, navigate, getStatusColor }: {
   getStatusColor: (status: string) => string;
 }) {
   const parsedItems = JSON.parse(order.items);
-  // Get seller's currency from order items
-  const currency = useOrderCurrency(order.items);
+  // Use currency from order (stored at time of purchase)
+  const currency = order.currency || 'USD';
   
   return (
     <Card 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Package, Mail, MapPin, DollarSign, Truck, ExternalLink } from "lucide-react";
+import { formatPrice } from "@/lib/currency-utils";
 import type { Order, User, Product } from "@shared/schema";
 
 type OrderItem = {
@@ -205,13 +206,13 @@ export default function BuyerOrderDetail() {
                             <div className="flex gap-4 mt-1">
                               <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                               <p className="text-sm text-muted-foreground">
-                                Price: ${parseFloat(item.price).toFixed(2)} each
+                                Price: {formatPrice(parseFloat(item.price), order?.currency)} each
                               </p>
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="font-semibold text-lg">
-                              ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                              {formatPrice(parseFloat(item.price) * item.quantity, order?.currency)}
                             </p>
                             {trackingInfo && (
                               <Badge
@@ -333,7 +334,7 @@ export default function BuyerOrderDetail() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
                     <span className="font-medium" data-testid="text-subtotal">
-                      ${parseFloat(order.subtotalBeforeTax).toFixed(2)}
+                      {formatPrice(parseFloat(order.subtotalBeforeTax), order.currency)}
                     </span>
                   </div>
                 )}
@@ -341,25 +342,25 @@ export default function BuyerOrderDetail() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax:</span>
                     <span className="font-medium" data-testid="text-tax">
-                      ${parseFloat(order.taxAmount).toFixed(2)}
+                      {formatPrice(parseFloat(order.taxAmount), order.currency)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total:</span>
-                  <span className="font-medium">${parseFloat(order.total).toFixed(2)}</span>
+                  <span className="font-medium">{formatPrice(parseFloat(order.total), order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount Paid:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    ${parseFloat(order.amountPaid || "0").toFixed(2)}
+                    {formatPrice(parseFloat(order.amountPaid || "0"), order.currency)}
                   </span>
                 </div>
                 {isDepositPayment && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Remaining Balance:</span>
                     <span className="font-medium text-amber-600 dark:text-amber-400">
-                      ${parseFloat(order.remainingBalance || "0").toFixed(2)}
+                      {formatPrice(parseFloat(order.remainingBalance || "0"), order.currency)}
                     </span>
                   </div>
                 )}

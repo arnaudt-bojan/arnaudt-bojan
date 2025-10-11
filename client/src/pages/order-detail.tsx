@@ -13,6 +13,7 @@ import { ArrowLeft, Package, Mail, MapPin, DollarSign, Truck, CreditCard } from 
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { RefundDialog } from "@/components/refund-dialog";
+import { formatPrice } from "@/lib/currency-utils";
 
 type Order = {
   id: string;
@@ -32,6 +33,7 @@ type Order = {
   trackingLink?: string;
   subtotalBeforeTax?: string;
   taxAmount?: string;
+  currency?: string; // Seller's currency at time of order
   createdAt: string;
 };
 
@@ -58,11 +60,13 @@ type OrderItem = {
 
 function OrderItemRow({ 
   item, 
+  currency,
   onStatusUpdate, 
   onTrackingUpdate, 
   isUpdating 
 }: { 
-  item: OrderItem; 
+  item: OrderItem;
+  currency?: string;
   onStatusUpdate: (status: string) => void;
   onTrackingUpdate: (trackingNumber: string, trackingCarrier?: string, trackingUrl?: string) => void;
   isUpdating: boolean;
@@ -104,7 +108,7 @@ function OrderItemRow({
               <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
             </div>
             <div className="text-right">
-              <p className="font-semibold">${parseFloat(item.subtotal).toFixed(2)}</p>
+              <p className="font-semibold">{formatPrice(parseFloat(item.subtotal), currency)}</p>
               <Badge
                 variant="outline"
                 className={getStatusColor(item.itemStatus)}
@@ -476,6 +480,7 @@ export default function OrderDetail() {
                     <OrderItemRow
                       key={item.id}
                       item={item}
+                      currency={order?.currency}
                       onStatusUpdate={(status) => updateItemStatusMutation.mutate({ itemId: item.id, status })}
                       onTrackingUpdate={(trackingNumber, trackingCarrier, trackingUrl) => 
                         updateItemTrackingMutation.mutate({ itemId: item.id, trackingNumber, trackingCarrier, trackingUrl })
@@ -497,7 +502,7 @@ export default function OrderDetail() {
                         <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                       </div>
                       <span className="font-semibold">
-                        ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                        {formatPrice(parseFloat(item.price) * item.quantity, order?.currency)}
                       </span>
                     </div>
                   ))}
@@ -547,7 +552,7 @@ export default function OrderDetail() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
                     <span className="font-medium" data-testid="text-subtotal">
-                      ${parseFloat(order.subtotalBeforeTax).toFixed(2)}
+                      {formatPrice(parseFloat(order.subtotalBeforeTax), order.currency)}
                     </span>
                   </div>
                 )}
@@ -555,27 +560,27 @@ export default function OrderDetail() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax:</span>
                     <span className="font-medium" data-testid="text-tax">
-                      ${parseFloat(order.taxAmount).toFixed(2)}
+                      {formatPrice(parseFloat(order.taxAmount), order.currency)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total:</span>
                   <span className="font-medium" data-testid="text-total">
-                    ${parseFloat(order.total).toFixed(2)}
+                    {formatPrice(parseFloat(order.total), order.currency)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount Paid:</span>
                   <span className="font-medium text-green-600 dark:text-green-400" data-testid="text-amount-paid">
-                    ${parseFloat(order.amountPaid).toFixed(2)}
+                    {formatPrice(parseFloat(order.amountPaid), order.currency)}
                   </span>
                 </div>
                 {parseFloat(order.remainingBalance) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Remaining Balance:</span>
                     <span className="font-medium text-orange-600 dark:text-orange-400" data-testid="text-remaining-balance">
-                      ${parseFloat(order.remainingBalance).toFixed(2)}
+                      {formatPrice(parseFloat(order.remainingBalance), order.currency)}
                     </span>
                   </div>
                 )}
@@ -609,7 +614,7 @@ export default function OrderDetail() {
                   Request Balance Payment
                 </h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Send a payment request to the customer for the remaining balance of ${parseFloat(order.remainingBalance).toFixed(2)}
+                  Send a payment request to the customer for the remaining balance of {formatPrice(parseFloat(order.remainingBalance), order.currency)}
                 </p>
                 <Button
                   variant="outline"
