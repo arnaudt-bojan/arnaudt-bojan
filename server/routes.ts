@@ -544,6 +544,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stock Reservations Routes
+  app.get("/api/reservations", async (req, res) => {
+    try {
+      const { sessionId, productId } = req.query;
+      
+      if (sessionId && typeof sessionId === 'string') {
+        const reservations = await storage.getStockReservationsBySession(sessionId);
+        return res.json(reservations);
+      }
+      
+      if (productId && typeof productId === 'string') {
+        const reservations = await storage.getStockReservationsByProduct(productId);
+        return res.json(reservations);
+      }
+      
+      return res.status(400).json({ error: "sessionId or productId query parameter required" });
+    } catch (error) {
+      logger.error("Error fetching reservations", error);
+      res.status(500).json({ error: "Failed to fetch reservations" });
+    }
+  });
+
+  app.get("/api/reservations/:id", async (req, res) => {
+    try {
+      const reservation = await storage.getStockReservation(req.params.id);
+      if (!reservation) {
+        return res.status(404).json({ error: "Reservation not found" });
+      }
+      res.json(reservation);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reservation" });
+    }
+  });
+
+  app.post("/api/reservations", async (req, res) => {
+    try {
+      const { productId, quantity, sessionId, variantId, userId } = req.body;
+      
+      if (!productId || !quantity || !sessionId) {
+        return res.status(400).json({ error: "productId, quantity, and sessionId are required" });
+      }
+      
+      const result = await inventoryService.reserveStock(productId, quantity, sessionId, {
+        variantId,
+        userId,
+      });
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: result.error || "Failed to reserve stock",
+          availability: result.availability,
+        });
+      }
+      
+      res.status(201).json(result.reservation);
+    } catch (error) {
+      logger.error("Error creating reservation", error);
+      res.status(500).json({ error: "Failed to create reservation" });
+    }
+  });
+
   app.post("/api/orders", async (req: any, res) => {
     try {
       // Extract request data

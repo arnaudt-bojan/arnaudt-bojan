@@ -170,6 +170,7 @@ export interface IStorage {
   // Inventory Management - Stock Reservations
   getStockReservation(id: string): Promise<StockReservation | undefined>;
   getStockReservationsBySession(sessionId: string): Promise<StockReservation[]>;
+  getStockReservationsByProduct(productId: string): Promise<StockReservation[]>;
   getExpiredStockReservations(now: Date): Promise<StockReservation[]>;
   getReservedStock(productId: string, variantId?: string): Promise<number>;
   createStockReservation(reservation: InsertStockReservation): Promise<StockReservation>;
@@ -522,6 +523,11 @@ export class DatabaseStorage implements IStorage {
   async getStockReservationsBySession(sessionId: string): Promise<StockReservation[]> {
     await this.ensureInitialized();
     return await this.db.select().from(stockReservations).where(eq(stockReservations.sessionId, sessionId));
+  }
+
+  async getStockReservationsByProduct(productId: string): Promise<StockReservation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(stockReservations).where(eq(stockReservations.productId, productId));
   }
 
   async getExpiredStockReservations(now: Date): Promise<StockReservation[]> {
