@@ -56,6 +56,7 @@ export const products = pgTable("products", {
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
   requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
   variants: jsonb("variants"), // [{size, color, stock, image}]
+  hasColors: integer("has_colors").default(0), // 0 = size-only mode, 1 = color mode
   madeToOrderDays: integer("made_to_order_days"), // Days after purchase for made-to-order
   preOrderDate: timestamp("pre_order_date"), // Availability date for pre-order
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }), // Discount percentage (0-100)
@@ -87,6 +88,29 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
   discountPercentage: z.string().optional().nullable().transform(val => val || undefined),
   promotionEndDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
   promotionActive: z.number().optional().nullable().transform(val => val ?? undefined),
+  // CRITICAL: Include variants and other optional fields that were missing
+  variants: z.any().optional().nullable(), // JSON array of variant objects
+  hasColors: z.number().optional().nullable(), // 0 = size-only, 1 = color mode
+  images: z.array(z.string()).optional().nullable(), // Array of image URLs
+  stock: z.number().optional().nullable(),
+  depositAmount: z.string().optional().nullable().transform(val => val || undefined),
+  requiresDeposit: z.number().optional().nullable(),
+  madeToOrderDays: z.number().optional().nullable(),
+  // Shipping fields
+  shippingType: z.string().optional().nullable(),
+  flatShippingRate: z.string().optional().nullable().transform(val => val || undefined),
+  shippingMatrixId: z.string().optional().nullable(),
+  shippoWeight: z.string().optional().nullable().transform(val => val || undefined),
+  shippoLength: z.string().optional().nullable().transform(val => val || undefined),
+  shippoWidth: z.string().optional().nullable().transform(val => val || undefined),
+  shippoHeight: z.string().optional().nullable().transform(val => val || undefined),
+  shippoTemplate: z.string().optional().nullable(),
+  // Category fields
+  categoryLevel1Id: z.string().optional().nullable(),
+  categoryLevel2Id: z.string().optional().nullable(),
+  categoryLevel3Id: z.string().optional().nullable(),
+  // Status
+  status: z.string().optional().nullable(),
 });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
