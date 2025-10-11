@@ -1681,8 +1681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: totalAmount,
         currency: "usd",
         automatic_payment_methods: {
-          enabled: true, // Enables Apple Pay, Google Pay, and other payment methods
-          allow_redirects: 'never', // Disables Stripe Link
+          enabled: true, // Enables Apple Pay, Google Pay, Link, and other payment methods
         },
         metadata: {
           orderId: orderId || "",
@@ -1691,35 +1690,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       };
 
-      // Enable Stripe Tax if seller has tax enabled and shipping address provided (B2C only, not wholesale)
-      if (seller?.taxEnabled && shippingAddress && items?.every((item: any) => item.productType !== 'wholesale')) {
-        // Validate shipping address has all required fields for Stripe Tax
-        const hasRequiredFields = shippingAddress.line1 && 
-                                  shippingAddress.city && 
-                                  shippingAddress.country &&
-                                  (shippingAddress.country !== 'US' || shippingAddress.state); // State required for US
-        
-        if (hasRequiredFields) {
-          paymentIntentParams.automatic_tax = { enabled: true };
-          
-          // Add shipping address for tax calculation
-          paymentIntentParams.shipping = {
-            name: shippingAddress.name || 'Customer',
-            address: {
-              line1: shippingAddress.line1,
-              line2: shippingAddress.line2 || undefined,
-              city: shippingAddress.city,
-              state: shippingAddress.state,
-              postal_code: shippingAddress.postal_code,
-              country: shippingAddress.country,
-            },
-          };
-          
-          logger.info(`[Stripe Tax] Enabled for seller ${sellerId} - B2C checkout with shipping to ${shippingAddress.country}`);
-        } else {
-          logger.info(`[Stripe Tax] Skipped - incomplete shipping address for seller ${sellerId}`);
-        }
-      }
+      // Note: Stripe Tax (automatic_tax) is currently disabled
+      // To enable: add taxEnabled boolean field to users table and set it per seller
+      // Example code (commented out):
+      // if (seller?.taxEnabled && shippingAddress && items?.every((item: any) => item.productType !== 'wholesale')) {
+      //   const hasRequiredFields = shippingAddress.line1 && 
+      //                             shippingAddress.city && 
+      //                             shippingAddress.country &&
+      //                             (shippingAddress.country !== 'US' || shippingAddress.state);
+      //   
+      //   if (hasRequiredFields) {
+      //     paymentIntentParams.automatic_tax = { enabled: true };
+      //     paymentIntentParams.shipping = {
+      //       name: shippingAddress.name || 'Customer',
+      //       address: {
+      //         line1: shippingAddress.line1,
+      //         line2: shippingAddress.line2 || undefined,
+      //         city: shippingAddress.city,
+      //         state: shippingAddress.state,
+      //         postal_code: shippingAddress.postal_code,
+      //         country: shippingAddress.country,
+      //       },
+      //     };
+      //     logger.info(`[Stripe Tax] Enabled for seller ${sellerId}`);
+      //   }
+      // }
       
       // Use Stripe Connect if seller has connected account (works in both test and live mode)
       if (sellerConnectedAccountId && sellerId && seller) {
