@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { ProductTypeBadge } from "@/components/product-type-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart-context";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShoppingCart, ChevronRight, Package, Truck, RotateCcw } from "lucide-react";
 import { Link } from "wouter";
@@ -34,12 +33,19 @@ interface Category {
   level: number;
 }
 
+// Simple currency formatter using product's currency (no conversion)
+const formatProductPrice = (price: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
+
 export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
   const productId = params?.id;
   const [, setLocation] = useLocation();
   const { addItem } = useCart();
-  const { formatPrice } = useCurrency();
   const { toast } = useToast();
   const { user } = useAuth();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -293,10 +299,10 @@ export default function ProductDetail() {
                     <span className="text-sm text-muted-foreground">Deposit Required</span>
                   </div>
                   <div className="text-3xl font-bold" data-testid="text-product-price">
-                    {formatPrice(parseFloat(product.depositAmount))}
+                    {formatProductPrice(parseFloat(product.depositAmount), (product as any).currency)}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Total Price: <span className="font-semibold">{formatPrice(parseFloat(product.price))}</span>
+                    Total Price: <span className="font-semibold">{formatProductPrice(parseFloat(product.price), (product as any).currency)}</span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-2">
                     Pay deposit now, balance due when product ships
@@ -307,19 +313,19 @@ export default function ProductDetail() {
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-red-600 dark:text-red-400" data-testid="text-product-price">
-                    {formatPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100))}
+                    {formatProductPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100), (product as any).currency)}
                   </div>
                   <span className="text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded">
                     -{product.discountPercentage}% OFF
                   </span>
                 </div>
                 <div className="text-xl text-muted-foreground line-through">
-                  {formatPrice(parseFloat(product.price))}
+                  {formatProductPrice(parseFloat(product.price), (product as any).currency)}
                 </div>
               </div>
             ) : (
               <div className="text-3xl font-bold" data-testid="text-product-price">
-                {formatPrice(parseFloat(product.price))}
+                {formatProductPrice(parseFloat(product.price), (product as any).currency)}
               </div>
             )}
 
@@ -419,12 +425,12 @@ export default function ProductDetail() {
                       <>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Deposit Amount</dt>
-                          <dd className="font-medium">{formatPrice(parseFloat(product.depositAmount))}</dd>
+                          <dd className="font-medium">{formatProductPrice(parseFloat(product.depositAmount), (product as any).currency)}</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Balance Due</dt>
                           <dd className="font-medium">
-                            {formatPrice(parseFloat(product.price) - parseFloat(product.depositAmount))}
+                            {formatProductPrice(parseFloat(product.price) - parseFloat(product.depositAmount), (product as any).currency)}
                           </dd>
                         </div>
                         {(product as any).preOrderDate && (
