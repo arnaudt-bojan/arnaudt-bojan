@@ -103,13 +103,26 @@ export default function SellerStorefront() {
     <div className="min-h-screen">
       {/* Store Header */}
       <div className="border-b bg-card">
+        {/* Banner */}
+        {effectiveSeller.banner && (
+          <div className="w-full h-48 overflow-hidden">
+            <img 
+              src={effectiveSeller.banner} 
+              alt="Store banner" 
+              className="w-full h-full object-cover"
+              data-testid="img-store-banner"
+            />
+          </div>
+        )}
+        
         <div className="container py-8">
           <div className="flex items-center gap-4">
-            {effectiveSeller.logoUrl ? (
+            {effectiveSeller.logo ? (
               <img 
-                src={effectiveSeller.logoUrl} 
+                src={effectiveSeller.logo} 
                 alt={effectiveSeller.storeName || `${effectiveSeller.username}'s Store`} 
                 className="h-16 w-16 rounded-lg object-cover"
+                data-testid="img-store-logo"
               />
             ) : (
               <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
