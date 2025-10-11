@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/lib/cart-context";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { AuthStoreProvider } from "@/contexts/auth-store-context";
 import { Header } from "@/components/header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
@@ -116,12 +117,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <CurrencyProvider>
-            <CartProvider>
-              <AppContent />
-              <Toaster />
-            </CartProvider>
-          </CurrencyProvider>
+          <AuthStoreProvider>
+            <CurrencyProvider>
+              <CartProvider>
+                <AppContent />
+                <Toaster />
+              </CartProvider>
+            </CurrencyProvider>
+          </AuthStoreProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
