@@ -17,6 +17,7 @@ import documentRoutes from "./routes/documents";
 import { DocumentGenerator } from "./services/document-generator";
 import { logger } from "./logger";
 import { generateUniqueUsername, generateOrderNumber } from "./utils";
+import { InventoryService } from "./services/inventory.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -26,6 +27,9 @@ const notificationService = createNotificationService(storage, pdfService);
 
 // Initialize authorization service for capability checks
 const authorizationService = new AuthorizationService(storage);
+
+// Initialize inventory service for stock management
+const inventoryService = new InventoryService(storage);
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -616,6 +620,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // INVENTORY: Reserve stock for all items before creating order
+      // Generate checkout session ID for tracking reservations
+      const checkoutSessionId = `checkout_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const failedReservations: any[] = [];
+      const successfulReservations: any[] = [];
+
+      for (const item of validation.items) {
+        const variantId = item.variant ? 
+          inventoryService.getVariantId(item.variant.size, item.variant.color) : 
+          undefined;
+
+        const reservationResult = await inventoryService.reserveStock(
+          item.id,
+          item.quantity,
+          checkoutSessionId,
+          {
+            variantId,
+            userId,
+            expirationMinutes: 30, // 30 min for checkout completion
+          }
+        );
+
+        if (!reservationResult.success) {
+          failedReservations.push({
+            productId: item.id,
+            productName: item.name,
+            error: reservationResult.error,
+            available: reservationResult.availability?.availableStock || 0,
+          });
+        } else {
+          successfulReservations.push(reservationResult.reservation);
+        }
+      }
+
+      // If ANY reservation failed, release all successful ones and return error
+      if (failedReservations.length > 0) {
+        logger.warn('[Order Creation] Stock reservation failed for some items', {
+          failed: failedReservations,
+          successful: successfulReservations.length,
+        });
+
+        // Release successful reservations
+        for (const reservation of successfulReservations) {
+          await inventoryService.releaseReservation(reservation!.id);
+        }
+
+        return res.status(400).json({
+          error: "Some items are no longer available",
+          details: failedReservations.map(f => 
+            `${f.productName}: ${f.error}`
+          ),
+        });
+      }
+
+      logger.info('[Order Creation] All items reserved successfully', {
+        checkoutSessionId,
+        itemCount: successfulReservations.length,
+      });
+
       // Create order with SERVER-CALCULATED values only
       const orderData = {
         userId,
@@ -631,6 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             productType: item.productType,
             depositAmount: item.depositAmount,
             requiresDeposit: item.requiresDeposit,
+            variant: item.variant || null, // Include variant info
           }))
         ),
         total: pricing.fullTotal.toString(),
@@ -642,6 +706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotalBeforeTax: pricing.subtotal.toString(),
         taxAmount: taxAmount.toString(),
         currency: sellerCurrency, // Seller's currency at time of order
+        metadata: JSON.stringify({ checkoutSessionId }), // Store session ID for inventory commit
       };
 
       const order = await storage.createOrder(orderData);
@@ -4457,6 +4522,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error(`[Webhook] Failed to send invoice email:`, emailError);
               // Continue processing - don't fail webhook if email fails
             }
+          }
+          break;
+        }
+
+        case 'payment_intent.succeeded': {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const orderId = paymentIntent.metadata?.orderId;
+
+          if (orderId) {
+            logger.info(`[Webhook] Payment succeeded for order ${orderId}`);
+            
+            // Get order and commit inventory reservations
+            const order = await storage.getOrder(orderId);
+            if (order && order.metadata) {
+              try {
+                const metadata = JSON.parse(order.metadata);
+                const checkoutSessionId = metadata.checkoutSessionId;
+
+                if (checkoutSessionId) {
+                  // Commit all reservations for this checkout session
+                  await inventoryService.commitReservationsBySession(checkoutSessionId, orderId);
+                  logger.info(`[Inventory] Committed reservations for order ${orderId}`, {
+                    checkoutSessionId,
+                  });
+                }
+              } catch (error) {
+                logger.error('[Inventory] Failed to commit reservations', {
+                  orderId,
+                  error,
+                });
+                // Don't fail webhook - order is still valid
+              }
+            }
+
+            // Update order payment status
+            await storage.updateOrderPaymentStatus(orderId, 'fully_paid');
+            await storage.updateOrderStatus(orderId, 'processing');
+            logger.info(`[Webhook] Updated order ${orderId} to fully_paid and processing`);
           }
           break;
         }
