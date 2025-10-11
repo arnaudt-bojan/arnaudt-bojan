@@ -196,18 +196,18 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
             </SheetContent>
           </Sheet>
           
-          {/* Logo/Branding - show store logo, Instagram, store name, or "Add Logo" button */}
+          {/* Logo/Branding - show store logo, Instagram, store name, or "Add Logo" button - always link to seller's storefront */}
           {activeSeller?.storeLogo ? (
-            <Link href="/" className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+            <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
               <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
             </Link>
           ) : activeSeller?.instagramUsername ? (
-            <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
             </Link>
           ) : activeSeller && (activeSeller.firstName || activeSeller.lastName || activeSeller.username) ? (
             <div className="flex items-center gap-2">
-              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
                 <div className="text-lg font-semibold">
                   {activeSeller.firstName && activeSeller.lastName 
                     ? `${activeSeller.firstName} ${activeSeller.lastName}`

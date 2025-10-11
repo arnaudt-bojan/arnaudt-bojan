@@ -12,7 +12,6 @@ import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
 import Home from "@/pages/home";
-import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
 import EmailLogin from "@/pages/email-login";
@@ -70,7 +69,6 @@ function AppContent() {
           <Route path="/" component={Home} />
           <Route path="/email-login" component={EmailLogin} />
           <Route path="/s/:username" component={SellerStorefront} />
-          <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/checkout" component={Checkout} />
           <Route path="/order-success/:orderId" component={OrderSuccess} />

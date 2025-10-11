@@ -70,17 +70,6 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
                 <div className="flex flex-col gap-6 mt-6">
                   {/* Navigation Links */}
                   <nav className="flex flex-col gap-2">
-                    {/* Products link for guests on seller domains or authenticated buyers */}
-                    {(isSellerDomain || isBuyer) && (
-                      <Link
-                        href="/products"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
-                        data-testid="mobile-link-products"
-                      >
-                        Products
-                      </Link>
-                    )}
                     {/* Buyer-specific links */}
                     {isBuyer && (
                       <>
@@ -153,17 +142,17 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
           
           {/* Logo/Branding */}
           {isSellerDomain ? (
-            // On seller storefront: show store logo, Instagram username, or store name
+            // On seller storefront: show store logo, Instagram username, or store name - always link to seller's storefront
             activeSeller?.storeLogo ? (
-              <Link href="/" className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
                 <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
               </Link>
             ) : activeSeller?.instagramUsername ? (
-              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
                 <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
               </Link>
             ) : activeSeller ? (
-              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+              <Link href={activeSeller.username ? `/s/${activeSeller.username}` : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
                 <div className="text-lg font-semibold">
                   {activeSeller.firstName && activeSeller.lastName 
                     ? `${activeSeller.firstName} ${activeSeller.lastName}`
@@ -185,25 +174,16 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
 
         {/* Desktop controls - right side */}
         <div className="flex items-center gap-2">
-          {/* Desktop navigation */}
-          {(isSellerDomain || isBuyer || location.includes('/products')) && (
+          {/* Desktop navigation - buyer only */}
+          {isBuyer && (
             <div className="hidden md:flex items-center gap-1">
-              {/* Products link - show for guests on seller domains, buyers, or on products page */}
-              <Button variant="ghost" size="sm" asChild data-testid="desktop-link-products">
-                <Link href="/products">Products</Link>
+              <Button variant="ghost" size="sm" asChild data-testid="desktop-link-buyer-dashboard">
+                <Link href="/buyer-dashboard">My Orders</Link>
               </Button>
-              {/* Buyer-only links */}
-              {isBuyer && (
-                <>
-                  <Button variant="ghost" size="sm" asChild data-testid="desktop-link-buyer-dashboard">
-                    <Link href="/buyer-dashboard">My Orders</Link>
-                  </Button>
-                  {hasWholesaleAccess && (
-                    <Button variant="ghost" size="sm" asChild data-testid="desktop-link-buyer-wholesale">
-                      <Link href="/wholesale/catalog">Wholesale</Link>
-                    </Button>
-                  )}
-                </>
+              {hasWholesaleAccess && (
+                <Button variant="ghost" size="sm" asChild data-testid="desktop-link-buyer-wholesale">
+                  <Link href="/wholesale/catalog">Wholesale</Link>
+                </Button>
               )}
             </div>
           )}
@@ -215,8 +195,8 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
             <ThemeToggle />
           </div>
           
-          {/* Cart button - show on seller storefronts and product pages */}
-          {(isSellerDomain || location.includes('/products') || location.includes('/checkout')) && (
+          {/* Cart button - show on seller storefronts and checkout */}
+          {(isSellerDomain || location.includes('/checkout')) && (
             <Button
               variant="ghost"
               size="icon"
