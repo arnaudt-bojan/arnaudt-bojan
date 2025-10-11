@@ -222,6 +222,39 @@ export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type SelectOrderItem = typeof orderItems.$inferSelect;
 
+// Stock Reservations - prevent overselling with temporary stock holds
+export const reservationStatusEnum = z.enum(["active", "committed", "released", "expired"]);
+export type ReservationStatus = z.infer<typeof reservationStatusEnum>;
+
+export const stockReservations = pgTable("stock_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull(), // References products.id or wholesale_products.id
+  variantId: varchar("variant_id"), // Variant identifier (size-color combination) if applicable
+  quantity: integer("quantity").notNull(), // How many units are reserved
+  orderId: varchar("order_id"), // References orders.id (null until order created)
+  sessionId: varchar("session_id"), // Checkout session ID for tracking
+  userId: varchar("user_id"), // User who made the reservation (optional - guest checkout)
+  status: text("status").notNull().default("active"), // "active", "committed", "released", "expired"
+  expiresAt: timestamp("expires_at").notNull(), // Auto-release after this time (default 15 min)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  committedAt: timestamp("committed_at"), // When reservation was committed (payment success)
+  releasedAt: timestamp("released_at"), // When reservation was released (checkout abandoned)
+}, (table) => {
+  return {
+    // Performance indexes for availability checks and cleanup
+    productVariantStatusIdx: index("stock_res_prod_var_status_idx").on(table.productId, table.variantId, table.status),
+    expiresAtIdx: index("stock_res_expires_at_idx").on(table.expiresAt),
+    sessionIdx: index("stock_res_session_idx").on(table.sessionId),
+  };
+});
+
+export const insertStockReservationSchema = createInsertSchema(stockReservations).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertStockReservation = z.infer<typeof insertStockReservationSchema>;
+export type StockReservation = typeof stockReservations.$inferSelect;
+
 // Refunds - track all refund transactions
 export const refunds = pgTable("refunds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -68,11 +68,14 @@ import {
   type InsertMusicTrack,
   type UserStoreRole,
   type InsertUserStoreRole,
+  type StockReservation,
+  type InsertStockReservation,
   users,
   products,
   orders,
   orderItems,
   refunds,
+  stockReservations,
   invitations,
   metaSettings,
   tiktokSettings,
@@ -163,6 +166,36 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
+  
+  // Inventory Management - Stock Reservations
+  getStockReservation(id: string): Promise<StockReservation | undefined>;
+  getStockReservationsBySession(sessionId: string): Promise<StockReservation[]>;
+  getExpiredStockReservations(now: Date): Promise<StockReservation[]>;
+  getReservedStock(productId: string, variantId?: string): Promise<number>;
+  createStockReservation(reservation: InsertStockReservation): Promise<StockReservation>;
+  updateStockReservation(id: string, data: Partial<StockReservation>): Promise<StockReservation | undefined>;
+  atomicReserveStock(
+    productId: string,
+    quantity: number,
+    sessionId: string,
+    options?: {
+      variantId?: string;
+      userId?: string;
+      expirationMinutes?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    reservation?: StockReservation;
+    error?: string;
+    availability?: {
+      available: boolean;
+      currentStock: number;
+      reservedStock: number;
+      availableStock: number;
+      productId: string;
+      variantId?: string;
+    };
+  }>;
   
   getAllOrders(): Promise<Order[]>;
   getOrdersByUserId(userId: string): Promise<Order[]>;
@@ -470,6 +503,182 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.delete(products).where(eq(products.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Inventory Management - Stock Reservations
+  async getStockReservation(id: string): Promise<StockReservation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(stockReservations).where(eq(stockReservations.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getStockReservationsBySession(sessionId: string): Promise<StockReservation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(stockReservations).where(eq(stockReservations.sessionId, sessionId));
+  }
+
+  async getExpiredStockReservations(now: Date): Promise<StockReservation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(stockReservations).where(
+      and(
+        eq(stockReservations.status, 'active'),
+        lt(stockReservations.expiresAt, now)
+      )
+    );
+  }
+
+  async getReservedStock(productId: string, variantId?: string): Promise<number> {
+    await this.ensureInitialized();
+    const conditions = [
+      eq(stockReservations.productId, productId),
+      eq(stockReservations.status, 'active')
+    ];
+    
+    if (variantId) {
+      conditions.push(eq(stockReservations.variantId, variantId));
+    }
+
+    const reservations = await this.db.select().from(stockReservations).where(and(...conditions));
+    
+    return reservations.reduce((total, reservation) => total + reservation.quantity, 0);
+  }
+
+  async createStockReservation(reservation: InsertStockReservation): Promise<StockReservation> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(stockReservations).values(reservation).returning();
+    return result[0];
+  }
+
+  async updateStockReservation(id: string, data: Partial<StockReservation>): Promise<StockReservation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(stockReservations).set(data).where(eq(stockReservations.id, id)).returning();
+    return result[0];
+  }
+
+  async atomicReserveStock(
+    productId: string,
+    quantity: number,
+    sessionId: string,
+    options?: {
+      variantId?: string;
+      userId?: string;
+      expirationMinutes?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    reservation?: StockReservation;
+    error?: string;
+    availability?: {
+      available: boolean;
+      currentStock: number;
+      reservedStock: number;
+      availableStock: number;
+      productId: string;
+      variantId?: string;
+    };
+  }> {
+    await this.ensureInitialized();
+    
+    // Use database transaction to prevent race conditions
+    // This ensures check-and-insert is atomic
+    return await this.db.transaction(async (tx) => {
+      // Step 1: Lock the product row with SELECT ... FOR UPDATE
+      const product = await tx
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+        .for('update')
+        .limit(1);
+      
+      if (!product || product.length === 0) {
+        return {
+          success: false,
+          error: 'Product not found',
+        };
+      }
+
+      const prod = product[0];
+      
+      // Step 2: Calculate current stock
+      let currentStock = 0;
+      const variantId = options?.variantId;
+      
+      if (variantId && prod.variants) {
+        const variants = Array.isArray(prod.variants) ? prod.variants : [];
+        const variant = variants.find((v: any) => {
+          const parts = [];
+          if (v.size) parts.push(v.size);
+          if (v.color) parts.push(v.color);
+          const vId = parts.join('-').toLowerCase();
+          return vId === variantId;
+        });
+        currentStock = variant?.stock || 0;
+      } else {
+        currentStock = prod.stock || 0;
+      }
+
+      // Step 3: Get reserved stock (with lock on reservations)
+      const conditions = [
+        eq(stockReservations.productId, productId),
+        eq(stockReservations.status, 'active')
+      ];
+      
+      if (variantId) {
+        conditions.push(eq(stockReservations.variantId, variantId));
+      }
+
+      const activeReservations = await tx
+        .select()
+        .from(stockReservations)
+        .where(and(...conditions))
+        .for('update');
+      
+      const reservedStock = activeReservations.reduce((total, res) => total + res.quantity, 0);
+      const availableStock = Math.max(0, currentStock - reservedStock);
+
+      const availability = {
+        available: availableStock >= quantity,
+        currentStock,
+        reservedStock,
+        availableStock,
+        productId,
+        variantId,
+      };
+
+      // Step 4: Check if enough stock is available
+      if (availableStock < quantity) {
+        return {
+          success: false,
+          error: `Insufficient stock. Only ${availableStock} available.`,
+          availability,
+        };
+      }
+
+      // Step 5: Create reservation (atomically within transaction)
+      const expirationMinutes = options?.expirationMinutes || 15;
+      const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+
+      const reservationData: InsertStockReservation = {
+        productId,
+        variantId: variantId || null,
+        quantity,
+        sessionId,
+        userId: options?.userId || null,
+        status: 'active',
+        expiresAt,
+        orderId: null,
+        committedAt: null,
+        releasedAt: null,
+      };
+
+      const result = await tx.insert(stockReservations).values(reservationData).returning();
+      
+      return {
+        success: true,
+        reservation: result[0],
+        availability,
+      };
+    });
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
