@@ -2340,8 +2340,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invitations", isAuthenticated, async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
-        return res.status(403).json({ error: "Only owners and admins can invite users" });
+      // Only sellers (not team members) can send invitations
+      // Check: must be seller/owner/admin role AND must not have a sellerId (meaning they ARE the owner, not a team member)
+      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
+        return res.status(403).json({ error: "Only store owners can invite team members" });
       }
 
       const { email, role } = req.body;
@@ -2390,8 +2392,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/invitations", isAuthenticated, async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
-        return res.status(403).json({ error: "Only owners and admins can view invitations" });
+      // Only sellers (not team members) can view invitations
+      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
+        return res.status(403).json({ error: "Only store owners can view invitations" });
       }
 
       const invitations = await storage.getAllInvitations();
@@ -2424,8 +2427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Inviter not found" });
       }
 
-      // Get canonical owner ID: if inviter is owner, use their ID; otherwise use their sellerId
-      const canonicalOwnerId = inviter.role === "owner" ? inviter.id : inviter.sellerId;
+      // Get canonical owner ID: if inviter has sellerId, they're a team member (use sellerId); otherwise they ARE the owner (use their ID)
+      const canonicalOwnerId = inviter.sellerId || inviter.id;
       if (!canonicalOwnerId) {
         return res.status(400).json({ error: "Could not determine store owner" });
       }
@@ -2538,8 +2541,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/team/:userId/role", isAuthenticated, async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
-        return res.status(403).json({ error: "Only owners and admins can update roles" });
+      // Only sellers (not team members) can update roles
+      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
+        return res.status(403).json({ error: "Only store owners can update team member roles" });
       }
 
       const { role } = req.body;
@@ -2563,12 +2567,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/team/:userId", isAuthenticated, async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || !["owner", "admin"].includes(currentUser.role)) {
-        return res.status(403).json({ error: "Only owners and admins can delete team members" });
+      // Only sellers (not team members) can delete team members
+      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
+        return res.status(403).json({ error: "Only store owners can remove team members" });
       }
 
-      // Get canonical owner ID
-      const canonicalOwnerId = currentUser.role === "owner" ? currentUser.id : currentUser.sellerId;
+      // Get canonical owner ID: if current user has sellerId, they're a team member (use sellerId); otherwise they ARE the owner (use their ID)
+      const canonicalOwnerId = currentUser.sellerId || currentUser.id;
       if (!canonicalOwnerId) {
         return res.status(400).json({ error: "No store owner found for this user" });
       }

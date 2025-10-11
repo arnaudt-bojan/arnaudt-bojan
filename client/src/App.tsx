@@ -82,6 +82,7 @@ function AppContent() {
               <Route path="/order-success/:orderId" component={OrderSuccess} />
               <Route path="/orders" component={Orders} />
               <Route path="/orders/:id" component={BuyerOrderDetail} />
+              <Route path="/accept-invitation" component={AcceptInvitation} />
               <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
               <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
               <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
