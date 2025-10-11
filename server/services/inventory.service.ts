@@ -5,6 +5,7 @@ import type {
   Product,
 } from '@shared/schema';
 import { logger } from '../logger';
+import { eq } from 'drizzle-orm';
 
 export interface StockAvailability {
   available: boolean;
@@ -175,19 +176,57 @@ export class InventoryService {
       throw new Error(`Cannot commit reservation in status: ${reservation.status}`);
     }
 
-    await this.storage.updateStockReservation(reservationId, {
-      status: 'committed',
-      committedAt: new Date(),
-      orderId,
+    // CRITICAL: Use transaction to ensure atomicity
+    // Both reservation update and stock decrement must succeed or both fail
+    await this.storage.db.transaction(async (tx) => {
+      // 1. Update reservation status
+      await tx
+        .update(this.storage.stockReservations)
+        .set({
+          status: 'committed',
+          committedAt: new Date(),
+          orderId,
+        })
+        .where(eq(this.storage.stockReservations.id, reservationId));
+
+      // 2. Decrement stock (in same transaction)
+      const product = await tx
+        .select()
+        .from(this.storage.products)
+        .where(eq(this.storage.products.id, reservation.productId))
+        .limit(1);
+
+      if (!product[0]) {
+        throw new Error(`Product ${reservation.productId} not found`);
+      }
+
+      const variantId = reservation.variantId;
+      if (variantId && product[0].variants) {
+        const variants = Array.isArray(product[0].variants) ? product[0].variants : [];
+        const updatedVariants = variants.map((v: any) => {
+          if (this.getVariantId(v.size, v.color) === variantId) {
+            return {
+              ...v,
+              stock: Math.max(0, (v.stock || 0) - reservation.quantity),
+            };
+          }
+          return v;
+        });
+
+        await tx
+          .update(this.storage.products)
+          .set({ variants: updatedVariants })
+          .where(eq(this.storage.products.id, reservation.productId));
+      } else {
+        const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
+        await tx
+          .update(this.storage.products)
+          .set({ stock: newStock })
+          .where(eq(this.storage.products.id, reservation.productId));
+      }
     });
 
-    await this.decrementStock(
-      reservation.productId,
-      reservation.quantity,
-      reservation.variantId || undefined
-    );
-
-    logger.info('[InventoryService] Reservation committed and stock decremented', {
+    logger.info('[InventoryService] Reservation committed and stock decremented (transaction)', {
       reservationId,
       orderId,
       productId: reservation.productId,
