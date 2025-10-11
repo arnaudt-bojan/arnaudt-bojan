@@ -2,7 +2,6 @@ import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useCart } from "@/lib/cart-context";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 
@@ -11,13 +10,21 @@ interface CartSheetProps {
   onClose: () => void;
 }
 
+// Simple currency formatter using seller's currency (no conversion)
+const formatCartPrice = (price: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
+
 export function CartSheet({ open, onClose }: CartSheetProps) {
   const { items, updateQuantity, removeItem, total, itemsCount } = useCart();
-  const { formatPrice } = useCurrency();
   const [, setLocation] = useLocation();
   
-  // Get seller ID from cart items (all items are from same seller)
+  // Get seller ID and currency from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : null;
+  const currency = items.length > 0 ? (items[0] as any).currency || 'USD' : 'USD';
   
   // Fetch seller's tax settings
   const { data: seller } = useQuery<any>({
@@ -124,7 +131,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                         </Button>
                       </div>
                       <span className="font-bold" data-testid={`text-item-total-${item.id}`}>
-                        {formatPrice(parseFloat(item.price) * item.quantity)}
+                        {formatCartPrice(parseFloat(item.price) * item.quantity, currency)}
                       </span>
                     </div>
                   </div>
@@ -137,7 +144,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Subtotal</span>
                   <span className="font-semibold" data-testid="text-cart-subtotal">
-                    {formatPrice(total)}
+                    {formatCartPrice(total, currency)}
                   </span>
                 </div>
                 {seller?.taxEnabled ? (
@@ -145,7 +152,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Estimated Tax</span>
                       <span className="font-semibold" data-testid="text-cart-tax-estimate">
-                        {formatPrice(taxEstimate)}
+                        {formatCartPrice(taxEstimate, currency)}
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground" data-testid="text-tax-notice">
@@ -161,7 +168,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
               <div className="flex justify-between items-center pt-2 border-t">
                 <span className="text-lg font-semibold">Estimated Total</span>
                 <span className="text-2xl font-bold" data-testid="text-cart-total">
-                  {formatPrice(estimatedTotal)}
+                  {formatCartPrice(estimatedTotal, currency)}
                 </span>
               </div>
               <Button
