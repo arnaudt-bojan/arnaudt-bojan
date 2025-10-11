@@ -4564,6 +4564,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
         }
 
+        case 'payment_intent.payment_failed':
+        case 'payment_intent.canceled': {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const orderId = paymentIntent.metadata?.orderId;
+
+          if (orderId) {
+            logger.info(`[Webhook] Payment ${event.type} for order ${orderId}`);
+            
+            // Get order and release inventory reservations
+            const order = await storage.getOrder(orderId);
+            if (order) {
+              let reservationsReleased = false;
+
+              // PRIMARY PATH: Try to release via checkoutSessionId from metadata
+              if (order.metadata) {
+                try {
+                  const metadata = JSON.parse(order.metadata);
+                  const checkoutSessionId = metadata?.checkoutSessionId;
+
+                  if (checkoutSessionId) {
+                    // Release all reservations for this checkout session
+                    await inventoryService.releaseReservationsBySession(checkoutSessionId);
+                    reservationsReleased = true;
+                    logger.info(`[Inventory] Released reservations via checkoutSessionId`, {
+                      orderId,
+                      checkoutSessionId,
+                      event: event.type,
+                    });
+                  }
+                } catch (parseError) {
+                  logger.error('[Inventory] Failed to parse order metadata', {
+                    orderId,
+                    error: parseError,
+                  });
+                }
+              }
+
+              // FALLBACK PATH: If metadata missing/invalid, release by order items
+              if (!reservationsReleased) {
+                logger.warn('[Inventory] Using fallback: releasing reservations by order items', {
+                  orderId,
+                });
+
+                try {
+                  let orderItems;
+                  try {
+                    orderItems = JSON.parse(order.items);
+                  } catch (itemsParseError) {
+                    logger.error('[Inventory] Failed to parse order.items in fallback', {
+                      orderId,
+                      error: itemsParseError,
+                    });
+                    throw itemsParseError; // Re-throw to outer catch
+                  }
+
+                  let releasedCount = 0;
+
+                  for (const item of orderItems) {
+                    const productId = item.productId;
+                    const variant = item.variant;
+                    const variantId = variant ? 
+                      inventoryService.getVariantId(variant.size, variant.color) : 
+                      undefined;
+
+                    // Release pending reservations for this product/variant created by this user
+                    const released = await inventoryService.releaseUserReservations(
+                      productId,
+                      order.userId,
+                      variantId
+                    );
+                    releasedCount += released;
+                  }
+
+                  reservationsReleased = true;
+                  logger.info(`[Inventory] Fallback release completed`, {
+                    orderId,
+                    itemsProcessed: orderItems.length,
+                    reservationsReleased: releasedCount,
+                  });
+                } catch (fallbackError) {
+                  logger.error('[Inventory] Fallback reservation release failed', {
+                    orderId,
+                    error: fallbackError,
+                  });
+                  // Continue - at least update order status
+                  // NOTE: Reservations will be released by background cleanup job (5min cycle)
+                }
+              }
+
+              // Update order status to cancelled (single consistent status)
+              try {
+                await storage.updateOrderPaymentStatus(orderId, 'failed');
+                await storage.updateOrderStatus(orderId, 'cancelled');
+                logger.info(`[Webhook] Updated order ${orderId} to cancelled with failed payment`);
+              } catch (statusError) {
+                logger.error('[Webhook] Failed to update order status', {
+                  orderId,
+                  error: statusError,
+                });
+              }
+            }
+          }
+          break;
+        }
+
         default:
           logger.info(`[Webhook] Unhandled event type: ${event.type}`);
       }

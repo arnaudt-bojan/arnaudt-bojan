@@ -12,6 +12,8 @@ import {
   authRateLimitMiddleware,
   sanitizeInputMiddleware
 } from "./security";
+import { ReservationCleanupJob } from "./jobs/cleanup-reservations";
+import { storage } from "./storage";
 
 const app = express();
 
@@ -103,6 +105,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // Background jobs
+  let cleanupJob: ReservationCleanupJob | null = null;
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
@@ -143,17 +148,25 @@ app.use((req, res, next) => {
     
     // Start import queue
     importQueue.start();
+    
+    // Start reservation cleanup job
+    cleanupJob = new ReservationCleanupJob(storage);
+    cleanupJob.start();
   });
   
   // Graceful shutdown
   process.on('SIGTERM', async () => {
-    log('[ImportQueue] SIGTERM received, stopping job queue');
+    log('[Server] SIGTERM received, stopping background jobs');
+    
     importQueue.stop();
+    if (cleanupJob) {
+      cleanupJob.stop();
+    }
     
     // Wait a bit for jobs to cleanup
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    log('[ImportQueue] Shutdown complete');
+    log('[Server] Shutdown complete');
     process.exit(0);
   });
 })();

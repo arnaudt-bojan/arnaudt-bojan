@@ -231,6 +231,42 @@ export class InventoryService {
     return expiredReservations.length;
   }
 
+  async releaseUserReservations(
+    productId: string,
+    userId: string,
+    variantId?: string
+  ): Promise<number> {
+    const now = new Date();
+    const allReservations = await this.storage.getStockReservationsByProduct(productId);
+    let releasedCount = 0;
+
+    for (const reservation of allReservations) {
+      // Only release active reservations for this user and variant
+      if (
+        reservation.status === 'active' &&
+        reservation.userId === userId &&
+        (variantId === undefined || reservation.variantId === variantId)
+      ) {
+        await this.storage.updateStockReservation(reservation.id, {
+          status: 'released',
+          releasedAt: now,
+        });
+        releasedCount++;
+      }
+    }
+
+    if (releasedCount > 0) {
+      logger.info('[InventoryService] Released user reservations', {
+        productId,
+        userId,
+        variantId,
+        count: releasedCount,
+      });
+    }
+
+    return releasedCount;
+  }
+
   async decrementStock(
     productId: string,
     quantity: number,
