@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface CartItem extends Product {
   quantity: number;
+  currency?: string; // Explicitly include currency from product API response
 }
 
 interface CartContextType {

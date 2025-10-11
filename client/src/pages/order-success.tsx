@@ -9,6 +9,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Package, Mail, Phone, MapPin, ExternalLink } from "lucide-react";
 import type { Order, Product, User } from "@shared/schema";
 
+// Simple currency formatter using seller's currency (no conversion)
+const formatOrderPrice = (price: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
+
 export default function OrderSuccess() {
   const [, params] = useRoute("/order-success/:orderId");
   const [, setLocation] = useLocation();
@@ -74,6 +82,9 @@ export default function OrderSuccess() {
   });
 
   const seller = sellerUser;
+  
+  // Get seller's currency from first product (extends Product type with currency field)
+  const currency = (firstProduct as any)?.currency || 'USD';
 
   // Get payment info
   const paymentStatus = order?.paymentStatus;
@@ -274,13 +285,13 @@ export default function OrderSuccess() {
                         )}
                         <p>Quantity: {item.quantity}</p>
                         <p className="font-semibold text-foreground">
-                          ${parseFloat(item.price).toFixed(2)} each
+                          {formatOrderPrice(parseFloat(item.price), currency)} each
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold">
-                        ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                        {formatOrderPrice(parseFloat(item.price) * item.quantity, currency)}
                       </p>
                     </div>
                   </div>
@@ -297,7 +308,7 @@ export default function OrderSuccess() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span data-testid="text-subtotal">
-                    ${parseFloat(order.subtotalBeforeTax).toFixed(2)}
+                    {formatOrderPrice(parseFloat(order.subtotalBeforeTax), currency)}
                   </span>
                 </div>
               )}
@@ -306,7 +317,7 @@ export default function OrderSuccess() {
               {order.taxAmount && parseFloat(order.taxAmount) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax</span>
-                  <span data-testid="text-tax">${parseFloat(order.taxAmount).toFixed(2)}</span>
+                  <span data-testid="text-tax">{formatOrderPrice(parseFloat(order.taxAmount), currency)}</span>
                 </div>
               )}
               
@@ -316,29 +327,29 @@ export default function OrderSuccess() {
                 <>
                   <div className="flex justify-between text-sm font-semibold">
                     <span>Order Total</span>
-                    <span data-testid="text-order-total">${total.toFixed(2)}</span>
+                    <span data-testid="text-order-total">{formatOrderPrice(total, currency)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-green-600 dark:text-green-400 font-medium">Deposit Paid</span>
                     <span className="text-green-600 dark:text-green-400 font-semibold">
-                      ${amountPaid.toFixed(2)}
+                      {formatOrderPrice(amountPaid, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Balance Due</span>
-                    <span className="font-semibold">${remainingBalance.toFixed(2)}</span>
+                    <span className="font-semibold">{formatOrderPrice(remainingBalance, currency)}</span>
                   </div>
                   <Separator />
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
                     <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                      <strong>Note:</strong> You'll be contacted to pay the remaining balance of ${remainingBalance.toFixed(2)} before shipment.
+                      <strong>Note:</strong> You'll be contacted to pay the remaining balance of {formatOrderPrice(remainingBalance, currency)} before shipment.
                     </p>
                   </div>
                 </>
               ) : (
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total Paid</span>
-                  <span data-testid="text-total">${total.toFixed(2)}</span>
+                  <span data-testid="text-total">{formatOrderPrice(total, currency)}</span>
                 </div>
               )}
             </div>

@@ -24,7 +24,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
   
   // Get seller ID and currency from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : null;
-  const currency = items.length > 0 ? (items[0] as any).currency || 'USD' : 'USD';
+  const currency = items.length > 0 ? items[0].currency || 'USD' : 'USD';
   
   // Fetch seller's tax settings
   const { data: seller } = useQuery<any>({

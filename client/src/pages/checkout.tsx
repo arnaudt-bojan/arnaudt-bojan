@@ -41,6 +41,14 @@ import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/p
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
+// Simple currency formatter using seller's currency (no conversion)
+const formatCheckoutPrice = (price: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
+
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
   customerEmail: z.string().email("Valid email required"),
@@ -250,7 +258,7 @@ function PaymentForm({
         ) : (
           <>
             <Lock className="mr-2 h-4 w-4" />
-            {paymentType === 'deposit' ? `Pay Deposit $${amount.toFixed(2)}` : `Pay $${amount.toFixed(2)}`}
+            {paymentType === 'deposit' ? `Pay Deposit ${formatCheckoutPrice(amount, items[0]?.currency || 'USD')}` : `Pay ${formatCheckoutPrice(amount, items[0]?.currency || 'USD')}`}
           </>
         )}
       </Button>
@@ -482,6 +490,9 @@ export default function Checkout() {
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [isCreatingIntent, setIsCreatingIntent] = useState(false);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(true);
+  
+  // Get seller's currency from cart items (all items are from same seller)
+  const currency = items.length > 0 ? items[0].currency || 'USD' : 'USD';
 
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -604,8 +615,8 @@ export default function Checkout() {
         validateChargeAmount(displayedAmount, amountToPay, 0.01);
       } catch (error: any) {
         throw new Error(
-          `PRICING ERROR: The amount displayed ($${displayedAmount.toFixed(2)}) ` +
-          `does not match the charge amount ($${amountToPay.toFixed(2)}). ` +
+          `PRICING ERROR: The amount displayed (${formatCheckoutPrice(displayedAmount, currency)}) ` +
+          `does not match the charge amount (${formatCheckoutPrice(amountToPay, currency)}). ` +
           `Please refresh and try again.`
         );
       }
@@ -711,12 +722,12 @@ export default function Checkout() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Deposit Paid:</span>
                     <span className="font-semibold text-green-600 dark:text-green-400">
-                      ${paymentInfo.depositTotal.toFixed(2)}
+                      {formatCheckoutPrice(paymentInfo.depositTotal, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Balance Due:</span>
-                    <span className="font-semibold">${paymentInfo.remainingBalance.toFixed(2)}</span>
+                    <span className="font-semibold">{formatCheckoutPrice(paymentInfo.remainingBalance, currency)}</span>
                   </div>
                   <Separator className="my-3" />
                   <p className="text-xs text-muted-foreground">
@@ -1053,11 +1064,11 @@ export default function Checkout() {
                               <div className="flex-1">
                                 <p className="font-medium text-sm leading-tight">{item.name}</p>
                                 <p className="text-sm text-muted-foreground mt-0.5">
-                                  ${parseFloat(item.price).toFixed(2)} × {item.quantity}
+                                  {formatCheckoutPrice(parseFloat(item.price), currency)} × {item.quantity}
                                 </p>
                               </div>
                               <p className="font-semibold text-sm whitespace-nowrap">
-                                ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                                {formatCheckoutPrice(parseFloat(item.price) * item.quantity, currency)}
                               </p>
                             </div>
                             
@@ -1077,7 +1088,7 @@ export default function Checkout() {
                             
                             {item.productType === "pre-order" && item.requiresDeposit && item.depositAmount && (
                               <p className="text-xs text-blue-600 dark:text-blue-400">
-                                Deposit: ${parseFloat(item.depositAmount).toFixed(2)} each
+                                Deposit: {formatCheckoutPrice(parseFloat(item.depositAmount), currency)} each
                               </p>
                             )}
                           </div>
@@ -1118,13 +1129,13 @@ export default function Checkout() {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span data-testid="text-subtotal">${paymentInfo.subtotal.toFixed(2)}</span>
+                    <span data-testid="text-subtotal">{formatCheckoutPrice(paymentInfo.subtotal, currency)}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     <span data-testid="text-shipping">
-                      {paymentInfo.shipping === 0 ? "FREE" : `$${paymentInfo.shipping.toFixed(2)}`}
+                      {paymentInfo.shipping === 0 ? "FREE" : formatCheckoutPrice(paymentInfo.shipping, currency)}
                     </span>
                   </div>
 
@@ -1132,7 +1143,7 @@ export default function Checkout() {
 
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
-                    <span data-testid="text-total">${paymentInfo.fullTotal.toFixed(2)}</span>
+                    <span data-testid="text-total">{formatCheckoutPrice(paymentInfo.fullTotal, currency)}</span>
                   </div>
 
                   {paymentInfo.payingDepositOnly && (
@@ -1141,11 +1152,11 @@ export default function Checkout() {
                       <div className="space-y-2 pt-2">
                         <div className="flex justify-between text-sm font-medium text-blue-600 dark:text-blue-400">
                           <span>Deposit Due Now</span>
-                          <span data-testid="text-deposit">${paymentInfo.depositTotal.toFixed(2)}</span>
+                          <span data-testid="text-deposit">{formatCheckoutPrice(paymentInfo.depositTotal, currency)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-muted-foreground">
                           <span>Balance Due Later</span>
-                          <span data-testid="text-balance">${paymentInfo.remainingBalance.toFixed(2)}</span>
+                          <span data-testid="text-balance">{formatCheckoutPrice(paymentInfo.remainingBalance, currency)}</span>
                         </div>
                       </div>
                     </>
@@ -1156,7 +1167,7 @@ export default function Checkout() {
                   <div className="flex justify-between text-lg font-bold">
                     <span>Pay Now</span>
                     <span data-testid="text-amount-to-pay">
-                      ${amountToPay.toFixed(2)}
+                      {formatCheckoutPrice(amountToPay, currency)}
                     </span>
                   </div>
                 </div>

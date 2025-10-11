@@ -17,6 +17,7 @@ export interface CartItem {
   productType: string;
   depositAmount?: string;
   requiresDeposit?: number;
+  currency?: string; // Seller's currency from product API response
 }
 
 export interface PricingBreakdown {
