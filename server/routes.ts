@@ -6,6 +6,7 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { setupAuth } from "./replitAuth";
 import { requireAuth, requireUserType, requireCapability, requireStoreAccess, requireProductAccess, requireOrderAccess, requireCanPurchase } from "./middleware/auth";
+import { AuthorizationService } from "./services/authorization.service";
 import Stripe from "stripe";
 import { getExchangeRates, getUserCurrency } from "./currencyService";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -22,6 +23,9 @@ const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
 
 // Initialize notification service
 const notificationService = createNotificationService(storage, pdfService);
+
+// Initialize authorization service for capability checks
+const authorizationService = new AuthorizationService(storage);
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -104,7 +108,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      
+      // Get user capabilities from AuthorizationService
+      const capabilities = await authorizationService.getUserCapabilities(userId);
+      
+      // Return user with capabilities
+      res.json({
+        ...user,
+        capabilities: capabilities || {},
+      });
     } catch (error) {
       logger.error("Failed to fetch user", error, { userId: req.user?.claims?.sub });
       res.status(500).json({ message: "Failed to fetch user" });

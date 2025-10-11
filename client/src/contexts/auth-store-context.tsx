@@ -67,8 +67,17 @@ export function AuthStoreProvider({ children }: { children: ReactNode }) {
     viewMode = "guest";
   } else {
     // User is logged in
-    const isOwner = currentUser.role === "admin" || currentUser.role === "seller" || currentUser.role === "owner";
-    const isBuyer = currentUser.role === "buyer";
+    // Check user type with role fallback - matches useAuth hook exactly
+    const isOwner = 
+      currentUser.userType === "seller" || 
+      currentUser.role === "seller" || 
+      currentUser.role === "admin" || 
+      currentUser.role === "owner";
+    const isBuyer = currentUser.userType === "buyer" || currentUser.role === "buyer";
+    const isCollaborator = 
+      currentUser.userType === "collaborator" || 
+      currentUser.role === "editor" || 
+      currentUser.role === "viewer";
     
     // Check if on seller/owner dashboard routes (NOT buyer dashboard)
     const pathname = window.location.pathname;
@@ -81,15 +90,18 @@ export function AuthStoreProvider({ children }: { children: ReactNode }) {
                                    pathname.startsWith("/social-ads-setup") ||
                                    pathname.startsWith("/newsletter");
     
-    if (isOwner && isOwnerDashboardRoute) {
+    // Collaborators and sellers can access dashboard routes
+    const canAccessDashboard = isOwner || isCollaborator;
+    
+    if (canAccessDashboard && isOwnerDashboardRoute) {
       viewMode = "owner-in-dashboard";
     } else if (isOwner && domainInfo.isSellerDomain && activeSeller && currentUser.id === activeSeller.id) {
       // Owner viewing their own storefront (compare user IDs)
       viewMode = "owner-viewing-own";
     } else if (isBuyer) {
       viewMode = "buyer";
-    } else if (isOwner) {
-      // Owner on main domain or viewing someone else's store - treat as owner-in-dashboard for navigation purposes
+    } else if (canAccessDashboard) {
+      // Owner/collaborator on main domain or viewing someone else's store - treat as owner-in-dashboard for navigation purposes
       viewMode = "owner-in-dashboard";
     }
   }

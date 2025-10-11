@@ -22,6 +22,7 @@ import {
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   ShoppingBag, 
@@ -482,6 +483,7 @@ export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { isSeller, isCollaborator } = useAuth();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<InsertOrder | null>(null);
   const [billingDetails, setBillingDetails] = useState<CheckoutForm | null>(null);
@@ -490,6 +492,18 @@ export default function Checkout() {
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [isCreatingIntent, setIsCreatingIntent] = useState(false);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(true);
+  
+  // Redirect sellers and collaborators away from checkout (they cannot buy)
+  useEffect(() => {
+    if (isSeller || isCollaborator) {
+      toast({
+        title: "Access Denied",
+        description: "Sellers and team members cannot make purchases.",
+        variant: "destructive",
+      });
+      setLocation("/");
+    }
+  }, [isSeller, isCollaborator, setLocation, toast]);
   
   // Get seller's currency from cart items (all items are from same seller)
   const currency = items.length > 0 ? items[0].currency || 'USD' : 'USD';

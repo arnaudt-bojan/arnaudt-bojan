@@ -4,6 +4,14 @@
 Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront accessible via subdomain in production (`username.upfirst.io`) or path-based routing in dev (`/s/username`), with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes (Oct 11, 2025)
+- **Auth System Complete Integration**: Full migration to new capability-based auth system complete
+  - Successfully migrated all 156 route middleware uses from `isAuthenticated`/`isSeller` to `requireAuth`/`requireUserType`
+  - Fixed critical authorization bypass vulnerability by adding seller protection to product/seller management routes
+  - All seller routes now properly protected with `requireUserType('seller')`: /api/seller/*, /api/products (mutations), /api/wholesale/*
+  - Migration strategy: 34 users migrated with conservative collaborator capabilities (viewAnalytics only), unknown roles skip to prevent privilege escalation
+  - Auth middleware: requireAuth handles OIDC token refresh + session persistence + concurrency mutex
+  - Authorization service: 40+ capabilities with resource-scoped permissions, properly enforces seller/buyer/collaborator separation
+  - Ready for frontend capability-based UI controls and E2E testing
 - **Notification Service Refactoring**: Comprehensive refactoring of 2,200+ line notification system to eliminate ALL hardcoded values
   - Created service-oriented architecture with dependency injection: EmailConfigService, EmailProviderService, NotificationMessagesService
   - Eliminated ALL hardcoded email addresses (support@, hello@, FROM_EMAIL) - now using centralized config

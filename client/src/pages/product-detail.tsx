@@ -21,7 +21,7 @@ import { VariantColorSelector } from "@/components/variant-color-selector";
 import { VariantSizeSelector } from "@/components/variant-size-selector";
 import type { ColorVariant } from "@/components/product-variant-manager";
 import { StoreUnavailable } from "@/components/store-unavailable";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { detectDomain } from "@/lib/domain-utils";
 import { Footer } from "@/components/footer";
 
@@ -47,14 +47,15 @@ export default function ProductDetail() {
   const [, setLocation] = useLocation();
   const { addItem } = useCart();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isSeller, isCollaborator } = useAuth();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [sellerInfo, setSellerInfo] = useState<any>(null);
 
   const domainInfo = detectDomain();
-  const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer' || user?.role === 'seller' || user?.role === 'owner';
+  // Sellers and collaborators cannot buy from stores (prevent cart access)
+  const canAddToCart = !isSeller && !isCollaborator;
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", productId],
@@ -358,26 +359,29 @@ export default function ProductDetail() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                size="lg"
-                variant="outline"
-                className="gap-2"
-                onClick={handleAddToCart}
-                data-testid="button-add-to-cart"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Add to Cart
-              </Button>
-              <Button
-                size="lg"
-                className="gap-2"
-                onClick={handleBuyNow}
-                data-testid="button-buy-now"
-              >
-                Buy Now
-              </Button>
-            </div>
+            {/* Only show Add to Cart / Buy Now for buyers (not sellers/collaborators) */}
+            {canAddToCart && (
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleAddToCart}
+                  data-testid="button-add-to-cart"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  Add to Cart
+                </Button>
+                <Button
+                  size="lg"
+                  className="gap-2"
+                  onClick={handleBuyNow}
+                  data-testid="button-buy-now"
+                >
+                  Buy Now
+                </Button>
+              </div>
+            )}
 
             <Accordion type="multiple" defaultValue={["description", "details"]} className="w-full">
               <AccordionItem value="description" data-testid="accordion-description">
