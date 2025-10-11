@@ -467,11 +467,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let userId: string;
 
-      // All orders require customerEmail (guest checkout flow)
-      const { customerEmail } = req.body;
+      // SECURITY: Extract customer info and cart items (NOT totals/prices)
+      const { customerEmail, customerName, customerAddress, items, destination } = req.body;
       
       if (!customerEmail) {
         return res.status(400).json({ error: "Customer email is required for all orders" });
+      }
+
+      if (!items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "Cart items are required" });
+      }
+
+      if (!destination || !destination.country) {
+        return res.status(400).json({ error: "Shipping destination is required" });
       }
 
       // Look up user by email (case-insensitive)
@@ -490,18 +498,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existingUser) {
         // Auto-create buyer account for guest checkout
         const newUserId = Math.random().toString(36).substring(2, 8);
-        const [firstName, ...lastNameParts] = (req.body.customerName || "Guest User").split(" ");
+        const [firstName, ...lastNameParts] = (customerName || "Guest User").split(" ");
         const username = await generateUniqueUsername();
         
         existingUser = await storage.upsertUser({
           id: newUserId,
-          email: normalizedEmail, // Use normalized email
+          email: normalizedEmail,
           username,
           firstName: firstName || "Guest",
           lastName: lastNameParts.join(" ") || "User",
           profileImageUrl: null,
           role: "buyer",
-          password: null, // Guest buyers have no password (cannot login via email auth)
+          password: null,
         });
 
         logger.info(`[Guest Checkout] Created new buyer account for ${normalizedEmail} with username ${username}`);
@@ -509,13 +517,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       userId = existingUser.id;
 
-      const validationResult = insertOrderSchema.omit({ userId: true }).safeParse(req.body);
-      if (!validationResult.success) {
-        const error = fromZodError(validationResult.error);
-        return res.status(400).json({ error: error.message });
+      // SECURITY: Validate cart items and fetch server-side prices
+      const validation = await cartValidationService.validateCart(items);
+      
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Invalid cart items", 
+          details: validation.errors 
+        });
       }
 
-      const order = await storage.createOrder({ ...validationResult.data, userId });
+      // SECURITY: Calculate shipping server-side
+      const shipping = await shippingService.calculateShipping(
+        items.map(i => ({ id: i.productId, quantity: i.quantity })),
+        destination
+      );
+
+      // SECURITY: Calculate tax server-side
+      const taxableAmount = validation.total + shipping.cost;
+      const taxAmount = estimateTax(taxableAmount);
+
+      // SECURITY: Calculate order totals server-side using PricingService
+      const pricing = calculatePricing(
+        validation.items,
+        shipping.cost,
+        taxAmount
+      );
+
+      // Create order with SERVER-CALCULATED values only
+      const orderData = {
+        userId,
+        customerName,
+        customerEmail: normalizedEmail,
+        customerAddress,
+        items: JSON.stringify(
+          validation.items.map((item) => ({
+            productId: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            productType: item.productType,
+            depositAmount: item.depositAmount,
+            requiresDeposit: item.requiresDeposit,
+          }))
+        ),
+        total: pricing.fullTotal.toString(),
+        amountPaid: "0", // Will be updated after payment
+        remainingBalance: pricing.payingDepositOnly ? pricing.remainingBalance.toString() : "0",
+        paymentType: pricing.payingDepositOnly ? "deposit" : "full",
+        paymentStatus: "pending",
+        status: "pending",
+        subtotalBeforeTax: pricing.subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+      };
+
+      const order = await storage.createOrder(orderData);
       
       // Create order items for item-level tracking
       try {
@@ -5933,6 +5989,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Admin errors fetch error", error);
       res.status(500).json({ error: "Failed to fetch errors" });
+    }
+  });
+
+  // =============================================================================
+  // BACKEND SERVICES API - All business logic centralized on backend
+  // =============================================================================
+
+  // Import services
+  const { CartService } = await import("./services/cart.service");
+  const { CartValidationService } = await import("./services/cart-validation.service");
+  const { ShippingService } = await import("./services/shipping.service");
+  const { OrderService } = await import("./services/order.service");
+  const { TaxService } = await import("./services/tax.service");
+  const { calculatePricing, estimateTax } = await import("./services/pricing.service");
+
+  const cartService = new CartService(storage);
+  const cartValidationService = new CartValidationService(storage);
+  const shippingService = new ShippingService(storage);
+  const orderService = new OrderService(storage);
+  const taxService = new TaxService();
+
+  // Cart API - Backend cart management
+  app.post("/api/cart/add", async (req: any, res) => {
+    try {
+      const { productId, quantity = 1 } = req.body;
+      const userId = req.user?.claims?.sub || null;
+
+      if (!productId) {
+        return res.status(400).json({ error: "Product ID is required" });
+      }
+
+      const result = await cartService.addToCart(userId, productId, quantity);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Cart add error", error);
+      res.status(500).json({ error: "Failed to add to cart" });
+    }
+  });
+
+  app.post("/api/cart/remove", async (req: any, res) => {
+    try {
+      const { productId } = req.body;
+      const userId = req.user?.claims?.sub || null;
+
+      if (!productId) {
+        return res.status(400).json({ error: "Product ID is required" });
+      }
+
+      const result = await cartService.removeFromCart(userId, productId);
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Cart remove error", error);
+      res.status(500).json({ error: "Failed to remove from cart" });
+    }
+  });
+
+  app.post("/api/cart/update", async (req: any, res) => {
+    try {
+      const { productId, quantity } = req.body;
+      const userId = req.user?.claims?.sub || null;
+
+      if (!productId || quantity === undefined) {
+        return res.status(400).json({ error: "Product ID and quantity are required" });
+      }
+
+      const result = await cartService.updateQuantity(userId, productId, quantity);
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Cart update error", error);
+      res.status(500).json({ error: "Failed to update cart" });
+    }
+  });
+
+  app.delete("/api/cart", async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || null;
+      const result = await cartService.clearCart(userId);
+      res.json(result);
+    } catch (error) {
+      logger.error("Cart clear error", error);
+      res.status(500).json({ error: "Failed to clear cart" });
+    }
+  });
+
+  app.get("/api/cart", async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || null;
+      const cart = await cartService.getCart(userId);
+      res.json(cart);
+    } catch (error) {
+      logger.error("Cart get error", error);
+      res.status(500).json({ error: "Failed to get cart" });
+    }
+  });
+
+  // Shipping API - Backend shipping calculations
+  app.post("/api/shipping/calculate", async (req: any, res) => {
+    try {
+      const { items, destination } = req.body;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "Cart items are required" });
+      }
+
+      if (!destination || !destination.country) {
+        return res.status(400).json({ error: "Shipping destination is required" });
+      }
+
+      const shipping = await shippingService.calculateShipping(items, destination);
+      res.json(shipping);
+    } catch (error) {
+      logger.error("Shipping calculate error", error);
+      res.status(500).json({ error: "Failed to calculate shipping" });
+    }
+  });
+
+  // Cart Validation API - Validate cart with server-side pricing
+  app.post("/api/cart/validate", async (req: any, res) => {
+    try {
+      const { items } = req.body;
+
+      if (!items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "Cart items are required" });
+      }
+
+      const validation = await cartValidationService.validateCart(items);
+      res.json(validation);
+    } catch (error) {
+      logger.error("Cart validation error", error);
+      res.status(500).json({ error: "Failed to validate cart" });
+    }
+  });
+
+  // Order API - Backend order processing with server-side shipping and tax calculation
+  app.post("/api/orders/calculate", async (req: any, res) => {
+    try {
+      const { items, destination } = req.body;
+
+      if (!items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "Cart items are required" });
+      }
+
+      if (!destination || !destination.country) {
+        return res.status(400).json({ error: "Shipping destination is required" });
+      }
+
+      // SECURITY: Validate cart items and fetch server-side prices
+      const validation = await cartValidationService.validateCart(items);
+      
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Invalid cart items", 
+          details: validation.errors 
+        });
+      }
+
+      // SECURITY: Calculate shipping server-side (never trust client shipping cost)
+      const shipping = await shippingService.calculateShipping(
+        items.map(i => ({ id: i.productId, quantity: i.quantity })),
+        destination
+      );
+
+      // SECURITY: Calculate tax server-side (never trust client tax amount)
+      // For now using 8% estimate - TODO: integrate full Stripe Tax
+      const taxableAmount = validation.total + shipping.cost;
+      const taxAmount = estimateTax(taxableAmount);
+
+      // Use validated items with server-calculated shipping and tax
+      const summary = await orderService.calculateOrderSummary(
+        validation.items,
+        shipping.cost,
+        taxAmount
+      );
+      
+      res.json({
+        ...summary,
+        shipping,
+        validatedItems: validation.items,
+      });
+    } catch (error) {
+      logger.error("Order calculate error", error);
+      res.status(500).json({ error: "Failed to calculate order" });
     }
   });
 

@@ -3,6 +3,34 @@
 ## Overview
 Upfirst is an e-commerce platform designed to empower creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. It provides a unified user experience for both buyers and sellers, offering product browsing, a shopping cart, authenticated checkout, and a comprehensive seller dashboard for managing products and orders. The platform includes a B2B wholesale system, advanced AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. Its core purpose is to deliver a seamless, modern, and scalable solution for online commerce.
 
+## Recent Changes
+*Last updated: October 11, 2025*
+
+### Backend Security Refactor (Oct 11, 2025)
+- **CRITICAL**: Complete security overhaul of order processing system
+- Moved ALL business logic from frontend to backend services
+- Created comprehensive backend service layer:
+  - `CartValidationService` - Validates cart items against database with server-side pricing
+  - `PricingService` - Handles all pricing calculations (deposit logic, tax, shipping)
+  - `ShippingService` - Calculates shipping costs with seller validation
+  - `OrderService` - Orchestrates order creation with validated data
+  - `TaxService` - Handles tax calculations (Stripe Tax integration)
+- Fixed critical security vulnerabilities:
+  - **Price manipulation**: All prices now fetched from database, client cannot supply prices
+  - **Quantity manipulation**: Strict validation enforces positive integers only (≥1)
+  - **Shipping manipulation**: Shipping calculated server-side, client cannot supply cost
+  - **Tax manipulation**: Tax calculated server-side, client cannot supply amount
+  - **Total validation**: Rejects orders with zero or negative totals
+  - **Seller constraint**: Validates all items from same seller
+- Updated API endpoints:
+  - `/api/cart/validate` - Validate cart with server prices
+  - `/api/orders/calculate` - Calculate order summary with server-side shipping & tax
+  - `/api/orders` - Create orders with server-validated data ONLY
+- Client now sends: customer info + cart items (product IDs + quantities) + destination
+- Backend calculates: prices, discounts, shipping, tax, totals
+- Architecture is now production-grade and fraud-resistant
+- See `docs/SECURITY_ARCHITECTURE.md` for complete security documentation
+
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
 - **Coding Style**: Favor modern JavaScript/TypeScript practices, functional components in React, and maintainable code.
