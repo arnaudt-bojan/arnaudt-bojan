@@ -292,11 +292,31 @@ export default function OrderSuccess() {
 
             {/* Payment Summary */}
             <div className="space-y-3">
+              {/* Subtotal */}
+              {order.subtotalBeforeTax && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span data-testid="text-subtotal">
+                    ${parseFloat(order.subtotalBeforeTax).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              
+              {/* Tax (if applicable) */}
+              {order.taxAmount && parseFloat(order.taxAmount) > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span data-testid="text-tax">${parseFloat(order.taxAmount).toFixed(2)}</span>
+                </div>
+              )}
+              
+              {order.subtotalBeforeTax && <Separator />}
+              
               {isDepositPayment ? (
                 <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>${total.toFixed(2)}</span>
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span>Order Total</span>
+                    <span data-testid="text-order-total">${total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-green-600 dark:text-green-400 font-medium">Deposit Paid</span>
@@ -316,7 +336,7 @@ export default function OrderSuccess() {
                   </div>
                 </>
               ) : (
-                <div className="flex justify-between text-lg font-bold pt-3 border-t-2 border-foreground">
+                <div className="flex justify-between text-lg font-bold">
                   <span>Total Paid</span>
                   <span data-testid="text-total">${total.toFixed(2)}</span>
                 </div>
