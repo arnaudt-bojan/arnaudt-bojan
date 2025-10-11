@@ -63,6 +63,35 @@ Upfirst is an e-commerce platform designed to empower creators and brands to sel
 - `client/src/pages/edit-product.tsx` - Fixed useEffect dependency and closure staleness bug
 - Database: Added `hasColors` column, fixed null usernames for 5 users
 
+### Subscription Dialog Auto-Close & Refresh Fix (Oct 11, 2025)
+- **CRITICAL FIX**: Resolved Settings page not showing updated subscription status after successful subscription
+- **Impact**: Users can now see their active subscription immediately after subscribing
+- **Root Cause**: Dialog closed after subscription but didn't refresh page; Settings page wasn't passing `activateStoreAfter` prop
+
+**Solution Implemented**:
+- Added `/api/subscription/status` query invalidation to subscription dialog (ensures all subscription state updates)
+- Settings page now passes `activateStoreAfter={true}` to trigger page refresh after subscription
+- Conditional reload behavior preserved: only pages that opt-in via prop will refresh (protects unsaved form data)
+
+**User Flow After Fix**:
+1. User on Settings page clicks "Subscribe Now"
+2. Completes Stripe checkout in popup window
+3. Dialog detects success via polling (every 2 seconds)
+4. Toast shows "Subscription Active!"
+5. Dialog closes automatically
+6. Page refreshes after 500ms delay
+7. User sees green "Active Subscription" card immediately
+
+**Production Readiness**:
+- ✅ Architect review passed - implementation correctly scopes reloads while preserving flexibility
+- ✅ E2E test passed - dialog opens/closes correctly, UI flow verified
+- ✅ Query invalidation ensures subscription state updates everywhere
+- ✅ No regressions in polling, cleanup logic, or toast handling
+
+**Files Modified**:
+- `client/src/components/subscription-pricing-dialog.tsx` - Added subscription status query invalidation
+- `client/src/pages/settings.tsx` - Added `activateStoreAfter={true}` prop
+
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
 - **Coding Style**: Favor modern JavaScript/TypeScript practices, functional components in React, and maintainable code.
