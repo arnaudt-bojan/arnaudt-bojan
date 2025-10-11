@@ -168,7 +168,7 @@ class NotificationServiceImpl implements NotificationService {
   async sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }> {
     try {
       // Use email config service for from address
-      const fromEmail = params.from || this.emailConfig.getFromEmail();
+      const fromEmail = params.from || this.emailConfig.getPlatformFrom();
       
       // Map attachments to provider format
       const attachments = params.attachments?.map(att => ({
@@ -336,6 +336,7 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void> {
     const emailHtml = this.generateItemTrackingEmail(order, item, seller);
+    const template = this.messages.itemShipped(order.id, item.productName);
 
     // Generate packing slip PDF for this specific item
     let attachments: EmailAttachment[] = [];
@@ -362,9 +363,8 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-
       replyTo: seller.email || undefined,
-      subject: `Item shipped from order #${order.id.slice(0, 8)}`,
+      subject: template.emailSubject,
       html: emailHtml,
       attachments,
     });
@@ -395,12 +395,12 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendItemDelivered(order: Order, item: OrderItem, seller: User): Promise<void> {
     const emailHtml = this.generateItemDeliveredEmail(order, item, seller);
+    const template = this.messages.itemDelivered(order.id, item.productName);
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-
       replyTo: seller.email || undefined,
-      subject: `Item delivered from order #${order.id.slice(0, 8)}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -429,12 +429,12 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendItemCancelled(order: Order, item: OrderItem, seller: User, reason?: string): Promise<void> {
     const emailHtml = this.generateItemCancelledEmail(order, item, seller, reason);
+    const template = this.messages.itemCancelled(order.id, item.productName, reason);
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-
       replyTo: seller.email || undefined,
-      subject: `Item cancelled from order #${order.id.slice(0, 8)}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -462,14 +462,14 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send item refunded notification (Seller → Buyer)
    */
-  async sendItemRefunded(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number): Promise<void> {
+  async sendItemRefunded(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number, currency: string = 'USD'): Promise<void> {
     const emailHtml = this.generateItemRefundedEmail(order, item, seller, refundAmount, refundedQuantity);
+    const template = this.messages.itemRefunded(order.id, item.productName, refundAmount, currency);
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-
       replyTo: seller.email || undefined,
-      subject: `Refund processed for order #${order.id.slice(0, 8)}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -500,10 +500,11 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendProductListed(seller: User, product: Product): Promise<void> {
     const emailHtml = this.generateProductListedEmail(seller, product);
+    const template = this.messages.productListed(product);
 
     const result = await this.sendEmail({
       to: seller.email!,
-      subject: `Product Listed: ${product.name}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 

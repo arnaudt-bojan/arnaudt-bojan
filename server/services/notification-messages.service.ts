@@ -225,6 +225,54 @@ export class NotificationMessagesService {
       notificationMessage: `Your ${plan} subscription invoice for ${formatPrice(amount, currency)}`,
     };
   }
+
+  /**
+   * Item Shipped (Seller → Buyer)
+   */
+  itemShipped(orderId: string, itemName: string): NotificationMessageTemplate {
+    return {
+      emailSubject: `Item shipped from order #${orderId.slice(0, 8)}`,
+      emailPreheader: `${itemName} is on its way`,
+      notificationTitle: 'Item Shipped',
+      notificationMessage: `${itemName} from order #${orderId.slice(0, 8)} has shipped`,
+    };
+  }
+
+  /**
+   * Item Delivered (Seller → Buyer)
+   */
+  itemDelivered(orderId: string, itemName: string): NotificationMessageTemplate {
+    return {
+      emailSubject: `Item delivered from order #${orderId.slice(0, 8)}`,
+      emailPreheader: `${itemName} has been delivered`,
+      notificationTitle: 'Item Delivered',
+      notificationMessage: `${itemName} from order #${orderId.slice(0, 8)} has been delivered`,
+    };
+  }
+
+  /**
+   * Item Cancelled (Seller → Buyer)
+   */
+  itemCancelled(orderId: string, itemName: string, reason?: string): NotificationMessageTemplate {
+    return {
+      emailSubject: `Item cancelled from order #${orderId.slice(0, 8)}`,
+      emailPreheader: reason || 'Item has been cancelled',
+      notificationTitle: 'Item Cancelled',
+      notificationMessage: `${itemName} from order #${orderId.slice(0, 8)} has been cancelled${reason ? `: ${reason}` : ''}`,
+    };
+  }
+
+  /**
+   * Item Refunded (Seller → Buyer)
+   */
+  itemRefunded(orderId: string, itemName: string, refundAmount: number, currency: string): NotificationMessageTemplate {
+    return {
+      emailSubject: `Refund processed for order #${orderId.slice(0, 8)}`,
+      emailPreheader: `${formatPrice(refundAmount, currency)} refund for ${itemName}`,
+      notificationTitle: 'Refund Processed',
+      notificationMessage: `${formatPrice(refundAmount, currency)} refund processed for ${itemName}`,
+    };
+  }
 }
 
 // Export singleton instance
