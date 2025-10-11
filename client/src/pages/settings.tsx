@@ -422,7 +422,8 @@ function SubscriptionTab({ user }: { user: any }) {
       {/* Subscription Pricing Dialog */}
       <SubscriptionPricingDialog 
         open={showSubscriptionDialog} 
-        onOpenChange={setShowSubscriptionDialog} 
+        onOpenChange={setShowSubscriptionDialog}
+        activateStoreAfter={true}
       />
 
       {/* Cancel Confirmation Dialog */}

@@ -51,11 +51,14 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
       onOpenChange(false);
       
-      // Refresh page if store should be activated
+      // Refresh page if requested
       if (activateStoreAfter) {
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
     }
   }, [isPolling, userData, checkoutWindow, activateStoreAfter, toast, onOpenChange]);
