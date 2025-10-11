@@ -1586,7 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { amount, orderId, paymentType = "full", items } = req.body;
+      const { amount, orderId, paymentType = "full", items, shippingAddress } = req.body;
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ error: "Invalid amount" });
@@ -1595,6 +1595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine seller from cart items
       let sellerId: string | null = null;
       let sellerConnectedAccountId: string | null = null;
+      let seller: any = null;
 
       if (items && items.length > 0) {
         // Get first product to determine seller
@@ -1603,7 +1604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (product) {
           sellerId = product.sellerId;
-          const seller = await storage.getUser(sellerId);
+          seller = await storage.getUser(sellerId);
           sellerConnectedAccountId = seller?.stripeConnectedAccountId || null;
         }
       }
@@ -1626,10 +1627,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sellerId: sellerId || "",
         },
       };
+
+      // Enable Stripe Tax if seller has tax enabled and shipping address provided (B2C only, not wholesale)
+      if (seller?.taxEnabled && shippingAddress && items?.every((item: any) => item.productType !== 'wholesale')) {
+        // Validate shipping address has all required fields for Stripe Tax
+        const hasRequiredFields = shippingAddress.line1 && 
+                                  shippingAddress.city && 
+                                  shippingAddress.country &&
+                                  (shippingAddress.country !== 'US' || shippingAddress.state); // State required for US
+        
+        if (hasRequiredFields) {
+          paymentIntentParams.automatic_tax = { enabled: true };
+          
+          // Add shipping address for tax calculation
+          paymentIntentParams.shipping = {
+            name: shippingAddress.name || 'Customer',
+            address: {
+              line1: shippingAddress.line1,
+              line2: shippingAddress.line2 || undefined,
+              city: shippingAddress.city,
+              state: shippingAddress.state,
+              postal_code: shippingAddress.postal_code,
+              country: shippingAddress.country,
+            },
+          };
+          
+          logger.info(`[Stripe Tax] Enabled for seller ${sellerId} - B2C checkout with shipping to ${shippingAddress.country}`);
+        } else {
+          logger.info(`[Stripe Tax] Skipped - incomplete shipping address for seller ${sellerId}`);
+        }
+      }
       
       // Use Stripe Connect if seller has connected account (works in both test and live mode)
-      if (sellerConnectedAccountId && sellerId) {
-        const seller = await storage.getUser(sellerId);
+      if (sellerConnectedAccountId && sellerId && seller) {
         
         // Check if seller can accept charges
         if (!seller?.stripeChargesEnabled) {
@@ -1710,6 +1740,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Error creating payment intent: " + error.message 
       });
+    }
+  });
+
+  // Retrieve Payment Intent with tax data after payment confirmation
+  app.get("/api/payment-intent/:paymentIntentId/tax-data", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const { paymentIntentId } = req.params;
+      
+      // Retrieve payment intent with expanded latest_charge (correct expand path)
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ['latest_charge'],
+      });
+
+      // Extract tax amount from latest charge total_details
+      const charge = paymentIntent.latest_charge as any;
+      const taxAmountInCents = charge?.total_details?.amount_tax || 0;
+      const taxAmount = taxAmountInCents / 100;
+      
+      // Extract tax data
+      const taxData = {
+        taxAmount: taxAmount.toString(),
+        taxCalculationId: (paymentIntent as any).automatic_tax?.calculation || null,
+        taxBreakdown: charge?.total_details?.breakdown?.taxes || null,
+        subtotalBeforeTax: ((paymentIntent.amount_received - taxAmountInCents) / 100).toString(),
+      };
+
+      logger.info(`[Stripe Tax] Retrieved tax data for payment ${paymentIntentId}: ${taxAmount > 0 ? `$${taxAmount} tax collected` : 'no tax'}`, {
+        taxAmount,
+        calculationId: taxData.taxCalculationId,
+        hasBreakdown: !!taxData.taxBreakdown
+      });
+
+
+      res.json(taxData);
+    } catch (error: any) {
+      logger.error("Failed to retrieve tax data", error);
+      res.status(500).json({ error: "Failed to retrieve tax data" });
     }
   });
 

@@ -122,12 +122,31 @@ function PaymentForm({
           variant: "destructive",
         });
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
-        // Create order in database with payment info
+        // Fetch tax data from server (payment intent needs to be retrieved server-side with expanded fields)
+        let taxData = {
+          taxAmount: "0",
+          taxCalculationId: null,
+          taxBreakdown: null,
+          subtotalBeforeTax: orderData.total,
+        };
+
+        try {
+          const taxResponse = await apiRequest("GET", `/api/payment-intent/${paymentIntent.id}/tax-data`, null);
+          if (taxResponse.ok) {
+            taxData = await taxResponse.json();
+          }
+        } catch (taxError) {
+          console.error("[Checkout] Failed to retrieve tax data:", taxError);
+          // Continue with order creation even if tax data fetch fails
+        }
+        
+        // Create order in database with payment info and tax data
         const updatedOrderData = {
           ...orderData,
           amountPaid: amount.toString(),
           paymentStatus: paymentType === 'deposit' ? "deposit_paid" : "fully_paid",
           stripePaymentIntentId: paymentIntent.id,
+          ...taxData, // Include tax amount, calculation ID, breakdown, and subtotal
         };
 
         try {
@@ -352,11 +371,20 @@ export default function Checkout() {
       setOrderData(newOrderData);
       setBillingDetails(data); // Store billing details for Stripe
 
-      // Create payment intent
+      // Create payment intent with shipping address for tax calculation
       const response = await apiRequest("POST", "/api/create-payment-intent", {
         amount: amountToPay,
         paymentType: payingDepositOnly ? "deposit" : "full",
         items: items,
+        shippingAddress: {
+          name: data.customerName,
+          line1: data.addressLine1,
+          line2: data.addressLine2,
+          city: data.city,
+          state: data.state,
+          postal_code: data.postalCode,
+          country: data.country,
+        },
       });
 
       if (!response.ok) {

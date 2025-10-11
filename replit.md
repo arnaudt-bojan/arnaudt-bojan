@@ -36,6 +36,7 @@ Upfirst is built with a modern web stack. The frontend uses React, TypeScript, T
 - **Saved Addresses & Payment Methods**: PCI-DSS compliant system for securely saving shipping addresses and payment methods, leveraging Stripe Payment Methods API for card data tokenization.
 - **Cart System**: Shopping cart stored in browser localStorage with automatic single-seller constraint enforcement. Sellers' carts are cleared on login.
 - **Domain Detection System**: Intelligent domain routing that treats Replit deployment URLs as the main application, identifying seller storefronts via explicit `/s/:username` routes or `?seller=username` query parameters.
+- **Tax System (B2C)**: Automated sales tax calculation via Stripe Tax for B2C transactions. Sellers can configure tax nexus by country/state, with automatic tax calculation based on shipping address. Tax is automatically calculated at checkout, with full tax breakdown stored in orders. Wholesale transactions are exempt from automatic tax (handled separately).
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
