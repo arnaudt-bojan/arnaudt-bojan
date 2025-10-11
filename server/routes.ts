@@ -337,7 +337,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.message });
       }
 
-      const product = await storage.createProduct(validationResult.data);
+      // Generate SKU if not provided
+      const { generateProductSKU, generateVariantSKU } = await import('../shared/sku-generator');
+      const productData = validationResult.data;
+      
+      if (!productData.sku) {
+        productData.sku = generateProductSKU();
+      }
+      
+      // Generate variant SKUs if product has variants
+      if (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0) {
+        productData.variants = productData.variants.map((variant: any) => {
+          if (!variant.sku) {
+            variant.sku = generateVariantSKU(productData.sku!, {
+              color: variant.color,
+              size: variant.size,
+            });
+          }
+          return variant;
+        });
+      }
+
+      const product = await storage.createProduct(productData);
 
       // Auto-start 30-day trial if this is seller's first product
       if (user && !user.subscriptionStatus) {
@@ -1089,7 +1110,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.message });
       }
 
-      const product = await storage.updateProduct(req.params.id, validationResult.data);
+      // Generate SKUs for any variants that don't have them
+      const { generateProductSKU, generateVariantSKU } = await import('../shared/sku-generator');
+      const productData = validationResult.data;
+      
+      // If updating SKU and it's empty, generate one
+      if (productData.sku === '' || (productData.sku === undefined && req.body.sku === '')) {
+        productData.sku = generateProductSKU();
+      }
+      
+      // Generate variant SKUs if needed
+      if (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0) {
+        // Get existing product to use its SKU for variant generation
+        const existingProduct = await storage.getProduct(req.params.id);
+        const baseSKU = productData.sku || existingProduct?.sku || generateProductSKU();
+        
+        productData.variants = productData.variants.map((variant: any) => {
+          if (!variant.sku) {
+            variant.sku = generateVariantSKU(baseSKU, {
+              color: variant.color,
+              size: variant.size,
+            });
+          }
+          return variant;
+        });
+      }
+
+      const product = await storage.updateProduct(req.params.id, productData);
       if (!product) {
         return res.status(404).json({ error: "Product not found" });
       }

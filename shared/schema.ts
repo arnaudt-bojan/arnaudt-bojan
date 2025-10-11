@@ -45,6 +45,7 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  sku: text("sku"), // Stock Keeping Unit - auto-generated if not provided
   image: text("image").notNull(), // Primary/first image (backward compatibility)
   images: text("images").array(), // Array of all product images (up to 8-10)
   category: text("category").notNull(), // Legacy text field for backward compatibility
@@ -55,7 +56,7 @@ export const products = pgTable("products", {
   stock: integer("stock").default(0),
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
   requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
-  variants: jsonb("variants"), // [{size, color, stock, image}]
+  variants: jsonb("variants"), // [{size, color, stock, image, sku}] - each variant has its own SKU
   hasColors: integer("has_colors").default(0), // 0 = size-only mode, 1 = color mode
   madeToOrderDays: integer("made_to_order_days"), // Days after purchase for made-to-order
   preOrderDate: timestamp("pre_order_date"), // Availability date for pre-order
