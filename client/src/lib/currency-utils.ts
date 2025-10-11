@@ -1,30 +1,44 @@
 /**
  * Format price with currency using Intl.NumberFormat
- * This properly formats any currency without hardcoded symbols
+ * This properly formats any currency without hardcoded symbols or decimal places
+ * Uses browser's default locale and respects currency-specific decimal conventions
  */
 export function formatPrice(amount: number, currencyCode?: string | null): string {
-  if (!currencyCode) {
-    // Fallback to USD if no currency provided
-    currencyCode = 'USD';
-  }
-
   try {
-    return new Intl.NumberFormat('en-US', {
+    if (!currencyCode) {
+      // Use XXX (no currency) code for locale-aware formatting with universal symbol
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'XXX',
+        currencyDisplay: 'symbol',
+      }).format(amount);
+    }
+
+    // Use browser's default locale and let Intl choose proper fraction digits for the currency
+    return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: currencyCode.toUpperCase(),
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
     }).format(amount);
   } catch (error) {
-    // If currency code is invalid, fallback to showing amount with generic symbol
+    // If currency code is invalid, fallback to XXX with locale-aware formatting
     console.error(`Invalid currency code: ${currencyCode}`, error);
-    return `¤${amount.toFixed(2)}`;
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'XXX',
+        currencyDisplay: 'symbol',
+      }).format(amount);
+    } catch {
+      // Last resort: plain number with universal symbol
+      return `¤${amount}`;
+    }
   }
 }
 
 /**
  * Get currency symbol from currency code using Intl.NumberFormat
  * Returns the symbol for the given currency or fallback symbol
+ * Uses browser's default locale for proper symbol extraction
  */
 export function getCurrencySymbol(currencyCode?: string | null): string {
   if (!currencyCode) {
@@ -32,7 +46,8 @@ export function getCurrencySymbol(currencyCode?: string | null): string {
   }
 
   try {
-    const formatted = new Intl.NumberFormat('en-US', {
+    // Use browser's default locale for proper currency symbol
+    const formatted = new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: currencyCode.toUpperCase(),
       minimumFractionDigits: 0,
