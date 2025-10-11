@@ -4,6 +4,14 @@
 Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront accessible via subdomain in production (`username.upfirst.io`) or path-based routing in dev (`/s/username`), with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes (Oct 11, 2025)
+- **Notification Service Refactoring**: Comprehensive refactoring of 2,200+ line notification system to eliminate ALL hardcoded values
+  - Created service-oriented architecture with dependency injection: EmailConfigService, EmailProviderService, NotificationMessagesService
+  - Eliminated ALL hardcoded email addresses (support@, hello@, FROM_EMAIL) - now using centralized config
+  - Eliminated ALL hardcoded subject lines - 17 message templates with typed interfaces for email/in-app notifications
+  - Added currency formatting to email templates using Intl.NumberFormat (matches frontend formatPrice())
+  - Email provider abstraction layer (IEmailProvider interface) enables easy switching between providers
+  - Bug fixes: getFromEmail() → getPlatformFrom(), added all item-level notification templates
+  - Future enhancements identified: Platform name from env/config, eliminate string manipulation in templates, template-driven in-app messages
 - **Seller-Specific Currency Display**: Implemented backend-driven currency display system - seller's listingCurrency is single source of truth
   - Backend `/api/pricing/calculate` endpoint provides centralized pricing calculations in seller's currency
   - Product API responses include seller's `currency` field (from listingCurrency)
