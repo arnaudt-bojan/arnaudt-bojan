@@ -125,6 +125,13 @@ export const orders = pgTable("orders", {
   fulfillmentStatus: text("fulfillment_status").default("unfulfilled"), // "unfulfilled", "partially_fulfilled", "fulfilled"
   trackingNumber: varchar("tracking_number"), // Legacy - kept for backward compatibility
   trackingLink: text("tracking_link"), // Legacy - kept for backward compatibility
+  
+  // Tax fields (Stripe Tax integration)
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"), // Total tax collected
+  taxCalculationId: varchar("tax_calculation_id"), // Stripe Tax calculation ID
+  taxBreakdown: jsonb("tax_breakdown"), // Detailed tax breakdown from Stripe Tax
+  subtotalBeforeTax: decimal("subtotal_before_tax", { precision: 10, scale: 2 }), // Subtotal before tax
+  
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -305,6 +312,13 @@ export const users = pgTable("users", {
   shippingPolicy: text("shipping_policy"), // Optional: Custom shipping & delivery policy text
   returnsPolicy: text("returns_policy"), // Optional: Custom returns & exchanges policy text
   contactEmail: varchar("contact_email"), // Optional: Custom contact email for seller inquiries (fallback to email if not set)
+  
+  // Tax settings (Stripe Tax integration - B2C only, not wholesale)
+  taxEnabled: integer("tax_enabled").default(1), // Auto-collect tax at checkout (0=disabled, 1=enabled)
+  taxNexusCountries: text("tax_nexus_countries").array(), // Countries where seller has tax nexus (e.g., ["US", "CA", "GB"])
+  taxNexusStates: text("tax_nexus_states").array(), // US states where seller has tax nexus (e.g., ["NY", "CA", "TX"])
+  taxProductCode: varchar("tax_product_code"), // Default Stripe Tax product code for all products (can be overridden per product)
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
