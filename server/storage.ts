@@ -32,6 +32,12 @@ import {
   type InsertWholesaleProduct,
   type WholesaleInvitation,
   type InsertWholesaleInvitation,
+  type UserStoreMembership,
+  type InsertUserStoreMembership,
+  type WholesaleAccessGrant,
+  type InsertWholesaleAccessGrant,
+  type TeamInvitation,
+  type InsertTeamInvitation,
   type Category,
   type InsertCategory,
   type Notification,
@@ -94,7 +100,10 @@ import {
   homepageCtaOptions,
   homepageMediaAssets,
   musicTracks,
-  userStoreRoles
+  userStoreRoles,
+  userStoreMemberships,
+  wholesaleAccessGrants,
+  teamInvitations
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -119,6 +128,35 @@ export interface IStorage {
   getUserStoreRole(userId: string, storeOwnerId: string): Promise<UserStoreRole | undefined>;
   setUserStoreRole(userId: string, storeOwnerId: string, role: "buyer" | "seller" | "owner"): Promise<UserStoreRole>;
   getUserStoreRoles(userId: string): Promise<UserStoreRole[]>;
+  
+  // New Auth System - User Store Memberships (collaborators/team members)
+  getUserStoreMembership(userId: string, storeOwnerId: string): Promise<UserStoreMembership | undefined>;
+  getUserStoreMembershipsByStore(storeOwnerId: string): Promise<UserStoreMembership[]>;
+  getUserStoreMembershipsByUser(userId: string): Promise<UserStoreMembership[]>;
+  createUserStoreMembership(membership: InsertUserStoreMembership): Promise<UserStoreMembership>;
+  updateUserStoreMembership(id: string, capabilities: any, status?: string): Promise<UserStoreMembership | undefined>;
+  deleteUserStoreMembership(id: string): Promise<boolean>;
+  
+  // New Auth System - Wholesale Access Grants
+  getWholesaleAccessGrant(buyerId: string, sellerId: string): Promise<WholesaleAccessGrant | undefined>;
+  getWholesaleAccessGrantsBySeller(sellerId: string): Promise<WholesaleAccessGrant[]>;
+  getWholesaleAccessGrantsByBuyer(buyerId: string): Promise<WholesaleAccessGrant[]>;
+  createWholesaleAccessGrant(grant: InsertWholesaleAccessGrant): Promise<WholesaleAccessGrant>;
+  updateWholesaleAccessGrant(id: string, status: string): Promise<WholesaleAccessGrant | undefined>;
+  
+  // New Auth System - Team Invitations
+  getTeamInvitation(id: string): Promise<TeamInvitation | undefined>;
+  getTeamInvitationByToken(token: string): Promise<TeamInvitation | undefined>;
+  getTeamInvitationsByStore(storeOwnerId: string): Promise<TeamInvitation[]>;
+  createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
+  updateTeamInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvitation | undefined>;
+  
+  // New Auth System - Wholesale Invitations
+  getWholesaleInvitation(id: string): Promise<WholesaleInvitation | undefined>;
+  getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined>;
+  getWholesaleInvitationsBySeller(sellerId: string): Promise<WholesaleInvitation[]>;
+  createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation>;
+  updateWholesaleInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<WholesaleInvitation | undefined>;
   
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -699,6 +737,246 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userStoreRoles.userId, userId));
   }
 
+  // New Auth System - User Store Memberships
+  async getUserStoreMembership(userId: string, storeOwnerId: string): Promise<UserStoreMembership | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(userStoreMemberships)
+      .where(and(
+        eq(userStoreMemberships.userId, userId),
+        eq(userStoreMemberships.storeOwnerId, storeOwnerId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getUserStoreMembershipsByStore(storeOwnerId: string): Promise<UserStoreMembership[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(userStoreMemberships)
+      .where(eq(userStoreMemberships.storeOwnerId, storeOwnerId));
+  }
+
+  async getUserStoreMembershipsByUser(userId: string): Promise<UserStoreMembership[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(userStoreMemberships)
+      .where(eq(userStoreMemberships.userId, userId));
+  }
+
+  async createUserStoreMembership(membership: InsertUserStoreMembership): Promise<UserStoreMembership> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(userStoreMemberships)
+      .values(membership)
+      .returning();
+    return result[0];
+  }
+
+  async updateUserStoreMembership(id: string, capabilities: any, status?: string): Promise<UserStoreMembership | undefined> {
+    await this.ensureInitialized();
+    const updates: any = { capabilities };
+    if (status) updates.status = status;
+    const result = await this.db
+      .update(userStoreMemberships)
+      .set(updates)
+      .where(eq(userStoreMemberships.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUserStoreMembership(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .delete(userStoreMemberships)
+      .where(eq(userStoreMemberships.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // New Auth System - Wholesale Access Grants
+  async getWholesaleAccessGrant(buyerId: string, sellerId: string): Promise<WholesaleAccessGrant | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(wholesaleAccessGrants)
+      .where(and(
+        eq(wholesaleAccessGrants.buyerId, buyerId),
+        eq(wholesaleAccessGrants.sellerId, sellerId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWholesaleAccessGrantsBySeller(sellerId: string): Promise<WholesaleAccessGrant[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(wholesaleAccessGrants)
+      .where(eq(wholesaleAccessGrants.sellerId, sellerId));
+  }
+
+  async getWholesaleAccessGrantsByBuyer(buyerId: string): Promise<WholesaleAccessGrant[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(wholesaleAccessGrants)
+      .where(eq(wholesaleAccessGrants.buyerId, buyerId));
+  }
+
+  async createWholesaleAccessGrant(grant: InsertWholesaleAccessGrant): Promise<WholesaleAccessGrant> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(wholesaleAccessGrants)
+      .values(grant)
+      .returning();
+    return result[0];
+  }
+
+  async updateWholesaleAccessGrant(id: string, status: string): Promise<WholesaleAccessGrant | undefined> {
+    await this.ensureInitialized();
+    const updates: any = { status };
+    if (status === 'revoked') {
+      updates.revokedAt = new Date();
+    }
+    const result = await this.db
+      .update(wholesaleAccessGrants)
+      .set(updates)
+      .where(eq(wholesaleAccessGrants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // New Auth System - Team Invitations
+  async getTeamInvitation(id: string): Promise<TeamInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(teamInvitations)
+      .where(eq(teamInvitations.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getTeamInvitationByToken(token: string): Promise<TeamInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(teamInvitations)
+      .where(eq(teamInvitations.token, token))
+      .limit(1);
+    return result[0];
+  }
+
+  async getTeamInvitationsByStore(storeOwnerId: string): Promise<TeamInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(teamInvitations)
+      .where(eq(teamInvitations.storeOwnerId, storeOwnerId));
+  }
+
+  async createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(teamInvitations)
+      .values(invitation)
+      .returning();
+    return result[0];
+  }
+
+  async updateTeamInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvitation | undefined> {
+    await this.ensureInitialized();
+    const updates: any = { status };
+    if (acceptedAt) updates.acceptedAt = acceptedAt;
+    const result = await this.db
+      .update(teamInvitations)
+      .set(updates)
+      .where(eq(teamInvitations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // New Auth System - Wholesale Invitations
+  async getWholesaleInvitation(id: string): Promise<WholesaleInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(wholesaleInvitations)
+      .where(eq(wholesaleInvitations.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(wholesaleInvitations)
+      .where(eq(wholesaleInvitations.token, token))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWholesaleInvitationsBySeller(sellerId: string): Promise<WholesaleInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(wholesaleInvitations)
+      .where(eq(wholesaleInvitations.sellerId, sellerId));
+  }
+
+  async createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .insert(wholesaleInvitations)
+      .values(invitation)
+      .returning();
+    return result[0];
+  }
+
+  async updateWholesaleInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<WholesaleInvitation | undefined> {
+    await this.ensureInitialized();
+    const updates: any = { status };
+    if (acceptedAt) updates.acceptedAt = acceptedAt;
+    const result = await this.db
+      .update(wholesaleInvitations)
+      .set(updates)
+      .where(eq(wholesaleInvitations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Legacy wholesale invitation methods (for backwards compatibility)
+  async getAllWholesaleInvitations(): Promise<WholesaleInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleInvitations).orderBy(desc(wholesaleInvitations.createdAt));
+  }
+
+  async getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleInvitations).where(eq(wholesaleInvitations.sellerId, sellerId)).orderBy(desc(wholesaleInvitations.createdAt));
+  }
+
+  async acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleInvitations)
+      .set({ status: "accepted", acceptedAt: new Date() })
+      .where(eq(wholesaleInvitations.token, token))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesaleInvitation(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleInvitations).where(eq(wholesaleInvitations.id, id));
+    return true;
+  }
+
   async createInvitation(insertInvitation: InsertInvitation): Promise<Invitation> {
     await this.ensureInitialized();
     const result = await this.db.insert(invitations).values(insertInvitation).returning();
@@ -1125,47 +1403,6 @@ export class DatabaseStorage implements IStorage {
   async deleteWholesaleProduct(id: string): Promise<boolean> {
     await this.ensureInitialized();
     await this.db.delete(wholesaleProducts).where(eq(wholesaleProducts.id, id));
-    return true;
-  }
-
-  // Wholesale Invitations Methods
-  async createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation> {
-    await this.ensureInitialized();
-    // Generate a unique token for the invitation
-    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const result = await this.db.insert(wholesaleInvitations).values({ ...invitation, token }).returning();
-    return result[0];
-  }
-
-  async getAllWholesaleInvitations(): Promise<WholesaleInvitation[]> {
-    await this.ensureInitialized();
-    return await this.db.select().from(wholesaleInvitations).orderBy(desc(wholesaleInvitations.createdAt));
-  }
-
-  async getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]> {
-    await this.ensureInitialized();
-    return await this.db.select().from(wholesaleInvitations).where(eq(wholesaleInvitations.sellerId, sellerId)).orderBy(desc(wholesaleInvitations.createdAt));
-  }
-
-  async getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined> {
-    await this.ensureInitialized();
-    const result = await this.db.select().from(wholesaleInvitations).where(eq(wholesaleInvitations.token, token)).limit(1);
-    return result[0];
-  }
-
-  async acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined> {
-    await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleInvitations)
-      .set({ status: "accepted", acceptedAt: new Date() })
-      .where(eq(wholesaleInvitations.token, token))
-      .returning();
-    return result[0];
-  }
-
-  async deleteWholesaleInvitation(id: string): Promise<boolean> {
-    await this.ensureInitialized();
-    await this.db.delete(wholesaleInvitations).where(eq(wholesaleInvitations.id, id));
     return true;
   }
 
