@@ -174,6 +174,11 @@ export interface IStorage {
   getReservedStock(productId: string, variantId?: string): Promise<number>;
   createStockReservation(reservation: InsertStockReservation): Promise<StockReservation>;
   updateStockReservation(id: string, data: Partial<StockReservation>): Promise<StockReservation | undefined>;
+  commitReservationsBySession(sessionId: string, orderId: string): Promise<{
+    success: boolean;
+    committed: number;
+    error?: string;
+  }>;
   atomicReserveStock(
     productId: string,
     quantity: number,
@@ -555,6 +560,89 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.update(stockReservations).set(data).where(eq(stockReservations.id, id)).returning();
     return result[0];
+  }
+
+  async commitReservationsBySession(sessionId: string, orderId: string): Promise<{
+    success: boolean;
+    committed: number;
+    error?: string;
+  }> {
+    await this.ensureInitialized();
+    try {
+      const reservations = await this.getStockReservationsBySession(sessionId);
+      const activeReservations = reservations.filter(r => r.status === 'active');
+      
+      if (activeReservations.length === 0) {
+        return { success: true, committed: 0 };
+      }
+
+      // ATOMIC: Wrap ALL commits in a SINGLE transaction to prevent partial commits
+      // Either ALL reservations commit and stock decrements, or NONE do
+      await this.db.transaction(async (tx) => {
+        for (const reservation of activeReservations) {
+          // 1. Update reservation status
+          await tx
+            .update(stockReservations)
+            .set({
+              status: 'committed',
+              committedAt: new Date(),
+              orderId,
+            })
+            .where(eq(stockReservations.id, reservation.id));
+
+          // 2. Decrement stock (in same transaction)
+          const product = await tx
+            .select()
+            .from(products)
+            .where(eq(products.id, reservation.productId))
+            .limit(1);
+
+          if (!product[0]) {
+            throw new Error(`Product ${reservation.productId} not found during commit`);
+          }
+
+          const variantId = reservation.variantId;
+          if (variantId && product[0].variants) {
+            const variants = Array.isArray(product[0].variants) ? product[0].variants : [];
+            const updatedVariants = variants.map((v: any) => {
+              const currentVariantId = v.color 
+                ? `${v.size?.toLowerCase() || ''}-${v.color.toLowerCase()}`.replace(/\s+/g, '-')
+                : v.size?.toLowerCase() || '';
+              
+              if (currentVariantId === variantId) {
+                return {
+                  ...v,
+                  stock: Math.max(0, (v.stock || 0) - reservation.quantity),
+                };
+              }
+              return v;
+            });
+
+            await tx
+              .update(products)
+              .set({ variants: updatedVariants })
+              .where(eq(products.id, reservation.productId));
+          } else {
+            const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
+            await tx
+              .update(products)
+              .set({ stock: newStock })
+              .where(eq(products.id, reservation.productId));
+          }
+        }
+      });
+
+      return {
+        success: true,
+        committed: activeReservations.length,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        committed: 0,
+        error: error.message || 'Failed to commit reservations',
+      };
+    }
   }
 
   async atomicReserveStock(
