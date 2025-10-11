@@ -2646,6 +2646,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Tax Settings Route
+  app.patch("/api/user/tax-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request body
+      const taxSettingsSchema = z.object({
+        taxEnabled: z.number().min(0).max(1).optional(),
+        taxNexusCountries: z.array(z.string()).optional(),
+        taxNexusStates: z.array(z.string()).optional(),
+        taxProductCode: z.string().optional().nullable(),
+      });
+
+      const validationResult = taxSettingsSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+
+      const { taxEnabled, taxNexusCountries, taxNexusStates, taxProductCode } = validationResult.data;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        taxEnabled: typeof taxEnabled === 'number' ? taxEnabled : user.taxEnabled,
+        taxNexusCountries: taxNexusCountries !== undefined ? taxNexusCountries : user.taxNexusCountries,
+        taxNexusStates: taxNexusStates !== undefined ? taxNexusStates : user.taxNexusStates,
+        taxProductCode: taxProductCode !== undefined ? (taxProductCode || null) : user.taxProductCode,
+      });
+
+      logger.info(`Tax settings updated for user ${userId}`, {
+        taxEnabled: updatedUser.taxEnabled,
+        nexusCountries: updatedUser.taxNexusCountries?.length || 0,
+        nexusStates: updatedUser.taxNexusStates?.length || 0,
+      });
+
+      res.json({ message: "Tax settings updated successfully", user: updatedUser });
+    } catch (error) {
+      logger.error("Tax settings update error", error);
+      res.status(500).json({ error: "Failed to update tax settings" });
+    }
+  });
+
   // Saved Addresses Routes
   app.get("/api/user/addresses", isAuthenticated, async (req: any, res) => {
     try {

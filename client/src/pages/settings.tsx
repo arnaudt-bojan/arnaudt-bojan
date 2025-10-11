@@ -11,12 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
@@ -797,6 +798,320 @@ function CategoryManagement() {
   );
 }
 
+// Tax Settings Tab Component
+function TaxSettingsTab({ user }: { user: any }) {
+  const { toast } = useToast();
+  const [taxEnabled, setTaxEnabled] = useState(user?.taxEnabled === 1);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(user?.taxNexusCountries || []);
+  const [selectedStates, setSelectedStates] = useState<string[]>(user?.taxNexusStates || []);
+  const [taxProductCode, setTaxProductCode] = useState(user?.taxProductCode || "");
+  const [newCountry, setNewCountry] = useState("");
+  const [newState, setNewState] = useState("");
+
+  const updateTaxSettingsMutation = useMutation({
+    mutationFn: async (data: { 
+      taxEnabled?: number; 
+      taxNexusCountries?: string[]; 
+      taxNexusStates?: string[]; 
+      taxProductCode?: string;
+    }) => {
+      return await apiRequest("PATCH", "/api/user/tax-settings", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Tax settings updated",
+        description: "Your tax configuration has been saved successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update tax settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleToggleTax = (enabled: boolean) => {
+    setTaxEnabled(enabled);
+    updateTaxSettingsMutation.mutate({ taxEnabled: enabled ? 1 : 0 });
+  };
+
+  const handleAddCountry = () => {
+    if (newCountry && !selectedCountries.includes(newCountry)) {
+      const updatedCountries = [...selectedCountries, newCountry];
+      setSelectedCountries(updatedCountries);
+      updateTaxSettingsMutation.mutate({ taxNexusCountries: updatedCountries });
+      setNewCountry("");
+    }
+  };
+
+  const handleRemoveCountry = (country: string) => {
+    const updatedCountries = selectedCountries.filter(c => c !== country);
+    setSelectedCountries(updatedCountries);
+    updateTaxSettingsMutation.mutate({ taxNexusCountries: updatedCountries });
+  };
+
+  const handleAddState = () => {
+    if (newState && !selectedStates.includes(newState)) {
+      const updatedStates = [...selectedStates, newState];
+      setSelectedStates(updatedStates);
+      updateTaxSettingsMutation.mutate({ taxNexusStates: updatedStates });
+      setNewState("");
+    }
+  };
+
+  const handleRemoveState = (state: string) => {
+    const updatedStates = selectedStates.filter(s => s !== state);
+    setSelectedStates(updatedStates);
+    updateTaxSettingsMutation.mutate({ taxNexusStates: updatedStates });
+  };
+
+  const handleSaveProductCode = () => {
+    updateTaxSettingsMutation.mutate({ taxProductCode });
+  };
+
+  const countries = [
+    { code: "US", name: "United States" },
+    { code: "CA", name: "Canada" },
+    { code: "GB", name: "United Kingdom" },
+    { code: "AU", name: "Australia" },
+    { code: "DE", name: "Germany" },
+    { code: "FR", name: "France" },
+    { code: "ES", name: "Spain" },
+    { code: "IT", name: "Italy" },
+    { code: "NL", name: "Netherlands" },
+    { code: "SE", name: "Sweden" },
+  ];
+
+  const usStates = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            Tax Collection Settings
+          </CardTitle>
+          <CardDescription>
+            Configure automatic sales tax calculation using Stripe Tax for B2C transactions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Tax Enable/Disable Toggle */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-1">
+              <Label htmlFor="tax-enabled" className="text-base font-semibold cursor-pointer">
+                Automatic Tax Collection
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically calculate and collect sales tax at checkout using Stripe Tax
+              </p>
+            </div>
+            <Switch
+              id="tax-enabled"
+              checked={taxEnabled}
+              onCheckedChange={handleToggleTax}
+              disabled={updateTaxSettingsMutation.isPending}
+              data-testid="switch-tax-enabled"
+            />
+          </div>
+
+          {taxEnabled && (
+            <>
+              {/* Tax Nexus Countries */}
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-base font-semibold">Tax Nexus Countries</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Select countries where you have tax obligations (nexus)
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Select value={newCountry} onValueChange={setNewCountry}>
+                    <SelectTrigger className="flex-1" data-testid="select-country">
+                      <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map(country => (
+                        <SelectItem 
+                          key={country.code} 
+                          value={country.code}
+                          disabled={selectedCountries.includes(country.code)}
+                        >
+                          {country.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleAddCountry}
+                    disabled={!newCountry || updateTaxSettingsMutation.isPending}
+                    data-testid="button-add-country"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {selectedCountries.map(country => (
+                    <Badge key={country} variant="secondary" className="gap-1" data-testid={`badge-country-${country}`}>
+                      {countries.find(c => c.code === country)?.name || country}
+                      <button
+                        onClick={() => handleRemoveCountry(country)}
+                        className="ml-1 hover:text-destructive"
+                        data-testid={`button-remove-country-${country}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {selectedCountries.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No countries selected</p>
+                  )}
+                </div>
+              </div>
+
+              {/* US States (show only if US is selected) */}
+              {selectedCountries.includes("US") && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-semibold">US State Tax Nexus</Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Select US states where you have tax obligations
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Select value={newState} onValueChange={setNewState}>
+                      <SelectTrigger className="flex-1" data-testid="select-state">
+                        <SelectValue placeholder="Select a state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {usStates.map(state => (
+                          <SelectItem 
+                            key={state} 
+                            value={state}
+                            disabled={selectedStates.includes(state)}
+                          >
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleAddState}
+                      disabled={!newState || updateTaxSettingsMutation.isPending}
+                      data-testid="button-add-state"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStates.map(state => (
+                      <Badge key={state} variant="secondary" className="gap-1" data-testid={`badge-state-${state}`}>
+                        {state}
+                        <button
+                          onClick={() => handleRemoveState(state)}
+                          className="ml-1 hover:text-destructive"
+                          data-testid={`button-remove-state-${state}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {selectedStates.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No states selected</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tax Product Code */}
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-base font-semibold">Tax Product Code (Optional)</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Default Stripe Tax product code for your products (e.g., txcd_99999999 for general tangible goods)
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    value={taxProductCode}
+                    onChange={(e) => setTaxProductCode(e.target.value)}
+                    placeholder="txcd_99999999"
+                    data-testid="input-tax-product-code"
+                  />
+                  <Button
+                    onClick={handleSaveProductCode}
+                    disabled={updateTaxSettingsMutation.isPending}
+                    data-testid="button-save-product-code"
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Information Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>How Stripe Tax Works</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-3">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-semibold">1</span>
+            </div>
+            <div>
+              <h4 className="font-medium mb-1">Configure Tax Nexus</h4>
+              <p className="text-sm text-muted-foreground">
+                Select the countries and states where you have tax obligations
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-semibold">2</span>
+            </div>
+            <div>
+              <h4 className="font-medium mb-1">Automatic Calculation</h4>
+              <p className="text-sm text-muted-foreground">
+                Stripe Tax automatically calculates the correct tax rate based on customer location
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-semibold">3</span>
+            </div>
+            <div>
+              <h4 className="font-medium mb-1">B2C Only</h4>
+              <p className="text-sm text-muted-foreground">
+                Tax is automatically collected for regular customers. Wholesale orders are exempt.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
@@ -1262,6 +1577,12 @@ export default function Settings() {
                       <span>Shipping Matrix</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="tax">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      <span>Tax Settings</span>
+                    </div>
+                  </SelectItem>
                 </>
               )}
             </SelectContent>
@@ -1305,6 +1626,10 @@ export default function Settings() {
                 <Package className="h-4 w-4" />
                 <span className="hidden md:inline xl:hidden">Shipping</span>
                 <span className="hidden xl:inline">Shipping Matrix</span>
+              </TabsTrigger>
+              <TabsTrigger value="tax" data-testid="tab-tax" className="flex items-center gap-2">
+                <Receipt className="h-4 w-4" />
+                <span>Tax Settings</span>
               </TabsTrigger>
             </>
           )}
@@ -1888,6 +2213,10 @@ export default function Settings() {
                   <ShippingMatrixManager />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="tax">
+              <TaxSettingsTab user={user} />
             </TabsContent>
           </>
         )}
