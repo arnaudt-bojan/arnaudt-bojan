@@ -36,7 +36,16 @@ Upfirst is built with a modern web stack. The frontend uses React, TypeScript, T
 - **Saved Addresses & Payment Methods**: PCI-DSS compliant system for securely saving shipping addresses and payment methods, leveraging Stripe Payment Methods API for card data tokenization.
 - **Cart System**: Shopping cart stored in browser localStorage with automatic single-seller constraint enforcement. Sellers' carts are cleared on login.
 - **Domain Detection System**: Intelligent domain routing that treats Replit deployment URLs as the main application, identifying seller storefronts via explicit `/s/:username` routes or `?seller=username` query parameters.
-- **Tax System (B2C)**: Automated sales tax calculation via Stripe Tax for B2C transactions. Sellers can configure tax nexus by country/state, with automatic tax calculation based on shipping address. Tax is automatically calculated at checkout, with full tax breakdown stored in orders. Wholesale transactions are exempt from automatic tax (handled separately).
+- **Tax System (B2C)**: Comprehensive automated sales tax calculation via Stripe Tax for B2C transactions. Features include:
+  - **Seller Configuration**: Tax Settings tab in seller dashboard with enable/disable toggle, multi-select country/state nexus configuration, and optional Stripe Tax product code
+  - **Cart Integration**: Real-time 8% tax estimate display when seller has tax enabled, with customer notice that actual tax is calculated at checkout
+  - **Checkout Integration**: Stripe Tax automatic calculation based on shipping address and seller's configured tax nexus during payment processing
+  - **Order Storage**: Complete tax data stored in orders (subtotalBeforeTax, taxAmount, total) for accurate record-keeping
+  - **Customer Display**: Tax breakdown shown on order confirmation page, buyer order details, and downloadable invoice PDFs
+  - **Seller Display**: Tax information visible in seller order management and analytics
+  - **Edge Case Handling**: Robust decimal parsing for tax amounts, graceful fallbacks for orders without tax data (legacy orders)
+  - **Compliance**: Tax amounts displayed even when $0 for transparency and accounting purposes
+  - Note: Wholesale transactions are exempt from automatic B2C tax collection (handled separately via B2B workflows)
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
