@@ -4,6 +4,14 @@
 Upfirst is a D2C (Direct-to-Consumer) e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. Each seller operates an isolated storefront accessible via subdomain in production (`username.upfirst.io`) or path-based routing in dev (`/s/username`), with NO cross-seller discovery features. The platform offers product browsing within individual stores, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable D2C commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
 ## Recent Changes (Oct 11, 2025)
+- **Seller-Specific Currency Display**: Implemented backend-driven currency display system - seller's listingCurrency is single source of truth
+  - Backend `/api/pricing/calculate` endpoint provides centralized pricing calculations in seller's currency
+  - Product API responses include seller's `currency` field (from listingCurrency)
+  - CartItem interfaces extended with `currency?: string` field for persistence in localStorage
+  - All price displays (PDP, cart, checkout, order success) use seller's currency via format functions
+  - Removed CurrencyContext from cart/checkout - replaced with seller-specific currency from cart items
+  - E2E tested: verified GBP currency displays correctly across product → cart → checkout flow
+  - NO frontend currency conversions - backend is the single source of truth for all pricing
 - **Subdomain Architecture Implementation**: Implemented production-ready subdomain routing for seller storefronts
   - Production: Sellers accessible at `username.upfirst.io` (root path `/` shows storefront)
   - Dev/Replit: Sellers accessible at `/s/username` for local testing
