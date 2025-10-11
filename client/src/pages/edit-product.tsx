@@ -156,57 +156,9 @@ export default function EditProduct() {
   }, [product?.id]); // Run when product.id changes (new product loaded), not when product object reference changes
 
   const updateMutation = useMutation({
-    mutationFn: async (data: FrontendProduct) => {
-      // Add variants based on mode
-      if (hasColors) {
-        // Color mode: store color variants with their sizes
-        if (colors.length > 0) {
-          (data as any).variants = colors;
-          (data as any).hasColors = 1; // Convert boolean to number
-        } else {
-          (data as any).variants = null;
-          (data as any).hasColors = 0; // Convert boolean to number
-        }
-      } else {
-        // Size-only mode: store simple size array
-        if (sizes.length > 0) {
-          (data as any).variants = sizes;
-          (data as any).hasColors = 0; // Convert boolean to number
-        } else {
-          (data as any).variants = null;
-          (data as any).hasColors = 0; // Convert boolean to number
-        }
-      }
-      
-      // Add readiness dates based on product type
-      if (data.productType === "made-to-order") {
-        (data as any).madeToOrderDays = madeToOrderDays;
-      } else {
-        (data as any).madeToOrderDays = null;
-      }
-      
-      if (data.productType === "pre-order" && preOrderDate) {
-        (data as any).preOrderDate = new Date(preOrderDate).toISOString();
-      } else {
-        (data as any).preOrderDate = null;
-      }
-      
-      // Handle discount/promotion
-      if (discountPercentage && parseFloat(discountPercentage) > 0) {
-        (data as any).promotionActive = 1;
-        (data as any).discountPercentage = discountPercentage;
-        if (promotionEndDate) {
-          (data as any).promotionEndDate = new Date(promotionEndDate).toISOString();
-        } else {
-          (data as any).promotionEndDate = null;
-        }
-      } else {
-        (data as any).promotionActive = 0;
-        (data as any).discountPercentage = null;
-        (data as any).promotionEndDate = null;
-      }
-      
-      return await apiRequest("PUT", `/api/products/${id}`, data);
+    mutationFn: async (dataWithVariants: any) => {
+      // Data already has variants, hasColors, dates, and promotions added in onSubmit
+      return await apiRequest("PUT", `/api/products/${id}`, dataWithVariants);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
@@ -227,8 +179,68 @@ export default function EditProduct() {
   });
 
   const onSubmit = (data: FrontendProduct) => {
-    updateMutation.mutate(data);
+    console.log('[Edit Product] onSubmit - hasColors:', hasColors, 'colors:', colors, 'sizes:', sizes);
+    
+    // Create full data object with FRESH state (avoiding closure staleness)
+    const fullData = { ...data } as any;
+    
+    // Add variants based on mode (using FRESH state from component scope)
+    if (hasColors) {
+      if (colors.length > 0) {
+        fullData.variants = colors;
+        fullData.hasColors = 1;
+      } else {
+        fullData.variants = null;
+        fullData.hasColors = 0;
+      }
+    } else {
+      if (sizes.length > 0) {
+        fullData.variants = sizes;
+        fullData.hasColors = 0;
+      } else {
+        fullData.variants = null;
+        fullData.hasColors = 0;
+      }
+    }
+    
+    // Add readiness dates based on product type
+    if (data.productType === "made-to-order") {
+      fullData.madeToOrderDays = madeToOrderDays;
+    } else {
+      fullData.madeToOrderDays = null;
+    }
+    
+    if (data.productType === "pre-order" && preOrderDate) {
+      fullData.preOrderDate = new Date(preOrderDate).toISOString();
+    } else {
+      fullData.preOrderDate = null;
+    }
+    
+    // Handle discount/promotion
+    if (discountPercentage && parseFloat(discountPercentage) > 0) {
+      fullData.promotionActive = 1;
+      fullData.discountPercentage = discountPercentage;
+      if (promotionEndDate) {
+        fullData.promotionEndDate = new Date(promotionEndDate).toISOString();
+      } else {
+        fullData.promotionEndDate = null;
+      }
+    } else {
+      fullData.promotionActive = 0;
+      fullData.discountPercentage = null;
+      fullData.promotionEndDate = null;
+    }
+    
+    console.log('[Edit Product] Submitting - fullData.variants:', fullData.variants, 'fullData.hasColors:', fullData.hasColors);
+    updateMutation.mutate(fullData);
   };
+  
+  // Log form errors on any change
+  useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) {
+      console.log('[Edit Product] Form validation errors:', form.formState.errors);
+    }
+  }, [form.formState.errors]);
 
   if (isLoading) {
     return (
