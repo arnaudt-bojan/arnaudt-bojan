@@ -1,5 +1,6 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { detectDomain } from "@/lib/domain-utils";
 import type { User } from "@shared/schema";
 
@@ -31,8 +32,11 @@ interface AuthStoreContextValue {
 const AuthStoreContext = createContext<AuthStoreContextValue | undefined>(undefined);
 
 export function AuthStoreProvider({ children }: { children: ReactNode }) {
-  // Get domain info
-  const domainInfo = detectDomain();
+  // Track location to recompute domain info on client-side navigation
+  const [location] = useLocation();
+  
+  // Get domain info - recomputes when location changes
+  const domainInfo = useMemo(() => detectDomain(), [location]);
   
   // Fetch current logged-in user
   const { data: currentUser, isLoading: userLoading } = useQuery<User | null>({
