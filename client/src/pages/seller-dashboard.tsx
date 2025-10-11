@@ -243,10 +243,11 @@ export default function SellerDashboard() {
                 variant="outline"
                 onClick={() => setLocation("/settings")}
                 data-testid="button-advanced-settings"
-                className="hidden md:flex flex-1 md:flex-none"
+                className="flex-1 md:flex-none"
               >
                 <Settings className="h-4 w-4 mr-2" />
-                Advanced Settings
+                <span className="hidden sm:inline">Advanced Settings</span>
+                <span className="sm:hidden">Settings</span>
               </Button>
             </div>
           </div>

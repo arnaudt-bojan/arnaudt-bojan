@@ -2595,17 +2595,21 @@ export default function Settings() {
                           <p className="text-sm text-muted-foreground">Global payment processing</p>
                         </div>
                       </div>
-                      {isStripeConnected && (
+                      {isStripeConnected ? (
                         stripeStatus?.capabilities?.card_payments === 'active' && 
                         stripeStatus?.capabilities?.transfers === 'active' ? (
-                          <Badge className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800">
+                          <Badge className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800" data-testid="badge-stripe-status">
                             Connected
                           </Badge>
                         ) : (
-                          <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                          <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200 dark:border-amber-800" data-testid="badge-stripe-status">
                             Setup Required
                           </Badge>
                         )
+                      ) : (
+                        <Badge variant="secondary" data-testid="badge-stripe-status">
+                          Not Connected
+                        </Badge>
                       )}
                     </div>
                     
