@@ -1296,3 +1296,168 @@ export const metaAdPayments = pgTable("meta_ad_payments", {
 export const insertMetaAdPaymentSchema = createInsertSchema(metaAdPayments).omit({ id: true, createdAt: true });
 export type InsertMetaAdPayment = z.infer<typeof insertMetaAdPaymentSchema>;
 export type MetaAdPayment = typeof metaAdPayments.$inferSelect;
+
+// ============================================================================
+// HOMEPAGE BUILDER
+// ============================================================================
+
+export const homepageStatusEnum = z.enum(["draft", "published", "unpublished"]);
+export type HomepageStatus = z.infer<typeof homepageStatusEnum>;
+
+export const homepageTemplateEnum = z.enum(["hero-cta", "split-hero", "minimal"]);
+export type HomepageTemplate = z.infer<typeof homepageTemplateEnum>;
+
+export const mediaTypeEnum = z.enum(["image", "video"]);
+export type MediaType = z.infer<typeof mediaTypeEnum>;
+
+// Seller Homepages - One homepage per seller
+export const sellerHomepages = pgTable("seller_homepages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull().unique(), // One homepage per seller
+  
+  // Status & Template
+  status: varchar("status").notNull().default("draft"), // draft, published, unpublished
+  templateKey: varchar("template_key").notNull().default("hero-cta"), // hero-cta, split-hero, minimal
+  
+  // Layout Configs (JSON for template slot values)
+  desktopConfig: jsonb("desktop_config").notNull(), // Desktop layout config
+  mobileConfig: jsonb("mobile_config").notNull(), // Mobile layout config
+  
+  // Hero Media
+  heroMediaId: varchar("hero_media_id"), // References homepage_media_assets
+  heroMediaType: varchar("hero_media_type"), // "image" or "video"
+  
+  // Content
+  headline: text("headline").notNull(),
+  bodyCopy: text("body_copy").notNull(),
+  
+  // CTA
+  selectedCtaId: varchar("selected_cta_id").notNull(), // References homepage_cta_options
+  
+  // Music
+  musicTrackId: varchar("music_track_id"), // References music_tracks (optional)
+  musicEnabled: integer("music_enabled").default(0), // 0 = disabled, 1 = enabled
+  
+  // Auto-redirect setting
+  autoRedirectToHomepage: integer("auto_redirect_to_homepage").default(0), // 0 = no, 1 = yes (redirect / to homepage)
+  
+  // Publishing
+  lastPublishedAt: timestamp("last_published_at"),
+  publishedDesktopConfig: jsonb("published_desktop_config"), // Published snapshot
+  publishedMobileConfig: jsonb("published_mobile_config"), // Published snapshot
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: uniqueIndex("seller_homepages_seller_id_idx").on(table.sellerId),
+  };
+});
+
+export const insertSellerHomepageSchema = createInsertSchema(sellerHomepages).omit({ 
+  id: true, 
+  lastPublishedAt: true,
+  publishedDesktopConfig: true,
+  publishedMobileConfig: true,
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertSellerHomepage = z.infer<typeof insertSellerHomepageSchema>;
+export type SellerHomepage = typeof sellerHomepages.$inferSelect;
+
+// Homepage CTA Options - Predefined CTAs
+export const homepageCtaOptions = pgTable("homepage_cta_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // CTA Details
+  label: text("label").notNull(), // "Shop Now", "View Products", "Explore Collection"
+  variant: varchar("variant").notNull().default("default"), // Button variant
+  icon: varchar("icon"), // Lucide icon name
+  description: text("description"), // Help text for seller
+  
+  // URL (relative to seller storefront)
+  urlPath: text("url_path").notNull(), // "/s/:username", "/s/:username/products"
+  
+  // Display
+  isActive: integer("is_active").default(1), // 0 = hidden, 1 = active
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertHomepageCtaOptionSchema = createInsertSchema(homepageCtaOptions).omit({ id: true, createdAt: true });
+export type InsertHomepageCtaOption = z.infer<typeof insertHomepageCtaOptionSchema>;
+export type HomepageCtaOption = typeof homepageCtaOptions.$inferSelect;
+
+// Homepage Media Assets
+export const homepageMediaAssets = pgTable("homepage_media_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  homepageId: varchar("homepage_id").notNull(), // Seller homepage ID
+  
+  // Media Details
+  type: varchar("type").notNull(), // "image" or "video"
+  objectKey: text("object_key").notNull(), // Object storage key
+  url: text("url").notNull(), // Signed/public URL
+  
+  // Metadata
+  altText: text("alt_text"),
+  focalPoint: jsonb("focal_point"), // {x: 0.5, y: 0.5} for image cropping
+  duration: integer("duration"), // Video duration in seconds
+  
+  // Display
+  isHero: integer("is_hero").default(0), // 0 = no, 1 = hero media
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    homepageIdIdx: index("homepage_media_assets_homepage_id_idx").on(table.homepageId),
+  };
+});
+
+export const insertHomepageMediaAssetSchema = createInsertSchema(homepageMediaAssets).omit({ id: true, createdAt: true });
+export type InsertHomepageMediaAsset = z.infer<typeof insertHomepageMediaAssetSchema>;
+export type HomepageMediaAsset = typeof homepageMediaAssets.$inferSelect;
+
+// Music Tracks - Royalty-free music catalogue
+export const musicTracks = pgTable("music_tracks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Provider Info
+  provider: varchar("provider").notNull().default("pixabay"), // pixabay, artlist, manual
+  providerTrackId: varchar("provider_track_id").notNull(), // External track ID
+  
+  // Track Details
+  title: text("title").notNull(),
+  artist: text("artist").notNull(),
+  duration: integer("duration").notNull(), // Duration in seconds
+  
+  // URLs
+  previewUrl: text("preview_url").notNull(), // Preview/stream URL
+  streamUrl: text("stream_url"), // Full track URL (if available)
+  downloadUrl: text("download_url"), // Download URL (if available)
+  
+  // Metadata
+  genre: varchar("genre"),
+  mood: varchar("mood"), // "upbeat", "calm", "energetic"
+  tags: text("tags").array(), // Search tags
+  waveform: text("waveform"), // Waveform data for visualization
+  
+  // Licensing
+  licenseTier: varchar("license_tier").default("free"), // "free", "premium"
+  licenseUrl: text("license_url"), // Link to license terms
+  
+  // Cache
+  isActive: integer("is_active").default(1), // 0 = removed from catalog, 1 = active
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    providerIdx: index("music_tracks_provider_idx").on(table.provider),
+    genreIdx: index("music_tracks_genre_idx").on(table.genre),
+  };
+});
+
+export const insertMusicTrackSchema = createInsertSchema(musicTracks).omit({ id: true, createdAt: true });
+export type InsertMusicTrack = z.infer<typeof insertMusicTrackSchema>;
+export type MusicTrack = typeof musicTracks.$inferSelect;

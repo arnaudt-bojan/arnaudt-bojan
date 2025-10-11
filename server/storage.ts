@@ -52,6 +52,14 @@ import {
   type InsertSavedAddress,
   type SavedPaymentMethod,
   type InsertSavedPaymentMethod,
+  type SellerHomepage,
+  type InsertSellerHomepage,
+  type HomepageCtaOption,
+  type InsertHomepageCtaOption,
+  type HomepageMediaAsset,
+  type InsertHomepageMediaAsset,
+  type MusicTrack,
+  type InsertMusicTrack,
   users,
   products,
   orders,
@@ -79,7 +87,11 @@ import {
   invoices,
   packingSlips,
   savedAddresses,
-  savedPaymentMethods
+  savedPaymentMethods,
+  sellerHomepages,
+  homepageCtaOptions,
+  homepageMediaAssets,
+  musicTracks
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -265,6 +277,27 @@ export interface IStorage {
   createSavedPaymentMethod(paymentMethod: InsertSavedPaymentMethod): Promise<SavedPaymentMethod>;
   deleteSavedPaymentMethod(id: string): Promise<boolean>;
   setDefaultPaymentMethod(userId: string, paymentMethodId: string): Promise<void>;
+  
+  // Homepage Builder
+  getHomepageBySellerId(sellerId: string): Promise<SellerHomepage | undefined>;
+  createHomepage(homepage: InsertSellerHomepage): Promise<SellerHomepage>;
+  updateHomepage(id: string, homepage: Partial<InsertSellerHomepage>): Promise<SellerHomepage | undefined>;
+  publishHomepage(id: string): Promise<SellerHomepage | undefined>;
+  unpublishHomepage(id: string): Promise<SellerHomepage | undefined>;
+  
+  // Homepage CTA Options
+  getAllCtaOptions(): Promise<HomepageCtaOption[]>;
+  getCtaOption(id: string): Promise<HomepageCtaOption | undefined>;
+  
+  // Homepage Media Assets
+  getHomepageMedia(homepageId: string): Promise<HomepageMediaAsset[]>;
+  createHomepageMedia(media: InsertHomepageMediaAsset): Promise<HomepageMediaAsset>;
+  deleteHomepageMedia(id: string): Promise<boolean>;
+  
+  // Music Tracks
+  searchMusicTracks(query: string, genre?: string): Promise<MusicTrack[]>;
+  getMusicTrack(id: string): Promise<MusicTrack | undefined>;
+  createMusicTrack(track: InsertMusicTrack): Promise<MusicTrack>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1495,6 +1528,137 @@ export class DatabaseStorage implements IStorage {
       .update(savedPaymentMethods)
       .set({ isDefault: 1, updatedAt: new Date() })
       .where(eq(savedPaymentMethods.id, paymentMethodId));
+  }
+
+  async getHomepageBySellerId(sellerId: string): Promise<SellerHomepage | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(sellerHomepages)
+      .where(eq(sellerHomepages.sellerId, sellerId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createHomepage(homepage: InsertSellerHomepage): Promise<SellerHomepage> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(sellerHomepages).values(homepage).returning();
+    return result[0];
+  }
+
+  async updateHomepage(id: string, homepage: Partial<InsertSellerHomepage>): Promise<SellerHomepage | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(sellerHomepages)
+      .set({ ...homepage, updatedAt: new Date() })
+      .where(eq(sellerHomepages.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async publishHomepage(id: string): Promise<SellerHomepage | undefined> {
+    await this.ensureInitialized();
+    const homepage = await this.db
+      .select()
+      .from(sellerHomepages)
+      .where(eq(sellerHomepages.id, id))
+      .limit(1);
+    
+    if (!homepage[0]) return undefined;
+
+    const result = await this.db
+      .update(sellerHomepages)
+      .set({
+        status: 'published',
+        lastPublishedAt: new Date(),
+        publishedDesktopConfig: homepage[0].desktopConfig,
+        publishedMobileConfig: homepage[0].mobileConfig,
+        updatedAt: new Date()
+      })
+      .where(eq(sellerHomepages.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async unpublishHomepage(id: string): Promise<SellerHomepage | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(sellerHomepages)
+      .set({ status: 'unpublished', updatedAt: new Date() })
+      .where(eq(sellerHomepages.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getAllCtaOptions(): Promise<HomepageCtaOption[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(homepageCtaOptions)
+      .where(eq(homepageCtaOptions.isActive, 1))
+      .orderBy(homepageCtaOptions.sortOrder);
+  }
+
+  async getCtaOption(id: string): Promise<HomepageCtaOption | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(homepageCtaOptions)
+      .where(eq(homepageCtaOptions.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getHomepageMedia(homepageId: string): Promise<HomepageMediaAsset[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(homepageMediaAssets)
+      .where(eq(homepageMediaAssets.homepageId, homepageId))
+      .orderBy(homepageMediaAssets.sortOrder);
+  }
+
+  async createHomepageMedia(media: InsertHomepageMediaAsset): Promise<HomepageMediaAsset> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(homepageMediaAssets).values(media).returning();
+    return result[0];
+  }
+
+  async deleteHomepageMedia(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(homepageMediaAssets).where(eq(homepageMediaAssets.id, id));
+    return true;
+  }
+
+  async searchMusicTracks(query: string, genre?: string): Promise<MusicTrack[]> {
+    await this.ensureInitialized();
+    let conditions = [eq(musicTracks.isActive, 1)];
+    
+    if (genre) {
+      conditions.push(eq(musicTracks.genre, genre));
+    }
+
+    return await this.db
+      .select()
+      .from(musicTracks)
+      .where(and(...conditions))
+      .limit(50);
+  }
+
+  async getMusicTrack(id: string): Promise<MusicTrack | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(musicTracks)
+      .where(eq(musicTracks.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createMusicTrack(track: InsertMusicTrack): Promise<MusicTrack> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(musicTracks).values(track).returning();
+    return result[0];
   }
 }
 
