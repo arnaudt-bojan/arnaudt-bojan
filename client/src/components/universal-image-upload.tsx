@@ -18,7 +18,7 @@ interface UniversalImageUploadProps {
   mode?: "single" | "multiple";
   allowUrl?: boolean;
   allowUpload?: boolean;
-  aspectRatio?: "square" | "wide" | "auto";
+  aspectRatio?: "square" | "wide" | "banner" | "auto";
   heroSelection?: boolean;
   size?: "default" | "compact";
   className?: string;
@@ -117,11 +117,13 @@ export function UniversalImageUpload({
   const editorAspectRatio = 
     aspectRatio === "square" ? 1 : 
     aspectRatio === "wide" ? 16 / 9 : 
+    aspectRatio === "banner" ? 3 / 1 :
     4 / 3;
 
   const aspectRatioClass = 
     aspectRatio === "square" ? "aspect-square" : 
     aspectRatio === "wide" ? "aspect-[16/9]" : 
+    aspectRatio === "banner" ? "aspect-[3/1]" :
     "aspect-auto";
 
   // Upload handler
@@ -248,7 +250,7 @@ export function UniversalImageUpload({
       {/* Unified Image Grid with Upload Card */}
       <div className={cn(
         "grid gap-3",
-        isSingle ? "grid-cols-1 max-w-md" : 
+        isSingle ? (aspectRatio === "banner" ? "grid-cols-1 max-w-xl" : "grid-cols-1 max-w-[240px]") : 
         size === "compact" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6" :
         "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
       )}>

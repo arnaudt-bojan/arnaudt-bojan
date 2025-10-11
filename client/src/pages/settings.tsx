@@ -2323,7 +2323,7 @@ export default function Settings() {
                                   onChange={field.onChange}
                                   label=""
                                   mode="single"
-                                  aspectRatio="wide"
+                                  aspectRatio="banner"
                                   heroSelection={false}
                                   allowUrl={true}
                                   allowUpload={true}
