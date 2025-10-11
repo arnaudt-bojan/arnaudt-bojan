@@ -3,6 +3,13 @@ import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem } from '../shared/schema';
 import { PDFService } from './pdf-service';
 import { logger } from './logger';
+import { 
+  createEmailTemplate, 
+  createEmailButton, 
+  createAlertBox, 
+  createOrderItemsTable, 
+  createContentSection 
+} from './email-template';
 
 // Check if RESEND_API_KEY is configured
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -637,98 +644,120 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Generate branded order confirmation email with seller banner and product images
+   * DARK MODE SAFE - Works across all email clients
    */
   private generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string, magicLink: string): string {
     const items = JSON.parse(order.items);
     const bannerUrl = seller.storeBanner || '';
     const logoUrl = seller.storeLogo || '';
+    const storeName = seller.firstName || seller.username || 'Store';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; }
-            .banner { width: 100%; height: 200px; object-fit: cover; }
-            .header { padding: 30px; text-align: center; }
-            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
-            .content { padding: 0 30px 30px; }
-            .order-details { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .product-item { display: flex; gap: 15px; padding: 15px 0; border-bottom: 1px solid #eee; }
-            .product-item:last-child { border-bottom: none; }
-            .product-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; }
-            .product-info { flex: 1; }
-            .product-name { font-weight: 600; margin-bottom: 5px; }
-            .product-details { font-size: 14px; color: #666; }
-            .total { font-size: 20px; font-weight: bold; text-align: right; margin-top: 20px; padding-top: 20px; border-top: 2px solid #333; }
-            .footer { padding: 30px; text-align: center; color: #666; font-size: 14px; background: #f9f9f9; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
-            
-            <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="${seller.firstName || 'Store'} Logo" class="logo">` : ''}
-              <h1>Order Confirmation</h1>
-              <p>Thank you for your order, ${buyerName}!</p>
-            </div>
+    // Build order items table
+    const orderItemsHtml = items.map((item: any) => `
+      <tr>
+        <td style="padding: 15px 0; border-bottom: 1px solid #e5e7eb;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="width: 80px; vertical-align: top;">
+                ${item.image ? `<img src="${item.image}" alt="${item.name}" style="display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 0;">` : ''}
+              </td>
+              <td style="padding-left: 15px; vertical-align: top;">
+                <p style="margin: 0 0 5px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+                  ${item.name}
+                </p>
+                <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                  Quantity: ${item.quantity} × $${item.price}
+                  ${item.variant ? `<br>Variant: ${item.variant}` : ''}
+                </p>
+              </td>
+              <td style="text-align: right; vertical-align: top; white-space: nowrap;">
+                <p style="margin: 0; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+                  $${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `).join('');
 
-            <div class="content">
-              <div class="order-details">
-                <h3>Order #${order.id.slice(0, 8)}</h3>
-                <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
-                <p><strong>Payment Status:</strong> ${order.paymentStatus}</p>
-                ${order.paymentType === 'deposit' ? `<p><strong>Deposit Paid:</strong> $${order.amountPaid}<br><strong>Remaining Balance:</strong> $${order.remainingBalance}</p>` : ''}
-              </div>
+    // Build content
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Order Confirmation
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Thank you for your order, ${buyerName}!
+      </p>
 
-              <h3>Order Items</h3>
-              ${items.map((item: any) => `
-                <div class="product-item">
-                  ${item.image ? `<img src="${item.image}" alt="${item.name}" class="product-image">` : ''}
-                  <div class="product-info">
-                    <div class="product-name">${item.name}</div>
-                    <div class="product-details">
-                      Quantity: ${item.quantity} × $${item.price}
-                      ${item.variant ? `<br>Variant: ${item.variant}` : ''}
-                    </div>
-                  </div>
-                  <div style="text-align: right; font-weight: 600;">
-                    $${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                  </div>
-                </div>
-              `).join('')}
-
-              <div class="total">
-                Total: $${order.total}
-              </div>
-
-              <div style="text-align: center;">
-                <a href="${magicLink}" class="button">
-                  View Order Status
-                </a>
-              </div>
-
-              <h3>Shipping Address</h3>
-              <p>${order.customerAddress}</p>
-
-              <p style="margin-top: 30px; color: #666;">
-                If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
+      <!-- Order Details Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 20px;">
+            <h3 style="margin: 0 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              Order #${order.id.slice(0, 8)}
+            </h3>
+            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}
+            </p>
+            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Payment Status:</strong> ${order.paymentStatus}
+            </p>
+            ${order.paymentType === 'deposit' ? `
+              <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+                <strong>Deposit Paid:</strong> $${order.amountPaid}<br>
+                <strong>Remaining Balance:</strong> $${order.remainingBalance}
               </p>
-            </div>
+            ` : ''}
+          </td>
+        </tr>
+      </table>
 
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
-              <p>${seller.username ? `${seller.username}.upfirst.io` : 'upfirst.io'}</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Order Items
+      </h3>
+
+      <!-- Order Items Table -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        ${orderItemsHtml}
+      </table>
+
+      <!-- Total -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0;">
+        <tr>
+          <td style="padding: 20px 0; border-top: 2px solid #1a1a1a; text-align: right;">
+            <p style="margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              Total: $${order.total}
+            </p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- View Order Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        ${createEmailButton('View Order Status', magicLink, '#1a1a1a')}
+      </div>
+
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Shipping Address
+      </h3>
+      <p style="margin: 0 0 30px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; white-space: pre-line;" class="dark-mode-text-dark">
+        ${order.customerAddress}
+      </p>
+
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+        If you have any questions about your order, please reply to this email or contact us at ${seller.email || 'support@upfirst.io'}.
+      </p>
     `;
+
+    return createEmailTemplate({
+      preheader: `Order confirmation - Order #${order.id.slice(0, 8)}`,
+      bannerUrl,
+      logoUrl,
+      storeName,
+      content,
+      footerText: `© ${new Date().getFullYear()} ${storeName}. All rights reserved.${seller.username ? ` | ${seller.username}.upfirst.io` : ''}`,
+    });
   }
 
   /**
@@ -1140,59 +1169,68 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Generate auth code email with auto-login button
    */
+  /**
+   * Generate auth code email - DARK MODE SAFE
+   */
   private generateAuthCodeEmail(code: string, magicLinkToken?: string): string {
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : `http://localhost:${process.env.PORT || 5000}`;
     const magicLink = magicLinkToken ? `${baseUrl}/api/auth/email/verify-magic-link?token=${magicLinkToken}` : null;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; text-align: center; }
-            .code-box { background: #f0f7ff; padding: 30px; border-radius: 8px; margin: 30px 0; }
-            .code { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #000; margin: 10px 0; }
-            .button { display: inline-block; padding: 14px 40px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
-            .button:hover { background: #333; }
-            .divider { margin: 30px 0; color: #999; font-size: 14px; }
-            .warning { color: #666; font-size: 14px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Sign in to Upfirst</h1>
-            
-            ${magicLink ? `
-              <p>Click the button below to sign in instantly:</p>
-              <a href="${magicLink}" class="button">Sign In to Upfirst</a>
-              
-              <div class="divider">OR</div>
-              
-              <p>Enter this code manually:</p>
-            ` : `
-              <p>Enter this code to sign in:</p>
-            `}
-            
-            <div class="code-box">
-              <div class="code">${code}</div>
-              <p style="color: #666; margin-top: 15px;">This code expires in 15 minutes</p>
-            </div>
-
-            <p class="warning">
-              If you didn't request this code, please ignore this email.
-            </p>
-
-            <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              © ${new Date().getFullYear()} Upfirst. All rights reserved.
+    const content = `
+      <div style="text-align: center;">
+        <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+          Sign in to Upfirst
+        </h1>
+        
+        ${magicLink ? `
+          <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px;" class="dark-mode-text-dark">
+            Click the button below to sign in instantly:
+          </p>
+          ${createEmailButton('Sign In to Upfirst', magicLink, '#1a1a1a')}
+          
+          <div style="margin: 30px 0; padding: 20px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
+            <p style="margin: 0; color: #9ca3af !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-transform: uppercase; letter-spacing: 1px;">
+              OR
             </p>
           </div>
-        </body>
-      </html>
+          
+          <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px;" class="dark-mode-text-dark">
+            Enter this code manually:
+          </p>
+        ` : `
+          <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px;" class="dark-mode-text-dark">
+            Enter this code to sign in:
+          </p>
+        `}
+        
+        <!-- Code Box -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 30px auto; background-color: #eff6ff !important; border-radius: 12px;" class="dark-mode-bg-white">
+          <tr>
+            <td style="padding: 40px;">
+              <div style="font-size: 42px; font-weight: 700; letter-spacing: 10px; color: #1a1a1a !important; font-family: 'Courier New', monospace; margin: 10px 0;" class="dark-mode-text-dark">
+                ${code}
+              </div>
+              <p style="margin: 15px 0 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                This code expires in 15 minutes
+              </p>
+            </td>
+          </tr>
+        </table>
+        
+        <p style="margin: 30px 0 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          If you didn't request this code, please ignore this email.
+        </p>
+      </div>
     `;
+
+    return createEmailTemplate({
+      preheader: `Your login code is ${code}`,
+      storeName: 'Upfirst',
+      content,
+      footerText: `© ${new Date().getFullYear()} Upfirst. All rights reserved.`,
+    });
   }
 
   /**

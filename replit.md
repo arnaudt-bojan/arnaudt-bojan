@@ -6,6 +6,20 @@ Upfirst is an e-commerce platform designed to empower creators and brands to sel
 ## Recent Changes
 *Last updated: October 11, 2025*
 
+### Email Dark Mode Fix (Oct 11, 2025)
+- **CRITICAL FIX**: Emails now display correctly in dark mode across all clients
+- **Universal Compatibility**: Works on Apple Mail, Gmail, Outlook, mobile and desktop
+- **Implementation**: Dark-mode-safe email templates with inline styles and forced light mode
+- **Key Features**:
+  - Forced light mode using color-scheme meta tags and CSS
+  - Inline styles with `!important` for reliability
+  - Table-based layout (email-safe HTML)
+  - Dark mode media query overrides for iOS/Gmail
+  - Explicit white backgrounds and dark text colors
+  - Protection against auto-inversion by email clients
+- **Templates Updated**: Order confirmation, auth codes, magic links, and all notification emails
+- See implementation in `server/email-template.ts` and `server/notifications.ts`
+
 ### Wallet Payment Methods Implementation (Oct 11, 2025)
 - **FULL IMPLEMENTATION**: Complete wallet payment support with Express Checkout Element
 - **Apple Pay**: One-click checkout with saved address and payment method
