@@ -25,6 +25,14 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getStoreUrl } from "@/lib/store-url";
 
+// Format price in seller's currency (no conversion, just display)
+const formatDashboardPrice = (price: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
+
 export default function SellerDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -179,6 +187,9 @@ export default function SellerDashboard() {
   const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total), 0) || 0;
   const totalOrders = orders?.length || 0;
   const pendingOrders = orders?.filter(o => o.status === "pending").length || 0;
+  
+  // Get seller's currency from user profile
+  const sellerCurrency = user?.listingCurrency || 'USD';
 
   return (
     <div className="min-h-screen py-6 md:py-12">
@@ -426,7 +437,7 @@ export default function SellerDashboard() {
               <DollarSign className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="text-2xl font-bold" data-testid="text-total-revenue">
-              ${totalRevenue.toFixed(2)}
+              {formatDashboardPrice(totalRevenue, sellerCurrency)}
             </div>
           </Card>
 
@@ -456,7 +467,7 @@ export default function SellerDashboard() {
               <TrendingUp className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="text-2xl font-bold" data-testid="text-avg-order">
-              ${totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00"}
+              {formatDashboardPrice(totalOrders > 0 ? (totalRevenue / totalOrders) : 0, sellerCurrency)}
             </div>
           </Card>
         </div>
@@ -497,7 +508,7 @@ export default function SellerDashboard() {
                       <TableCell>{order.customerName}</TableCell>
                       <TableCell>{order.customerEmail}</TableCell>
                       <TableCell className="font-semibold">
-                        ${parseFloat(order.total).toFixed(2)}
+                        {formatDashboardPrice(parseFloat(order.total), sellerCurrency)}
                       </TableCell>
                       <TableCell>
                         <Badge
