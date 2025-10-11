@@ -1052,3 +1052,247 @@ export const savedPaymentMethods = pgTable("saved_payment_methods", {
 export const insertSavedPaymentMethodSchema = createInsertSchema(savedPaymentMethods).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSavedPaymentMethod = z.infer<typeof insertSavedPaymentMethodSchema>;
 export type SavedPaymentMethod = typeof savedPaymentMethods.$inferSelect;
+
+// ============================================================================
+// TRUSTPILOT INTEGRATION
+// ============================================================================
+
+// Trustpilot OAuth Tokens - Store OAuth credentials per seller
+export const trustpilotTokens = pgTable("trustpilot_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(), // One Trustpilot connection per seller
+  
+  // OAuth tokens
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  tokenType: varchar("token_type").default("Bearer"),
+  expiresAt: timestamp("expires_at").notNull(), // When access token expires
+  
+  // Trustpilot Business Unit
+  businessUnitId: varchar("business_unit_id").notNull(), // Trustpilot business unit ID
+  businessName: text("business_name"), // Store name from Trustpilot
+  
+  // Sync settings
+  autoSync: integer("auto_sync").default(1), // 0 = manual only, 1 = auto sync
+  lastSyncAt: timestamp("last_sync_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index("trustpilot_tokens_user_id_idx").on(table.userId),
+  };
+});
+
+export const insertTrustpilotTokenSchema = createInsertSchema(trustpilotTokens).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTrustpilotToken = z.infer<typeof insertTrustpilotTokenSchema>;
+export type TrustpilotToken = typeof trustpilotTokens.$inferSelect;
+
+// Trustpilot Reviews - Store imported reviews
+export const trustpilotReviews = pgTable("trustpilot_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(), // Seller who owns this review
+  
+  // Trustpilot Review Data
+  trustpilotReviewId: varchar("trustpilot_review_id").notNull().unique(), // Trustpilot's review ID
+  stars: integer("stars").notNull(), // 1-5
+  title: text("title"),
+  content: text("content").notNull(),
+  
+  // Reviewer Info
+  reviewerName: text("reviewer_name").notNull(),
+  reviewerCountry: varchar("reviewer_country"),
+  verifiedBuyer: integer("verified_buyer").default(0), // 0 = no, 1 = yes
+  
+  // Product Association (optional - for product-specific reviews)
+  productId: varchar("product_id"), // Link to our product if available
+  productSku: varchar("product_sku"), // Trustpilot product SKU
+  
+  // Review Metadata
+  reviewDate: timestamp("review_date").notNull(), // When review was posted on Trustpilot
+  language: varchar("language").default("en"),
+  
+  // Reply (if seller responded)
+  replyText: text("reply_text"),
+  replyDate: timestamp("reply_date"),
+  
+  // Display Settings
+  isVisible: integer("is_visible").default(1), // 0 = hidden, 1 = visible on storefront
+  isFeatured: integer("is_featured").default(0), // 0 = no, 1 = featured review
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: index("trustpilot_reviews_seller_id_idx").on(table.sellerId),
+    productIdIdx: index("trustpilot_reviews_product_id_idx").on(table.productId),
+    starsIdx: index("trustpilot_reviews_stars_idx").on(table.stars),
+  };
+});
+
+export const insertTrustpilotReviewSchema = createInsertSchema(trustpilotReviews).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTrustpilotReview = z.infer<typeof insertTrustpilotReviewSchema>;
+export type TrustpilotReview = typeof trustpilotReviews.$inferSelect;
+
+// ============================================================================
+// META ADS INTEGRATION
+// ============================================================================
+
+export const metaAdCampaignStatusEnum = z.enum(["active", "paused", "completed", "cancelled", "error"]);
+export type MetaAdCampaignStatus = z.infer<typeof metaAdCampaignStatusEnum>;
+
+export const metaAdObjectiveEnum = z.enum(["OUTCOME_SALES", "OUTCOME_LEADS", "OUTCOME_ENGAGEMENT", "OUTCOME_TRAFFIC", "OUTCOME_AWARENESS"]);
+export type MetaAdObjective = z.infer<typeof metaAdObjectiveEnum>;
+
+// Meta Ad Campaigns
+export const metaAdCampaigns = pgTable("meta_ad_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(), // Seller who owns this campaign
+  
+  // Meta Campaign Info
+  metaCampaignId: varchar("meta_campaign_id").unique(), // Meta's campaign ID (null until created)
+  campaignName: text("campaign_name").notNull(),
+  
+  // Campaign Settings
+  objective: varchar("objective").notNull().default("OUTCOME_SALES"), // OUTCOME_SALES, OUTCOME_LEADS, etc.
+  status: varchar("status").notNull().default("paused"), // active, paused, completed, cancelled, error
+  
+  // Products & Creative
+  productIds: text("product_ids").array().notNull(), // Products to advertise
+  adCopy: text("ad_copy").notNull(), // Generated by Gemini
+  headline: text("headline").notNull(),
+  callToAction: varchar("call_to_action").default("SHOP_NOW"), // SHOP_NOW, LEARN_MORE, etc.
+  
+  // Targeting
+  targetCountries: text("target_countries").array().notNull(), // ["US", "CA"]
+  targetLanguages: text("target_languages").array(), // ["en", "es"]
+  targetAgeMin: integer("target_age_min").default(18),
+  targetAgeMax: integer("target_age_max").default(65),
+  targetGender: varchar("target_gender"), // "male", "female", null = all
+  
+  // Advantage+ Settings
+  advantagePlusEnabled: integer("advantage_plus_enabled").default(1), // 0 = no, 1 = yes
+  advantageAudience: integer("advantage_audience").default(1), // AI-driven audience
+  advantagePlacements: integer("advantage_placements").default(1), // Auto placements
+  
+  // Budget & Scheduling
+  dailyBudget: decimal("daily_budget", { precision: 10, scale: 2 }).notNull(), // User's daily budget
+  totalBudget: decimal("total_budget", { precision: 10, scale: 2 }).notNull(), // Total campaign budget
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // null = no end date
+  
+  // Payment & Fees
+  amountCharged: decimal("amount_charged", { precision: 10, scale: 2 }).default("0"), // Total charged from user
+  metaSpend: decimal("meta_spend", { precision: 10, scale: 2 }).default("0"), // Total spent on Meta
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).default("0"), // 20% platform fee
+  remainingBudget: decimal("remaining_budget", { precision: 10, scale: 2 }).default("0"),
+  
+  // Stripe Payment
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"), // Initial payment
+  
+  // Performance Metrics (cached)
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  reach: integer("reach").default(0),
+  ctr: decimal("ctr", { precision: 5, scale: 2 }).default("0"), // Click-through rate
+  cpc: decimal("cpc", { precision: 10, scale: 2 }).default("0"), // Cost per click
+  
+  // Error Handling
+  errorMessage: text("error_message"), // If campaign creation fails
+  lastSyncAt: timestamp("last_sync_at"), // Last performance data sync
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: index("meta_ad_campaigns_seller_id_idx").on(table.sellerId),
+    statusIdx: index("meta_ad_campaigns_status_idx").on(table.status),
+  };
+});
+
+export const insertMetaAdCampaignSchema = createInsertSchema(metaAdCampaigns).omit({ 
+  id: true, 
+  metaCampaignId: true,
+  amountCharged: true,
+  metaSpend: true,
+  platformFee: true,
+  remainingBudget: true,
+  impressions: true,
+  clicks: true,
+  conversions: true,
+  reach: true,
+  ctr: true,
+  cpc: true,
+  lastSyncAt: true,
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertMetaAdCampaign = z.infer<typeof insertMetaAdCampaignSchema>;
+export type MetaAdCampaign = typeof metaAdCampaigns.$inferSelect;
+
+// Meta Ad Performance (daily snapshots)
+export const metaAdPerformance = pgTable("meta_ad_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(), // Our campaign ID
+  metaCampaignId: varchar("meta_campaign_id"), // Meta's campaign ID
+  
+  // Performance Metrics
+  date: varchar("date").notNull(), // YYYY-MM-DD
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  reach: integer("reach").default(0),
+  spend: decimal("spend", { precision: 10, scale: 2 }).default("0"),
+  
+  // Calculated Metrics
+  ctr: decimal("ctr", { precision: 5, scale: 2 }).default("0"), // Click-through rate
+  cpc: decimal("cpc", { precision: 10, scale: 2 }).default("0"), // Cost per click
+  cpm: decimal("cpm", { precision: 10, scale: 2 }).default("0"), // Cost per mille (1000 impressions)
+  conversionRate: decimal("conversion_rate", { precision: 5, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    campaignIdIdx: index("meta_ad_performance_campaign_id_idx").on(table.campaignId),
+    dateIdx: index("meta_ad_performance_date_idx").on(table.date),
+  };
+});
+
+export const insertMetaAdPerformanceSchema = createInsertSchema(metaAdPerformance).omit({ id: true, createdAt: true });
+export type InsertMetaAdPerformance = z.infer<typeof insertMetaAdPerformanceSchema>;
+export type MetaAdPerformance = typeof metaAdPerformance.$inferSelect;
+
+// Meta Ad Payment Transactions
+export const metaAdPayments = pgTable("meta_ad_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  sellerId: varchar("seller_id").notNull(),
+  
+  // Payment Details
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Total payment
+  metaSpend: decimal("meta_spend", { precision: 10, scale: 2 }).notNull(), // Amount to Meta (80%)
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).notNull(), // Our fee (20%)
+  
+  // Stripe Info
+  stripePaymentIntentId: varchar("stripe_payment_intent_id").notNull(),
+  paymentStatus: varchar("payment_status").notNull().default("pending"), // pending, succeeded, failed, refunded
+  
+  // Type
+  paymentType: varchar("payment_type").notNull(), // "initial", "topup", "refund"
+  
+  // Refund Info
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }), // If refunded
+  refundReason: text("refund_reason"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    campaignIdIdx: index("meta_ad_payments_campaign_id_idx").on(table.campaignId),
+    sellerIdIdx: index("meta_ad_payments_seller_id_idx").on(table.sellerId),
+  };
+});
+
+export const insertMetaAdPaymentSchema = createInsertSchema(metaAdPayments).omit({ id: true, createdAt: true });
+export type InsertMetaAdPayment = z.infer<typeof insertMetaAdPaymentSchema>;
+export type MetaAdPayment = typeof metaAdPayments.$inferSelect;
