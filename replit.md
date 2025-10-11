@@ -3,6 +3,13 @@
 ## Overview
 Upfirst is an e-commerce platform designed for creators and brands to sell various product types: in-stock, pre-order, made-to-order, and wholesale. It offers a unified experience for buyers and sellers, featuring product browsing, a shopping cart, authenticated checkout, and a comprehensive seller dashboard. Key capabilities include a B2B wholesale system, AI-optimized social media advertising integration, and robust multi-seller payment processing via Stripe Connect. The platform focuses on delivering a seamless, modern, and scalable online commerce solution with strong security, multi-currency support, and a comprehensive tax system.
 
+## Recent Changes (Oct 11, 2025)
+- **ReturnUrl Preservation**: Fixed email auth flow to preserve returnUrl through login, ensuring users return to the page they were viewing (e.g., storefronts) instead of being redirected to dashboard
+- **Storefront Branding**: Removed UPPFIRST logo from storefronts; now displays store logo > Instagram username > seller name (firstName + lastName or username) as fallback
+- **Reactive Domain Detection**: AuthStoreContext now tracks location changes using wouter's useLocation() to properly detect seller storefronts during client-side navigation
+- **Desktop Navigation**: StorefrontHeader displays Products link for guests on seller domains, buyers, and product pages
+- **Welcome Email**: Only sent once on first registration, tracked via welcomeEmailSent flag
+
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
 - **Coding Style**: Favor modern JavaScript/TypeScript practices, functional components in React, and maintainable code.
