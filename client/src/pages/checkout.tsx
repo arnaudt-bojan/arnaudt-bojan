@@ -210,8 +210,8 @@ function PaymentForm({
             },
             terms: {
               card: 'never',
-              link: 'never', // ✅ Remove Link terms to close/limit optional save form
-            },
+              link: 'never', // ✅ Closes Link optional save form
+            } as any, // Type cast to bypass Stripe types limitation
           }}
         />
       </div>
@@ -494,7 +494,7 @@ export default function Checkout() {
       quantity: item.quantity,
       productType: item.productType,
       depositAmount: item.depositAmount || undefined,
-      requiresDeposit: item.requiresDeposit,
+      requiresDeposit: item.requiresDeposit ?? undefined,
     }));
 
     // Calculate pricing (shipping charged with balance for pre-orders)
