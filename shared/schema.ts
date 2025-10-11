@@ -21,6 +21,13 @@ export type UserRole = z.infer<typeof userRoleEnum>;
 export const storeContextRoleEnum = z.enum(["buyer", "seller", "owner"]);
 export type StoreContextRole = z.infer<typeof storeContextRoleEnum>;
 
+// New auth system: user_type enum (single source of truth for user identity)
+export const userTypeEnum = z.enum(["seller", "buyer", "collaborator"]);
+export type UserType = z.infer<typeof userTypeEnum>;
+
+// PostgreSQL enum for user_type
+export const userTypePgEnum = pgEnum("user_type", ["seller", "buyer", "collaborator"]);
+
 // PostgreSQL enum for store context roles (buyer/seller/owner)
 export const storeContextRolePgEnum = pgEnum("store_context_role", ["buyer", "seller", "owner"]);
 
@@ -367,12 +374,108 @@ export const users = pgTable("users", {
   // Welcome email tracking - prevent duplicate welcome emails
   welcomeEmailSent: integer("welcome_email_sent").default(0), // 0 = not sent, 1 = sent
   
+  // New auth system: user_type (single source of truth for user identity)
+  // - seller: owns store, cannot buy from any store
+  // - buyer: purchases from stores, cannot own/manage any store
+  // - collaborator: team member of a store (via user_store_memberships), cannot buy
+  userType: userTypePgEnum("user_type"), // NULL during migration, then set based on role
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// New Auth System Tables
+
+// User Store Memberships - tracks collaborators (team members) of a store
+// Capabilities define what actions a team member can perform
+export const userStoreMemberships = pgTable("user_store_memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The collaborator
+  storeOwnerId: varchar("store_owner_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The store owner
+  capabilities: jsonb("capabilities").notNull(), // { manageProducts: boolean, manageOrders: boolean, manageTeam: boolean, ... }
+  status: varchar("status").notNull().default("active"), // "active", "suspended"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  // Unique constraint: one membership per user per store
+  uniqueUserStore: uniqueIndex("unique_user_store_membership").on(table.userId, table.storeOwnerId),
+}));
+
+export const insertUserStoreMembershipSchema = createInsertSchema(userStoreMemberships).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertUserStoreMembership = z.infer<typeof insertUserStoreMembershipSchema>;
+export type UserStoreMembership = typeof userStoreMemberships.$inferSelect;
+
+// Wholesale Access Grants - tracks which buyers have wholesale access to which sellers
+// Wholesale buyers are buyers with additive wholesale permissions
+export const wholesaleAccessGrants = pgTable("wholesale_access_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buyerId: varchar("buyer_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The buyer (user_type='buyer')
+  sellerId: varchar("seller_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The seller granting access
+  status: varchar("status").notNull().default("active"), // "active", "revoked"
+  wholesaleTerms: jsonb("wholesale_terms"), // Optional: { minimumOrderValue, discountPercentage, paymentTerms }
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (table) => ({
+  // Unique constraint: one grant per buyer per seller
+  uniqueBuyerSeller: uniqueIndex("unique_buyer_seller_grant").on(table.buyerId, table.sellerId),
+}));
+
+export const insertWholesaleAccessGrantSchema = createInsertSchema(wholesaleAccessGrants).omit({ 
+  id: true, 
+  createdAt: true, 
+  revokedAt: true 
+});
+export type InsertWholesaleAccessGrant = z.infer<typeof insertWholesaleAccessGrantSchema>;
+export type WholesaleAccessGrant = typeof wholesaleAccessGrants.$inferSelect;
+
+// Team Invitations - invitations to join a store as a collaborator
+export const teamInvitations = pgTable("team_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  storeOwnerId: varchar("store_owner_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Store owner sending invite
+  capabilities: jsonb("capabilities").notNull(), // { manageProducts: boolean, manageOrders: boolean, ... }
+  status: varchar("status").notNull().default("pending"), // "pending", "accepted", "expired", "cancelled"
+  token: varchar("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).omit({ 
+  id: true, 
+  createdAt: true, 
+  acceptedAt: true 
+});
+export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
+export type TeamInvitation = typeof teamInvitations.$inferSelect;
+
+// Wholesale Invitations - invitations to become a wholesale buyer
+export const wholesaleInvitations = pgTable("wholesale_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  sellerId: varchar("seller_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Seller sending invite
+  wholesaleTerms: jsonb("wholesale_terms"), // Optional: { minimumOrderValue, discountPercentage, paymentTerms }
+  status: varchar("status").notNull().default("pending"), // "pending", "accepted", "expired", "cancelled"
+  token: varchar("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export const insertWholesaleInvitationSchema = createInsertSchema(wholesaleInvitations).omit({ 
+  id: true, 
+  createdAt: true, 
+  acceptedAt: true 
+});
+export type InsertWholesaleInvitation = z.infer<typeof insertWholesaleInvitationSchema>;
+export type WholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
 
 // User-Store relationship table for context-specific roles
 // Tracks whether a user is a buyer or seller/owner for a specific store
@@ -622,8 +725,8 @@ export type InsertWholesaleProduct = z.infer<typeof insertWholesaleProductSchema
 export type WholesaleProduct = typeof wholesaleProducts.$inferSelect;
 export type SelectWholesaleProduct = typeof wholesaleProducts.$inferSelect;
 
-// Wholesale Invitations
-export const wholesaleInvitations = pgTable("wholesale_invitations", {
+// Wholesale Invitations - enhanced for new auth system
+export const wholesaleInvitations_legacy = pgTable("wholesale_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sellerId: varchar("seller_id").notNull(),
   buyerEmail: text("buyer_email").notNull(),
@@ -632,17 +735,20 @@ export const wholesaleInvitations = pgTable("wholesale_invitations", {
   token: varchar("token").notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   acceptedAt: timestamp("accepted_at"),
+  // New auth system fields - for future use
+  wholesaleTerms: jsonb("wholesale_terms"), // Optional: { minimumOrderValue, discountPercentage, paymentTerms }
+  expiresAt: timestamp("expires_at"), // When invitation expires
 });
 
-export const insertWholesaleInvitationSchema = createInsertSchema(wholesaleInvitations).omit({ 
+export const insertWholesaleInvitationSchema_legacy = createInsertSchema(wholesaleInvitations_legacy).omit({ 
   id: true, 
   token: true,
   createdAt: true, 
   acceptedAt: true 
 });
-export type InsertWholesaleInvitation = z.infer<typeof insertWholesaleInvitationSchema>;
-export type WholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
-export type SelectWholesaleInvitation = typeof wholesaleInvitations.$inferSelect;
+export type InsertWholesaleInvitation_Legacy = z.infer<typeof insertWholesaleInvitationSchema_legacy>;
+export type WholesaleInvitation_Legacy = typeof wholesaleInvitations_legacy.$inferSelect;
+export type SelectWholesaleInvitation_Legacy = typeof wholesaleInvitations_legacy.$inferSelect;
 
 // Magic Link Authentication Tokens
 export const authTokens = pgTable("auth_tokens", {
