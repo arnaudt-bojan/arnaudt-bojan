@@ -196,15 +196,30 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
             </SheetContent>
           </Sheet>
           
-          {/* Logo/Branding - show store logo, Instagram, or "Add Logo" button */}
-          {activeSeller?.instagramUsername ? (
-            <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-              <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
-            </Link>
-          ) : activeSeller?.storeLogo ? (
+          {/* Logo/Branding - show store logo, Instagram, store name, or "Add Logo" button */}
+          {activeSeller?.storeLogo ? (
             <Link href="/" className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
               <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
             </Link>
+          ) : activeSeller?.instagramUsername ? (
+            <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+              <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+            </Link>
+          ) : activeSeller && (activeSeller.firstName || activeSeller.lastName || activeSeller.username) ? (
+            <div className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <div className="text-lg font-semibold">
+                  {activeSeller.firstName && activeSeller.lastName 
+                    ? `${activeSeller.firstName} ${activeSeller.lastName}`
+                    : activeSeller.username || 'Store'}
+                </div>
+              </Link>
+              <Link href="/settings?tab=branding">
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
+                  Add Logo
+                </Button>
+              </Link>
+            </div>
           ) : (
             <Link href="/settings?tab=branding">
               <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">

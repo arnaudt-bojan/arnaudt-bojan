@@ -153,18 +153,26 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
           
           {/* Logo/Branding */}
           {isSellerDomain ? (
-            // On seller storefront: show Instagram username or store logo
-            activeSeller?.instagramUsername ? (
-              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
-              </Link>
-            ) : activeSeller?.storeLogo ? (
+            // On seller storefront: show store logo, Instagram username, or store name
+            activeSeller?.storeLogo ? (
               <Link href="/" className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
                 <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
               </Link>
+            ) : activeSeller?.instagramUsername ? (
+              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+              </Link>
+            ) : activeSeller ? (
+              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <div className="text-lg font-semibold">
+                  {activeSeller.firstName && activeSeller.lastName 
+                    ? `${activeSeller.firstName} ${activeSeller.lastName}`
+                    : activeSeller.username || 'Store'}
+                </div>
+              </Link>
             ) : (
               <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                <img src={logoImage} alt="Upfirst" className="h-8 dark:invert" />
+                <div className="text-lg font-semibold">Store</div>
               </Link>
             )
           ) : (

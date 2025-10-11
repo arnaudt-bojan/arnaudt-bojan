@@ -23,11 +23,16 @@ export default function EmailLogin() {
   const domainInfo = detectDomain();
   const sellerContext = domainInfo.isSellerDomain ? domainInfo.sellerUsername : undefined;
 
+  // Extract returnUrl from query params
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnUrl = urlParams.get('returnUrl') || undefined;
+
   const sendCodeMutation = useMutation({
     mutationFn: async (email: string) => {
       const response = await apiRequest("POST", "/api/auth/email/send-code", { 
         email,
-        sellerContext // Pass seller context to backend
+        sellerContext, // Pass seller context to backend
+        returnUrl // Pass returnUrl to preserve through auth flow
       });
       return response.json();
     },
@@ -52,7 +57,8 @@ export default function EmailLogin() {
       const response = await apiRequest("POST", "/api/auth/email/verify-code", { 
         email, 
         code,
-        sellerContext // Pass seller context to backend
+        sellerContext, // Pass seller context to backend
+        returnUrl // Pass returnUrl to preserve through auth flow
       });
       return response.json();
     },
@@ -79,7 +85,8 @@ export default function EmailLogin() {
     mutationFn: async (email: string) => {
       const response = await apiRequest("POST", "/api/auth/email/send-magic-link", { 
         email,
-        sellerContext // Pass seller context to backend
+        sellerContext, // Pass seller context to backend
+        returnUrl // Pass returnUrl to preserve through auth flow
       });
       return response.json();
     },
