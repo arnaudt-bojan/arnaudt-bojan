@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Order } from "@shared/schema";
-import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle, Users, Megaphone, FileText } from "lucide-react";
+import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle, Users, Megaphone, FileText, Settings } from "lucide-react";
 import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
 import { OnboardingModal } from "@/components/onboarding-modal";
@@ -238,6 +238,15 @@ export default function SellerDashboard() {
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setLocation("/settings")}
+                data-testid="button-advanced-settings"
+                className="hidden md:flex flex-1 md:flex-none"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Advanced Settings
               </Button>
             </div>
           </div>

@@ -2792,49 +2792,6 @@ export default function Settings() {
                 </CardContent>
               </Card>
             </div>
-
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Shipping Settings</CardTitle>
-                <CardDescription>Configure shipping price for your products</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...shippingForm}>
-                  <form onSubmit={shippingForm.handleSubmit((data) => updateShippingMutation.mutate(data))} className="space-y-4">
-                    <FormField
-                      control={shippingForm.control}
-                      name="shippingPrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Flat Rate Shipping Price</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              type="number" 
-                              step="0.01" 
-                              min="0" 
-                              placeholder="0.00" 
-                              data-testid="input-shipping-price" 
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Set a flat rate shipping price for all orders. Enter 0 for free shipping.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button 
-                      type="submit" 
-                      disabled={updateShippingMutation.isPending}
-                      data-testid="button-save-shipping"
-                    >
-                      {updateShippingMutation.isPending ? "Saving..." : "Save Shipping Price"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
           </TabsContent>
         )}
       </Tabs>

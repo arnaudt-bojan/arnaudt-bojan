@@ -269,23 +269,31 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
             </SheetContent>
             </Sheet>
           )}
-          {sellerInfo?.instagramUsername ? (
-            <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-              <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
-            </Link>
-          ) : sellerInfo?.storeLogo ? (
-            <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
-              <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
-            </Link>
-          ) : isSeller ? (
-            <Link href="/settings?tab=branding">
-              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
-                Add Logo
-              </Button>
-            </Link>
+          {isSellerDomain ? (
+            // On seller storefront: show Instagram username, store logo, or "Add Logo" button
+            sellerInfo?.instagramUsername ? (
+              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <div className="text-lg font-semibold">@{sellerInfo.instagramUsername}</div>
+              </Link>
+            ) : sellerInfo?.storeLogo ? (
+              <Link href="/" className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
+                <img src={sellerInfo.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+              </Link>
+            ) : isSeller ? (
+              <Link href="/settings?tab=branding">
+                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="button-add-logo">
+                  Add Logo
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+                <img src={logoImage} alt="Upfirst" className="h-8 dark:invert" />
+              </Link>
+            )
           ) : (
+            // On main app (dashboard, settings, etc.): always show Upfirst logo
             <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-              <img src={logoImage} alt="Upfirst" className="h-8" />
+              <img src={logoImage} alt="Upfirst" className="h-8 dark:invert" />
             </Link>
           )}
         </div>
