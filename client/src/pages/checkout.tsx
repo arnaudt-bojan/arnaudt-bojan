@@ -493,7 +493,7 @@ export default function Checkout() {
       price: item.price,
       quantity: item.quantity,
       productType: item.productType,
-      depositAmount: item.depositAmount,
+      depositAmount: item.depositAmount || undefined,
       requiresDeposit: item.requiresDeposit,
     }));
 
@@ -636,7 +636,7 @@ export default function Checkout() {
   const handlePaymentSuccess = (orderId: string) => {
     clearCart();
     // Pass email for public order lookup (guest checkout users)
-    const email = encodeURIComponent(billingDetails?.email || '');
+    const email = encodeURIComponent(billingDetails?.customerEmail || '');
     setLocation(`/order-success/${orderId}?email=${email}`);
   };
 
