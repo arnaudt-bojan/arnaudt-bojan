@@ -9,6 +9,42 @@
  * - Color-scheme meta tag to prevent dark mode
  */
 
+/**
+ * Format price with currency using Intl.NumberFormat
+ * Same approach as frontend - no hardcoded currency symbols
+ */
+export function formatPrice(amount: number, currencyCode?: string | null): string {
+  try {
+    if (!currencyCode) {
+      // Use XXX (no currency) code for locale-aware formatting with universal symbol
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'XXX',
+        currencyDisplay: 'symbol',
+      }).format(amount);
+    }
+
+    // Use browser's default locale and let Intl choose proper fraction digits for the currency
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currencyCode.toUpperCase(),
+    }).format(amount);
+  } catch (error) {
+    // If currency code is invalid, fallback to XXX with locale-aware formatting
+    console.error(`Invalid currency code: ${currencyCode}`, error);
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'XXX',
+        currencyDisplay: 'symbol',
+      }).format(amount);
+    } catch {
+      // Last resort: plain number with universal symbol
+      return `¤${amount}`;
+    }
+  }
+}
+
 export interface EmailTemplateOptions {
   preheader?: string;
   logoUrl?: string;
