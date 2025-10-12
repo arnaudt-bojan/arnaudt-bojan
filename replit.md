@@ -21,7 +21,13 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **Storefront Branding**: Displays store logo, Instagram username, or seller name as fallback.
 
 **System Design Choices & Feature Specifications:**
-- **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and a flexible shipping system (package presets, international carrier templates, zone-based matrices).
+- **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and a comprehensive multi-method shipping system.
+- **Shipping Service Architecture**: Centralized `ShippingService` with 4 shipping methods integrated with `PricingService` for accurate calculations:
+  - **Free Shipping**: Zero-cost option
+  - **Flat Rate**: Fixed cost per product
+  - **Matrix Shipping**: Zone-based rates (city > country > continent priority) with delivery estimates
+  - **Shippo Integration**: Real-time carrier rates (USPS, FedEx, UPS, DHL) using package dimensions, with automatic cheapest rate selection
+  - Returns: cost, method, zone, carrier, estimated days, human-readable description for checkout display
 - **Shopping & Checkout**: Features slide-over/persistent cart, guest checkout, server-side shipping cost calculation, and single-seller constraint per cart.
 - **Authentication & Authorization**: Email-based authentication with dual-token system (6-digit codes, magic links). Capability-based authorization with resource-scoped permissions for seller, buyer, and collaborator roles.
 - **Notification System**: Refactored email notifications using Resend with dark mode and templated messages.
@@ -48,6 +54,7 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **ORM**: Drizzle ORM
 - **Email Service**: Resend
 - **Payment Gateway**: Stripe SDK
+- **Shipping Service**: Shippo API (real-time carrier rates)
 - **Social Media APIs**: Meta Graph API, TikTok Business API, X (Twitter) Ads API, Instagram Basic Display API
 - **UI Components**: Shadcn UI
 - **Styling**: Tailwind CSS
