@@ -130,7 +130,7 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
                     Newsletter
                   </Link>
                   <Link
-                    href="/order-management"
+                    href="/seller/orders"
                     onClick={() => setMobileMenuOpen(false)}
                     className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
                     data-testid="mobile-link-order-management"

@@ -397,7 +397,7 @@ export default function SellerDashboard() {
               </Card>
               <Card
                 className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/order-management")}
+                onClick={() => setLocation("/seller/orders")}
                 data-testid="button-order-management"
               >
                 <div className="flex flex-col items-center text-center gap-3">

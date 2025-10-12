@@ -32,7 +32,6 @@ import SocialAdsSetup from "@/pages/social-ads-setup";
 import CreateAdCampaign from "@/pages/create-ad-campaign";
 import PromoteProduct from "@/pages/promote-product";
 import CreateMetaCampaign from "@/pages/create-meta-campaign";
-import OrderManagement from "@/pages/order-management";
 import SellerOrdersPage from "@/pages/seller-orders";
 import Newsletter from "@/pages/newsletter";
 import WholesaleProducts from "@/pages/wholesale-products";
@@ -277,13 +276,6 @@ function AppContent() {
               </Route>
               
               {/* Seller-only management routes */}
-              <Route path="/order-management">
-                {() => (
-                  <ProtectedRoute requireSeller>
-                    <OrderManagement />
-                  </ProtectedRoute>
-                )}
-              </Route>
               <Route path="/newsletter">
                 {() => (
                   <ProtectedRoute requireSeller>

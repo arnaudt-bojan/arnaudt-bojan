@@ -86,7 +86,6 @@ export function AuthStoreProvider({ children }: { children: ReactNode }) {
                                    (pathname === "/admin") ||
                                    pathname.startsWith("/team") ||
                                    pathname.startsWith("/settings") ||
-                                   pathname.startsWith("/order-management") ||
                                    pathname.startsWith("/social-ads-setup") ||
                                    pathname.startsWith("/newsletter");
     
