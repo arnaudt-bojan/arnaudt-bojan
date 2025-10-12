@@ -7,6 +7,7 @@ import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList } from "lucide-reac
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
+import { StorefrontHeader } from "@/components/headers/storefront-header";
 import type { User, Product } from "@shared/schema";
 
 interface FilterOptions {
@@ -152,24 +153,8 @@ export default function SellerStorefront() {
   if (!effectiveSeller) {
     return (
       <div className="min-h-screen flex flex-col">
-        {/* Store Header - Show username even if seller not found */}
-        <div className="border-b bg-card">
-          <div className="container py-8">
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
-                <Store className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold" data-testid="text-store-name">
-                  {username}'s Store
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  This store is currently unavailable
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Header */}
+        <StorefrontHeader cartItemsCount={0} onCartClick={() => {}} />
 
         {/* Empty State */}
         <div className="container py-12 flex-1">
@@ -190,6 +175,9 @@ export default function SellerStorefront() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <StorefrontHeader cartItemsCount={0} onCartClick={() => {}} />
+      
       {/* Banner - Only show if uploaded */}
       {effectiveSeller.storeBanner && (
         <div className="relative w-full aspect-[21/9] md:aspect-[21/7] overflow-hidden">
