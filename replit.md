@@ -26,7 +26,8 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
   - **Free Shipping**: Zero-cost option
   - **Flat Rate**: Fixed cost per product
   - **Matrix Shipping**: Zone-based rates (city > country > continent priority) with delivery estimates
-  - **Shippo Integration**: Real-time carrier rates (USPS, FedEx, UPS, DHL) using package dimensions, with automatic cheapest rate selection
+  - **Shippo Integration**: Real-time carrier rates (USPS, FedEx, UPS, DHL) using package dimensions, with automatic cheapest rate selection. Uses seller's configured warehouse address as shipping origin.
+  - **Warehouse Address**: Sellers configure ship-from address in Settings > Warehouse tab (street, city, state, postal code, country). Required for Shippo shipping method.
   - Returns: cost, method, zone, carrier, estimated days, human-readable description for checkout display
 - **Shopping & Checkout**: Features slide-over/persistent cart, guest checkout, server-side shipping cost calculation, and single-seller constraint per cart.
 - **Authentication & Authorization**: Email-based authentication with dual-token system (6-digit codes, magic links). Capability-based authorization with resource-scoped permissions for seller, buyer, and collaborator roles.
@@ -44,7 +45,7 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **Team Management**: Role-based access (owner, admin, editor, viewer) with invitation-based expansion and granular permissions.
 - **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.
 - **Storefront Customization**: Sellers can add About Story, contact info, and social media links.
-- **Settings Page Organization**: Comprehensive seller settings across 11 tabs, with a 'Quick Setup' tab for unified username, logo, and banner configuration with live preview.
+- **Settings Page Organization**: Comprehensive seller settings across 12 tabs, including 'Quick Setup' for unified username/logo/banner configuration with live preview, and 'Warehouse' for ship-from address configuration.
 - **Terms & Conditions System**: Seller T&C management with custom PDF upload or platform fallback, integrated into storefront footer.
 - **Inventory Management System**: Transaction-based stock reservation with atomic operations, PostgreSQL row-level locking, variant-level race protection, and automatic stock synchronization.
 - **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, shipping updates, and balance payments, using Stripe for processing and an automated email notification system.
