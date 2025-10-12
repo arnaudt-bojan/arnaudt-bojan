@@ -3,14 +3,15 @@
  * 
  * Backend tax calculations using Stripe Tax
  * Handles US Sales Tax calculation based on seller's tax nexus configuration
+ * 
+ * IMPORTANT: For multi-seller platforms using Stripe Connect:
+ * - Tax calculations are performed on behalf of the seller's connected account
+ * - Each seller must configure their own tax registrations in their Stripe account
+ * - The seller's warehouse address is used as ship_from for origin-based tax
  */
 
 import Stripe from "stripe";
 import type { IStorage } from "../storage";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-09-30.clover",
-});
 
 export interface TaxCalculationParams {
   amount: number;
@@ -39,13 +40,15 @@ export interface TaxCalculation {
 }
 
 export class TaxService {
-  constructor(private storage: IStorage) {}
+  constructor(private storage: IStorage, private stripe?: Stripe) {}
 
   /**
-   * Calculate tax using Stripe Tax API
-   * Stripe Tax automatically determines the correct rate based on:
+   * Calculate tax using Stripe Tax API on behalf of the seller's connected account
+   * 
+   * Tax calculation uses:
+   * - Seller's tax registrations (configured in their Stripe Connect dashboard)
    * - Customer's shipping address
-   * - Seller's tax nexus (states/countries where they collect tax)
+   * - Seller's warehouse address (ship_from origin)
    * - Product tax codes
    */
   async calculateTax(params: TaxCalculationParams): Promise<TaxCalculation> {
@@ -65,6 +68,14 @@ export class TaxService {
         return this.getZeroTax();
       }
 
+      // Get seller's connected account for Stripe Tax (uses their tax registrations)
+      const connectedAccountId = seller.stripeConnectedAccountId;
+      if (!connectedAccountId) {
+        const error = `Seller must connect Stripe account to collect tax. Seller ID: ${params.sellerId}`;
+        console.error("[TaxService]", error);
+        throw new Error(error);
+      }
+
       // Build line items for Stripe Tax
       const lineItems: Stripe.Tax.CalculationCreateParams.LineItem[] = params.items.map((item) => ({
         amount: Math.round(parseFloat(item.price) * item.quantity * 100), // Convert to cents
@@ -81,8 +92,23 @@ export class TaxService {
         });
       }
 
-      // Call Stripe Tax API
-      const calculation = await stripe.tax.calculations.create({
+      // Build ship_from address using seller's warehouse (required for origin-based tax)
+      const shipFrom: Stripe.Tax.CalculationCreateParams.ShipFrom | undefined = 
+        seller.warehouseStreet && seller.warehouseCity && seller.warehouseCountry
+          ? {
+              address: {
+                line1: seller.warehouseStreet,
+                city: seller.warehouseCity,
+                state: seller.warehouseState || undefined,
+                postal_code: seller.warehousePostalCode || undefined,
+                country: seller.warehouseCountry,
+              },
+            }
+          : undefined;
+
+      // Call Stripe Tax API on behalf of the seller's connected account
+      // This ensures we use THEIR tax registrations, not the platform's
+      const calculationParams: Stripe.Tax.CalculationCreateParams = {
         currency: params.currency.toLowerCase(),
         line_items: lineItems,
         customer_details: {
@@ -94,16 +120,33 @@ export class TaxService {
             postal_code: params.shippingAddress.postalCode,
             country: params.shippingAddress.country,
           },
-          address_source: 'shipping', // Use shipping address for tax calculation
+          address_source: 'shipping',
         },
         // Expand tax breakdown for detailed information
         expand: ['line_items.data.tax_breakdown'],
-      });
+      };
+
+      // Add ship_from if warehouse address is configured
+      if (shipFrom) {
+        calculationParams.ship_from = shipFrom;
+      }
+
+      if (!this.stripe) {
+        const error = "Stripe not configured - cannot calculate tax";
+        console.error("[TaxService]", error);
+        throw new Error(error);
+      }
+
+      // Call Tax API on behalf of connected account (uses their registrations)
+      const calculation = await this.stripe.tax.calculations.create(
+        calculationParams,
+        { stripeAccount: connectedAccountId }
+      );
 
       // Convert from cents to dollars
       const taxAmount = calculation.tax_amount_exclusive / 100;
 
-      console.log(`[TaxService] Calculated tax: $${taxAmount.toFixed(2)} for ${params.shippingAddress.city}, ${params.shippingAddress.state}`);
+      console.log(`[TaxService] Calculated tax: $${taxAmount.toFixed(2)} for ${params.shippingAddress.city}, ${params.shippingAddress.state} (seller: ${params.sellerId})`);
 
       return {
         taxAmount,
@@ -112,7 +155,16 @@ export class TaxService {
       };
     } catch (error: any) {
       console.error("[TaxService] Error calculating tax:", error.message || error);
-      // Return zero tax on error to allow checkout to proceed
+      
+      // Re-throw critical errors that should block checkout
+      // (e.g., missing connected account, tax enabled but can't calculate)
+      if (error.message?.includes('must connect Stripe account') || 
+          error.message?.includes('Stripe not configured')) {
+        throw error; // Propagate to caller to block checkout
+      }
+      
+      // For other errors (network issues, Stripe API errors), return zero tax
+      // to allow checkout to proceed (better than blocking all purchases)
       return this.getZeroTax();
     }
   }
@@ -146,9 +198,13 @@ export class TaxService {
       return { valid: false, error: "No calculation ID provided" };
     }
 
+    if (!this.stripe) {
+      return { valid: false, error: "Stripe not configured" };
+    }
+
     try {
       // Retrieve the calculation from Stripe to validate it
-      const calculation = await stripe.tax.calculations.retrieve(calculationId);
+      const calculation = await this.stripe.tax.calculations.retrieve(calculationId);
       return { valid: !!calculation.id };
     } catch (error: any) {
       return { valid: false, error: error.message };

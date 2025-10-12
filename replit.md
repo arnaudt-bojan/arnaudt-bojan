@@ -40,7 +40,7 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **Item-Level Order Tracking**: Per-item fulfillment system with independent status, tracking, and automated buyer notifications.
 - **Document Generation System**: Professional PDF invoice and packing slip generation (B2C and wholesale templates).
 - **Subdomain Architecture**: Environment-aware routing for seller storefronts (`username.upfirst.io` in production, `/s/username` in dev).
-- **Tax System (B2C)**: Automated sales tax calculation via Stripe Tax.
+- **Tax System (B2C)**: Automated sales tax calculation via Stripe Tax API with multi-seller support. Each seller configures tax nexus (countries/states) and product codes in Settings > Tax. Tax calculations are performed on behalf of seller's Stripe Connect account using their tax registrations, customer shipping address, and warehouse ship-from address.
 - **Pricing Service & Fail-Safe System**: Centralized pricing calculations for consistency and security.
 - **Team Management**: Role-based access (owner, admin, editor, viewer) with invitation-based expansion and granular permissions.
 - **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.

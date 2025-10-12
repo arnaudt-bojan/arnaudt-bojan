@@ -38,11 +38,6 @@ const authorizationService = new AuthorizationService(storage);
 // Initialize inventory service for stock management
 const inventoryService = new InventoryService(storage);
 
-// Initialize cart validation, shipping, and tax services (Plan C architecture)
-const cartValidationService = new CartValidationService(storage);
-const shippingService = new ShippingService(storage);
-const taxService = new TaxService(storage);
-
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
 let stripe: Stripe | null = null;
@@ -51,6 +46,12 @@ if (process.env.STRIPE_SECRET_KEY) {
     apiVersion: "2025-09-30.clover",
   });
 }
+
+// Initialize cart validation, shipping, and tax services (Plan C architecture)
+// Note: TaxService requires Stripe to be initialized first
+const cartValidationService = new CartValidationService(storage);
+const shippingService = new ShippingService(storage);
+const taxService = new TaxService(storage, stripe || undefined);
 
 // Initialize payment provider, webhook handler, and payment service
 let stripeProvider: StripePaymentProvider | null = null;
@@ -74,7 +75,7 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
   );
 }
 
-// Initialize order service with all dependencies (after stripe)
+// Initialize order service with all dependencies (after all services are ready)
 const orderService = new OrderService(
   storage,
   inventoryService,
@@ -7064,7 +7065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { calculatePricing, estimateTax } = await import("./services/pricing.service");
 
   const cartService = new CartService(storage);
-  const taxService = new TaxService();
+  // Note: Tax service is already initialized at the top with proper dependencies
   
   // Note: cartValidationService, shippingService, and orderService are already initialized at the top
 
