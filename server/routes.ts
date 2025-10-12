@@ -25,6 +25,7 @@ import { TaxService } from "./services/tax.service";
 import { StripePaymentProvider } from "./services/payment/stripe-provider";
 import { WebhookHandler } from "./services/payment/webhook-handler";
 import { PaymentService } from "./services/payment/payment.service";
+import { ProductService } from "./services/product.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -82,6 +83,13 @@ const orderService = new OrderService(
   cartValidationService,
   shippingService,
   taxService,
+  notificationService,
+  stripe || undefined
+);
+
+// Initialize product service (Architecture 3 migration)
+const productService = new ProductService(
+  storage,
   notificationService,
   stripe || undefined
 );
@@ -400,113 +408,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
       
-      // Check if Stripe is connected and sync currency if needed
-      if (user?.stripeConnectedAccountId && stripe) {
-        try {
-          const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
-          const stripeCurrency = account.default_currency?.toUpperCase() || 'USD';
-          
-          // Update user currency if it's different from Stripe
-          if (user.listingCurrency !== stripeCurrency) {
-            await storage.upsertUser({
-              ...user,
-              listingCurrency: stripeCurrency,
-            });
-            logger.info(`[Product Creation] Synced currency from Stripe: ${stripeCurrency}`);
-          }
-        } catch (error) {
-          logger.error("[Product Creation] Failed to sync Stripe currency:", error);
-        }
-      }
-      
-      const validationResult = insertProductSchema.safeParse({
-        ...req.body,
-        sellerId: userId, // Add seller ID from authenticated user
+      const result = await productService.createProduct({
+        productData: req.body,
+        sellerId: userId,
       });
-      if (!validationResult.success) {
-        const error = fromZodError(validationResult.error);
-        return res.status(400).json({ error: error.message });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
       }
 
-      // Generate SKU if not provided
-      const { generateProductSKU, generateVariantSKU } = await import('../shared/sku-generator');
-      const productData = validationResult.data;
-      
-      if (!productData.sku) {
-        productData.sku = generateProductSKU();
-      }
-      
-      // Generate variant SKUs if product has variants
-      if (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0) {
-        productData.variants = productData.variants.map((variant: any) => {
-          if (!variant.sku) {
-            variant.sku = generateVariantSKU(productData.sku!, {
-              color: variant.color,
-              size: variant.size,
-            });
-          }
-          return variant;
-        });
-      }
-
-      // CRITICAL: Sync product.stock from variants to maintain canonical source of truth
-      const { syncProductStockFromVariants } = await import('./utils/calculate-stock');
-      const syncedProductData = syncProductStockFromVariants(productData);
-
-      const product = await storage.createProduct(syncedProductData);
-
-      // Send notifications to seller about new product listing
-      if (user) {
-        try {
-          // Create in-app notification
-          await notificationService.createNotification({
-            userId: user.id,
-            type: 'product_listed',
-            title: 'Product Listed Successfully!',
-            message: `Your product "${product.name}" is now live on your store`,
-            emailSent: 0,
-            metadata: { productId: product.id, productName: product.name, productPrice: product.price },
-          });
-
-          // Send confirmation email to seller
-          const emailHtml = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #2563eb;">Product Listed Successfully!</h2>
-              <p>Hi ${user.firstName || 'there'},</p>
-              <p>Your product has been successfully added to your Upfirst store:</p>
-              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">${product.name}</h3>
-                <p style="color: #6b7280; margin: 10px 0;">Price: $${product.price}</p>
-                <p style="color: #6b7280; margin: 10px 0;">Type: ${product.productType}</p>
-                ${product.stock ? `<p style="color: #6b7280; margin: 10px 0;">Stock: ${product.stock} units</p>` : ''}
-              </div>
-              <p>Your product is now visible to customers on your storefront.</p>
-              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-                Best regards,<br>
-                The Upfirst Team
-              </p>
-            </div>
-          `;
-
-          if (user.email) {
-            await notificationService.sendEmail({
-              to: user.email,
-              from: 'Upfirst <hello@upfirst.io>',
-              subject: `Product Listed: ${product.name}`,
-              html: emailHtml,
-            });
-          }
-
-          logger.info(`[Notifications] Product listing confirmation sent to ${user.email}`);
-        } catch (error) {
-          logger.error("[Notifications] Failed to send product listing notifications:", error);
-          // Don't fail the request if notifications fail
-        }
-      }
-
-      res.status(201).json(product);
+      res.status(201).json(result.product);
     } catch (error) {
       logger.error("Error creating product", error);
       res.status(500).json({ error: "Failed to create product" });
@@ -522,51 +434,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Products must be an array" });
       }
 
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as Array<{ row: number; error: string }>,
-      };
-
-      for (let i = 0; i < products.length; i++) {
-        const productData = products[i];
-        const rowNumber = i + 2; // +2 because of header row and 0-indexing
-
-        try {
-          // Convert date strings to Date objects if present
-          if (productData.preOrderDate && typeof productData.preOrderDate === 'string') {
-            productData.preOrderDate = new Date(productData.preOrderDate);
-          }
-
-          const validationResult = insertProductSchema.safeParse({
-            ...productData,
-            sellerId: userId, // Add seller ID from authenticated user
-          });
-          
-          if (!validationResult.success) {
-            const error = fromZodError(validationResult.error);
-            results.failed++;
-            results.errors.push({ 
-              row: rowNumber, 
-              error: error.message 
-            });
-            continue;
-          }
-
-          // CRITICAL: Sync product.stock from variants to maintain canonical source of truth
-          const { syncProductStockFromVariants } = await import('./utils/calculate-stock');
-          const syncedData = syncProductStockFromVariants(validationResult.data);
-
-          await storage.createProduct(syncedData);
-          results.success++;
-        } catch (error: any) {
-          results.failed++;
-          results.errors.push({ 
-            row: rowNumber, 
-            error: error.message || "Failed to create product" 
-          });
-        }
-      }
+      const results = await productService.bulkCreateProducts({
+        products,
+        sellerId: userId,
+      });
 
       res.status(200).json(results);
     } catch (error) {
@@ -1362,80 +1233,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", requireAuth, requireUserType('seller'), async (req, res) => {
+  app.put("/api/products/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
-      const validationResult = insertProductSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const error = fromZodError(validationResult.error);
-        return res.status(400).json({ error: error.message });
-      }
-
-      // Generate SKUs for any variants that don't have them
-      const { generateProductSKU, generateVariantSKU } = await import('../shared/sku-generator');
-      const productData = validationResult.data;
+      const userId = req.user.claims.sub;
       
-      // If updating SKU and it's empty, generate one
-      if (productData.sku === '' || (productData.sku === undefined && req.body.sku === '')) {
-        productData.sku = generateProductSKU();
-      }
-      
-      // Generate variant SKUs if needed
-      if (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0) {
-        // Get existing product to use its SKU for variant generation
-        const existingProduct = await storage.getProduct(req.params.id);
-        const baseSKU = productData.sku || existingProduct?.sku || generateProductSKU();
-        
-        productData.variants = productData.variants.map((variant: any) => {
-          if (!variant.sku) {
-            variant.sku = generateVariantSKU(baseSKU, {
-              color: variant.color,
-              size: variant.size,
-            });
-          }
-          return variant;
-        });
+      const result = await productService.updateProduct({
+        productId: req.params.id,
+        sellerId: userId,
+        updates: req.body,
+      });
+
+      if (!result.success) {
+        const statusCode = result.error === 'Unauthorized' ? 403 : result.error === 'Product not found' ? 404 : 400;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // CRITICAL: Sync product.stock from variants to maintain canonical source of truth
-      const { syncProductStockFromVariants } = await import('./utils/calculate-stock');
-      const syncedProductData = syncProductStockFromVariants(productData);
-
-      const product = await storage.updateProduct(req.params.id, syncedProductData);
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
-      }
-      res.json(product);
+      res.json(result.product);
     } catch (error) {
       res.status(500).json({ error: "Failed to update product" });
     }
   });
 
   // Update product status (quick action)
-  app.patch("/api/products/:id/status", requireAuth, requireUserType('seller'), async (req, res) => {
+  app.patch("/api/products/:id/status", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const { status } = req.body;
+      const userId = req.user.claims.sub;
       const validStatuses = ['draft', 'active', 'coming-soon', 'paused', 'out-of-stock', 'archived'];
       
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(', ') });
       }
 
-      const product = await storage.updateProduct(req.params.id, { status });
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+      const result = await productService.updateProductStatus(req.params.id, userId, status);
+
+      if (!result.success) {
+        const statusCode = result.error === 'Unauthorized' ? 403 : result.error === 'Product not found' ? 404 : 400;
+        return res.status(statusCode).json({ error: result.error });
       }
-      res.json(product);
+
+      res.json(result.product);
     } catch (error) {
       res.status(500).json({ error: "Failed to update product status" });
     }
   });
 
-  app.delete("/api/products/:id", requireAuth, requireUserType('seller'), async (req, res) => {
+  app.delete("/api/products/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
-      const deleted = await storage.deleteProduct(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "Product not found" });
+      const userId = req.user.claims.sub;
+      
+      const result = await productService.deleteProduct(req.params.id, userId);
+
+      if (!result.success) {
+        const statusCode = result.error === 'Unauthorized' ? 403 : result.error === 'Product not found' ? 404 : 400;
+        return res.status(statusCode).json({ error: result.error });
       }
+
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete product" });
