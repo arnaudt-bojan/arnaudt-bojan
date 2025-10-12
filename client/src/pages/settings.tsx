@@ -2031,18 +2031,6 @@ export default function Settings() {
               <SelectValue placeholder="Select a tab" />
             </SelectTrigger>
             <SelectContent className="max-h-[400px]">
-              <SelectItem value="profile">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="addresses-payments">
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  <span>Addresses & Payments</span>
-                </div>
-              </SelectItem>
               {isSeller && (
                 <>
                   <SelectItem value="quick-setup">
@@ -2051,28 +2039,46 @@ export default function Settings() {
                       <span>Quick Setup</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="subscription">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      <span>Subscription</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="branding-policies">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <span>Branding & Policies</span>
-                    </div>
-                  </SelectItem>
                   <SelectItem value="about-contact">
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4" />
                       <span>About & Contact</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="payment">
+                </>
+              )}
+              <SelectItem value="profile">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <span>Profile</span>
+                </div>
+              </SelectItem>
+              {isSeller && (
+                <SelectItem value="shipping-matrix">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    <span>Shipping</span>
+                  </div>
+                </SelectItem>
+              )}
+              <SelectItem value="addresses-payments">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  <span>Addresses & Payments</span>
+                </div>
+              </SelectItem>
+              {isSeller && (
+                <>
+                  <SelectItem value="tax">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      <span>Payment</span>
+                      <Receipt className="h-4 w-4" />
+                      <span>Tax</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="branding-policies">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      <span>Store Policies & T&C</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="categories">
@@ -2081,16 +2087,22 @@ export default function Settings() {
                       <span>Categories</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="shipping-matrix">
+                  <SelectItem value="team">
                     <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      <span>Shipping Matrix</span>
+                      <Users className="h-4 w-4" />
+                      <span>Team</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="tax">
+                  <SelectItem value="payment">
                     <div className="flex items-center gap-2">
-                      <Receipt className="h-4 w-4" />
-                      <span>Tax Settings</span>
+                      <CreditCard className="h-4 w-4" />
+                      <span>Payment</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="subscription">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span>Subscription</span>
                     </div>
                   </SelectItem>
                 </>
@@ -2101,10 +2113,28 @@ export default function Settings() {
 
         {/* Desktop/Tablet: Wrapping Tabs Grid */}
         <TabsList className="hidden md:flex w-full flex-wrap gap-2 h-auto p-2" data-testid="tabs-settings">
+          {isSeller && (
+            <>
+              <TabsTrigger value="quick-setup" data-testid="tab-quick-setup" className="flex items-center gap-2">
+                <Rocket className="h-4 w-4" />
+                <span>Quick Setup</span>
+              </TabsTrigger>
+              <TabsTrigger value="about-contact" data-testid="tab-about-contact" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                <span>About & Contact</span>
+              </TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="profile" data-testid="tab-profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span>Profile</span>
           </TabsTrigger>
+          {isSeller && (
+            <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              <span>Shipping</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments" className="flex items-center gap-2">
             <Wallet className="h-4 w-4" />
             <span className="hidden md:inline xl:hidden">Addresses</span>
@@ -2112,42 +2142,29 @@ export default function Settings() {
           </TabsTrigger>
           {isSeller && (
             <>
-              <TabsTrigger value="quick-setup" data-testid="tab-quick-setup" className="flex items-center gap-2">
-                <Rocket className="h-4 w-4" />
-                <span>Quick Setup</span>
-              </TabsTrigger>
-              <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                <span>Subscription</span>
+              <TabsTrigger value="tax" data-testid="tab-tax" className="flex items-center gap-2">
+                <Receipt className="h-4 w-4" />
+                <span>Tax</span>
               </TabsTrigger>
               <TabsTrigger value="branding-policies" data-testid="tab-branding-policies" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                <span>Branding & Policies</span>
-              </TabsTrigger>
-              <TabsTrigger value="about-contact" data-testid="tab-about-contact" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span>About & Contact</span>
-              </TabsTrigger>
-              <TabsTrigger value="payment" data-testid="tab-payment" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                <span>Payment</span>
+                <span>Store Policies & T&C</span>
               </TabsTrigger>
               <TabsTrigger value="categories" data-testid="tab-categories" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
                 <span>Categories</span>
               </TabsTrigger>
-              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                <span className="hidden md:inline xl:hidden">Shipping</span>
-                <span className="hidden xl:inline">Shipping Matrix</span>
-              </TabsTrigger>
-              <TabsTrigger value="tax" data-testid="tab-tax" className="flex items-center gap-2">
-                <Receipt className="h-4 w-4" />
-                <span>Tax Settings</span>
-              </TabsTrigger>
               <TabsTrigger value="team" data-testid="tab-team" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 <span>Team</span>
+              </TabsTrigger>
+              <TabsTrigger value="payment" data-testid="tab-payment" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                <span>Payment</span>
+              </TabsTrigger>
+              <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                <span>Subscription</span>
               </TabsTrigger>
             </>
           )}
