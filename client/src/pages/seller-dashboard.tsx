@@ -21,6 +21,7 @@ import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
 import { OnboardingModal } from "@/components/onboarding-modal";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
+import { RecentOrdersCard } from "@/components/recent-orders-card";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getStoreUrl } from "@/lib/store-url";
@@ -94,23 +95,6 @@ export default function SellerDashboard() {
       window.history.replaceState({}, '', newUrl);
     }
   }, [user, toast]);
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-      case "processing":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "shipped":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-      case "delivered":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "cancelled":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
-    }
-  };
 
   // Store toggle functionality
   const handleStoreToggle = (checked: boolean) => {
@@ -474,70 +458,11 @@ export default function SellerDashboard() {
           </Card>
         </div>
 
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-6">Recent Orders</h2>
-          
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : orders && orders.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map((order) => (
-                    <TableRow 
-                      key={order.id} 
-                      data-testid={`order-row-${order.id}`}
-                      className="cursor-pointer hover-elevate"
-                      onClick={() => setLocation(`/seller/order/${order.id}`)}
-                    >
-                      <TableCell className="font-medium">
-                        {order.id.slice(0, 8)}...
-                      </TableCell>
-                      <TableCell>{order.customerName}</TableCell>
-                      <TableCell>{order.customerEmail}</TableCell>
-                      <TableCell className="font-semibold">
-                        {formatDashboardPrice(parseFloat(order.total), sellerCurrency)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${getStatusVariant(order.status)} border no-default-hover-elevate no-default-active-elevate`}
-                          data-testid={`badge-status-${order.id}`}
-                        >
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(order.createdAt).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No orders yet</h3>
-              <p className="text-muted-foreground">
-                Orders will appear here once customers start purchasing
-              </p>
-            </div>
-          )}
-        </Card>
+        <RecentOrdersCard 
+          orders={orders} 
+          isLoading={isLoading} 
+          sellerCurrency={sellerCurrency} 
+        />
       </div>
       <ShareStoreModal open={shareModalOpen} onOpenChange={setShareModalOpen} />
       <OnboardingModal 
