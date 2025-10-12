@@ -39,6 +39,7 @@ import {
 import type { InsertOrder } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/pricing-service";
+import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -1177,6 +1178,15 @@ export default function Checkout() {
                   )}
 
                   <Separator className="my-4" />
+
+                  {/* Currency Disclaimer */}
+                  {currency && (
+                    <CurrencyDisclaimer 
+                      sellerCurrency={currency} 
+                      variant="default"
+                      className="mb-4"
+                    />
+                  )}
 
                   <div className="flex justify-between text-lg font-bold">
                     <span>Pay Now</span>

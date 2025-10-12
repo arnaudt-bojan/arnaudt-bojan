@@ -4,23 +4,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useCart } from "@/lib/cart-context";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { CurrencyDisclaimer } from "./currency-disclaimer";
 
 interface CartSheetProps {
   open: boolean;
   onClose: () => void;
 }
 
-// Simple currency formatter using seller's currency (no conversion)
-const formatCartPrice = (price: number, currency: string = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(price);
-};
-
 export function CartSheet({ open, onClose }: CartSheetProps) {
   const { items, updateQuantity, removeItem, total, itemsCount } = useCart();
   const [, setLocation] = useLocation();
+  const { formatPrice } = useCurrency();
   
   // Get seller ID and currency from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : null;
@@ -131,7 +126,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                         </Button>
                       </div>
                       <span className="font-bold" data-testid={`text-item-total-${item.id}`}>
-                        {formatCartPrice(parseFloat(item.price) * item.quantity, currency)}
+                        {formatPrice(parseFloat(item.price) * item.quantity, currency)}
                       </span>
                     </div>
                   </div>
@@ -144,7 +139,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Subtotal</span>
                   <span className="font-semibold" data-testid="text-cart-subtotal">
-                    {formatCartPrice(total, currency)}
+                    {formatPrice(total, currency)}
                   </span>
                 </div>
                 {seller?.taxEnabled ? (
@@ -152,7 +147,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Estimated Tax</span>
                       <span className="font-semibold" data-testid="text-cart-tax-estimate">
-                        {formatCartPrice(taxEstimate, currency)}
+                        {formatPrice(taxEstimate, currency)}
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground" data-testid="text-tax-notice">
@@ -168,9 +163,18 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
               <div className="flex justify-between items-center pt-2 border-t">
                 <span className="text-lg font-semibold">Estimated Total</span>
                 <span className="text-2xl font-bold" data-testid="text-cart-total">
-                  {formatCartPrice(estimatedTotal, currency)}
+                  {formatPrice(estimatedTotal, currency)}
                 </span>
               </div>
+              
+              {/* Currency Disclaimer */}
+              {currency && (
+                <CurrencyDisclaimer 
+                  sellerCurrency={currency} 
+                  variant="compact"
+                />
+              )}
+              
               <Button
                 className="w-full"
                 size="lg"

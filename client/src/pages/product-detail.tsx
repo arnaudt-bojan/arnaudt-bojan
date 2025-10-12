@@ -24,6 +24,8 @@ import { StoreUnavailable } from "@/components/store-unavailable";
 import { useAuth } from "@/hooks/use-auth";
 import { detectDomain } from "@/lib/domain-utils";
 import { Footer } from "@/components/footer";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 
 interface Category {
   id: string;
@@ -33,14 +35,6 @@ interface Category {
   level: number;
 }
 
-// Simple currency formatter using product's currency (no conversion)
-const formatProductPrice = (price: number, currency: string = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(price);
-};
-
 export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
   const productId = params?.id;
@@ -48,6 +42,7 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const { toast } = useToast();
   const { user, isSeller, isCollaborator } = useAuth();
+  const { formatPrice } = useCurrency();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -300,10 +295,10 @@ export default function ProductDetail() {
                     <span className="text-sm text-muted-foreground">Deposit Required</span>
                   </div>
                   <div className="text-3xl font-bold" data-testid="text-product-price">
-                    {formatProductPrice(parseFloat(product.depositAmount), (product as any).currency)}
+                    {formatPrice(parseFloat(product.depositAmount), (product as any).currency)}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Total Price: <span className="font-semibold">{formatProductPrice(parseFloat(product.price), (product as any).currency)}</span>
+                    Total Price: <span className="font-semibold">{formatPrice(parseFloat(product.price), (product as any).currency)}</span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-2">
                     Pay deposit now, balance due when product ships
@@ -314,20 +309,28 @@ export default function ProductDetail() {
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-red-600 dark:text-red-400" data-testid="text-product-price">
-                    {formatProductPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100), (product as any).currency)}
+                    {formatPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100), (product as any).currency)}
                   </div>
                   <span className="text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded">
                     -{product.discountPercentage}% OFF
                   </span>
                 </div>
                 <div className="text-xl text-muted-foreground line-through">
-                  {formatProductPrice(parseFloat(product.price), (product as any).currency)}
+                  {formatPrice(parseFloat(product.price), (product as any).currency)}
                 </div>
               </div>
             ) : (
               <div className="text-3xl font-bold" data-testid="text-product-price">
-                {formatProductPrice(parseFloat(product.price), (product as any).currency)}
+                {formatPrice(parseFloat(product.price), (product as any).currency)}
               </div>
+            )}
+
+            {/* Currency Disclaimer - show when seller currency differs from buyer currency */}
+            {sellerInfo?.listingCurrency && (
+              <CurrencyDisclaimer 
+                sellerCurrency={sellerInfo.listingCurrency} 
+                variant="compact"
+              />
             )}
 
             {product.productType === "in-stock" && (
@@ -429,12 +432,12 @@ export default function ProductDetail() {
                       <>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Deposit Amount</dt>
-                          <dd className="font-medium">{formatProductPrice(parseFloat(product.depositAmount), (product as any).currency)}</dd>
+                          <dd className="font-medium">{formatPrice(parseFloat(product.depositAmount), (product as any).currency)}</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Balance Due</dt>
                           <dd className="font-medium">
-                            {formatProductPrice(parseFloat(product.price) - parseFloat(product.depositAmount), (product as any).currency)}
+                            {formatPrice(parseFloat(product.price) - parseFloat(product.depositAmount), (product as any).currency)}
                           </dd>
                         </div>
                         {(product as any).preOrderDate && (

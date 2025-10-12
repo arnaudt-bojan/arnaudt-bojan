@@ -27,7 +27,7 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Notification System**: Comprehensive, refactored email notifications using Resend with dark mode compatibility and templated messages.
 - **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods and country-selectable seller onboarding. Users select their country before account creation (cannot be changed later), preventing auto-detected country lock-in. Includes PCI-DSS compliant saved addresses and payment methods.
 - **Subscription System**: Monthly/annual subscription model for sellers with a free trial, managed via Stripe.
-- **Multi-Currency Support**: IP-based currency detection with user-selectable currency, real-time exchange rates, and backend-driven seller-specific currency display.
+- **Multi-Currency Support**: IP-based currency detection with user-selectable currency, real-time exchange rates (Fawazahmed0 Currency API), and backend-driven seller-specific currency display. Includes prominent currency disclaimers on product pages, cart, and checkout informing buyers that displayed prices are estimates and actual charges will be in the seller's local currency (Stripe country currency).
 - **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders.
 - **Social Ads System**: Multi-platform social advertising (Meta, TikTok, X) with AI optimization.
 - **Item-Level Order Tracking**: Comprehensive per-item fulfillment system with independent status, tracking, and automated buyer notifications.
