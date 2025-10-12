@@ -3344,16 +3344,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      logger.info(`[Stripe Express] Creating borderless Express account for user ${userId} - user will select country during onboarding`);
+      // Use provided country or default to US if not specified
+      const accountCountry = country || 'US';
+      logger.info(`[Stripe Express] Creating Express account for user ${userId} with country: ${accountCountry}`);
 
-      // Create new Express account with borderless onboarding
+      // Create new Express account with specified country
       // Request both card_payments and transfers capabilities for Stripe Connect
       // card_payments: Required to use on_behalf_of parameter (seller name on statement)
       // transfers: Required to transfer funds to connected accounts
       const account = await stripe.accounts.create({
         type: 'express',
+        country: accountCountry,
         email: user.email || undefined,
-        // Don't set country - allows user to select during onboarding for borderless support
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },

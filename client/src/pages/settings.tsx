@@ -25,6 +25,7 @@ import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
+import { StripeCountrySelector } from "@/components/stripe-country-selector";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
@@ -1770,37 +1771,73 @@ export default function Settings() {
   };
 
   const handleConnectStripe = async (reset = false) => {
+    // If creating new account or resetting, show country selector first
+    if (!user?.stripeConnectedAccountId || reset) {
+      setPendingStripeAction({ reset });
+      setIsCountrySelectorOpen(true);
+      return;
+    }
+
+    // If account already exists and not resetting, proceed directly
     try {
-      // Create or get the Stripe Express account with borderless onboarding
-      // User will select their country during Stripe's onboarding flow
       const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", { 
         reset
       });
       const accountData = await createResponse.json();
       
       if (!createResponse.ok) {
-        // Check if it's the Stripe Connect not enabled error
         if (accountData.error === "Stripe Connect Not Enabled") {
           toast({
             title: "Stripe Connect Not Enabled",
             description: accountData.message || "Please enable Stripe Connect in your Stripe dashboard first.",
             variant: "destructive",
-            duration: 10000, // Show for 10 seconds
+            duration: 10000,
           });
-          
-          // Open Stripe Connect setup page in new tab
           window.open("https://dashboard.stripe.com/connect/accounts/overview", "_blank");
           return;
         }
-        
         throw new Error(accountData.message || accountData.error || "Failed to create Stripe account");
       }
 
-      // Open embedded modal for onboarding
+      setIsStripeModalOpen(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to connect Stripe account",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCountrySelected = async (country: string) => {
+    if (!pendingStripeAction) return;
+
+    try {
+      const createResponse = await apiRequest("POST", "/api/stripe/create-express-account", { 
+        reset: pendingStripeAction.reset,
+        country
+      });
+      const accountData = await createResponse.json();
+      
+      if (!createResponse.ok) {
+        if (accountData.error === "Stripe Connect Not Enabled") {
+          toast({
+            title: "Stripe Connect Not Enabled",
+            description: accountData.message || "Please enable Stripe Connect in your Stripe dashboard first.",
+            variant: "destructive",
+            duration: 10000,
+          });
+          window.open("https://dashboard.stripe.com/connect/accounts/overview", "_blank");
+          return;
+        }
+        throw new Error(accountData.message || accountData.error || "Failed to create Stripe account");
+      }
+
       setIsStripeModalOpen(true);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
-      if (reset) {
+      if (pendingStripeAction.reset) {
         toast({
           title: "Starting Fresh",
           description: "Stripe onboarding has been reset. You can now start from the beginning.",
@@ -1812,6 +1849,8 @@ export default function Settings() {
         description: error.message || "Failed to connect Stripe account",
         variant: "destructive",
       });
+    } finally {
+      setPendingStripeAction(null);
     }
   };
 
@@ -1845,6 +1884,8 @@ export default function Settings() {
   const isInstagramConnected = user?.instagramUsername;
   const [isStripeModalOpen, setIsStripeModalOpen] = useState(false);
   const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
+  const [isCountrySelectorOpen, setIsCountrySelectorOpen] = useState(false);
+  const [pendingStripeAction, setPendingStripeAction] = useState<{ reset: boolean } | null>(null);
   
   // Check if charges are enabled but payouts are not (progressive onboarding state)
   const canAcceptPayments = user?.stripeChargesEnabled === 1;
@@ -3099,6 +3140,16 @@ export default function Settings() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Stripe Country Selector */}
+      <StripeCountrySelector
+        isOpen={isCountrySelectorOpen}
+        onClose={() => {
+          setIsCountrySelectorOpen(false);
+          setPendingStripeAction(null);
+        }}
+        onCountrySelected={handleCountrySelected}
+      />
 
       {/* Stripe Embedded Onboarding Modal */}
       {user?.stripeConnectedAccountId && (
