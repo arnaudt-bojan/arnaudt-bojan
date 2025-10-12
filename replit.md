@@ -25,6 +25,29 @@ Upfirst is a D2C (Direct-to-Consumer) e-commerce platform enabling creators and 
 ## System Architecture
 Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend (with TanStack Query for state management, Wouter for routing, and React Hook Form with Zod for forms). The backend is an Express.js Node.js application, using PostgreSQL (Neon) with Drizzle ORM for data persistence.
 
+**Backend Architecture (Architecture 3 - Service Layer Pattern):**
+- **Service Layer Orchestration**: Business logic extracted from route handlers into dedicated service classes
+- **Dependency Injection**: All services use constructor injection for dependencies (storage, stripe, notifications, etc.)
+- **Thin Route Handlers**: Routes follow validate → call service → return pattern
+- **Service Classes** (10 total):
+  1. `ProductService` - Product CRUD operations
+  2. `LegacyStripeCheckoutService` - Legacy checkout flows
+  3. `StripeConnectService` - Stripe Connect integration
+  4. `SubscriptionService` - Subscription management
+  5. `WholesaleService` - Wholesale operations
+  6. `TeamManagementService` - Team collaboration
+  7. `OrderLifecycleService` - Order status, tracking, refunds, balance payments
+  8. `PricingCalculationService` - Cart pricing with shipping/tax calculations
+  9. `StripeWebhookService` - Webhook processing (subscription, invoice, payment events)
+  10. `MetaIntegrationService` - Meta OAuth callback handling
+- **Existing Specialized Services**: `ShippingService`, `TaxService`, `NotificationService`, `InventoryService`, `OrderService`, `WebhookHandler` (payment intents)
+- **Migration Status**: Completed October 2025. Routes.ts reduced from ~6,382 → ~5,600 lines (~1,300+ lines extracted to services)
+
+**Known Issues (Pre-existing, identified during Architecture 3 migration testing):**
+1. Cart persistence issue - add-to-cart succeeds but cart may show empty (not caused by migration)
+2. /dashboard/products route returns 404 - routing configuration issue (not caused by migration)
+3. Shipping API returns 500 when warehouse not configured - should return 400 with clear error (not caused by migration)
+
 **UI/UX Decisions:**
 - **Design System**: Supports dark/light mode, Inter font, consistent spacing/typography, and mobile-first responsive design.
 - **Navigation**: Dashboard-centric with consistent navigation (header for desktop, burger menu for mobile).
