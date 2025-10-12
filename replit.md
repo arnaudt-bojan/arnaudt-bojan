@@ -43,8 +43,14 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.
 - **Storefront Customization**: Sellers can add About Story, contact info, and social media links.
 - **Settings Page Organization**: Comprehensive seller settings with 11-tab structure (tab order: Quick Setup, About & Contact, Profile, Shipping, Addresses & Cards, Tax, Store Policies & T&C, Categories, Team, Payment, Subscription):
-  - **Quick Setup**: Default landing tab for sellers with step-by-step checklist guiding through required setup tasks (username/domain, storefront preview)
-  - **About & Contact**: Storefront customization including Store Logo, Banner, About Story, contact email, and social media links (Instagram, TikTok, Twitter, Snapchat, Website)
+  - **Quick Setup**: Default landing tab for sellers combining username, logo, and banner setup in ONE unified form with ONE save button
+    * **Unified Form**: Single form with quickSetupSchema combining username (validation), storeLogo, and storeBanner fields
+    * **Single Save Button**: Updates both username (PATCH /api/user/username) and branding (PATCH /api/user/branding) in one mutation
+    * **Live Preview**: Device preview (Desktop/iPad/iPhone) that updates BEFORE save using form.watch() for reactive username/logo/banner changes
+    * **Device Selector**: Toggle between desktop (w-full), iPad (w-3/4), and iPhone (w-[375px]) preview widths with appropriate aspect ratios
+    * **Progress Checklist**: Visual checklist showing completion status for username, logo, and banner using form.watch() values
+  - **About & Contact**: Storefront customization including About Story, contact email, and social media links (Instagram, TikTok, Twitter, Snapchat, Website)
+    * Note: Store Logo and Banner moved to Quick Setup tab (removed from About & Contact to avoid duplication)
   - **Profile**: Personal and company information with Stripe Dashboard link and expanded business data display:
     * Shows Stripe account ID, country, currency, payout schedule, and business details
     * Optional company fields (Company Name, Business Type, Tax ID) auto-populate from Stripe Connect when available
