@@ -596,6 +596,7 @@ export default function Checkout() {
 
   // Watch shipping address fields for dynamic calculation
   const watchedCountry = form.watch("country");
+  const watchedCity = form.watch("city");
   const watchedState = form.watch("state");
   const watchedPostalCode = form.watch("postalCode");
 
@@ -630,6 +631,7 @@ export default function Checkout() {
           })),
           destination: {
             country: watchedCountry,
+            city: watchedCity,
             state: watchedState,
             postalCode: watchedPostalCode,
           },
@@ -661,7 +663,7 @@ export default function Checkout() {
     if (items.length > 0) {
       calculateShipping();
     }
-  }, [watchedCountry, watchedState, watchedPostalCode, JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity })))]);
+  }, [watchedCountry, watchedCity, watchedState, watchedPostalCode, JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity })))]);
 
   const shippingPrice = shippingCalculation.cost;
 

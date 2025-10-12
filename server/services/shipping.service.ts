@@ -33,6 +33,7 @@ export class ShippingService {
     items: Array<{ id: string; quantity: number }>,
     destination: {
       country: string;
+      city?: string;
       state?: string;
       postalCode?: string;
     }
@@ -118,6 +119,7 @@ export class ShippingService {
     matrixId: string,
     destination: {
       country: string;
+      city?: string;
       state?: string;
       postalCode?: string;
     }
@@ -231,6 +233,7 @@ export class ShippingService {
     product: Product,
     destination: {
       country: string;
+      city?: string;
       state?: string;
       postalCode?: string;
     },
@@ -273,13 +276,16 @@ export class ShippingService {
         country: seller.warehouseCountry,
       };
 
+      // Convert country name to ISO code for Shippo
+      const countryISO = this.convertCountryToISO(destination.country);
+      
       const addressTo = {
         name: 'Customer',
-        street1: 'Shipping Address',
-        city: destination.state || 'City',
-        state: destination.state || 'State',
-        zip: destination.postalCode || '00000',
-        country: destination.country,
+        street1: destination.city || 'Address',  // Use city as street1 for rate calculation
+        city: destination.city || '',
+        state: destination.state || '',
+        zip: destination.postalCode || '',
+        country: countryISO,
       };
 
       // Create parcel object
@@ -370,6 +376,32 @@ export class ShippingService {
     }
     
     return allZones;
+  }
+
+  /**
+   * Convert country name to ISO code for Shippo API
+   */
+  private convertCountryToISO(country: string): string {
+    const countryMap: Record<string, string> = {
+      'United States': 'US',
+      'USA': 'US',
+      'Canada': 'CA',
+      'United Kingdom': 'GB',
+      'UK': 'GB',
+      'Australia': 'AU',
+      'Germany': 'DE',
+      'France': 'FR',
+      'Italy': 'IT',
+      'Spain': 'ES',
+      'Japan': 'JP',
+      'China': 'CN',
+      'India': 'IN',
+      'Brazil': 'BR',
+      'Mexico': 'MX',
+    };
+
+    // Return ISO code if found, otherwise return country as-is (it might already be ISO)
+    return countryMap[country] || country.toUpperCase().substring(0, 2);
   }
 
   /**
