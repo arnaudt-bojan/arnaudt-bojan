@@ -21,6 +21,8 @@ import { InventoryService } from "./services/inventory.service";
 import { OrderService } from "./services/order.service";
 import { CartValidationService } from "./services/cart-validation.service";
 import { ShippingService } from "./services/shipping.service";
+import { StripePaymentProvider } from "./services/payment/stripe-provider";
+import { WebhookHandler } from "./services/payment/webhook-handler";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -45,6 +47,22 @@ if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
     apiVersion: "2025-09-30.clover",
   });
+}
+
+// Initialize payment provider and webhook handler
+let stripeProvider: StripePaymentProvider | null = null;
+let webhookHandler: WebhookHandler | null = null;
+
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
+  stripeProvider = new StripePaymentProvider(
+    process.env.STRIPE_SECRET_KEY,
+    process.env.STRIPE_WEBHOOK_SECRET
+  );
+  webhookHandler = new WebhookHandler(
+    storage,
+    stripeProvider,
+    inventoryService
+  );
 }
 
 // Initialize order service with all dependencies (after stripe)
@@ -4582,67 +4600,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
         }
 
-        case 'payment_intent.succeeded': {
-          const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          const orderId = paymentIntent.metadata?.orderId;
-
-          if (orderId) {
-            logger.info(`[Webhook] Payment succeeded for order ${orderId}`);
-            
-            // Get order and commit inventory reservations
-            const order = await storage.getOrder(orderId);
-            if (order && order.metadata) {
-              try {
-                const metadata = JSON.parse(order.metadata);
-                const checkoutSessionId = metadata.checkoutSessionId;
-
-                if (checkoutSessionId) {
-                  // Commit all reservations for this checkout session
-                  await inventoryService.commitReservationsBySession(checkoutSessionId, orderId);
-                  logger.info(`[Inventory] Committed reservations for order ${orderId}`, {
-                    checkoutSessionId,
-                  });
-                }
-              } catch (error) {
-                logger.error('[Inventory] Failed to commit reservations', {
-                  orderId,
-                  error,
-                });
-                // Don't fail webhook - order is still valid
-              }
-            }
-
-            // Update order payment status and amount paid
-            // Use amount_received for actual captured funds, fallback to amount
-            const amountInMinorUnits = paymentIntent.amount_received || paymentIntent.amount;
-            const currency = paymentIntent.currency.toUpperCase();
-            
-            // Convert from Stripe minor units to major units based on currency
-            // Zero-decimal currencies (JPY, etc.): divisor = 1
-            // Two-decimal currencies (USD, GBP, EUR, etc.): divisor = 100
-            // Three-decimal currencies (BHD, etc.): divisor = 1000
-            const zeroDecimalCurrencies = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
-            const threeDecimalCurrencies = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
-            
-            let divisor = 100; // Default: 2 decimal places
-            if (zeroDecimalCurrencies.includes(currency)) {
-              divisor = 1;
-            } else if (threeDecimalCurrencies.includes(currency)) {
-              divisor = 1000;
-            }
-            
-            const amountPaid = (amountInMinorUnits / divisor).toString();
-            
-            await storage.updateOrderPaymentStatus(orderId, 'fully_paid');
-            await storage.updateOrder(orderId, { amountPaid });
-            await storage.updateOrderStatus(orderId, 'processing');
-            logger.info(`[Webhook] Updated order ${orderId} to fully_paid (${currency} ${amountPaid}) and processing`);
+        case 'payment_intent.succeeded':
+        case 'payment_intent.payment_failed':
+        case 'payment_intent.canceled': {
+          // Delegate payment events to WebhookHandler
+          if (webhookHandler) {
+            await webhookHandler.handleVerifiedEvent({
+              id: event.id,
+              type: event.type,
+              data: event.data,
+            });
+          } else {
+            logger.warn(`[Webhook] WebhookHandler not initialized, skipping ${event.type}`);
           }
           break;
         }
 
-        case 'payment_intent.payment_failed':
-        case 'payment_intent.canceled': {
+        // Legacy fallback for payment_intent.payment_failed and canceled (kept for safety)
+        case 'payment_intent.payment_failed_legacy':
+        case 'payment_intent.canceled_legacy': {
           const paymentIntent = event.data.object as Stripe.PaymentIntent;
           const orderId = paymentIntent.metadata?.orderId;
 

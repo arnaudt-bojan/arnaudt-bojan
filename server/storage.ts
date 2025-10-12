@@ -222,6 +222,7 @@ export interface IStorage {
   getOrdersByUserId(userId: string): Promise<Order[]>;
   getOrder(id: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
+  updateOrder(id: string, updates: Partial<Order>): Promise<Order | undefined>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderTracking(id: string, trackingNumber: string, trackingLink: string): Promise<Order | undefined>;
   updateOrderBalancePaymentIntent(id: string, paymentIntentId: string): Promise<Order | undefined>;
@@ -538,6 +539,12 @@ export class DatabaseStorage implements IStorage {
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     await this.ensureInitialized();
     const result = await this.db.insert(orders).values(insertOrder).returning();
+    return result[0];
+  }
+
+  async updateOrder(id: string, updates: Partial<Order>): Promise<Order | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orders).set(updates).where(eq(orders.id, id)).returning();
     return result[0];
   }
 

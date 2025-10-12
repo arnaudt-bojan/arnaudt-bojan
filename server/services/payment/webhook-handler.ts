@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { IStorage } from '../../storage';
 import { IPaymentProvider } from './payment-provider.interface';
+import { InventoryService } from '../inventory/inventory.service';
 import { logger } from '../../logger';
 
 export interface WebhookEvent {
@@ -17,8 +18,57 @@ export interface WebhookResult {
 export class WebhookHandler {
   constructor(
     private storage: IStorage,
-    private provider: IPaymentProvider
+    private provider: IPaymentProvider,
+    private inventoryService: InventoryService
   ) {}
+
+  /**
+   * Handle already-verified webhook event (for use when signature already checked)
+   */
+  async handleVerifiedEvent(event: WebhookEvent): Promise<WebhookResult> {
+    try {
+      // Check if event already processed (idempotency)
+      const alreadyProcessed = await this.storage.isWebhookEventProcessed(event.id);
+      if (alreadyProcessed) {
+        logger.info(`Webhook event ${event.id} already processed, skipping`);
+        return { success: true };
+      }
+
+      // Process event based on type
+      await this.processEvent(event);
+
+      // Mark event as processed
+      await this.storage.markWebhookEventProcessed(
+        event.id,
+        event.data,
+        event.type,
+        this.provider.getName()
+      );
+
+      logger.info(`Successfully processed webhook event ${event.id} (${event.type})`);
+      return { success: true };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Webhook processing failed:', error);
+
+      // Store failed event for retry
+      try {
+        await this.storage.storeFailedWebhookEvent({
+          eventId: event.id,
+          providerName: this.provider.getName(),
+          eventType: event.type,
+          payload: JSON.stringify(event), // Store event as JSON
+          errorMessage,
+          retryCount: 0,
+        });
+      } catch (storeError) {
+        logger.error('Failed to store failed webhook event:', storeError);
+      }
+
+      return { success: false, error: errorMessage };
+    }
+  }
 
   /**
    * Process incoming webhook event with idempotency and error handling
@@ -153,9 +203,29 @@ export class WebhookHandler {
       
       // Update order with payment info
       await this.storage.updateOrderPaymentStatus(orderId, 'fully_paid');
-      // Note: updateOrder method needs to be added to IStorage interface
-      // For now, we rely on the existing webhook handler in routes.ts
+      await this.storage.updateOrder(orderId, { amountPaid }); // CRITICAL: Persist amountPaid
       await this.storage.updateOrderStatus(orderId, 'processing');
+      
+      // CRITICAL: Commit inventory reservations (decrement stock)
+      const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
+      if (checkoutSessionId) {
+        try {
+          const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
+          
+          for (const reservation of reservations) {
+            // Commit the reservation (decrements stock, deletes reservation)
+            await this.inventoryService.commitReservation(reservation.id);
+            logger.info(`[Webhook] Committed inventory reservation ${reservation.id} for product ${reservation.productId}`);
+          }
+          
+          logger.info(`[Webhook] Committed ${reservations.length} inventory reservations for order ${orderId}`);
+        } catch (inventoryError) {
+          logger.error(`[Webhook] Failed to commit inventory for order ${orderId}:`, inventoryError);
+          // Don't throw - order is paid, we'll handle inventory manually if needed
+        }
+      } else {
+        logger.warn(`[Webhook] No checkoutSessionId in payment intent metadata for order ${orderId}`);
+      }
       
       logger.info(`[Webhook] Updated order ${orderId} to fully_paid (${currency} ${amountPaid}) and processing`);
     }
@@ -166,12 +236,34 @@ export class WebhookHandler {
    */
   private async handlePaymentIntentFailed(event: WebhookEvent): Promise<void> {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const orderId = paymentIntent.metadata?.orderId;
     
     const existingIntent = await this.storage.getPaymentIntentByProviderIntentId(paymentIntent.id);
     
     if (existingIntent) {
       await this.storage.updatePaymentIntentStatus(existingIntent.id, 'failed');
       logger.info(`Updated payment intent ${existingIntent.id} to failed`);
+    }
+
+    // CRITICAL: Release inventory reservations on payment failure
+    if (orderId) {
+      const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
+      if (checkoutSessionId) {
+        try {
+          const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
+          for (const reservation of reservations) {
+            await this.inventoryService.releaseReservation(reservation.id);
+          }
+          logger.info(`[Webhook] Released ${reservations.length} inventory reservations for failed payment (order ${orderId})`);
+        } catch (error) {
+          logger.error(`[Webhook] Failed to release inventory for failed payment:`, error);
+        }
+      }
+
+      // Update order status
+      await this.storage.updateOrderPaymentStatus(orderId, 'failed');
+      await this.storage.updateOrderStatus(orderId, 'cancelled');
+      logger.info(`[Webhook] Updated order ${orderId} to cancelled (payment failed)`);
     }
   }
 
@@ -180,12 +272,34 @@ export class WebhookHandler {
    */
   private async handlePaymentIntentCanceled(event: WebhookEvent): Promise<void> {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const orderId = paymentIntent.metadata?.orderId;
     
     const existingIntent = await this.storage.getPaymentIntentByProviderIntentId(paymentIntent.id);
     
     if (existingIntent) {
       await this.storage.updatePaymentIntentStatus(existingIntent.id, 'canceled');
       logger.info(`Updated payment intent ${existingIntent.id} to canceled`);
+    }
+
+    // CRITICAL: Release inventory reservations on payment cancellation
+    if (orderId) {
+      const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
+      if (checkoutSessionId) {
+        try {
+          const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
+          for (const reservation of reservations) {
+            await this.inventoryService.releaseReservation(reservation.id);
+          }
+          logger.info(`[Webhook] Released ${reservations.length} inventory reservations for canceled payment (order ${orderId})`);
+        } catch (error) {
+          logger.error(`[Webhook] Failed to release inventory for canceled payment:`, error);
+        }
+      }
+
+      // Update order status
+      await this.storage.updateOrderPaymentStatus(orderId, 'failed');
+      await this.storage.updateOrderStatus(orderId, 'cancelled');
+      logger.info(`[Webhook] Updated order ${orderId} to cancelled (payment canceled)`);
     }
   }
 
