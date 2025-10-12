@@ -54,6 +54,10 @@ import {
   type InsertPackingSlip,
   type Refund,
   type InsertRefund,
+  type OrderEvent,
+  type InsertOrderEvent,
+  type OrderBalancePayment,
+  type InsertOrderBalancePayment,
   type SavedAddress,
   type InsertSavedAddress,
   type SavedPaymentMethod,
@@ -80,6 +84,8 @@ import {
   products,
   orders,
   orderItems,
+  orderEvents,
+  orderBalancePayments,
   refunds,
   stockReservations,
   invitations,
@@ -238,6 +244,16 @@ export interface IStorage {
   getRefundsByOrderId(orderId: string): Promise<Refund[]>;
   updateRefundStatus(id: string, status: string, stripeRefundId?: string): Promise<Refund | undefined>;
   updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<Order | undefined>;
+  
+  // Order Events - track email and status history
+  getOrderEvents(orderId: string): Promise<OrderEvent[]>;
+  createOrderEvent(event: InsertOrderEvent): Promise<OrderEvent>;
+  
+  // Order Balance Payments - track deposit/balance lifecycle for pre-orders & made-to-order
+  getBalancePaymentsByOrderId(orderId: string): Promise<OrderBalancePayment[]>;
+  getBalancePayment(id: string): Promise<OrderBalancePayment | undefined>;
+  createBalancePayment(payment: InsertOrderBalancePayment): Promise<OrderBalancePayment>;
+  updateBalancePayment(id: string, data: Partial<OrderBalancePayment>): Promise<OrderBalancePayment | undefined>;
   
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
@@ -987,6 +1003,61 @@ export class DatabaseStorage implements IStorage {
   async updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<Order | undefined> {
     await this.ensureInitialized();
     const result = await this.db.update(orders).set({ paymentStatus }).where(eq(orders.id, orderId)).returning();
+    return result[0];
+  }
+
+  // Order Events methods - track email and status history
+  async getOrderEvents(orderId: string): Promise<OrderEvent[]> {
+    await this.ensureInitialized();
+    return await this.db.select()
+      .from(orderEvents)
+      .where(eq(orderEvents.orderId, orderId))
+      .orderBy(desc(orderEvents.occurredAt));
+  }
+
+  async createOrderEvent(event: InsertOrderEvent): Promise<OrderEvent> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(orderEvents).values(event).returning();
+    return result[0];
+  }
+
+  // Order Balance Payments methods - track deposit/balance lifecycle
+  async getBalancePaymentsByOrderId(orderId: string): Promise<OrderBalancePayment[]> {
+    await this.ensureInitialized();
+    return await this.db.select()
+      .from(orderBalancePayments)
+      .where(eq(orderBalancePayments.orderId, orderId))
+      .orderBy(desc(orderBalancePayments.createdAt));
+  }
+
+  async getBalancePayment(id: string): Promise<OrderBalancePayment | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(orderBalancePayments)
+      .where(eq(orderBalancePayments.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createBalancePayment(payment: InsertOrderBalancePayment): Promise<OrderBalancePayment> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(orderBalancePayments).values(payment).returning();
+    return result[0];
+  }
+
+  async updateBalancePayment(id: string, data: Partial<OrderBalancePayment>): Promise<OrderBalancePayment | undefined> {
+    await this.ensureInitialized();
+    // Filter out undefined properties to prevent NULL clobbering
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
+    });
+    const result = await this.db.update(orderBalancePayments)
+      .set(updateData)
+      .where(eq(orderBalancePayments.id, id))
+      .returning();
     return result[0];
   }
 
