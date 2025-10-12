@@ -201,9 +201,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logger.info(`[Auth] User warehouse fields:`, {
           userId: user.id,
           email: user.email,
-          warehouseStreet: user.warehouseStreet ?? 'null',
-          warehouseCity: user.warehouseCity ?? 'null',
-          warehouseCountry: user.warehouseCountry ?? 'null',
+          warehouseStreet: user.warehouseStreet ?? null,
+          warehouseCity: user.warehouseCity ?? null,
+          warehouseCountry: user.warehouseCountry ?? null,
         });
       }
       
