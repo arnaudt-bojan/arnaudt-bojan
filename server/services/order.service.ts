@@ -27,8 +27,9 @@ import type {
 import type { InventoryService } from './inventory.service';
 import type { CartValidationService } from './cart-validation.service';
 import type { ShippingService } from './shipping.service';
+import type { TaxService } from './tax.service';
 import type { NotificationMessagesService } from './notification-messages.service';
-import { calculatePricing, estimateTax } from './pricing.service';
+import { calculatePricing } from './pricing.service';
 import { logger } from '../logger';
 import type Stripe from 'stripe';
 import { emailProvider } from './email-provider.service';
@@ -128,6 +129,7 @@ export class OrderService {
     private inventoryService: InventoryService,
     private cartValidationService: CartValidationService,
     private shippingService: ShippingService,
+    private taxService: TaxService,
     private notificationService: NotificationMessagesService,
     private stripe?: Stripe
   ) {}
@@ -190,15 +192,29 @@ export class OrderService {
         params.destination
       );
 
-      // Step 4: Tax calculation
-      const taxableAmount = validation.total + shipping.cost;
-      const taxAmount = estimateTax(taxableAmount);
+      // Step 4: Tax calculation using Stripe Tax (Plan C architecture)
+      const sellerId = validation.items[0]?.sellerId || '';
+      const seller = await this.storage.getUser(sellerId);
+      const currency = seller?.listingCurrency || 'USD';
+
+      const taxCalculation = await this.taxService.calculateTax({
+        amount: validation.total + shipping.cost,
+        currency: currency,
+        shippingAddress: params.customerAddress,
+        sellerId: sellerId,
+        items: validation.items.map(item => ({
+          id: item.id,
+          price: item.price.toString(),
+          quantity: item.quantity,
+        })),
+        shippingCost: shipping.cost,
+      });
 
       // Step 5: Pricing calculation
       const pricing = calculatePricing(
         validation.items,
         shipping.cost,
-        taxAmount
+        taxCalculation.taxAmount
       );
 
       // Get seller currency
@@ -229,9 +245,10 @@ export class OrderService {
         params,
         validation,
         pricing,
-        taxAmount,
+        taxCalculation.taxAmount,
         sellerCurrency,
-        checkoutSessionId
+        checkoutSessionId,
+        taxCalculation.calculationId
       );
       createdOrder = order; // Track for rollback
 
@@ -651,7 +668,8 @@ export class OrderService {
     pricing: any,
     taxAmount: number,
     currency: string,
-    checkoutSessionId: string
+    checkoutSessionId: string,
+    taxCalculationId?: string
   ): Promise<Order> {
     const fullAddress = [
       params.customerAddress.line1,
@@ -667,6 +685,7 @@ export class OrderService {
       customerName: params.customerName,
       customerEmail: params.customerEmail.toLowerCase().trim(),
       customerAddress: fullAddress,
+      taxCalculationId: taxCalculationId || null,
       items: JSON.stringify(
         validation.items.map((item: any) => ({
           productId: item.id,

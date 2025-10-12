@@ -21,6 +21,7 @@ import { InventoryService } from "./services/inventory.service";
 import { OrderService } from "./services/order.service";
 import { CartValidationService } from "./services/cart-validation.service";
 import { ShippingService } from "./services/shipping.service";
+import { TaxService } from "./services/tax.service";
 import { StripePaymentProvider } from "./services/payment/stripe-provider";
 import { WebhookHandler } from "./services/payment/webhook-handler";
 import { PaymentService } from "./services/payment/payment.service";
@@ -37,9 +38,10 @@ const authorizationService = new AuthorizationService(storage);
 // Initialize inventory service for stock management
 const inventoryService = new InventoryService(storage);
 
-// Initialize cart validation and shipping services
+// Initialize cart validation, shipping, and tax services (Plan C architecture)
 const cartValidationService = new CartValidationService(storage);
 const shippingService = new ShippingService(storage);
+const taxService = new TaxService(storage);
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -78,6 +80,7 @@ const orderService = new OrderService(
   inventoryService,
   cartValidationService,
   shippingService,
+  taxService,
   notificationService,
   stripe || undefined
 );
