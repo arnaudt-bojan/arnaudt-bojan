@@ -3926,10 +3926,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         payoutsEnabled: account.payouts_enabled,
         detailsSubmitted: account.details_submitted,
         currency: account.default_currency,
+        country: account.country,
         requirements: account.requirements,
         capabilities: {
           card_payments: account.capabilities?.card_payments || 'inactive',
           transfers: account.capabilities?.transfers || 'inactive',
+        },
+        businessProfile: {
+          name: account.business_profile?.name,
+          url: account.business_profile?.url,
+          supportEmail: account.business_profile?.support_email,
+          supportPhone: account.business_profile?.support_phone,
+        },
+        payoutSchedule: {
+          interval: account.settings?.payouts?.schedule?.interval || 'manual',
+          delayDays: account.settings?.payouts?.schedule?.delay_days || 0,
         },
       });
     } catch (error: any) {

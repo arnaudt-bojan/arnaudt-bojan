@@ -2306,6 +2306,98 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          {isSeller && isStripeConnected && stripeAccountStatus && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Stripe Account Information</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open(`https://dashboard.stripe.com/${stripeAccountStatus.accountId}`, '_blank')}
+                    data-testid="button-stripe-dashboard"
+                  >
+                    Open Stripe Dashboard
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  View your connected Stripe account details
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Account ID</p>
+                    <p className="text-sm font-mono" data-testid="text-stripe-account-id">{stripeAccountStatus.accountId}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Country</p>
+                    <p className="text-sm" data-testid="text-stripe-country">{stripeAccountStatus.country?.toUpperCase() || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Default Currency</p>
+                    <p className="text-sm" data-testid="text-stripe-currency">{stripeAccountStatus.currency?.toUpperCase() || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Payout Schedule</p>
+                    <p className="text-sm capitalize" data-testid="text-stripe-payout-schedule">
+                      {stripeAccountStatus.payoutSchedule?.interval === 'manual' 
+                        ? 'Manual' 
+                        : `${stripeAccountStatus.payoutSchedule?.interval} (${stripeAccountStatus.payoutSchedule?.delayDays || 0} day delay)`}
+                    </p>
+                  </div>
+                </div>
+                
+                {(stripeAccountStatus.businessProfile?.name || stripeAccountStatus.businessProfile?.supportEmail || stripeAccountStatus.businessProfile?.supportPhone || stripeAccountStatus.businessProfile?.url) && (
+                  <div className="pt-4 border-t">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Business Profile</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {stripeAccountStatus.businessProfile.name && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Business Name</p>
+                          <p className="text-sm" data-testid="text-stripe-business-name">{stripeAccountStatus.businessProfile.name}</p>
+                        </div>
+                      )}
+                      {stripeAccountStatus.businessProfile.supportEmail && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Support Email</p>
+                          <p className="text-sm" data-testid="text-stripe-support-email">{stripeAccountStatus.businessProfile.supportEmail}</p>
+                        </div>
+                      )}
+                      {stripeAccountStatus.businessProfile.supportPhone && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Support Phone</p>
+                          <p className="text-sm" data-testid="text-stripe-support-phone">{stripeAccountStatus.businessProfile.supportPhone}</p>
+                        </div>
+                      )}
+                      {stripeAccountStatus.businessProfile.url && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Website</p>
+                          <p className="text-sm truncate" data-testid="text-stripe-business-url">{stripeAccountStatus.businessProfile.url}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Capabilities</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <Badge variant={canAcceptPayments ? "default" : "secondary"} data-testid="badge-charges">
+                      {canAcceptPayments ? "✓" : "✗"} Charges Enabled
+                    </Badge>
+                    <Badge variant={canReceivePayouts ? "default" : "secondary"} data-testid="badge-payouts">
+                      {canReceivePayouts ? "✓" : "✗"} Payouts Enabled
+                    </Badge>
+                    <Badge variant={stripeAccountStatus.detailsSubmitted ? "default" : "secondary"} data-testid="badge-details">
+                      {stripeAccountStatus.detailsSubmitted ? "✓" : "✗"} Details Submitted
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {isSeller && (
             <Card>
               <CardHeader>
