@@ -26,6 +26,7 @@ import { StripePaymentProvider } from "./services/payment/stripe-provider";
 import { WebhookHandler } from "./services/payment/webhook-handler";
 import { PaymentService } from "./services/payment/payment.service";
 import { ProductService } from "./services/product.service";
+import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -92,6 +93,12 @@ const productService = new ProductService(
   storage,
   notificationService,
   stripe || undefined
+);
+
+// Initialize legacy Stripe checkout service (Architecture 3 migration)
+const legacyCheckoutService = new LegacyStripeCheckoutService(
+  storage,
+  stripe || null
 );
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1806,156 +1813,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Note: No auth required - guest checkout needs this
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
-      if (!stripe) {
-        logger.info("[Stripe] Cannot create payment intent - Stripe is not configured");
-        return res.status(500).json({ 
-          error: "Stripe is not configured. Please contact the store owner to set up payments." 
-        });
-      }
-
       const { amount, orderId, paymentType = "full", items, shippingAddress } = req.body;
-      
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ error: "Invalid amount" });
-      }
 
-      // Determine seller from cart items
-      let sellerId: string | null = null;
-      let sellerConnectedAccountId: string | null = null;
-      let seller: any = null;
+      const result = await legacyCheckoutService.createPaymentIntent({
+        amount,
+        orderId,
+        paymentType,
+        items,
+        shippingAddress,
+      });
 
-      if (items && items.length > 0) {
-        // Get first product to determine seller
-        const firstProductId = items[0].productId || items[0].id; // Support both formats
-        const product = await storage.getProduct(firstProductId);
-        
-        if (product) {
-          sellerId = product.sellerId;
-          seller = await storage.getUser(sellerId);
-          sellerConnectedAccountId = seller?.stripeConnectedAccountId || null;
-        }
-      }
-
-      // Calculate platform fee (1.5%)
-      const platformFeeAmount = Math.round(amount * 100 * 0.015); // 1.5% to Uppfirst
-      const totalAmount = Math.round(amount * 100);
-
-      // Create payment intent with Stripe Connect if seller has connected account
-      const paymentIntentParams: any = {
-        amount: totalAmount,
-        currency: "usd",
-        automatic_payment_methods: {
-          enabled: true, // Enables Apple Pay, Google Pay, Link, and other payment methods
-        },
-        metadata: {
-          orderId: orderId || "",
-          paymentType,
-          sellerId: sellerId || "",
-        },
-      };
-
-      // Note: Stripe Tax (automatic_tax) is currently disabled
-      // To enable: add taxEnabled boolean field to users table and set it per seller
-      // Example code (commented out):
-      // if (seller?.taxEnabled && shippingAddress && items?.every((item: any) => item.productType !== 'wholesale')) {
-      //   const hasRequiredFields = shippingAddress.line1 && 
-      //                             shippingAddress.city && 
-      //                             shippingAddress.country &&
-      //                             (shippingAddress.country !== 'US' || shippingAddress.state);
-      //   
-      //   if (hasRequiredFields) {
-      //     paymentIntentParams.automatic_tax = { enabled: true };
-      //     paymentIntentParams.shipping = {
-      //       name: shippingAddress.name || 'Customer',
-      //       address: {
-      //         line1: shippingAddress.line1,
-      //         line2: shippingAddress.line2 || undefined,
-      //         city: shippingAddress.city,
-      //         state: shippingAddress.state,
-      //         postal_code: shippingAddress.postal_code,
-      //         country: shippingAddress.country,
-      //       },
-      //     };
-      //     logger.info(`[Stripe Tax] Enabled for seller ${sellerId}`);
-      //   }
-      // }
-      
-      // Use Stripe Connect if seller has connected account (works in both test and live mode)
-      if (sellerConnectedAccountId && sellerId && seller) {
-        
-        // Check if seller can accept charges
-        if (!seller?.stripeChargesEnabled) {
-          return res.status(400).json({ 
-            error: "This store is still setting up payment processing. Please check back soon.",
-            errorCode: "STRIPE_CHARGES_DISABLED"
-          });
-        }
-
-        // Check and request capabilities if needed (critical for on_behalf_of parameter)
-        try {
-          const account = await stripe.accounts.retrieve(sellerConnectedAccountId);
-          const hasCardPayments = account.capabilities?.card_payments === 'active' || 
-                                  account.capabilities?.card_payments === 'pending';
-          const hasTransfers = account.capabilities?.transfers === 'active' || 
-                              account.capabilities?.transfers === 'pending';
-          
-          if (!hasCardPayments || !hasTransfers) {
-            console.log(`[Stripe] Account ${account.id} missing capabilities. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
-            logger.info(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
-            
-            await stripe.accounts.update(sellerConnectedAccountId, {
-              capabilities: {
-                card_payments: { requested: true },
-                transfers: { requested: true },
-              },
-            });
-            
-            // Re-fetch to check updated status
-            const updatedAccount = await stripe.accounts.retrieve(sellerConnectedAccountId);
-            logger.info(`[Stripe] Capabilities after request - card_payments: ${updatedAccount.capabilities?.card_payments}, transfers: ${updatedAccount.capabilities?.transfers}`);
-            
-            // Allow pending/unrequested capabilities to proceed - Stripe will return a proper error if they're actually required
-            // Blocking here prevents legitimate borderless accounts from transacting while their capabilities activate
-            if (updatedAccount.capabilities?.card_payments === 'inactive' || 
-                updatedAccount.capabilities?.transfers === 'inactive') {
-              logger.info(`[Stripe] Capabilities inactive - payment may fail. Account may need additional information.`);
-              return res.status(400).json({ 
-                error: "This store needs to complete payment setup. Please contact the store owner to finish their Stripe onboarding.",
-                errorCode: "STRIPE_CAPABILITIES_INACTIVE"
-              });
-            }
-          }
-        } catch (capError: any) {
-          console.error(`[Stripe] Capability check failed:`, capError.message);
-          return res.status(500).json({ 
-            error: "Payment processing setup error. Please contact the store owner.",
-            errorCode: "STRIPE_CAPABILITY_ERROR"
-          });
-        }
-
-        paymentIntentParams.application_fee_amount = platformFeeAmount;
-        paymentIntentParams.on_behalf_of = sellerConnectedAccountId; // Seller name appears on statement
-        paymentIntentParams.transfer_data = {
-          destination: sellerConnectedAccountId, // Money goes to seller
-        };
-        
-        // Use seller's listing currency
-        paymentIntentParams.currency = (seller.listingCurrency || 'USD').toLowerCase();
-        
-        console.log(`[Stripe Connect] Creating payment intent with ${platformFeeAmount/100} ${paymentIntentParams.currency.toUpperCase()} fee to platform, rest to seller ${sellerId}`);
-      } else if (sellerId) {
-        // Seller exists but hasn't connected Stripe account
-        return res.status(400).json({ 
-          error: "This store hasn't set up payment processing yet. Please contact the seller to complete their Stripe setup.",
-          errorCode: "STRIPE_NOT_CONNECTED"
+      if (!result.success) {
+        const statusCode = result.errorCode === 'STRIPE_NOT_CONNECTED' || 
+                          result.errorCode === 'STRIPE_CHARGES_DISABLED' ||
+                          result.errorCode === 'STRIPE_CAPABILITIES_INACTIVE' ? 400 : 500;
+        return res.status(statusCode).json({ 
+          error: result.error,
+          errorCode: result.errorCode 
         });
       }
-
-      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
       res.json({ 
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
+        clientSecret: result.clientSecret,
+        paymentIntentId: result.paymentIntentId,
       });
     } catch (error: any) {
       logger.error("Stripe payment intent error", error);
