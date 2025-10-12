@@ -1673,3 +1673,66 @@ export const musicTracks = pgTable("music_tracks", {
 export const insertMusicTrackSchema = createInsertSchema(musicTracks).omit({ id: true, createdAt: true });
 export type InsertMusicTrack = z.infer<typeof insertMusicTrackSchema>;
 export type MusicTrack = typeof musicTracks.$inferSelect;
+
+// Payment Intents - Provider-agnostic payment tracking
+export const paymentIntents = pgTable("payment_intents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerName: varchar("provider_name").notNull(), // 'stripe' | 'paypal'
+  providerIntentId: varchar("provider_intent_id").notNull(), // Provider's intent ID
+  amount: integer("amount").notNull(), // Amount in cents
+  currency: varchar("currency", { length: 3 }).notNull(),
+  status: varchar("status").notNull(), // 'requires_payment_method' | 'succeeded' | etc.
+  clientSecret: text("client_secret"),
+  metadata: jsonb("metadata"),
+  idempotencyKey: varchar("idempotency_key").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    providerIntentIdx: index("payment_intents_provider_intent_idx").on(table.providerIntentId),
+    idempotencyKeyIdx: index("payment_intents_idempotency_key_idx").on(table.idempotencyKey),
+  };
+});
+
+export const insertPaymentIntentSchema = createInsertSchema(paymentIntents).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPaymentIntent = z.infer<typeof insertPaymentIntentSchema>;
+export type PaymentIntent = typeof paymentIntents.$inferSelect;
+
+// Webhook Events - Track processed webhook events for idempotency
+export const webhookEvents = pgTable("webhook_events", {
+  id: varchar("id").primaryKey(), // Provider's event ID
+  providerName: varchar("provider_name").notNull(),
+  eventType: varchar("event_type").notNull(),
+  payload: jsonb("payload").notNull(),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    providerEventTypeIdx: index("webhook_events_provider_event_type_idx").on(table.providerName, table.eventType),
+    processedAtIdx: index("webhook_events_processed_at_idx").on(table.processedAt),
+  };
+});
+
+export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({ createdAt: true });
+export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+
+// Failed Webhook Events - Dead letter queue for retry
+export const failedWebhookEvents = pgTable("failed_webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id"),
+  providerName: varchar("provider_name").notNull(),
+  payload: text("payload").notNull(),
+  error: text("error").notNull(),
+  retryCount: integer("retry_count").default(0),
+  lastRetryAt: timestamp("last_retry_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    retryIdx: index("failed_webhook_events_retry_idx").on(table.retryCount, table.createdAt),
+  };
+});
+
+export const insertFailedWebhookEventSchema = createInsertSchema(failedWebhookEvents).omit({ id: true, createdAt: true });
+export type InsertFailedWebhookEvent = z.infer<typeof insertFailedWebhookEventSchema>;
+export type FailedWebhookEvent = typeof failedWebhookEvents.$inferSelect;

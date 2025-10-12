@@ -70,6 +70,12 @@ import {
   type InsertUserStoreRole,
   type StockReservation,
   type InsertStockReservation,
+  type PaymentIntent,
+  type InsertPaymentIntent,
+  type WebhookEvent,
+  type InsertWebhookEvent,
+  type FailedWebhookEvent,
+  type InsertFailedWebhookEvent,
   users,
   products,
   orders,
@@ -106,7 +112,10 @@ import {
   userStoreRoles,
   userStoreMemberships,
   wholesaleAccessGrants,
-  teamInvitations
+  teamInvitations,
+  paymentIntents,
+  webhookEvents,
+  failedWebhookEvents
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -387,6 +396,20 @@ export interface IStorage {
   searchMusicTracks(query: string, genre?: string): Promise<MusicTrack[]>;
   getMusicTrack(id: string): Promise<MusicTrack | undefined>;
   createMusicTrack(track: InsertMusicTrack): Promise<MusicTrack>;
+  
+  // Payment Intents
+  getPaymentIntent(id: string): Promise<PaymentIntent | undefined>;
+  getPaymentIntentByIdempotencyKey(idempotencyKey: string): Promise<PaymentIntent | undefined>;
+  getPaymentIntentByProviderIntentId(providerIntentId: string): Promise<PaymentIntent | undefined>;
+  storePaymentIntent(intent: InsertPaymentIntent): Promise<PaymentIntent>;
+  updatePaymentIntentStatus(id: string, status: string): Promise<PaymentIntent | undefined>;
+  
+  // Webhook Events
+  isWebhookEventProcessed(eventId: string): Promise<boolean>;
+  markWebhookEventProcessed(eventId: string, payload: any, eventType: string, providerName: string): Promise<void>;
+  storeFailedWebhookEvent(event: InsertFailedWebhookEvent): Promise<FailedWebhookEvent>;
+  getUnprocessedFailedWebhooks(limit?: number): Promise<FailedWebhookEvent[]>;
+  incrementWebhookRetryCount(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2273,6 +2296,102 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.insert(musicTracks).values(track).returning();
     return result[0];
+  }
+
+  // Payment Intent Methods
+  async getPaymentIntent(id: string): Promise<PaymentIntent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(paymentIntents)
+      .where(eq(paymentIntents.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getPaymentIntentByIdempotencyKey(idempotencyKey: string): Promise<PaymentIntent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(paymentIntents)
+      .where(eq(paymentIntents.idempotencyKey, idempotencyKey))
+      .limit(1);
+    return result[0];
+  }
+
+  async getPaymentIntentByProviderIntentId(providerIntentId: string): Promise<PaymentIntent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(paymentIntents)
+      .where(eq(paymentIntents.providerIntentId, providerIntentId))
+      .limit(1);
+    return result[0];
+  }
+
+  async storePaymentIntent(intent: InsertPaymentIntent): Promise<PaymentIntent> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(paymentIntents).values(intent).returning();
+    return result[0];
+  }
+
+  async updatePaymentIntentStatus(id: string, status: string): Promise<PaymentIntent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(paymentIntents)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(paymentIntents.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Webhook Event Methods
+  async isWebhookEventProcessed(eventId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(webhookEvents)
+      .where(eq(webhookEvents.id, eventId))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  async markWebhookEventProcessed(eventId: string, payload: any, eventType: string, providerName: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.db.insert(webhookEvents).values({
+      id: eventId,
+      providerName,
+      eventType,
+      payload,
+      processedAt: new Date(),
+    });
+  }
+
+  async storeFailedWebhookEvent(event: InsertFailedWebhookEvent): Promise<FailedWebhookEvent> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(failedWebhookEvents).values(event).returning();
+    return result[0];
+  }
+
+  async getUnprocessedFailedWebhooks(limit: number = 10): Promise<FailedWebhookEvent[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(failedWebhookEvents)
+      .where(lt(failedWebhookEvents.retryCount, 3))
+      .orderBy(failedWebhookEvents.createdAt)
+      .limit(limit);
+  }
+
+  async incrementWebhookRetryCount(id: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.db
+      .update(failedWebhookEvents)
+      .set({ 
+        retryCount: sql`${failedWebhookEvents.retryCount} + 1`,
+        lastRetryAt: new Date(),
+      })
+      .where(eq(failedWebhookEvents.id, id));
   }
 }
 
