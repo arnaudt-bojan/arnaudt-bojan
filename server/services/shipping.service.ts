@@ -6,6 +6,7 @@
 
 import type { IStorage } from "../storage";
 import type { Product } from "@shared/schema";
+import { requiresState, isValidState } from "@shared/shipping-validation";
 
 export interface ShippingRate {
   zone: string;
@@ -451,7 +452,7 @@ export class ShippingService {
   validateAddress(address: {
     line1: string;
     city: string;
-    state: string;
+    state?: string;
     postalCode: string;
     country: string;
   }): { valid: boolean; error?: string } {
@@ -461,9 +462,14 @@ export class ShippingService {
     if (!address.city || address.city.length < 2) {
       return { valid: false, error: "City is required" };
     }
-    if (!address.state || address.state.length < 2) {
-      return { valid: false, error: "State/Province is required" };
+    
+    // State is required for certain countries
+    if (requiresState(address.country)) {
+      if (!isValidState(address.state)) {
+        return { valid: false, error: "State/Province is required for this country" };
+      }
     }
+    
     if (!address.postalCode || address.postalCode.length < 3) {
       return { valid: false, error: "ZIP/Postal code is required" };
     }

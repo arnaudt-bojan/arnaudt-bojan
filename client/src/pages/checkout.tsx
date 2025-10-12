@@ -43,6 +43,7 @@ import { useQuery } from "@tanstack/react-query";
 import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/pricing-service";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { requiresState, isValidState } from "@shared/shipping-validation";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -52,10 +53,21 @@ const checkoutSchema = z.object({
   addressLine1: z.string().min(5, "Street address required"),
   addressLine2: z.string().optional(),
   city: z.string().min(2, "City required"),
-  state: z.string().optional(), // Optional for international addresses
+  state: z.string().optional(),
   postalCode: z.string().min(3, "ZIP/Postal code required"),
   country: z.string().min(2, "Country required"),
   phone: z.string().min(10, "Phone number required"),
+}).superRefine((data, ctx) => {
+  // Require state for countries that need it
+  if (requiresState(data.country)) {
+    if (!isValidState(data.state)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "State/Province is required for this country",
+        path: ["state"],
+      });
+    }
+  }
 });
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
@@ -1206,6 +1218,11 @@ export default function Checkout() {
                               <Input
                                 placeholder="United States"
                                 {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  // Trigger re-validation of state field when country changes
+                                  form.trigger('state');
+                                }}
                                 data-testid="input-country"
                               />
                             </FormControl>
