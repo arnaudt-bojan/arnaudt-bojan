@@ -513,6 +513,10 @@ export const users = pgTable("users", {
   // - collaborator: team member of a store (via user_store_memberships), cannot buy
   userType: userTypePgEnum("user_type"), // NULL during migration, then set based on role
   
+  // Terms & Conditions Management
+  termsPdfUrl: varchar("terms_pdf_url"), // URL to custom Terms & Conditions PDF
+  termsSource: varchar("terms_source"), // "custom_pdf" or "platform_default"
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
