@@ -20,6 +20,7 @@ export interface ShippingCalculation {
   zone?: string;
   estimatedDays?: string;
   carrier?: string;
+  details?: string; // Human-readable shipping description for checkout
 }
 
 export class ShippingService {
@@ -71,12 +72,25 @@ export class ShippingService {
         return { cost: flatRate, method: "flat" };
 
       case "matrix":
-        // TODO: Implement matrix shipping with shipping matrix lookup
-        return { cost: 0, method: "matrix" };
+        // Matrix shipping with zone matching
+        if (!firstProduct.shippingMatrixId) {
+          throw new Error("Shipping matrix ID not configured for this product");
+        }
+        
+        const matrixResult = await this.calculateMatrixShipping(
+          firstProduct.shippingMatrixId,
+          destination
+        );
+        return matrixResult;
 
       case "shippo":
-        // TODO: Implement Shippo real-time rates
-        return { cost: 0, method: "shippo" };
+        // Shippo real-time rates
+        const shippoResult = await this.calculateShippoShipping(
+          firstProduct,
+          destination,
+          items
+        );
+        return shippoResult;
 
       default:
         return { cost: 0, method: "free" };
@@ -85,11 +99,138 @@ export class ShippingService {
 
 
   /**
+   * Calculate shipping using matrix with zone matching
+   * Priority: city > country > continent
+   */
+  private async calculateMatrixShipping(
+    matrixId: string,
+    destination: {
+      country: string;
+      state?: string;
+      postalCode?: string;
+    }
+  ): Promise<ShippingCalculation> {
+    // Get all zones for this matrix
+    const zones = await this.storage.getShippingZonesByMatrixId(matrixId);
+    
+    if (zones.length === 0) {
+      throw new Error("No shipping zones configured for this matrix");
+    }
+
+    // Try to match by country first (most common)
+    const countryZone = zones.find(z => 
+      z.zoneType === 'country' && 
+      z.zoneCode?.toUpperCase() === destination.country.toUpperCase()
+    );
+    
+    if (countryZone) {
+      return {
+        cost: parseFloat(countryZone.rate),
+        method: "matrix",
+        zone: countryZone.zoneName,
+        estimatedDays: countryZone.estimatedDays?.toString(),
+        details: this.formatShippingDetails(
+          countryZone.zoneName,
+          countryZone.estimatedDays?.toString()
+        )
+      };
+    }
+
+    // Try to match by continent as fallback
+    const continentMap: Record<string, string> = {
+      'US': 'North America', 'CA': 'North America', 'MX': 'North America',
+      'GB': 'Europe', 'FR': 'Europe', 'DE': 'Europe', 'IT': 'Europe', 'ES': 'Europe',
+      'AU': 'Oceania', 'NZ': 'Oceania',
+      'JP': 'Asia', 'CN': 'Asia', 'KR': 'Asia', 'IN': 'Asia',
+      'BR': 'South America', 'AR': 'South America', 'CL': 'South America'
+    };
+    
+    const continent = continentMap[destination.country.toUpperCase()];
+    if (continent) {
+      const continentZone = zones.find(z => 
+        z.zoneType === 'continent' && 
+        z.zoneName.toLowerCase() === continent.toLowerCase()
+      );
+      
+      if (continentZone) {
+        return {
+          cost: parseFloat(continentZone.rate),
+          method: "matrix",
+          zone: continentZone.zoneName,
+          estimatedDays: continentZone.estimatedDays?.toString(),
+          details: this.formatShippingDetails(
+            continentZone.zoneName,
+            continentZone.estimatedDays?.toString()
+          )
+        };
+      }
+    }
+
+    // Use first zone as ultimate fallback
+    const fallbackZone = zones[0];
+    return {
+      cost: parseFloat(fallbackZone.rate),
+      method: "matrix",
+      zone: fallbackZone.zoneName,
+      estimatedDays: fallbackZone.estimatedDays?.toString(),
+      details: this.formatShippingDetails(
+        fallbackZone.zoneName,
+        fallbackZone.estimatedDays?.toString()
+      )
+    };
+  }
+
+  /**
+   * Calculate shipping using Shippo real-time rates
+   * TODO: Implement when Shippo API key is available
+   */
+  private async calculateShippoShipping(
+    product: Product,
+    destination: {
+      country: string;
+      state?: string;
+      postalCode?: string;
+    },
+    items: Array<{ id: string; quantity: number }>
+  ): Promise<ShippingCalculation> {
+    // Check if Shippo credentials are configured
+    if (!process.env.SHIPPO_API_KEY) {
+      throw new Error("Shippo API key not configured. Please add SHIPPO_API_KEY to environment variables.");
+    }
+
+    // TODO: Implement Shippo API integration
+    // For now, return a placeholder
+    throw new Error("Shippo integration coming soon. Please use flat, matrix, or free shipping.");
+  }
+
+  /**
+   * Format shipping details for display
+   */
+  private formatShippingDetails(
+    zone?: string,
+    estimatedDays?: string
+  ): string {
+    const parts: string[] = [];
+    
+    if (zone) parts.push(zone);
+    if (estimatedDays) parts.push(`${estimatedDays} days`);
+    
+    return parts.length > 0 ? parts.join(' - ') : 'Standard shipping';
+  }
+
+  /**
    * Get available shipping zones for a seller
-   * TODO: Implement when shipping matrices are added to seller settings
    */
   async getShippingZones(sellerId: string): Promise<any[]> {
-    return [];
+    const matrices = await this.storage.getShippingMatricesBySellerId(sellerId);
+    const allZones = [];
+    
+    for (const matrix of matrices) {
+      const zones = await this.storage.getShippingZonesByMatrixId(matrix.id);
+      allZones.push(...zones);
+    }
+    
+    return allZones;
   }
 
   /**
