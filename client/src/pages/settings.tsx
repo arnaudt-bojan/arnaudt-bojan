@@ -2763,7 +2763,7 @@ export default function Settings() {
                       }`}>
                         <iframe
                           key={`${quickSetupForm.watch('username')}-${quickSetupForm.watch('storeLogo')}-${quickSetupForm.watch('storeBanner')}-${previewDevice}`}
-                          src={`/s/${quickSetupForm.watch('username')}`}
+                          src={`/s/${quickSetupForm.watch('username')}?preview=true&previewLogo=${encodeURIComponent(quickSetupForm.watch('storeLogo') || '')}&previewBanner=${encodeURIComponent(quickSetupForm.watch('storeBanner') || '')}`}
                           className={`w-full rounded-lg border ${
                             previewDevice === 'desktop' ? 'aspect-video' :
                             previewDevice === 'ipad' ? 'aspect-[4/3]' :
@@ -2780,7 +2780,7 @@ export default function Settings() {
                           asChild
                           data-testid="button-preview-fullscreen"
                         >
-                          <Link href={`/s/${quickSetupForm.watch('username')}`} target="_blank">
+                          <Link href={`/s/${quickSetupForm.watch('username')}?preview=true&previewLogo=${encodeURIComponent(quickSetupForm.watch('storeLogo') || '')}&previewBanner=${encodeURIComponent(quickSetupForm.watch('storeBanner') || '')}`} target="_blank">
                             <Globe className="h-4 w-4 mr-2" />
                             Open in New Tab
                           </Link>

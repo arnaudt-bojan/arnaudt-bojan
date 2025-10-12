@@ -31,6 +31,12 @@ export default function SellerStorefront() {
     colors: [],
   });
 
+  // Check for preview mode from URL params
+  const searchParams = new URLSearchParams(window.location.search);
+  const isPreviewMode = searchParams.get('preview') === 'true';
+  const previewLogo = searchParams.get('previewLogo') || '';
+  const previewBanner = searchParams.get('previewBanner') || '';
+
   // Check if current user is authenticated
   const { data: currentUser } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -46,15 +52,18 @@ export default function SellerStorefront() {
       }
       return response.json();
     },
-    enabled: !!username,
+    enabled: !!username && !isPreviewMode, // Don't fetch if in preview mode
     retry: false,
   });
 
   // Check if logged-in user is viewing their own store (fallback)
   const isOwnStore = currentUser && currentUser.username === username;
   
-  // Use current user as seller if they're viewing their own store and seller lookup failed
-  const effectiveSeller = seller || (isOwnStore ? currentUser : null);
+  // In preview mode, ALWAYS use current user (seller) with preview overrides
+  // Preview mode is only accessible when viewing your own store setup
+  const effectiveSeller = isPreviewMode && currentUser 
+    ? { ...currentUser, storeLogo: previewLogo, storeBanner: previewBanner }
+    : (seller || (isOwnStore ? currentUser : null));
 
   // Fetch seller's products - use effectiveSeller to support fallback
   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({

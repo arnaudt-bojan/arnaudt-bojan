@@ -40,11 +40,28 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
   const { theme, setTheme } = useTheme();
   const { currentUser, activeSeller, isSellerDomain, viewMode } = useAuthStore();
   
+  // Check for preview mode from URL params
+  const searchParams = new URLSearchParams(window.location.search);
+  const isPreviewMode = searchParams.get('preview') === 'true';
+  const previewLogo = searchParams.get('previewLogo') || '';
+  const previewBanner = searchParams.get('previewBanner') || '';
+  
+  // In preview mode, use current user as the seller with preview overrides
+  const effectiveSellerForHeader = isPreviewMode && currentUser
+    ? { ...currentUser, storeLogo: previewLogo, storeBanner: previewBanner }
+    : activeSeller;
+  
+  // Use preview logo if in preview mode, otherwise use activeSeller logo
+  const displayLogo = effectiveSellerForHeader?.storeLogo;
+  
   const isAuthenticated = !!currentUser;
   const isBuyer = currentUser?.role === "buyer";
   
+  // In preview mode, treat as seller domain
+  const isEffectivelySellerDomain = isSellerDomain || isPreviewMode;
+  
   // Get store URL and determine if it's same-origin
-  const storeUrl = getStoreUrl(activeSeller?.username) || '/';
+  const storeUrl = getStoreUrl(effectiveSellerForHeader?.username) || '/';
   const isAbsoluteUrl = storeUrl.startsWith('http');
 
   // Check if user has wholesale access (accepted invitations)
@@ -55,7 +72,7 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
   const hasWholesaleAccess = wholesaleAccess?.hasAccess ?? false;
 
   // Show mobile menu on seller domains or if authenticated
-  const shouldShowMobileMenu = isSellerDomain || isAuthenticated;
+  const shouldShowMobileMenu = isEffectivelySellerDomain || isAuthenticated;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -146,43 +163,43 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
           )}
           
           {/* Logo/Branding */}
-          {isSellerDomain ? (
+          {isEffectivelySellerDomain ? (
             // On seller storefront: show store logo, Instagram username, or store name - always link to seller's storefront
-            activeSeller?.storeLogo ? (
+            displayLogo ? (
               isAbsoluteUrl ? (
                 <a href={storeUrl} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
-                  <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+                  <img src={displayLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
                 </a>
               ) : (
                 <Link href={storeUrl} className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-2 rounded-lg border border-border/40" data-testid="link-home">
-                  <img src={activeSeller.storeLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+                  <img src={displayLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
                 </Link>
               )
-            ) : activeSeller?.instagramUsername ? (
+            ) : effectiveSellerForHeader?.instagramUsername ? (
               isAbsoluteUrl ? (
                 <a href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                  <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+                  <div className="text-lg font-semibold">@{effectiveSellerForHeader.instagramUsername}</div>
                 </a>
               ) : (
                 <Link href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
-                  <div className="text-lg font-semibold">@{activeSeller.instagramUsername}</div>
+                  <div className="text-lg font-semibold">@{effectiveSellerForHeader.instagramUsername}</div>
                 </Link>
               )
-            ) : activeSeller ? (
+            ) : effectiveSellerForHeader ? (
               isAbsoluteUrl ? (
                 <a href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
                   <div className="text-lg font-semibold">
-                    {activeSeller.firstName && activeSeller.lastName 
-                      ? `${activeSeller.firstName} ${activeSeller.lastName}`
-                      : activeSeller.username || 'Store'}
+                    {effectiveSellerForHeader.firstName && effectiveSellerForHeader.lastName 
+                      ? `${effectiveSellerForHeader.firstName} ${effectiveSellerForHeader.lastName}`
+                      : effectiveSellerForHeader.username || 'Store'}
                   </div>
                 </a>
               ) : (
                 <Link href={storeUrl} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
                   <div className="text-lg font-semibold">
-                    {activeSeller.firstName && activeSeller.lastName 
-                      ? `${activeSeller.firstName} ${activeSeller.lastName}`
-                      : activeSeller.username || 'Store'}
+                    {effectiveSellerForHeader.firstName && effectiveSellerForHeader.lastName 
+                      ? `${effectiveSellerForHeader.firstName} ${effectiveSellerForHeader.lastName}`
+                      : effectiveSellerForHeader.username || 'Store'}
                   </div>
                 </Link>
               )
