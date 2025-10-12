@@ -656,6 +656,7 @@ export class DatabaseStorage implements IStorage {
 
           const variantId = reservation.variantId;
           if (variantId && product[0].variants) {
+            // Decrement variant stock in JSONB array
             const variants = Array.isArray(product[0].variants) ? product[0].variants : [];
             const updatedVariants = variants.map((v: any) => {
               const currentVariantId = v.color 
@@ -671,11 +672,19 @@ export class DatabaseStorage implements IStorage {
               return v;
             });
 
+            // CRITICAL FIX: Also decrement master product.stock when variant is sold
+            // This keeps product.stock in sync with sum of all variant stocks
+            const newMasterStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
+
             await tx
               .update(products)
-              .set({ variants: updatedVariants })
+              .set({ 
+                variants: updatedVariants,
+                stock: newMasterStock  // Update BOTH variant stock AND master stock
+              })
               .where(eq(products.id, reservation.productId));
           } else {
+            // No variants - just update master stock
             const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
             await tx
               .update(products)
