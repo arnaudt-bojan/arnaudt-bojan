@@ -284,32 +284,33 @@ export class CheckoutService {
   }
 
   private getCurrencyFromCountry(country: string): string {
-    // Map country codes to currencies
+    // Map country codes to currencies (must match Stripe country selector)
     const currencyMap: Record<string, string> = {
-      US: 'USD',
-      GB: 'GBP',
-      CA: 'CAD',
-      AU: 'AUD',
-      NZ: 'NZD',
-      IE: 'EUR',
-      FR: 'EUR',
-      DE: 'EUR',
-      ES: 'EUR',
-      IT: 'EUR',
-      NL: 'EUR',
-      BE: 'EUR',
-      AT: 'EUR',
-      CH: 'CHF',
-      SE: 'SEK',
-      NO: 'NOK',
-      DK: 'DKK',
-      FI: 'EUR',
-      PL: 'PLN',
-      SG: 'SGD',
-      HK: 'HKD',
-      JP: 'JPY',
-      MX: 'MXN',
-      BR: 'BRL',
+      AE: 'AED', // United Arab Emirates
+      AT: 'EUR', // Austria
+      AU: 'AUD', // Australia
+      BE: 'EUR', // Belgium
+      BR: 'BRL', // Brazil
+      CA: 'CAD', // Canada
+      CH: 'CHF', // Switzerland
+      DE: 'EUR', // Germany
+      DK: 'DKK', // Denmark
+      ES: 'EUR', // Spain
+      FI: 'EUR', // Finland
+      FR: 'EUR', // France
+      GB: 'GBP', // United Kingdom
+      HK: 'HKD', // Hong Kong
+      IE: 'EUR', // Ireland
+      IT: 'EUR', // Italy
+      JP: 'JPY', // Japan
+      MX: 'MXN', // Mexico
+      NL: 'EUR', // Netherlands
+      NO: 'NOK', // Norway
+      NZ: 'NZD', // New Zealand
+      PL: 'PLN', // Poland
+      SE: 'SEK', // Sweden
+      SG: 'SGD', // Singapore
+      US: 'USD', // United States
     };
 
     return currencyMap[country] || 'USD';

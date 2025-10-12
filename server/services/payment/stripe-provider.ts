@@ -18,8 +18,8 @@ export class StripePaymentProvider implements IPaymentProvider {
   private stripe: Stripe;
   private webhookSecret: string;
   readonly providerName = 'stripe';
-  readonly supportedCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'SEK', 'NOK', 'DKK', 'SGD', 'HKD', 'MXN', 'BRL', 'PLN', 'NZD'];
-  readonly supportedCountries = ['US', 'GB', 'CA', 'AU', 'NZ', 'IE', 'FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'CH', 'SE', 'NO', 'DK', 'FI', 'PL', 'SG', 'HK', 'JP', 'MX', 'BR'];
+  readonly supportedCurrencies = ['AED', 'AUD', 'BRL', 'CAD', 'CHF', 'DKK', 'EUR', 'GBP', 'HKD', 'JPY', 'MXN', 'NOK', 'NZD', 'PLN', 'SEK', 'SGD', 'USD'];
+  readonly supportedCountries = ['AE', 'AT', 'AU', 'BE', 'BR', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'HK', 'IE', 'IT', 'JP', 'MX', 'NL', 'NO', 'NZ', 'PL', 'SE', 'SG', 'US'];
 
   constructor(secretKey: string, webhookSecret: string) {
     this.stripe = new Stripe(secretKey, {

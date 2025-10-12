@@ -10,32 +10,33 @@ interface StripeCountrySelectorProps {
   onCountrySelected: (country: string) => void;
 }
 
-// Common countries that support Stripe Express
+// Countries that support Stripe (sorted alphabetically)
 const STRIPE_COUNTRIES = [
-  { code: 'US', name: 'United States', currency: 'USD' },
-  { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
-  { code: 'CA', name: 'Canada', currency: 'CAD' },
-  { code: 'AU', name: 'Australia', currency: 'AUD' },
-  { code: 'NZ', name: 'New Zealand', currency: 'NZD' },
-  { code: 'IE', name: 'Ireland', currency: 'EUR' },
-  { code: 'FR', name: 'France', currency: 'EUR' },
-  { code: 'DE', name: 'Germany', currency: 'EUR' },
-  { code: 'ES', name: 'Spain', currency: 'EUR' },
-  { code: 'IT', name: 'Italy', currency: 'EUR' },
-  { code: 'NL', name: 'Netherlands', currency: 'EUR' },
-  { code: 'BE', name: 'Belgium', currency: 'EUR' },
+  { code: 'AE', name: 'United Arab Emirates', currency: 'AED' },
   { code: 'AT', name: 'Austria', currency: 'EUR' },
+  { code: 'AU', name: 'Australia', currency: 'AUD' },
+  { code: 'BE', name: 'Belgium', currency: 'EUR' },
+  { code: 'BR', name: 'Brazil', currency: 'BRL' },
+  { code: 'CA', name: 'Canada', currency: 'CAD' },
   { code: 'CH', name: 'Switzerland', currency: 'CHF' },
-  { code: 'SE', name: 'Sweden', currency: 'SEK' },
-  { code: 'NO', name: 'Norway', currency: 'NOK' },
+  { code: 'DE', name: 'Germany', currency: 'EUR' },
   { code: 'DK', name: 'Denmark', currency: 'DKK' },
+  { code: 'ES', name: 'Spain', currency: 'EUR' },
   { code: 'FI', name: 'Finland', currency: 'EUR' },
-  { code: 'PL', name: 'Poland', currency: 'PLN' },
-  { code: 'SG', name: 'Singapore', currency: 'SGD' },
+  { code: 'FR', name: 'France', currency: 'EUR' },
+  { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
   { code: 'HK', name: 'Hong Kong', currency: 'HKD' },
+  { code: 'IE', name: 'Ireland', currency: 'EUR' },
+  { code: 'IT', name: 'Italy', currency: 'EUR' },
   { code: 'JP', name: 'Japan', currency: 'JPY' },
   { code: 'MX', name: 'Mexico', currency: 'MXN' },
-  { code: 'BR', name: 'Brazil', currency: 'BRL' },
+  { code: 'NL', name: 'Netherlands', currency: 'EUR' },
+  { code: 'NO', name: 'Norway', currency: 'NOK' },
+  { code: 'NZ', name: 'New Zealand', currency: 'NZD' },
+  { code: 'PL', name: 'Poland', currency: 'PLN' },
+  { code: 'SE', name: 'Sweden', currency: 'SEK' },
+  { code: 'SG', name: 'Singapore', currency: 'SGD' },
+  { code: 'US', name: 'United States', currency: 'USD' },
 ];
 
 export function StripeCountrySelector({ isOpen, onClose, onCountrySelected }: StripeCountrySelectorProps) {
