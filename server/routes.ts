@@ -27,6 +27,7 @@ import { WebhookHandler } from "./services/payment/webhook-handler";
 import { PaymentService } from "./services/payment/payment.service";
 import { ProductService } from "./services/product.service";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
+import { StripeConnectService } from "./services/stripe-connect.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -97,6 +98,12 @@ const productService = new ProductService(
 
 // Initialize legacy Stripe checkout service (Architecture 3 migration)
 const legacyCheckoutService = new LegacyStripeCheckoutService(
+  storage,
+  stripe || null
+);
+
+// Initialize Stripe Connect service (Architecture 3 migration)
+const stripeConnectService = new StripeConnectService(
   storage,
   stripe || null
 );
@@ -1848,44 +1855,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update Payment Intent with wallet address for accurate tax calculation
   app.post("/api/payment-intent/:paymentIntentId/update-address", async (req, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const { paymentIntentId } = req.params;
       const { address, email, name, phone } = req.body;
 
-      // Defensive validation
-      if (!address || typeof address !== 'object') {
-        return res.status(400).json({ error: "Invalid address data" });
-      }
-
-      if (!address.country || !address.postalCode) {
-        return res.status(400).json({ error: "Country and postal code are required for tax calculation" });
-      }
-
-      // Update payment intent with shipping address for tax calculation
-      await stripe.paymentIntents.update(paymentIntentId, {
-        shipping: {
-          name: name || "Customer",
-          phone: phone || undefined,
-          address: {
-            line1: address.line1 || "",
-            line2: address.line2 || undefined,
-            city: address.city || "",
-            state: address.state || "",
-            postal_code: address.postalCode || "",
-            country: address.country || "",
-          },
-        },
-        receipt_email: email || undefined,
+      const result = await legacyCheckoutService.updatePaymentIntentAddress({
+        paymentIntentId,
+        address,
+        email,
+        name,
+        phone,
       });
 
-      logger.info(`[Express Checkout] Updated PaymentIntent ${paymentIntentId} with wallet address`, {
-        city: address.city,
-        state: address.state,
-        country: address.country,
-      });
+      if (!result.success) {
+        return res.status(result.error?.includes("Invalid") ? 400 : 500).json({ 
+          error: result.error 
+        });
+      }
 
       res.json({ success: true });
     } catch (error: any) {
@@ -1897,38 +1882,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Retrieve Payment Intent with tax data after payment confirmation
   app.get("/api/payment-intent/:paymentIntentId/tax-data", async (req, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
+      const { paymentIntentId } = req.params;
+
+      const result = await legacyCheckoutService.getPaymentIntentTaxData(paymentIntentId);
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
       }
 
-      const { paymentIntentId } = req.params;
-      
-      // Retrieve payment intent with expanded latest_charge (correct expand path)
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
-        expand: ['latest_charge'],
-      });
-
-      // Extract tax amount from latest charge total_details
-      const charge = paymentIntent.latest_charge as any;
-      const taxAmountInCents = charge?.total_details?.amount_tax || 0;
-      const taxAmount = taxAmountInCents / 100;
-      
-      // Extract tax data
-      const taxData = {
-        taxAmount: taxAmount.toString(),
-        taxCalculationId: (paymentIntent as any).automatic_tax?.calculation || null,
-        taxBreakdown: charge?.total_details?.breakdown?.taxes || null,
-        subtotalBeforeTax: ((paymentIntent.amount_received - taxAmountInCents) / 100).toString(),
-      };
-
-      logger.info(`[Stripe Tax] Retrieved tax data for payment ${paymentIntentId}: ${taxAmount > 0 ? `$${taxAmount} tax collected` : 'no tax'}`, {
-        taxAmount,
-        calculationId: taxData.taxCalculationId,
-        hasBreakdown: !!taxData.taxBreakdown
-      });
-
-
-      res.json(taxData);
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Failed to retrieve tax data", error);
       res.status(500).json({ error: "Failed to retrieve tax data" });
@@ -1938,35 +1900,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Retrieve Payment Intent details (for 3DS return flow) with client_secret validation
   app.get("/api/payment-intent/:paymentIntentId", async (req, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const { paymentIntentId } = req.params;
       const { client_secret } = req.query;
-      
-      // SECURITY: Require client_secret to prevent unauthorized access
+
       if (!client_secret || typeof client_secret !== 'string') {
         return res.status(401).json({ error: "Unauthorized - client_secret required" });
       }
-      
-      // Retrieve payment intent with metadata
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
-      // SECURITY: Validate client_secret matches
-      if (paymentIntent.client_secret !== client_secret) {
-        logger.warn(`[Security] Invalid client_secret for payment intent ${paymentIntentId}`);
-        return res.status(401).json({ error: "Unauthorized - invalid client_secret" });
+      const result = await legacyCheckoutService.getPaymentIntent(paymentIntentId, client_secret);
+
+      if (!result.success) {
+        const statusCode = result.error?.includes("Unauthorized") ? 401 : 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // Return payment intent details
-      res.json({
-        id: paymentIntent.id,
-        status: paymentIntent.status,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        metadata: paymentIntent.metadata,
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Failed to retrieve payment intent", error);
       res.status(500).json({ error: "Failed to retrieve payment intent" });
@@ -1976,83 +1924,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cancel Payment Intent - releases inventory and cancels Stripe payment
   app.post("/api/payment-intent/:paymentIntentId/cancel", async (req, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const { paymentIntentId } = req.params;
       const { client_secret } = req.body;
-      
-      // SECURITY: Require client_secret to prevent unauthorized cancellation
-      if (!client_secret || typeof client_secret !== 'string') {
-        logger.warn(`[Security] Missing client_secret for payment intent cancellation ${paymentIntentId}`);
-        return res.status(401).json({ error: "Unauthorized - client_secret required" });
-      }
-      
-      // Get our payment intent record
-      const paymentIntent = await storage.getPaymentIntentByProviderIntentId(paymentIntentId);
-      
-      if (!paymentIntent) {
-        logger.warn(`[Payment Cancel] Payment intent not found: ${paymentIntentId}`);
-        return res.status(404).json({ error: "Payment intent not found" });
+
+      const result = await legacyCheckoutService.cancelPaymentIntent(
+        { paymentIntentId, clientSecret: client_secret },
+        paymentService
+      );
+
+      if (!result.success) {
+        const statusCode = result.error?.includes("Unauthorized") ? 401 : 
+                          result.error?.includes("not found") ? 404 :
+                          result.error?.includes("Cannot cancel") ? 400 : 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // SECURITY: Validate client_secret matches
-      const stripeIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      if (stripeIntent.client_secret !== client_secret) {
-        logger.warn(`[Security] Invalid client_secret for payment intent cancellation ${paymentIntentId}`);
-        return res.status(401).json({ error: "Unauthorized - invalid client_secret" });
-      }
-
-      // Only allow cancellation of pending/requires_payment_method intents
-      if (!['requires_payment_method', 'requires_confirmation', 'requires_action'].includes(stripeIntent.status)) {
-        logger.warn(`[Payment Cancel] Cannot cancel payment intent with status: ${stripeIntent.status}`);
-        return res.status(400).json({ 
-          error: `Cannot cancel payment with status: ${stripeIntent.status}` 
-        });
-      }
-
-      // Use payment service if available, otherwise implement cancellation logic inline
-      if (paymentService) {
-        await paymentService.cancelPayment(paymentIntent.id);
-        logger.info(`[Payment Cancel] Successfully cancelled payment intent ${paymentIntentId} via PaymentService`);
-      } else {
-        // Fallback: Implement cancellation logic without PaymentService
-        // This supports partial Stripe configuration (secret key without webhook secret)
-        logger.info(`[Payment Cancel] PaymentService not available, using fallback cancellation`);
-        
-        const metadata: any = paymentIntent.metadata ? JSON.parse(paymentIntent.metadata) : {};
-        const { orderId, checkoutSessionId } = metadata as { orderId?: string; checkoutSessionId?: string };
-
-        // Cancel with Stripe
-        await stripe.paymentIntents.cancel(paymentIntentId);
-
-        // Update payment intent status
-        await storage.updatePaymentIntentStatus(paymentIntent.id, 'canceled');
-
-        // Release inventory reservations
-        if (checkoutSessionId) {
-          try {
-            const reservations = await storage.getStockReservationsBySession(checkoutSessionId);
-            for (const reservation of reservations) {
-              await inventoryService.releaseReservation(reservation.id);
-            }
-            logger.info(`[Payment Cancel] Released ${reservations.length} inventory reservations for checkout session ${checkoutSessionId}`);
-          } catch (releaseError) {
-            logger.error(`[Payment Cancel] Failed to release inventory reservations:`, releaseError);
-            // Continue - cancellation should succeed even if release fails
-          }
-        }
-
-        // Update order status
-        if (orderId) {
-          await storage.updateOrderStatus(orderId, 'canceled');
-          logger.info(`[Payment Cancel] Canceled order ${orderId}`);
-        }
-
-        logger.info(`[Payment Cancel] Successfully cancelled payment intent ${paymentIntentId} via fallback`);
-      }
-      
       res.json({ 
         success: true, 
         message: "Payment cancelled and inventory released" 
@@ -3474,156 +3360,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create or get Stripe Express account with minimal KYC
   app.post("/api/stripe/create-express-account", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      const { reset = false, country } = req.body; // Accept country from request body
-      
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
+      const { reset = false, country } = req.body;
 
-      // If resetting, delete the old account first
-      if (user.stripeConnectedAccountId && reset) {
-        logger.info(`[Stripe Express] Resetting account for user ${userId}. Deleting old account ${user.stripeConnectedAccountId}...`);
-        try {
-          await stripe.accounts.del(user.stripeConnectedAccountId);
-          logger.info(`[Stripe Express] Successfully deleted old account ${user.stripeConnectedAccountId}`);
-        } catch (delError: any) {
-          console.error(`[Stripe Express] Failed to delete old account:`, delError.message);
-          // Continue anyway - create new account even if deletion fails
+      const result = await stripeConnectService.createOrGetExpressAccount({
+        userId,
+        reset,
+        country,
+      });
+
+      if (!result.success) {
+        if (result.errorCode === 'STRIPE_CONNECT_NOT_ENABLED') {
+          return res.status(400).json({
+            error: result.error,
+            message: "Your Stripe account needs to enable Stripe Connect. Please visit https://dashboard.stripe.com/connect/accounts/overview and click 'Get Started' to activate Connect for your account.",
+          });
         }
         
-        // Clear the connected account ID so we create a new one below
-        await storage.upsertUser({
-          ...user,
-          stripeConnectedAccountId: null,
-          stripeChargesEnabled: 0,
-          stripePayoutsEnabled: 0,
-          stripeDetailsSubmitted: 0,
-        });
-        user.stripeConnectedAccountId = null;
-      }
-      
-      // If user already has a connected account and not resetting, return its status
-      if (user.stripeConnectedAccountId && !reset) {
-        let account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
-        
-        // Check if account needs card_payments capability (required for on_behalf_of)
-        const hasCardPayments = account.capabilities?.card_payments === 'active' || 
-                                account.capabilities?.card_payments === 'pending';
-        const hasTransfers = account.capabilities?.transfers === 'active' || 
-                            account.capabilities?.transfers === 'pending';
-        
-        // If missing capabilities, request them and re-fetch account
-        if (!hasCardPayments || !hasTransfers) {
-          console.log(`[Stripe] Account ${account.id} missing capabilities. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
-          logger.info(`[Stripe] Requesting card_payments and transfers for account ${account.id}...`);
-          
-          try {
-            await stripe.accounts.update(user.stripeConnectedAccountId, {
-              capabilities: {
-                card_payments: { requested: true },
-                transfers: { requested: true },
-              },
-            });
-            
-            // Re-fetch account to get updated capability status
-            account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
-            console.log(`[Stripe] Capabilities updated for account ${account.id}. card_payments: ${account.capabilities?.card_payments}, transfers: ${account.capabilities?.transfers}`);
-            
-          } catch (capError: any) {
-            console.error(`[Stripe] Failed to request capabilities for account ${account.id}:`, capError.message);
-            return res.status(500).json({ 
-              error: "Failed to update Stripe account capabilities",
-              message: "Please complete your Stripe onboarding or contact support",
-              stripeError: capError.message
-            });
-          }
-        }
-        
-        // Update user with latest account status
-        await storage.upsertUser({
-          ...user,
-          stripeChargesEnabled: account.charges_enabled ? 1 : 0,
-          stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
-          stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
-          listingCurrency: account.default_currency?.toUpperCase() || 'USD',
-        });
-
-        return res.json({
-          accountId: account.id,
-          chargesEnabled: account.charges_enabled,
-          payoutsEnabled: account.payouts_enabled,
-          detailsSubmitted: account.details_submitted,
-          currency: account.default_currency,
-          capabilities: account.capabilities, // Include capabilities in response for debugging
+        const statusCode = result.error === "User not found" ? 404 : 500;
+        return res.status(statusCode).json({ 
+          error: result.error,
+          message: result.error 
         });
       }
 
-      // Use provided country or default to US if not specified
-      const accountCountry = country || 'US';
-      logger.info(`[Stripe Express] Creating Express account for user ${userId} with country: ${accountCountry}`);
-
-      // Create new Express account with specified country
-      // Request both card_payments and transfers capabilities for Stripe Connect
-      // card_payments: Required to use on_behalf_of parameter (seller name on statement)
-      // transfers: Required to transfer funds to connected accounts
-      const account = await stripe.accounts.create({
-        type: 'express',
-        country: accountCountry,
-        email: user.email || undefined,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-        settings: {
-          payouts: {
-            debit_negative_balances: true,
-          },
-        },
-      });
-
-      // Save account ID and initial status
-      // Note: country and currency may be null until user completes onboarding
-      await storage.upsertUser({
-        ...user,
-        stripeConnectedAccountId: account.id,
-        stripeChargesEnabled: account.charges_enabled ? 1 : 0,
-        stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
-        stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
-        // Currency will be set after user selects their country during onboarding
-        listingCurrency: account.default_currency?.toUpperCase() || user.listingCurrency || 'USD',
-      });
-
-      logger.info(`[Stripe Express] Created account ${account.id} for user ${userId}`);
-
-      res.json({
-        accountId: account.id,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted,
-        currency: account.default_currency,
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Stripe Express account creation error", error);
-      
-      // Check for specific Stripe Connect error
-      if (error.message && error.message.includes("signed up for Connect")) {
-        return res.status(400).json({ 
-          error: "Stripe Connect Not Enabled",
-          message: "Your Stripe account needs to enable Stripe Connect. Please visit https://dashboard.stripe.com/connect/accounts/overview and click 'Get Started' to activate Connect for your account.",
-          stripeError: error.message
-        });
-      }
-      
       res.status(500).json({ 
         error: "Failed to create Express account",
-        message: error.message || "Unknown error occurred",
-        stripeError: error.raw?.message || error.message
+        message: error.message || "Unknown error occurred"
       });
     }
   });
@@ -3631,47 +3397,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Account Session for embedded onboarding
   app.post("/api/stripe/account-session", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      const { purpose = 'onboarding' } = req.body; // 'onboarding' or 'payouts'
-      
-      if (!user || !user.stripeConnectedAccountId) {
-        return res.status(400).json({ error: "No Stripe account found. Create one first." });
-      }
+      const { purpose = 'onboarding' } = req.body;
 
-      // Retrieve account to verify country is set correctly
-      const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
-      console.log(`[Stripe Account Session] Account ${account.id} country: ${account.country}, default_currency: ${account.default_currency}`);
-
-      // Create account session for embedded onboarding or payout setup
-      // For Express accounts: don't include external_account_collection for initial onboarding
-      const components: any = {
-        account_onboarding: {
-          enabled: true,
-        },
-      };
-
-      // Only enable external_account_collection for payout setup
-      if (purpose === 'payouts') {
-        components.account_onboarding.features = {
-          external_account_collection: true,
-        };
-      }
-
-      const accountSession = await stripe.accountSessions.create({
-        account: user.stripeConnectedAccountId,
-        components,
+      const result = await stripeConnectService.createAccountSession({
+        userId,
+        purpose,
       });
 
-      res.json({ 
-        clientSecret: accountSession.client_secret,
-        accountId: user.stripeConnectedAccountId,
-        country: account.country, // Include country for debugging
-      });
+      if (!result.success) {
+        const statusCode = result.error?.includes("No Stripe account") ? 400 : 500;
+        return res.status(statusCode).json({ error: result.error });
+      }
+
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Stripe Account Session error", error);
       res.status(500).json({ error: "Failed to create account session" });
@@ -3681,32 +3420,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate Account Link for onboarding/verification
   app.post("/api/stripe/account-link", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const { type = 'account_onboarding' } = req.body; // account_onboarding or account_update
-      const user = await storage.getUser(userId);
-      
-      if (!user || !user.stripeConnectedAccountId) {
-        return res.status(400).json({ error: "No Stripe account found. Create one first." });
-      }
+      const { type = 'account_onboarding' } = req.body;
 
-      // Use the request origin for proper public URL (fixes Stripe redirect issues)
       const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
       const baseUrl = origin || (process.env.REPLIT_DOMAINS 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
         : `http://localhost:${process.env.PORT || 5000}`);
 
-      const accountLink = await stripe.accountLinks.create({
-        account: user.stripeConnectedAccountId,
-        refresh_url: `${baseUrl}/settings?stripe=refresh`,
-        return_url: `${baseUrl}/settings?stripe=connected`,
-        type: type, // 'account_onboarding' for new accounts, 'account_update' for existing
+      const result = await stripeConnectService.createAccountLink({
+        userId,
+        type,
+        baseUrl,
       });
 
-      res.json({ url: accountLink.url });
+      if (!result.success) {
+        const statusCode = result.error?.includes("No Stripe account") ? 400 : 500;
+        return res.status(statusCode).json({ error: result.error });
+      }
+
+      res.json({ url: result.url });
     } catch (error: any) {
       logger.error("Stripe Account Link error", error);
       res.status(500).json({ error: "Failed to generate account link" });
@@ -3716,151 +3449,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check Stripe account status and update user
   app.get("/api/stripe/account-status", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user || !user.stripeConnectedAccountId) {
-        return res.json({ 
-          connected: false,
-          chargesEnabled: false,
-          payoutsEnabled: false,
-          detailsSubmitted: false,
-        });
+
+      const result = await stripeConnectService.getAccountStatus(userId);
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
       }
 
-      const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
-      
-      // Auto-populate company fields from Stripe if they're currently empty
-      // Try business_profile.name first, fallback to company.name
-      let stripeCompanyName = account.business_profile?.name?.trim() || account.company?.name?.trim() || '';
-      const companyName = !user.companyName && stripeCompanyName 
-        ? stripeCompanyName 
-        : user.companyName;
-      
-      const businessType = !user.businessType && account.business_type 
-        ? account.business_type 
-        : user.businessType;
-      
-      // Auto-populate warehouse address from Stripe if it's currently empty
-      // Try individual.address first, fallback to company.address
-      const stripeAddress = account.individual?.address || account.company?.address;
-      
-      // Debug logging for warehouse auto-population
-      logger.info(`[Stripe] Warehouse auto-population check for account ${account.id}`, {
-        currentWarehouseStreet: user.warehouseStreet ?? 'empty',
-        stripeAddressAvailable: !!stripeAddress,
-        stripeAddressLine1: stripeAddress?.line1 ?? 'none',
-        stripeAddressCity: stripeAddress?.city ?? 'none',
-        stripeAddressState: stripeAddress?.state ?? 'none',
-        stripeAddressPostalCode: stripeAddress?.postal_code ?? 'none',
-        stripeAddressCountry: stripeAddress?.country ?? 'none',
-      });
-      
-      const warehouseStreet = !user.warehouseStreet && stripeAddress?.line1 
-        ? stripeAddress.line1 
-        : user.warehouseStreet;
-      const warehouseCity = !user.warehouseCity && stripeAddress?.city 
-        ? stripeAddress.city 
-        : user.warehouseCity;
-      const warehouseState = !user.warehouseState && stripeAddress?.state 
-        ? stripeAddress.state 
-        : user.warehouseState;
-      const warehousePostalCode = !user.warehousePostalCode && stripeAddress?.postal_code 
-        ? stripeAddress.postal_code 
-        : user.warehousePostalCode;
-      const warehouseCountry = !user.warehouseCountry && stripeAddress?.country 
-        ? stripeAddress.country 
-        : user.warehouseCountry;
-      
-      // Log when no Stripe company name is available for diagnostics
-      if (!user.companyName && !stripeCompanyName) {
-        logger.debug(`[Stripe] No company name available in Stripe account ${account.id} for auto-population`);
-      }
-      
-      // Log when warehouse address is auto-populated
-      if (!user.warehouseStreet && stripeAddress?.line1) {
-        logger.info(`[Stripe] Auto-populating warehouse address from Stripe account ${account.id}`, {
-          warehouseStreet,
-          warehouseCity,
-          warehouseState,
-          warehousePostalCode,
-          warehouseCountry,
-        });
-      } else if (!stripeAddress?.line1) {
-        logger.warn(`[Stripe] Cannot auto-populate warehouse: No address data in Stripe account ${account.id}`);
-      }
-      
-      // Update user with latest status and auto-populated fields
-      await storage.upsertUser({
-        ...user,
-        stripeChargesEnabled: account.charges_enabled ? 1 : 0,
-        stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
-        stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
-        listingCurrency: account.default_currency?.toUpperCase() || 'USD',
-        companyName,
-        businessType,
-        warehouseStreet,
-        warehouseCity,
-        warehouseState,
-        warehousePostalCode,
-        warehouseCountry,
-      });
-
-      res.json({
-        connected: true,
-        accountId: account.id,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted,
-        currency: account.default_currency,
-        country: account.country,
-        requirements: account.requirements,
-        capabilities: {
-          card_payments: account.capabilities?.card_payments || 'inactive',
-          transfers: account.capabilities?.transfers || 'inactive',
-        },
-        businessProfile: {
-          name: account.business_profile?.name,
-          url: account.business_profile?.url,
-          supportEmail: account.business_profile?.support_email,
-          supportPhone: account.business_profile?.support_phone,
-        },
-        payoutSchedule: {
-          interval: account.settings?.payouts?.schedule?.interval || 'manual',
-          delayDays: account.settings?.payouts?.schedule?.delay_days || 0,
-        },
-        // Individual or company details with address
-        individual: account.individual ? {
-          firstName: account.individual.first_name,
-          lastName: account.individual.last_name,
-          email: account.individual.email,
-          phone: account.individual.phone,
-          address: account.individual.address ? {
-            line1: account.individual.address.line1,
-            line2: account.individual.address.line2,
-            city: account.individual.address.city,
-            state: account.individual.address.state,
-            postalCode: account.individual.address.postal_code,
-            country: account.individual.address.country,
-          } : null,
-        } : null,
-        company: account.company ? {
-          name: account.company.name,
-          phone: account.company.phone,
-          address: account.company.address ? {
-            line1: account.company.address.line1,
-            line2: account.company.address.line2,
-            city: account.company.address.city,
-            state: account.company.address.state,
-            postalCode: account.company.address.postal_code,
-            country: account.company.address.country,
-          } : null,
-        } : null,
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Stripe account status error", error);
       res.status(500).json({ error: "Failed to check account status" });
