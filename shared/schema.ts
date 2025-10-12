@@ -31,6 +31,27 @@ export const userTypePgEnum = pgEnum("user_type", ["seller", "buyer", "collabora
 // PostgreSQL enum for store context roles (buyer/seller/owner)
 export const storeContextRolePgEnum = pgEnum("store_context_role", ["buyer", "seller", "owner"]);
 
+// PostgreSQL enum for order event types
+export const orderEventTypePgEnum = pgEnum("order_event_type", [
+  "status_change",
+  "email_sent",
+  "payment_received",
+  "refund_processed",
+  "tracking_updated",
+  "balance_payment_requested",
+  "balance_payment_received",
+  "document_generated"
+]);
+
+// PostgreSQL enum for balance payment status
+export const balancePaymentStatusPgEnum = pgEnum("order_balance_payment_status", [
+  "pending",
+  "requested",
+  "paid",
+  "failed",
+  "cancelled"
+]);
+
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
 
@@ -275,6 +296,80 @@ export const insertRefundSchema = createInsertSchema(refunds).omit({
 });
 export type InsertRefund = z.infer<typeof insertRefundSchema>;
 export type Refund = typeof refunds.$inferSelect;
+
+// Order Events - track all order-related events (status changes, emails sent, etc.)
+export const orderEventTypeEnum = z.enum([
+  "status_change",
+  "email_sent",
+  "payment_received",
+  "refund_processed",
+  "tracking_updated",
+  "balance_payment_requested",
+  "balance_payment_received",
+  "document_generated"
+]);
+export type OrderEventType = z.infer<typeof orderEventTypeEnum>;
+
+export const orderEvents = pgTable("order_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  eventType: orderEventTypePgEnum("event_type").notNull(), // Uses PostgreSQL enum for type safety
+  payload: jsonb("payload"), // Event-specific data (e.g., { emailType: "order_confirmation", recipient: "buyer@email.com" })
+  description: text("description"), // Human-readable event description
+  performedBy: varchar("performed_by"), // User ID who triggered the event (null for system events)
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("order_events_order_id_idx").on(table.orderId),
+    occurredAtIdx: index("order_events_occurred_at_idx").on(table.occurredAt),
+  };
+});
+
+export const insertOrderEventSchema = createInsertSchema(orderEvents).omit({ 
+  id: true, 
+  occurredAt: true 
+});
+export type InsertOrderEvent = z.infer<typeof insertOrderEventSchema>;
+export type OrderEvent = typeof orderEvents.$inferSelect;
+
+// Order Balance Payments - track deposit and balance payment lifecycle for pre-orders/made-to-order
+export const balancePaymentStatusEnum = z.enum([
+  "pending", 
+  "requested", 
+  "paid", 
+  "failed", 
+  "cancelled"
+]);
+export type BalancePaymentStatus = z.infer<typeof balancePaymentStatusEnum>;
+
+export const orderBalancePayments = pgTable("order_balance_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  amountDue: decimal("amount_due", { precision: 10, scale: 2 }).notNull(), // Total balance amount due
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).notNull().default("0"), // Amount paid so far (notNull prevents NULL arithmetic errors)
+  currency: varchar("currency", { length: 3 }).notNull(), // ISO 4217 currency code
+  status: balancePaymentStatusPgEnum("status").notNull().default("pending"), // Uses PostgreSQL enum for type safety
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"), // Stripe payment intent ID for balance payment
+  requestedAt: timestamp("requested_at"), // When balance payment was requested from buyer
+  paidAt: timestamp("paid_at"), // When balance payment was received
+  emailSentAt: timestamp("email_sent_at"), // When balance payment request email was sent
+  lastReminderAt: timestamp("last_reminder_at"), // When last reminder was sent
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("balance_payments_order_id_idx").on(table.orderId),
+    statusIdx: index("balance_payments_status_idx").on(table.status),
+  };
+});
+
+export const insertOrderBalancePaymentSchema = createInsertSchema(orderBalancePayments).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertOrderBalancePayment = z.infer<typeof insertOrderBalancePaymentSchema>;
+export type OrderBalancePayment = typeof orderBalancePayments.$inferSelect;
 
 // Cancellation Requests - track buyer cancellation requests for pre-shipment orders
 export const cancellationRequests = pgTable("cancellation_requests", {
