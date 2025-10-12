@@ -28,6 +28,7 @@ import { PaymentService } from "./services/payment/payment.service";
 import { ProductService } from "./services/product.service";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
 import { StripeConnectService } from "./services/stripe-connect.service";
+import { SubscriptionService } from "./services/subscription.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -104,6 +105,12 @@ const legacyCheckoutService = new LegacyStripeCheckoutService(
 
 // Initialize Stripe Connect service (Architecture 3 migration)
 const stripeConnectService = new StripeConnectService(
+  storage,
+  stripe || null
+);
+
+// Initialize Subscription service (Architecture 3 migration)
+const subscriptionService = new SubscriptionService(
   storage,
   stripe || null
 );
@@ -3614,138 +3621,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create subscription checkout session
   app.post("/api/subscription/create", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const { plan, activateStore = false } = req.body; // "monthly" or "annual", auto-activate store
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
+      const { plan } = req.body;
+      const origin = req.headers.origin || 'http://localhost:5000';
 
-      // Get or create Stripe price IDs
-      let priceId: string;
-      
-      // In test mode, create prices programmatically
-      if (process.env.NODE_ENV === 'development' || !process.env.STRIPE_PRICE_MONTHLY || !process.env.STRIPE_PRICE_ANNUAL) {
-        // Create product if it doesn't exist
-        const products = await stripe.products.list({ limit: 1 });
-        let product = products.data.find(p => p.name === 'Upfirst Pro');
-        
-        if (!product) {
-          product = await stripe.products.create({
-            name: 'Upfirst Pro',
-            description: 'Professional e-commerce platform subscription',
-          });
-        }
-
-        // Create or get prices
-        const prices = await stripe.prices.list({ product: product.id });
-        
-        if (plan === "annual") {
-          let annualPrice = prices.data.find(p => p.recurring?.interval === 'year' && p.unit_amount === 9900);
-          if (!annualPrice) {
-            annualPrice = await stripe.prices.create({
-              product: product.id,
-              unit_amount: 9900, // $99.00
-              currency: 'usd',
-              recurring: { interval: 'year' },
-            });
-          }
-          priceId = annualPrice.id;
-        } else {
-          let monthlyPrice = prices.data.find(p => p.recurring?.interval === 'month' && p.unit_amount === 999);
-          if (!monthlyPrice) {
-            monthlyPrice = await stripe.prices.create({
-              product: product.id,
-              unit_amount: 999, // $9.99
-              currency: 'usd',
-              recurring: { interval: 'month' },
-            });
-          }
-          priceId = monthlyPrice.id;
-        }
-      } else {
-        // Use environment variable price IDs for production
-        priceId = plan === "annual" 
-          ? process.env.STRIPE_PRICE_ANNUAL!
-          : process.env.STRIPE_PRICE_MONTHLY!;
-      }
-
-      // Create or get Stripe customer
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          metadata: { userId: user.id },
-        });
-        customerId = customer.id;
-        await storage.upsertUser({ ...user, stripeCustomerId: customerId });
-      }
-
-      // Calculate trial end date - only use if valid and in the future
-      let trialEndTimestamp: number | undefined;
-      let shouldUpdateTrialDate = false;
-      
-      if (user.trialEndsAt) {
-        const existingTrialEnd = new Date(user.trialEndsAt);
-        // Only use trial end if it's valid and in the future
-        if (Number.isFinite(existingTrialEnd.getTime()) && existingTrialEnd.getTime() > Date.now()) {
-          trialEndTimestamp = Math.floor(existingTrialEnd.getTime() / 1000);
-        }
-      } else {
-        // No trial date set - create new 30-day trial
-        const newTrialEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        trialEndTimestamp = Math.floor(newTrialEnd.getTime() / 1000);
-        shouldUpdateTrialDate = true;
-      }
-
-      // Create Checkout Session with trial if applicable
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [{
-          price: priceId,
-          quantity: 1,
-        }],
-        subscription_data: trialEndTimestamp ? {
-          trial_end: trialEndTimestamp,
-        } : undefined,
-        success_url: `${req.headers.origin || 'http://localhost:5000'}/subscription-success`,
-        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/settings?subscription=cancelled`,
-        metadata: {
-          userId: user.id,
-          plan: plan,
-        },
-        // Disable Link for automated testing - allows test agents to complete checkout
-        payment_method_options: {
-          card: {
-            request_three_d_secure: 'any',
-          },
-        },
-        customer_update: {
-          address: 'never',
-          name: 'never',
-        },
+      const result = await subscriptionService.createCheckoutSession({
+        userId,
+        plan,
+        origin,
       });
 
-      // Update trial end date if new trial was created
-      if (shouldUpdateTrialDate) {
-        const newTrialEndDate = new Date(trialEndTimestamp! * 1000);
-        await storage.upsertUser({
-          ...user,
-          trialEndsAt: newTrialEndDate,
-        });
+      if (!result.success) {
+        const statusCode = result.error === "User not found" ? 404 : 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      res.json({ 
-        checkoutUrl: session.url,
-        sessionId: session.id,
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Create subscription error", error);
       res.status(500).json({ error: "Failed to create subscription checkout" });
@@ -3755,110 +3646,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync subscription status from Stripe (fallback when webhook not configured)
   app.post("/api/subscription/sync", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user || !user.stripeCustomerId) {
-        return res.status(404).json({ error: "No Stripe customer found" });
+
+      const result = await subscriptionService.syncSubscription({ userId });
+
+      if (!result.success) {
+        const statusCode = result.error === "No Stripe customer found" ? 404 : 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // Fetch all subscriptions for this customer from Stripe
-      const subscriptions = await stripe.subscriptions.list({
-        customer: user.stripeCustomerId,
-        limit: 1,
-        status: 'all',
-        expand: ['data.default_payment_method'],
-      });
-
-      if (subscriptions.data.length > 0) {
-        const subscription = subscriptions.data[0];
-        
-        // Map Stripe status to our app status (match webhook handler logic)
-        let status = null;
-        if (subscription.status === 'trialing') {
-          status = 'trial';
-        } else if (subscription.status === 'active') {
-          status = 'active';
-        } else if (subscription.status === 'past_due') {
-          status = 'past_due';
-        } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
-          status = 'canceled';
-        } else if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
-          status = 'incomplete'; // Map incomplete/unpaid to a known status
-        }
-        
-        logger.info(`[Subscription Sync] Subscription ${subscription.id} has Stripe status: ${subscription.status}, mapped to: ${status}`);
-
-        // Save payment method to database if it exists and not already saved
-        if (subscription.default_payment_method && typeof subscription.default_payment_method === 'object') {
-          const paymentMethod = subscription.default_payment_method as Stripe.PaymentMethod;
-          
-          // Check if already saved
-          const existingPaymentMethods = await storage.getSavedPaymentMethodsByUserId(userId);
-          const alreadySaved = existingPaymentMethods.find((pm: any) => pm.stripePaymentMethodId === paymentMethod.id);
-          
-          if (!alreadySaved) {
-            // This is the subscription's default payment method, so it MUST be marked as default
-            // First, unset any existing default
-            for (const existingPm of existingPaymentMethods) {
-              if (existingPm.isDefault === 1) {
-                await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
-              }
-            }
-            
-            // Save the new payment method as default
-            await storage.createSavedPaymentMethod({
-              userId,
-              stripePaymentMethodId: paymentMethod.id,
-              cardBrand: paymentMethod.card?.brand || null,
-              cardLast4: paymentMethod.card?.last4 || null,
-              cardExpMonth: paymentMethod.card?.exp_month || null,
-              cardExpYear: paymentMethod.card?.exp_year || null,
-              isDefault: 1, // Always default since it's the subscription's default
-              label: null,
-            });
-            logger.info(`[Subscription Sync] Saved payment method ${paymentMethod.id} as default for user ${userId}`);
-          } else if (alreadySaved.isDefault === 0) {
-            // Payment method exists but isn't default - make it default since it's the subscription's default
-            // First, unset any existing default
-            for (const existingPm of existingPaymentMethods) {
-              if (existingPm.isDefault === 1 && existingPm.id !== alreadySaved.id) {
-                await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
-              }
-            }
-            
-            // Set this one as default
-            await storage.updateSavedPaymentMethod(alreadySaved.id, { isDefault: 1 });
-            logger.info(`[Subscription Sync] Updated payment method ${paymentMethod.id} to default for user ${userId}`);
-          }
-        }
-
-        // Update user with subscription info
-        await storage.upsertUser({
-          ...user,
-          stripeSubscriptionId: subscription.id,
-          subscriptionStatus: status,
-          subscriptionPlan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
-        });
-
-        logger.info(`[Subscription Sync] Updated user ${userId} with status: ${status}`);
-
-        res.json({
-          status,
-          plan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
-          subscriptionId: subscription.id,
-        });
-      } else {
-        // No subscription found
-        res.json({
-          status: null,
-          plan: null,
-        });
-      }
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Sync subscription error", error);
       res.status(500).json({ error: "Failed to sync subscription status" });
@@ -3868,87 +3665,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DEBUG: Manual subscription fix endpoint (temporary)
   app.post("/api/subscription/fix", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user || !user.stripeCustomerId) {
-        return res.status(404).json({ error: "No Stripe customer found" });
-      }
 
-      logger.info(`[DEBUG] Fetching subscriptions for customer ${user.stripeCustomerId}`);
+      const result = await subscriptionService.fixSubscription(userId);
 
-      // Fetch all subscriptions for this customer from Stripe with all statuses
-      const subscriptions = await stripe.subscriptions.list({
-        customer: user.stripeCustomerId,
-        limit: 10,
-        status: 'all',
-        expand: ['data.default_payment_method'],
-      });
-
-      logger.info(`[DEBUG] Found ${subscriptions.data.length} subscriptions for customer ${user.stripeCustomerId}`);
-      subscriptions.data.forEach((sub: any) => {
-        logger.info(`[DEBUG] Subscription ${sub.id}: status=${sub.status}, created=${new Date(sub.created * 1000)}, items=${JSON.stringify(sub.items.data.map((i: any) => i.price?.id))}`);
-      });
-
-      // Also check checkout sessions
-      const sessions = await stripe.checkout.sessions.list({
-        customer: user.stripeCustomerId,
-        limit: 5,
-      });
-      logger.info(`[DEBUG] Found ${sessions.data.length} checkout sessions`);
-      sessions.data.forEach((session: any) => {
-        logger.info(`[DEBUG] Checkout ${session.id}: status=${session.status}, payment_status=${session.payment_status}, subscription=${session.subscription}, mode=${session.mode}, created=${new Date(session.created * 1000)}`);
-      });
-
-      if (subscriptions.data.length > 0) {
-        const subscription = subscriptions.data[0];
-        
-        // Map Stripe status to our app status
-        let status = null;
-        if (subscription.status === 'trialing') {
-          status = 'trial';
-        } else if (subscription.status === 'active') {
-          status = 'active';
-        } else if (subscription.status === 'past_due') {
-          status = 'past_due';
-        } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
-          status = 'canceled';
-        } else if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
-          status = 'incomplete';
-        }
-
-        logger.info(`[DEBUG] Updating user with subscription ${subscription.id}, status: ${status}`);
-
-        // Update user with subscription info
-        await storage.upsertUser({
-          ...user,
-          stripeSubscriptionId: subscription.id,
-          subscriptionStatus: status,
-          subscriptionPlan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
-        });
-
-        return res.json({
-          success: true,
-          subscriptionId: subscription.id,
-          stripeStatus: subscription.status,
-          mappedStatus: status,
-          plan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
-          message: "Subscription synced successfully",
-        });
-      } else {
-        return res.json({
+      if (!result.success) {
+        const statusCode = result.error === "No Stripe customer found" ? 404 : 500;
+        return res.status(statusCode).json({ 
           success: false,
-          message: "No subscriptions found in Stripe for this customer",
-          customerId: user.stripeCustomerId,
+          error: result.error,
+          customerId: result.customerId 
         });
       }
+
+      res.json({
+        success: true,
+        ...result.data,
+      });
     } catch (error: any) {
       logger.error("[DEBUG] Subscription fix error:", error);
-      return res.status(500).json({ error: error.message || "Failed to fix subscription" });
+      res.status(500).json({ error: error.message || "Failed to fix subscription" });
     }
   });
 
@@ -3956,86 +3692,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/subscription/status", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
+
+      const result = await subscriptionService.getSubscriptionStatus(userId);
+
+      if (!result.success) {
+        return res.status(404).json({ error: result.error });
       }
 
-      let subscription = null;
-      let paymentMethod = null;
-      let upcomingInvoice = null;
-      let billingHistory: any[] = [];
-      let nextBillingDate = null;
-      let cancelAtPeriodEnd = false;
-
-      if (user.stripeSubscriptionId && stripe) {
-        try {
-          // Get subscription with expanded data
-          subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
-            expand: ['default_payment_method']
-          });
-
-          // Get payment method details if available
-          if (subscription.default_payment_method) {
-            paymentMethod = subscription.default_payment_method;
-          }
-
-          // Get upcoming invoice for next billing date and amount
-          try {
-            upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-              customer: user.stripeCustomerId as string,
-            });
-            nextBillingDate = new Date(upcomingInvoice.period_end * 1000);
-          } catch (invoiceError) {
-            // No upcoming invoice (subscription might be canceled)
-            logger.info("No upcoming invoice found");
-          }
-
-          // Get billing history (last 5 invoices)
-          if (user.stripeCustomerId) {
-            const invoices = await stripe.invoices.list({
-              customer: user.stripeCustomerId,
-              limit: 5,
-            });
-            logger.info(`[Subscription Status] Retrieved ${invoices.data.length} invoices for customer ${user.stripeCustomerId}`);
-            billingHistory = invoices.data.map(inv => {
-              console.log(`[Subscription Status] Invoice ${inv.id}: amount_paid=${inv.amount_paid}, total=${inv.total}, status=${inv.status}`);
-              return {
-                id: inv.id,
-                amount: inv.amount_paid,
-                currency: inv.currency,
-                status: inv.status,
-                date: new Date(inv.created * 1000),
-                invoiceUrl: inv.hosted_invoice_url,
-                invoicePdf: inv.invoice_pdf,
-                number: inv.number,
-              };
-            });
-          }
-
-          cancelAtPeriodEnd = subscription.cancel_at_period_end;
-        } catch (error) {
-          logger.error("Error fetching subscription details", error);
-        }
-      }
-
-      res.json({
-        status: user.subscriptionStatus,
-        plan: user.subscriptionPlan,
-        trialEndsAt: user.trialEndsAt,
-        hasPaymentMethod: !!user.stripeCustomerId,
-        subscription,
-        paymentMethod,
-        nextBillingDate,
-        cancelAtPeriodEnd,
-        billingHistory,
-        upcomingInvoice: upcomingInvoice ? {
-          amount: upcomingInvoice.amount_due,
-          currency: upcomingInvoice.currency,
-          date: nextBillingDate,
-        } : null,
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Get subscription status error", error);
       res.status(500).json({ error: "Failed to get subscription status" });
@@ -4045,31 +3709,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cancel subscription (schedule cancellation at period end)
   app.post("/api/subscription/cancel", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user || !user.stripeSubscriptionId) {
-        return res.status(400).json({ error: "No active subscription" });
+
+      const result = await subscriptionService.cancelSubscription(userId);
+
+      if (!result.success) {
+        const statusCode = result.error === "No active subscription" ? 400 : 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // Schedule subscription cancellation at the end of the billing period
-      // This ensures the user keeps access through the period they've already paid for
-      const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
-        cancel_at_period_end: true,
-      });
-
-      // User remains active until the period ends - webhook will handle final cancellation
-      // Don't update subscriptionStatus here, keep it as 'active' until period ends
-      res.json({ 
-        message: "Subscription will be canceled at the end of your billing period",
-        subscription,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        periodEnd: new Date(subscription.current_period_end * 1000),
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Cancel subscription error", error);
       res.status(500).json({ error: "Failed to cancel subscription" });
@@ -4079,27 +3728,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reactivate subscription (remove scheduled cancellation)
   app.post("/api/subscription/reactivate", requireAuth, async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
-
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user || !user.stripeSubscriptionId) {
-        return res.status(400).json({ error: "No active subscription" });
+
+      const result = await subscriptionService.reactivateSubscription(userId);
+
+      if (!result.success) {
+        const statusCode = result.error === "No active subscription" ? 400 : 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // Remove the scheduled cancellation
-      const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
-        cancel_at_period_end: false,
-      });
-
-      res.json({ 
-        message: "Subscription reactivated successfully",
-        subscription,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      });
+      res.json(result.data);
     } catch (error: any) {
       logger.error("Reactivate subscription error", error);
       res.status(500).json({ error: "Failed to reactivate subscription" });
