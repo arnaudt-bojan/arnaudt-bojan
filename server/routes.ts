@@ -30,6 +30,7 @@ import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.s
 import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
 import { WholesaleService } from "./services/wholesale.service";
+import { TeamManagementService } from "./services/team-management.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -118,6 +119,9 @@ const subscriptionService = new SubscriptionService(
 
 // Initialize Wholesale service (Architecture 3 migration)
 const wholesaleService = new WholesaleService(storage);
+
+// Initialize Team Management service (Architecture 3 migration)
+const teamService = new TeamManagementService(storage, notificationService);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -2497,11 +2501,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Team Management - Invite users
   app.post("/api/invitations", requireAuth, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      // Only sellers (not team members) can send invitations
-      // Check: must be seller/owner/admin role AND must not have a sellerId (meaning they ARE the owner, not a team member)
-      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
-        return res.status(403).json({ error: "Only store owners can invite team members" });
+      // Validate owner permissions
+      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
+      if (!permCheck.isOwner) {
+        return res.status(403).json({ error: permCheck.error || "Only store owners can invite team members" });
       }
 
       const { email, role } = req.body;
@@ -2509,37 +2512,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email and role are required" });
       }
 
-      // Updated roles: admin, editor, viewer
-      if (!["admin", "editor", "viewer"].includes(role)) {
-        return res.status(400).json({ error: "Invalid role. Valid roles: admin, editor, viewer" });
-      }
-
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(400).json({ error: "User with this email already exists" });
-      }
-
-      // Generate unique token
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-      const invitation = await storage.createInvitation({
+      const result = await teamService.createInvitation({
         email,
         role,
-        invitedBy: currentUser.id,
-        status: "pending",
-        token,
-        expiresAt,
+        inviterId: req.user.claims.sub,
+        protocol: req.protocol,
+        host: req.get('host') || '',
       });
 
-      // In a real app, you'd send an email here with the invitation link
-      const invitationLink = `${req.protocol}://${req.get('host')}/accept-invitation?token=${token}`;
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ error: result.error });
+      }
 
-      res.status(201).json({ 
-        invitation,
-        invitationLink, // For testing purposes
-      });
+      res.status(201).json(result.data);
     } catch (error: any) {
       logger.error("Invitation error", error);
       res.status(500).json({ error: "Failed to create invitation" });
@@ -2549,14 +2535,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all invitations
   app.get("/api/invitations", requireAuth, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      // Only sellers (not team members) can view invitations
-      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
-        return res.status(403).json({ error: "Only store owners can view invitations" });
+      // Validate owner permissions
+      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
+      if (!permCheck.isOwner) {
+        return res.status(403).json({ error: permCheck.error || "Only store owners can view invitations" });
       }
 
-      const invitations = await storage.getAllInvitations();
-      res.json(invitations);
+      const result = await teamService.getInvitations(req.user.claims.sub);
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ error: result.error });
+      }
+
+      res.json(result.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch invitations" });
     }
@@ -2565,93 +2556,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Accept invitation - works for both new and existing users
   app.post("/api/invitations/accept/:token", async (req: any, res) => {
     try {
-      const invitation = await storage.getInvitationByToken(req.params.token);
-      if (!invitation) {
-        return res.status(404).json({ error: "Invitation not found" });
-      }
-
-      if (invitation.status !== "pending") {
-        return res.status(400).json({ error: "Invitation already used or expired" });
-      }
-
-      if (new Date() > new Date(invitation.expiresAt)) {
-        await storage.updateInvitationStatus(invitation.token, "expired");
-        return res.status(400).json({ error: "Invitation has expired" });
-      }
-
-      // Get the inviter to determine sellerId
-      const inviter = await storage.getUser(invitation.invitedBy);
-      if (!inviter) {
-        return res.status(400).json({ error: "Inviter not found" });
-      }
-
-      // Get canonical owner ID: if inviter has sellerId, they're a team member (use sellerId); otherwise they ARE the owner (use their ID)
-      const canonicalOwnerId = inviter.sellerId || inviter.id;
-      if (!canonicalOwnerId) {
-        return res.status(400).json({ error: "Could not determine store owner" });
-      }
-
-      // Check if user exists
-      let user = await storage.getUserByEmail(invitation.email);
+      const result = await teamService.acceptInvitation({ token: req.params.token });
       
-      if (user) {
-        // User exists - update their role and sellerId
-        await storage.upsertUser({
-          ...user,
-          role: invitation.role,
-          sellerId: canonicalOwnerId,
-        });
-      } else {
-        // New user - create account with admin role (no password, will use magic link)
-        const newUserId = `usr_${Math.random().toString(36).substring(2, 15)}`;
-        user = await storage.upsertUser({
-          id: newUserId,
-          email: invitation.email.toLowerCase().trim(),
-          password: null, // No password - will use magic link auth
-          role: invitation.role,
-          sellerId: canonicalOwnerId,
-          firstName: null,
-          lastName: null,
-          username: null,
-          storeDescription: null,
-          storeBanner: null,
-          storeLogo: null,
-          storeActive: null,
-          shippingCost: null,
-          instagramUsername: null,
-        });
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      // Mark invitation as accepted
-      await storage.updateInvitationStatus(invitation.token, "accepted");
-
-      // Generate auth token for auto-login
-      const authToken = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-      const authExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-      
-      await storage.createAuthToken({
-        email: invitation.email,
-        token: authToken,
-        expiresAt: authExpiresAt,
-        used: 0,
-        sellerContext: null, // Team member is on main domain
-      });
-
-      // Generate magic link URL
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
-        : `http://localhost:${process.env.PORT || 5000}`;
-      const magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${authToken}&redirect=/seller-dashboard`;
-
-      // Send magic link for auto-login
-      await notificationService.sendMagicLink(invitation.email, magicLink);
-
-      res.json({ 
-        message: "Invitation accepted successfully. Check your email for login link.", 
-        role: invitation.role,
-        requiresLogin: true,
-        email: invitation.email
-      });
+      res.json(result.data);
     } catch (error) {
       logger.error("Accept invitation error", error);
       res.status(500).json({ error: "Failed to accept invitation" });
@@ -2661,35 +2573,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get team members for current seller's store
   app.get("/api/team", requireAuth, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Only sellers (admin/owner) can view their team
-      if (!["admin", "owner"].includes(currentUser.role)) {
-        return res.status(403).json({ error: "Only store owners can manage team members" });
-      }
-
-      // Get canonical owner ID: if owner, use their ID; otherwise use their sellerId
-      const canonicalOwnerId = currentUser.role === "owner" ? currentUser.id : currentUser.sellerId;
-      if (!canonicalOwnerId) {
-        return res.status(400).json({ error: "No store owner found for this user" });
-      }
-
-      // Get team members for this seller's store
-      const users = await storage.getTeamMembersBySellerId(canonicalOwnerId);
+      const result = await teamService.getTeamMembers(req.user.claims.sub);
       
-      // Don't expose sensitive info
-      const sanitizedUsers = users.map(u => ({
-        id: u.id,
-        email: u.email,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        role: u.role,
-        createdAt: u.createdAt,
-      }));
-      res.json(sanitizedUsers);
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ error: result.error });
+      }
+
+      res.json(result.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch team members" });
     }
@@ -2698,24 +2589,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user role
   app.patch("/api/team/:userId/role", requireAuth, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      // Only sellers (not team members) can update roles
-      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
-        return res.status(403).json({ error: "Only store owners can update team member roles" });
+      // Validate owner permissions
+      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
+      if (!permCheck.isOwner) {
+        return res.status(403).json({ error: permCheck.error || "Only store owners can update team member roles" });
       }
 
       const { role } = req.body;
-      // Updated roles: admin, editor, viewer (removed manager, staff, customer)
-      if (!role || !["admin", "editor", "viewer"].includes(role)) {
-        return res.status(400).json({ error: "Invalid role. Valid roles: admin, editor, viewer" });
+      if (!role) {
+        return res.status(400).json({ error: "Role is required" });
       }
 
-      const updatedUser = await storage.updateUserRole(req.params.userId, role);
-      if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
+      const result = await teamService.updateMemberRole({
+        userId: req.params.userId,
+        role,
+        currentUserId: req.user.claims.sub,
+      });
+
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      res.json({ message: "User role updated successfully", user: updatedUser });
+      res.json(result.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to update user role" });
     }
@@ -2724,24 +2620,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete team member
   app.delete("/api/team/:userId", requireAuth, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      // Only sellers (not team members) can delete team members
-      if (!currentUser || !["seller", "owner", "admin"].includes(currentUser.role) || currentUser.sellerId) {
-        return res.status(403).json({ error: "Only store owners can remove team members" });
+      // Validate owner permissions
+      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
+      if (!permCheck.isOwner) {
+        return res.status(403).json({ error: permCheck.error || "Only store owners can remove team members" });
       }
 
-      // Get canonical owner ID: if current user has sellerId, they're a team member (use sellerId); otherwise they ARE the owner (use their ID)
-      const canonicalOwnerId = currentUser.sellerId || currentUser.id;
-      if (!canonicalOwnerId) {
-        return res.status(400).json({ error: "No store owner found for this user" });
+      const result = await teamService.deleteMember({
+        userId: req.params.userId,
+        currentUserId: req.user.claims.sub,
+      });
+
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ error: result.error });
       }
 
-      const deleted = await storage.deleteTeamMember(req.params.userId, canonicalOwnerId);
-      if (!deleted) {
-        return res.status(404).json({ error: "Team member not found or doesn't belong to your store" });
-      }
-
-      res.json({ message: "Team member deleted successfully" });
+      res.json(result.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to delete team member" });
     }
