@@ -25,7 +25,7 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Shopping & Checkout**: Features a slide-over and persistent cart, guest checkout, and automatic server-side shipping cost calculation, enforcing a single-seller constraint per cart.
 - **Authentication & Authorization**: Email-based authentication with a dual-token system (6-digit codes and magic links). Implements a capability-based authorization service with resource-scoped permissions for multiple user types (seller, buyer, collaborator).
 - **Notification System**: Comprehensive, refactored email notifications using Resend with dark mode compatibility and templated messages.
-- **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods and borderless seller onboarding. Includes PCI-DSS compliant saved addresses and payment methods.
+- **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods and country-selectable seller onboarding. Users select their country before account creation (cannot be changed later), preventing auto-detected country lock-in. Includes PCI-DSS compliant saved addresses and payment methods.
 - **Subscription System**: Monthly/annual subscription model for sellers with a free trial, managed via Stripe.
 - **Multi-Currency Support**: IP-based currency detection with user-selectable currency, real-time exchange rates, and backend-driven seller-specific currency display.
 - **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders.
