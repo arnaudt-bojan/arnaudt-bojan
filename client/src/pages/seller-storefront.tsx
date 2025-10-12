@@ -1,14 +1,35 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ProductCard } from "@/components/product-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Store } from "lucide-react";
-import type { User } from "@shared/schema";
+import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList } from "lucide-react";
+import { ProductFiltersSheet } from "@/components/product-filters-sheet";
+import { Footer } from "@/components/footer";
+import { Button } from "@/components/ui/button";
+import type { User, Product } from "@shared/schema";
+
+interface FilterOptions {
+  categories: string[];
+  productTypes: string[];
+  priceRange: [number, number];
+  sizes: string[];
+  colors: string[];
+  sortBy: string;
+}
 
 export default function SellerStorefront() {
   const { username } = useParams();
   const [, setLocation] = useLocation();
+  const [cardSize, setCardSize] = useState<"compact" | "medium" | "large">("medium");
+  const [filters, setFilters] = useState<FilterOptions>({
+    categories: [],
+    productTypes: [],
+    priceRange: [0, 10000],
+    sortBy: "newest",
+    sizes: [],
+    colors: [],
+  });
 
   // Check if current user is authenticated
   const { data: currentUser } = useQuery<User>({
@@ -16,18 +37,17 @@ export default function SellerStorefront() {
   });
 
   // Fetch seller by username - DON'T throw on 404, handle gracefully
-  const { data: seller, isLoading: sellerLoading, error: sellerError } = useQuery<any>({
+  const { data: seller, isLoading: sellerLoading } = useQuery<any>({
     queryKey: ["/api/sellers", username],
     queryFn: async () => {
       const response = await fetch(`/api/sellers/${username}`);
       if (!response.ok) {
-        // Don't throw - return null to handle gracefully
         return null;
       }
       return response.json();
     },
     enabled: !!username,
-    retry: false, // Don't retry on 404
+    retry: false,
   });
 
   // Check if logged-in user is viewing their own store (fallback)
@@ -37,7 +57,7 @@ export default function SellerStorefront() {
   const effectiveSeller = seller || (isOwnStore ? currentUser : null);
 
   // Fetch seller's products - use effectiveSeller to support fallback
-  const { data: products, isLoading: productsLoading } = useQuery<any[]>({
+  const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/seller", effectiveSeller?.id],
     queryFn: async () => {
       if (!effectiveSeller?.id) return [];
@@ -49,6 +69,60 @@ export default function SellerStorefront() {
   });
   
   const isLoading = sellerLoading || productsLoading;
+
+  // Filter and sort products
+  const filteredProducts = products
+    ?.filter((p) => {
+      // Category filter
+      if (filters.categories.length > 0 && !filters.categories.includes(p.category)) {
+        return false;
+      }
+      
+      // Product type filter
+      if (filters.productTypes.length > 0 && !filters.productTypes.includes(p.productType)) {
+        return false;
+      }
+      
+      // Price filter
+      const price = parseFloat(p.price);
+      if (price < filters.priceRange[0] || price > filters.priceRange[1]) return false;
+      
+      return true;
+    })
+    .sort((a, b) => {
+      switch (filters.sortBy) {
+        case "price-low":
+          return parseFloat(a.price) - parseFloat(b.price);
+        case "price-high":
+          return parseFloat(b.price) - parseFloat(a.price);
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        case "newest":
+        default:
+          return 0;
+      }
+    });
+
+  // Calculate max price for filter
+  const maxPrice = products 
+    ? Math.max(...products.map(p => parseFloat(p.price)), 1000)
+    : 1000;
+  
+  // Dynamic grid classes based on card size
+  const getGridClasses = () => {
+    switch (cardSize) {
+      case "compact":
+        return "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4";
+      case "medium":
+        return "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6";
+      case "large":
+        return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8";
+      default:
+        return "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6";
+    }
+  };
 
   if (sellerLoading) {
     return (
@@ -64,7 +138,7 @@ export default function SellerStorefront() {
   // If no seller found and not own store, show storefront with message (stay in context)
   if (!effectiveSeller) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen flex flex-col">
         {/* Store Header - Show username even if seller not found */}
         <div className="border-b bg-card">
           <div className="container py-8">
@@ -85,7 +159,7 @@ export default function SellerStorefront() {
         </div>
 
         {/* Empty State */}
-        <div className="container py-12">
+        <div className="container py-12 flex-1">
           <div className="text-center max-w-md mx-auto">
             <Store className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">Store Not Available</h2>
@@ -95,15 +169,17 @@ export default function SellerStorefront() {
             </p>
           </div>
         </div>
+        
+        <Footer sellerInfo={null} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       {/* Banner - Only show if uploaded */}
       {effectiveSeller.storeBanner && (
-        <div className="w-full h-64 overflow-hidden">
+        <div className="relative w-full aspect-[21/9] md:aspect-[21/7] overflow-hidden">
           <img 
             src={effectiveSeller.storeBanner} 
             alt="Store banner" 
@@ -114,24 +190,80 @@ export default function SellerStorefront() {
       )}
 
       {/* Products Section */}
-      <div className="container py-8">
+      <div className="container mx-auto px-4 max-w-7xl py-8 flex-1">
+        {/* Controls Bar */}
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          {/* Left: Filter Button */}
+          <div className="flex gap-2 items-center">
+            <ProductFiltersSheet 
+              onFilterChange={setFilters} 
+              maxPrice={maxPrice}
+            />
+          </div>
+          
+          {/* Right: Card Size Controls */}
+          <div className="flex gap-1 items-center">
+            <span className="text-sm text-muted-foreground mr-2">View:</span>
+            <Button
+              variant={cardSize === "compact" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCardSize("compact")}
+              className="gap-1.5"
+              data-testid="button-view-compact"
+            >
+              <Grid3x3 className="h-3.5 w-3.5" />
+              Compact
+            </Button>
+            <Button
+              variant={cardSize === "medium" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCardSize("medium")}
+              className="gap-1.5"
+              data-testid="button-view-medium"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Medium
+            </Button>
+            <Button
+              variant={cardSize === "large" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCardSize("large")}
+              className="gap-1.5"
+              data-testid="button-view-large"
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+              Large
+            </Button>
+          </div>
+        </div>
+
+        {/* Products Grid */}
         {productsLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading products...</p>
           </div>
-        ) : !products || products.length === 0 ? (
+        ) : !filteredProducts || filteredProducts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No products available at this time.</p>
+            <Store className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">
+              {products && products.length > 0 ? "No products match your filters" : "No products available"}
+            </h2>
+            <p className="text-muted-foreground">
+              {products && products.length > 0 ? "Try adjusting your filters to see more products." : "This store doesn't have any products yet."}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products.map((product: any) => (
+          <div className={getGridClasses()}>
+            {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
       </div>
+
+      {/* Footer with seller info */}
+      <Footer sellerInfo={effectiveSeller} />
     </div>
   );
 }

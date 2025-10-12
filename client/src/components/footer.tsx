@@ -14,6 +14,7 @@ interface FooterProps {
   sellerInfo?: {
     firstName?: string | null;
     lastName?: string | null;
+    email?: string | null; // Login email (fallback for contact)
     socialInstagram?: string | null;
     socialTwitter?: string | null;
     socialTiktok?: string | null;
@@ -34,6 +35,9 @@ export function Footer({ sellerInfo }: FooterProps) {
     sellerInfo.socialSnapchat || 
     sellerInfo.socialWebsite
   );
+
+  // Use contactEmail if set, otherwise fall back to login email
+  const displayEmail = sellerInfo?.contactEmail || sellerInfo?.email;
 
   // Helper function to construct social media links
   const getSocialLink = (value: string, platform: 'instagram' | 'twitter' | 'tiktok' | 'snapchat'): string => {
@@ -63,10 +67,10 @@ export function Footer({ sellerInfo }: FooterProps) {
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           {/* Left side: Seller info (Contact, Socials, About) */}
           <div className="flex items-center gap-6 flex-wrap justify-center md:justify-start">
-            {/* Contact */}
-            {sellerInfo?.contactEmail && (
+            {/* Contact - uses contactEmail or falls back to login email */}
+            {displayEmail && (
               <a 
-                href={`mailto:${sellerInfo.contactEmail}`}
+                href={`mailto:${displayEmail}`}
                 className="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5"
                 data-testid="link-contact"
               >
