@@ -772,16 +772,46 @@ export default function Checkout() {
     setLocation(`/order-success/${orderId}?email=${email}`);
   };
 
-  const handleCancelPayment = () => {
-    // Reset payment state to go back to shipping form
-    setClientSecret(null);
-    setPaymentIntentId(null);
-    setOrderData(null);
-    setBillingDetails(null);
-    toast({
-      title: "Payment Cancelled",
-      description: "You can update your shipping information and try again",
-    });
+  const handleCancelPayment = async () => {
+    // Cancel payment intent on backend (releases inventory)
+    if (paymentIntentId && clientSecret) {
+      try {
+        const response = await apiRequest("POST", `/api/payment-intent/${paymentIntentId}/cancel`, {
+          client_secret: clientSecret,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to cancel payment");
+        }
+
+        // Only reset state if cancellation succeeds
+        setClientSecret(null);
+        setPaymentIntentId(null);
+        setOrderData(null);
+        setBillingDetails(null);
+
+        toast({
+          title: "Payment Cancelled",
+          description: "Inventory has been released. You can update your shipping information and try again.",
+        });
+      } catch (error: any) {
+        console.error("[Checkout] Failed to cancel payment:", error);
+        toast({
+          title: "Cancellation Error",
+          description: error.message || "Could not cancel payment. Please contact support or try again.",
+          variant: "destructive",
+        });
+        // CRITICAL: Do NOT reset state on failure - inventory may still be reserved
+        // User should contact support or wait for automatic reservation expiration
+      }
+    } else {
+      // No payment intent to cancel, safe to reset state
+      setClientSecret(null);
+      setPaymentIntentId(null);
+      setOrderData(null);
+      setBillingDetails(null);
+    }
   };
 
   if (items.length === 0 && !orderComplete) {

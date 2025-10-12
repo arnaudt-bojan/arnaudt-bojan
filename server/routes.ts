@@ -23,6 +23,7 @@ import { CartValidationService } from "./services/cart-validation.service";
 import { ShippingService } from "./services/shipping.service";
 import { StripePaymentProvider } from "./services/payment/stripe-provider";
 import { WebhookHandler } from "./services/payment/webhook-handler";
+import { PaymentService } from "./services/payment/payment.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -49,9 +50,10 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
-// Initialize payment provider and webhook handler
+// Initialize payment provider, webhook handler, and payment service
 let stripeProvider: StripePaymentProvider | null = null;
 let webhookHandler: WebhookHandler | null = null;
+let paymentService: PaymentService | null = null;
 
 if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
   stripeProvider = new StripePaymentProvider(
@@ -59,6 +61,11 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
     process.env.STRIPE_WEBHOOK_SECRET
   );
   webhookHandler = new WebhookHandler(
+    storage,
+    stripeProvider,
+    inventoryService
+  );
+  paymentService = new PaymentService(
     storage,
     stripeProvider,
     inventoryService
@@ -2148,6 +2155,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       logger.error("Failed to retrieve payment intent", error);
       res.status(500).json({ error: "Failed to retrieve payment intent" });
+    }
+  });
+
+  // Cancel Payment Intent - releases inventory and cancels Stripe payment
+  app.post("/api/payment-intent/:paymentIntentId/cancel", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const { paymentIntentId } = req.params;
+      const { client_secret } = req.body;
+      
+      // SECURITY: Require client_secret to prevent unauthorized cancellation
+      if (!client_secret || typeof client_secret !== 'string') {
+        logger.warn(`[Security] Missing client_secret for payment intent cancellation ${paymentIntentId}`);
+        return res.status(401).json({ error: "Unauthorized - client_secret required" });
+      }
+      
+      // Get our payment intent record
+      const paymentIntent = await storage.getPaymentIntentByProviderIntentId(paymentIntentId);
+      
+      if (!paymentIntent) {
+        logger.warn(`[Payment Cancel] Payment intent not found: ${paymentIntentId}`);
+        return res.status(404).json({ error: "Payment intent not found" });
+      }
+
+      // SECURITY: Validate client_secret matches
+      const stripeIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (stripeIntent.client_secret !== client_secret) {
+        logger.warn(`[Security] Invalid client_secret for payment intent cancellation ${paymentIntentId}`);
+        return res.status(401).json({ error: "Unauthorized - invalid client_secret" });
+      }
+
+      // Only allow cancellation of pending/requires_payment_method intents
+      if (!['requires_payment_method', 'requires_confirmation', 'requires_action'].includes(stripeIntent.status)) {
+        logger.warn(`[Payment Cancel] Cannot cancel payment intent with status: ${stripeIntent.status}`);
+        return res.status(400).json({ 
+          error: `Cannot cancel payment with status: ${stripeIntent.status}` 
+        });
+      }
+
+      // Use payment service if available, otherwise implement cancellation logic inline
+      if (paymentService) {
+        await paymentService.cancelPayment(paymentIntent.id);
+        logger.info(`[Payment Cancel] Successfully cancelled payment intent ${paymentIntentId} via PaymentService`);
+      } else {
+        // Fallback: Implement cancellation logic without PaymentService
+        // This supports partial Stripe configuration (secret key without webhook secret)
+        logger.info(`[Payment Cancel] PaymentService not available, using fallback cancellation`);
+        
+        const metadata: any = paymentIntent.metadata ? JSON.parse(paymentIntent.metadata) : {};
+        const { orderId, checkoutSessionId } = metadata as { orderId?: string; checkoutSessionId?: string };
+
+        // Cancel with Stripe
+        await stripe.paymentIntents.cancel(paymentIntentId);
+
+        // Update payment intent status
+        await storage.updatePaymentIntentStatus(paymentIntent.id, 'canceled');
+
+        // Release inventory reservations
+        if (checkoutSessionId) {
+          try {
+            const reservations = await storage.getStockReservationsBySession(checkoutSessionId);
+            for (const reservation of reservations) {
+              await inventoryService.releaseReservation(reservation.id);
+            }
+            logger.info(`[Payment Cancel] Released ${reservations.length} inventory reservations for checkout session ${checkoutSessionId}`);
+          } catch (releaseError) {
+            logger.error(`[Payment Cancel] Failed to release inventory reservations:`, releaseError);
+            // Continue - cancellation should succeed even if release fails
+          }
+        }
+
+        // Update order status
+        if (orderId) {
+          await storage.updateOrderStatus(orderId, 'canceled');
+          logger.info(`[Payment Cancel] Canceled order ${orderId}`);
+        }
+
+        logger.info(`[Payment Cancel] Successfully cancelled payment intent ${paymentIntentId} via fallback`);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Payment cancelled and inventory released" 
+      });
+    } catch (error: any) {
+      logger.error(`[Payment Cancel] Failed to cancel payment intent`, error);
+      res.status(500).json({ error: error.message || "Failed to cancel payment" });
     }
   });
 
