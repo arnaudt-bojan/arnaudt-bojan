@@ -44,6 +44,11 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
   - **Critical Requirement**: When reserving stock for products with variants, variantId MUST be supplied to ensure correct variant is locked
   - **Three-Layer Release Defense**: Primary (checkoutSessionId), Fallback (order items matching), Cleanup Job (5min intervals)
   - **Payment Flow**: Reserve → (Success = Commit + Decrement) OR (Failure = Release) OR (Expiration = Auto-Release)
+- **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, shipping updates, and balance payments
+  - **Core Methods**: `updateOrderStatus` (status changes + document generation), `processRefund` (full/partial with Stripe), `updateTracking` (shipping updates + notifications), `requestBalancePayment` (pre-order balance collection)
+  - **Storage Abstraction**: All order operations use IStorage interface only - no direct Drizzle table imports in services
+  - **Refund Handling**: Supports full order and item-level partial refunds with automatic Stripe processing and order item tracking updates
+  - **Balance Payments**: Creates separate Stripe payment intents for pre-order balance collection with automatic currency handling
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
