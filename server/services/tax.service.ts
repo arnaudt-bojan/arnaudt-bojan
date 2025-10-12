@@ -7,7 +7,7 @@
  * IMPORTANT: For multi-seller platforms using Stripe Connect:
  * - Tax calculations are performed on behalf of the seller's connected account
  * - Each seller must configure their own tax registrations in their Stripe account
- * - The seller's warehouse address is used as ship_from for origin-based tax
+ * - The seller's warehouse address is used as ship_from_details for origin-based tax
  */
 
 import Stripe from "stripe";
@@ -48,7 +48,7 @@ export class TaxService {
    * Tax calculation uses:
    * - Seller's tax registrations (configured in their Stripe Connect dashboard)
    * - Customer's shipping address
-   * - Seller's warehouse address (ship_from origin)
+   * - Seller's warehouse address (ship_from_details origin)
    * - Product tax codes
    */
   async calculateTax(params: TaxCalculationParams): Promise<TaxCalculation> {
@@ -92,8 +92,8 @@ export class TaxService {
         });
       }
 
-      // Build ship_from address using seller's warehouse (required for origin-based tax)
-      const shipFrom: Stripe.Tax.CalculationCreateParams.ShipFrom | undefined = 
+      // Build ship_from_details address using seller's warehouse (required for origin-based tax)
+      const shipFromDetails: Stripe.Tax.CalculationCreateParams.ShipFromDetails | undefined = 
         seller.warehouseStreet && seller.warehouseCity && seller.warehouseCountry
           ? {
               address: {
@@ -126,9 +126,9 @@ export class TaxService {
         expand: ['line_items.data.tax_breakdown'],
       };
 
-      // Add ship_from if warehouse address is configured
-      if (shipFrom) {
-        calculationParams.ship_from = shipFrom;
+      // Add ship_from_details if warehouse address is configured
+      if (shipFromDetails) {
+        calculationParams.ship_from_details = shipFromDetails;
       }
 
       if (!this.stripe) {
@@ -151,7 +151,7 @@ export class TaxService {
       return {
         taxAmount,
         taxBreakdown: calculation.tax_breakdown || null,
-        calculationId: calculation.id,
+        calculationId: calculation.id || "",
       };
     } catch (error: any) {
       console.error("[TaxService] Error calculating tax:", error.message || error);
