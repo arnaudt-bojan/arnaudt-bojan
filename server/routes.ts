@@ -4006,14 +4006,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stripeAddress = account.individual?.address || account.company?.address;
       
       // Debug logging for warehouse auto-population
-      logger.info(`[Stripe] Warehouse auto-population check for account ${account.id}:`, {
-        currentWarehouseStreet: user.warehouseStreet || 'empty',
+      logger.info(`[Stripe] Warehouse auto-population check for account ${account.id}`, {
+        currentWarehouseStreet: user.warehouseStreet ?? 'empty',
         stripeAddressAvailable: !!stripeAddress,
-        stripeAddressLine1: stripeAddress?.line1 || 'none',
-        stripeAddressCity: stripeAddress?.city || 'none',
-        stripeAddressState: stripeAddress?.state || 'none',
-        stripeAddressPostalCode: stripeAddress?.postal_code || 'none',
-        stripeAddressCountry: stripeAddress?.country || 'none',
+        stripeAddressLine1: stripeAddress?.line1 ?? 'none',
+        stripeAddressCity: stripeAddress?.city ?? 'none',
+        stripeAddressState: stripeAddress?.state ?? 'none',
+        stripeAddressPostalCode: stripeAddress?.postal_code ?? 'none',
+        stripeAddressCountry: stripeAddress?.country ?? 'none',
       });
       
       const warehouseStreet = !user.warehouseStreet && stripeAddress?.line1 
