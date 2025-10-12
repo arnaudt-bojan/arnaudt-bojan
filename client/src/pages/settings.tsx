@@ -276,24 +276,32 @@ function SubscriptionTab({ user }: { user: any }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {subscriptionStatus?.status === "trial" && (
+            {subscriptionStatus?.status === "trial" && !subscriptionStatus.cancelAtPeriodEnd && (
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="h-5 w-5 text-blue-600" />
                   <h3 className="font-semibold text-blue-900 dark:text-blue-100">Free Trial Active</h3>
                 </div>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
                   {daysRemaining !== null && daysRemaining > 0
                     ? `${daysRemaining} days remaining in your trial`
                     : "Your trial has ended"}
                 </p>
-                <Button 
-                  onClick={() => setShowSubscriptionDialog(true)}
-                  size="sm"
-                  data-testid="button-upgrade-from-trial"
-                >
-                  Upgrade to Paid Plan
-                </Button>
+                <div className="space-y-2">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Your {subscriptionStatus.plan === "monthly" ? "Monthly" : "Annual"} plan will start after trial ends
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => setShowCancelDialog(true)}
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-cancel-subscription-trial"
+                    >
+                      Cancel Subscription
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -313,10 +321,18 @@ function SubscriptionTab({ user }: { user: any }) {
               <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="h-5 w-5 text-orange-600" />
-                  <h3 className="font-semibold text-orange-900 dark:text-orange-100">Subscription Ending</h3>
+                  <h3 className="font-semibold text-orange-900 dark:text-orange-100">
+                    {subscriptionStatus.status === "trial" ? "Trial Ending - No Charges" : "Subscription Ending"}
+                  </h3>
                 </div>
+                <p className="text-sm text-orange-700 dark:text-orange-300 mb-2">
+                  {subscriptionStatus.status === "trial" 
+                    ? `Your trial will end on ${subscriptionStatus.nextBillingDate ? formatDate(subscriptionStatus.nextBillingDate) : "the trial end date"}. You will not be charged.`
+                    : `Your subscription will end on ${subscriptionStatus.nextBillingDate ? formatDate(subscriptionStatus.nextBillingDate) : "the billing date"}.`
+                  }
+                </p>
                 <p className="text-sm text-orange-700 dark:text-orange-300">
-                  Your subscription will end on {subscriptionStatus.nextBillingDate ? formatDate(subscriptionStatus.nextBillingDate) : "the billing date"}
+                  Your store will become inactive after {subscriptionStatus.status === "trial" ? "trial" : "subscription"} ends.
                 </p>
               </div>
             )}
@@ -337,8 +353,8 @@ function SubscriptionTab({ user }: { user: any }) {
           </CardContent>
         </Card>
 
-        {/* Billing Details - Only show for active paid subscriptions */}
-        {subscriptionStatus?.status === "active" && (
+        {/* Billing Details - Show for trial and active subscriptions */}
+        {(subscriptionStatus?.status === "active" || subscriptionStatus?.status === "trial") && (
           <Card>
             <CardHeader>
               <CardTitle>Billing Details</CardTitle>
@@ -356,7 +372,9 @@ function SubscriptionTab({ user }: { user: any }) {
                 </div>
                 {subscriptionStatus.nextBillingDate && !subscriptionStatus.cancelAtPeriodEnd && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Next Billing Date</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      {subscriptionStatus.status === "trial" ? "First Billing Date (Trial Ends)" : "Next Billing Date"}
+                    </p>
                     <p className="text-lg font-semibold">
                       {formatDate(subscriptionStatus.nextBillingDate)}
                     </p>
