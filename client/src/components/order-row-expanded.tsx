@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Package, User, MapPin, CreditCard, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OrderActionBar } from "@/components/order-action-bar";
 import type { Order, OrderItem } from "@shared/schema";
 
 interface OrderRowExpandedProps {
@@ -72,6 +73,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
 
   return (
     <div className="space-y-6" data-testid={`order-expanded-${orderId}`}>
+      {/* Action Bar */}
+      <div className="flex justify-end">
+        <OrderActionBar order={order} />
+      </div>
+
       {/* Order Summary & Customer Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Order Summary */}
