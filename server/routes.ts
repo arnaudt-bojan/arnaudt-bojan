@@ -4312,7 +4312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (subscriptions.data.length > 0) {
         const subscription = subscriptions.data[0];
         
-        // Map Stripe status to our app status
+        // Map Stripe status to our app status (match webhook handler logic)
         let status = null;
         if (subscription.status === 'trialing') {
           status = 'trial';
@@ -4322,7 +4322,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status = 'past_due';
         } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
           status = 'canceled';
+        } else if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
+          status = 'incomplete'; // Map incomplete/unpaid to a known status
         }
+        
+        logger.info(`[Subscription Sync] Subscription ${subscription.id} has Stripe status: ${subscription.status}, mapped to: ${status}`);
 
         // Save payment method to database if it exists and not already saved
         if (subscription.default_payment_method && typeof subscription.default_payment_method === 'object') {
@@ -4393,6 +4397,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       logger.error("Sync subscription error", error);
       res.status(500).json({ error: "Failed to sync subscription status" });
+    }
+  });
+
+  // DEBUG: Manual subscription fix endpoint (temporary)
+  app.post("/api/subscription/fix", requireAuth, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(404).json({ error: "No Stripe customer found" });
+      }
+
+      logger.info(`[DEBUG] Fetching subscriptions for customer ${user.stripeCustomerId}`);
+
+      // Fetch all subscriptions for this customer from Stripe with all statuses
+      const subscriptions = await stripe.subscriptions.list({
+        customer: user.stripeCustomerId,
+        limit: 10,
+        status: 'all',
+        expand: ['data.default_payment_method'],
+      });
+
+      logger.info(`[DEBUG] Found ${subscriptions.data.length} subscriptions`);
+      subscriptions.data.forEach((sub: any) => {
+        logger.info(`[DEBUG] Subscription ${sub.id}: status=${sub.status}, created=${new Date(sub.created * 1000)}`);
+      });
+
+      if (subscriptions.data.length > 0) {
+        const subscription = subscriptions.data[0];
+        
+        // Map Stripe status to our app status
+        let status = null;
+        if (subscription.status === 'trialing') {
+          status = 'trial';
+        } else if (subscription.status === 'active') {
+          status = 'active';
+        } else if (subscription.status === 'past_due') {
+          status = 'past_due';
+        } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+          status = 'canceled';
+        } else if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
+          status = 'incomplete';
+        }
+
+        logger.info(`[DEBUG] Updating user with subscription ${subscription.id}, status: ${status}`);
+
+        // Update user with subscription info
+        await storage.upsertUser({
+          ...user,
+          stripeSubscriptionId: subscription.id,
+          subscriptionStatus: status,
+          subscriptionPlan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
+        });
+
+        return res.json({
+          success: true,
+          subscriptionId: subscription.id,
+          stripeStatus: subscription.status,
+          mappedStatus: status,
+          plan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
+          message: "Subscription synced successfully",
+        });
+      } else {
+        return res.json({
+          success: false,
+          message: "No subscriptions found in Stripe for this customer",
+          customerId: user.stripeCustomerId,
+        });
+      }
+    } catch (error: any) {
+      logger.error("[DEBUG] Subscription fix error:", error);
+      return res.status(500).json({ error: error.message || "Failed to fix subscription" });
     }
   });
 

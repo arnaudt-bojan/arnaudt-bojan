@@ -345,12 +345,45 @@ function SubscriptionTab({ user }: { user: any }) {
                 <p className="text-sm text-muted-foreground mb-4">
                   Subscribe to activate your store and start selling.
                 </p>
-                <Button 
-                  onClick={() => setShowSubscriptionDialog(true)}
-                  data-testid="button-subscribe"
-                >
-                  Subscribe Now
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => setShowSubscriptionDialog(true)}
+                    data-testid="button-subscribe"
+                  >
+                    Subscribe Now
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const result = await apiRequest("POST", "/api/subscription/fix", {});
+                        if (result.success) {
+                          refetchSubscription();
+                          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+                          toast({
+                            title: "Subscription Synced!",
+                            description: "Your subscription status has been updated successfully.",
+                          });
+                        } else {
+                          toast({
+                            title: "No Subscription Found",
+                            description: result.message || "Please complete the subscription checkout first.",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error: any) {
+                        toast({
+                          title: "Sync Failed",
+                          description: error.message || "Failed to sync subscription",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    data-testid="button-fix-subscription"
+                  >
+                    Sync Subscription
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
