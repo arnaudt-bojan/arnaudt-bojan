@@ -95,6 +95,23 @@ const usernameSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
 });
 
+const quickSetupSchema = z.object({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(20, "Username must be at most 20 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  storeLogo: z.string()
+    .refine(
+      (val) => val === "" || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"),
+      "Must be a valid URL or path"
+    ),
+  storeBanner: z.string()
+    .refine(
+      (val) => val === "" || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"),
+      "Must be a valid URL or path"
+    ),
+});
+
 const customDomainSchema = z.object({
   customDomain: z.string()
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/, "Invalid domain format")
@@ -109,6 +126,7 @@ type ProfileForm = z.infer<typeof profileSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
 type AboutContactForm = z.infer<typeof aboutContactSchema>;
 type UsernameForm = z.infer<typeof usernameSchema>;
+type QuickSetupForm = z.infer<typeof quickSetupSchema>;
 type CustomDomainForm = z.infer<typeof customDomainSchema>;
 type ShippingForm = z.infer<typeof shippingSchema>;
 
@@ -1699,6 +1717,26 @@ export default function Settings() {
     },
   });
 
+  const quickSetupForm = useForm<QuickSetupForm>({
+    resolver: zodResolver(quickSetupSchema),
+    defaultValues: {
+      username: user?.username || "",
+      storeLogo: user?.storeLogo || "",
+      storeBanner: user?.storeBanner || "",
+    },
+  });
+
+  // Reset quick setup form when user data changes
+  useEffect(() => {
+    if (user) {
+      quickSetupForm.reset({
+        username: user.username || "",
+        storeLogo: user.storeLogo || "",
+        storeBanner: user.storeBanner || "",
+      });
+    }
+  }, [user?.username, user?.storeLogo, user?.storeBanner]);
+
   const customDomainForm = useForm<CustomDomainForm>({
     resolver: zodResolver(customDomainSchema),
     defaultValues: {
@@ -1790,6 +1828,30 @@ export default function Settings() {
       toast({ 
         title: "Error", 
         description: error.message || "Failed to update username", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateQuickSetupMutation = useMutation({
+    mutationFn: async (data: QuickSetupForm) => {
+      // Update username
+      await apiRequest("PATCH", "/api/user/username", { username: data.username });
+      // Update branding
+      await apiRequest("PATCH", "/api/user/branding", { 
+        storeLogo: data.storeLogo,
+        storeBanner: data.storeBanner 
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Store setup saved", description: "Your store setup has been saved successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to save store setup", 
         variant: "destructive" 
       });
     },
@@ -1965,6 +2027,7 @@ export default function Settings() {
   const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
   const [isCountrySelectorOpen, setIsCountrySelectorOpen] = useState(false);
   const [pendingStripeAction, setPendingStripeAction] = useState<{ reset: boolean } | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'ipad' | 'iphone'>('desktop');
   
   // Check if charges are enabled but payouts are not (progressive onboarding state)
   const canAcceptPayments = user?.stripeChargesEnabled === 1;
@@ -2516,216 +2579,211 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-3">
-                    {user?.username ? (
+                    {quickSetupForm.watch('username') ? (
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
                     ) : (
                       <div className="h-5 w-5 rounded-full border-2 border-muted-foreground flex-shrink-0" />
                     )}
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Set up your store URL</p>
-                      <p className="text-xs text-muted-foreground">Choose a username or connect Instagram</p>
+                      <p className="text-sm font-medium">Set up your store username</p>
+                      <p className="text-xs text-muted-foreground">Choose a unique username for your store URL</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {user?.storeLogo ? (
+                    {quickSetupForm.watch('storeLogo') ? (
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
                     ) : (
                       <div className="h-5 w-5 rounded-full border-2 border-muted-foreground flex-shrink-0" />
                     )}
                     <div className="flex-1">
                       <p className="text-sm font-medium">Upload your store logo</p>
-                      <p className="text-xs text-muted-foreground">Appears in navigation header</p>
+                      <p className="text-xs text-muted-foreground">Appears in navigation header (200×200px recommended)</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {user?.storeBanner ? (
+                    {quickSetupForm.watch('storeBanner') ? (
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
                     ) : (
                       <div className="h-5 w-5 rounded-full border-2 border-muted-foreground flex-shrink-0" />
                     )}
                     <div className="flex-1">
                       <p className="text-sm font-medium">Upload a store banner (optional)</p>
-                      <p className="text-xs text-muted-foreground">Hero image at the top of your storefront</p>
+                      <p className="text-xs text-muted-foreground">Hero image at the top of your storefront (1200×400px recommended)</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Store URL Setup */}
+              {/* Storefront Branding Form */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Store URL</CardTitle>
-                  <CardDescription>Your unique store link that customers will visit</CardDescription>
+                  <CardTitle>Storefront Branding</CardTitle>
+                  <CardDescription>Set up your username, logo, and banner</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Current Store URL */}
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">Your Store URL</p>
-                    <div className="flex gap-2">
-                      <Input
-                        value={user?.username ? getStoreUrl(user.username) : 'Set username below'}
-                        readOnly
-                        className="flex-1"
-                        data-testid="input-store-url-quick-setup"
+                <CardContent>
+                  <Form {...quickSetupForm}>
+                    <form onSubmit={quickSetupForm.handleSubmit((data) => updateQuickSetupMutation.mutate(data))} className="space-y-6">
+                      {/* Username Field */}
+                      <FormField
+                        control={quickSetupForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Store Username</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                placeholder="yourusername" 
+                                data-testid="input-username-quick-setup" 
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Your store URL: {field.value || 'username'}.upfirst.io (3-20 characters, letters, numbers, and underscores only)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          if (!user?.username) return;
-                          const url = getStoreUrl(user.username);
-                          if (!url) return;
-                          navigator.clipboard.writeText(url);
-                          setCopiedUsername(true);
-                          setTimeout(() => setCopiedUsername(false), 2000);
-                          toast({ title: "Copied!", description: "Store link copied to clipboard" });
-                        }}
-                        disabled={!user?.username}
-                        data-testid="button-copy-store-url-quick-setup"
+
+                      {/* Store Logo */}
+                      <FormField
+                        control={quickSetupForm.control}
+                        name="storeLogo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Store Logo</FormLabel>
+                            <FormControl>
+                              <UniversalImageUpload
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                label=""
+                                mode="single"
+                                aspectRatio="square"
+                                heroSelection={false}
+                                allowUrl={true}
+                                allowUpload={true}
+                              />
+                            </FormControl>
+                            <FormDescription>Appears in the navigation header (200×200px square recommended)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Store Banner */}
+                      <FormField
+                        control={quickSetupForm.control}
+                        name="storeBanner"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Store Banner (Optional)</FormLabel>
+                            <FormControl>
+                              <UniversalImageUpload
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                label=""
+                                mode="single"
+                                aspectRatio="banner"
+                                heroSelection={false}
+                                allowUrl={true}
+                                allowUpload={true}
+                              />
+                            </FormControl>
+                            <FormDescription>Hero image at the top of your store (1200×400px recommended)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button 
+                        type="submit" 
+                        className="w-full"
+                        disabled={updateQuickSetupMutation.isPending}
+                        data-testid="button-save-quick-setup"
                       >
-                        {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {updateQuickSetupMutation.isPending ? "Saving..." : "Save Store Setup"}
                       </Button>
-                    </div>
-                  </div>
-
-                  {/* Instagram Connection */}
-                  <div className="space-y-3 pt-4 border-t">
-                    {isInstagramConnected ? (
-                      <>
-                        <div className="flex items-center gap-2 text-sm">
-                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          <span className="font-medium">Instagram Connected</span>
-                          <span className="text-muted-foreground">@{user?.instagramUsername}</span>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between"
-                          onClick={() => disconnectInstagramMutation.mutate()}
-                          disabled={disconnectInstagramMutation.isPending}
-                          data-testid="button-disconnect-instagram-quick-setup"
-                        >
-                          <div className="flex items-center gap-2">
-                            <SiInstagram className="h-5 w-5" />
-                            <span>{disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}</span>
-                          </div>
-                          <span>×</span>
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          Connect your Instagram to use your verified handle as your store URL
-                        </p>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between"
-                          onClick={handleConnectInstagram}
-                          data-testid="button-connect-instagram-quick-setup"
-                        >
-                          <div className="flex items-center gap-2">
-                            <SiInstagram className="h-5 w-5" />
-                            <span>Connect Instagram</span>
-                          </div>
-                          <span>→</span>
-                        </Button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Custom Username */}
-                  {!isInstagramConnected && (
-                    <div className="space-y-3 pt-4 border-t">
-                      <p className="text-sm font-medium">Or use a custom username</p>
-                      <Form {...usernameForm}>
-                        <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-3">
-                          <FormField
-                            control={usernameForm.control}
-                            name="username"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Input 
-                                    {...field} 
-                                    placeholder="yourusername" 
-                                    data-testid="input-username-quick-setup" 
-                                  />
-                                </FormControl>
-                                <FormDescription className="text-xs">
-                                  3-20 characters, letters, numbers, and underscores only
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <Button 
-                            type="submit" 
-                            className="w-full"
-                            disabled={updateUsernameMutation.isPending}
-                            data-testid="button-save-username-quick-setup"
-                          >
-                            {updateUsernameMutation.isPending ? "Saving..." : "Save Username"}
-                          </Button>
-                        </form>
-                      </Form>
-                    </div>
-                  )}
-
-                  {/* Custom Domain (Coming Soon) */}
-                  <div className="space-y-3 pt-4 border-t">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Custom Domain</p>
-                        <p className="text-xs text-muted-foreground mt-1">Coming Soon</p>
-                      </div>
-                    </div>
-                    <Input 
-                      placeholder="mystore.com" 
-                      disabled
-                      data-testid="input-custom-domain-quick-setup" 
-                    />
-                    <p className="text-xs text-muted-foreground">Connect your own domain to your store (coming soon)</p>
-                  </div>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
               {/* Preview Store */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe className="h-5 w-5" />
-                    Preview Your Store
-                  </CardTitle>
-                  <CardDescription>See how your store appears to buyers</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Globe className="h-5 w-5" />
+                        Preview Your Store
+                      </CardTitle>
+                      <CardDescription>See how your store appears on different devices</CardDescription>
+                    </div>
+                    <div className="flex gap-1 border rounded-lg p-1" data-testid="preview-device-selector">
+                      <Button
+                        type="button"
+                        variant={previewDevice === 'desktop' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setPreviewDevice('desktop')}
+                        className="h-8 px-3"
+                        data-testid="button-preview-desktop"
+                      >
+                        Desktop
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={previewDevice === 'ipad' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setPreviewDevice('ipad')}
+                        className="h-8 px-3"
+                        data-testid="button-preview-ipad"
+                      >
+                        iPad
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={previewDevice === 'iphone' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setPreviewDevice('iphone')}
+                        className="h-8 px-3"
+                        data-testid="button-preview-iphone"
+                      >
+                        iPhone
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {user?.username ? (
+                  {quickSetupForm.watch('username') ? (
                     <div className="space-y-4">
-                      <iframe
-                        src={`/products?preview=${user.username}`}
-                        className="w-full aspect-video rounded-lg border"
-                        title="Store Preview"
-                      />
+                      <div className={`mx-auto transition-all ${
+                        previewDevice === 'desktop' ? 'w-full' : 
+                        previewDevice === 'ipad' ? 'w-3/4' : 
+                        'w-[375px]'
+                      }`}>
+                        <iframe
+                          key={`${quickSetupForm.watch('username')}-${quickSetupForm.watch('storeLogo')}-${quickSetupForm.watch('storeBanner')}-${previewDevice}`}
+                          src={`/s/${quickSetupForm.watch('username')}`}
+                          className={`w-full rounded-lg border ${
+                            previewDevice === 'desktop' ? 'aspect-video' :
+                            previewDevice === 'ipad' ? 'aspect-[4/3]' :
+                            'aspect-[9/16]'
+                          }`}
+                          title="Store Preview"
+                          data-testid="iframe-store-preview"
+                        />
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           className="flex-1"
                           asChild
-                          data-testid="button-preview-store"
+                          data-testid="button-preview-fullscreen"
                         >
-                          <Link href={`/products?preview=${user.username}`} target="_blank">
+                          <Link href={`/s/${quickSetupForm.watch('username')}`} target="_blank">
                             <Globe className="h-4 w-4 mr-2" />
-                            Open Full Preview
+                            Open in New Tab
                           </Link>
-                        </Button>
-                        <Button
-                          className="flex-1"
-                          asChild
-                          data-testid="button-visit-store"
-                        >
-                          <a href={getStoreUrl(user.username)} target="_blank" rel="noopener noreferrer">
-                            <Globe className="h-4 w-4 mr-2" />
-                            Visit Live Store
-                          </a>
                         </Button>
                       </div>
                     </div>
@@ -2733,7 +2791,7 @@ export default function Settings() {
                     <div className="flex items-center gap-2 p-4 bg-muted rounded-lg">
                       <Image className="h-4 w-4 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">
-                        Set up your store username above to preview your storefront
+                        Enter a username above to preview your storefront
                       </p>
                     </div>
                   )}
@@ -3006,92 +3064,11 @@ export default function Settings() {
 
         {isSeller && (
           <TabsContent value="about-contact">
-            <div className="space-y-6">
-              {/* Storefront Branding */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Storefront Branding</CardTitle>
-                  <CardDescription>Customize your storefront appearance with logo and banner</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...brandingForm}>
-                    <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-8">
-                      {/* Logo Section */}
-                      <div className="space-y-4">
-                        <div className="border-b pb-3">
-                          <h3 className="text-lg font-semibold">Store Logo</h3>
-                          <p className="text-sm text-muted-foreground">Appears in the navigation header (200×200px square recommended)</p>
-                        </div>
-                        <FormField
-                          control={brandingForm.control}
-                          name="storeLogo"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <UniversalImageUpload
-                                  value={field.value || ""}
-                                  onChange={field.onChange}
-                                  label=""
-                                  mode="single"
-                                  aspectRatio="square"
-                                  heroSelection={false}
-                                  allowUrl={true}
-                                  allowUpload={true}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Banner Section */}
-                      <div className="space-y-4">
-                        <div className="border-b pb-3">
-                          <h3 className="text-lg font-semibold">Store Banner (Optional)</h3>
-                          <p className="text-sm text-muted-foreground">Hero image at the top of your store (1200×400px recommended)</p>
-                        </div>
-                        <FormField
-                          control={brandingForm.control}
-                          name="storeBanner"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <UniversalImageUpload
-                                  value={field.value || ""}
-                                  onChange={field.onChange}
-                                  label=""
-                                  mode="single"
-                                  aspectRatio="banner"
-                                  heroSelection={false}
-                                  allowUrl={true}
-                                  allowUpload={true}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <Button 
-                        type="submit" 
-                        disabled={updateBrandingMutation.isPending}
-                        data-testid="button-save-branding"
-                        className="w-full sm:w-auto"
-                      >
-                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>About & Contact</CardTitle>
-                  <CardDescription>This information will appear in your storefront footer</CardDescription>
-                </CardHeader>
+            <Card>
+              <CardHeader>
+                <CardTitle>About & Contact</CardTitle>
+                <CardDescription>This information will appear in your storefront footer</CardDescription>
+              </CardHeader>
                 <CardContent>
                   <Form {...aboutContactForm}>
                     <form onSubmit={aboutContactForm.handleSubmit((data) => updateAboutContactMutation.mutate(data))} className="space-y-6">
@@ -3290,7 +3267,6 @@ export default function Settings() {
                   </Form>
                 </CardContent>
               </Card>
-            </div>
           </TabsContent>
         )}
 
