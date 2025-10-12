@@ -2079,7 +2079,7 @@ export default function Settings() {
   const canReceivePayouts = user?.stripePayoutsEnabled === 1;
 
   // Fetch Stripe account status including capabilities
-  const { data: stripeStatus } = useQuery<any>({
+  const { data: stripeAccountStatus } = useQuery<any>({
     queryKey: ["/api/stripe/account-status"],
     enabled: !!user?.stripeConnectedAccountId,
   });
@@ -3709,8 +3709,8 @@ export default function Settings() {
                         </div>
                       </div>
                       {isStripeConnected ? (
-                        stripeStatus?.capabilities?.card_payments === 'active' && 
-                        stripeStatus?.capabilities?.transfers === 'active' ? (
+                        stripeAccountStatus?.capabilities?.card_payments === 'active' && 
+                        stripeAccountStatus?.capabilities?.transfers === 'active' ? (
                           <Badge className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800" data-testid="badge-stripe-status">
                             Connected
                           </Badge>
@@ -3748,13 +3748,13 @@ export default function Settings() {
                     {isStripeConnected ? (
                       <div className="space-y-3">
                         {/* Check for non-active capabilities - critical for payment processing */}
-                        {stripeStatus?.capabilities && 
-                         (stripeStatus.capabilities.card_payments !== 'active' || 
-                          stripeStatus.capabilities.transfers !== 'active') && (
+                        {stripeAccountStatus?.capabilities && 
+                         (stripeAccountStatus.capabilities.card_payments !== 'active' || 
+                          stripeAccountStatus.capabilities.transfers !== 'active') && (
                           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
                             <p className="text-sm text-red-800 dark:text-red-200">
                               <strong>Setup Required:</strong> Your Stripe account needs to be fully activated. 
-                              {stripeStatus.capabilities.card_payments === 'pending' || stripeStatus.capabilities.transfers === 'pending' 
+                              {stripeAccountStatus.capabilities.card_payments === 'pending' || stripeAccountStatus.capabilities.transfers === 'pending' 
                                 ? ' Your account is pending review by Stripe.' 
                                 : ' Please complete the onboarding process below to accept payments.'}
                             </p>
@@ -3763,8 +3763,8 @@ export default function Settings() {
                         
                         {/* Show payout status if charges are enabled */}
                         {canAcceptPayments && !canReceivePayouts && 
-                         stripeStatus?.capabilities?.card_payments === 'active' && 
-                         stripeStatus?.capabilities?.transfers === 'active' && (
+                         stripeAccountStatus?.capabilities?.card_payments === 'active' && 
+                         stripeAccountStatus?.capabilities?.transfers === 'active' && (
                           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                             <p className="text-sm text-amber-800 dark:text-amber-200">
                               <strong>Payments Enabled:</strong> You can accept payments! Add bank details to receive payouts.
@@ -3772,8 +3772,8 @@ export default function Settings() {
                           </div>
                         )}
                         {canAcceptPayments && canReceivePayouts && 
-                         stripeStatus?.capabilities?.card_payments === 'active' && 
-                         stripeStatus?.capabilities?.transfers === 'active' && (
+                         stripeAccountStatus?.capabilities?.card_payments === 'active' && 
+                         stripeAccountStatus?.capabilities?.transfers === 'active' && (
                           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
                             <p className="text-sm text-green-800 dark:text-green-200">
                               <strong>Fully Enabled:</strong> You can accept payments and receive payouts.
@@ -3798,8 +3798,8 @@ export default function Settings() {
                               data-testid="button-update-stripe"
                               className="flex-1"
                             >
-                              {stripeStatus?.capabilities?.card_payments !== 'active' || 
-                               stripeStatus?.capabilities?.transfers !== 'active' 
+                              {stripeAccountStatus?.capabilities?.card_payments !== 'active' || 
+                               stripeAccountStatus?.capabilities?.transfers !== 'active' 
                                 ? 'Complete Onboarding' 
                                 : 'Update Account'}
                             </Button>
