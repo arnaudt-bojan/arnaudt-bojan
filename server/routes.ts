@@ -4001,12 +4001,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? account.business_type 
         : user.businessType;
       
+      // Auto-populate warehouse address from Stripe if it's currently empty
+      // Try individual.address first, fallback to company.address
+      const stripeAddress = account.individual?.address || account.company?.address;
+      const warehouseStreet = !user.warehouseStreet && stripeAddress?.line1 
+        ? stripeAddress.line1 
+        : user.warehouseStreet;
+      const warehouseCity = !user.warehouseCity && stripeAddress?.city 
+        ? stripeAddress.city 
+        : user.warehouseCity;
+      const warehouseState = !user.warehouseState && stripeAddress?.state 
+        ? stripeAddress.state 
+        : user.warehouseState;
+      const warehousePostalCode = !user.warehousePostalCode && stripeAddress?.postal_code 
+        ? stripeAddress.postal_code 
+        : user.warehousePostalCode;
+      const warehouseCountry = !user.warehouseCountry && stripeAddress?.country 
+        ? stripeAddress.country 
+        : user.warehouseCountry;
+      
       // Log when no Stripe company name is available for diagnostics
       if (!user.companyName && !stripeCompanyName) {
         logger.debug(`[Stripe] No company name available in Stripe account ${account.id} for auto-population`);
       }
       
-      // Update user with latest status and auto-populated company fields
+      // Log when warehouse address is auto-populated
+      if (!user.warehouseStreet && stripeAddress?.line1) {
+        logger.info(`[Stripe] Auto-populated warehouse address from Stripe account ${account.id}`);
+      }
+      
+      // Update user with latest status and auto-populated fields
       await storage.upsertUser({
         ...user,
         stripeChargesEnabled: account.charges_enabled ? 1 : 0,
@@ -4015,6 +4039,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         listingCurrency: account.default_currency?.toUpperCase() || 'USD',
         companyName,
         businessType,
+        warehouseStreet,
+        warehouseCity,
+        warehouseState,
+        warehousePostalCode,
+        warehouseCountry,
       });
 
       res.json({
