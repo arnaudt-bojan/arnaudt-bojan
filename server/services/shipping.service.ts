@@ -252,22 +252,25 @@ export class ShippingService {
         apiKeyHeader: process.env.SHIPPO_API_KEY
       });
 
-      // Get seller's address (as origin address)
+      // Get seller's warehouse address (origin address for shipping)
       const seller = await this.storage.getUser(product.sellerId);
       if (!seller) {
         throw new Error("Seller not found");
       }
 
-      // For now, we'll use a default origin address
-      // TODO: Add seller's warehouse/origin address to user settings
+      // Validate warehouse address is configured
+      if (!seller.warehouseStreet || !seller.warehouseCity || !seller.warehousePostalCode || !seller.warehouseCountry) {
+        throw new Error("Warehouse address not configured. Please configure your warehouse address in Settings > Warehouse before using Shippo shipping.");
+      }
+
       const addressFrom = {
         name: seller.firstName + ' ' + seller.lastName,
         company: seller.companyName || '',
-        street1: '215 Clayton St.',
-        city: 'San Francisco',
-        state: 'CA',
-        zip: '94117',
-        country: 'US',
+        street1: seller.warehouseStreet,
+        city: seller.warehouseCity,
+        state: seller.warehouseState || '',
+        zip: seller.warehousePostalCode,
+        country: seller.warehouseCountry,
       };
 
       const addressTo = {
