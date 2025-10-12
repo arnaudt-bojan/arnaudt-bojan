@@ -4224,6 +4224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customer: user.stripeCustomerId,
         limit: 1,
         status: 'all',
+        expand: ['data.default_payment_method'],
       });
 
       if (subscriptions.data.length > 0) {
@@ -4239,6 +4240,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status = 'past_due';
         } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
           status = 'canceled';
+        }
+
+        // Save payment method to database if it exists and not already saved
+        if (subscription.default_payment_method && typeof subscription.default_payment_method === 'object') {
+          const paymentMethod = subscription.default_payment_method as Stripe.PaymentMethod;
+          
+          // Check if already saved
+          const existingPaymentMethods = await storage.getSavedPaymentMethods(userId);
+          const alreadySaved = existingPaymentMethods.find((pm: any) => pm.stripePaymentMethodId === paymentMethod.id);
+          
+          if (!alreadySaved) {
+            // This is the subscription's default payment method, so it MUST be marked as default
+            // First, unset any existing default
+            for (const existingPm of existingPaymentMethods) {
+              if (existingPm.isDefault === 1) {
+                await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
+              }
+            }
+            
+            // Save the new payment method as default
+            await storage.createSavedPaymentMethod({
+              userId,
+              stripePaymentMethodId: paymentMethod.id,
+              cardBrand: paymentMethod.card?.brand || null,
+              cardLast4: paymentMethod.card?.last4 || null,
+              cardExpMonth: paymentMethod.card?.exp_month || null,
+              cardExpYear: paymentMethod.card?.exp_year || null,
+              isDefault: 1, // Always default since it's the subscription's default
+              label: null,
+            });
+            logger.info(`[Subscription Sync] Saved payment method ${paymentMethod.id} as default for user ${userId}`);
+          } else if (alreadySaved.isDefault === 0) {
+            // Payment method exists but isn't default - make it default since it's the subscription's default
+            // First, unset any existing default
+            for (const existingPm of existingPaymentMethods) {
+              if (existingPm.isDefault === 1 && existingPm.id !== alreadySaved.id) {
+                await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
+              }
+            }
+            
+            // Set this one as default
+            await storage.updateSavedPaymentMethod(alreadySaved.id, { isDefault: 1 });
+            logger.info(`[Subscription Sync] Updated payment method ${paymentMethod.id} to default for user ${userId}`);
+          }
         }
 
         // Update user with subscription info
@@ -4553,6 +4598,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   // Don't set subscriptionStatus - keep it null until payment confirmed
                 });
                 break;
+              }
+
+              // Save payment method to database if it exists
+              if (subscription.default_payment_method && typeof subscription.default_payment_method === 'object') {
+                const paymentMethod = subscription.default_payment_method as Stripe.PaymentMethod;
+                
+                // Check if already saved
+                const existingPaymentMethods = await storage.getSavedPaymentMethods(userId);
+                const alreadySaved = existingPaymentMethods.find((pm: any) => pm.stripePaymentMethodId === paymentMethod.id);
+                
+                if (!alreadySaved) {
+                  // This is the subscription's default payment method, so it MUST be marked as default
+                  // First, unset any existing default
+                  for (const existingPm of existingPaymentMethods) {
+                    if (existingPm.isDefault === 1) {
+                      await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
+                    }
+                  }
+                  
+                  // Save the new payment method as default
+                  await storage.createSavedPaymentMethod({
+                    userId,
+                    stripePaymentMethodId: paymentMethod.id,
+                    cardBrand: paymentMethod.card?.brand || null,
+                    cardLast4: paymentMethod.card?.last4 || null,
+                    cardExpMonth: paymentMethod.card?.exp_month || null,
+                    cardExpYear: paymentMethod.card?.exp_year || null,
+                    isDefault: 1, // Always default since it's the subscription's default
+                    label: null,
+                  });
+                  logger.info(`[Webhook] Saved payment method ${paymentMethod.id} as default for user ${userId}`);
+                } else if (alreadySaved.isDefault === 0) {
+                  // Payment method exists but isn't default - make it default since it's the subscription's default
+                  // First, unset any existing default
+                  for (const existingPm of existingPaymentMethods) {
+                    if (existingPm.isDefault === 1 && existingPm.id !== alreadySaved.id) {
+                      await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
+                    }
+                  }
+                  
+                  // Set this one as default
+                  await storage.updateSavedPaymentMethod(alreadySaved.id, { isDefault: 1 });
+                  logger.info(`[Webhook] Updated payment method ${paymentMethod.id} to default for user ${userId}`);
+                }
               }
 
               await storage.upsertUser({
