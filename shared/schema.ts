@@ -517,6 +517,13 @@ export const users = pgTable("users", {
   termsPdfUrl: varchar("terms_pdf_url"), // URL to custom Terms & Conditions PDF
   termsSource: varchar("terms_source"), // "custom_pdf" or "platform_default"
   
+  // Warehouse/Fulfillment Address - origin address for Shippo shipping calculations
+  warehouseStreet: varchar("warehouse_street"), // Warehouse street address
+  warehouseCity: varchar("warehouse_city"), // Warehouse city
+  warehouseState: varchar("warehouse_state"), // Warehouse state/province
+  warehousePostalCode: varchar("warehouse_postal_code"), // Warehouse postal/ZIP code
+  warehouseCountry: varchar("warehouse_country"), // Warehouse country (ISO 2-letter code)
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
