@@ -3204,6 +3204,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update Terms & Conditions settings
+  app.post("/api/settings/terms", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { termsSource, termsPdfUrl } = req.body;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Validate termsSource: must be provided and must be one of the allowed values or null (for removal)
+      if (termsSource !== null && termsSource !== undefined && !['custom_pdf', 'platform_default'].includes(termsSource)) {
+        return res.status(400).json({ error: "Invalid termsSource value. Must be 'custom_pdf', 'platform_default', or null" });
+      }
+
+      // If using custom_pdf, ensure PDF URL is provided
+      if (termsSource === 'custom_pdf' && (!termsPdfUrl || termsPdfUrl.trim() === '')) {
+        return res.status(400).json({ error: "PDF URL is required when using custom T&C" });
+      }
+
+      // Determine final values
+      let finalTermsSource = null;
+      let finalTermsPdfUrl = user.termsPdfUrl; // Preserve existing PDF URL by default
+
+      if (termsSource === 'platform_default') {
+        finalTermsSource = 'platform_default';
+        // Keep existing termsPdfUrl so user can switch back to custom later
+      } else if (termsSource === 'custom_pdf') {
+        finalTermsSource = 'custom_pdf';
+        finalTermsPdfUrl = termsPdfUrl; // Use the provided PDF URL
+      } else if (termsSource === null || termsSource === undefined) {
+        // Explicitly clearing T&C settings - clear both fields
+        finalTermsSource = null;
+        finalTermsPdfUrl = null;
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        termsSource: finalTermsSource,
+        termsPdfUrl: finalTermsPdfUrl,
+      });
+
+      res.json({ message: "Terms & Conditions updated successfully", user: updatedUser });
+    } catch (error) {
+      logger.error("Terms & Conditions update error", error);
+      res.status(500).json({ error: "Failed to update Terms & Conditions" });
+    }
+  });
+
   // Toggle store active status
   app.patch("/api/user/store-status", requireAuth, async (req: any, res) => {
     try {
