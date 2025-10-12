@@ -159,6 +159,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
+      // Debug: Log warehouse fields
+      if (user) {
+        logger.info(`[Auth] User warehouse fields:`, {
+          userId: user.id,
+          email: user.email,
+          warehouseStreet: user.warehouseStreet ?? 'null',
+          warehouseCity: user.warehouseCity ?? 'null',
+          warehouseCountry: user.warehouseCountry ?? 'null',
+        });
+      }
+      
       // Get user capabilities from AuthorizationService
       const capabilities = await authorizationService.getUserCapabilities(userId);
       
