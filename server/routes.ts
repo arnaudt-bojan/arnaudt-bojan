@@ -2113,6 +2113,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Retrieve Payment Intent details (for 3DS return flow) with client_secret validation
+  app.get("/api/payment-intent/:paymentIntentId", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const { paymentIntentId } = req.params;
+      const { client_secret } = req.query;
+      
+      // SECURITY: Require client_secret to prevent unauthorized access
+      if (!client_secret || typeof client_secret !== 'string') {
+        return res.status(401).json({ error: "Unauthorized - client_secret required" });
+      }
+      
+      // Retrieve payment intent with metadata
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      // SECURITY: Validate client_secret matches
+      if (paymentIntent.client_secret !== client_secret) {
+        logger.warn(`[Security] Invalid client_secret for payment intent ${paymentIntentId}`);
+        return res.status(401).json({ error: "Unauthorized - invalid client_secret" });
+      }
+
+      // Return payment intent details
+      res.json({
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        metadata: paymentIntent.metadata,
+      });
+    } catch (error: any) {
+      logger.error("Failed to retrieve payment intent", error);
+      res.status(500).json({ error: "Failed to retrieve payment intent" });
+    }
+  });
+
   // **PRICING API - Single Source of Truth**
   // Calculate all pricing in seller's currency: subtotal, shipping, tax, total
   app.post("/api/pricing/calculate", async (req, res) => {

@@ -105,6 +105,7 @@ function PaymentForm({
         elements,
         redirect: "if_required",
         confirmParams: {
+          return_url: window.location.origin + '/checkout/complete',
           payment_method_data: {
             billing_details: {
               email: billingDetails.customerEmail,
