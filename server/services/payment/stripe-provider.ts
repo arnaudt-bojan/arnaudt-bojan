@@ -16,14 +16,16 @@ import type {
 
 export class StripePaymentProvider implements IPaymentProvider {
   private stripe: Stripe;
+  private webhookSecret: string;
   readonly providerName = 'stripe';
   readonly supportedCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'SEK', 'NOK', 'DKK', 'SGD', 'HKD', 'MXN', 'BRL', 'PLN', 'NZD'];
   readonly supportedCountries = ['US', 'GB', 'CA', 'AU', 'NZ', 'IE', 'FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'CH', 'SE', 'NO', 'DK', 'FI', 'PL', 'SG', 'HK', 'JP', 'MX', 'BR'];
 
-  constructor(secretKey: string) {
+  constructor(secretKey: string, webhookSecret: string) {
     this.stripe = new Stripe(secretKey, {
       apiVersion: '2025-09-30.clover',
     });
+    this.webhookSecret = webhookSecret;
   }
 
   async createPaymentIntent(params: CreateIntentParams): Promise<PaymentIntent> {
@@ -163,18 +165,23 @@ export class StripePaymentProvider implements IPaymentProvider {
     };
   }
 
-  verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
-    try {
-      this.stripe.webhooks.constructEvent(payload, signature, secret);
-      return true;
-    } catch (error) {
-      return false;
-    }
+  async verifyWebhookSignature(rawBody: string, signature: string): Promise<WebhookEvent> {
+    const event = this.stripe.webhooks.constructEvent(rawBody, signature, this.webhookSecret);
+    
+    return {
+      id: event.id,
+      type: event.type,
+      data: event.data,
+    };
   }
 
   async processWebhookEvent(event: WebhookEvent): Promise<void> {
     // This will be implemented by the payment service
     // The provider just validates the signature
+  }
+
+  getName(): string {
+    return this.providerName;
   }
 
   private mapStripeStatus(status: string): PaymentIntent['status'] {

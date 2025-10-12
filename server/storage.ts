@@ -410,6 +410,7 @@ export interface IStorage {
   storeFailedWebhookEvent(event: InsertFailedWebhookEvent): Promise<FailedWebhookEvent>;
   getUnprocessedFailedWebhooks(limit?: number): Promise<FailedWebhookEvent[]>;
   incrementWebhookRetryCount(id: string): Promise<void>;
+  deleteFailedWebhookEvent(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2391,6 +2392,13 @@ export class DatabaseStorage implements IStorage {
         retryCount: sql`${failedWebhookEvents.retryCount} + 1`,
         lastRetryAt: new Date(),
       })
+      .where(eq(failedWebhookEvents.id, id));
+  }
+
+  async deleteFailedWebhookEvent(id: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.db
+      .delete(failedWebhookEvents)
       .where(eq(failedWebhookEvents.id, id));
   }
 }

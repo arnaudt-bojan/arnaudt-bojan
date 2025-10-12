@@ -4186,6 +4186,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       logger.info(`[Webhook] Received event: ${event.type}`);
 
+      // Check if event already processed (idempotency)
+      const alreadyProcessed = await storage.isWebhookEventProcessed(event.id);
+      if (alreadyProcessed) {
+        logger.info(`[Webhook] Event ${event.id} already processed, skipping`);
+        return res.json({ received: true, skipped: true });
+      }
+
       // Handle different event types
       switch (event.type) {
         case 'checkout.session.completed': {
@@ -4554,6 +4561,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         default:
           logger.info(`[Webhook] Unhandled event type: ${event.type}`);
       }
+
+      // Mark event as processed (idempotency)
+      await storage.markWebhookEventProcessed(event.id, event.data, event.type, 'stripe');
+      logger.info(`[Webhook] Marked event ${event.id} as processed`);
 
       res.status(200).json({ received: true });
     } catch (error: any) {

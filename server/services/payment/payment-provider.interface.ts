@@ -31,7 +31,9 @@ export interface IPaymentProvider {
   
   createOnboardingSession(accountId: string, purpose?: 'onboarding' | 'payouts'): Promise<OnboardingSession>;
   
-  verifyWebhookSignature(payload: string, signature: string, secret: string): boolean;
+  verifyWebhookSignature(rawBody: string, signature: string): Promise<WebhookEvent>;
   
   processWebhookEvent(event: WebhookEvent): Promise<void>;
+  
+  getName(): string;
 }
