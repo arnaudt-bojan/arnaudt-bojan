@@ -18,7 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
@@ -1938,7 +1938,8 @@ export default function Settings() {
   const searchParams = new URLSearchParams(window.location.search);
   const tabParam = searchParams.get('tab');
   const stripeParam = searchParams.get('stripe');
-  const [defaultTab, setDefaultTab] = useState(tabParam || "profile");
+  // Sellers default to Quick Setup, buyers to Profile
+  const [defaultTab, setDefaultTab] = useState(tabParam || (isSeller ? "quick-setup" : "profile"));
 
   // Sync tab state with URL changes
   useEffect(() => {
@@ -2035,22 +2036,22 @@ export default function Settings() {
               </SelectItem>
               {isSeller && (
                 <>
+                  <SelectItem value="quick-setup">
+                    <div className="flex items-center gap-2">
+                      <Rocket className="h-4 w-4" />
+                      <span>Quick Setup</span>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="subscription">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
                       <span>Subscription</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="store">
+                  <SelectItem value="branding-policies">
                     <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4" />
-                      <span>Store</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="branding">
-                    <div className="flex items-center gap-2">
-                      <Image className="h-4 w-4" />
-                      <span>Branding</span>
+                      <FileText className="h-4 w-4" />
+                      <span>Branding & Policies</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="about-contact">
@@ -2102,17 +2103,17 @@ export default function Settings() {
           </TabsTrigger>
           {isSeller && (
             <>
+              <TabsTrigger value="quick-setup" data-testid="tab-quick-setup" className="flex items-center gap-2">
+                <Rocket className="h-4 w-4" />
+                <span>Quick Setup</span>
+              </TabsTrigger>
               <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
                 <span>Subscription</span>
               </TabsTrigger>
-              <TabsTrigger value="store" data-testid="tab-store" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                <span>Store</span>
-              </TabsTrigger>
-              <TabsTrigger value="branding" data-testid="tab-branding" className="flex items-center gap-2">
-                <Image className="h-4 w-4" />
-                <span>Branding</span>
+              <TabsTrigger value="branding-policies" data-testid="tab-branding-policies" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Branding & Policies</span>
               </TabsTrigger>
               <TabsTrigger value="about-contact" data-testid="tab-about-contact" className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
@@ -2294,208 +2295,200 @@ export default function Settings() {
         )}
 
         {isSeller && (
-          <TabsContent value="store">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">Your Storefront</CardTitle>
-                <CardDescription>
-                  Manage your store URL and branding
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Storename Section */}
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Your Storename</p>
-                  <p className="text-sm text-muted-foreground">
-                    Your Instagram handle becomes your store name.
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      value={user?.username ? getStoreUrl(user.username) : 'Set username below'}
-                      readOnly
-                      className="flex-1"
-                      data-testid="input-store-url-settings"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        if (!user?.username) return;
-                        const url = getStoreUrl(user.username);
-                        if (!url) return;
-                        navigator.clipboard.writeText(url);
-                        setCopiedUsername(true);
-                        setTimeout(() => setCopiedUsername(false), 2000);
-                        toast({ title: "Copied!", description: "Store link copied to clipboard" });
-                      }}
-                      disabled={!user?.username}
-                      data-testid="button-copy-store-url"
-                    >
-                      {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Instagram Connection */}
-                <div className="space-y-3 pt-4 border-t">
-                  {isInstagramConnected ? (
-                    <>
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <span className="font-medium">Instagram Connected</span>
-                        <span className="text-muted-foreground">@{user?.instagramUsername}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between"
-                        onClick={() => disconnectInstagramMutation.mutate()}
-                        disabled={disconnectInstagramMutation.isPending}
-                        data-testid="button-disconnect-instagram"
-                      >
-                        <div className="flex items-center gap-2">
-                          <SiInstagram className="h-5 w-5" />
-                          <span>{disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}</span>
-                        </div>
-                        <span>×</span>
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        Connect your Instagram to use your verified handle as your store URL
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between"
-                        onClick={handleConnectInstagram}
-                        data-testid="button-connect-instagram"
-                      >
-                        <div className="flex items-center gap-2">
-                          <SiInstagram className="h-5 w-5" />
-                          <span>Connect Instagram</span>
-                        </div>
-                        <span>→</span>
-                      </Button>
-                    </>
-                  )}
-                </div>
-
-                {/* Custom Username Section */}
-                {!isInstagramConnected && (
-                  <div className="space-y-3 pt-4 border-t">
-                    <p className="text-sm font-medium">Or use a custom username</p>
-                    <Form {...usernameForm}>
-                      <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-3">
-                        <FormField
-                          control={usernameForm.control}
-                          name="username"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input 
-                                  {...field} 
-                                  placeholder="yourusername" 
-                                  data-testid="input-username" 
-                                />
-                              </FormControl>
-                              <FormDescription className="text-xs">
-                                3-20 characters, letters, numbers, and underscores only
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button 
-                          type="submit" 
-                          className="w-full"
-                          disabled={updateUsernameMutation.isPending}
-                          data-testid="button-save-username"
-                        >
-                          {updateUsernameMutation.isPending ? "Saving..." : "Save Username"}
-                        </Button>
-                      </form>
-                    </Form>
-                  </div>
-                )}
-
-                {/* Custom Domain Section */}
-                <div className="space-y-3 pt-4 border-t">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Custom Domain</p>
-                      <p className="text-xs text-muted-foreground mt-1">Coming Soon</p>
+          <TabsContent value="quick-setup">
+            <div className="space-y-6">
+              {/* Progress Checklist */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Rocket className="h-5 w-5" />
+                    Quick Setup Checklist
+                  </CardTitle>
+                  <CardDescription>Complete these steps to activate your store</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    {user?.username ? (
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground flex-shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Set up your store URL</p>
+                      <p className="text-xs text-muted-foreground">Choose a username or connect Instagram</p>
                     </div>
                   </div>
-                  <Form {...customDomainForm}>
-                    <form onSubmit={customDomainForm.handleSubmit((data) => updateCustomDomainMutation.mutate(data))} className="space-y-3">
-                      <FormField
-                        control={customDomainForm.control}
-                        name="customDomain"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                placeholder="mystore.com" 
-                                disabled
-                                data-testid="input-custom-domain" 
-                              />
-                            </FormControl>
-                            <FormDescription className="text-xs">
-                              Connect your own domain to your store (coming soon)
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
+                  <div className="flex items-center gap-3">
+                    {user?.storeLogo ? (
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground flex-shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Upload your store logo</p>
+                      <p className="text-xs text-muted-foreground">Appears in navigation header</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {user?.storeBanner ? (
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground flex-shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Upload a store banner (optional)</p>
+                      <p className="text-xs text-muted-foreground">Hero image at the top of your storefront</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {isSeller && (
-          <TabsContent value="branding">
-            <div className="space-y-6">
+              {/* Store URL Setup */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Store URL</CardTitle>
+                  <CardDescription>Your unique store link that customers will visit</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Current Store URL */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Your Store URL</p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={user?.username ? getStoreUrl(user.username) : 'Set username below'}
+                        readOnly
+                        className="flex-1"
+                        data-testid="input-store-url-quick-setup"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (!user?.username) return;
+                          const url = getStoreUrl(user.username);
+                          if (!url) return;
+                          navigator.clipboard.writeText(url);
+                          setCopiedUsername(true);
+                          setTimeout(() => setCopiedUsername(false), 2000);
+                          toast({ title: "Copied!", description: "Store link copied to clipboard" });
+                        }}
+                        disabled={!user?.username}
+                        data-testid="button-copy-store-url-quick-setup"
+                      >
+                        {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Instagram Connection */}
+                  <div className="space-y-3 pt-4 border-t">
+                    {isInstagramConnected ? (
+                      <>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          <span className="font-medium">Instagram Connected</span>
+                          <span className="text-muted-foreground">@{user?.instagramUsername}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between"
+                          onClick={() => disconnectInstagramMutation.mutate()}
+                          disabled={disconnectInstagramMutation.isPending}
+                          data-testid="button-disconnect-instagram-quick-setup"
+                        >
+                          <div className="flex items-center gap-2">
+                            <SiInstagram className="h-5 w-5" />
+                            <span>{disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}</span>
+                          </div>
+                          <span>×</span>
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          Connect your Instagram to use your verified handle as your store URL
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between"
+                          onClick={handleConnectInstagram}
+                          data-testid="button-connect-instagram-quick-setup"
+                        >
+                          <div className="flex items-center gap-2">
+                            <SiInstagram className="h-5 w-5" />
+                            <span>Connect Instagram</span>
+                          </div>
+                          <span>→</span>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Custom Username */}
+                  {!isInstagramConnected && (
+                    <div className="space-y-3 pt-4 border-t">
+                      <p className="text-sm font-medium">Or use a custom username</p>
+                      <Form {...usernameForm}>
+                        <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-3">
+                          <FormField
+                            control={usernameForm.control}
+                            name="username"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Input 
+                                    {...field} 
+                                    placeholder="yourusername" 
+                                    data-testid="input-username-quick-setup" 
+                                  />
+                                </FormControl>
+                                <FormDescription className="text-xs">
+                                  3-20 characters, letters, numbers, and underscores only
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <Button 
+                            type="submit" 
+                            className="w-full"
+                            disabled={updateUsernameMutation.isPending}
+                            data-testid="button-save-username-quick-setup"
+                          >
+                            {updateUsernameMutation.isPending ? "Saving..." : "Save Username"}
+                          </Button>
+                        </form>
+                      </Form>
+                    </div>
+                  )}
+
+                  {/* Custom Domain (Coming Soon) */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Custom Domain</p>
+                        <p className="text-xs text-muted-foreground mt-1">Coming Soon</p>
+                      </div>
+                    </div>
+                    <Input 
+                      placeholder="mystore.com" 
+                      disabled
+                      data-testid="input-custom-domain-quick-setup" 
+                    />
+                    <p className="text-xs text-muted-foreground">Connect your own domain to your store (coming soon)</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Branding Setup */}
               <Card>
                 <CardHeader>
                   <CardTitle>Store Branding</CardTitle>
-                  <CardDescription>Customize your storefront appearance with banner and logo</CardDescription>
+                  <CardDescription>Customize your storefront appearance with logo and banner</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Form {...brandingForm}>
                     <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-8">
-                      {/* Banner Section */}
-                      <div className="space-y-4">
-                        <div className="border-b pb-3">
-                          <h3 className="text-lg font-semibold">Store Banner</h3>
-                          <p className="text-sm text-muted-foreground">Hero image at the top of your store (1200×400px recommended)</p>
-                        </div>
-                        <FormField
-                          control={brandingForm.control}
-                          name="storeBanner"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <UniversalImageUpload
-                                  value={field.value || ""}
-                                  onChange={field.onChange}
-                                  label=""
-                                  mode="single"
-                                  aspectRatio="banner"
-                                  heroSelection={false}
-                                  allowUrl={true}
-                                  allowUpload={true}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
                       {/* Logo Section */}
                       <div className="space-y-4">
                         <div className="border-b pb-3">
@@ -2525,58 +2518,29 @@ export default function Settings() {
                         />
                       </div>
 
-                      {/* Store Policies Section */}
-                      <div className="space-y-6 pt-6 border-t">
-                        <div className="space-y-2">
-                          <h3 className="text-lg font-semibold">Store Policies (Optional)</h3>
-                          <p className="text-sm text-muted-foreground">Customize shipping and returns information displayed on product pages</p>
+                      {/* Banner Section */}
+                      <div className="space-y-4">
+                        <div className="border-b pb-3">
+                          <h3 className="text-lg font-semibold">Store Banner (Optional)</h3>
+                          <p className="text-sm text-muted-foreground">Hero image at the top of your store (1200×400px recommended)</p>
                         </div>
-
-                        {/* Shipping Policy */}
                         <FormField
                           control={brandingForm.control}
-                          name="shippingPolicy"
+                          name="storeBanner"
                           render={({ field }) => (
                             <FormItem>
-                              <Label htmlFor="shipping-policy">Shipping & Delivery Policy</Label>
                               <FormControl>
-                                <textarea
-                                  {...field}
-                                  id="shipping-policy"
+                                <UniversalImageUpload
                                   value={field.value || ""}
-                                  placeholder="e.g., Free shipping on orders over $50. Standard shipping takes 3-5 business days."
-                                  className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                  data-testid="textarea-shipping-policy"
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="banner"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
                                 />
                               </FormControl>
-                              <FormDescription className="text-xs">
-                                Leave blank to show default policy. This text will replace the default shipping information on product pages.
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        {/* Returns Policy */}
-                        <FormField
-                          control={brandingForm.control}
-                          name="returnsPolicy"
-                          render={({ field }) => (
-                            <FormItem>
-                              <Label htmlFor="returns-policy">Returns & Exchanges Policy</Label>
-                              <FormControl>
-                                <textarea
-                                  {...field}
-                                  id="returns-policy"
-                                  value={field.value || ""}
-                                  placeholder="e.g., 30-day returns on all items. Items must be in original condition with tags attached."
-                                  className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                  data-testid="textarea-returns-policy"
-                                />
-                              </FormControl>
-                              <FormDescription className="text-xs">
-                                Leave blank to show default policy. This text will replace the default returns information on product pages.
-                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -2586,118 +2550,143 @@ export default function Settings() {
                       <Button 
                         type="submit" 
                         disabled={updateBrandingMutation.isPending}
-                        data-testid="button-save-branding"
+                        data-testid="button-save-branding-quick-setup"
                         className="w-full sm:w-auto"
                       >
-                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding & Policies"}
+                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
                       </Button>
                     </form>
                   </Form>
                 </CardContent>
               </Card>
 
-              {/* Storefront Preview */}
+              {/* Preview Store */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Globe className="h-5 w-5" />
-                    Storefront Preview
+                    Preview Your Store
                   </CardTitle>
-                  <CardDescription>See how your store appears to buyers on different devices</CardDescription>
+                  <CardDescription>See how your store appears to buyers</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Tabs defaultValue="desktop" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="desktop" data-testid="tab-preview-desktop">Desktop</TabsTrigger>
-                      <TabsTrigger value="tablet" data-testid="tab-preview-tablet">iPad</TabsTrigger>
-                      <TabsTrigger value="mobile" data-testid="tab-preview-mobile">iPhone</TabsTrigger>
-                    </TabsList>
-                    
-                    {/* Desktop Preview */}
-                    <TabsContent value="desktop" className="mt-6" data-testid="preview-desktop">
-                      <div className="flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-muted/10 rounded-lg">
-                        <div className="w-full max-w-5xl">
-                          {/* Desktop Device Frame */}
-                          <div className="relative bg-gray-800 dark:bg-gray-900 rounded-t-lg p-2 shadow-2xl">
-                            {/* MacBook-style notch/camera */}
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-700 dark:bg-gray-800 rounded-b-lg" />
-                            {/* Screen bezel */}
-                            <div className="bg-black rounded-lg p-1">
-                              {/* Actual screen */}
-                              <div className="bg-white dark:bg-gray-950 rounded overflow-hidden aspect-video">
-                                <iframe
-                                  src={user?.username ? `/products?preview=${user.username}` : '/products'}
-                                  className="w-full h-full"
-                                  title="Desktop Preview"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          {/* MacBook base */}
-                          <div className="h-2 bg-gray-300 dark:bg-gray-700 rounded-b-xl shadow-lg mx-auto" style={{ width: '110%', marginLeft: '-5%' }} />
-                          <p className="text-xs text-muted-foreground mt-4 text-center">Desktop · 1920×1080</p>
-                        </div>
+                  {user?.username ? (
+                    <div className="space-y-4">
+                      <iframe
+                        src={`/products?preview=${user.username}`}
+                        className="w-full aspect-video rounded-lg border"
+                        title="Store Preview"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          asChild
+                          data-testid="button-preview-store"
+                        >
+                          <Link href={`/products?preview=${user.username}`} target="_blank">
+                            <Globe className="h-4 w-4 mr-2" />
+                            Open Full Preview
+                          </Link>
+                        </Button>
+                        <Button
+                          className="flex-1"
+                          asChild
+                          data-testid="button-visit-store"
+                        >
+                          <a href={getStoreUrl(user.username)} target="_blank" rel="noopener noreferrer">
+                            <Globe className="h-4 w-4 mr-2" />
+                            Visit Live Store
+                          </a>
+                        </Button>
                       </div>
-                    </TabsContent>
-
-                    {/* Tablet Preview */}
-                    <TabsContent value="tablet" className="mt-6" data-testid="preview-tablet">
-                      <div className="flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-muted/10 rounded-lg">
-                        <div className="w-full max-w-2xl">
-                          {/* iPad Device Frame */}
-                          <div className="relative bg-gray-900 dark:bg-black rounded-2xl p-3 shadow-2xl">
-                            {/* iPad camera */}
-                            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 dark:bg-gray-700 rounded-full" />
-                            {/* Screen */}
-                            <div className="bg-white dark:bg-gray-950 rounded-xl overflow-hidden aspect-[4/3]">
-                              <iframe
-                                src={user?.username ? `/products?preview=${user.username}` : '/products'}
-                                className="w-full h-full"
-                                title="iPad Preview"
-                              />
-                            </div>
-                            {/* Home indicator */}
-                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-20 h-1 bg-gray-800 dark:bg-gray-700 rounded-full" />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-4 text-center">iPad · 768×1024</p>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Mobile Preview */}
-                    <TabsContent value="mobile" className="mt-6" data-testid="preview-mobile">
-                      <div className="flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-muted/10 rounded-lg">
-                        <div className="w-full max-w-sm">
-                          {/* iPhone Device Frame */}
-                          <div className="relative bg-gray-900 dark:bg-black rounded-[3rem] p-3 shadow-2xl">
-                            {/* iPhone Dynamic Island */}
-                            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-7 bg-black rounded-full" />
-                            {/* Screen */}
-                            <div className="bg-white dark:bg-gray-950 rounded-[2.5rem] overflow-hidden aspect-[9/19.5]">
-                              <iframe
-                                src={user?.username ? `/products?preview=${user.username}` : '/products'}
-                                className="w-full h-full"
-                                title="iPhone Preview"
-                              />
-                            </div>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-4 text-center">iPhone · 375×812</p>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                  
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <Image className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <p className="text-sm text-blue-900 dark:text-blue-100">
-                      {user?.username 
-                        ? "Save your branding changes above to see them reflected in the preview" 
-                        : "Set up your store username in the Store URL tab to preview your custom storefront"}
-                    </p>
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-4 bg-muted rounded-lg">
+                      <Image className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Set up your store username above to preview your storefront
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+        )}
+
+        {isSeller && (
+          <TabsContent value="branding-policies">
+            <Card>
+              <CardHeader>
+                <CardTitle>Store Policies</CardTitle>
+                <CardDescription>Customize shipping and returns information displayed on product pages</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...brandingForm}>
+                  <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-6">
+                    {/* Shipping Policy */}
+                    <FormField
+                      control={brandingForm.control}
+                      name="shippingPolicy"
+                      render={({ field }) => (
+                        <FormItem>
+                          <Label htmlFor="shipping-policy">Shipping & Delivery Policy</Label>
+                          <FormControl>
+                            <textarea
+                              {...field}
+                              id="shipping-policy"
+                              value={field.value || ""}
+                              placeholder="e.g., Free shipping on orders over $50. Standard shipping takes 3-5 business days."
+                              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              data-testid="textarea-shipping-policy"
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            Leave blank to show default policy. This text will replace the default shipping information on product pages.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Returns Policy */}
+                    <FormField
+                      control={brandingForm.control}
+                      name="returnsPolicy"
+                      render={({ field }) => (
+                        <FormItem>
+                          <Label htmlFor="returns-policy">Returns & Exchanges Policy</Label>
+                          <FormControl>
+                            <textarea
+                              {...field}
+                              id="returns-policy"
+                              value={field.value || ""}
+                              placeholder="e.g., 30-day returns on all items. Items must be in original condition with tags attached."
+                              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              data-testid="textarea-returns-policy"
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            Leave blank to show default policy. This text will replace the default returns information on product pages.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button 
+                      type="submit" 
+                      disabled={updateBrandingMutation.isPending}
+                      data-testid="button-save-policies"
+                      className="w-full sm:w-auto"
+                    >
+                      {updateBrandingMutation.isPending ? "Saving..." : "Save Policies"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
