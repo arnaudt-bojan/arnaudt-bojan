@@ -486,6 +486,11 @@ export const users = pgTable("users", {
   aboutStory: text("about_story"), // Seller's story/about text (max 1000 chars in form validation)
   socialInstagram: varchar("social_instagram"), // Instagram profile username
   socialTwitter: varchar("social_twitter"), // Twitter/X profile username
+  
+  // Optional Company Information - populated from Stripe Connect or manual entry
+  companyName: varchar("company_name"), // Business/company name
+  businessType: varchar("business_type"), // Business type (individual, company, etc.)
+  taxId: varchar("tax_id"), // Tax ID / EIN number
   socialTiktok: varchar("social_tiktok"), // TikTok profile username
   socialSnapchat: varchar("social_snapchat"), // Snapchat profile username
   socialWebsite: varchar("social_website"), // Website URL

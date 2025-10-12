@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,9 @@ const profileSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email(),
   contactEmail: z.string().email().optional().or(z.literal("")),
+  companyName: z.string().optional().or(z.literal("")),
+  businessType: z.string().optional().or(z.literal("")),
+  taxId: z.string().optional().or(z.literal("")),
 });
 
 const brandingSchema = z.object({
@@ -1585,6 +1588,9 @@ export default function Settings() {
       lastName: user?.lastName || "",
       email: user?.email || "",
       contactEmail: user?.contactEmail || "",
+      companyName: user?.companyName || "",
+      businessType: user?.businessType || "",
+      taxId: user?.taxId || "",
     },
   });
 
@@ -1596,6 +1602,9 @@ export default function Settings() {
         lastName: user.lastName || "",
         email: user.email || "",
         contactEmail: user.contactEmail || "",
+        companyName: user.companyName || "",
+        businessType: user.businessType || "",
+        taxId: user.taxId || "",
       });
     }
   }, [user, profileForm]);
@@ -2211,6 +2220,63 @@ export default function Settings() {
                       )}
                     />
                   )}
+                  
+                  {isSeller && (
+                    <>
+                      <div className="pt-4 border-t">
+                        <h3 className="text-lg font-semibold mb-1">Company Information (Optional)</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          This information can be auto-populated from your Stripe Connect account
+                        </p>
+                      </div>
+                      
+                      <FormField
+                        control={profileForm.control}
+                        name="companyName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company Name (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Your Business Name Inc." data-testid="input-companyName" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={profileForm.control}
+                        name="businessType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Business Type (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g., Individual, Company, LLC" data-testid="input-businessType" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={profileForm.control}
+                        name="taxId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tax ID / EIN (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="XX-XXXXXXX" data-testid="input-taxId" />
+                            </FormControl>
+                            <FormDescription>
+                              Your tax identification number
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+                  
                   <Button 
                     type="submit" 
                     disabled={updateProfileMutation.isPending}
