@@ -139,33 +139,43 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(400).json({ error: 'Email and code are required' });
     }
 
-    // Find auth token
-    const authToken = await storage.getAuthTokenByCode(email, code);
+    // Test seller bypass: Allow fixed code "111111" for test account
+    const isTestSeller = email.toLowerCase() === 'mirtorabi+testseller@gmail.com';
+    let authToken;
+    
+    if (isTestSeller && code === '111111') {
+      // For test seller, skip token validation (no need for exact code match)
+      authToken = null; // Will trigger user creation/lookup below
+      logger.auth('Test seller authentication with fixed code', { email });
+    } else {
+      // Normal flow: Find auth token by code
+      authToken = await storage.getAuthTokenByCode(email, code);
+      
+      if (!authToken) {
+        return res.status(401).json({ error: 'Invalid code' });
+      }
+      
+      // Check if already used (magic_link tokens are reusable, everything else is single-use)
+      // Treat null/unknown tokenType as single-use for security (legacy tokens)
+      if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
+        return res.status(401).json({ error: 'Code already used' });
+      }
 
-    if (!authToken) {
-      return res.status(401).json({ error: 'Invalid code' });
-    }
+      // Check if expired
+      if (new Date() > new Date(authToken.expiresAt)) {
+        return res.status(401).json({ error: 'Code expired' });
+      }
 
-    // Check if already used (magic_link tokens are reusable, everything else is single-use)
-    // Treat null/unknown tokenType as single-use for security (legacy tokens)
-    if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
-      return res.status(401).json({ error: 'Code already used' });
-    }
-
-    // Check if expired
-    if (new Date() > new Date(authToken.expiresAt)) {
-      return res.status(401).json({ error: 'Code expired' });
-    }
-
-    // Mark as used (only magic_link tokens are reusable)
-    if (authToken.tokenType !== 'magic_link') {
-      await storage.markAuthTokenAsUsed(authToken.id);
+      // Mark as used (only magic_link tokens are reusable)
+      if (authToken.tokenType !== 'magic_link') {
+        await storage.markAuthTokenAsUsed(authToken.id);
+      }
     }
 
     // Determine seller context:
     // 1. Prefer sellerContext from request body (supports cross-device login)
     // 2. Fall back to sellerContext from token (original device context)
-    const finalSellerContext = sellerContext || authToken.sellerContext;
+    const finalSellerContext = sellerContext || authToken?.sellerContext;
     
     // If sellerContext exists, this is a buyer signup from a seller's storefront
     // If no sellerContext, this is a seller signup from main domain
@@ -175,8 +185,9 @@ router.post('/verify-code', async (req: any, res: Response) => {
     logger.auth('Domain context determined', {
       isMainDomain,
       sellerContextFromBody: sellerContext || undefined,
-      sellerContextFromToken: authToken.sellerContext || undefined,
-      finalSellerContext: finalSellerContext || undefined
+      sellerContextFromToken: authToken?.sellerContext || undefined,
+      finalSellerContext: finalSellerContext || undefined,
+      isTestSeller
     });
     
     // Get or create user (email lookup is case-insensitive in storage)
@@ -250,7 +261,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
     
     // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
     let sanitizedReturnUrl: string | null = null;
-    if (authToken.returnUrl) {
+    if (authToken?.returnUrl) {
       try {
         // Only allow paths starting with / and not // (protocol-relative URLs)
         if (authToken.returnUrl.startsWith("/") && !authToken.returnUrl.startsWith("//")) {
@@ -275,7 +286,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
       redirectUrl = sanitizedReturnUrl;
       logger.auth('Using preserved returnUrl from auth token', {
         returnUrl: sanitizedReturnUrl,
-        loginContext: authToken.loginContext || undefined,
+        loginContext: authToken?.loginContext || undefined,
         userId: user.id
       });
     } else if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
@@ -429,7 +440,7 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     
     logger.auth('Magic link domain context', {
       isMainDomain,
-      sellerContext: sellerContextFromToken
+      sellerContext: sellerContextFromToken || undefined
     });
     
     // Get or create user (normalized email)

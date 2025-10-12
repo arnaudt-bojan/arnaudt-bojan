@@ -10,6 +10,18 @@ Upfirst is a D2C (Direct-to-Consumer) e-commerce platform enabling creators and 
 - **Interaction Preferences**: Ask for confirmation before implementing significant architectural changes or refactoring large portions of the codebase.
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
+## Testing Protocol
+- **Test Seller Account**: 
+  - Email: `mirtorabi+testseller@gmail.com`
+  - Username: `mirtorabi`
+  - Fixed Authentication Code: `111111` (no need to check email for code)
+  - Storefront URL (dev): `/s/mirtorabi`
+- **Testing Workflow**:
+  1. When testing as seller, use the test seller account above
+  2. **IMPORTANT**: Always logout of the test seller before acting as a buyer (sellers cannot see cart on their own products)
+  3. Copy the storefront URL (`/s/mirtorabi`) when switching from seller to buyer for testing
+  4. This prevents test failures and reduces testing time by avoiding login/logout confusion
+
 ## System Architecture
 Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend (with TanStack Query for state management, Wouter for routing, and React Hook Form with Zod for forms). The backend is an Express.js Node.js application, using PostgreSQL (Neon) with Drizzle ORM for data persistence.
 
