@@ -2334,60 +2334,174 @@ export default function Settings() {
                     />
                   )}
                   
-                  {isSeller && (
+                  {isSeller && isStripeConnected && stripeAccountStatus && (
                     <>
                       <div className="pt-4 border-t">
-                        <h3 className="text-lg font-semibold mb-1">Company Information (Optional)</h3>
+                        <h3 className="text-lg font-semibold mb-1">Business Information</h3>
                         <p className="text-sm text-muted-foreground mb-4">
-                          This information can be auto-populated from your Stripe Connect account
+                          This information is populated from your Stripe Connect account. To update, please modify in your Stripe Dashboard.
                         </p>
                       </div>
-                      
-                      <FormField
-                        control={profileForm.control}
-                        name="companyName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company Name (optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Your Business Name Inc." data-testid="input-companyName" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={profileForm.control}
-                        name="businessType"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Business Type (optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., Individual, Company, LLC" data-testid="input-businessType" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={profileForm.control}
-                        name="taxId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tax ID / EIN (optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="XX-XXXXXXX" data-testid="input-taxId" />
-                            </FormControl>
-                            <FormDescription>
-                              Your tax identification number
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+
+                      {/* Personal/Business Details from Stripe */}
+                      {stripeAccountStatus.individual && (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <FormLabel className="text-muted-foreground">First Name</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual.firstName || 'N/A'} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-first-name" 
+                              />
+                            </div>
+                            <div>
+                              <FormLabel className="text-muted-foreground">Last Name</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual.lastName || 'N/A'} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-last-name" 
+                              />
+                            </div>
+                          </div>
+                          {stripeAccountStatus.individual.email && (
+                            <div>
+                              <FormLabel className="text-muted-foreground">Email</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual.email} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-email" 
+                              />
+                            </div>
+                          )}
+                          {stripeAccountStatus.individual.phone && (
+                            <div>
+                              <FormLabel className="text-muted-foreground">Phone</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual.phone} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-phone" 
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Company Name and Business Type */}
+                      {user?.companyName && (
+                        <div>
+                          <FormLabel className="text-muted-foreground">Company Name</FormLabel>
+                          <Input 
+                            value={user.companyName} 
+                            disabled 
+                            className="bg-muted"
+                            data-testid="input-stripe-company-name" 
+                          />
+                        </div>
+                      )}
+                      {user?.businessType && (
+                        <div>
+                          <FormLabel className="text-muted-foreground">Business Type</FormLabel>
+                          <Input 
+                            value={user.businessType} 
+                            disabled 
+                            className="bg-muted capitalize"
+                            data-testid="input-stripe-business-type" 
+                          />
+                        </div>
+                      )}
+
+                      {/* Business Address */}
+                      {(stripeAccountStatus.individual?.address || stripeAccountStatus.company?.address) && (
+                        <>
+                          <div className="pt-4 border-t">
+                            <FormLabel className="text-sm font-semibold">Business Address</FormLabel>
+                          </div>
+                          <div>
+                            <FormLabel className="text-muted-foreground">Address Line 1</FormLabel>
+                            <Input 
+                              value={stripeAccountStatus.individual?.address?.line1 || stripeAccountStatus.company?.address?.line1 || 'N/A'} 
+                              disabled 
+                              className="bg-muted"
+                              data-testid="input-stripe-address-line1" 
+                            />
+                          </div>
+                          {(stripeAccountStatus.individual?.address?.line2 || stripeAccountStatus.company?.address?.line2) && (
+                            <div>
+                              <FormLabel className="text-muted-foreground">Address Line 2</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual?.address?.line2 || stripeAccountStatus.company?.address?.line2} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-address-line2" 
+                              />
+                            </div>
+                          )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <FormLabel className="text-muted-foreground">City</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual?.address?.city || stripeAccountStatus.company?.address?.city || 'N/A'} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-city" 
+                              />
+                            </div>
+                            <div>
+                              <FormLabel className="text-muted-foreground">State/Province</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual?.address?.state || stripeAccountStatus.company?.address?.state || 'N/A'} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-state" 
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <FormLabel className="text-muted-foreground">Postal Code</FormLabel>
+                              <Input 
+                                value={stripeAccountStatus.individual?.address?.postalCode || stripeAccountStatus.company?.address?.postalCode || 'N/A'} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-postal" 
+                              />
+                            </div>
+                            <div>
+                              <FormLabel className="text-muted-foreground">Country</FormLabel>
+                              <Input 
+                                value={(stripeAccountStatus.individual?.address?.country || stripeAccountStatus.company?.address?.country)?.toUpperCase() || 'N/A'} 
+                                disabled 
+                                className="bg-muted"
+                                data-testid="input-stripe-country" 
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <p className="text-xs text-muted-foreground pt-2">
+                        To update this information, please visit your{' '}
+                        <button 
+                          onClick={() => window.open(`https://dashboard.stripe.com/${stripeAccountStatus.accountId}`, '_blank')}
+                          className="text-primary underline"
+                        >
+                          Stripe Dashboard
+                        </button>
+                      </p>
                     </>
+                  )}
+
+                  {isSeller && !isStripeConnected && (
+                    <div className="pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Connect your Stripe account to view and manage your business information.
+                      </p>
+                    </div>
                   )}
                   
                   <Button 
@@ -2401,79 +2515,6 @@ export default function Settings() {
               </Form>
             </CardContent>
           </Card>
-
-          {/* Business Address Section */}
-          {isSeller && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Business Address</CardTitle>
-                <CardDescription>
-                  {isStripeConnected ? 'Your business address from Stripe (read-only)' : 'Your business address'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isStripeConnected && stripeAccountStatus && (stripeAccountStatus.individual?.address || stripeAccountStatus.company?.address) ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Address Line 1</p>
-                        <p className="text-sm" data-testid="text-stripe-address-line1">
-                          {stripeAccountStatus.individual?.address?.line1 || stripeAccountStatus.company?.address?.line1 || 'N/A'}
-                        </p>
-                      </div>
-                      {(stripeAccountStatus.individual?.address?.line2 || stripeAccountStatus.company?.address?.line2) && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Address Line 2</p>
-                          <p className="text-sm" data-testid="text-stripe-address-line2">
-                            {stripeAccountStatus.individual?.address?.line2 || stripeAccountStatus.company?.address?.line2}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">City</p>
-                        <p className="text-sm" data-testid="text-stripe-address-city">
-                          {stripeAccountStatus.individual?.address?.city || stripeAccountStatus.company?.address?.city || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">State/Province</p>
-                        <p className="text-sm" data-testid="text-stripe-address-state">
-                          {stripeAccountStatus.individual?.address?.state || stripeAccountStatus.company?.address?.state || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Postal Code</p>
-                        <p className="text-sm" data-testid="text-stripe-address-postal">
-                          {stripeAccountStatus.individual?.address?.postalCode || stripeAccountStatus.company?.address?.postalCode || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Country</p>
-                        <p className="text-sm" data-testid="text-stripe-address-country">
-                          {(stripeAccountStatus.individual?.address?.country || stripeAccountStatus.company?.address?.country)?.toUpperCase() || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      To update your business address, please update it in your{' '}
-                      <button 
-                        onClick={() => window.open(`https://dashboard.stripe.com/${stripeAccountStatus.accountId}`, '_blank')}
-                        className="text-primary underline"
-                      >
-                        Stripe Dashboard
-                      </button>
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {isStripeConnected 
-                      ? 'No business address found in your Stripe account. Please complete your Stripe onboarding.' 
-                      : 'Connect your Stripe account to manage your business address.'}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {isSeller && isStripeConnected && stripeAccountStatus && (
             <Card>
