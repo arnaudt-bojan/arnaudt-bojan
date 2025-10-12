@@ -3002,15 +3002,6 @@ export default function Settings() {
                         </FormItem>
                       )}
                     />
-
-                    <Button 
-                      type="submit" 
-                      disabled={updateBrandingMutation.isPending}
-                      data-testid="button-save-policies"
-                      className="w-full sm:w-auto"
-                    >
-                      {updateBrandingMutation.isPending ? "Saving..." : "Save Policies"}
-                    </Button>
                   </form>
                 </Form>
               </CardContent>
@@ -3093,24 +3084,17 @@ export default function Settings() {
                         </p>
                       </div>
                       {user?.termsPdfUrl ? (
-                        <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <div className="flex items-center gap-3 p-3 border rounded-lg hover-elevate cursor-pointer" onClick={() => window.open(user.termsPdfUrl!, '_blank')}>
                           <FileText className="h-5 w-5 text-muted-foreground" />
                           <div className="flex-1">
                             <p className="text-sm font-medium">Terms & Conditions PDF</p>
-                            <a 
-                              href={user.termsPdfUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline"
-                              data-testid="link-tc-pdf"
-                            >
-                              View PDF
-                            </a>
+                            <p className="text-xs text-primary">Click to view PDF</p>
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={async () => {
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               try {
                                 await apiRequest('/api/settings/terms', {
                                   method: 'POST',
@@ -3198,6 +3182,27 @@ export default function Settings() {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Save and Discard Buttons */}
+                <div className="flex gap-3 pt-6 border-t">
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={() => brandingForm.reset()}
+                    data-testid="button-discard-policies"
+                  >
+                    Discard Changes
+                  </Button>
+                  <Button 
+                    type="button"
+                    className="flex-1"
+                    disabled={updateBrandingMutation.isPending}
+                    onClick={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))}
+                    data-testid="button-save-policies"
+                  >
+                    {updateBrandingMutation.isPending ? "Saving..." : "Save Policies"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
