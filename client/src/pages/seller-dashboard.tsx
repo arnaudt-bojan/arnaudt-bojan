@@ -314,7 +314,7 @@ export default function SellerDashboard() {
             </Alert>
           )}
           
-          {user && !user.stripeConnectedAccountId && (
+          {user && (!user.stripeConnectedAccountId || !user.stripeChargesEnabled) && (
             <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-not-connected">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Payment Setup Required</AlertTitle>
