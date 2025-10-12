@@ -393,13 +393,32 @@ function SubscriptionTab({ user }: { user: any }) {
 
               {subscriptionStatus.paymentMethod && (
                 <div className="border-t pt-4">
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Payment Method</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        // Switch to Addresses & Payments tab
+                        const addressesTab = document.querySelector('[value="addresses"]');
+                        if (addressesTab instanceof HTMLElement) {
+                          addressesTab.click();
+                        }
+                      }}
+                      data-testid="button-update-payment-method"
+                    >
+                      Update Card
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
                     <span>
                       {subscriptionStatus.paymentMethod.card?.brand?.toUpperCase()} •••• {subscriptionStatus.paymentMethod.card?.last4}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Update your payment method in the Addresses & Payments tab. Your subscription will use the default card.
+                  </p>
                 </div>
               )}
 
