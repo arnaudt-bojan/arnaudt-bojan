@@ -33,6 +33,7 @@ import { WholesaleService } from "./services/wholesale.service";
 import { TeamManagementService } from "./services/team-management.service";
 import { OrderLifecycleService } from "./services/order-lifecycle.service";
 import { PricingCalculationService } from "./services/pricing-calculation.service";
+import { StripeWebhookService } from "./services/stripe-webhook.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -73,6 +74,7 @@ const pricingCalculationService = new PricingCalculationService(
 let stripeProvider: StripePaymentProvider | null = null;
 let webhookHandler: WebhookHandler | null = null;
 let paymentService: PaymentService | null = null;
+let stripeWebhookService: StripeWebhookService | null = null;
 
 if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
   stripeProvider = new StripePaymentProvider(
@@ -88,6 +90,17 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
     storage,
     stripeProvider,
     inventoryService
+  );
+}
+
+// Initialize Stripe webhook service (requires stripe and webhookHandler)
+if (stripe && process.env.STRIPE_WEBHOOK_SECRET) {
+  stripeWebhookService = new StripeWebhookService(
+    storage,
+    stripe,
+    notificationService,
+    inventoryService,
+    webhookHandler
   );
 }
 
@@ -3353,434 +3366,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe Webhook Handler
   app.post("/api/stripe/webhook", async (req, res) => {
     try {
-      if (!stripe) {
+      if (!stripe || !stripeWebhookService) {
         return res.status(500).send("Stripe is not configured");
       }
-
+      
       const sig = req.headers['stripe-signature'];
       const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
+      
       if (!sig || !webhookSecret) {
         logger.error("Webhook signature or secret missing");
         return res.status(400).send("Webhook signature or secret missing");
       }
-
-      let event: Stripe.Event;
-
-      try {
-        // Verify webhook signature
-        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-      } catch (err: any) {
-        console.error(`Webhook signature verification failed:`, err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-      }
-
-      logger.info(`[Webhook] Received event: ${event.type}`);
-
-      // Check if event already processed (idempotency)
-      const alreadyProcessed = await storage.isWebhookEventProcessed(event.id);
-      if (alreadyProcessed) {
-        logger.info(`[Webhook] Event ${event.id} already processed, skipping`);
-        return res.json({ received: true, skipped: true });
-      }
-
-      // Handle different event types
-      switch (event.type) {
-        case 'checkout.session.completed': {
-          const session = event.data.object as Stripe.Checkout.Session;
-          const userId = session.metadata?.userId;
-          const plan = session.metadata?.plan;
-
-          if (userId && plan && session.subscription) {
-            const user = await storage.getUser(userId);
-            if (user) {
-              // Retrieve the subscription with expanded payment method
-              const subscription = await stripe.subscriptions.retrieve(session.subscription as string, {
-                expand: ['default_payment_method', 'latest_invoice']
-              });
-              
-              // CRITICAL: Only activate subscription if payment method is actually attached
-              // Check for default_payment_method or payment_intent success
-              let hasValidPaymentMethod = false;
-              
-              if (subscription.default_payment_method) {
-                hasValidPaymentMethod = true;
-              } else if (subscription.latest_invoice && typeof subscription.latest_invoice === 'object') {
-                const invoice = subscription.latest_invoice as Stripe.Invoice;
-                if (invoice.payment_intent && typeof invoice.payment_intent === 'object') {
-                  const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
-                  hasValidPaymentMethod = paymentIntent.status === 'succeeded';
-                } else if (invoice.paid === true) {
-                  hasValidPaymentMethod = true;
-                }
-              }
-              
-              let status: string;
-              
-              // Only activate trial or paid subscription if payment method is confirmed
-              if (subscription.status === 'trialing' && hasValidPaymentMethod) {
-                status = 'trial';
-                logger.info(`[Webhook] Checkout completed - user ${userId} starting trial with confirmed payment method`);
-              } else if (subscription.status === 'active' && hasValidPaymentMethod) {
-                status = 'active';
-                logger.info(`[Webhook] Checkout completed - user ${userId} subscription active (paid)`);
-              } else {
-                // No valid payment method - don't activate subscription
-                logger.info(`[Webhook] Checkout completed - user ${userId} subscription status ${subscription.status} without payment method, awaiting payment`);
-                await storage.upsertUser({
-                  ...user,
-                  stripeSubscriptionId: subscription.id,
-                  subscriptionPlan: plan,
-                  // Don't set subscriptionStatus - keep it null until payment confirmed
-                });
-                break;
-              }
-
-              // Save payment method to database if it exists
-              if (subscription.default_payment_method && typeof subscription.default_payment_method === 'object') {
-                const paymentMethod = subscription.default_payment_method as Stripe.PaymentMethod;
-                
-                // Check if already saved
-                const existingPaymentMethods = await storage.getSavedPaymentMethods(userId);
-                const alreadySaved = existingPaymentMethods.find((pm: any) => pm.stripePaymentMethodId === paymentMethod.id);
-                
-                if (!alreadySaved) {
-                  // This is the subscription's default payment method, so it MUST be marked as default
-                  // First, unset any existing default
-                  for (const existingPm of existingPaymentMethods) {
-                    if (existingPm.isDefault === 1) {
-                      await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
-                    }
-                  }
-                  
-                  // Save the new payment method as default
-                  await storage.createSavedPaymentMethod({
-                    userId,
-                    stripePaymentMethodId: paymentMethod.id,
-                    cardBrand: paymentMethod.card?.brand || null,
-                    cardLast4: paymentMethod.card?.last4 || null,
-                    cardExpMonth: paymentMethod.card?.exp_month || null,
-                    cardExpYear: paymentMethod.card?.exp_year || null,
-                    isDefault: 1, // Always default since it's the subscription's default
-                    label: null,
-                  });
-                  logger.info(`[Webhook] Saved payment method ${paymentMethod.id} as default for user ${userId}`);
-                } else if (alreadySaved.isDefault === 0) {
-                  // Payment method exists but isn't default - make it default since it's the subscription's default
-                  // First, unset any existing default
-                  for (const existingPm of existingPaymentMethods) {
-                    if (existingPm.isDefault === 1 && existingPm.id !== alreadySaved.id) {
-                      await storage.updateSavedPaymentMethod(existingPm.id, { isDefault: 0 });
-                    }
-                  }
-                  
-                  // Set this one as default
-                  await storage.updateSavedPaymentMethod(alreadySaved.id, { isDefault: 1 });
-                  logger.info(`[Webhook] Updated payment method ${paymentMethod.id} to default for user ${userId}`);
-                }
-              }
-
-              await storage.upsertUser({
-                ...user,
-                stripeSubscriptionId: subscription.id,
-                subscriptionStatus: status,
-                subscriptionPlan: plan,
-              });
-            }
-          }
-          break;
-        }
-
-        case 'customer.subscription.created': {
-          const subscription = event.data.object as Stripe.Subscription;
-          const customerId = subscription.customer as string;
-          
-          // Find user by Stripe customer ID (indexed lookup)
-          const user = await storage.getUserByStripeCustomerId(customerId);
-
-          if (user) {
-            // Only update subscription ID, don't change status yet
-            // Status will be set by checkout.session.completed or invoice.payment_succeeded
-            await storage.upsertUser({
-              ...user,
-              stripeSubscriptionId: subscription.id,
-            });
-            logger.info(`[Webhook] Subscription created for user ${user.id}, awaiting payment confirmation`);
-          }
-          break;
-        }
-
-        case 'customer.subscription.updated': {
-          const subscription = event.data.object as Stripe.Subscription;
-          const customerId = subscription.customer as string;
-          
-          // Find user by Stripe customer ID (indexed lookup)
-          const user = await storage.getUserByStripeCustomerId(customerId);
-
-          if (user) {
-            let status: string;
-            switch (subscription.status) {
-              case 'trialing':
-                status = 'trial';
-                break;
-              case 'active':
-                status = 'active';
-                break;
-              case 'past_due':
-                status = 'past_due';
-                break;
-              case 'canceled':
-              case 'unpaid':
-                status = 'canceled';
-                break;
-              default:
-                status = subscription.status;
-            }
-
-            await storage.upsertUser({
-              ...user,
-              stripeSubscriptionId: subscription.id,
-              subscriptionStatus: status,
-            });
-            logger.info(`[Webhook] Updated user ${user.id} subscription status to ${status}`);
-          }
-          break;
-        }
-
-        case 'customer.subscription.deleted': {
-          const subscription = event.data.object as Stripe.Subscription;
-          const customerId = subscription.customer as string;
-          
-          const user = await storage.getUserByStripeCustomerId(customerId);
-
-          if (user) {
-            await storage.upsertUser({
-              ...user,
-              subscriptionStatus: 'canceled',
-              stripeSubscriptionId: null,
-              storeActive: 0, // CRITICAL: Deactivate store when subscription is cancelled
-            });
-            logger.info(`[Webhook] Cancelled subscription for user ${user.id} and deactivated store`);
-          }
-          break;
-        }
-
-        case 'invoice.payment_failed': {
-          const invoice = event.data.object as Stripe.Invoice;
-          const customerId = invoice.customer as string;
-          
-          const user = await storage.getUserByStripeCustomerId(customerId);
-
-          if (user) {
-            // Retrieve subscription to check attempt count
-            let shouldDeactivateStore = false;
-            if (user.stripeSubscriptionId && stripe) {
-              try {
-                const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
-                // If subscription is unpaid or cancelled due to payment failures, deactivate store
-                if (subscription.status === 'unpaid' || subscription.status === 'canceled') {
-                  shouldDeactivateStore = true;
-                }
-              } catch (error) {
-                console.error(`[Webhook] Error retrieving subscription:`, error);
-              }
-            }
-
-            await storage.upsertUser({
-              ...user,
-              subscriptionStatus: 'past_due',
-              storeActive: shouldDeactivateStore ? 0 : user.storeActive, // Deactivate if subscription is dead
-            });
-            logger.info(`[Webhook] Marked user ${user.id} subscription as past_due${shouldDeactivateStore ? ' and deactivated store' : ''}`);
-            
-            // TODO: Send notification email to user about failed payment
-          }
-          break;
-        }
-
-        case 'invoice.payment_succeeded': {
-          const invoice = event.data.object as Stripe.Invoice;
-          const customerId = invoice.customer as string;
-          
-          const user = await storage.getUserByStripeCustomerId(customerId);
-
-          if (user) {
-            // CRITICAL: Activate subscription on first successful payment
-            // This handles cases where trial period ends and first payment is collected
-            // Or when user subscribes without trial
-            const shouldActivate = !user.subscriptionStatus || 
-                                  user.subscriptionStatus === 'past_due' || 
-                                  user.subscriptionStatus === null;
-            
-            if (shouldActivate) {
-              await storage.upsertUser({
-                ...user,
-                subscriptionStatus: 'active',
-              });
-              logger.info(`[Webhook] Activated user ${user.id} subscription (first payment succeeded)`);
-            } else if (user.subscriptionStatus === 'past_due') {
-              await storage.upsertUser({
-                ...user,
-                subscriptionStatus: 'active',
-              });
-              logger.info(`[Webhook] Restored user ${user.id} subscription to active`);
-            }
-
-            // Send invoice email for all successful subscription payments
-            try {
-              const periodStart = new Date(invoice.period_start * 1000).toLocaleDateString();
-              const periodEnd = new Date(invoice.period_end * 1000).toLocaleDateString();
-
-              await notificationService.sendSubscriptionInvoice(user, {
-                amount: invoice.amount_paid,
-                currency: invoice.currency,
-                invoiceNumber: invoice.number || invoice.id,
-                invoiceUrl: invoice.hosted_invoice_url || undefined,
-                periodStart,
-                periodEnd,
-                plan: user.subscriptionPlan || 'monthly',
-              });
-              
-              logger.info(`[Webhook] Subscription invoice email sent to ${user.email}`);
-            } catch (emailError) {
-              console.error(`[Webhook] Failed to send invoice email:`, emailError);
-              // Continue processing - don't fail webhook if email fails
-            }
-          }
-          break;
-        }
-
-        case 'payment_intent.succeeded':
-        case 'payment_intent.payment_failed':
-        case 'payment_intent.canceled': {
-          // Delegate payment events to WebhookHandler
-          if (webhookHandler) {
-            await webhookHandler.handleVerifiedEvent({
-              id: event.id,
-              type: event.type,
-              data: event.data,
-            });
-          } else {
-            logger.warn(`[Webhook] WebhookHandler not initialized, skipping ${event.type}`);
-          }
-          break;
-        }
-
-        // Legacy fallback for payment_intent.payment_failed and canceled (kept for safety)
-        case 'payment_intent.payment_failed_legacy':
-        case 'payment_intent.canceled_legacy': {
-          const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          const orderId = paymentIntent.metadata?.orderId;
-
-          if (orderId) {
-            logger.info(`[Webhook] Payment ${event.type} for order ${orderId}`);
-            
-            // Get order and release inventory reservations
-            const order = await storage.getOrder(orderId);
-            if (order) {
-              let reservationsReleased = false;
-
-              // PRIMARY PATH: Try to release via checkoutSessionId from metadata
-              if (order.metadata) {
-                try {
-                  const metadata = JSON.parse(order.metadata);
-                  const checkoutSessionId = metadata?.checkoutSessionId;
-
-                  if (checkoutSessionId) {
-                    // Release all reservations for this checkout session
-                    await inventoryService.releaseReservationsBySession(checkoutSessionId);
-                    reservationsReleased = true;
-                    logger.info(`[Inventory] Released reservations via checkoutSessionId`, {
-                      orderId,
-                      checkoutSessionId,
-                      event: event.type,
-                    });
-                  }
-                } catch (parseError) {
-                  logger.error('[Inventory] Failed to parse order metadata', {
-                    orderId,
-                    error: parseError,
-                  });
-                }
-              }
-
-              // FALLBACK PATH: If metadata missing/invalid, release by order items
-              if (!reservationsReleased) {
-                logger.warn('[Inventory] Using fallback: releasing reservations by order items', {
-                  orderId,
-                });
-
-                try {
-                  let orderItems;
-                  try {
-                    orderItems = JSON.parse(order.items);
-                  } catch (itemsParseError) {
-                    logger.error('[Inventory] Failed to parse order.items in fallback', {
-                      orderId,
-                      error: itemsParseError,
-                    });
-                    throw itemsParseError; // Re-throw to outer catch
-                  }
-
-                  let releasedCount = 0;
-
-                  for (const item of orderItems) {
-                    const productId = item.productId;
-                    const variant = item.variant;
-                    const variantId = variant ? 
-                      inventoryService.getVariantId(variant.size, variant.color) : 
-                      undefined;
-
-                    // Release pending reservations for this product/variant created by this user
-                    const released = await inventoryService.releaseUserReservations(
-                      productId,
-                      order.userId,
-                      variantId
-                    );
-                    releasedCount += released;
-                  }
-
-                  reservationsReleased = true;
-                  logger.info(`[Inventory] Fallback release completed`, {
-                    orderId,
-                    itemsProcessed: orderItems.length,
-                    reservationsReleased: releasedCount,
-                  });
-                } catch (fallbackError) {
-                  logger.error('[Inventory] Fallback reservation release failed', {
-                    orderId,
-                    error: fallbackError,
-                  });
-                  // Continue - at least update order status
-                  // NOTE: Reservations will be released by background cleanup job (5min cycle)
-                }
-              }
-
-              // Update order status to cancelled (single consistent status)
-              try {
-                await storage.updateOrderPaymentStatus(orderId, 'failed');
-                await storage.updateOrderStatus(orderId, 'cancelled');
-                logger.info(`[Webhook] Updated order ${orderId} to cancelled with failed payment`);
-              } catch (statusError) {
-                logger.error('[Webhook] Failed to update order status', {
-                  orderId,
-                  error: statusError,
-                });
-              }
-            }
-          }
-          break;
-        }
-
-        default:
-          logger.info(`[Webhook] Unhandled event type: ${event.type}`);
-      }
-
-      // Mark event as processed (idempotency)
-      await storage.markWebhookEventProcessed(event.id, event.data, event.type, 'stripe');
-      logger.info(`[Webhook] Marked event ${event.id} as processed`);
-
-      res.status(200).json({ received: true });
+      
+      const result = await stripeWebhookService.processWebhook(req.body, sig, webhookSecret);
+      res.status(200).json(result);
     } catch (error: any) {
       logger.error("[Webhook] Error processing webhook", error);
       res.status(500).send("Webhook processing error");
