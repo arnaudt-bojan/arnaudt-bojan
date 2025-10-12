@@ -2655,86 +2655,6 @@ export default function Settings() {
                 </CardContent>
               </Card>
 
-              {/* Branding Setup */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Store Branding</CardTitle>
-                  <CardDescription>Customize your storefront appearance with logo and banner</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...brandingForm}>
-                    <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-8">
-                      {/* Logo Section */}
-                      <div className="space-y-4">
-                        <div className="border-b pb-3">
-                          <h3 className="text-lg font-semibold">Store Logo</h3>
-                          <p className="text-sm text-muted-foreground">Appears in the navigation header (200×200px square recommended)</p>
-                        </div>
-                        <FormField
-                          control={brandingForm.control}
-                          name="storeLogo"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <UniversalImageUpload
-                                  value={field.value || ""}
-                                  onChange={field.onChange}
-                                  label=""
-                                  mode="single"
-                                  aspectRatio="square"
-                                  heroSelection={false}
-                                  allowUrl={true}
-                                  allowUpload={true}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Banner Section */}
-                      <div className="space-y-4">
-                        <div className="border-b pb-3">
-                          <h3 className="text-lg font-semibold">Store Banner (Optional)</h3>
-                          <p className="text-sm text-muted-foreground">Hero image at the top of your store (1200×400px recommended)</p>
-                        </div>
-                        <FormField
-                          control={brandingForm.control}
-                          name="storeBanner"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <UniversalImageUpload
-                                  value={field.value || ""}
-                                  onChange={field.onChange}
-                                  label=""
-                                  mode="single"
-                                  aspectRatio="banner"
-                                  heroSelection={false}
-                                  allowUrl={true}
-                                  allowUpload={true}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <Button 
-                        type="submit" 
-                        disabled={updateBrandingMutation.isPending}
-                        data-testid="button-save-branding-quick-setup"
-                        className="w-full sm:w-auto"
-                      >
-                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-
               {/* Preview Store */}
               <Card>
                 <CardHeader>
@@ -2868,6 +2788,86 @@ export default function Settings() {
         {isSeller && (
           <TabsContent value="about-contact">
             <div className="space-y-6">
+              {/* Storefront Branding */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Storefront Branding</CardTitle>
+                  <CardDescription>Customize your storefront appearance with logo and banner</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Form {...brandingForm}>
+                    <form onSubmit={brandingForm.handleSubmit((data) => updateBrandingMutation.mutate(data))} className="space-y-8">
+                      {/* Logo Section */}
+                      <div className="space-y-4">
+                        <div className="border-b pb-3">
+                          <h3 className="text-lg font-semibold">Store Logo</h3>
+                          <p className="text-sm text-muted-foreground">Appears in the navigation header (200×200px square recommended)</p>
+                        </div>
+                        <FormField
+                          control={brandingForm.control}
+                          name="storeLogo"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <UniversalImageUpload
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="square"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Banner Section */}
+                      <div className="space-y-4">
+                        <div className="border-b pb-3">
+                          <h3 className="text-lg font-semibold">Store Banner (Optional)</h3>
+                          <p className="text-sm text-muted-foreground">Hero image at the top of your store (1200×400px recommended)</p>
+                        </div>
+                        <FormField
+                          control={brandingForm.control}
+                          name="storeBanner"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <UniversalImageUpload
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="banner"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        disabled={updateBrandingMutation.isPending}
+                        data-testid="button-save-branding"
+                        className="w-full sm:w-auto"
+                      >
+                        {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>About & Contact</CardTitle>
