@@ -1327,8 +1327,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/orders/:id/status", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
       const statusSchema = z.object({ status: orderStatusEnum });
       const validationResult = statusSchema.safeParse(req.body);
       
@@ -1336,124 +1334,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const error = fromZodError(validationResult.error);
         return res.status(400).json({ error: error.message });
       }
-
-      // Check authorization before updating
-      const existingOrder = await storage.getOrder(req.params.id);
-      if (!existingOrder) {
-        return res.status(404).json({ error: "Order not found" });
+      
+      const result = await orderLifecycleService.updateOrderStatus(
+        req.params.id,
+        validationResult.data.status,
+        userId
+      );
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
       }
       
-      // Only seller of products in order or admin can update status
-      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
-      if (!isAdmin) {
-        try {
-          const items = JSON.parse(existingOrder.items);
-          const allProducts = await storage.getAllProducts();
-          const orderProductIds = items.map((item: any) => item.productId);
-          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
-          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
-          
-          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
-          
-          if (!isSeller) {
-            return res.status(403).json({ error: "Access denied" });
-          }
-        } catch {
-          return res.status(403).json({ error: "Access denied" });
-        }
-      }
-
-      const order = await storage.updateOrderStatus(req.params.id, validationResult.data.status);
-      
-      // Auto-generate documents based on status change
-      void (async () => {
-        try {
-          const newStatus = validationResult.data.status;
-          
-          // Auto-generate invoice when order is paid
-          if (newStatus === 'paid') {
-            logger.info(`[Auto-Generate] Generating invoice for order ${order.id}`);
-            const documentGenerator = new DocumentGenerator(storage);
-            
-            // Get seller ID from order
-            const items = JSON.parse(order.items);
-            if (items.length === 0) {
-              logger.error("[Auto-Generate] Cannot generate invoice: order has no items");
-              return;
-            }
-            
-            const allProducts = await storage.getAllProducts();
-            const firstProduct = allProducts.find(p => p.id === items[0].productId);
-            if (!firstProduct) {
-              logger.error("[Auto-Generate] Cannot generate invoice: product not found");
-              return;
-            }
-            
-            const sellerId = firstProduct.sellerId;
-            const seller = await storage.getUser(sellerId);
-            if (!seller) {
-              logger.error("[Auto-Generate] Cannot generate invoice: seller not found");
-              return;
-            }
-            
-            // Determine order type based on product types
-            // If any item is wholesale, it's a wholesale order
-            const orderType = items.some((item: any) => item.productType === 'wholesale') ? 'wholesale' : 'b2c';
-            
-            await documentGenerator.generateInvoice({
-              order,
-              seller,
-              orderType,
-              generatedBy: userId, // System-triggered by user's status change
-              generationTrigger: 'automatic',
-            });
-            
-            logger.info(`[Auto-Generate] Invoice generated successfully for order ${order.id}`);
-          }
-          
-          // Auto-generate packing slip when order is ready to ship
-          if (newStatus === 'ready_to_ship') {
-            logger.info(`[Auto-Generate] Generating packing slip for order ${order.id}`);
-            const documentGenerator = new DocumentGenerator(storage);
-            
-            // Get seller ID from order
-            const items = JSON.parse(order.items);
-            if (items.length === 0) {
-              logger.error("[Auto-Generate] Cannot generate packing slip: order has no items");
-              return;
-            }
-            
-            const allProducts = await storage.getAllProducts();
-            const firstProduct = allProducts.find(p => p.id === items[0].productId);
-            if (!firstProduct) {
-              logger.error("[Auto-Generate] Cannot generate packing slip: product not found");
-              return;
-            }
-            
-            const sellerId = firstProduct.sellerId;
-            const seller = await storage.getUser(sellerId);
-            if (!seller) {
-              logger.error("[Auto-Generate] Cannot generate packing slip: seller not found");
-              return;
-            }
-            
-            await documentGenerator.generatePackingSlip({
-              order,
-              seller,
-              generatedBy: userId, // System-triggered by user's status change
-              generationTrigger: 'automatic',
-            });
-            
-            logger.info(`[Auto-Generate] Packing slip generated successfully for order ${order.id}`);
-          }
-        } catch (error) {
-          logger.error("[Auto-Generate] Failed to generate document:", error);
-          // Don't fail the status update if document generation fails
-        }
-      })();
-      
-      res.json(order);
+      res.json(result.order);
     } catch (error) {
+      logger.error("Order status update error", error);
       res.status(500).json({ error: "Failed to update order status" });
     }
   });
@@ -1863,8 +1757,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/order-items/:id/tracking", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
       const trackingSchema = z.object({
         trackingNumber: z.string().min(1, "Tracking number is required"),
         trackingCarrier: z.string().optional(),
@@ -1876,80 +1768,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validationResult = trackingSchema.safeParse(req.body);
-      
       if (!validationResult.success) {
         const error = fromZodError(validationResult.error);
         return res.status(400).json({ error: error.message });
       }
       
-      // Get the order item to find the order
-      const item = await storage.getOrderItemById(req.params.id);
-      
-      if (!item) {
-        return res.status(404).json({ error: "Order item not found" });
-      }
-      
-      const order = await storage.getOrder(item.orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-      
-      // Authorization: only seller can update tracking
-      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
-      if (!isAdmin) {
-        try {
-          const orderItems = JSON.parse(order.items);
-          const allProducts = await storage.getAllProducts();
-          const orderProductIds = orderItems.map((item: any) => item.productId);
-          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
-          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
-          
-          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
-          
-          if (!isSeller) {
-            return res.status(403).json({ error: "Access denied" });
-          }
-        } catch {
-          return res.status(403).json({ error: "Access denied" });
-        }
-      }
-      
-      // Update item tracking (automatically sets status to 'shipped')
-      const updatedItem = await storage.updateOrderItemTracking(
+      const result = await orderLifecycleService.updateItemTracking(
         req.params.id,
-        validationResult.data.trackingNumber,
-        validationResult.data.trackingCarrier,
-        validationResult.data.trackingUrl
+        validationResult.data,
+        userId
       );
       
-      if (!updatedItem) {
-        return res.status(404).json({ error: "Failed to update tracking" });
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
       }
       
-      // Update order fulfillment status
-      await storage.updateOrderFulfillmentStatus(item.orderId);
-      
-      // Send notification if requested
-      if (validationResult.data.notifyCustomer) {
-        void (async () => {
-          try {
-            const orderItemsAll = await storage.getOrderItems(item.orderId);
-            const seller = await storage.getUser(userId);
-            
-            if (seller) {
-              // Send item tracking notification to buyer
-              await notificationService.sendItemTracking(order, updatedItem, seller);
-              logger.info(`[Notifications] Item tracking notification sent for item ${updatedItem.id}`);
-            }
-          } catch (error) {
-            logger.error("[Notifications] Failed to send item tracking notification:", error);
-          }
-        })();
-      }
-      
-      res.json(updatedItem);
+      res.json(result.item);
     } catch (error) {
-      logger.error("[Order Items] Failed to update tracking:", error);
+      logger.error("Item tracking update error", error);
       res.status(500).json({ error: "Failed to update tracking information" });
     }
   });
@@ -2048,126 +1884,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/order-items/:id/refund", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe is not configured" });
-      }
       
       const refundSchema = z.object({
         quantity: z.number().min(1, "Quantity must be at least 1"),
         amount: z.number().min(0.5, "Refund amount must be at least $0.50"),
+        reason: z.string().optional(),
       });
       
       const validationResult = refundSchema.safeParse(req.body);
-      
       if (!validationResult.success) {
         const error = fromZodError(validationResult.error);
         return res.status(400).json({ error: error.message });
       }
       
-      // Get the order item
+      // Get the order item to find the order ID
       const item = await storage.getOrderItemById(req.params.id);
-      
       if (!item) {
         return res.status(404).json({ error: "Order item not found" });
       }
       
-      const order = await storage.getOrder(item.orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-      
-      // Authorization: only seller can process refund
-      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
-      if (!isAdmin) {
-        try {
-          const orderItems = JSON.parse(order.items);
-          const allProducts = await storage.getAllProducts();
-          const orderProductIds = orderItems.map((item: any) => item.productId);
-          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
-          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
-          
-          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
-          
-          if (!isSeller) {
-            return res.status(403).json({ error: "Access denied" });
-          }
-        } catch {
-          return res.status(403).json({ error: "Access denied" });
-        }
-      }
-
-      // Process Stripe refund
-      let refundId;
-      try {
-        const paymentIntentId = order.stripePaymentIntentId;
-        if (!paymentIntentId) {
-          return res.status(400).json({ error: "No payment found for this order" });
-        }
-
-        const refund = await stripe.refunds.create({
-          payment_intent: paymentIntentId,
-          amount: Math.round(validationResult.data.amount * 100), // Convert to cents
-        });
-
-        refundId = refund.id;
-      } catch (stripeError: any) {
-        console.error("Stripe refund error:", stripeError);
-        return res.status(500).json({ error: `Refund failed: ${stripeError.message}` });
-      }
-      
-      // Update item with refund info
-      const updatedItem = await storage.updateOrderItemRefund(
-        req.params.id,
-        validationResult.data.quantity,
-        validationResult.data.amount.toString(),
-        'refunded'
-      );
-      
-      if (!updatedItem) {
-        return res.status(404).json({ error: "Failed to update item refund status" });
-      }
-
-      // Create refund record
-      await storage.createRefund({
-        orderId: order.id,
-        amount: validationResult.data.amount.toString(),
-        stripeRefundId: refundId,
-        status: 'completed',
-        reason: req.body.reason || 'Customer request',
+      const result = await orderLifecycleService.processRefund({
+        orderId: item.orderId,
+        sellerId: userId,
+        refundType: 'item',
+        refundItems: [{
+          itemId: req.params.id,
+          quantity: validationResult.data.quantity,
+          amount: validationResult.data.amount,
+        }],
+        reason: validationResult.data.reason || 'Customer request',
       });
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
+      }
       
       // Update order fulfillment status
       await storage.updateOrderFulfillmentStatus(item.orderId);
       
-      // Send refund notification email
-      void (async () => {
-        try {
-          const seller = await storage.getUser(userId);
-          if (seller) {
-            await notificationService.sendItemRefunded(
-              order, 
-              updatedItem, 
-              seller,
-              validationResult.data.amount,
-              validationResult.data.quantity
-            );
-            logger.info(`[Notifications] Refund notification sent for item ${updatedItem.id}`);
-          }
-        } catch (error) {
-          logger.error("[Notifications] Failed to send refund notification:", error);
-        }
-      })();
+      // Get updated item for response
+      const updatedItem = await storage.getOrderItemById(req.params.id);
       
       res.json({
         success: true,
         item: updatedItem,
-        refundId,
-        message: `Refund of $${validationResult.data.amount.toFixed(2)} processed successfully`,
+        refundId: result.stripeRefundId,
+        message: `Refund of $${result.refundAmount?.toFixed(2)} processed successfully`,
       });
     } catch (error) {
-      logger.error("[Order Items] Failed to process refund:", error);
+      logger.error("Item refund error", error);
       res.status(500).json({ error: "Failed to process refund" });
     }
   });
