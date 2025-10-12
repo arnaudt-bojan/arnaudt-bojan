@@ -33,6 +33,7 @@ import CreateAdCampaign from "@/pages/create-ad-campaign";
 import PromoteProduct from "@/pages/promote-product";
 import CreateMetaCampaign from "@/pages/create-meta-campaign";
 import OrderManagement from "@/pages/order-management";
+import SellerOrdersPage from "@/pages/seller-orders";
 import Newsletter from "@/pages/newsletter";
 import WholesaleProducts from "@/pages/wholesale-products";
 import CreateWholesaleProduct from "@/pages/create-wholesale-product";
@@ -196,6 +197,13 @@ function AppContent() {
                 {() => (
                   <ProtectedRoute requireSeller>
                     <OrderDetail />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/orders">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SellerOrdersPage />
                   </ProtectedRoute>
                 )}
               </Route>
