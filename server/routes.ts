@@ -34,6 +34,7 @@ import { TeamManagementService } from "./services/team-management.service";
 import { OrderLifecycleService } from "./services/order-lifecycle.service";
 import { PricingCalculationService } from "./services/pricing-calculation.service";
 import { StripeWebhookService } from "./services/stripe-webhook.service";
+import { MetaIntegrationService } from "./services/meta-integration.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -151,6 +152,15 @@ const orderLifecycleService = new OrderLifecycleService(
   storage,
   notificationService,
   stripe || undefined
+);
+
+// Initialize Meta Integration service for Meta OAuth callback logic
+const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta-auth/callback`;
+const metaIntegrationService = new MetaIntegrationService(
+  storage,
+  process.env.META_APP_ID || "",
+  process.env.META_APP_SECRET || "",
+  redirectUri
 );
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -3231,50 +3241,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect("/meta-ads-setup?error=no_code");
       }
 
-      const appId = process.env.META_APP_ID;
-      const appSecret = process.env.META_APP_SECRET;
-      const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta-auth/callback`;
+      const result = await metaIntegrationService.handleOAuthCallback(code as string, userId);
 
-      // Exchange code for access token
-      const tokenResponse = await fetch(
-        `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&code=${code}&redirect_uri=${encodeURIComponent(redirectUri)}`
-      );
-      const tokenData = await tokenResponse.json();
-
-      if (!tokenData.access_token) {
-        return res.redirect("/meta-ads-setup?error=token_failed");
+      if (!result.success) {
+        res.send(`
+          <html>
+            <script>
+              window.opener.postMessage({ type: 'META_AUTH_ERROR', error: '${result.error}' }, '*');
+              window.close();
+            </script>
+            <body>
+              <p>Connection failed. This window will close automatically...</p>
+            </body>
+          </html>
+        `);
+      } else {
+        res.send(`
+          <html>
+            <script>
+              window.opener.postMessage({ type: 'META_AUTH_SUCCESS' }, '*');
+              window.close();
+            </script>
+            <body>
+              <p>Connected successfully! This window will close automatically...</p>
+            </body>
+          </html>
+        `);
       }
-
-      // Get user's ad accounts
-      const adAccountsResponse = await fetch(
-        `https://graph.facebook.com/v21.0/me/adaccounts?access_token=${tokenData.access_token}`
-      );
-      const adAccountsData = await adAccountsResponse.json();
-
-      const firstAdAccount = adAccountsData.data?.[0];
-      
-      // Store settings in database
-      await storage.saveMetaSettings(userId, {
-        accessToken: tokenData.access_token,
-        adAccountId: firstAdAccount?.id || "",
-        accountName: firstAdAccount?.name || "Facebook Ad Account",
-        connected: 1,
-      });
-
-      // Send message to parent window and close popup
-      res.send(`
-        <html>
-          <script>
-            window.opener.postMessage({ type: 'META_AUTH_SUCCESS' }, '*');
-            window.close();
-          </script>
-          <body>
-            <p>Connected successfully! This window will close automatically...</p>
-          </body>
-        </html>
-      `);
     } catch (error) {
-      logger.error("Meta OAuth error", error);
+      logger.error("Meta OAuth callback error", error);
       res.send(`
         <html>
           <script>
