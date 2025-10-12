@@ -82,7 +82,7 @@ export interface WebhookEvent {
   data: {
     object: any;
   };
-  created: number;
+  created?: number;
 }
 
 export interface ConfirmParams {

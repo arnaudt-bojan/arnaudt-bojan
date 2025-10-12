@@ -30,13 +30,13 @@ export class StripePaymentProvider implements IPaymentProvider {
 
   async createPaymentIntent(params: CreateIntentParams): Promise<PaymentIntent> {
     const stripeIntent = await this.stripe.paymentIntents.create({
-      amount: Math.round(params.amount * 100),
+      amount: this.toMinorUnits(params.amount, params.currency),
       currency: params.currency.toLowerCase(),
       metadata: params.metadata,
       transfer_data: params.connectedAccountId ? {
         destination: params.connectedAccountId,
       } : undefined,
-      application_fee_amount: params.applicationFeeAmount ? Math.round(params.applicationFeeAmount * 100) : undefined,
+      application_fee_amount: params.applicationFeeAmount ? this.toMinorUnits(params.applicationFeeAmount, params.currency) : undefined,
       capture_method: params.captureMethod || 'automatic',
     }, {
       idempotencyKey: params.idempotencyKey,
@@ -47,7 +47,7 @@ export class StripePaymentProvider implements IPaymentProvider {
       providerName: this.providerName,
       providerIntentId: stripeIntent.id,
       clientSecret: stripeIntent.client_secret!,
-      amount: stripeIntent.amount, // Keep in cents to match database schema
+      amount: stripeIntent.amount, // Keep in minor units to match database schema
       currency: stripeIntent.currency.toUpperCase(),
       status: this.mapStripeStatus(stripeIntent.status),
       metadata: stripeIntent.metadata,
@@ -80,16 +80,20 @@ export class StripePaymentProvider implements IPaymentProvider {
   }
 
   async createRefund(params: RefundParams): Promise<Refund> {
+    // Get the payment intent to determine the currency
+    const paymentIntent = await this.stripe.paymentIntents.retrieve(params.paymentIntentId);
+    const currency = paymentIntent.currency;
+
     const refund = await this.stripe.refunds.create({
       payment_intent: params.paymentIntentId,
-      amount: params.amount ? Math.round(params.amount * 100) : undefined,
+      amount: params.amount ? this.toMinorUnits(params.amount, currency) : undefined,
       reason: params.reason,
       metadata: params.metadata,
     });
 
     return {
       id: refund.id,
-      amount: refund.amount, // Keep in cents to match database schema
+      amount: refund.amount, // Keep in minor units to match database schema
       status: this.mapRefundStatus(refund.status),
       created: new Date(refund.created * 1000),
     };
@@ -172,6 +176,7 @@ export class StripePaymentProvider implements IPaymentProvider {
       id: event.id,
       type: event.type,
       data: event.data,
+      created: event.created,
     };
   }
 
@@ -200,5 +205,46 @@ export class StripePaymentProvider implements IPaymentProvider {
     if (status === 'succeeded') return 'succeeded';
     if (status === 'failed') return 'failed';
     return 'pending';
+  }
+
+  /**
+   * Currency conversion utilities for proper handling of all currency types
+   * Zero-decimal (JPY): divisor = 1
+   * Two-decimal (USD, GBP, EUR): divisor = 100
+   * Three-decimal (BHD, JOD, KWD, OMR, TND): divisor = 1000
+   */
+  private getCurrencyDivisor(currency: string): number {
+    const upperCurrency = currency.toUpperCase();
+    
+    const zeroDecimalCurrencies = [
+      'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 
+      'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
+    ];
+    
+    const threeDecimalCurrencies = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
+    
+    if (zeroDecimalCurrencies.includes(upperCurrency)) {
+      return 1;
+    } else if (threeDecimalCurrencies.includes(upperCurrency)) {
+      return 1000;
+    }
+    
+    return 100; // Default: two decimal places
+  }
+
+  /**
+   * Convert amount from major units to Stripe minor units (cents/smallest unit)
+   */
+  toMinorUnits(amount: number, currency: string): number {
+    const divisor = this.getCurrencyDivisor(currency);
+    return Math.round(amount * divisor);
+  }
+
+  /**
+   * Convert amount from Stripe minor units to major units (dollars/main unit)
+   */
+  toMajorUnits(amount: number, currency: string): number {
+    const divisor = this.getCurrencyDivisor(currency);
+    return amount / divisor;
   }
 }
