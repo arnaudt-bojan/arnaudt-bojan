@@ -26,7 +26,11 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Authentication & Authorization**: Email-based authentication with a dual-token system (6-digit codes and magic links). Implements a capability-based authorization service with resource-scoped permissions for multiple user types (seller, buyer, collaborator).
 - **Notification System**: Comprehensive, refactored email notifications using Resend with dark mode compatibility and templated messages.
 - **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods and country-selectable seller onboarding. Users select their country before account creation (cannot be changed later), preventing auto-detected country lock-in. Includes PCI-DSS compliant saved addresses and payment methods.
-- **Subscription System**: Monthly/annual subscription model for sellers with a free trial, managed via Stripe.
+  - **Payment Method Sync**: Subscription payment methods from Stripe Checkout are automatically saved to `saved_payment_methods` table and marked as default, ensuring database stays in sync with Stripe subscription default
+- **Subscription System**: Monthly/annual subscription model for sellers with credit card required for 30-day trial activation, managed via Stripe
+  - **Trial Flow**: Store starts inactive → Stripe Checkout with card on file → 30-day trial granted via webhook
+  - **Status Handling**: Stripe 'trialing' status maps to 'trial' (not 'active') for correct UI state
+  - **Cancellation UX**: Clear "Trial Ending - No Charges" messaging when canceled during trial, with store deactivation warning
 - **Multi-Currency Support**: IP-based currency detection with user-selectable currency, real-time exchange rates (Fawazahmed0 Currency API), and backend-driven seller-specific currency display. Includes prominent currency disclaimers on product pages, cart, and checkout informing buyers that displayed prices are estimates and actual charges will be in the seller's local currency (Stripe country currency).
 - **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders.
 - **Social Ads System**: Multi-platform social advertising (Meta, TikTok, X) with AI optimization.
