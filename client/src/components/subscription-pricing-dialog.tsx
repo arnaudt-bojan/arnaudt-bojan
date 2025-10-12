@@ -183,19 +183,24 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
     },
     onSuccess: (data) => {
       if (data.checkoutUrl) {
-        // Open Stripe Checkout in a new tab
-        const newWindow = window.open(data.checkoutUrl, '_blank', 'width=800,height=800');
-        if (newWindow) {
-          setCheckoutWindow(newWindow);
+        // Navigate the pre-opened window to the Stripe checkout URL
+        if (checkoutWindow && !checkoutWindow.closed) {
+          checkoutWindow.location.href = data.checkoutUrl;
           setIsPolling(true);
         } else {
           toast({
-            title: "Popup Blocked",
-            description: "Please allow popups for this site and try again.",
+            title: "Popup Closed",
+            description: "The checkout window was closed. Please try again.",
             variant: "destructive",
           });
+          setCheckoutWindow(null);
         }
       } else {
+        // Close the blank window if checkout URL not received
+        if (checkoutWindow && !checkoutWindow.closed) {
+          checkoutWindow.close();
+        }
+        setCheckoutWindow(null);
         toast({
           title: "Error",
           description: "Failed to create checkout session. Please contact support.",
@@ -204,6 +209,11 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
       }
     },
     onError: (error: any) => {
+      // Close the blank window on error
+      if (checkoutWindow && !checkoutWindow.closed) {
+        checkoutWindow.close();
+      }
+      setCheckoutWindow(null);
       toast({
         title: "Subscription Error",
         description: error.message || "Failed to create subscription. Please try again.",
@@ -213,7 +223,21 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
   });
 
   const handleSubscribe = () => {
-    createSubscriptionMutation.mutate(selectedPlan);
+    // Open popup window IMMEDIATELY during user interaction to avoid popup blockers
+    const newWindow = window.open('about:blank', '_blank', 'width=800,height=800');
+    if (newWindow) {
+      setCheckoutWindow(newWindow);
+      // Show loading message in the popup
+      newWindow.document.write('<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;"><div style="text-align: center;"><h2>Loading checkout...</h2><p>Please wait while we prepare your subscription.</p></div></body></html>');
+      // Now make the API call to get the checkout URL
+      createSubscriptionMutation.mutate(selectedPlan);
+    } else {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const features = [
