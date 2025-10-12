@@ -1043,6 +1043,14 @@ export class OrderService {
           const invoiceNumber = DocumentGenerator.generateDocumentNumber('INV');
           const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store';
           
+          // Parse customerAddress JSON
+          let parsedAddress: any = {};
+          try {
+            parsedAddress = JSON.parse(order.customerAddress);
+          } catch (e) {
+            logger.warn('[OrderService] Failed to parse customerAddress', { orderId: order.id });
+          }
+
           const invoiceData: InvoiceData = {
             invoice: {
               number: invoiceNumber,
@@ -1056,7 +1064,7 @@ export class OrderService {
             customer: {
               name: order.customerName || '',
               email: order.customerEmail || '',
-              address: `${order.shippingAddress?.street || ''}\n${order.shippingAddress?.city || ''}, ${order.shippingAddress?.state || ''} ${order.shippingAddress?.postalCode || ''}\n${order.shippingAddress?.country || ''}`,
+              address: `${parsedAddress.street || parsedAddress.line1 || ''}\n${parsedAddress.city || ''}, ${parsedAddress.state || ''} ${parsedAddress.postalCode || ''}\n${parsedAddress.country || ''}`,
             },
             order: {
               id: order.id,
@@ -1065,16 +1073,16 @@ export class OrderService {
               total: order.total,
               tax: order.taxAmount || '0',
               subtotal: order.subtotalBeforeTax || order.total,
-              shipping: order.shippingCost || undefined,
+              shipping: undefined,
               paymentStatus: order.status,
             },
             items: orderItems.map(item => ({
               name: item.productName || '',
-              sku: item.productSku || undefined,
-              variant: item.variantId || undefined,
+              sku: undefined,
+              variant: item.variant ? JSON.stringify(item.variant) : undefined,
               quantity: item.quantity,
-              price: item.unitPrice,
-              subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
+              price: item.price,
+              subtotal: (parseFloat(item.price) * item.quantity).toFixed(2),
             })),
             currency: order.currency || 'USD',
           };
@@ -1128,6 +1136,14 @@ export class OrderService {
           const packingSlipNumber = DocumentGenerator.generateDocumentNumber('PS');
           const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store';
           
+          // Parse customerAddress JSON
+          let parsedAddress: any = {};
+          try {
+            parsedAddress = JSON.parse(order.customerAddress);
+          } catch (e) {
+            logger.warn('[OrderService] Failed to parse customerAddress', { orderId: order.id });
+          }
+
           const packingSlipData: PackingSlipData = {
             packingSlip: {
               number: packingSlipNumber,
@@ -1140,7 +1156,7 @@ export class OrderService {
             customer: {
               name: order.customerName || '',
               email: order.customerEmail || '',
-              address: `${order.shippingAddress?.street || ''}\n${order.shippingAddress?.city || ''}, ${order.shippingAddress?.state || ''} ${order.shippingAddress?.postalCode || ''}\n${order.shippingAddress?.country || ''}`,
+              address: `${parsedAddress.street || parsedAddress.line1 || ''}\n${parsedAddress.city || ''}, ${parsedAddress.state || ''} ${parsedAddress.postalCode || ''}\n${parsedAddress.country || ''}`,
             },
             order: {
               id: order.id,
@@ -1149,8 +1165,8 @@ export class OrderService {
             },
             items: orderItems.map(item => ({
               name: item.productName || '',
-              sku: item.productSku || undefined,
-              variant: item.variantId || undefined,
+              sku: undefined,
+              variant: item.variant ? JSON.stringify(item.variant) : undefined,
               quantity: item.quantity,
             })),
           };

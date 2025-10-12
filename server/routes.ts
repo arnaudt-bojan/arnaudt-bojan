@@ -31,12 +31,17 @@ import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
 import { WholesaleService } from "./services/wholesale.service";
 import { TeamManagementService } from "./services/team-management.service";
+import { OrderLifecycleService } from "./services/order-lifecycle.service";
+import { NotificationMessagesService } from "./services/notification-messages.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
 
 // Initialize notification service
 const notificationService = createNotificationService(storage, pdfService);
+
+// Initialize notification messages service for order lifecycle
+const notificationMessagesService = new NotificationMessagesService();
 
 // Initialize authorization service for capability checks
 const authorizationService = new AuthorizationService(storage);
@@ -122,6 +127,13 @@ const wholesaleService = new WholesaleService(storage);
 
 // Initialize Team Management service (Architecture 3 migration)
 const teamService = new TeamManagementService(storage, notificationService);
+
+// Initialize Order Lifecycle service for refund, status, and balance payment orchestration
+const orderLifecycleService = new OrderLifecycleService(
+  storage,
+  notificationService,
+  stripe || undefined
+);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -804,57 +816,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role) && currentUser.sellerId;
       const canonicalOwnerId = isTeamMember ? currentUser.sellerId : currentUser.id;
 
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
+      const result = await orderLifecycleService.resendBalancePaymentRequest(orderId, canonicalOwnerId);
+
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
       }
-
-      // Verify seller/team owns products in this order
-      const orderItems = await storage.getOrderItems(orderId);
-      if (orderItems.length === 0) {
-        return res.status(404).json({ error: "Order has no items" });
-      }
-
-      const firstProduct = await storage.getProduct(orderItems[0].productId);
-      if (!firstProduct || firstProduct.sellerId !== canonicalOwnerId) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-
-      // Find the most recent pending balance payment
-      const balancePayments = await storage.getBalancePaymentsByOrderId(orderId);
-      const pendingPayment = balancePayments.find(p => p.status === 'pending');
-      
-      if (!pendingPayment) {
-        return res.status(404).json({ error: "No pending balance payment found" });
-      }
-
-      // Get seller info for email (use canonical owner, not team member)
-      const seller = await storage.getUser(canonicalOwnerId);
-      if (!seller) {
-        return res.status(404).json({ error: "Seller not found" });
-      }
-
-      // TODO: Send balance payment request email via NotificationMessagesService
-      // await notificationService.sendBalancePaymentRequest(order, seller, pendingPayment);
-
-      // Log the email event
-      await storage.createOrderEvent({
-        orderId,
-        eventType: 'balance_payment_requested',
-        recipientEmail: order.customerEmail,
-        subject: `Balance Payment Required - Order #${order.id.slice(-8).toUpperCase()}`,
-        sentAt: new Date(),
-        metadata: JSON.stringify({
-          balancePaymentId: pendingPayment.id,
-          amount: pendingPayment.amount,
-        }),
-      });
-
-      logger.info(`[Balance Payment] Resent request to ${order.customerEmail} for order ${order.id}`);
 
       res.json({ 
         message: "Balance payment request resent successfully",
-        balancePaymentId: pendingPayment.id,
+        balancePaymentId: result.balancePaymentId,
       });
     } catch (error) {
       logger.error("Error resending balance payment request", error);
@@ -866,209 +836,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Process a refund (full, partial, or item-level)
   app.post("/api/orders/:orderId/refunds", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
-      if (!stripe) {
-        return res.status(503).json({ error: "Stripe is not configured" });
-      }
-
       const { orderId } = req.params;
       const { refundItems, reason, refundType } = req.body;
       const userId = req.user.claims.sub;
-      
-      // Validation
-      if (!refundType || !['full', 'item'].includes(refundType)) {
-        return res.status(400).json({ error: "Invalid refund type. Must be 'full' or 'item'" });
+
+      const result = await orderLifecycleService.processRefund({
+        orderId,
+        sellerId: userId,
+        refundType,
+        refundItems,
+        reason,
+      });
+
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
       }
-
-      if (refundType === 'item' && (!refundItems || refundItems.length === 0)) {
-        return res.status(400).json({ error: "refundItems required for item-level refund" });
-      }
-
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-
-      // Verify seller owns this order
-      const orderItems = await storage.getOrderItems(orderId);
-      if (orderItems.length === 0) {
-        return res.status(404).json({ error: "No order items found" });
-      }
-
-      // Check if seller owns the products (use first item's product to get seller)
-      const firstItem = orderItems[0];
-      const product = await storage.getProduct(firstItem.productId);
-      if (!product || product.sellerId !== userId) {
-        return res.status(403).json({ error: "Unauthorized to refund this order" });
-      }
-
-      // Calculate refund amount and validate - NEVER trust client-supplied amounts
-      let refundAmount = 0;
-      const itemsToRefund: Map<string, { item: any; quantity: number; amount: number }> = new Map();
-
-      if (refundType === 'full') {
-        // Full refund - calculate from remaining refundable amounts
-        for (const item of orderItems) {
-          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
-          const refundedQty = item.refundedQuantity || 0;
-          const refundableQty = item.quantity - refundedQty;
-          const itemTotal = parseFloat(item.subtotal);
-          const itemRefundAmount = itemTotal - alreadyRefunded;
-          
-          if (refundableQty > 0 && itemRefundAmount > 0) {
-            refundAmount += itemRefundAmount;
-            itemsToRefund.set(item.id, {
-              item,
-              quantity: refundableQty,
-              amount: itemRefundAmount,
-            });
-          }
-        }
-      } else if (refundType === 'item') {
-        // Item-level refund with specified quantities
-        // SECURITY: Always recompute amount from price × quantity, never trust client
-        for (const refundItem of refundItems) {
-          const item = orderItems.find(i => i.id === refundItem.itemId);
-          if (!item) {
-            return res.status(404).json({ error: `Order item ${refundItem.itemId} not found` });
-          }
-
-          const refundedQty = item.refundedQuantity || 0;
-          const refundableQty = item.quantity - refundedQty;
-          
-          if (refundItem.quantity > refundableQty) {
-            return res.status(400).json({ 
-              error: `Cannot refund ${refundItem.quantity} units of item ${item.productName}. Only ${refundableQty} units available for refund.` 
-            });
-          }
-
-          // SECURITY: Recompute refund amount from stored price - never trust client amount
-          const pricePerUnit = parseFloat(item.price);
-          const serverCalculatedAmount = pricePerUnit * refundItem.quantity;
-          
-          // Validate client amount matches (with small tolerance for floating point)
-          const clientAmount = refundItem.amount || 0;
-          const difference = Math.abs(serverCalculatedAmount - clientAmount);
-          if (difference > 0.01) {
-            console.warn(`[Refund Security] Client amount mismatch for item ${item.id}: client=${clientAmount}, server=${serverCalculatedAmount}`);
-          }
-
-          // Validate against remaining refundable balance
-          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
-          const itemTotal = parseFloat(item.subtotal);
-          const maxRefundable = itemTotal - alreadyRefunded;
-          
-          if (serverCalculatedAmount > maxRefundable + 0.01) {
-            return res.status(400).json({ 
-              error: `Refund amount $${serverCalculatedAmount.toFixed(2)} exceeds remaining refundable amount $${maxRefundable.toFixed(2)} for item ${item.productName}` 
-            });
-          }
-
-          refundAmount += serverCalculatedAmount;
-          itemsToRefund.set(item.id, {
-            item,
-            quantity: refundItem.quantity,
-            amount: serverCalculatedAmount, // Use server-computed amount, not client amount
-          });
-        }
-      }
-
-      if (refundAmount <= 0) {
-        return res.status(400).json({ error: "No refundable amount available" });
-      }
-
-      // Check if order has payment intents
-      const paymentIntentId = order.stripeBalancePaymentIntentId || order.stripePaymentIntentId;
-      
-      let stripeRefund = null;
-      
-      // Process Stripe refund only if payment was made through Stripe
-      if (paymentIntentId && order.paymentType !== 'manual' && order.paymentType !== 'cash') {
-        logger.info(`[Refund] Processing Stripe refund for order ${orderId}, amount: $${refundAmount}`);
-        
-        stripeRefund = await stripe.refunds.create({
-          payment_intent: paymentIntentId,
-          amount: Math.round(refundAmount * 100), // Convert to cents
-          reason: 'requested_by_customer',
-          metadata: {
-            orderId,
-            refundType,
-            orderItemIds: Array.from(itemsToRefund.keys()).join(','),
-          }
-        });
-      } else {
-        logger.info(`[Refund] Skipping Stripe refund for manual/cash payment - order ${orderId}, amount: $${refundAmount}`);
-      }
-
-      // Create refund records for each item
-      const refunds = [];
-      for (const [itemId, refundData] of itemsToRefund.entries()) {
-        const { item, quantity, amount } = refundData;
-        
-        const refund = await storage.createRefund({
-          orderId,
-          orderItemId: item.id,
-          amount: amount.toFixed(2),
-          reason: reason || null,
-          refundType: 'item',
-          stripeRefundId: stripeRefund?.id || null,
-          status: stripeRefund ? (stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending') : 'succeeded',
-          processedBy: userId,
-        });
-        refunds.push(refund);
-
-        // Update order item refund tracking
-        const newRefundedQty = (item.refundedQuantity || 0) + quantity;
-        const newRefundedAmount = parseFloat(item.refundedAmount || '0') + amount;
-        const newStatus = newRefundedQty >= item.quantity ? 'refunded' : item.itemStatus;
-        
-        await storage.updateOrderItemRefund(
-          item.id,
-          newRefundedQty,
-          newRefundedAmount.toFixed(2),
-          newStatus
-        );
-      }
-
-      // Update order payment status based on CUMULATIVE refunds
-      // Get all refunds for this order (including the ones we just created)
-      const allOrderRefunds = await storage.getRefundsByOrderId(orderId);
-      const totalRefundedAmount = allOrderRefunds.reduce((sum, r) => sum + parseFloat(r.amount), 0);
-      const orderTotal = parseFloat(order.amountPaid);
-      
-      // Update payment status based on cumulative refunds
-      const newPaymentStatus = totalRefundedAmount >= orderTotal - 0.01 ? 'refunded' : 'partially_refunded';
-      await storage.updateOrderPaymentStatus(orderId, newPaymentStatus);
-
-      // Send refund notification (async, don't wait)
-      void (async () => {
-        try {
-          const seller = await storage.getUser(userId);
-          if (!seller) return;
-
-          // Send email notification for each refunded item
-          for (const [itemId, refundData] of itemsToRefund.entries()) {
-            const { item, quantity, amount } = refundData;
-            await notificationService.sendItemRefunded(
-              order,
-              item,
-              seller,
-              amount,
-              quantity
-            );
-          }
-          
-          logger.info(`[Notifications] Refund notification emails sent for order ${orderId}, ${itemsToRefund.size} items`);
-        } catch (error) {
-          logger.error("[Notifications] Failed to send refund notification:", error);
-        }
-      })();
 
       res.json({
         success: true,
-        refunds,
-        stripeRefundId: stripeRefund?.id || null,
-        refundAmount: refundAmount,
-        status: stripeRefund?.status || 'succeeded',
+        refunds: result.refunds,
+        stripeRefundId: result.stripeRefundId,
+        refundAmount: result.refundAmount,
+        status: result.status,
       });
     } catch (error: any) {
       logger.error("Refund error", error);
@@ -1082,21 +871,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId, itemId } = req.params;
       const userId = req.user.claims.sub;
 
-      const orderItem = await storage.getOrderItemById(itemId);
-      if (!orderItem || orderItem.orderId !== orderId) {
-        return res.status(404).json({ error: "Order item not found" });
+      const result = await orderLifecycleService.markItemsReturned(orderId, itemId, userId);
+
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
       }
 
-      // Verify seller owns this product
-      const product = await storage.getProduct(orderItem.productId);
-      if (!product || product.sellerId !== userId) {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
-
-      // Update item status to returned
-      const updatedItem = await storage.updateOrderItemStatus(itemId, 'returned');
-
-      res.json(updatedItem);
+      res.json(result.item);
     } catch (error: any) {
       logger.error("Error marking item as returned", error);
       res.status(500).json({ error: "Failed to mark item as returned" });
@@ -1109,27 +890,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId } = req.params;
       const userId = req.user.claims.sub;
 
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
+      const result = await orderLifecycleService.getRefundHistory(orderId, userId);
+
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ error: result.error });
       }
 
-      // Verify access (buyer or seller)
-      const isBuyer = order.userId === userId;
-      if (!isBuyer) {
-        const orderItems = await storage.getOrderItems(orderId);
-        if (orderItems.length > 0) {
-          const product = await storage.getProduct(orderItems[0].productId);
-          if (!product || product.sellerId !== userId) {
-            return res.status(403).json({ error: "Unauthorized" });
-          }
-        } else {
-          return res.status(403).json({ error: "Unauthorized" });
-        }
-      }
-
-      const refunds = await storage.getRefundsByOrderId(orderId);
-      res.json(refunds);
+      res.json(result.refunds);
     } catch (error: any) {
       logger.error("Error fetching refunds", error);
       res.status(500).json({ error: "Failed to fetch refunds" });

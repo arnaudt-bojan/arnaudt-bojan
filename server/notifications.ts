@@ -202,7 +202,7 @@ class NotificationServiceImpl implements NotificationService {
         return { success: false, error: result.error };
       }
 
-      return { success: true, emailId: result.messageId };
+      return { success: true, emailId: result.emailId };
     } catch (error: any) {
       logger.error("[Notifications] Email send exception:", error);
       return { success: false, error: error.message };
@@ -2053,15 +2053,14 @@ class NotificationServiceImpl implements NotificationService {
         };
       });
 
-      const result = await resend.batch.send(emails);
+      const result = await this.emailProvider.sendBatch(emails);
 
       if (result.error) {
         console.error('[Newsletter] Batch send error:', result.error);
         
         // In development, if domain/validation error, log and succeed anyway
-        const errorMsg = result.error.message || '';
-        const statusCode = (result.error as any).statusCode;
-        const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || errorMsg.includes('not verified') || statusCode === 422 || statusCode === 403;
+        const errorMsg = result.error || '';
+        const isValidationError = errorMsg.includes('Invalid') || errorMsg.includes('test.com') || errorMsg.includes('testing email') || errorMsg.includes('not verified') || errorMsg.includes('Email provider not configured');
         
         if (process.env.NODE_ENV === 'development' && isValidationError) {
           logger.info("\n═══════════════════════════════════════════════════════");
@@ -2095,7 +2094,7 @@ class NotificationServiceImpl implements NotificationService {
           return { success: true, batchId: 'dev-mode-' + Date.now() };
         }
         
-        return { success: false, error: result.error.message };
+        return { success: false, error: result.error };
       }
 
       // Initialize newsletter analytics
@@ -2111,7 +2110,7 @@ class NotificationServiceImpl implements NotificationService {
       });
 
       logger.info(`[Newsletter] Batch sent to ${recipients.length} recipients`);
-      return { success: true, batchId: result.data?.id };
+      return { success: true, batchId: result.batchId };
     } catch (error: any) {
       logger.error("[Newsletter] Send exception:", error);
       return { success: false, error: error.message };
