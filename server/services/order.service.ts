@@ -347,6 +347,10 @@ export class OrderService {
       params.status
     );
 
+    if (!updatedOrder) {
+      throw new Error('Failed to update order status');
+    }
+
     // Auto-generate documents based on status
     this.handleStatusChangeDocuments(updatedOrder).catch(error => {
       logger.error('[OrderService] Document generation failed', { error });
@@ -441,8 +445,8 @@ export class OrderService {
     // Update tracking
     await this.storage.updateOrderTracking(
       params.orderId,
-      params.trackingNumber || null,
-      params.carrier || null
+      params.trackingNumber || '',
+      params.trackingUrl || ''
     );
 
     // Send tracking notification
@@ -676,7 +680,6 @@ export class OrderService {
       subtotalBeforeTax: pricing.subtotal.toString(),
       taxAmount: taxAmount.toString(),
       currency,
-      metadata: JSON.stringify({ checkoutSessionId }),
     };
 
     return await this.storage.createOrder(orderData);
@@ -789,41 +792,39 @@ export class OrderService {
         const itemTotal = parseFloat(item.subtotal);
         const itemRefund = itemTotal - alreadyRefunded;
 
-        await this.storage.updateOrderItemRefund(item.id, {
-          refundedQuantity: item.quantity,
-          refundedAmount: (alreadyRefunded + itemRefund).toString(),
-        });
+        await this.storage.updateOrderItemRefund(
+          item.id,
+          item.quantity,
+          (alreadyRefunded + itemRefund).toString(),
+          'refunded'
+        );
       }
     } else if (refundType === 'item' && refundItems) {
       for (const refundItem of refundItems) {
-        const item = await this.storage.getOrderItem(refundItem.itemId);
+        const item = await this.storage.getOrderItemById(refundItem.itemId);
         if (item) {
           const itemPrice = parseFloat(item.price);
           const alreadyRefunded = parseFloat(item.refundedAmount || '0');
           const refundAmount = itemPrice * refundItem.quantity;
 
-          await this.storage.updateOrderItemRefund(refundItem.itemId, {
-            refundedQuantity: (item.refundedQuantity || 0) + refundItem.quantity,
-            refundedAmount: (alreadyRefunded + refundAmount).toString(),
-          });
+          await this.storage.updateOrderItemRefund(
+            refundItem.itemId,
+            (item.refundedQuantity || 0) + refundItem.quantity,
+            (alreadyRefunded + refundAmount).toString(),
+            'partially_refunded'
+          );
         }
       }
     }
   }
 
   private async sendOrderNotifications(order: Order): Promise<void> {
-    const items = JSON.parse(order.items);
-    const allProducts = await this.storage.getAllProducts();
-    const products = items
-      .map((item: any) => allProducts.find(p => p.id === item.productId))
-      .filter(Boolean);
-
-    if (products.length > 0 && products[0]?.sellerId) {
-      const seller = await this.storage.getUser(products[0].sellerId);
-      if (seller) {
-        await this.notificationService.sendOrderConfirmation(order, seller, products);
-      }
-    }
+    // TODO: Implement proper email notifications using NotificationMessagesService
+    // Example: this.notificationService.orderConfirmation(order, sellerName)
+    logger.info('[OrderService] Order confirmation notifications', {
+      orderId: order.id,
+      customerEmail: order.customerEmail,
+    });
   }
 
   private async handleStatusChangeDocuments(order: Order): Promise<void> {
