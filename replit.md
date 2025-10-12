@@ -42,6 +42,11 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Team Management**: Role-based access (owner, admin, editor, viewer) with invitation-based team expansion and granular permissions.
 - **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.
 - **Storefront Customization**: Sellers can add About Story, contact info, and social media links.
+- **Settings Page Organization**: Streamlined seller settings with three tabs:
+  - **Quick Setup**: Default landing tab for sellers with step-by-step checklist guiding through required setup tasks, consolidating essential store setup in one location (username/domain, logo upload, banner upload, Instagram connection, storefront preview)
+  - **Profile**: Personal and company information with optional company fields (Company Name, Business Type, Tax ID) that auto-populate from Stripe Connect account data when available
+  - **Branding & Policies**: Shipping and returns policy management only (formerly Branding tab)
+  - **Stripe Connect Auto-Population**: When sellers connect their Stripe account, company name and business type are automatically populated from Stripe account data (business_profile.name or company.name, business_type), preserving any user-entered values
 - **Inventory Management System**: Transaction-based stock reservation system with atomic operations, PostgreSQL row-level locking, and variant-level race protection
   - **Core**: Service-oriented design (`InventoryService`) with atomic operations using SELECT FOR UPDATE
   - **Variant Protection**: Row-level locking protects entire variants JSONB array; reservations filter by exact variantId (e.g., "large-red"); available stock = variant.stock - SUM(active reservations for that variantId)
