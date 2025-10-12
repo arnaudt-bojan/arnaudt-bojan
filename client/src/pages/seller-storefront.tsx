@@ -73,6 +73,10 @@ export default function SellerStorefront() {
   // Filter and sort products
   const filteredProducts = products
     ?.filter((p) => {
+      // CRITICAL: Hide sold-out products using canonical product.stock
+      // product.stock is the single source of truth for all backend services
+      if ((p.stock ?? 0) <= 0) return false;
+      
       // Category filter
       if (filters.categories.length > 0 && !filters.categories.includes(p.category)) {
         return false;

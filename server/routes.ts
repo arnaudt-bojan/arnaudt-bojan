@@ -436,7 +436,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const product = await storage.createProduct(productData);
+      // CRITICAL: Sync product.stock from variants to maintain canonical source of truth
+      const { syncProductStockFromVariants } = await import('./utils/calculate-stock');
+      const syncedProductData = syncProductStockFromVariants(productData);
+
+      const product = await storage.createProduct(syncedProductData);
 
       // Send notifications to seller about new product listing
       if (user) {
@@ -534,7 +538,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          await storage.createProduct(validationResult.data);
+          // CRITICAL: Sync product.stock from variants to maintain canonical source of truth
+          const { syncProductStockFromVariants } = await import('./utils/calculate-stock');
+          const syncedData = syncProductStockFromVariants(validationResult.data);
+
+          await storage.createProduct(syncedData);
           results.success++;
         } catch (error: any) {
           results.failed++;
@@ -1373,7 +1381,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const product = await storage.updateProduct(req.params.id, productData);
+      // CRITICAL: Sync product.stock from variants to maintain canonical source of truth
+      const { syncProductStockFromVariants } = await import('./utils/calculate-stock');
+      const syncedProductData = syncProductStockFromVariants(productData);
+
+      const product = await storage.updateProduct(req.params.id, syncedProductData);
       if (!product) {
         return res.status(404).json({ error: "Product not found" });
       }
