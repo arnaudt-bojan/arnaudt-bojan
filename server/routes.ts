@@ -32,16 +32,12 @@ import { SubscriptionService } from "./services/subscription.service";
 import { WholesaleService } from "./services/wholesale.service";
 import { TeamManagementService } from "./services/team-management.service";
 import { OrderLifecycleService } from "./services/order-lifecycle.service";
-import { NotificationMessagesService } from "./services/notification-messages.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
 
 // Initialize notification service
 const notificationService = createNotificationService(storage, pdfService);
-
-// Initialize notification messages service for order lifecycle
-const notificationMessagesService = new NotificationMessagesService();
 
 // Initialize authorization service for capability checks
 const authorizationService = new AuthorizationService(storage);

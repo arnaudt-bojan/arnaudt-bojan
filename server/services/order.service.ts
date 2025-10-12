@@ -11,7 +11,7 @@
  * - InventoryService: Stock reservations and commits
  * - CartValidationService: Server-side price validation
  * - ShippingService: Shipping cost calculation
- * - NotificationMessagesService: Email notifications
+ * - NotificationService: Email and in-app notifications
  * - Stripe: Payment processing and refunds
  */
 
@@ -28,18 +28,10 @@ import type { InventoryService } from './inventory.service';
 import type { CartValidationService } from './cart-validation.service';
 import type { ShippingService } from './shipping.service';
 import type { TaxService } from './tax.service';
-import type { NotificationMessagesService } from './notification-messages.service';
+import type { NotificationService } from '../notifications';
 import { calculatePricing } from './pricing.service';
 import { logger } from '../logger';
 import type Stripe from 'stripe';
-import { emailProvider } from './email-provider.service';
-import { 
-  createEmailTemplate, 
-  createEmailButton, 
-  createAlertBox, 
-  createOrderItemsTable,
-  formatPrice 
-} from '../email-template';
 import { DocumentGenerator, type InvoiceData, type PackingSlipData } from './document-generator';
 import { Storage } from '@google-cloud/storage';
 
@@ -130,7 +122,7 @@ export class OrderService {
     private cartValidationService: CartValidationService,
     private shippingService: ShippingService,
     private taxService: TaxService,
-    private notificationService: NotificationMessagesService,
+    private notificationService: NotificationService,
     private stripe?: Stripe
   ) {}
 
@@ -858,137 +850,45 @@ export class OrderService {
         return;
       }
 
-      // Get first item's product to find seller
-      const firstProduct = await this.storage.getProduct(orderItems[0].productId);
-      if (!firstProduct) {
-        logger.error('[OrderService] Cannot send order notifications - product not found', {
+      // Get products for the order items
+      const productIds = [...new Set(orderItems.map(item => item.productId))];
+      const products: Product[] = [];
+      
+      for (const productId of productIds) {
+        const product = await this.storage.getProduct(productId);
+        if (product) {
+          products.push(product);
+        }
+      }
+
+      if (products.length === 0) {
+        logger.error('[OrderService] Cannot send order notifications - no products found', {
           orderId: order.id,
-          productId: orderItems[0].productId,
         });
         return;
       }
 
-      // Get seller information for branding
-      const seller = await this.storage.getUser(firstProduct.sellerId);
+      // Get seller information
+      const seller = await this.storage.getUser(products[0].sellerId);
       if (!seller) {
         logger.error('[OrderService] Cannot send order notifications - seller not found', {
           orderId: order.id,
-          sellerId: firstProduct.sellerId,
+          sellerId: products[0].sellerId,
         });
         return;
       }
 
-      // Get seller branding info
-      const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store';
-      const sellerEmail = seller.email || process.env.RESEND_FROM_EMAIL || 'noreply@upfirst.io';
-      
-      // 1. Send ORDER CONFIRMATION to BUYER (seller-branded)
-      const buyerTemplate = this.notificationService.orderConfirmation(order, sellerName);
-      const buyerContent = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important;" class="dark-mode-text-dark">
-            ${buyerTemplate.notificationTitle}
-          </h1>
-          <p style="margin: 0; color: #6b7280 !important; font-size: 16px;">
-            ${buyerTemplate.notificationMessage}
-          </p>
-        </div>
-
-        ${createAlertBox(`
-          <strong>Order #${order.id.slice(0, 8)}</strong><br/>
-          Total: ${formatPrice(parseFloat(order.total), order.currency || undefined)}<br/>
-          Status: ${order.status}
-        `, 'success')}
-
-        <h3 style="margin: 30px 0 15px; color: #1a1a1a !important;">Order Items</h3>
-        ${createOrderItemsTable(orderItems.map(item => ({
-          name: item.productName,
-          quantity: item.quantity,
-          price: formatPrice(parseFloat(item.price), order.currency),
-        })))}
-
-        <div style="margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 8px;">
-          <p style="margin: 0 0 10px; font-weight: 600; color: #1a1a1a !important;">Shipping Address</p>
-          <p style="margin: 0; color: #6b7280 !important; font-size: 14px; white-space: pre-line;">
-            ${order.customerAddress}
-          </p>
-        </div>
-
-        <p style="color: #6b7280 !important;">
-          Thank you for your order! We'll send you another email when your order ships.
-        </p>
-      `;
-
-      const buyerHtml = createEmailTemplate({
-        preheader: buyerTemplate.emailPreheader,
-        storeName: sellerName,
-        content: buyerContent,
-        footerText: `© ${new Date().getFullYear()} ${sellerName}. All rights reserved.`,
-      });
-
-      await emailProvider.sendEmail({
-        to: order.customerEmail,
-        from: sellerEmail,
-        replyTo: sellerEmail,
-        subject: buyerTemplate.emailSubject,
-        html: buyerHtml,
-      });
+      // Send order confirmation to buyer (also creates in-app notification for seller)
+      await this.notificationService.sendOrderConfirmation(order, seller, products);
 
       logger.info('[OrderService] Order confirmation sent to buyer', {
         orderId: order.id,
         customerEmail: order.customerEmail,
       });
 
-      // 2. Send NEW ORDER ALERT to SELLER (platform-branded)
-      const sellerTemplate = this.notificationService.newOrderReceived(order, order.currency || undefined);
-      const sellerContent = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important;" class="dark-mode-text-dark">
-            ${sellerTemplate.notificationTitle}
-          </h1>
-          <p style="margin: 0; color: #6b7280 !important; font-size: 16px;">
-            ${sellerTemplate.notificationMessage}
-          </p>
-        </div>
-
-        ${createAlertBox(`
-          <strong>Order #${order.id.slice(0, 8)}</strong><br/>
-          Customer: ${order.customerName}<br/>
-          Total: ${formatPrice(parseFloat(order.total), order.currency)}
-        `, 'info')}
-
-        ${createEmailButton('View Order Details', `${this.getBaseUrl()}/dashboard/orders/${order.id}`)}
-
-        <h3 style="margin: 30px 0 15px; color: #1a1a1a !important;">Order Summary</h3>
-        ${createOrderItemsTable(orderItems.map(item => ({
-          name: item.productName,
-          quantity: item.quantity,
-          price: formatPrice(parseFloat(item.price), order.currency),
-        })))}
-
-        <p style="color: #6b7280 !important;">
-          Log in to your dashboard to process this order and update shipping information.
-        </p>
-      `;
-
-      const sellerHtml = createEmailTemplate({
-        preheader: sellerTemplate.emailPreheader,
-        storeName: 'Upfirst',
-        content: sellerContent,
-        footerText: `© ${new Date().getFullYear()} Upfirst. All rights reserved.`,
-      });
-
-      await emailProvider.sendEmail({
-        to: sellerEmail,
-        from: process.env.RESEND_FROM_EMAIL || 'noreply@upfirst.io',
-        subject: sellerTemplate.emailSubject,
-        html: sellerHtml,
-      });
-
-      logger.info('[OrderService] New order alert sent to seller', {
-        orderId: order.id,
-        sellerEmail,
-      });
+      // NOTE: Seller email notification is handled by NotificationService.sendOrderConfirmation
+      // which creates an in-app notification for the seller. If email to seller is needed,
+      // a sendNewOrderReceived method should be added to NotificationService.
     } catch (error) {
       logger.error('[OrderService] Failed to send order notifications', { error, orderId: order.id });
     }
@@ -1225,9 +1125,6 @@ export class OrderService {
         return;
       }
 
-      const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store';
-      const sellerEmail = seller.email || process.env.RESEND_FROM_EMAIL || 'noreply@upfirst.io';
-
       // Get refund details - find the refunded item
       const refundedItem = orderItems.find(item => parseFloat(item.refundedAmount || '0') > 0);
 
@@ -1236,61 +1133,15 @@ export class OrderService {
         return;
       }
 
-      // Use itemRefunded template
-      const template = this.notificationService.itemRefunded(
-        order.id,
-        refundedItem.productName,
+      // Send refund notification using NotificationService
+      await this.notificationService.sendItemRefunded(
+        order,
+        refundedItem,
+        seller,
         amount,
+        refundedItem.refundedQuantity || 1,
         order.currency || 'USD'
       );
-
-      const content = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important;" class="dark-mode-text-dark">
-            ${template.notificationTitle}
-          </h1>
-          <p style="margin: 0; color: #6b7280 !important; font-size: 16px;">
-            ${template.notificationMessage}
-          </p>
-        </div>
-
-        <div style="text-align: center; padding: 30px; background: #f0fdf4; border-radius: 8px; margin: 30px 0;">
-          <p style="margin: 0 0 10px; color: #166534; font-weight: 600;">Refund Amount</p>
-          <div style="font-size: 32px; font-weight: bold; color: #22c55e; margin: 10px 0;">
-            ${formatPrice(amount, order.currency)}
-          </div>
-          <p style="margin: 10px 0 0; color: #666; font-size: 14px;">
-            This will appear in your account within 5-10 business days
-          </p>
-        </div>
-
-        ${createAlertBox(`
-          <strong>Refund Details</strong><br/>
-          Order #${order.id.slice(0, 8)}<br/>
-          Item: ${refundedItem.productName}<br/>
-          Quantity: ${refundedItem.refundedQuantity || 1}
-        `, 'success')}
-
-        <p style="color: #6b7280 !important;">
-          The refund has been processed and will appear on your original payment method within 5-10 business days. 
-          If you have any questions, please reply to this email.
-        </p>
-      `;
-
-      const html = createEmailTemplate({
-        preheader: template.emailPreheader,
-        storeName: sellerName,
-        content,
-        footerText: `© ${new Date().getFullYear()} ${sellerName}. All rights reserved.`,
-      });
-
-      await emailProvider.sendEmail({
-        to: order.customerEmail,
-        from: sellerEmail,
-        replyTo: sellerEmail,
-        subject: template.emailSubject,
-        html,
-      });
 
       logger.info('[OrderService] Refund notification sent', {
         orderId: order.id,
@@ -1332,55 +1183,11 @@ export class OrderService {
         return;
       }
 
-      const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store';
-      const sellerEmail = seller.email || process.env.RESEND_FROM_EMAIL || 'noreply@upfirst.io';
+      // Update order with tracking info before sending notification
+      const updatedOrder = { ...order, trackingNumber: tracking.trackingNumber || order.trackingNumber };
 
-      // Use orderShipped template
-      const template = this.notificationService.orderShipped(order, sellerName, tracking.trackingNumber);
-
-      const content = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important;" class="dark-mode-text-dark">
-            ${template.notificationTitle}
-          </h1>
-          <p style="margin: 0; color: #6b7280 !important; font-size: 16px;">
-            ${template.notificationMessage}
-          </p>
-        </div>
-
-        ${createAlertBox(`
-          <strong>Order #${order.id.slice(0, 8)}</strong><br/>
-          ${tracking.trackingNumber ? `Tracking Number: ${tracking.trackingNumber}` : 'Your order is on its way!'}
-        `, 'info')}
-
-        ${tracking.trackingUrl ? createEmailButton('Track Your Package', tracking.trackingUrl) : ''}
-
-        ${tracking.carrier ? `
-          <div style="margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 8px;">
-            <p style="margin: 0 0 10px; font-weight: 600; color: #1a1a1a !important;">Shipping Carrier</p>
-            <p style="margin: 0; color: #6b7280 !important;">${tracking.carrier}</p>
-          </div>
-        ` : ''}
-
-        <p style="color: #6b7280 !important;">
-          Thank you for your order! If you have any questions, please reply to this email.
-        </p>
-      `;
-
-      const html = createEmailTemplate({
-        preheader: template.emailPreheader,
-        storeName: sellerName,
-        content,
-        footerText: `© ${new Date().getFullYear()} ${sellerName}. All rights reserved.`,
-      });
-
-      await emailProvider.sendEmail({
-        to: order.customerEmail,
-        from: sellerEmail,
-        replyTo: sellerEmail,
-        subject: template.emailSubject,
-        html,
-      });
+      // Send order shipped notification with tracking info
+      await this.notificationService.sendOrderShipped(updatedOrder, seller);
 
       logger.info('[OrderService] Tracking notification sent', {
         orderId: order.id,
@@ -1422,70 +1229,14 @@ export class OrderService {
         return;
       }
 
-      const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store';
-      const sellerEmail = seller.email || process.env.RESEND_FROM_EMAIL || 'noreply@upfirst.io';
-
-      // Calculate balance amount
-      const balanceAmount = paymentIntent.amount / this.getCurrencyDivisor(paymentIntent.currency || 'usd');
-
-      // Use balancePaymentRequest template
-      const template = this.notificationService.balancePaymentRequest(order, sellerName);
-
       // Build payment link with client secret
       const paymentLink = `${this.getBaseUrl()}/checkout-complete?payment_intent_client_secret=${paymentIntent.client_secret}&order_id=${order.id}`;
 
-      const content = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important;" class="dark-mode-text-dark">
-            ${template.notificationTitle}
-          </h1>
-          <p style="margin: 0; color: #6b7280 !important; font-size: 16px;">
-            ${template.notificationMessage}
-          </p>
-        </div>
+      // Send balance payment request using NotificationService
+      await this.notificationService.sendBalancePaymentRequest(order, seller, paymentLink);
 
-        ${createAlertBox(`
-          <strong>Order #${order.id.slice(0, 8)}</strong><br/>
-          Balance Due: ${formatPrice(balanceAmount, paymentIntent.currency)}<br/>
-          Payment Type: Final Balance
-        `, 'warning')}
-
-        <div style="text-align: center; margin: 30px 0;">
-          <p style="margin: 0 0 20px; color: #1a1a1a !important; font-size: 18px; font-weight: 600;">
-            Amount Due: ${formatPrice(balanceAmount, paymentIntent.currency)}
-          </p>
-          ${createEmailButton('Complete Payment', paymentLink)}
-        </div>
-
-        <p style="color: #6b7280 !important;">
-          This is the remaining balance for your pre-order. Please complete the payment to finalize your order. 
-          The payment link is valid for 24 hours.
-        </p>
-
-        <div style="margin: 30px 0; padding: 20px; background: #f0f9ff; border-radius: 8px;">
-          <p style="margin: 0; font-weight: 600; color: #0369a1;">Payment Details</p>
-          <ul style="margin: 10px 0 0; padding-left: 20px; color: #666; font-size: 14px;">
-            <li>Original deposit has been paid</li>
-            <li>This is the final balance payment</li>
-            <li>Your order will ship once payment is complete</li>
-          </ul>
-        </div>
-      `;
-
-      const html = createEmailTemplate({
-        preheader: template.emailPreheader,
-        storeName: sellerName,
-        content,
-        footerText: `© ${new Date().getFullYear()} ${sellerName}. All rights reserved.`,
-      });
-
-      await emailProvider.sendEmail({
-        to: order.customerEmail,
-        from: sellerEmail,
-        replyTo: sellerEmail,
-        subject: template.emailSubject,
-        html,
-      });
+      // Calculate balance amount for logging
+      const balanceAmount = paymentIntent.amount / this.getCurrencyDivisor(paymentIntent.currency || 'usd');
 
       logger.info('[OrderService] Balance payment notification sent', {
         orderId: order.id,
