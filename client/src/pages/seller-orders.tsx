@@ -2,6 +2,7 @@ import { useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight, Package } from "lucide-react";
+import { OrderRowExpanded } from "@/components/order-row-expanded";
 import {
   Table,
   TableBody,
@@ -199,15 +200,8 @@ export default function SellerOrdersPage() {
                   {isExpanded && (
                     <TableRow key={`${order.id}-expanded`}>
                       <TableCell colSpan={7} className="p-0">
-                        <div
-                          className="p-6 bg-muted/50 border-t"
-                          data-testid={`expanded-order-${order.id}`}
-                        >
-                          {/* Placeholder for OrderRowExpanded component (Task 7) */}
-                          <div className="text-sm text-muted-foreground">
-                            <p>Order details will be displayed here (Task 7)</p>
-                            <p className="mt-2">Order ID: {order.id}</p>
-                          </div>
+                        <div className="p-6 bg-muted/50 border-t">
+                          <OrderRowExpanded orderId={order.id} />
                         </div>
                       </TableCell>
                     </TableRow>
