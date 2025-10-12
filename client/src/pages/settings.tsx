@@ -122,6 +122,14 @@ const shippingSchema = z.object({
   shippingPrice: z.string().min(0, "Shipping price must be 0 or greater"),
 });
 
+const warehouseSchema = z.object({
+  warehouseStreet: z.string().min(1, "Street address is required"),
+  warehouseCity: z.string().min(1, "City is required"),
+  warehouseState: z.string().optional().or(z.literal("")),
+  warehousePostalCode: z.string().min(1, "Postal code is required"),
+  warehouseCountry: z.string().min(2, "Country is required").max(2, "Use 2-letter country code"),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
 type BrandingForm = z.infer<typeof brandingSchema>;
 type AboutContactForm = z.infer<typeof aboutContactSchema>;
@@ -1751,6 +1759,30 @@ export default function Settings() {
     },
   });
 
+  const warehouseForm = useForm<z.infer<typeof warehouseSchema>>({
+    resolver: zodResolver(warehouseSchema),
+    defaultValues: {
+      warehouseStreet: user?.warehouseStreet || "",
+      warehouseCity: user?.warehouseCity || "",
+      warehouseState: user?.warehouseState || "",
+      warehousePostalCode: user?.warehousePostalCode || "",
+      warehouseCountry: user?.warehouseCountry || "",
+    },
+  });
+
+  // Reset warehouse form when user data changes
+  useEffect(() => {
+    if (user) {
+      warehouseForm.reset({
+        warehouseStreet: user.warehouseStreet || "",
+        warehouseCity: user.warehouseCity || "",
+        warehouseState: user.warehouseState || "",
+        warehousePostalCode: user.warehousePostalCode || "",
+        warehouseCountry: user.warehouseCountry || "",
+      });
+    }
+  }, [user?.warehouseStreet, user?.warehouseCity, user?.warehouseState, user?.warehousePostalCode, user?.warehouseCountry]);
+
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileForm) => {
       return await apiRequest("PATCH", "/api/user/profile", data);
@@ -1787,6 +1819,19 @@ export default function Settings() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update about & contact information", variant: "destructive" });
+    },
+  });
+
+  const updateWarehouseMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof warehouseSchema>) => {
+      return await apiRequest("PATCH", "/api/user/warehouse", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Warehouse address updated", description: "Your warehouse address has been updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update warehouse address", variant: "destructive" });
     },
   });
 
@@ -2150,12 +2195,20 @@ export default function Settings() {
                 </div>
               </SelectItem>
               {isSeller && (
-                <SelectItem value="shipping-matrix">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    <span>Shipping</span>
-                  </div>
-                </SelectItem>
+                <>
+                  <SelectItem value="shipping-matrix">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      <span>Shipping</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="warehouse">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Warehouse</span>
+                    </div>
+                  </SelectItem>
+                </>
               )}
               <SelectItem value="addresses-payments">
                 <div className="flex items-center gap-2">
@@ -2226,10 +2279,16 @@ export default function Settings() {
             <span>Profile</span>
           </TabsTrigger>
           {isSeller && (
-            <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              <span>Shipping</span>
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="shipping-matrix" data-testid="tab-shipping-matrix" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                <span>Shipping</span>
+              </TabsTrigger>
+              <TabsTrigger value="warehouse" data-testid="tab-warehouse" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <span>Warehouse</span>
+              </TabsTrigger>
+            </>
           )}
           <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments" className="flex items-center gap-2">
             <Wallet className="h-4 w-4" />
@@ -3506,6 +3565,113 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent>
                   <ShippingMatrixManager />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="warehouse">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Warehouse Address
+                  </CardTitle>
+                  <CardDescription>
+                    Configure where you ship products from. Required for Shippo real-time shipping rates.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Form {...warehouseForm}>
+                    <form onSubmit={warehouseForm.handleSubmit((data) => updateWarehouseMutation.mutate(data))} className="space-y-4">
+                      <FormField
+                        control={warehouseForm.control}
+                        name="warehouseStreet"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Street Address</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="123 Main Street" data-testid="input-warehouse-street" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={warehouseForm.control}
+                          name="warehouseCity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="San Francisco" data-testid="input-warehouse-city" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={warehouseForm.control}
+                          name="warehouseState"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>State/Province (optional)</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="CA" data-testid="input-warehouse-state" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={warehouseForm.control}
+                          name="warehousePostalCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Postal Code</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="94117" data-testid="input-warehouse-postal-code" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={warehouseForm.control}
+                          name="warehouseCountry"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country Code</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="US" data-testid="input-warehouse-country" maxLength={2} />
+                              </FormControl>
+                              <FormDescription>2-letter ISO code (e.g., US, GB, CA)</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end pt-4">
+                        <Button 
+                          type="button" 
+                          variant="outline"
+                          onClick={() => warehouseForm.reset()}
+                          data-testid="button-discard-warehouse"
+                        >
+                          Discard changes
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          disabled={updateWarehouseMutation.isPending}
+                          data-testid="button-save-warehouse"
+                        >
+                          {updateWarehouseMutation.isPending ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
             </TabsContent>

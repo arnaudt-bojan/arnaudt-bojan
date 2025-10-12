@@ -3216,6 +3216,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update Warehouse Address
+  app.patch("/api/user/warehouse", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { warehouseStreet, warehouseCity, warehouseState, warehousePostalCode, warehouseCountry } = req.body;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Validate country code is 2 letters
+      if (warehouseCountry && warehouseCountry.length !== 2) {
+        return res.status(400).json({ error: "Country code must be 2 letters (e.g., US, GB, CA)" });
+      }
+
+      const updatedUser = await storage.upsertUser({
+        ...user,
+        warehouseStreet: warehouseStreet || null,
+        warehouseCity: warehouseCity || null,
+        warehouseState: warehouseState || null,
+        warehousePostalCode: warehousePostalCode || null,
+        warehouseCountry: warehouseCountry ? warehouseCountry.toUpperCase() : null,
+      });
+
+      res.json({ message: "Warehouse address updated successfully", user: updatedUser });
+    } catch (error) {
+      logger.error("Warehouse address update error", error);
+      res.status(500).json({ error: "Failed to update warehouse address" });
+    }
+  });
+
   // Update Terms & Conditions settings
   app.post("/api/settings/terms", requireAuth, async (req: any, res) => {
     try {
