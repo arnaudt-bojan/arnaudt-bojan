@@ -52,7 +52,7 @@ const checkoutSchema = z.object({
   addressLine1: z.string().min(5, "Street address required"),
   addressLine2: z.string().optional(),
   city: z.string().min(2, "City required"),
-  state: z.string().min(2, "State/Province required"),
+  state: z.string().optional(), // Optional for international addresses
   postalCode: z.string().min(3, "ZIP/Postal code required"),
   country: z.string().min(2, "Country required"),
   phone: z.string().min(10, "Phone number required"),

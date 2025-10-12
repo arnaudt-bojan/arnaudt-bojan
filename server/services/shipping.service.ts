@@ -383,21 +383,62 @@ export class ShippingService {
    */
   private convertCountryToISO(country: string): string {
     const countryMap: Record<string, string> = {
+      // North America
       'United States': 'US',
       'USA': 'US',
       'Canada': 'CA',
+      'Mexico': 'MX',
+      
+      // Europe
       'United Kingdom': 'GB',
       'UK': 'GB',
-      'Australia': 'AU',
       'Germany': 'DE',
       'France': 'FR',
       'Italy': 'IT',
       'Spain': 'ES',
+      'Netherlands': 'NL',
+      'Belgium': 'BE',
+      'Switzerland': 'CH',
+      'Austria': 'AT',
+      'Sweden': 'SE',
+      'Norway': 'NO',
+      'Denmark': 'DK',
+      'Finland': 'FI',
+      'Poland': 'PL',
+      'Portugal': 'PT',
+      'Ireland': 'IE',
+      'Greece': 'GR',
+      'Czech Republic': 'CZ',
+      
+      // Asia Pacific
+      'Australia': 'AU',
+      'New Zealand': 'NZ',
       'Japan': 'JP',
       'China': 'CN',
+      'South Korea': 'KR',
+      'Singapore': 'SG',
+      'Hong Kong': 'HK',
       'India': 'IN',
+      'Thailand': 'TH',
+      'Malaysia': 'MY',
+      'Indonesia': 'ID',
+      'Philippines': 'PH',
+      'Vietnam': 'VN',
+      
+      // South America
       'Brazil': 'BR',
-      'Mexico': 'MX',
+      'Argentina': 'AR',
+      'Chile': 'CL',
+      'Colombia': 'CO',
+      
+      // Middle East & Africa
+      'United Arab Emirates': 'AE',
+      'UAE': 'AE',
+      'Saudi Arabia': 'SA',
+      'Israel': 'IL',
+      'South Africa': 'ZA',
+      'Egypt': 'EG',
+      'Turkey': 'TR',
     };
 
     // Return ISO code if found, otherwise return country as-is (it might already be ISO)
