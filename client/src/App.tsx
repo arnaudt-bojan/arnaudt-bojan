@@ -45,6 +45,9 @@ import OrderSuccess from "@/pages/order-success";
 import SellerStorefront from "@/pages/seller-storefront";
 import AdminDashboard from "@/pages/admin-dashboard";
 import SubscriptionSuccess from "@/pages/subscription-success";
+import Help from "@/pages/help";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -82,6 +85,11 @@ function AppContent() {
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
               <Route path="/accept-invitation" component={AcceptInvitation} />
+              
+              {/* Public platform pages on seller subdomain */}
+              <Route path="/help" component={Help} />
+              <Route path="/privacy" component={Privacy} />
+              <Route path="/terms" component={Terms} />
               
               {/* Protected buyer routes on seller subdomain */}
               <Route path="/orders">
@@ -127,6 +135,11 @@ function AppContent() {
               <Route path="/products/:id" component={ProductDetail} />
               <Route path="/checkout" component={Checkout} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
+              
+              {/* Public platform pages */}
+              <Route path="/help" component={Help} />
+              <Route path="/privacy" component={Privacy} />
+              <Route path="/terms" component={Terms} />
               
               {/* Protected buyer routes */}
               <Route path="/buyer-dashboard">
