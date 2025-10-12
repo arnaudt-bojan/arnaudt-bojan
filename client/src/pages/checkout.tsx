@@ -594,12 +594,76 @@ export default function Checkout() {
     },
   });
 
-  // Fetch shipping settings
-  const { data: shippingData } = useQuery<{ shippingPrice: number }>({
-    queryKey: ["/api/shipping-settings"],
-  });
+  // Watch shipping address fields for dynamic calculation
+  const watchedCountry = form.watch("country");
+  const watchedState = form.watch("state");
+  const watchedPostalCode = form.watch("postalCode");
 
-  const shippingPrice = shippingData?.shippingPrice ?? 0;
+  // Dynamic shipping calculation based on destination
+  const [shippingCalculation, setShippingCalculation] = useState<{
+    cost: number;
+    method?: string;
+    zone?: string;
+    carrier?: string;
+    estimatedDays?: string;
+    details?: string;
+    error?: string;
+  }>({ cost: 0 });
+
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+
+  // Calculate shipping when address changes
+  useEffect(() => {
+    const calculateShipping = async () => {
+      // Only calculate if we have a country (minimum requirement)
+      if (!watchedCountry || items.length === 0) {
+        setShippingCalculation({ cost: 0 });
+        return;
+      }
+
+      setIsCalculatingShipping(true);
+      try {
+        const response = await apiRequest("POST", "/api/shipping/calculate", {
+          items: items.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+          })),
+          destination: {
+            country: watchedCountry,
+            state: watchedState,
+            postalCode: watchedPostalCode,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setShippingCalculation({ ...data, error: undefined });
+        } else {
+          // Show error instead of defaulting to free shipping
+          const errorData = await response.json().catch(() => ({ error: "Failed to calculate shipping" }));
+          setShippingCalculation({ 
+            cost: 0, 
+            error: errorData.error || "Unable to calculate shipping. Please try again." 
+          });
+        }
+      } catch (error: any) {
+        console.error("Shipping calculation error:", error);
+        setShippingCalculation({ 
+          cost: 0, 
+          error: "Unable to calculate shipping. Please check your address and try again." 
+        });
+      } finally {
+        setIsCalculatingShipping(false);
+      }
+    };
+
+    // Only recalculate if we have items
+    if (items.length > 0) {
+      calculateShipping();
+    }
+  }, [watchedCountry, watchedState, watchedPostalCode, JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity })))]);
+
+  const shippingPrice = shippingCalculation.cost;
 
   // Calculate payment info using centralized pricing service
   const paymentInfo = useMemo(() => {
@@ -1150,22 +1214,36 @@ export default function Checkout() {
                     </div>
 
                     {!clientSecret && (
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        size="lg"
-                        disabled={isCreatingIntent}
-                        data-testid="button-continue-payment"
-                      >
-                        {isCreatingIntent ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Preparing Payment...
-                          </>
-                        ) : (
-                          "Continue to Payment"
+                      <>
+                        {shippingCalculation.error && (
+                          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                            <p className="text-sm text-destructive">
+                              {shippingCalculation.error}
+                            </p>
+                          </div>
                         )}
-                      </Button>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          size="lg"
+                          disabled={isCreatingIntent || isCalculatingShipping || !!shippingCalculation.error}
+                          data-testid="button-continue-payment"
+                        >
+                          {isCreatingIntent ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Preparing Payment...
+                            </>
+                          ) : isCalculatingShipping ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Calculating Shipping...
+                            </>
+                          ) : (
+                            "Continue to Payment"
+                          )}
+                        </Button>
+                      </>
                     )}
                   </form>
                 </Form>
@@ -1324,11 +1402,32 @@ export default function Checkout() {
                     <span data-testid="text-subtotal">{formatConvertedPrice(paymentInfo.subtotal)}</span>
                   </div>
 
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping</span>
-                    <span data-testid="text-shipping">
-                      {paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)}
-                    </span>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Shipping</span>
+                      <span data-testid="text-shipping">
+                        {isCalculatingShipping ? (
+                          <span className="text-muted-foreground">Calculating...</span>
+                        ) : (
+                          paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)
+                        )}
+                      </span>
+                    </div>
+                    {shippingCalculation.details && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{shippingCalculation.details}</span>
+                      </div>
+                    )}
+                    {shippingCalculation.carrier && shippingCalculation.carrier !== 'Free Shipping' && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>via {shippingCalculation.carrier}</span>
+                      </div>
+                    )}
+                    {shippingCalculation.estimatedDays && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Estimated delivery: {shippingCalculation.estimatedDays} days</span>
+                      </div>
+                    )}
                   </div>
 
                   <Separator />
