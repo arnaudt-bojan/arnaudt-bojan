@@ -50,6 +50,8 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
   - **Refund Handling**: Supports full order and item-level partial refunds with automatic Stripe processing and order item tracking updates
   - **Balance Payments**: Creates separate Stripe payment intents for pre-order balance collection with automatic currency handling
   - **Payment Webhook**: Stripe `payment_intent.succeeded` webhook updates order with currency-aware amount conversion supporting zero-decimal (JPY, divisor=1), two-decimal (USD/GBP/EUR, divisor=100), and three-decimal (BHD, divisor=1000) currencies; uses `amount_received` for actual captured funds
+  - **Email Notifications**: Complete automated notification system with seller-branded buyer emails (order confirmation, refunds, tracking, balance payments) and platform-branded seller alerts; all notifications use correct seller lookup via order items → product → sellerId
+  - **Document Automation**: Auto-generates professional PDF invoices on 'paid' status and packing slips on 'shipped' status using DocumentGenerator with duplicate prevention and storage in dedicated invoices/packingSlips tables
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
