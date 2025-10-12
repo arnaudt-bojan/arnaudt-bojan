@@ -569,6 +569,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check stock availability for product or variant
+  app.get("/api/products/:productId/stock-availability", async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const { variantId } = req.query;
+
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Get reserved stock for this product/variant
+      const reservedStock = await storage.getReservedStock(
+        productId, 
+        variantId ? String(variantId) : undefined
+      );
+
+      // For products with variants, check variant-level stock
+      if (variantId && product.variants && Array.isArray(product.variants)) {
+        const variants = product.variants as any[];
+        
+        // Find the specific variant by parsing variant structure
+        let variantStock = 0;
+        let variantFound = false;
+
+        for (const colorVariant of variants) {
+          if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
+            const sizeVariant = colorVariant.sizes.find((s: any) => 
+              `${s.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
+              s.size === variantId
+            );
+            if (sizeVariant && typeof sizeVariant.stock === 'number') {
+              variantStock = sizeVariant.stock;
+              variantFound = true;
+              break;
+            }
+          }
+        }
+
+        if (!variantFound) {
+          return res.status(404).json({ error: "Variant not found" });
+        }
+
+        const availableStock = Math.max(0, variantStock - reservedStock);
+        return res.json({
+          productId,
+          variantId,
+          totalStock: variantStock,
+          reservedStock,
+          availableStock,
+          isAvailable: availableStock > 0,
+          isVariant: true,
+        });
+      }
+
+      // For simple products or product-level stock
+      const totalStock = typeof product.stock === 'number' ? product.stock : 0;
+      const availableStock = Math.max(0, totalStock - reservedStock);
+
+      res.json({
+        productId,
+        totalStock,
+        reservedStock,
+        availableStock,
+        isAvailable: availableStock > 0,
+        isVariant: false,
+      });
+    } catch (error) {
+      logger.error("Error checking stock availability", error);
+      res.status(500).json({ error: "Failed to check stock availability" });
+    }
+  });
+
   // Stock Reservations Routes
   app.get("/api/reservations", async (req, res) => {
     try {
