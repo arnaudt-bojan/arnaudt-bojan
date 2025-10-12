@@ -79,10 +79,10 @@ function PaymentForm({
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency: defaultCurrency } = useCurrency();
   
   // Format amount with currency conversion
-  const sellerCurrency = items[0]?.currency || 'USD';
+  const sellerCurrency = items[0]?.currency || defaultCurrency;
   const formattedAmount = formatPrice(amount, sellerCurrency);
 
   useEffect(() => {
@@ -504,11 +504,12 @@ export default function Checkout() {
     }
   }, [isSeller, isCollaborator, setLocation, toast]);
   
-  // Get seller's currency from cart items (all items are from same seller)
-  const sellerCurrency = items.length > 0 ? items[0].currency || 'USD' : 'USD';
-  
   // Get buyer's selected currency and conversion functions
   const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
+  
+  // Get seller's currency from cart items (all items are from same seller)
+  // Use buyer's currency as fallback (should never happen as checkout requires items)
+  const sellerCurrency = items.length > 0 ? items[0].currency || buyerCurrency : buyerCurrency;
   
   // Helper function to format prices with conversion from seller to buyer currency
   const formatConvertedPrice = (amount: number) => {
