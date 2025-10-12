@@ -3055,172 +3055,201 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-4 border rounded-lg">
-                    <input
-                      type="checkbox"
-                      id="use-platform-tc"
-                      checked={user?.termsSource === 'platform_default'}
-                      onChange={async (e) => {
-                        try {
-                          let termsSource: string | null = null;
-                          let termsPdfUrl: string | null = null;
-
-                          if (e.target.checked) {
-                            // Switching to platform default
-                            termsSource = 'platform_default';
-                            termsPdfUrl = null;
-                          } else {
-                            // Unchecking platform default
-                            if (user?.termsPdfUrl) {
-                              // If there's an existing PDF, revert to custom_pdf
-                              termsSource = 'custom_pdf';
-                              termsPdfUrl = user.termsPdfUrl;
-                            } else {
-                              // No PDF exists, clear both fields
-                              termsSource = null;
-                              termsPdfUrl = null;
-                            }
-                          }
-
-                          await apiRequest('/api/settings/terms', {
-                            method: 'POST',
-                            body: JSON.stringify({ termsSource, termsPdfUrl }),
-                          });
-                          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-                          toast({
-                            title: "Terms & Conditions updated",
-                            description: e.target.checked 
-                              ? "Using platform default T&C" 
-                              : termsSource === 'custom_pdf' 
-                                ? "Using custom T&C PDF" 
-                                : "T&C cleared - please upload a PDF or select platform default",
-                          });
-                        } catch (error) {
-                          toast({
-                            title: "Error",
-                            description: "Failed to update Terms & Conditions",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      className="mt-1 h-4 w-4 rounded border-gray-300"
-                      data-testid="checkbox-platform-tc"
-                    />
-                    <div className="flex-1">
-                      <label htmlFor="use-platform-tc" className="text-sm font-medium cursor-pointer">
-                        Use Platform Default Terms & Conditions
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Check this to use Upfirst's standard Terms & Conditions instead of uploading your own
-                      </p>
-                    </div>
-                  </div>
-
-                  {user?.termsSource !== 'platform_default' && (
+                  {/* Show uploaded PDF first if exists */}
+                  {user?.termsPdfUrl && user?.termsSource === 'custom_pdf' ? (
                     <div className="space-y-3">
                       <div>
-                        <Label htmlFor="tc-pdf">Custom Terms & Conditions PDF</Label>
+                        <Label>Custom Terms & Conditions PDF</Label>
                         <p className="text-xs text-muted-foreground mt-1 mb-3">
-                          Upload your custom Terms & Conditions as a PDF file
+                          Your uploaded Terms & Conditions PDF
                         </p>
                       </div>
-                      {user?.termsPdfUrl ? (
-                        <div className="flex items-center gap-3 p-3 border rounded-lg hover-elevate cursor-pointer" onClick={() => window.open(user.termsPdfUrl!, '_blank')}>
-                          <FileText className="h-5 w-5 text-muted-foreground" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Terms & Conditions PDF</p>
-                            <p className="text-xs text-primary">Click to view PDF</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                await apiRequest('/api/settings/terms', {
-                                  method: 'POST',
-                                  body: JSON.stringify({
-                                    termsSource: null,
-                                    termsPdfUrl: null,
-                                  }),
-                                });
-                                queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-                                toast({
-                                  title: "PDF removed",
-                                  description: "Terms & Conditions PDF has been removed",
-                                });
-                              } catch (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to remove PDF",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                            data-testid="button-remove-tc-pdf"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                      <div className="flex items-center gap-3 p-3 border rounded-lg hover-elevate cursor-pointer" onClick={() => window.open(user.termsPdfUrl!, '_blank')}>
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Terms & Conditions PDF</p>
+                          <p className="text-xs text-primary">Click to view PDF</p>
                         </div>
-                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await apiRequest('/api/settings/terms', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  termsSource: null,
+                                  termsPdfUrl: null,
+                                }),
+                              });
+                              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+                              toast({
+                                title: "PDF removed",
+                                description: "Terms & Conditions PDF has been removed",
+                              });
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to remove PDF",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                          data-testid="button-remove-tc-pdf"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : user?.termsSource === 'platform_default' ? (
+                    <div className="flex items-start gap-3 p-4 border rounded-lg bg-muted/50">
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Using Platform Default Terms & Conditions</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          You're using Upfirst's standard Terms & Conditions
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={async () => {
+                            try {
+                              await apiRequest('/api/settings/terms', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  termsSource: null,
+                                  termsPdfUrl: null,
+                                }),
+                              });
+                              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+                              toast({
+                                title: "Platform default disabled",
+                                description: "You can now upload a custom T&C PDF",
+                              });
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to update Terms & Conditions",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                          data-testid="button-disable-platform-tc"
+                        >
+                          Switch to Custom PDF
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={async () => {
+                          try {
+                            await apiRequest('/api/settings/terms', {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                termsSource: 'platform_default',
+                                termsPdfUrl: user?.termsPdfUrl || null,
+                              }),
+                            });
+                            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+                            toast({
+                              title: "Platform default enabled",
+                              description: "Using Upfirst's standard Terms & Conditions",
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to update Terms & Conditions",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        data-testid="button-use-platform-tc"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Use Platform Default Terms & Conditions
+                      </Button>
+                      
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">Or</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
                         <div>
-                          <input
-                            type="file"
-                            id="tc-pdf"
-                            accept=".pdf"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-
-                              if (file.type !== 'application/pdf') {
-                                toast({
-                                  title: "Invalid file type",
-                                  description: "Please upload a PDF file",
-                                  variant: "destructive",
-                                });
-                                return;
-                              }
-
-                              try {
-                                const formData = new FormData();
-                                formData.append('file', file);
-
-                                const uploadRes = await fetch('/api/objects/upload-file', {
-                                  method: 'POST',
-                                  body: formData,
-                                });
-
-                                if (!uploadRes.ok) throw new Error('Upload failed');
-
-                                const { objectPath } = await uploadRes.json();
-                                const pdfUrl = `/objects/${objectPath}`;
-
-                                await apiRequest('/api/settings/terms', {
-                                  method: 'POST',
-                                  body: JSON.stringify({
-                                    termsSource: 'custom_pdf',
-                                    termsPdfUrl: pdfUrl,
-                                  }),
-                                });
-
-                                queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-                                toast({
-                                  title: "PDF uploaded",
-                                  description: "Terms & Conditions PDF has been uploaded successfully",
-                                });
-                              } catch (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to upload PDF",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                            className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                            data-testid="input-tc-pdf"
-                          />
+                          <Label htmlFor="tc-pdf">Upload Custom Terms & Conditions PDF</Label>
+                          <p className="text-xs text-muted-foreground mt-1 mb-3">
+                            Upload your own Terms & Conditions as a PDF file
+                          </p>
                         </div>
-                      )}
+                        <input
+                          type="file"
+                          id="tc-pdf"
+                          accept=".pdf"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            if (file.type !== 'application/pdf') {
+                              toast({
+                                title: "Invalid file type",
+                                description: "Please upload a PDF file",
+                                variant: "destructive",
+                              });
+                              e.target.value = '';
+                              return;
+                            }
+
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+
+                              const uploadRes = await fetch('/api/objects/upload-file', {
+                                method: 'POST',
+                                body: formData,
+                              });
+
+                              if (!uploadRes.ok) throw new Error('Upload failed');
+
+                              const { objectPath } = await uploadRes.json();
+                              const pdfUrl = `/objects/${objectPath}`;
+
+                              await apiRequest('/api/settings/terms', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  termsSource: 'custom_pdf',
+                                  termsPdfUrl: pdfUrl,
+                                }),
+                              });
+
+                              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+                              toast({
+                                title: "PDF uploaded",
+                                description: "Your Terms & Conditions PDF has been uploaded successfully",
+                              });
+                              e.target.value = '';
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to upload PDF",
+                                variant: "destructive",
+                              });
+                              e.target.value = '';
+                            }
+                          }}
+                          className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                          data-testid="input-tc-pdf"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
