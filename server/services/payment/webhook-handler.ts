@@ -158,6 +158,10 @@ export class WebhookHandler {
         await this.handleAccountUpdated(event);
         break;
 
+      case 'checkout.session.completed':
+        await this.handleCheckoutSessionCompleted(event);
+        break;
+
       default:
         logger.info(`Unhandled webhook event type: ${event.type}`);
     }
@@ -323,6 +327,134 @@ export class WebhookHandler {
     
     // Update seller's Stripe account status in database
     // This is important for showing correct account status in dashboard
+  }
+
+  /**
+   * Handle checkout session completed event (for subscriptions)
+   */
+  private async handleCheckoutSessionCompleted(event: WebhookEvent): Promise<void> {
+    const session = event.data.object as Stripe.Checkout.Session;
+    logger.info(`[Webhook] Checkout session ${session.id} completed`, {
+      mode: session.mode,
+      customerId: session.customer,
+      subscriptionId: session.subscription,
+    });
+
+    // Only process subscription checkouts
+    if (session.mode !== 'subscription' || !session.subscription) {
+      logger.info(`[Webhook] Skipping non-subscription checkout session ${session.id}`);
+      return;
+    }
+
+    try {
+      // Get user by Stripe customer ID
+      const user = await this.storage.getUserByStripeCustomerId(session.customer as string);
+      if (!user) {
+        logger.warn(`[Webhook] No user found for customer ${session.customer}`);
+        return;
+      }
+
+      // Get Stripe instance from provider  
+      const stripe = await this.provider.getClient();
+      if (!stripe) {
+        logger.error('[Webhook] Stripe instance not available');
+        return;
+      }
+
+      // Fetch subscription details with expanded payment method and latest invoice
+      const subscription = await stripe.subscriptions.retrieve(session.subscription as string, {
+        expand: ['default_payment_method', 'latest_invoice.payment_intent'],
+      });
+
+      // Map Stripe status to our app status
+      let status = null;
+      if (subscription.status === 'trialing') {
+        status = 'trial';
+      } else if (subscription.status === 'active') {
+        status = 'active';
+      } else if (subscription.status === 'past_due') {
+        status = 'past_due';
+      } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+        status = 'canceled';
+      } else if (subscription.status === 'incomplete' || subscription.status === 'unpaid') {
+        status = 'incomplete'; // Map incomplete/unpaid to a known status
+      }
+
+      // Find payment method from multiple sources (Stripe stores it in different places)
+      let paymentMethodId: string | null = null;
+      
+      // 1. Check subscription.default_payment_method
+      if (subscription.default_payment_method) {
+        if (typeof subscription.default_payment_method === 'string') {
+          paymentMethodId = subscription.default_payment_method;
+        } else {
+          paymentMethodId = subscription.default_payment_method.id;
+        }
+      }
+      
+      // 2. Fallback: Check customer.invoice_settings.default_payment_method
+      if (!paymentMethodId) {
+        const customer = await stripe.customers.retrieve(session.customer as string);
+        if ('invoice_settings' in customer && customer.invoice_settings?.default_payment_method) {
+          const defaultPm = customer.invoice_settings.default_payment_method;
+          paymentMethodId = typeof defaultPm === 'string' ? defaultPm : defaultPm.id;
+        }
+      }
+      
+      // 3. Fallback: Check latest_invoice.payment_intent.payment_method
+      if (!paymentMethodId && subscription.latest_invoice) {
+        const invoice = subscription.latest_invoice as Stripe.Invoice;
+        if (invoice.payment_intent && typeof invoice.payment_intent === 'object') {
+          const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+          if (paymentIntent.payment_method) {
+            paymentMethodId = typeof paymentIntent.payment_method === 'string' 
+              ? paymentIntent.payment_method 
+              : paymentIntent.payment_method.id;
+          }
+        }
+      }
+
+      // Save payment method to database if found
+      if (paymentMethodId) {
+        // Retrieve full payment method details
+        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+        
+        // Check if already saved
+        const existingPaymentMethod = await this.storage.getSavedPaymentMethodByStripeId(paymentMethod.id);
+        
+        if (!existingPaymentMethod) {
+          // Save the new payment method as default
+          await this.storage.createSavedPaymentMethod({
+            userId: user.id,
+            stripePaymentMethodId: paymentMethod.id,
+            cardBrand: paymentMethod.card?.brand || null,
+            cardLast4: paymentMethod.card?.last4 || null,
+            cardExpMonth: paymentMethod.card?.exp_month || null,
+            cardExpYear: paymentMethod.card?.exp_year || null,
+            isDefault: 1, // Always default since it's the subscription's default
+            label: null,
+          });
+          logger.info(`[Webhook] Saved payment method ${paymentMethod.id} as default for user ${user.id}`);
+        } else if (existingPaymentMethod.isDefault === 0) {
+          // Payment method exists but isn't default - make it default using setDefaultPaymentMethod
+          await this.storage.setDefaultPaymentMethod(user.id, existingPaymentMethod.id);
+          logger.info(`[Webhook] Updated payment method ${paymentMethod.id} to default for user ${user.id}`);
+        }
+      }
+
+      // Update user with subscription info
+      await this.storage.upsertUser({
+        ...user,
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: status,
+        subscriptionPlan: subscription.items.data[0]?.price?.recurring?.interval || 'monthly',
+      });
+
+      logger.info(`[Webhook] Updated user ${user.id} with subscription status: ${status}, plan: ${subscription.items.data[0]?.price?.recurring?.interval}`);
+    } catch (error) {
+      logger.error(`[Webhook] Failed to process checkout session completed:`, error);
+      throw error; // Re-throw to mark webhook as failed for retry
+    }
   }
 
   /**
