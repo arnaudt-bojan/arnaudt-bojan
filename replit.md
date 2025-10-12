@@ -49,6 +49,7 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
   - **Storage Abstraction**: All order operations use IStorage interface only - no direct Drizzle table imports in services
   - **Refund Handling**: Supports full order and item-level partial refunds with automatic Stripe processing and order item tracking updates
   - **Balance Payments**: Creates separate Stripe payment intents for pre-order balance collection with automatic currency handling
+  - **Payment Webhook**: Stripe `payment_intent.succeeded` webhook updates order with currency-aware amount conversion supporting zero-decimal (JPY, divisor=1), two-decimal (USD/GBP/EUR, divisor=100), and three-decimal (BHD, divisor=1000) currencies; uses `amount_received` for actual captured funds
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)
