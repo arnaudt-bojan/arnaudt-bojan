@@ -62,8 +62,9 @@ export default function SellerStorefront() {
   
   // In preview mode, ALWAYS use current user (seller) with preview overrides
   // Preview mode is only accessible when viewing your own store setup
+  // Override username, logo, and banner with preview values from URL
   const effectiveSeller = isPreviewMode && currentUser 
-    ? { ...currentUser, storeLogo: previewLogo, storeBanner: previewBanner }
+    ? { ...currentUser, username: username, storeLogo: previewLogo, storeBanner: previewBanner }
     : (seller || (isOwnStore ? currentUser : null));
 
   // Fetch seller's products - use effectiveSeller to support fallback

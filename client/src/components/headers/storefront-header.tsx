@@ -46,9 +46,12 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
   const previewLogo = searchParams.get('previewLogo') || '';
   const previewBanner = searchParams.get('previewBanner') || '';
   
-  // In preview mode, use current user as the seller with preview overrides
+  // Extract username from URL path when in preview mode (format: /s/username?preview=true)
+  const previewUsername = isPreviewMode ? window.location.pathname.split('/')[2] : '';
+  
+  // In preview mode, use current user as the seller with preview overrides (including username)
   const effectiveSellerForHeader = isPreviewMode && currentUser
-    ? { ...currentUser, storeLogo: previewLogo, storeBanner: previewBanner }
+    ? { ...currentUser, username: previewUsername, storeLogo: previewLogo, storeBanner: previewBanner }
     : activeSeller;
   
   // Use preview logo if in preview mode, otherwise use activeSeller logo
