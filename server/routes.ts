@@ -4612,10 +4612,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
 
-            // Update order payment status
+            // Update order payment status and amount paid
+            // Use amount_received for actual captured funds, fallback to amount
+            const amountInMinorUnits = paymentIntent.amount_received || paymentIntent.amount;
+            const currency = paymentIntent.currency.toUpperCase();
+            
+            // Convert from Stripe minor units to major units based on currency
+            // Zero-decimal currencies (JPY, etc.): divisor = 1
+            // Two-decimal currencies (USD, GBP, EUR, etc.): divisor = 100
+            // Three-decimal currencies (BHD, etc.): divisor = 1000
+            const zeroDecimalCurrencies = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
+            const threeDecimalCurrencies = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
+            
+            let divisor = 100; // Default: 2 decimal places
+            if (zeroDecimalCurrencies.includes(currency)) {
+              divisor = 1;
+            } else if (threeDecimalCurrencies.includes(currency)) {
+              divisor = 1000;
+            }
+            
+            const amountPaid = (amountInMinorUnits / divisor).toString();
+            
             await storage.updateOrderPaymentStatus(orderId, 'fully_paid');
+            await storage.updateOrder(orderId, { amountPaid });
             await storage.updateOrderStatus(orderId, 'processing');
-            logger.info(`[Webhook] Updated order ${orderId} to fully_paid and processing`);
+            logger.info(`[Webhook] Updated order ${orderId} to fully_paid (${currency} ${amountPaid}) and processing`);
           }
           break;
         }
