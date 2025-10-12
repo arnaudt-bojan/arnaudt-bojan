@@ -4,6 +4,7 @@ import { Package, User, MapPin, CreditCard, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderActionBar } from "@/components/order-action-bar";
+import { OrderTimeline } from "@/components/order-timeline";
 import type { Order, OrderItem } from "@shared/schema";
 
 interface OrderRowExpandedProps {
@@ -41,7 +42,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     );
   }
 
-  const { order, items } = data;
+  const { order, items, events = [] } = data;
 
   const getItemStatusColor = (status: string) => {
     const colors = {
@@ -262,6 +263,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Order Timeline */}
+      <div className="border-t pt-6">
+        <OrderTimeline events={events} />
       </div>
     </div>
   );
