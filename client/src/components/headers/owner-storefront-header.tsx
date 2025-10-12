@@ -294,7 +294,7 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a href={`/api/logout?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`} data-testid="button-logout">
+                <a href="/api/logout?returnUrl=%2F" data-testid="button-logout">
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </a>
