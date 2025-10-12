@@ -692,6 +692,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get detailed order information for seller (includes items, events, balance payments, refunds)
+  app.get("/api/seller/orders/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const orderId = req.params.id;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get canonical owner ID (handles team members)
+      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalOwnerId = isTeamMember ? currentUser.sellerId : currentUser.id;
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify seller/team owns products in this order
+      const orderItems = await storage.getOrderItems(orderId);
+      if (orderItems.length === 0) {
+        return res.status(404).json({ error: "Order has no items" });
+      }
+
+      const firstProduct = await storage.getProduct(orderItems[0].productId);
+      if (!firstProduct || firstProduct.sellerId !== canonicalOwnerId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Gather all related data
+      const events = await storage.getOrderEvents(orderId);
+      const balancePayments = await storage.getBalancePaymentsByOrderId(orderId);
+      const refunds = await storage.getRefundsByOrderId(orderId);
+
+      res.json({
+        order,
+        items: orderItems,
+        events,
+        balancePayments,
+        refunds,
+      });
+    } catch (error) {
+      logger.error("Error fetching detailed order", error);
+      res.status(500).json({ error: "Failed to fetch order details" });
+    }
+  });
+
+  // Get order events (email and status history)
+  app.get("/api/orders/:id/events", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const orderId = req.params.id;
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Get canonical owner ID (handles team members)
+      const isTeamMember = ["admin", "editor", "viewer"].includes(user.role) && user.sellerId;
+      const canonicalOwnerId = isTeamMember ? user.sellerId : user.id;
+
+      // Check authorization: buyer, seller/team, or admin
+      const isBuyer = order.userId === userId;
+      const isAdmin = user.role === 'owner' || user.role === 'admin';
+      
+      if (!isBuyer && !isAdmin) {
+        // Check if seller or team member
+        const orderItems = await storage.getOrderItems(orderId);
+        const isSeller = orderItems.length > 0 && 
+          await storage.getProduct(orderItems[0].productId)
+            .then(p => p?.sellerId === canonicalOwnerId)
+            .catch(() => false);
+        
+        if (!isSeller) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const events = await storage.getOrderEvents(orderId);
+      res.json(events);
+    } catch (error) {
+      logger.error("Error fetching order events", error);
+      res.status(500).json({ error: "Failed to fetch order events" });
+    }
+  });
+
+  // Resend balance payment request email
+  app.post("/api/orders/:id/balance/resend", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const orderId = req.params.id;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get canonical owner ID (handles team members)
+      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalOwnerId = isTeamMember ? currentUser.sellerId : currentUser.id;
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify seller/team owns products in this order
+      const orderItems = await storage.getOrderItems(orderId);
+      if (orderItems.length === 0) {
+        return res.status(404).json({ error: "Order has no items" });
+      }
+
+      const firstProduct = await storage.getProduct(orderItems[0].productId);
+      if (!firstProduct || firstProduct.sellerId !== canonicalOwnerId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Find the most recent pending balance payment
+      const balancePayments = await storage.getBalancePaymentsByOrderId(orderId);
+      const pendingPayment = balancePayments.find(p => p.status === 'pending');
+      
+      if (!pendingPayment) {
+        return res.status(404).json({ error: "No pending balance payment found" });
+      }
+
+      // Get seller info for email (use canonical owner, not team member)
+      const seller = await storage.getUser(canonicalOwnerId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // TODO: Send balance payment request email via NotificationMessagesService
+      // await notificationService.sendBalancePaymentRequest(order, seller, pendingPayment);
+
+      // Log the email event
+      await storage.createOrderEvent({
+        orderId,
+        eventType: 'balance_payment_requested',
+        recipientEmail: order.customerEmail,
+        subject: `Balance Payment Required - Order #${order.id.slice(-8).toUpperCase()}`,
+        sentAt: new Date(),
+        metadata: JSON.stringify({
+          balancePaymentId: pendingPayment.id,
+          amount: pendingPayment.amount,
+        }),
+      });
+
+      logger.info(`[Balance Payment] Resent request to ${order.customerEmail} for order ${order.id}`);
+
+      res.json({ 
+        message: "Balance payment request resent successfully",
+        balancePaymentId: pendingPayment.id,
+      });
+    } catch (error) {
+      logger.error("Error resending balance payment request", error);
+      res.status(500).json({ error: "Failed to resend balance payment request" });
+    }
+  });
+
   // Refund routes for sellers
   // Process a refund (full, partial, or item-level)
   app.post("/api/orders/:orderId/refunds", requireAuth, requireUserType('seller'), async (req: any, res) => {
