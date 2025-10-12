@@ -2638,37 +2638,137 @@ export default function Settings() {
                               />
                             </FormControl>
                             <FormDescription>
-                              Your store URL: {field.value || 'username'}.upfirst.io (3-20 characters, letters, numbers, and underscores only)
+                              3-20 characters, letters, numbers, and underscores only
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      {/* Store Logo */}
-                      <FormField
-                        control={quickSetupForm.control}
-                        name="storeLogo"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Store Logo</FormLabel>
-                            <FormControl>
-                              <UniversalImageUpload
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                label=""
-                                mode="single"
-                                aspectRatio="square"
-                                heroSelection={false}
-                                allowUrl={true}
-                                allowUpload={true}
-                              />
-                            </FormControl>
-                            <FormDescription>Appears in the navigation header (200×200px square recommended)</FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                      {/* Store URL Display */}
+                      <div className="space-y-3 pt-2">
+                        <p className="text-sm font-medium">Your Store URL</p>
+                        <div className="flex gap-2">
+                          <Input
+                            value={quickSetupForm.watch('username') ? getStoreUrl(quickSetupForm.watch('username')) : 'Set username above'}
+                            readOnly
+                            className="flex-1"
+                            data-testid="input-store-url-display"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              const username = quickSetupForm.watch('username');
+                              if (!username) return;
+                              const url = getStoreUrl(username);
+                              if (!url) return;
+                              navigator.clipboard.writeText(url);
+                              setCopiedUsername(true);
+                              setTimeout(() => setCopiedUsername(false), 2000);
+                              toast({ title: "Copied!", description: "Store link copied to clipboard" });
+                            }}
+                            disabled={!quickSetupForm.watch('username')}
+                            data-testid="button-copy-store-url"
+                          >
+                            {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Instagram Connection */}
+                      <div className="space-y-3 pt-4 border-t">
+                        {isInstagramConnected ? (
+                          <>
+                            <div className="flex items-center gap-2 text-sm">
+                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                              <span className="font-medium">Instagram Connected</span>
+                              <span className="text-muted-foreground">@{user?.instagramUsername}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Your Instagram handle is connected. You can use @{user?.instagramUsername} as your store identifier.
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full justify-between"
+                              onClick={() => disconnectInstagramMutation.mutate()}
+                              disabled={disconnectInstagramMutation.isPending}
+                              data-testid="button-disconnect-instagram"
+                            >
+                              <div className="flex items-center gap-2">
+                                <SiInstagram className="h-5 w-5" />
+                                <span>{disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}</span>
+                              </div>
+                              <span>×</span>
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium">Connect Instagram (Optional)</p>
+                            <p className="text-xs text-muted-foreground">
+                              Connect your Instagram to use your verified handle as your store URL. This provides instant credibility and makes it easier for your followers to find your store.
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full justify-between"
+                              onClick={handleConnectInstagram}
+                              data-testid="button-connect-instagram"
+                            >
+                              <div className="flex items-center gap-2">
+                                <SiInstagram className="h-5 w-5" />
+                                <span>Connect Instagram</span>
+                              </div>
+                              <span>→</span>
+                            </Button>
+                          </>
                         )}
-                      />
+                      </div>
+
+                      {/* Custom Domain (Coming Soon) */}
+                      <div className="space-y-3 pt-4 border-t">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">Custom Domain</p>
+                            <p className="text-xs text-muted-foreground mt-1">Coming Soon</p>
+                          </div>
+                        </div>
+                        <Input 
+                          placeholder="mystore.com" 
+                          disabled
+                          data-testid="input-custom-domain" 
+                        />
+                        <p className="text-xs text-muted-foreground">Connect your own domain to your store (feature coming soon)</p>
+                      </div>
+
+                      {/* Store Logo */}
+                      <div className="pt-4 border-t">
+                        <FormField
+                          control={quickSetupForm.control}
+                          name="storeLogo"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Store Logo</FormLabel>
+                              <FormControl>
+                                <UniversalImageUpload
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="square"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
+                                />
+                              </FormControl>
+                              <FormDescription>Appears in the navigation header (200×200px square recommended)</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
                       {/* Store Banner */}
                       <FormField
@@ -2694,15 +2794,6 @@ export default function Settings() {
                           </FormItem>
                         )}
                       />
-
-                      <Button 
-                        type="submit" 
-                        className="w-full"
-                        disabled={updateQuickSetupMutation.isPending}
-                        data-testid="button-save-quick-setup"
-                      >
-                        {updateQuickSetupMutation.isPending ? "Saving..." : "Save Store Setup"}
-                      </Button>
                     </form>
                   </Form>
                 </CardContent>
@@ -2775,6 +2866,7 @@ export default function Settings() {
                       </div>
                       <div className="flex gap-2">
                         <Button
+                          type="button"
                           variant="outline"
                           className="flex-1"
                           asChild
@@ -2795,6 +2887,27 @@ export default function Settings() {
                       </p>
                     </div>
                   )}
+
+                  {/* Save and Discard Buttons */}
+                  <div className="flex gap-3 pt-6 border-t">
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      onClick={() => quickSetupForm.reset()}
+                      data-testid="button-discard-quick-setup"
+                    >
+                      Discard Changes
+                    </Button>
+                    <Button 
+                      type="submit"
+                      className="flex-1"
+                      disabled={updateQuickSetupMutation.isPending}
+                      onClick={quickSetupForm.handleSubmit((data) => updateQuickSetupMutation.mutate(data))}
+                      data-testid="button-save-quick-setup"
+                    >
+                      {updateQuickSetupMutation.isPending ? "Saving..." : "Save Store Setup"}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
