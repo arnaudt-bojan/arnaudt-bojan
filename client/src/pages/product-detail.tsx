@@ -159,6 +159,12 @@ export default function ProductDetail() {
     setSelectedImageIndex(0);
   }, [selectedColor]);
 
+  // CRITICAL UX FIX: Reset size when color changes to prevent invalid variant combinations
+  // When user selects Blue/S then switches to Red, clear size to avoid "S-Red" error
+  useEffect(() => {
+    setSelectedSize(null);
+  }, [selectedColor]);
+
   // Determine if product/variant is available
   const isProductAvailable = () => {
     // For products with variants, require variant selection and check variant stock
@@ -204,7 +210,13 @@ export default function ProductDetail() {
       return;
     }
 
-    const result = addItem(product);
+    // CRITICAL FIX: Include variant information when adding to cart
+    // This enables proper stock validation at checkout
+    const variant = hasNewVariants && selectedColor && selectedSize
+      ? { size: selectedSize, color: selectedColor }
+      : undefined;
+
+    const result = addItem(product, variant);
     if (result.success) {
       toast({
         title: "Added to cart",
@@ -232,7 +244,13 @@ export default function ProductDetail() {
       return;
     }
 
-    const result = addItem(product);
+    // CRITICAL FIX: Include variant information when buying now
+    // This enables proper stock validation at checkout
+    const variant = hasNewVariants && selectedColor && selectedSize
+      ? { size: selectedSize, color: selectedColor }
+      : undefined;
+
+    const result = addItem(product, variant);
     if (result.success) {
       setLocation("/checkout");
     } else {

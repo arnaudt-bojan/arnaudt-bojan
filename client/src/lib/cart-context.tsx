@@ -9,9 +9,9 @@ interface CartItem extends Product {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product) => { success: boolean; error?: string };
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (product: Product, variant?: { size?: string; color?: string }) => { success: boolean; error?: string };
+  removeItem: (productId: string, variant?: { size?: string; color?: string }) => void;
+  updateQuantity: (productId: string, quantity: number, variant?: { size?: string; color?: string }) => void;
   clearCart: () => void;
   total: number;
   itemsCount: number;
@@ -52,18 +52,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("cart", JSON.stringify(items));
   }, [items]);
 
-  const addItem = (product: Product) => {
+  const addItem = (product: Product, variant?: { size?: string; color?: string }) => {
     // SYNCHRONOUS validation only - async checks done at PDP level
     let error: string | undefined;
     
     setItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      // For products with variants, match by product ID AND variant
+      const variantKey = variant ? `${variant.size}-${variant.color}` : null;
+      const existing = prev.find((item) => {
+        if (item.id !== product.id) return false;
+        // Check variant match
+        const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
+        return variantKey === itemVariantKey;
+      });
+      
       if (existing) {
-        return prev.map((item) =>
-          item.id === product.id
+        return prev.map((item) => {
+          if (item.id !== product.id) return item;
+          const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
+          return variantKey === itemVariantKey
             ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+            : item;
+        });
       }
       
       // Prevent mixing products from different sellers
@@ -80,7 +90,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         actualPrice = discountedPrice.toString();
       }
       
-      return [...prev, { ...product, price: actualPrice, quantity: 1 }];
+      // Add variant info to cart item
+      return [...prev, { ...product, price: actualPrice, quantity: 1, ...(variant && { variant }) }];
     });
     
     if (error) {
@@ -89,19 +100,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return { success: true };
   };
 
-  const removeItem = (productId: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== productId));
+  const removeItem = (productId: string, variant?: { size?: string; color?: string }) => {
+    setItems((prev) => prev.filter((item) => {
+      if (item.id !== productId) return true;
+      // If variant specified, only remove items with matching variant
+      if (variant) {
+        const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
+        const targetVariantKey = `${variant.size}-${variant.color}`;
+        return itemVariantKey !== targetVariantKey;
+      }
+      // No variant specified - remove all items with this productId (backward compatibility)
+      return false;
+    }));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, quantity: number, variant?: { size?: string; color?: string }) => {
     if (quantity <= 0) {
-      removeItem(productId);
+      removeItem(productId, variant);
       return;
     }
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === productId ? { ...item, quantity } : item
-      )
+      prev.map((item) => {
+        if (item.id !== productId) return item;
+        // If variant specified, only update items with matching variant
+        if (variant) {
+          const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
+          const targetVariantKey = `${variant.size}-${variant.color}`;
+          return itemVariantKey === targetVariantKey ? { ...item, quantity } : item;
+        }
+        // No variant specified - update first matching item (backward compatibility)
+        return { ...item, quantity };
+      })
     );
   };
 
