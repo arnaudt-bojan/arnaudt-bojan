@@ -40,16 +40,9 @@ import type { InsertOrder } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/pricing-service";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-
-// Simple currency formatter using seller's currency (no conversion)
-const formatCheckoutPrice = (price: number, currency: string = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(price);
-};
 
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
@@ -86,6 +79,11 @@ function PaymentForm({
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const { formatPrice } = useCurrency();
+  
+  // Format amount with currency conversion
+  const sellerCurrency = items[0]?.currency || 'USD';
+  const formattedAmount = formatPrice(amount, sellerCurrency);
 
   useEffect(() => {
     if (elements) {
@@ -260,7 +258,7 @@ function PaymentForm({
         ) : (
           <>
             <Lock className="mr-2 h-4 w-4" />
-            {paymentType === 'deposit' ? `Pay Deposit ${formatCheckoutPrice(amount, items[0]?.currency || 'USD')}` : `Pay ${formatCheckoutPrice(amount, items[0]?.currency || 'USD')}`}
+            {paymentType === 'deposit' ? `Pay Deposit ${formattedAmount}` : `Pay ${formattedAmount}`}
           </>
         )}
       </Button>
@@ -507,7 +505,15 @@ export default function Checkout() {
   }, [isSeller, isCollaborator, setLocation, toast]);
   
   // Get seller's currency from cart items (all items are from same seller)
-  const currency = items.length > 0 ? items[0].currency || 'USD' : 'USD';
+  const sellerCurrency = items.length > 0 ? items[0].currency || 'USD' : 'USD';
+  
+  // Get buyer's selected currency and conversion functions
+  const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
+  
+  // Helper function to format prices with conversion from seller to buyer currency
+  const formatConvertedPrice = (amount: number) => {
+    return formatPrice(amount, sellerCurrency);
+  };
 
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -630,8 +636,8 @@ export default function Checkout() {
         validateChargeAmount(displayedAmount, amountToPay, 0.01);
       } catch (error: any) {
         throw new Error(
-          `PRICING ERROR: The amount displayed (${formatCheckoutPrice(displayedAmount, currency)}) ` +
-          `does not match the charge amount (${formatCheckoutPrice(amountToPay, currency)}). ` +
+          `PRICING ERROR: The amount displayed (${formatConvertedPrice(displayedAmount)}) ` +
+          `does not match the charge amount (${formatConvertedPrice(amountToPay)}). ` +
           `Please refresh and try again.`
         );
       }
@@ -737,12 +743,12 @@ export default function Checkout() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Deposit Paid:</span>
                     <span className="font-semibold text-green-600 dark:text-green-400">
-                      {formatCheckoutPrice(paymentInfo.depositTotal, currency)}
+                      {formatConvertedPrice(paymentInfo.depositTotal)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Balance Due:</span>
-                    <span className="font-semibold">{formatCheckoutPrice(paymentInfo.remainingBalance, currency)}</span>
+                    <span className="font-semibold">{formatConvertedPrice(paymentInfo.remainingBalance)}</span>
                   </div>
                   <Separator className="my-3" />
                   <p className="text-xs text-muted-foreground">
@@ -1079,11 +1085,11 @@ export default function Checkout() {
                               <div className="flex-1">
                                 <p className="font-medium text-sm leading-tight">{item.name}</p>
                                 <p className="text-sm text-muted-foreground mt-0.5">
-                                  {formatCheckoutPrice(parseFloat(item.price), currency)} × {item.quantity}
+                                  {formatConvertedPrice(parseFloat(item.price))} × {item.quantity}
                                 </p>
                               </div>
                               <p className="font-semibold text-sm whitespace-nowrap">
-                                {formatCheckoutPrice(parseFloat(item.price) * item.quantity, currency)}
+                                {formatConvertedPrice(parseFloat(item.price) * item.quantity)}
                               </p>
                             </div>
                             
@@ -1103,7 +1109,7 @@ export default function Checkout() {
                             
                             {item.productType === "pre-order" && item.requiresDeposit && item.depositAmount && (
                               <p className="text-xs text-blue-600 dark:text-blue-400">
-                                Deposit: {formatCheckoutPrice(parseFloat(item.depositAmount), currency)} each
+                                Deposit: {formatConvertedPrice(parseFloat(item.depositAmount))} each
                               </p>
                             )}
                           </div>
@@ -1144,13 +1150,13 @@ export default function Checkout() {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span data-testid="text-subtotal">{formatCheckoutPrice(paymentInfo.subtotal, currency)}</span>
+                    <span data-testid="text-subtotal">{formatConvertedPrice(paymentInfo.subtotal)}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     <span data-testid="text-shipping">
-                      {paymentInfo.shipping === 0 ? "FREE" : formatCheckoutPrice(paymentInfo.shipping, currency)}
+                      {paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)}
                     </span>
                   </div>
 
@@ -1158,7 +1164,7 @@ export default function Checkout() {
 
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
-                    <span data-testid="text-total">{formatCheckoutPrice(paymentInfo.fullTotal, currency)}</span>
+                    <span data-testid="text-total">{formatConvertedPrice(paymentInfo.fullTotal)}</span>
                   </div>
 
                   {paymentInfo.payingDepositOnly && (
@@ -1167,11 +1173,11 @@ export default function Checkout() {
                       <div className="space-y-2 pt-2">
                         <div className="flex justify-between text-sm font-medium text-blue-600 dark:text-blue-400">
                           <span>Deposit Due Now</span>
-                          <span data-testid="text-deposit">{formatCheckoutPrice(paymentInfo.depositTotal, currency)}</span>
+                          <span data-testid="text-deposit">{formatConvertedPrice(paymentInfo.depositTotal)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-muted-foreground">
                           <span>Balance Due Later</span>
-                          <span data-testid="text-balance">{formatCheckoutPrice(paymentInfo.remainingBalance, currency)}</span>
+                          <span data-testid="text-balance">{formatConvertedPrice(paymentInfo.remainingBalance)}</span>
                         </div>
                       </div>
                     </>
@@ -1180,9 +1186,9 @@ export default function Checkout() {
                   <Separator className="my-4" />
 
                   {/* Currency Disclaimer */}
-                  {currency && (
+                  {sellerCurrency && (
                     <CurrencyDisclaimer 
-                      sellerCurrency={currency} 
+                      sellerCurrency={sellerCurrency} 
                       variant="default"
                       className="mb-4"
                     />
@@ -1191,7 +1197,7 @@ export default function Checkout() {
                   <div className="flex justify-between text-lg font-bold">
                     <span>Pay Now</span>
                     <span data-testid="text-amount-to-pay">
-                      {formatCheckoutPrice(amountToPay, currency)}
+                      {formatConvertedPrice(amountToPay)}
                     </span>
                   </div>
                 </div>
