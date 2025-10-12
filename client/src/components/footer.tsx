@@ -24,6 +24,8 @@ interface FooterProps {
     aboutStory?: string | null;
     shippingPolicy?: string | null;
     returnsPolicy?: string | null;
+    termsSource?: string | null;
+    termsPdfUrl?: string | null;
   } | null;
 }
 
@@ -178,9 +180,22 @@ export function Footer({ sellerInfo }: FooterProps) {
             <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors text-sm" data-testid="link-privacy">
               Privacy
             </Link>
-            <Link href="/terms" className="text-gray-400 hover:text-white transition-colors text-sm" data-testid="link-terms">
-              Terms
-            </Link>
+            {/* Terms link - uses custom PDF if available and valid, otherwise platform default */}
+            {sellerInfo?.termsSource === 'custom_pdf' && sellerInfo?.termsPdfUrl && sellerInfo.termsPdfUrl.trim() !== '' ? (
+              <a 
+                href={sellerInfo.termsPdfUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors text-sm" 
+                data-testid="link-terms"
+              >
+                Terms
+              </a>
+            ) : (
+              <Link href="/terms" className="text-gray-400 hover:text-white transition-colors text-sm" data-testid="link-terms">
+                Terms
+              </Link>
+            )}
           </div>
 
           {/* Right: Branding */}
