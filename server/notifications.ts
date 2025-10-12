@@ -285,6 +285,27 @@ class NotificationServiceImpl implements NotificationService {
       attachments,
     });
 
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'email_sent',
+          recipientEmail: buyerEmail,
+          subject: template.emailSubject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'order_confirmation',
+            sellerName: seller.firstName || seller.username || 'Store',
+            total: order.total,
+            currency: order.currency,
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log order confirmation event:", error);
+      }
+    }
+
     // Create in-app notification for seller
     if (seller.id) {
       await this.createNotification({
@@ -314,6 +335,26 @@ class NotificationServiceImpl implements NotificationService {
       subject: template.emailSubject,
       html: emailHtml,
     });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'email_sent',
+          recipientEmail: order.customerEmail,
+          subject: template.emailSubject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'order_shipped',
+            trackingNumber: order.trackingNumber,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log order shipped event:", error);
+      }
+    }
 
     // Create in-app notification for buyer (if they have an account)
     if (order.userId) {
@@ -369,6 +410,27 @@ class NotificationServiceImpl implements NotificationService {
       attachments,
     });
 
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'tracking_updated',
+          recipientEmail: order.customerEmail,
+          subject: template.emailSubject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            itemId: item.id,
+            productName: item.productName,
+            trackingNumber: item.trackingNumber,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log item tracking event:", error);
+      }
+    }
+
     // Create in-app notification for buyer (if they have an account)
     if (order.userId) {
       await this.createNotification({
@@ -404,6 +466,27 @@ class NotificationServiceImpl implements NotificationService {
       html: emailHtml,
     });
 
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'email_sent',
+          recipientEmail: order.customerEmail,
+          subject: template.emailSubject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'item_delivered',
+            itemId: item.id,
+            productName: item.productName,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log item delivered event:", error);
+      }
+    }
+
     // Create in-app notification for buyer
     if (order.userId) {
       await this.createNotification({
@@ -437,6 +520,28 @@ class NotificationServiceImpl implements NotificationService {
       subject: template.emailSubject,
       html: emailHtml,
     });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'email_sent',
+          recipientEmail: order.customerEmail,
+          subject: template.emailSubject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'item_cancelled',
+            itemId: item.id,
+            productName: item.productName,
+            reason: reason || null,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log item cancelled event:", error);
+      }
+    }
 
     // Create in-app notification for buyer
     if (order.userId) {
@@ -472,6 +577,30 @@ class NotificationServiceImpl implements NotificationService {
       subject: template.emailSubject,
       html: emailHtml,
     });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'email_sent',
+          recipientEmail: order.customerEmail,
+          subject: template.emailSubject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'item_refunded',
+            itemId: item.id,
+            productName: item.productName,
+            refundAmount,
+            refundedQuantity,
+            currency,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log item refunded event:", error);
+      }
+    }
 
     // Create in-app notification for buyer
     if (order.userId) {
@@ -1436,6 +1565,28 @@ class NotificationServiceImpl implements NotificationService {
       subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
       html: emailHtml,
     });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'balance_payment_requested',
+          recipientEmail: order.customerEmail,
+          subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'balance_payment_request',
+            remainingBalance: order.remainingBalance,
+            currency: order.currency,
+            paymentLink,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log balance payment request event:", error);
+      }
+    }
 
     // Create in-app notification for buyer (if they have an account)
     if (order.userId) {
