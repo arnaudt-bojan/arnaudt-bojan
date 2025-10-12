@@ -11,6 +11,7 @@ import { AuthStoreProvider } from "@/contexts/auth-store-context";
 import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
+import { ProtectedRoute } from "@/components/protected-route";
 import Home from "@/pages/home";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
@@ -80,12 +81,41 @@ function AppContent() {
               <Route path="/checkout" component={Checkout} />
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
-              <Route path="/orders" component={Orders} />
-              <Route path="/orders/:id" component={BuyerOrderDetail} />
               <Route path="/accept-invitation" component={AcceptInvitation} />
+              
+              {/* Protected buyer routes on seller subdomain */}
+              <Route path="/orders">
+                {() => (
+                  <ProtectedRoute>
+                    <Orders />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/orders/:id">
+                {() => (
+                  <ProtectedRoute>
+                    <BuyerOrderDetail />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Protected wholesale routes on seller subdomain */}
               <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
-              <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
-              <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
+              <Route path="/wholesale/catalog">
+                {() => (
+                  <ProtectedRoute>
+                    <BuyerWholesaleCatalog />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/product/:id">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleProductDetail />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
               <Route component={NotFound} />
             </>
           ) : (
@@ -97,34 +127,207 @@ function AppContent() {
               <Route path="/products/:id" component={ProductDetail} />
               <Route path="/checkout" component={Checkout} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
-              <Route path="/buyer-dashboard" component={BuyerDashboard} />
-              <Route path="/seller-dashboard" component={SellerDashboard} />
-              <Route path="/seller/dashboard" component={SellerDashboard} />
-              <Route path="/seller/products" component={SellerProducts} />
-              <Route path="/seller/create-product" component={CreateProduct} />
-              <Route path="/seller/bulk-upload" component={BulkProductUpload} />
-              <Route path="/seller/products/:id/edit" component={EditProduct} />
-              <Route path="/seller/order/:id" component={OrderDetail} />
-              <Route path="/orders" component={Orders} />
-              <Route path="/orders/:id" component={BuyerOrderDetail} />
-              <Route path="/settings" component={Settings} />
-              <Route path="/quick-access" component={QuickAccess} />
-              <Route path="/team" component={Team} />
+              
+              {/* Protected buyer routes */}
+              <Route path="/buyer-dashboard">
+                {() => (
+                  <ProtectedRoute>
+                    <BuyerDashboard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Protected seller routes */}
+              <Route path="/seller-dashboard">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SellerDashboard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/dashboard">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SellerDashboard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/products">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SellerProducts />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/create-product">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <CreateProduct />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/bulk-upload">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <BulkProductUpload />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/products/:id/edit">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <EditProduct />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/order/:id">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <OrderDetail />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Protected authenticated routes */}
+              <Route path="/orders">
+                {() => (
+                  <ProtectedRoute>
+                    <Orders />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/orders/:id">
+                {() => (
+                  <ProtectedRoute>
+                    <BuyerOrderDetail />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/settings">
+                {() => (
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/quick-access">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <QuickAccess />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/team">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <Team />
+                  </ProtectedRoute>
+                )}
+              </Route>
               <Route path="/accept-invitation" component={AcceptInvitation} />
-              <Route path="/social-ads-setup" component={SocialAdsSetup} />
-              <Route path="/promote-product/:id" component={PromoteProduct} />
-              <Route path="/create-meta-campaign/:id" component={CreateMetaCampaign} />
-              <Route path="/create-ad-campaign" component={CreateAdCampaign} />
-              <Route path="/order-management" component={OrderManagement} />
-              <Route path="/newsletter" component={Newsletter} />
-              <Route path="/seller/wholesale/products" component={WholesaleProducts} />
-              <Route path="/seller/wholesale/create-product" component={CreateWholesaleProduct} />
-              <Route path="/seller/wholesale/invitations" component={WholesaleInvitations} />
+              
+              {/* Seller-only ad routes */}
+              <Route path="/social-ads-setup">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SocialAdsSetup />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/promote-product/:id">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <PromoteProduct />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/create-meta-campaign/:id">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <CreateMetaCampaign />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/create-ad-campaign">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <CreateAdCampaign />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Seller-only management routes */}
+              <Route path="/order-management">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <OrderManagement />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/newsletter">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <Newsletter />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/subscription-success">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SubscriptionSuccess />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Seller-only wholesale routes */}
+              <Route path="/seller/wholesale/products">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleProducts />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/wholesale/create-product">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <CreateWholesaleProduct />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/wholesale/invitations">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleInvitations />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Buyer wholesale routes */}
               <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
-              <Route path="/wholesale/catalog" component={BuyerWholesaleCatalog} />
-              <Route path="/wholesale/product/:id" component={WholesaleProductDetail} />
-              <Route path="/admin" component={AdminDashboard} />
-              <Route path="/subscription-success" component={SubscriptionSuccess} />
+              <Route path="/wholesale/catalog">
+                {() => (
+                  <ProtectedRoute>
+                    <BuyerWholesaleCatalog />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/product/:id">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleProductDetail />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Platform admin routes */}
+              <Route path="/admin">
+                {() => (
+                  <ProtectedRoute requireAdmin>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
               <Route component={NotFound} />
             </>
           )}
