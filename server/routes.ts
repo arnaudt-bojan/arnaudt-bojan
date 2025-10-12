@@ -4004,6 +4004,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           interval: account.settings?.payouts?.schedule?.interval || 'manual',
           delayDays: account.settings?.payouts?.schedule?.delay_days || 0,
         },
+        // Individual or company details with address
+        individual: account.individual ? {
+          firstName: account.individual.first_name,
+          lastName: account.individual.last_name,
+          email: account.individual.email,
+          phone: account.individual.phone,
+          address: account.individual.address ? {
+            line1: account.individual.address.line1,
+            line2: account.individual.address.line2,
+            city: account.individual.address.city,
+            state: account.individual.address.state,
+            postalCode: account.individual.address.postal_code,
+            country: account.individual.address.country,
+          } : null,
+        } : null,
+        company: account.company ? {
+          name: account.company.name,
+          phone: account.company.phone,
+          address: account.company.address ? {
+            line1: account.company.address.line1,
+            line2: account.company.address.line2,
+            city: account.company.address.city,
+            state: account.company.address.state,
+            postalCode: account.company.address.postal_code,
+            country: account.company.address.country,
+          } : null,
+        } : null,
       });
     } catch (error: any) {
       logger.error("Stripe account status error", error);

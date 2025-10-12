@@ -2402,6 +2402,79 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          {/* Business Address Section */}
+          {isSeller && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Business Address</CardTitle>
+                <CardDescription>
+                  {isStripeConnected ? 'Your business address from Stripe (read-only)' : 'Your business address'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isStripeConnected && stripeAccountStatus && (stripeAccountStatus.individual?.address || stripeAccountStatus.company?.address) ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Address Line 1</p>
+                        <p className="text-sm" data-testid="text-stripe-address-line1">
+                          {stripeAccountStatus.individual?.address?.line1 || stripeAccountStatus.company?.address?.line1 || 'N/A'}
+                        </p>
+                      </div>
+                      {(stripeAccountStatus.individual?.address?.line2 || stripeAccountStatus.company?.address?.line2) && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Address Line 2</p>
+                          <p className="text-sm" data-testid="text-stripe-address-line2">
+                            {stripeAccountStatus.individual?.address?.line2 || stripeAccountStatus.company?.address?.line2}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">City</p>
+                        <p className="text-sm" data-testid="text-stripe-address-city">
+                          {stripeAccountStatus.individual?.address?.city || stripeAccountStatus.company?.address?.city || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">State/Province</p>
+                        <p className="text-sm" data-testid="text-stripe-address-state">
+                          {stripeAccountStatus.individual?.address?.state || stripeAccountStatus.company?.address?.state || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Postal Code</p>
+                        <p className="text-sm" data-testid="text-stripe-address-postal">
+                          {stripeAccountStatus.individual?.address?.postalCode || stripeAccountStatus.company?.address?.postalCode || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Country</p>
+                        <p className="text-sm" data-testid="text-stripe-address-country">
+                          {(stripeAccountStatus.individual?.address?.country || stripeAccountStatus.company?.address?.country)?.toUpperCase() || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      To update your business address, please update it in your{' '}
+                      <button 
+                        onClick={() => window.open(`https://dashboard.stripe.com/${stripeAccountStatus.accountId}`, '_blank')}
+                        className="text-primary underline"
+                      >
+                        Stripe Dashboard
+                      </button>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {isStripeConnected 
+                      ? 'No business address found in your Stripe account. Please complete your Stripe onboarding.' 
+                      : 'Connect your Stripe account to manage your business address.'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {isSeller && isStripeConnected && stripeAccountStatus && (
             <Card>
               <CardHeader>
@@ -2490,50 +2563,6 @@ export default function Settings() {
                     </Badge>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {isSeller && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Store Username</CardTitle>
-                <CardDescription>
-                  Your unique store username determines your storefront URL
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...usernameForm}>
-                  <form onSubmit={usernameForm.handleSubmit((data) => updateUsernameMutation.mutate(data))} className="space-y-4">
-                    <FormField
-                      control={usernameForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="yourstorename"
-                              data-testid="input-username" 
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            3-20 characters, letters, numbers, and underscores only. Your store will be at: {field.value || 'username'}.upfirst.io
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button 
-                      type="submit" 
-                      disabled={updateUsernameMutation.isPending}
-                      data-testid="button-save-username"
-                    >
-                      {updateUsernameMutation.isPending ? "Saving..." : "Update Username"}
-                    </Button>
-                  </form>
-                </Form>
               </CardContent>
             </Card>
           )}
