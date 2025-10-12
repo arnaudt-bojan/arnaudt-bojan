@@ -484,7 +484,7 @@ export default function Home() {
                 Pricing That <span className="italic">Works for You</span>
               </h2>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-                Your 30-day free trial begins when you list your first product. After that, continue with full access for a low monthly or annual fee.
+                Subscribe to activate your store and get a 30-day free trial. Continue with full access for a low monthly or annual fee after trial.
               </p>
             </div>
           </AnimatedSection>
@@ -498,7 +498,7 @@ export default function Home() {
                 <Card className="p-8 hover-elevate transition-smooth h-full glass">
                   <div className="mb-6">
                     <h3 className="text-2xl font-bold mb-2">30 Day Free Trial</h3>
-                    <p className="text-muted-foreground mb-4">Start when you list your first product</p>
+                    <p className="text-muted-foreground mb-4">Start when you subscribe to activate your store</p>
                     <div className="text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">FREE</div>
                   </div>
                   <ul className="space-y-3">

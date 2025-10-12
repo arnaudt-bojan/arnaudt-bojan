@@ -438,24 +438,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const product = await storage.createProduct(productData);
 
-      // Auto-start 30-day trial if this is seller's first product
-      if (user && !user.subscriptionStatus) {
-        const allProducts = await storage.getAllProducts();
-        const sellerProducts = allProducts.filter(p => p.sellerId === userId);
-        
-        // If this is the first product, start trial
-        if (sellerProducts.length === 1) {
-          const trialEndsAt = new Date();
-          trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-
-          await storage.upsertUser({
-            ...user,
-            subscriptionStatus: "trial",
-            trialEndsAt,
-          });
-        }
-      }
-
       // Send notifications to seller about new product listing
       if (user) {
         try {
@@ -4078,37 +4060,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Subscription Management Endpoints
-  // Start 30-day free trial when seller creates their first product
-  app.post("/api/subscription/start-trial", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Check if trial already started
-      if (user.subscriptionStatus) {
-        return res.json({ message: "Trial already started", user });
-      }
-
-      // Set trial to expire 30 days from now
-      const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-
-      const updatedUser = await storage.upsertUser({
-        ...user,
-        subscriptionStatus: "trial",
-        trialEndsAt,
-      });
-
-      res.json({ message: "Trial started successfully", user: updatedUser });
-    } catch (error: any) {
-      logger.error("Start trial error", error);
-      res.status(500).json({ error: "Failed to start trial" });
-    }
-  });
+  // Note: Trial now starts when user subscribes (with credit card on file)
+  // Old auto-trial on first product listing has been removed
 
   // Create SetupIntent to collect payment method without charging
   app.post("/api/subscription/setup-payment", requireAuth, async (req: any, res) => {

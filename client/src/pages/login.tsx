@@ -223,7 +223,7 @@ export default function Login() {
                 </form>
                 
                 <p className="text-xs text-center text-muted-foreground mt-4">
-                  Start your 30-day free trial when you list your first product
+                  Subscribe to activate your store and get a 30-day free trial
                 </p>
               </TabsContent>
             </Tabs>
