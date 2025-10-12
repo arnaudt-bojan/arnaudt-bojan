@@ -42,7 +42,14 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     );
   }
 
-  const { order, items, events = [] } = data;
+  const { order, items, events = [], balancePayments = [] } = data;
+
+  // Get the most recent balance payment for status tracking
+  const latestBalancePayment = balancePayments.length > 0 
+    ? balancePayments.sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0]
+    : null;
 
   const getItemStatusColor = (status: string) => {
     const colors = {
@@ -76,7 +83,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     <div className="space-y-6" data-testid={`order-expanded-${orderId}`}>
       {/* Action Bar */}
       <div className="flex justify-end">
-        <OrderActionBar order={order} />
+        <OrderActionBar 
+          order={order}
+          balancePaymentStatus={latestBalancePayment?.status}
+          balancePaymentRequestedAt={latestBalancePayment?.requestedAt}
+        />
       </div>
 
       {/* Order Summary & Customer Info Grid */}

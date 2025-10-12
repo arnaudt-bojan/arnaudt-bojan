@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { MoreVertical, Truck, DollarSign, RotateCcw, FileText, Download, Package2 } from "lucide-react";
+import { MoreVertical, Truck, DollarSign, RotateCcw, FileText, Download, Package2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,16 +30,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Order } from "@shared/schema";
+import { RequestBalanceDialog } from "./request-balance-dialog";
+import { ResendBalanceDialog } from "./resend-balance-dialog";
 
 interface OrderActionBarProps {
   order: Order;
+  balancePaymentStatus?: string;
+  balancePaymentRequestedAt?: string;
 }
 
-export function OrderActionBar({ order }: OrderActionBarProps) {
+export function OrderActionBar({ 
+  order, 
+  balancePaymentStatus,
+  balancePaymentRequestedAt 
+}: OrderActionBarProps) {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
-  const [balanceDialogOpen, setBalanceDialogOpen] = useState(false);
+  const [requestBalanceDialogOpen, setRequestBalanceDialogOpen] = useState(false);
+  const [resendBalanceDialogOpen, setResendBalanceDialogOpen] = useState(false);
   
   const [newStatus, setNewStatus] = useState(order.status);
   const [trackingNumber, setTrackingNumber] = useState("");
@@ -94,28 +103,6 @@ export function OrderActionBar({ order }: OrderActionBarProps) {
       toast({
         title: "Error",
         description: error.message || "Failed to update tracking information",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const requestBalanceMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", `/api/orders/${order.id}/request-balance`, {});
-    },
-    onSuccess: () => {
-      toast({
-        title: "Balance Request Sent",
-        description: "Balance payment request has been sent to the customer.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${order.id}`] });
-      setBalanceDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to request balance payment",
         variant: "destructive",
       });
     },
@@ -197,6 +184,12 @@ export function OrderActionBar({ order }: OrderActionBarProps) {
 
   const hasBalance = parseFloat(order.remainingBalance || "0") > 0;
   const canRefund = order.paymentStatus !== "pending" && order.status !== "cancelled";
+  
+  // Determine if balance payment has been requested
+  // Only show "Resend" if there's an actual balance payment with status "requested" or later
+  // This prevents showing "Resend" for orders that have a PaymentIntent but haven't been requested yet
+  const balanceAlreadyRequested = balancePaymentStatus && 
+    ['requested', 'paid', 'failed'].includes(balancePaymentStatus);
 
   return (
     <>
@@ -243,13 +236,22 @@ export function OrderActionBar({ order }: OrderActionBarProps) {
             {generatePackingSlipMutation.isPending ? "Generating..." : "Generate Packing Slip"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {hasBalance && (
+          {hasBalance && !balanceAlreadyRequested && (
             <DropdownMenuItem
-              onClick={() => setBalanceDialogOpen(true)}
+              onClick={() => setRequestBalanceDialogOpen(true)}
               data-testid={`menu-request-balance-${order.id}`}
             >
               <DollarSign className="mr-2 h-4 w-4" />
               Request Balance Payment
+            </DropdownMenuItem>
+          )}
+          {hasBalance && balanceAlreadyRequested && (
+            <DropdownMenuItem
+              onClick={() => setResendBalanceDialogOpen(true)}
+              data-testid={`menu-resend-balance-${order.id}`}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Resend Balance Request
             </DropdownMenuItem>
           )}
           {canRefund && (
@@ -381,53 +383,29 @@ export function OrderActionBar({ order }: OrderActionBarProps) {
       </Dialog>
 
       {/* Request Balance Payment Dialog */}
-      <Dialog open={balanceDialogOpen} onOpenChange={setBalanceDialogOpen}>
-        <DialogContent data-testid={`dialog-request-balance-${order.id}`}>
-          <DialogHeader>
-            <DialogTitle>Request Balance Payment</DialogTitle>
-            <DialogDescription>
-              Send a payment request to the customer for the remaining balance.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Order Total:</span>
-                <span className="font-medium">{order.currency} {parseFloat(order.total).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Amount Paid:</span>
-                <span className="font-medium">{order.currency} {parseFloat(order.amountPaid || "0").toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-semibold border-t pt-2">
-                <span>Remaining Balance:</span>
-                <span className="text-orange-600 dark:text-orange-400">
-                  {order.currency} {parseFloat(order.remainingBalance || "0").toFixed(2)}
-                </span>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              A payment link will be sent to {order.customerEmail}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setBalanceDialogOpen(false)}
-              data-testid="button-cancel-balance-request"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => requestBalanceMutation.mutate()}
-              disabled={requestBalanceMutation.isPending}
-              data-testid="button-confirm-balance-request"
-            >
-              {requestBalanceMutation.isPending ? "Sending..." : "Send Request"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RequestBalanceDialog
+        orderId={order.id}
+        orderNumber={order.id.slice(-8).toUpperCase()}
+        customerEmail={order.customerEmail}
+        customerName={order.customerName}
+        remainingBalance={order.remainingBalance || "0"}
+        currency={order.currency}
+        open={requestBalanceDialogOpen}
+        onOpenChange={setRequestBalanceDialogOpen}
+      />
+
+      {/* Resend Balance Payment Dialog */}
+      <ResendBalanceDialog
+        orderId={order.id}
+        orderNumber={order.id.slice(-8).toUpperCase()}
+        customerEmail={order.customerEmail}
+        remainingBalance={order.remainingBalance || "0"}
+        currency={order.currency}
+        balancePaymentStatus={balancePaymentStatus}
+        lastRequestedAt={balancePaymentRequestedAt}
+        open={resendBalanceDialogOpen}
+        onOpenChange={setResendBalanceDialogOpen}
+      />
 
       {/* Process Refund Dialog */}
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
