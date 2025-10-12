@@ -177,14 +177,15 @@ export class PaymentService {
 
       // CRITICAL FIX #3: Store payment intent in database for 3DS/confirmation flow
       try {
-        await this.storage.createPaymentIntent({
+        await this.storage.storePaymentIntent({
           providerName: paymentIntent.providerName,
           providerIntentId: paymentIntent.providerIntentId,
-          amount: paymentIntent.amount.toString(),
+          amount: paymentIntent.amount, // Already in minor units (cents)
           currency: paymentIntent.currency,
           status: paymentIntent.status,
           clientSecret: paymentIntent.clientSecret,
           metadata: JSON.stringify(paymentIntent.metadata),
+          idempotencyKey: idempotencyKey,
         });
         logger.info(`[Payment] Stored payment intent ${paymentIntent.id} in database`);
       } catch (dbError) {
@@ -209,7 +210,7 @@ export class PaymentService {
       if (reservationsCreated) {
         try {
           // Get all reservations for this checkout session and release them
-          const reservations = await this.storage.getReservationsByCheckoutSession(checkoutSessionId);
+          const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
           for (const reservation of reservations) {
             await this.inventoryService.releaseReservation(reservation.id);
           }
@@ -305,7 +306,7 @@ export class PaymentService {
     if (checkoutSessionId) {
       try {
         // Get all reservations for this checkout session and release them
-        const reservations = await this.storage.getReservationsByCheckoutSession(checkoutSessionId);
+        const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
         for (const reservation of reservations) {
           await this.inventoryService.releaseReservation(reservation.id);
         }
