@@ -3892,13 +3892,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
       
-      // Update user with latest status
+      // Auto-populate company fields from Stripe if they're currently empty
+      // Try business_profile.name first, fallback to company.name
+      let stripeCompanyName = account.business_profile?.name?.trim() || account.company?.name?.trim() || '';
+      const companyName = !user.companyName && stripeCompanyName 
+        ? stripeCompanyName 
+        : user.companyName;
+      
+      const businessType = !user.businessType && account.business_type 
+        ? account.business_type 
+        : user.businessType;
+      
+      // Log when no Stripe company name is available for diagnostics
+      if (!user.companyName && !stripeCompanyName) {
+        logger.debug(`[Stripe] No company name available in Stripe account ${account.id} for auto-population`);
+      }
+      
+      // Update user with latest status and auto-populated company fields
       await storage.upsertUser({
         ...user,
         stripeChargesEnabled: account.charges_enabled ? 1 : 0,
         stripePayoutsEnabled: account.payouts_enabled ? 1 : 0,
         stripeDetailsSubmitted: account.details_submitted ? 1 : 0,
         listingCurrency: account.default_currency?.toUpperCase() || 'USD',
+        companyName,
+        businessType,
       });
 
       res.json({
