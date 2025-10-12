@@ -42,11 +42,37 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
 - **Team Management**: Role-based access (owner, admin, editor, viewer) with invitation-based team expansion and granular permissions.
 - **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.
 - **Storefront Customization**: Sellers can add About Story, contact info, and social media links.
-- **Settings Page Organization**: Streamlined seller settings with three tabs:
-  - **Quick Setup**: Default landing tab for sellers with step-by-step checklist guiding through required setup tasks, consolidating essential store setup in one location (username/domain, logo upload, banner upload, Instagram connection, storefront preview)
-  - **Profile**: Personal and company information with optional company fields (Company Name, Business Type, Tax ID) that auto-populate from Stripe Connect account data when available
-  - **Branding & Policies**: Shipping and returns policy management only (formerly Branding tab)
-  - **Stripe Connect Auto-Population**: When sellers connect their Stripe account, company name and business type are automatically populated from Stripe account data (business_profile.name or company.name, business_type), preserving any user-entered values
+- **Settings Page Organization**: Comprehensive seller settings with 11-tab structure (tab order: Quick Setup, About & Contact, Profile, Shipping, Addresses & Cards, Tax, Store Policies & T&C, Categories, Team, Payment, Subscription):
+  - **Quick Setup**: Default landing tab for sellers with step-by-step checklist guiding through required setup tasks (username/domain, storefront preview)
+  - **About & Contact**: Storefront customization including Store Logo, Banner, About Story, contact email, and social media links (Instagram, TikTok, Twitter, Snapchat, Website)
+  - **Profile**: Personal and company information with Stripe Dashboard link and expanded business data display:
+    * Shows Stripe account ID, country, currency, payout schedule, and business details
+    * Optional company fields (Company Name, Business Type, Tax ID) auto-populate from Stripe Connect when available
+    * Business Profile card renders when ANY Stripe field exists (name, email, phone, URL)
+    * Company fields accept empty strings normalized to null in database
+  - **Shipping**: Shipping policy management
+  - **Addresses & Cards**: Seller access to saved addresses and payment methods using SavedAddressesManager and SavedPaymentMethodsManager components (shared with buyers)
+  - **Tax**: Tax configuration
+  - **Store Policies & T&C**: Terms & Conditions management with PDF upload and platform fallback (see T&C System below)
+  - **Categories**: Product category management
+  - **Team**: Team member and invitation management
+  - **Payment**: Stripe Connect integration
+  - **Subscription**: Subscription status and billing
+- **Terms & Conditions System**: Complete seller T&C management with custom PDF upload and platform fallback
+  - **Database Schema**: `termsPdfUrl` (varchar, nullable) and `termsSource` (varchar, nullable: 'custom_pdf' | 'platform_default') in users table
+  - **Settings UI** (Store Policies & T&C tab):
+    * Platform default checkbox: enables/disables platform T&C with state preservation
+    * PDF upload: accepts .pdf files, uploads to object storage, auto-sets termsSource='custom_pdf'
+    * View/Remove: opens PDF in new tab or removes custom T&C
+    * State transitions: Platform Default ↔ Custom PDF seamlessly preserves PDF URL
+  - **Backend API** (POST /api/settings/terms):
+    * Validates termsSource enum ('custom_pdf', 'platform_default', or null)
+    * Enforces PDF URL requirement when termsSource='custom_pdf'
+    * Preserves termsPdfUrl when switching to platform_default (enables toggle back)
+    * Explicit null clears both fields (removal)
+  - **Frontend Integration**:
+    * **Storefront Footer**: Terms link conditionally displays custom PDF (new tab) or platform default /terms; validates URL before rendering custom link, always falls back to /terms if invalid
+    * **Future**: Checkout T&C checkbox and PDP T&C link (not yet implemented)
 - **Inventory Management System**: Transaction-based stock reservation system with atomic operations, PostgreSQL row-level locking, and variant-level race protection
   - **Core**: Service-oriented design (`InventoryService`) with atomic operations using SELECT FOR UPDATE
   - **Variant Protection**: Row-level locking protects entire variants JSONB array; reservations filter by exact variantId (e.g., "large-red"); available stock = variant.stock - SUM(active reservations for that variantId)
