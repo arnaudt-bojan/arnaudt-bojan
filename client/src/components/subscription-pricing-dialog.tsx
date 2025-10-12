@@ -91,9 +91,9 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
     return () => window.removeEventListener('message', handleMessage);
   }, [checkoutWindow, activateStoreAfter, toast, onOpenChange]);
 
-  // Check if subscription became active (fallback polling)
+  // Check if subscription became active or trial (fallback polling)
   useEffect(() => {
-    if (isPolling && userData?.subscriptionStatus === 'active') {
+    if (isPolling && (userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trial')) {
       setIsPolling(false);
       if (checkoutWindow && !checkoutWindow.closed) {
         checkoutWindow.close();
@@ -101,8 +101,10 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
       setCheckoutWindow(null);
       
       toast({
-        title: "Subscription Active!",
-        description: "Your store has been successfully activated.",
+        title: userData?.subscriptionStatus === 'trial' ? "Trial Started!" : "Subscription Active!",
+        description: userData?.subscriptionStatus === 'trial' 
+          ? "Your 30-day free trial has begun. Your store is now active!"
+          : "Your store has been successfully activated.",
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
