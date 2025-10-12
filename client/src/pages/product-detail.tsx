@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ProductTypeBadge } from "@/components/product-type-badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ShoppingCart, ChevronRight, Package, Truck, RotateCcw } from "lucide-react";
+import { ArrowLeft, ShoppingCart, ChevronRight, Package, Truck, RotateCcw, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import type { Product } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ import { detectDomain } from "@/lib/domain-utils";
 import { Footer } from "@/components/footer";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Category {
   id: string;
@@ -59,6 +61,30 @@ export default function ProductDetail() {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+
+  // Construct variant ID for stock checking (size-color format)
+  const variantId = selectedColor && selectedSize 
+    ? `${selectedSize}-${selectedColor}`.toLowerCase()
+    : null;
+
+  // Build stock availability query URL
+  const stockQueryUrl = productId 
+    ? `/api/products/${productId}/stock-availability${variantId ? `?variantId=${encodeURIComponent(variantId)}` : ''}`
+    : null;
+
+  // Fetch stock availability for product or selected variant
+  const { data: stockData, isLoading: isLoadingStock } = useQuery<{
+    productId: string;
+    variantId?: string;
+    totalStock: number;
+    reservedStock: number;
+    availableStock: number;
+    isAvailable: boolean;
+    isVariant: boolean;
+  }>({
+    queryKey: [stockQueryUrl],
+    enabled: !!stockQueryUrl,
   });
 
   // Fetch seller info when product loads
@@ -133,36 +159,88 @@ export default function ProductDetail() {
     setSelectedImageIndex(0);
   }, [selectedColor]);
 
-  const handleAddToCart = () => {
-    if (product) {
-      const result = addItem(product);
-      if (result.success) {
-        toast({
-          title: "Added to cart",
-          description: `${product.name} has been added to your cart`,
-        });
-      } else {
-        toast({
-          title: "Cannot add to cart",
-          description: result.error,
-          variant: "destructive",
-        });
+  // Determine if product/variant is available
+  const isProductAvailable = () => {
+    // For products with variants, require variant selection and check variant stock
+    if (hasNewVariants) {
+      if (!selectedColor || !selectedSize) {
+        return false; // Variant selection required
       }
+      return stockData?.isAvailable ?? false;
+    }
+    
+    // For simple products, check product-level stock
+    if (product?.productType === "in-stock") {
+      return stockData?.isAvailable ?? false;
+    }
+    
+    // Pre-order, made-to-order, wholesale are always available
+    return true;
+  };
+
+  const getUnavailableReason = () => {
+    if (hasNewVariants && (!selectedColor || !selectedSize)) {
+      return "Please select a color and size";
+    }
+    if (!stockData?.isAvailable) {
+      if (hasNewVariants && variantId) {
+        return `This variant (${selectedSize} - ${selectedColor}) is sold out. Please choose another option.`;
+      }
+      return "This product is currently sold out";
+    }
+    return null;
+  };
+
+  const handleAddToCart = () => {
+    if (!product) return;
+
+    const unavailableReason = getUnavailableReason();
+    if (unavailableReason) {
+      toast({
+        title: "Cannot add to cart",
+        description: unavailableReason,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = addItem(product);
+    if (result.success) {
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart`,
+      });
+    } else {
+      toast({
+        title: "Cannot add to cart",
+        description: result.error,
+        variant: "destructive",
+      });
     }
   };
 
   const handleBuyNow = () => {
-    if (product) {
-      const result = addItem(product);
-      if (result.success) {
-        setLocation("/checkout");
-      } else {
-        toast({
-          title: "Cannot proceed",
-          description: result.error,
-          variant: "destructive",
-        });
-      }
+    if (!product) return;
+
+    const unavailableReason = getUnavailableReason();
+    if (unavailableReason) {
+      toast({
+        title: "Cannot proceed",
+        description: unavailableReason,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = addItem(product);
+    if (result.success) {
+      setLocation("/checkout");
+    } else {
+      toast({
+        title: "Cannot proceed",
+        description: result.error,
+        variant: "destructive",
+      });
     }
   };
 
@@ -333,12 +411,42 @@ export default function ProductDetail() {
               />
             )}
 
+            {/* Stock Availability Indicator */}
             {product.productType === "in-stock" && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Stock:</span>
-                <span className="font-medium" data-testid="text-stock">
-                  {product.stock || 0} available
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {isLoadingStock ? (
+                    <Skeleton className="h-6 w-32" />
+                  ) : stockData?.isAvailable ? (
+                    <>
+                      {stockData.availableStock <= 5 && stockData.availableStock > 0 && (
+                        <Badge variant="secondary" className="gap-1" data-testid="badge-low-stock">
+                          <AlertCircle className="h-3 w-3" />
+                          Only {stockData.availableStock} left!
+                        </Badge>
+                      )}
+                      {stockData.availableStock > 5 && (
+                        <Badge variant="outline" data-testid="badge-in-stock">
+                          {stockData.availableStock} in stock
+                        </Badge>
+                      )}
+                    </>
+                  ) : (
+                    <Badge variant="destructive" data-testid="badge-sold-out">
+                      Sold Out
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Show variant-specific out-of-stock alert */}
+                {hasNewVariants && variantId && !stockData?.isAvailable && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      This variant ({selectedSize} - {selectedColor}) is sold out. Please select another option.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             )}
 
@@ -370,18 +478,20 @@ export default function ProductDetail() {
                   variant="outline"
                   className="gap-2"
                   onClick={handleAddToCart}
+                  disabled={!isProductAvailable() || isLoadingStock}
                   data-testid="button-add-to-cart"
                 >
                   <ShoppingCart className="h-5 w-5" />
-                  Add to Cart
+                  {!isProductAvailable() && product?.productType === "in-stock" ? "Sold Out" : "Add to Cart"}
                 </Button>
                 <Button
                   size="lg"
                   className="gap-2"
                   onClick={handleBuyNow}
+                  disabled={!isProductAvailable() || isLoadingStock}
                   data-testid="button-buy-now"
                 >
-                  Buy Now
+                  {!isProductAvailable() && product?.productType === "in-stock" ? "Unavailable" : "Buy Now"}
                 </Button>
               </div>
             )}

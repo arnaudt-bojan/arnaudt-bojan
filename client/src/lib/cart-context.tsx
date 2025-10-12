@@ -53,6 +53,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items]);
 
   const addItem = (product: Product) => {
+    // SYNCHRONOUS validation only - async checks done at PDP level
     let error: string | undefined;
     
     setItems((prev) => {

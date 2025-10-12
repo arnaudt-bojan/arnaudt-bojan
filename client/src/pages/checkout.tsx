@@ -660,6 +660,35 @@ export default function Checkout() {
       setIsCreatingIntent(true);
       const { payingDepositOnly, depositTotal, remainingBalance, fullTotal } = paymentInfo;
 
+      // PRE-FLIGHT STOCK VALIDATION: Check all cart items before payment intent
+      // This catches race conditions where stock changed between add-to-cart and checkout
+      for (const item of items) {
+        if (item.productType === "in-stock") {
+          try {
+            const stockResponse = await apiRequest("GET", 
+              `/api/products/${item.id}/stock-availability${item.variantId ? `?variantId=${item.variantId}` : ''}`,
+              null
+            );
+            
+            if (!stockResponse.ok) {
+              throw new Error(`Failed to check stock for ${item.name}`);
+            }
+            
+            const stockData = await stockResponse.json();
+            
+            if (!stockData.isAvailable || stockData.availableStock < item.quantity) {
+              throw new Error(
+                item.variantId 
+                  ? `"${item.name}" variant is no longer available. Please update your cart.`
+                  : `"${item.name}" is no longer in stock. Please remove it from your cart.`
+              );
+            }
+          } catch (error: any) {
+            throw new Error(error.message || `Unable to verify stock for ${item.name}`);
+          }
+        }
+      }
+
       // Combine address fields
       const fullAddress = [
         data.addressLine1,
