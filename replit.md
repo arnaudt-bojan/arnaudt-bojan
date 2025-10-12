@@ -75,10 +75,14 @@ Upfirst uses a modern web stack with React, TypeScript, Tailwind CSS, and Shadcn
     * **Future**: Checkout T&C checkbox and PDP T&C link (not yet implemented)
 - **Inventory Management System**: Transaction-based stock reservation system with atomic operations, PostgreSQL row-level locking, and variant-level race protection
   - **Core**: Service-oriented design (`InventoryService`) with atomic operations using SELECT FOR UPDATE
+  - **Canonical Stock Source**: `product.stock` is the single source of truth for all backend services, analytics, and storefront visibility
+  - **Automatic Stock Sync**: Product create/update/bulk routes automatically recalculate `product.stock` from variant totals using `syncProductStockFromVariants` utility
   - **Variant Protection**: Row-level locking protects entire variants JSONB array; reservations filter by exact variantId (e.g., "large-red"); available stock = variant.stock - SUM(active reservations for that variantId)
   - **Critical Requirement**: When reserving stock for products with variants, variantId MUST be supplied to ensure correct variant is locked
   - **Three-Layer Release Defense**: Primary (checkoutSessionId), Fallback (order items matching), Cleanup Job (5min intervals)
   - **Payment Flow**: Reserve → (Success = Commit + Decrement) OR (Failure = Release) OR (Expiration = Auto-Release)
+  - **Storefront Visibility**: Products are hidden when `product.stock <= 0`, ensuring sold-out items don't appear to buyers
+  - **Backfill Script**: `server/scripts/backfill-product-stock.ts` available to fix any historical drift between product.stock and variant totals
 - **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, shipping updates, and balance payments
   - **Core Methods**: `updateOrderStatus` (status changes + document generation), `processRefund` (full/partial with Stripe), `updateTracking` (shipping updates + notifications), `requestBalancePayment` (pre-order balance collection)
   - **Storage Abstraction**: All order operations use IStorage interface only - no direct Drizzle table imports in services
