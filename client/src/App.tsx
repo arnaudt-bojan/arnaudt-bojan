@@ -75,10 +75,9 @@ function AppContent() {
         <MainHeader cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
       )}
       <main className="flex-1">
-        <Switch>
-          {/* On seller subdomain, root path shows storefront */}
-          {isSellerSubdomain ? (
-            <>
+        {/* On seller subdomain, root path shows storefront */}
+        {isSellerSubdomain ? (
+          <Switch>
               <Route path="/" component={SellerStorefront} />
               <Route path="/products/:id" component={ProductDetail} />
               <Route path="/checkout" component={Checkout} />
@@ -124,10 +123,10 @@ function AppContent() {
                 )}
               </Route>
               
-              <Route component={NotFound} />
-            </>
-          ) : (
-            <>
+              <Route>{() => <NotFound />}</Route>
+          </Switch>
+        ) : (
+          <Switch>
               {/* Main domain or dev routes */}
               <Route path="/" component={Home} />
               <Route path="/email-login" component={EmailLogin} />
@@ -341,10 +340,9 @@ function AppContent() {
                 )}
               </Route>
               
-              <Route component={NotFound} />
-            </>
-          )}
-        </Switch>
+              <Route>{() => <NotFound />}</Route>
+          </Switch>
+        )}
       </main>
       {!isPreviewMode && (
         <CartSheet open={isCartOpen} onClose={() => setIsCartOpen(false)} />
