@@ -222,27 +222,25 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
             <ThemeToggle />
           </div>
           
-          {/* Cart button - show on seller storefronts and checkout */}
-          {(isSellerDomain || location.includes('/checkout')) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              onClick={onCartClick}
-              data-testid="button-cart"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              {cartItemsCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                  data-testid="badge-cart-count"
-                >
-                  {cartItemsCount}
-                </Badge>
-              )}
-            </Button>
-          )}
+          {/* Cart button - always show for guests and buyers */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            onClick={onCartClick}
+            data-testid="button-cart"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {cartItemsCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                data-testid="badge-cart-count"
+              >
+                {cartItemsCount}
+              </Badge>
+            )}
+          </Button>
 
           {/* Auth controls */}
           {isAuthenticated ? (
