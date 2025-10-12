@@ -4333,7 +4333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const paymentMethod = subscription.default_payment_method as Stripe.PaymentMethod;
           
           // Check if already saved
-          const existingPaymentMethods = await storage.getSavedPaymentMethods(userId);
+          const existingPaymentMethods = await storage.getSavedPaymentMethodsByUserId(userId);
           const alreadySaved = existingPaymentMethods.find((pm: any) => pm.stripePaymentMethodId === paymentMethod.id);
           
           if (!alreadySaved) {
@@ -4424,9 +4424,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expand: ['data.default_payment_method'],
       });
 
-      logger.info(`[DEBUG] Found ${subscriptions.data.length} subscriptions`);
+      logger.info(`[DEBUG] Found ${subscriptions.data.length} subscriptions for customer ${user.stripeCustomerId}`);
       subscriptions.data.forEach((sub: any) => {
-        logger.info(`[DEBUG] Subscription ${sub.id}: status=${sub.status}, created=${new Date(sub.created * 1000)}`);
+        logger.info(`[DEBUG] Subscription ${sub.id}: status=${sub.status}, created=${new Date(sub.created * 1000)}, items=${JSON.stringify(sub.items.data.map((i: any) => i.price?.id))}`);
+      });
+
+      // Also check checkout sessions
+      const sessions = await stripe.checkout.sessions.list({
+        customer: user.stripeCustomerId,
+        limit: 5,
+      });
+      logger.info(`[DEBUG] Found ${sessions.data.length} checkout sessions`);
+      sessions.data.forEach((session: any) => {
+        logger.info(`[DEBUG] Checkout ${session.id}: status=${session.status}, payment_status=${session.payment_status}, subscription=${session.subscription}, mode=${session.mode}, created=${new Date(session.created * 1000)}`);
       });
 
       if (subscriptions.data.length > 0) {
