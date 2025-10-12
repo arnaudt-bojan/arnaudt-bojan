@@ -34,7 +34,9 @@ import {
   Clock,
   CreditCard,
   Loader2,
-  Lock
+  Lock,
+  ArrowLeft,
+  RefreshCw
 } from "lucide-react";
 import type { InsertOrder } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -65,7 +67,8 @@ function PaymentForm({
   orderData,
   paymentType,
   billingDetails,
-  items
+  items,
+  onCancel
 }: { 
   onSuccess: (orderId: string) => void; 
   amount: number; 
@@ -73,12 +76,14 @@ function PaymentForm({
   paymentType: 'deposit' | 'full';
   billingDetails: CheckoutForm;
   items: CartItem[];
+  onCancel?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const { formatPrice, currency: defaultCurrency } = useCurrency();
   
   // Format amount with currency conversion
@@ -99,6 +104,7 @@ function PaymentForm({
     }
 
     setIsProcessing(true);
+    setPaymentError(null);
 
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
@@ -128,9 +134,13 @@ function PaymentForm({
         console.error("[Checkout] Stripe payment error:", error);
         console.error("[Checkout] Error type:", error.type);
         console.error("[Checkout] Error code:", error.code);
+        
+        const errorMessage = error.message || "Payment could not be processed";
+        setPaymentError(errorMessage);
+        
         toast({
           title: "Payment Failed",
-          description: error.message || "Payment could not be processed",
+          description: errorMessage,
           variant: "destructive",
         });
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
@@ -220,6 +230,40 @@ function PaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Payment Error Alert with Retry */}
+      {paymentError && (
+        <Alert variant="destructive" data-testid="alert-payment-error">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Payment Failed</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-3">{paymentError}</p>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                onClick={() => setPaymentError(null)}
+                data-testid="button-retry-payment"
+              >
+                <RefreshCw className="mr-2 h-3 w-3" />
+                Try Again
+              </Button>
+              {onCancel && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCancel}
+                  data-testid="button-cancel-payment"
+                >
+                  Cancel Payment
+                </Button>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="min-h-[240px]">
         <PaymentElement 
           options={{
@@ -228,8 +272,8 @@ function PaymentForm({
               defaultCollapsed: false,
             },
             wallets: {
-              applePay: 'auto', // ✅ Shows if available on device
-              googlePay: 'auto', // ✅ Shows if available
+              applePay: 'auto',
+              googlePay: 'auto',
             },
             fields: {
               billingDetails: {
@@ -238,31 +282,46 @@ function PaymentForm({
             },
             terms: {
               card: 'never',
-              link: 'never', // ✅ Closes Link optional save form
-            } as any, // Type cast to bypass Stripe types limitation
+              link: 'never',
+            } as any,
           }}
         />
       </div>
       
-      <Button
-        type="submit"
-        className="w-full"
-        size="lg"
-        disabled={!stripe || !isReady || isProcessing}
-        data-testid="button-submit-payment"
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Processing Payment...
-          </>
-        ) : (
-          <>
-            <Lock className="mr-2 h-4 w-4" />
-            {paymentType === 'deposit' ? `Pay Deposit ${formattedAmount}` : `Pay ${formattedAmount}`}
-          </>
+      <div className="flex gap-3">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={onCancel}
+            disabled={isProcessing}
+            data-testid="button-back-to-shipping"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
         )}
-      </Button>
+        <Button
+          type="submit"
+          className="flex-1"
+          size="lg"
+          disabled={!stripe || !isReady || isProcessing}
+          data-testid="button-submit-payment"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing Payment...
+            </>
+          ) : (
+            <>
+              <Lock className="mr-2 h-4 w-4" />
+              {paymentType === 'deposit' ? `Pay Deposit ${formattedAmount}` : `Pay ${formattedAmount}`}
+            </>
+          )}
+        </Button>
+      </div>
       
       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <Lock className="h-3 w-3" />
@@ -493,6 +552,9 @@ export default function Checkout() {
   const [isCreatingIntent, setIsCreatingIntent] = useState(false);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(true);
   
+  // Checkout step state: 'shipping' or 'payment'
+  const checkoutStep = clientSecret ? 'payment' : 'shipping';
+  
   // Redirect sellers and collaborators away from checkout (they cannot buy)
   useEffect(() => {
     if (isSeller || isCollaborator) {
@@ -710,6 +772,18 @@ export default function Checkout() {
     setLocation(`/order-success/${orderId}?email=${email}`);
   };
 
+  const handleCancelPayment = () => {
+    // Reset payment state to go back to shipping form
+    setClientSecret(null);
+    setPaymentIntentId(null);
+    setOrderData(null);
+    setBillingDetails(null);
+    toast({
+      title: "Payment Cancelled",
+      description: "You can update your shipping information and try again",
+    });
+  };
+
   if (items.length === 0 && !orderComplete) {
     return (
       <div className="min-h-screen py-12">
@@ -776,9 +850,44 @@ export default function Checkout() {
   return (
     <div className="min-h-screen py-6 md:py-8">
       <div className="container mx-auto px-4 max-w-7xl">
-        <h1 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8" data-testid="text-page-title">
+        <h1 className="text-2xl md:text-3xl font-bold mb-4" data-testid="text-page-title">
           Secure Checkout
         </h1>
+        
+        {/* Checkout Progress Indicator */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex items-center gap-2 max-w-md">
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center justify-center h-8 w-8 rounded-full ${
+                checkoutStep === 'shipping' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'
+              }`}>
+                <Package className="h-4 w-4" />
+              </div>
+              <span className={`text-sm font-medium ${
+                checkoutStep === 'shipping' ? 'text-foreground' : 'text-muted-foreground'
+              }`}>
+                Shipping
+              </span>
+            </div>
+            
+            <div className={`flex-1 h-[2px] mx-2 ${
+              checkoutStep === 'payment' ? 'bg-primary' : 'bg-muted'
+            }`} />
+            
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center justify-center h-8 w-8 rounded-full ${
+                checkoutStep === 'payment' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>
+                <CreditCard className="h-4 w-4" />
+              </div>
+              <span className={`text-sm font-medium ${
+                checkoutStep === 'payment' ? 'text-foreground' : 'text-muted-foreground'
+              }`}>
+                Payment
+              </span>
+            </div>
+          </div>
+        </div>
 
         <div className="grid lg:grid-cols-5 gap-6 md:gap-8">
           {/* Main Form - 3 columns */}
@@ -1045,6 +1154,7 @@ export default function Checkout() {
                       paymentType={paymentInfo.payingDepositOnly ? 'deposit' : 'full'}
                       billingDetails={billingDetails!}
                       items={items as any}
+                      onCancel={handleCancelPayment}
                     />
                   </Elements>
                 </CardContent>
