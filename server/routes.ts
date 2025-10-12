@@ -4004,6 +4004,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Auto-populate warehouse address from Stripe if it's currently empty
       // Try individual.address first, fallback to company.address
       const stripeAddress = account.individual?.address || account.company?.address;
+      
+      // Debug logging for warehouse auto-population
+      logger.info(`[Stripe] Warehouse auto-population check for account ${account.id}:`, {
+        currentWarehouseStreet: user.warehouseStreet || 'empty',
+        stripeAddressAvailable: !!stripeAddress,
+        stripeAddressLine1: stripeAddress?.line1 || 'none',
+        stripeAddressCity: stripeAddress?.city || 'none',
+        stripeAddressState: stripeAddress?.state || 'none',
+        stripeAddressPostalCode: stripeAddress?.postal_code || 'none',
+        stripeAddressCountry: stripeAddress?.country || 'none',
+      });
+      
       const warehouseStreet = !user.warehouseStreet && stripeAddress?.line1 
         ? stripeAddress.line1 
         : user.warehouseStreet;
@@ -4027,7 +4039,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Log when warehouse address is auto-populated
       if (!user.warehouseStreet && stripeAddress?.line1) {
-        logger.info(`[Stripe] Auto-populated warehouse address from Stripe account ${account.id}`);
+        logger.info(`[Stripe] Auto-populating warehouse address from Stripe account ${account.id}`, {
+          warehouseStreet,
+          warehouseCity,
+          warehouseState,
+          warehousePostalCode,
+          warehouseCountry,
+        });
+      } else if (!stripeAddress?.line1) {
+        logger.warn(`[Stripe] Cannot auto-populate warehouse: No address data in Stripe account ${account.id}`);
       }
       
       // Update user with latest status and auto-populated fields
