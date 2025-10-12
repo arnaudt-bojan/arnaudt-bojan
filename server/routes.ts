@@ -29,6 +29,7 @@ import { ProductService } from "./services/product.service";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
 import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
+import { WholesaleService } from "./services/wholesale.service";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -114,6 +115,9 @@ const subscriptionService = new SubscriptionService(
   storage,
   stripe || null
 );
+
+// Initialize Wholesale service (Architecture 3 migration)
+const wholesaleService = new WholesaleService(storage);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -5290,8 +5294,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wholesale Products Routes
   app.get("/api/wholesale/products", async (req, res) => {
     try {
-      const products = await storage.getAllWholesaleProducts();
-      res.json(products);
+      const result = await wholesaleService.getAllProducts();
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching wholesale products", error);
       res.status(500).json({ message: "Failed to fetch wholesale products" });
@@ -5301,8 +5308,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/products/seller/:sellerId", async (req, res) => {
     try {
       const { sellerId } = req.params;
-      const products = await storage.getWholesaleProductsBySellerId(sellerId);
-      res.json(products);
+      const result = await wholesaleService.getProductsBySellerId(sellerId);
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching seller wholesale products", error);
       res.status(500).json({ message: "Failed to fetch seller wholesale products" });
@@ -5312,11 +5322,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/products/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const product = await storage.getWholesaleProduct(id);
-      if (!product) {
-        return res.status(404).json({ message: "Wholesale product not found" });
+      const result = await wholesaleService.getProduct(id);
+      if (!result.success) {
+        const statusCode = result.statusCode || 500;
+        return res.status(statusCode).json({ message: result.error });
       }
-      res.json(product);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching wholesale product", error);
       res.status(500).json({ message: "Failed to fetch wholesale product" });
@@ -5326,14 +5337,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/wholesale/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const result = await wholesaleService.createProduct(req.body, userId);
       
-      const productData = {
-        ...req.body,
-        sellerId: userId,
-      };
-
-      const product = await storage.createWholesaleProduct(productData);
-      res.status(201).json(product);
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.status(201).json(result.data);
     } catch (error) {
       logger.error("Error creating wholesale product", error);
       res.status(500).json({ message: "Failed to create wholesale product" });
@@ -5352,102 +5361,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const file = req.files.file as any;
       const fileContent = file.data.toString('utf8');
       
-      // Parse CSV using papaparse
-      const Papa = (await import('papaparse')).default;
-      const parsed = Papa.parse(fileContent, {
-        header: true,
-        skipEmptyLines: true,
+      const result = await wholesaleService.bulkUploadProducts({
+        userId,
+        fileContent,
       });
 
-      if (parsed.errors.length > 0) {
-        return res.status(400).json({ 
-          error: "CSV parsing failed", 
-          details: parsed.errors 
+      if (!result.success) {
+        return res.status(400).json({
+          error: result.error,
+          details: result.details,
         });
-      }
-
-      const products = parsed.data as any[];
-      const created: any[] = [];
-      const errors: any[] = [];
-
-      // Process each row
-      for (let i = 0; i < products.length; i++) {
-        const row = products[i];
-        
-        try {
-          // Map and coerce CSV columns to product data with proper types
-          const rawData = {
-            sellerId: userId,
-            name: (row['Name'] || row['name'] || '').trim(),
-            description: (row['Description'] || row['description'] || '').trim(),
-            image: (row['Image URL'] || row['image'] || row['Image'] || '').trim(),
-            category: (row['Category'] || row['category'] || '').trim(),
-            rrp: row['RRP'] || row['rrp'],
-            wholesalePrice: row['Wholesale Price'] || row['wholesalePrice'] || row['wholesale_price'],
-            moq: row['MOQ'] || row['moq'],
-            stock: row['Stock'] || row['stock'] || '0',
-            depositAmount: row['Deposit Amount'] || row['depositAmount'] || null,
-            requiresDeposit: row['Requires Deposit'] || row['requiresDeposit'] || '0',
-            readinessDays: row['Readiness Days'] || row['readinessDays'] || null,
-          };
-
-          // Validate required fields first
-          if (!rawData.name || !rawData.description || !rawData.image || 
-              !rawData.category || !rawData.rrp || !rawData.wholesalePrice || !rawData.moq) {
-            errors.push({
-              row: i + 2, // +2 because header is row 1
-              error: "Missing required fields",
-              data: row
-            });
-            continue;
-          }
-
-          // Convert to proper numeric types (round to 2 decimals for prices)
-          const rrpNum = parseFloat(rawData.rrp.toString().replace(/[^0-9.]/g, ''));
-          const wholesalePriceNum = parseFloat(rawData.wholesalePrice.toString().replace(/[^0-9.]/g, ''));
-          const depositNum = rawData.depositAmount ? parseFloat(rawData.depositAmount.toString().replace(/[^0-9.]/g, '')) : null;
-          
-          const productData = {
-            sellerId: rawData.sellerId,
-            name: rawData.name,
-            description: rawData.description,
-            image: rawData.image,
-            category: rawData.category,
-            rrp: (Math.round(rrpNum * 100) / 100).toString(), // Convert to 2 decimal string for schema
-            wholesalePrice: (Math.round(wholesalePriceNum * 100) / 100).toString(),
-            moq: parseInt(rawData.moq.toString().replace(/[^0-9]/g, '')) || 1,
-            stock: parseInt(rawData.stock.toString().replace(/[^0-9]/g, '')) || 0,
-            depositAmount: depositNum ? (Math.round(depositNum * 100) / 100).toString() : null,
-            requiresDeposit: parseInt(rawData.requiresDeposit.toString().replace(/[^0-9]/g, '')) || 0,
-            readinessDays: rawData.readinessDays ? parseInt(rawData.readinessDays.toString().replace(/[^0-9]/g, '')) : null,
-          };
-
-          // Validate numeric conversions
-          if (isNaN(rrpNum) || isNaN(wholesalePriceNum) || isNaN(productData.moq) || productData.moq < 1) {
-            errors.push({
-              row: i + 2,
-              error: "Invalid numeric values for RRP, Wholesale Price, or MOQ",
-              data: row
-            });
-            continue;
-          }
-
-          const product = await storage.createWholesaleProduct(productData);
-          created.push(product);
-        } catch (error: any) {
-          errors.push({
-            row: i + 2,
-            error: error.message || "Failed to create product",
-            data: row
-          });
-        }
       }
 
       res.json({
         success: true,
-        created: created.length,
-        errors: errors.length > 0 ? errors : undefined,
-        message: `Successfully created ${created.length} products${errors.length > 0 ? `, ${errors.length} errors` : ''}`
+        ...result.data,
       });
     } catch (error: any) {
       logger.error("Bulk upload error", error);
@@ -5460,17 +5388,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userId = req.user.claims.sub;
       
-      const existingProduct = await storage.getWholesaleProduct(id);
-      if (!existingProduct) {
-        return res.status(404).json({ message: "Wholesale product not found" });
-      }
-      
-      if (existingProduct.sellerId !== userId) {
-        return res.status(403).json({ message: "Unauthorized to update this product" });
+      const result = await wholesaleService.updateProduct({
+        productId: id,
+        userId,
+        updates: req.body,
+      });
+
+      if (!result.success) {
+        const statusCode = result.error === "Wholesale product not found" ? 404 : 
+                          result.error === "Unauthorized to update this product" ? 403 : 500;
+        return res.status(statusCode).json({ message: result.error });
       }
 
-      const updatedProduct = await storage.updateWholesaleProduct(id, req.body);
-      res.json(updatedProduct);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error updating wholesale product", error);
       res.status(500).json({ message: "Failed to update wholesale product" });
@@ -5482,17 +5412,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userId = req.user.claims.sub;
       
-      const existingProduct = await storage.getWholesaleProduct(id);
-      if (!existingProduct) {
-        return res.status(404).json({ message: "Wholesale product not found" });
-      }
-      
-      if (existingProduct.sellerId !== userId) {
-        return res.status(403).json({ message: "Unauthorized to delete this product" });
+      const result = await wholesaleService.deleteProduct({
+        productId: id,
+        userId,
+      });
+
+      if (!result.success) {
+        const statusCode = result.error === "Wholesale product not found" ? 404 : 
+                          result.error === "Unauthorized to delete this product" ? 403 : 500;
+        return res.status(statusCode).json({ message: result.error });
       }
 
-      await storage.deleteWholesaleProduct(id);
-      res.json({ message: "Wholesale product deleted successfully" });
+      res.json(result.data);
     } catch (error) {
       logger.error("Error deleting wholesale product", error);
       res.status(500).json({ message: "Failed to delete wholesale product" });
@@ -5503,8 +5434,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/invitations", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const invitations = await storage.getWholesaleInvitationsBySellerId(userId);
-      res.json(invitations);
+      const result = await wholesaleService.getInvitationsBySeller(userId);
+      
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching wholesale invitations", error);
       res.status(500).json({ message: "Failed to fetch wholesale invitations" });
@@ -5514,14 +5449,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/wholesale/invitations", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const result = await wholesaleService.createInvitation(req.body, userId);
       
-      const invitationData = {
-        ...req.body,
-        sellerId: userId,
-      };
-
-      const invitation = await storage.createWholesaleInvitation(invitationData);
-      res.status(201).json(invitation);
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.status(201).json(result.data);
     } catch (error) {
       logger.error("Error creating wholesale invitation", error);
       res.status(500).json({ message: "Failed to create wholesale invitation" });
@@ -5531,11 +5464,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/invitations/token/:token", async (req, res) => {
     try {
       const { token } = req.params;
-      const invitation = await storage.getWholesaleInvitationByToken(token);
-      if (!invitation) {
-        return res.status(404).json({ message: "Invitation not found" });
+      const result = await wholesaleService.getInvitationByToken(token);
+      
+      if (!result.success) {
+        return res.status(404).json({ message: result.error });
       }
-      res.json(invitation);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching wholesale invitation", error);
       res.status(500).json({ message: "Failed to fetch wholesale invitation" });
@@ -5547,17 +5481,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       const userId = req.user.claims.sub;
       
-      const invitation = await storage.getWholesaleInvitationByToken(token);
-      if (!invitation) {
-        return res.status(404).json({ message: "Invitation not found" });
-      }
+      const result = await wholesaleService.acceptInvitation({ token, userId });
       
-      if (invitation.status !== "pending") {
-        return res.status(400).json({ message: "Invitation has already been processed" });
+      if (!result.success) {
+        const statusCode = result.error === "Invitation not found" ? 404 : 
+                          result.error === "Invitation has already been processed" ? 400 : 500;
+        return res.status(statusCode).json({ message: result.error });
       }
-
-      const updated = await storage.acceptWholesaleInvitation(token, userId);
-      res.json(updated);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error accepting wholesale invitation", error);
       res.status(500).json({ message: "Failed to accept wholesale invitation" });
@@ -5567,8 +5498,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/wholesale/invitations/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      await storage.deleteWholesaleInvitation(id);
-      res.json({ message: "Wholesale invitation deleted successfully" });
+      const result = await wholesaleService.deleteInvitation(id);
+      
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.json(result.data);
     } catch (error) {
       logger.error("Error deleting wholesale invitation", error);
       res.status(500).json({ message: "Failed to delete wholesale invitation" });
@@ -5580,19 +5515,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/buyer/access", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const result = await wholesaleService.checkBuyerAccess(userId);
       
-      if (!user || !user.email) {
-        return res.json({ hasAccess: false });
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
       }
-
-      // Check if user has any accepted invitations
-      const allInvitations = await storage.getAllWholesaleInvitations();
-      const hasAcceptedInvitations = allInvitations.some(
-        inv => inv.buyerEmail === user.email && inv.status === "accepted"
-      );
-
-      res.json({ hasAccess: hasAcceptedInvitations });
+      res.json(result.data);
     } catch (error) {
       logger.error("Error checking wholesale access", error);
       res.status(500).json({ message: "Failed to check wholesale access" });
@@ -5602,29 +5530,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/buyer/catalog", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const result = await wholesaleService.getBuyerCatalog(userId);
       
-      if (!user || !user.email) {
-        return res.status(403).json({ message: "User not found" });
+      if (!result.success) {
+        return res.status(403).json({ message: result.error });
       }
-
-      // Check if user has any accepted invitations
-      const allInvitations = await storage.getAllWholesaleInvitations();
-      const userInvitations = allInvitations.filter(
-        inv => inv.buyerEmail === user.email && inv.status === "accepted"
-      );
-
-      if (userInvitations.length === 0) {
-        // No invitations - return empty catalog
-        return res.json([]);
-      }
-
-      // Get all wholesale products from sellers who invited this buyer
-      const sellerIds = userInvitations.map(inv => inv.sellerId);
-      const allProducts = await storage.getAllWholesaleProducts();
-      const invitedProducts = allProducts.filter(p => sellerIds.includes(p.sellerId));
-
-      res.json(invitedProducts);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching buyer wholesale catalog", error);
       res.status(500).json({ message: "Failed to fetch catalog" });
@@ -5635,31 +5546,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
       
-      if (!user || !user.email) {
-        return res.status(403).json({ message: "User not found" });
+      const result = await wholesaleService.getBuyerProduct({ productId: id, userId });
+      
+      if (!result.success) {
+        const statusCode = result.error === "Product not found" ? 404 : 
+                          result.error === "Access denied. Invitation required." ? 403 :
+                          result.error === "User not found" ? 403 : 500;
+        return res.status(statusCode).json({ message: result.error });
       }
-
-      // Get the product
-      const product = await storage.getWholesaleProduct(id);
-      if (!product) {
-        return res.status(404).json({ message: "Product not found" });
-      }
-
-      // Check if user has accepted invitation from this seller
-      const allInvitations = await storage.getAllWholesaleInvitations();
-      const hasInvitation = allInvitations.some(
-        inv => inv.buyerEmail === user.email && 
-               inv.sellerId === product.sellerId && 
-               inv.status === "accepted"
-      );
-
-      if (!hasInvitation) {
-        return res.status(403).json({ message: "Access denied. Invitation required." });
-      }
-
-      res.json(product);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching wholesale product", error);
       res.status(500).json({ message: "Failed to fetch product" });
