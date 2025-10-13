@@ -676,7 +676,7 @@ export const users = pgTable("users", {
   
   // Terms & Conditions Management
   termsPdfUrl: varchar("terms_pdf_url"), // URL to custom Terms & Conditions PDF
-  termsSource: varchar("terms_source"), // "custom_pdf" or "platform_default"
+  termsSource: varchar("terms_source").default('platform_default'), // "custom_pdf" or "platform_default" - defaults to platform
   
   // Warehouse/Fulfillment Address - origin address for Shippo shipping calculations
   warehouseStreet: varchar("warehouse_street"), // Warehouse street address
