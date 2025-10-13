@@ -9,6 +9,7 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { logger } from "./logger";
 import { generateUniqueUsername } from "./utils";
+import { CartService } from "./services/cart.service";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -292,6 +293,19 @@ export async function setupAuth(app: Express) {
         
         const dbUser = await storage.getUser(user.claims.sub);
         
+        // Migrate guest cart to authenticated user
+        try {
+          const cartService = new CartService(storage);
+          await cartService.migrateGuestCart(req.sessionID, user.claims.sub);
+          logger.info('[Auth] Cart migration completed for OIDC login', { 
+            userId: user.claims.sub
+          });
+        } catch (error) {
+          logger.error('[Auth] Cart migration failed for OIDC login', error, { 
+            userId: user.claims.sub
+          });
+        }
+        
         // Check for preserved returnUrl in session
         const rawReturnUrl = (req.session as any)?.returnUrl;
         const loginContext = (req.session as any)?.loginContext;
@@ -363,6 +377,19 @@ export async function setupAuth(app: Express) {
 
         const dbUser = await storage.getUser(user.claims.sub);
 
+        // Migrate guest cart to authenticated user
+        try {
+          const cartService = new CartService(storage);
+          await cartService.migrateGuestCart(req.sessionID, user.claims.sub);
+          logger.info('[Auth] Cart migration completed for local login', { 
+            userId: user.claims.sub
+          });
+        } catch (error) {
+          logger.error('[Auth] Cart migration failed for local login', error, { 
+            userId: user.claims.sub
+          });
+        }
+
         // Validate domain-based access
         if (isSellerLogin) {
           // Main domain - only admin/editor/viewer allowed
@@ -429,9 +456,22 @@ export async function setupAuth(app: Express) {
         expires_at: Math.floor(Date.now() / 1000) + 3600,
       };
 
-      req.login(userForSession, (err) => {
+      req.login(userForSession, async (err) => {
         if (err) {
           return res.status(500).json({ error: "Account created but login failed" });
+        }
+
+        // Migrate guest cart to authenticated user
+        try {
+          const cartService = new CartService(storage);
+          await cartService.migrateGuestCart(req.sessionID, newUser.id);
+          logger.info('[Auth] Cart migration completed for signup', { 
+            userId: newUser.id
+          });
+        } catch (error) {
+          logger.error('[Auth] Cart migration failed for signup', error, { 
+            userId: newUser.id
+          });
         }
 
         // Redirect based on role

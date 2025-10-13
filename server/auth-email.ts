@@ -5,6 +5,7 @@ import { PDFService } from './pdf-service';
 import type { Request, Response } from 'express';
 import { logger } from './logger';
 import { generateAuthCode, generateSecureToken, normalizeEmail } from './utils';
+import { CartService } from './services/cart.service';
 
 const router = Router();
 
@@ -256,6 +257,19 @@ router.post('/verify-code', async (req: any, res: Response) => {
 
     logger.auth('User authenticated successfully', { email: normalizedEmail, userId: user.id });
 
+    // Migrate guest cart to authenticated user
+    try {
+      const cartService = new CartService(storage);
+      await cartService.migrateGuestCart(req.sessionID, user.id);
+      logger.info('[Auth] Cart migration completed for email verify-code', { 
+        userId: user.id
+      });
+    } catch (error) {
+      logger.error('[Auth] Cart migration failed for email verify-code', error, { 
+        userId: user.id
+      });
+    }
+
     // Determine redirect URL: preserved returnUrl takes priority over role-based defaults
     let redirectUrl: string;
     
@@ -505,6 +519,19 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       email: normalizedEmail,
       userId: user.id
     });
+
+    // Migrate guest cart to authenticated user
+    try {
+      const cartService = new CartService(storage);
+      await cartService.migrateGuestCart(req.sessionID, user.id);
+      logger.info('[Auth] Cart migration completed for email magic-link', { 
+        userId: user.id
+      });
+    } catch (error) {
+      logger.error('[Auth] Cart migration failed for email magic-link', error, { 
+        userId: user.id
+      });
+    }
 
     // Determine redirect URL: preserved returnUrl takes priority
     let redirectUrl: string;
