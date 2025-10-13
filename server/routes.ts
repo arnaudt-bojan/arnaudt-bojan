@@ -316,26 +316,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(null);
       }
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const currentUser = await storage.getUser(userId);
       
-      // Debug: Log warehouse fields
-      if (user) {
-        logger.info(`[Auth] User warehouse fields:`, {
-          userId: user.id,
-          email: user.email ?? undefined,
-          warehouseStreet: user.warehouseStreet ?? undefined,
-          warehouseCity: user.warehouseCity ?? undefined,
-          warehouseCountry: user.warehouseCountry ?? undefined,
-        });
+      if (!currentUser) {
+        return res.json(null);
       }
       
-      // Get user capabilities from AuthorizationService
+      // For collaborators, return the store owner's data (for settings page)
+      // But keep the collaborator's own ID and capabilities
+      const effectiveSellerId = currentUser.sellerId || userId;
+      const displayUser = effectiveSellerId !== userId 
+        ? await storage.getUser(effectiveSellerId)
+        : currentUser;
+      
+      if (!displayUser) {
+        return res.json(null);
+      }
+      
+      // Debug: Log warehouse fields
+      logger.info(`[Auth] User warehouse fields:`, {
+        userId: displayUser.id,
+        email: displayUser.email ?? undefined,
+        warehouseStreet: displayUser.warehouseStreet ?? undefined,
+        warehouseCity: displayUser.warehouseCity ?? undefined,
+        warehouseCountry: displayUser.warehouseCountry ?? undefined,
+      });
+      
+      // Get user capabilities from AuthorizationService (use actual user ID for capabilities)
       const capabilities = await authorizationService.getUserCapabilities(userId);
       
-      // Return user with capabilities
+      // Return store owner's data with collaborator's capabilities and actual user ID
       res.json({
-        ...user,
+        ...displayUser,
+        // Override with collaborator's actual ID so frontend knows who's logged in
+        id: userId,
         capabilities: capabilities || {},
+        // Add flag to indicate if this is a collaborator viewing store owner's data
+        isCollaborator: effectiveSellerId !== userId,
+        storeOwnerId: effectiveSellerId !== userId ? effectiveSellerId : undefined,
       });
     } catch (error) {
       logger.error("Failed to fetch user", error, { userId: req.user?.claims?.sub });
