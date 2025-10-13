@@ -7,7 +7,6 @@ import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList } from "lucide-reac
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
-import { StorefrontHeader } from "@/components/headers/storefront-header";
 import type { User, Product } from "@shared/schema";
 
 interface FilterOptions {
@@ -154,9 +153,6 @@ export default function SellerStorefront() {
   if (!effectiveSeller) {
     return (
       <div className="min-h-screen flex flex-col">
-        {/* Header */}
-        <StorefrontHeader cartItemsCount={0} onCartClick={() => {}} />
-
         {/* Empty State */}
         <div className="container py-12 flex-1">
           <div className="text-center max-w-md mx-auto">
@@ -176,8 +172,6 @@ export default function SellerStorefront() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <StorefrontHeader cartItemsCount={0} onCartClick={() => {}} />
       
       {/* Banner - Only show if uploaded */}
       {effectiveSeller.storeBanner && (
