@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Package, Mail, Phone, MapPin, ExternalLink } from "lucide-react";
 import type { Order, Product, User } from "@shared/schema";
+import { getSellerAwarePath } from "@/contexts/seller-context";
 
 // Simple currency formatter using seller's currency (no conversion)
 const formatOrderPrice = (price: number, currency: string = 'USD') => {
@@ -89,6 +90,10 @@ export default function OrderSuccess() {
   
   // Get seller's currency from first product (extends Product type with currency field)
   const currency = (firstProduct as any)?.currency || 'USD';
+  
+  // CRITICAL: Get seller username for seller-aware navigation
+  // Prioritize URL param, fallback to seller object
+  const sellerUsername = paramsSellerAware?.username || seller?.username;
 
   // Get payment info
   const paymentStatus = order?.paymentStatus;
@@ -391,7 +396,7 @@ export default function OrderSuccess() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button 
             size="lg"
-            onClick={() => setLocation("/products")} 
+            onClick={() => setLocation(getSellerAwarePath("/", sellerUsername))} 
             data-testid="button-continue-shopping"
             className="flex-1 sm:flex-none"
           >
@@ -400,7 +405,7 @@ export default function OrderSuccess() {
           <Button 
             size="lg"
             variant="outline" 
-            onClick={() => setLocation("/")} 
+            onClick={() => setLocation(getSellerAwarePath("/", sellerUsername))} 
             data-testid="button-home"
             className="flex-1 sm:flex-none"
           >

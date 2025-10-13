@@ -344,7 +344,7 @@ export default function ProductDetail() {
 
         {categoryPath.length > 0 && (
           <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-8" data-testid="breadcrumb-navigation">
-            <Link href="/">
+            <Link href={getSellerAwarePath("/", effectiveSellerUsername)}>
               <span className="hover:text-foreground transition-colors">Home</span>
             </Link>
             {categoryPath.map((category, index) => (

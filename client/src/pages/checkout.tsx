@@ -937,7 +937,10 @@ export default function Checkout() {
           <p className="text-muted-foreground mb-6">
             Add products to your cart to checkout
           </p>
-          <Button onClick={() => setLocation("/products")} data-testid="button-browse-products">
+          <Button 
+            onClick={() => setLocation(getSellerAwarePath("/", effectiveSellerUsername))} 
+            data-testid="button-browse-products"
+          >
             Browse Products
           </Button>
         </div>
@@ -979,10 +982,17 @@ export default function Checkout() {
             </Card>
           )}
           <div className="flex gap-4 justify-center mt-8">
-            <Button onClick={() => setLocation("/products")} data-testid="button-continue-shopping">
+            <Button 
+              onClick={() => setLocation(getSellerAwarePath("/", effectiveSellerUsername))} 
+              data-testid="button-continue-shopping"
+            >
               Continue Shopping
             </Button>
-            <Button variant="outline" onClick={() => setLocation("/")} data-testid="button-home">
+            <Button 
+              variant="outline" 
+              onClick={() => setLocation(getSellerAwarePath("/", effectiveSellerUsername))} 
+              data-testid="button-home"
+            >
               Back to Home
             </Button>
           </div>
