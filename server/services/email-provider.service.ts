@@ -75,6 +75,12 @@ export class ResendEmailProvider implements IEmailProvider {
     }
 
     try {
+      logger.info('[EmailProvider] Sending email via Resend:', {
+        from,
+        to: Array.isArray(to) ? to.join(', ') : to,
+        subject,
+      });
+
       const response = await this.client.emails.send({
         from,
         to: Array.isArray(to) ? to : [to],
@@ -87,6 +93,21 @@ export class ResendEmailProvider implements IEmailProvider {
           content_type: att.contentType,
         })),
       });
+
+      // CRITICAL: Check if Resend returned an error in the response
+      if (response.error) {
+        logger.error('[EmailProvider] Resend API returned error:', {
+          to: Array.isArray(to) ? to.join(', ') : to,
+          subject,
+          error: response.error,
+          errorMessage: response.error.message,
+        });
+
+        return {
+          success: false,
+          error: response.error.message || 'Resend API error',
+        };
+      }
 
       logger.info('[EmailProvider] Email sent successfully:', {
         to: Array.isArray(to) ? to.join(', ') : to,
