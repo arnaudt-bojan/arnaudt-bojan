@@ -2208,7 +2208,7 @@ export default function Settings() {
                   <SelectItem value="branding-policies">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
-                      <span>Store Policies & T&C</span>
+                      <span>Terms & Policies</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="categories">
@@ -2283,7 +2283,7 @@ export default function Settings() {
               </TabsTrigger>
               <TabsTrigger value="branding-policies" data-testid="tab-branding-policies" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                <span>Store Policies & T&C</span>
+                <span>Terms & Policies</span>
               </TabsTrigger>
               <TabsTrigger value="categories" data-testid="tab-categories" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
@@ -3090,7 +3090,21 @@ export default function Settings() {
                       <div className="flex-1">
                         <p className="text-sm font-medium">Using Platform Default Terms & Conditions</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          You're using Upfirst's standard Terms & Conditions
+                          You're using Upfirst's standard Terms & Conditions.{' '}
+                          <a 
+                            href="#" 
+                            className="text-primary underline hover:no-underline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              toast({
+                                title: "Link Coming Soon",
+                                description: "Platform default Terms & Conditions link will be provided",
+                              });
+                            }}
+                            data-testid="link-view-platform-tc"
+                          >
+                            View terms
+                          </a>
                         </p>
                         <Button
                           variant="outline"
