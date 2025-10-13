@@ -18,9 +18,13 @@ const formatOrderPrice = (price: number, currency: string = 'USD') => {
 };
 
 export default function OrderSuccess() {
-  const [, params] = useRoute("/order-success/:orderId");
+  // CRITICAL FIX: Try both route patterns (seller-aware and fallback)
+  const [matchSellerAware, paramsSellerAware] = useRoute("/s/:username/order-success/:orderId");
+  const [matchFallback, paramsFallback] = useRoute("/order-success/:orderId");
   const [, setLocation] = useLocation();
-  const orderId = params?.orderId;
+  
+  // Extract orderId from whichever route matched
+  const orderId = paramsSellerAware?.orderId || paramsFallback?.orderId;
   
   // Get email from URL query parameter for public order lookup
   const urlParams = new URLSearchParams(window.location.search);

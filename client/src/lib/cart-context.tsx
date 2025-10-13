@@ -136,7 +136,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       : undefined;
 
     // Prevent mixing products from different sellers (client-side validation)
-    if (cart && cart.items.length > 0 && cart.sellerId !== product.sellerId) {
+    // CRITICAL FIX: Defensive null check for cart.items
+    if (cart && cart.items && cart.items.length > 0 && cart.sellerId !== product.sellerId) {
       return { 
         success: false, 
         error: "Cannot add products from different sellers to the same cart. Please checkout your current items first." 
