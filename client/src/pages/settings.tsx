@@ -929,9 +929,15 @@ function TeamTab() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
-  const { data: collaborators, isLoading: collaboratorsLoading } = useQuery<any[]>({
+  const { data: teamData, isLoading: collaboratorsLoading } = useQuery<{
+    collaborators: any[];
+    pendingInvitations: any[];
+  }>({
     queryKey: ["/api/team/collaborators"],
   });
+
+  const collaborators = teamData?.collaborators || [];
+  const pendingInvitations = teamData?.pendingInvitations || [];
 
   const inviteMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -970,6 +976,26 @@ function TeamTab() {
       toast({
         title: "Error",
         description: error.message || "Failed to remove collaborator",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const cancelInvitationMutation = useMutation({
+    mutationFn: async (invitationId: string) => {
+      return await apiRequest("DELETE", `/api/team/invitations/${invitationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team/collaborators"] });
+      toast({
+        title: "Invitation cancelled",
+        description: "Invitation has been successfully cancelled",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to cancel invitation",
         variant: "destructive",
       });
     },
@@ -1037,11 +1063,59 @@ function TeamTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            {/* Pending Invitations Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Mail className="h-4 w-4" />
+                <h3 className="font-semibold">Pending Invitations</h3>
+              </div>
+              {collaboratorsLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : pendingInvitations && pendingInvitations.length > 0 ? (
+                <div className="space-y-3">
+                  {pendingInvitations.map((invitation: any) => (
+                    <div
+                      key={invitation.id}
+                      className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium">{invitation.inviteeEmail}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Invited {new Date(invitation.createdAt).toLocaleDateString()}
+                          {invitation.expiresAt && ` • Expires ${new Date(invitation.expiresAt).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          Pending
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => cancelInvitationMutation.mutate(invitation.id)}
+                          disabled={cancelInvitationMutation.isPending}
+                          data-testid={`button-cancel-invitation-${invitation.id}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8 border rounded-lg">
+                  No pending invitations
+                </p>
+              )}
+            </div>
+
             {/* Collaborators Section */}
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Users className="h-4 w-4" />
-                <h3 className="font-semibold">Collaborators</h3>
+                <h3 className="font-semibold">Team Members</h3>
               </div>
               {collaboratorsLoading ? (
                 <div className="space-y-3">
@@ -1054,6 +1128,7 @@ function TeamTab() {
                     <div
                       key={collaborator.id}
                       className="flex items-center justify-between p-4 border rounded-lg"
+                      data-testid={`collaborator-${collaborator.id}`}
                     >
                       <div className="flex-1">
                         <p className="font-medium">
@@ -1061,28 +1136,33 @@ function TeamTab() {
                             ? `${collaborator.user.firstName} ${collaborator.user.lastName}`
                             : collaborator.user?.email || 'Unknown'}
                         </p>
-                        <p className="text-sm text-muted-foreground">{collaborator.user?.email}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {collaborator.user?.email}
+                          {collaborator.createdAt && ` • Joined ${new Date(collaborator.createdAt).toLocaleDateString()}`}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">
-                          Collaborator
+                          {collaborator.accessLevel === 'owner' ? 'Owner' : 'Collaborator'}
                         </Badge>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => revokeCollaboratorMutation.mutate(collaborator.id)}
-                          disabled={revokeCollaboratorMutation.isPending}
-                          data-testid={`button-revoke-member-${collaborator.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {collaborator.accessLevel !== 'owner' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => revokeCollaboratorMutation.mutate(collaborator.id)}
+                            disabled={revokeCollaboratorMutation.isPending}
+                            data-testid={`button-revoke-member-${collaborator.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-8 border rounded-lg">
-                  No collaborators yet
+                  No team members yet
                 </p>
               )}
             </div>

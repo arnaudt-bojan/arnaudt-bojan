@@ -366,4 +366,72 @@ export class TeamManagementService {
       };
     }
   }
+
+  /**
+   * Cancel a pending invitation
+   * Architecture 3: Includes authorization checks
+   */
+  async cancelInvitation(params: {
+    invitationId: string;
+    cancelledByUserId: string;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const { invitationId, cancelledByUserId } = params;
+
+      // 1. Get the invitation to verify ownership
+      const invitation = await this.storage.getStoreInvitationById(invitationId);
+      if (!invitation) {
+        return {
+          success: false,
+          error: "Invitation not found"
+        };
+      }
+
+      // 2. Verify the user has permission to cancel this invitation
+      // Only the store owner or an active collaborator can cancel invitations
+      if (cancelledByUserId !== invitation.storeOwnerId) {
+        const membership = await this.storage.getUserStoreMembership(
+          cancelledByUserId,
+          invitation.storeOwnerId
+        );
+        if (!membership || membership.status !== 'active') {
+          return {
+            success: false,
+            error: "Only the store owner and active collaborators can cancel invitations"
+          };
+        }
+      }
+
+      // 3. Verify the invitation is still pending
+      if (invitation.status !== 'pending') {
+        return {
+          success: false,
+          error: `Cannot cancel invitation with status: ${invitation.status}`
+        };
+      }
+
+      // 4. Update invitation status to 'revoked'
+      await this.storage.updateStoreInvitationStatus(invitationId, 'revoked');
+
+      logger.info('[TeamManagement] Invitation cancelled', {
+        invitationId,
+        cancelledBy: cancelledByUserId,
+        inviteeEmail: invitation.inviteeEmail,
+        storeOwnerId: invitation.storeOwnerId
+      });
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      logger.error('[TeamManagement] Error cancelling invitation', error);
+      return {
+        success: false,
+        error: "Failed to cancel invitation"
+      };
+    }
+  }
 }

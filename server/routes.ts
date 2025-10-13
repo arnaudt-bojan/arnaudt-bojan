@@ -2434,16 +2434,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      const result = await teamService.listCollaborators(userId);
+      // Get both collaborators and pending invitations
+      const [collaboratorsResult, invitationsResult] = await Promise.all([
+        teamService.listCollaborators(userId),
+        teamService.getPendingInvitations(userId)
+      ]);
+      
+      if (!collaboratorsResult.success) {
+        return res.status(400).json({ error: collaboratorsResult.error });
+      }
+      
+      if (!invitationsResult.success) {
+        return res.status(400).json({ error: invitationsResult.error });
+      }
+      
+      res.json({
+        collaborators: collaboratorsResult.data || [],
+        pendingInvitations: invitationsResult.data || []
+      });
+    } catch (error) {
+      logger.error("Error listing team members", error);
+      res.status(500).json({ error: "Failed to load team members" });
+    }
+  });
+
+  app.delete("/api/team/invitations/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const result = await teamService.cancelInvitation({
+        invitationId: id,
+        cancelledByUserId: userId
+      });
       
       if (!result.success) {
         return res.status(400).json({ error: result.error });
       }
       
-      res.json(result.data?.collaborators || []);
+      res.json({ message: "Invitation cancelled successfully" });
     } catch (error) {
-      logger.error("Error listing collaborators", error);
-      res.status(500).json({ error: "Failed to load team members" });
+      logger.error("Error cancelling invitation", error);
+      res.status(500).json({ error: "Failed to cancel invitation" });
     }
   });
 
