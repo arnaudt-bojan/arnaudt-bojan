@@ -378,8 +378,7 @@ class NotificationServiceImpl implements NotificationService {
     // Get products from order items
     const items = JSON.parse(order.items);
     const productIds = items.map((item: any) => item.productId);
-    const allProducts = await this.storage.getAllProducts();
-    const products = allProducts.filter(p => productIds.includes(p.id));
+    const products = await this.storage.getProductsByIds(productIds);
     
     // Generate email HTML (ASYNC)
     const emailHtml = await this.generateOrderShippedEmail(order, seller, products);

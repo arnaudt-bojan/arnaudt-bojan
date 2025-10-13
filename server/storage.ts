@@ -131,7 +131,7 @@ import {
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, desc, sql, and, lt } from "drizzle-orm";
+import { eq, desc, sql, and, lt, inArray } from "drizzle-orm";
 import ws from "ws";
 import { logger } from './logger';
 
@@ -184,6 +184,7 @@ export interface IStorage {
   
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
+  getProductsByIds(ids: string[]): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
@@ -540,6 +541,26 @@ export class DatabaseStorage implements IStorage {
     }
     
     return result[0];
+  }
+
+  async getProductsByIds(ids: string[]): Promise<Product[]> {
+    await this.ensureInitialized();
+    
+    // Handle empty array case
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    
+    const results = await this.db
+      .select()
+      .from(products)
+      .where(inArray(products.id, ids));
+    
+    // CRITICAL FIX: Ensure sellerId is always mapped correctly from seller_id column
+    return results.map(product => ({
+      ...product,
+      sellerId: product.sellerId || (product as any).seller_id,
+    }));
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
