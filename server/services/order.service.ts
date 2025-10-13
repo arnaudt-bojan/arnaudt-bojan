@@ -658,6 +658,13 @@ export class OrderService {
           // Send buyer confirmation
           await this.notificationService.sendOrderConfirmation(updatedOrder, seller, products);
           
+          logger.info('[OrderService] Buyer email sent, now sending seller notification', {
+            orderId: order.id,
+            sellerId: seller.id,
+            sellerEmail: seller.email,
+            productCount: products.length,
+          });
+          
           // Send seller notification
           await this.notificationService.sendSellerOrderNotification(updatedOrder, seller, products);
           
@@ -671,9 +678,11 @@ export class OrderService {
           });
         }
       } catch (notificationError: any) {
+        console.error('[OrderService] Notification error FULL DETAILS:', notificationError);
         logger.error('[OrderService] Failed to send order notifications', {
           orderId: order.id,
           error: notificationError.message,
+          stack: notificationError.stack,
         });
         // Don't fail the payment confirmation - notifications are best-effort
       }

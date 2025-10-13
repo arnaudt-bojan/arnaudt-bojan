@@ -362,7 +362,7 @@ class NotificationServiceImpl implements NotificationService {
         userId: seller.id,
         type: 'seller_new_order',
         title: sellerSubject,
-        message: `Order from ${buyerName} - $${order.total.toFixed(2)} - View details`,
+        message: `Order from ${buyerName} - $${parseFloat(order.total).toFixed(2)} - View details`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { orderId: order.id, buyerEmail, total: order.total },
