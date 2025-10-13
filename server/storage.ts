@@ -187,6 +187,7 @@ export interface IStorage {
   updateTeamInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvitation | undefined>;
   
   // New Auth System - Store Invitations (new simplified system)
+  getStoreInvitationById(id: string): Promise<StoreInvitation | undefined>;
   getStoreInvitationByToken(token: string): Promise<StoreInvitation | undefined>;
   getPendingStoreInvitations(storeOwnerId: string): Promise<StoreInvitation[]>;
   createStoreInvitation(invitation: InsertStoreInvitation): Promise<StoreInvitation>;
@@ -1546,6 +1547,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // New Auth System - Store Invitations (new simplified system)
+  async getStoreInvitationById(id: string): Promise<StoreInvitation | undefined> {
+    await this.ensureInitialized();
+    const [invitation] = await this.db.select().from(storeInvitations).where(eq(storeInvitations.id, id));
+    return invitation || undefined;
+  }
+
   async getStoreInvitationByToken(token: string): Promise<StoreInvitation | undefined> {
     await this.ensureInitialized();
     const [invitation] = await this.db.select().from(storeInvitations).where(eq(storeInvitations.token, token));
@@ -1567,13 +1574,15 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateStoreInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<void> {
+  async updateStoreInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<StoreInvitation | undefined> {
     await this.ensureInitialized();
     const updates: any = { status };
     if (acceptedAt) updates.acceptedAt = acceptedAt;
-    await this.db.update(storeInvitations)
+    const [result] = await this.db.update(storeInvitations)
       .set(updates)
-      .where(eq(storeInvitations.id, id));
+      .where(eq(storeInvitations.id, id))
+      .returning();
+    return result || undefined;
   }
 
   // New Auth System - Wholesale Invitations
