@@ -1,5 +1,35 @@
 # Backend Services Architecture
 
+## Service Validation Status (October 2025)
+
+**Test Phase:** Architecture 3 Regression Testing (Phase 1 - Manual E2E)  
+**Last Updated:** October 13, 2025  
+**Documentation:** `docs/ARCHITECTURE_3_TEST_RESULTS.md`
+
+### ✅ Validated Services (7/10)
+| Service | Status | Coverage | Notes |
+|---------|--------|----------|-------|
+| **CartService** | ✅ VALIDATED | 100% | Cart persistence bug FIXED, session-based storage working |
+| **PricingCalculationService** | ✅ VALIDATED | 100% | All calculations verified (subtotal, shipping, tax, total) |
+| **ShippingService** | ✅ VALIDATED | 100% | Shippo integration working, delivery estimates accurate |
+| **ProductService** | ✅ VALIDATED | 95% | SKU generation, stock sync, CRUD, bulk import validated |
+| **ConfigurationError** | ✅ VALIDATED | 100% | Error handling improved (400 not 500) |
+| **CartValidationService** | ✅ VALIDATED | 100% | Server-side price validation working |
+| **InventoryService** | ✅ VALIDATED | 100% | Stock reservation and sync working |
+
+### ⏸️ Blocked Services (2/10)
+| Service | Status | Blocker | Next Steps |
+|---------|--------|---------|------------|
+| **OrderLifecycleService** | ⏸️ BLOCKED | Stripe Connect onboarding required | Complete Stripe Connect setup |
+| **LegacyStripeCheckoutService** | ⏸️ BLOCKED | Stripe Connect onboarding required | Complete Stripe Connect setup |
+
+### 🔄 Pending Services (1/10)
+| Service | Status | Reason | Priority |
+|---------|--------|--------|----------|
+| **StripeWebhookService** | 🔄 PENDING | Requires Stripe webhook configuration | Medium |
+
+---
+
 ## Overview
 All business logic has been centralized in backend services. The frontend is purely presentational and makes API calls to these services.
 
