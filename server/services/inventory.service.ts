@@ -46,11 +46,25 @@ export class InventoryService {
     let currentStock = 0;
     
     if (variantId && product.variants) {
+      // CRITICAL FIX: Variants are stored as color groups with nested sizes arrays
+      // Structure: [{colorName, colorHex, sizes: [{size, stock}, ...]}]
       const variants = Array.isArray(product.variants) ? product.variants : [];
-      const variant = variants.find((v: any) => 
-        this.getVariantId(v.size, v.color) === variantId
-      );
-      currentStock = variant?.stock || 0;
+      let variantStock = 0;
+
+      for (const colorVariant of variants) {
+        if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
+          const sizeVariant = colorVariant.sizes.find((s: any) => 
+            `${s.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
+            s.size === variantId
+          );
+          if (sizeVariant && typeof sizeVariant.stock === 'number') {
+            variantStock = sizeVariant.stock;
+            break;
+          }
+        }
+      }
+      
+      currentStock = variantStock;
     } else {
       currentStock = product.stock || 0;
     }
@@ -94,11 +108,57 @@ export class InventoryService {
       expirationMinutes?: number;
     }
   ): Promise<ReservationResult> {
-    // CRITICAL: Use atomic transaction to prevent race conditions
-    // This prevents two concurrent requests from both passing availability check
-    // and creating reservations that exceed available stock
+    // ARCHITECTURE 3: Business logic in service layer
+    // Check product type BEFORE calling storage layer
     
     try {
+      // Step 1: Get product to check type (business logic)
+      const product = await this.storage.getProduct(productId);
+      
+      if (!product) {
+        return {
+          success: false,
+          error: 'Product not found',
+        };
+      }
+      
+      // Step 2: Pre-order and made-to-order products skip stock validation (business logic)
+      const isPreOrderOrMadeToOrder = product.productType === 'pre-order' || product.productType === 'made-to-order';
+      
+      if (isPreOrderOrMadeToOrder) {
+        // For pre-order/made-to-order, create reservation directly without stock check
+        // Still create reservation for tracking purposes
+        const expirationMinutes = options?.expirationMinutes || 15;
+        const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+        
+        const reservation = await this.storage.createStockReservation({
+          productId,
+          variantId: options?.variantId || null,
+          quantity,
+          sessionId,
+          userId: options?.userId || null,
+          status: 'active',
+          expiresAt,
+          orderId: null,
+          committedAt: null,
+          releasedAt: null,
+        });
+        
+        logger.info('[InventoryService] Stock reserved for pre-order/made-to-order (no stock check)', {
+          reservationId: reservation.id,
+          productId,
+          productType: product.productType,
+          variantId: options?.variantId,
+          quantity,
+        });
+        
+        return {
+          success: true,
+          reservation,
+        };
+      }
+      
+      // Step 3: For in-stock products, use atomic reservation with stock validation
       const result = await this.storage.atomicReserveStock(
         productId,
         quantity,

@@ -567,28 +567,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check stock availability for product or variant
+  // ARCHITECTURE 3: Thin route handler - validates, calls service, returns
   app.get("/api/products/:productId/stock-availability", async (req, res) => {
     try {
       const { productId } = req.params;
       const { variantId } = req.query;
 
+      // Validate: Check product exists (route responsibility)
       const product = await storage.getProduct(productId);
       if (!product) {
         return res.status(404).json({ error: "Product not found" });
       }
 
-      // Get reserved stock for this product/variant
-      const reservedStock = await storage.getReservedStock(
-        productId, 
-        variantId ? String(variantId) : undefined
-      );
-
-      // For products with variants, check variant-level stock
+      // Validate: Check variant exists if variantId provided (route responsibility)
       if (variantId && product.variants && Array.isArray(product.variants)) {
         const variants = product.variants as any[];
-        
-        // Find the specific variant by parsing variant structure
-        let variantStock = 0;
         let variantFound = false;
 
         for (const colorVariant of variants) {
@@ -597,8 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `${s.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
               s.size === variantId
             );
-            if (sizeVariant && typeof sizeVariant.stock === 'number') {
-              variantStock = sizeVariant.stock;
+            if (sizeVariant) {
               variantFound = true;
               break;
             }
@@ -608,40 +600,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!variantFound) {
           return res.status(404).json({ error: "Variant not found" });
         }
-
-        const availableStock = Math.max(0, variantStock - reservedStock);
-        // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
-        const isAvailable = (product.productType === 'pre-order' || product.productType === 'made-to-order') 
-          ? true 
-          : availableStock > 0;
-        
-        return res.json({
-          productId,
-          variantId,
-          totalStock: variantStock,
-          reservedStock,
-          availableStock,
-          isAvailable,
-          isVariant: true,
-        });
       }
 
-      // For simple products or product-level stock
-      const totalStock = typeof product.stock === 'number' ? product.stock : 0;
-      const availableStock = Math.max(0, totalStock - reservedStock);
-      
-      // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
-      const isAvailable = (product.productType === 'pre-order' || product.productType === 'made-to-order') 
-        ? true 
-        : availableStock > 0;
+      // Delegate to service layer for business logic
+      const availability = await inventoryService.checkAvailability(
+        productId,
+        1, // Check for at least 1 unit
+        variantId ? String(variantId) : undefined
+      );
 
       res.json({
-        productId,
-        totalStock,
-        reservedStock,
-        availableStock,
-        isAvailable,
-        isVariant: false,
+        productId: availability.productId,
+        variantId: availability.variantId,
+        totalStock: availability.currentStock,
+        reservedStock: availability.reservedStock,
+        availableStock: availability.availableStock,
+        isAvailable: availability.available,
+        isVariant: !!variantId,
       });
     } catch (error) {
       logger.error("Error checking stock availability", error);
