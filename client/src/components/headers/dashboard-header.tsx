@@ -87,14 +87,6 @@ export function DashboardHeader() {
                     My Products
                   </Link>
                   <Link
-                    href="/orders"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
-                    data-testid="mobile-link-orders"
-                  >
-                    Orders
-                  </Link>
-                  <Link
                     href="/seller/wholesale/products"
                     onClick={() => setMobileMenuOpen(false)}
                     className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
