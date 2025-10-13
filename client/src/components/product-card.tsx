@@ -10,9 +10,10 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 interface ProductCardProps {
   product: Product;
   onAddToCart?: (product: Product) => void;
+  disabled?: boolean;
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps) {
   const { formatPrice } = useCurrency();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
@@ -135,6 +136,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
               e.preventDefault();
               onAddToCart?.(product);
             }}
+            disabled={disabled}
             data-testid={`button-add-to-cart-${product.id}`}
           >
             <Plus className="h-4 w-4" />

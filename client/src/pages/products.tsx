@@ -42,7 +42,7 @@ export default function Products() {
     sortBy: "newest",
   });
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
-  const { addItem } = useCart();
+  const { addItem, isLoading: isCartLoading } = useCart();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer' || user?.role === 'seller' || user?.role === 'owner';
@@ -190,8 +190,8 @@ export default function Products() {
       }
     });
 
-  const handleAddToCart = (product: Product) => {
-    const result = addItem(product);
+  const handleAddToCart = async (product: Product) => {
+    const result = await addItem(product);
     if (result.success) {
       toast({
         title: "Added to cart",
@@ -457,6 +457,7 @@ export default function Products() {
                 key={product.id}
                 product={product}
                 onAddToCart={handleAddToCart}
+                disabled={isCartLoading}
               />
             ))}
             

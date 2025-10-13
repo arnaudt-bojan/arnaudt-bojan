@@ -19,6 +19,11 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart-context";
 import { apiRequest } from "@/lib/queryClient";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface WholesaleProduct {
   id: string;
@@ -50,7 +55,7 @@ export default function WholesaleProductDetail() {
   const [, setLocation] = useLocation();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
-  const { addItem, updateQuantity } = useCart();
+  const { addItem, updateQuantity, isLoading: isCartLoading } = useCart();
 
   // Quantity selections for variants
   const [variantQuantities, setVariantQuantities] = useState<Map<string, number>>(new Map());
@@ -84,7 +89,7 @@ export default function WholesaleProductDetail() {
     return variantQuantities.get(key) || 0;
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
 
     if (product.variants && product.variants.length > 0) {
@@ -125,10 +130,11 @@ export default function WholesaleProductDetail() {
         depositAmount: product.depositAmount,
         requiresDeposit: product.requiresDeposit,
         variants: product.variants,
-      };
+        sellerId: product.sellerId,
+      } as any;
 
       // Add to cart with total quantity
-      const result = addItem(cartItem);
+      const result = await addItem(cartItem);
       if (result.success) {
         updateQuantity(cartItem.id, totalQuantity);
         toast({
@@ -155,9 +161,10 @@ export default function WholesaleProductDetail() {
         stock: product.stock,
         depositAmount: product.depositAmount,
         requiresDeposit: product.requiresDeposit,
-      };
+        sellerId: product.sellerId,
+      } as any;
 
-      const result = addItem(cartItem);
+      const result = await addItem(cartItem);
       if (result.success) {
         updateQuantity(cartItem.id, product.moq);
         toast({
@@ -424,19 +431,28 @@ export default function WholesaleProductDetail() {
             </div>
 
             <div className="mt-6 flex gap-4">
-              <Button
-                onClick={handleAddToCart}
-                disabled={totalQuantity < product.moq || totalQuantity === 0}
-                className="flex-1"
-                size="lg"
-                data-testid="button-add-to-cart"
-              >
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                {totalQuantity < product.moq 
-                  ? `Need ${product.moq - totalQuantity} More Units`
-                  : "Add to Cart"
-                }
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleAddToCart}
+                    disabled={totalQuantity < product.moq || totalQuantity === 0 || isCartLoading}
+                    className="flex-1"
+                    size="lg"
+                    data-testid="button-add-to-cart"
+                  >
+                    <ShoppingCart className="mr-2 h-5 w-5" />
+                    {totalQuantity < product.moq 
+                      ? `Need ${product.moq - totalQuantity} More Units`
+                      : "Add to Cart"
+                    }
+                  </Button>
+                </TooltipTrigger>
+                {isCartLoading && (
+                  <TooltipContent>
+                    <p>Loading cart...</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </Card>
         ) : (
@@ -448,10 +464,19 @@ export default function WholesaleProductDetail() {
                   Minimum order: {product.moq} units
                 </p>
               </div>
-              <Button size="lg" onClick={handleAddToCart} data-testid="button-add-to-cart">
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                Add to Cart
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="lg" onClick={handleAddToCart} disabled={isCartLoading} data-testid="button-add-to-cart">
+                    <ShoppingCart className="mr-2 h-5 w-5" />
+                    Add to Cart
+                  </Button>
+                </TooltipTrigger>
+                {isCartLoading && (
+                  <TooltipContent>
+                    <p>Loading cart...</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </Card>
         )}

@@ -33,7 +33,7 @@ interface Cart {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, variant?: { size?: string; color?: string }) => { success: boolean; error?: string };
+  addItem: (product: Product, variant?: { size?: string; color?: string }) => Promise<{ success: boolean; error?: string }>;
   removeItem: (productId: string, variant?: { size?: string; color?: string }) => void;
   updateQuantity: (productId: string, quantity: number, variant?: { size?: string; color?: string }) => void;
   clearCart: () => void;
@@ -129,7 +129,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const addItem = (product: Product, variant?: { size?: string; color?: string }) => {
+  const addItem = async (product: Product, variant?: { size?: string; color?: string }) => {
     // Construct variantId if variant provided (format: "size-color")
     const variantId = variant 
       ? `${variant.size || ''}-${variant.color || ''}`.trim().replace(/^-|-$/g, '')
@@ -143,11 +143,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // Call backend mutation
-    addMutation.mutate({ productId: product.id, quantity: 1, variantId });
-
-    // Return success - actual errors will be handled by mutation error callback
-    return { success: true };
+    // Call backend mutation and wait for result
+    try {
+      await addMutation.mutateAsync({ productId: product.id, quantity: 1, variantId });
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.message || "Failed to add to cart" 
+      };
+    }
   };
 
   const removeItem = (productId: string, variant?: { size?: string; color?: string }) => {

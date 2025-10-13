@@ -18,6 +18,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { VariantColorSelector } from "@/components/variant-color-selector";
 import { VariantSizeSelector } from "@/components/variant-size-selector";
 import type { ColorVariant } from "@/components/product-variant-manager";
@@ -41,7 +46,7 @@ export default function ProductDetail() {
   const [, params] = useRoute("/products/:id");
   const productId = params?.id;
   const [, setLocation] = useLocation();
-  const { addItem } = useCart();
+  const { addItem, isLoading: isCartLoading } = useCart();
   const { toast } = useToast();
   const { user, isSeller, isCollaborator } = useAuth();
   const { formatPrice } = useCurrency();
@@ -197,7 +202,7 @@ export default function ProductDetail() {
     return null;
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
 
     const unavailableReason = getUnavailableReason();
@@ -216,7 +221,7 @@ export default function ProductDetail() {
       ? { size: selectedSize, color: selectedColor }
       : undefined;
 
-    const result = addItem(product, variant);
+    const result = await addItem(product, variant);
     if (result.success) {
       toast({
         title: "Added to cart",
@@ -231,7 +236,7 @@ export default function ProductDetail() {
     }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!product) return;
 
     const unavailableReason = getUnavailableReason();
@@ -250,16 +255,20 @@ export default function ProductDetail() {
       ? { size: selectedSize, color: selectedColor }
       : undefined;
 
-    const result = addItem(product, variant);
-    if (result.success) {
-      setLocation("/checkout");
-    } else {
+    const result = await addItem(product, variant);
+    
+    // HALT if validation fails - don't navigate to checkout
+    if (!result.success) {
       toast({
         title: "Cannot proceed",
         description: result.error,
         variant: "destructive",
       });
+      return;
     }
+    
+    // Only navigate if successful
+    setLocation("/checkout");
   };
 
   if (isLoading) {
@@ -491,26 +500,44 @@ export default function ProductDetail() {
             {/* Only show Add to Cart / Buy Now for buyers (not sellers/collaborators) */}
             {canAddToCart && (
               <div className="grid grid-cols-2 gap-3">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleAddToCart}
-                  disabled={!isProductAvailable() || isLoadingStock}
-                  data-testid="button-add-to-cart"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  {!isProductAvailable() && product?.productType === "in-stock" ? "Sold Out" : "Add to Cart"}
-                </Button>
-                <Button
-                  size="lg"
-                  className="gap-2"
-                  onClick={handleBuyNow}
-                  disabled={!isProductAvailable() || isLoadingStock}
-                  data-testid="button-buy-now"
-                >
-                  {!isProductAvailable() && product?.productType === "in-stock" ? "Unavailable" : "Buy Now"}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={handleAddToCart}
+                      disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
+                      data-testid="button-add-to-cart"
+                    >
+                      <ShoppingCart className="h-5 w-5" />
+                      {!isProductAvailable() && product?.productType === "in-stock" ? "Sold Out" : "Add to Cart"}
+                    </Button>
+                  </TooltipTrigger>
+                  {isCartLoading && (
+                    <TooltipContent>
+                      <p>Loading cart...</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="lg"
+                      className="gap-2"
+                      onClick={handleBuyNow}
+                      disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
+                      data-testid="button-buy-now"
+                    >
+                      {!isProductAvailable() && product?.productType === "in-stock" ? "Unavailable" : "Buy Now"}
+                    </Button>
+                  </TooltipTrigger>
+                  {isCartLoading && (
+                    <TooltipContent>
+                      <p>Loading cart...</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               </div>
             )}
 
