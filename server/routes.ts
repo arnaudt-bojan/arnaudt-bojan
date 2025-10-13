@@ -37,6 +37,9 @@ import { StripeWebhookService } from "./services/stripe-webhook.service";
 import { MetaIntegrationService } from "./services/meta-integration.service";
 import { ConfigurationError } from "./errors";
 import { PlatformAnalyticsService } from "./services/platform-analytics.service";
+import { CheckoutService } from "./services/checkout.service";
+import { CreateFlowService } from "./services/workflows/create-flow.service";
+import type { WorkflowConfig } from "./services/workflows/types";
 import crypto from "crypto";
 
 // Initialize PDF service with Stripe secret key
@@ -170,6 +173,38 @@ const metaIntegrationService = new MetaIntegrationService(
 
 // Initialize Platform Analytics service (Architecture 3)
 const platformAnalyticsService = new PlatformAnalyticsService(storage);
+
+// Initialize CreateFlowService workflow orchestrator (Architecture 3)
+// Requires: storage, config, and all workflow step dependencies
+let createFlowService: CreateFlowService | null = null;
+let checkoutService: CheckoutService | null = null;
+
+if (paymentService && stripeProvider) {
+  const workflowConfig: WorkflowConfig = {
+    maxRetries: 3,
+    retryDelayMs: 1000,
+    timeoutMs: 120000, // 2 minutes
+  };
+
+  createFlowService = new CreateFlowService(
+    storage,
+    workflowConfig,
+    cartValidationService,
+    shippingService,
+    pricingCalculationService,
+    inventoryService,
+    paymentService,
+    orderService,
+    notificationService
+  );
+
+  // Initialize CheckoutService - thin adapter for CreateFlowService workflow
+  checkoutService = new CheckoutService(
+    storage,
+    stripeProvider,
+    createFlowService
+  );
+}
 
 /**
  * API Key Middleware - Validates X-API-Key header using constant-time comparison
@@ -1719,6 +1754,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logger.error("[Pricing API] Error calculating pricing:", error);
       res.status(500).json({ error: "Failed to calculate pricing" });
+    }
+  });
+
+  // Checkout - Server-orchestrated workflow (Architecture 3)
+  // Delegates to CheckoutService → CreateFlowService workflow orchestrator
+  app.post('/api/checkout/initiate', async (req, res) => {
+    try {
+      // Validate checkoutService availability
+      if (!checkoutService) {
+        logger.error('[API] CheckoutService not available - Stripe not configured');
+        return res.status(500).json({ 
+          error: 'Checkout service not available',
+          errorCode: 'SERVICE_UNAVAILABLE' 
+        });
+      }
+
+      const { items, shippingAddress, customerEmail, customerName } = req.body;
+
+      // Validate required parameters
+      if (!items || !shippingAddress || !customerEmail || !customerName) {
+        return res.status(400).json({ 
+          error: 'Missing required checkout parameters',
+          errorCode: 'INVALID_REQUEST' 
+        });
+      }
+
+      // Delegate to CheckoutService workflow orchestrator
+      const result = await checkoutService.initiateCheckout({
+        items,
+        shippingAddress,
+        customerEmail,
+        customerName,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({
+          error: result.error,
+          errorCode: result.errorCode,
+        });
+      }
+
+      return res.json({
+        clientSecret: result.clientSecret,
+        paymentIntentId: result.paymentIntentId,
+        checkoutSessionId: result.checkoutSessionId,
+        amountToCharge: result.amountToCharge,
+        currency: result.currency,
+      });
+
+    } catch (error: any) {
+      logger.error('[API] Checkout initiate failed:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        errorCode: 'SERVER_ERROR' 
+      });
     }
   });
 
