@@ -18,9 +18,17 @@ import {
   generateEmailBaseLayout, 
   generateUpfirstHeader, 
   generateUpfirstFooter,
-  generateCTAButton
+  generateSellerHeader,
+  generateSellerFooter,
+  generateCTAButton,
+  generateProductThumbnail,
+  generateOrderSummary,
+  generateShippingAddress,
+  generateTrackingInfo,
+  generateMagicLinkButton
 } from './utils/email-templates';
-import { EmailType } from './services/email-metadata.service';
+import { EmailType, EmailMetadataService } from './services/email-metadata.service';
+import Stripe from 'stripe';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -47,8 +55,12 @@ export interface NotificationService {
   sendSubscriptionCancelled(seller: User, endDate: Date): Promise<void>;
   sendLowInventoryAlert(seller: User, product: Product, currentStock: number): Promise<void>;
   
-  // Balance Payment Request
+  // Seller → Buyer Email Methods (Task 5f)
+  sendOrderDelivered(order: Order, seller: User, products: Product[]): Promise<void>;
+  sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<void>;
   sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void>;
+  sendBalancePaymentReceived(order: Order, seller: User, balanceAmount: number): Promise<void>;
+  sendWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[]): Promise<void>;
   
   // Seller Order Notification (when buyer places order)
   sendSellerOrderNotification(order: Order, seller: User, products: Product[]): Promise<void>;
@@ -106,6 +118,8 @@ class NotificationServiceImpl implements NotificationService {
   private emailConfig: EmailConfigService;
   private emailProvider: IEmailProvider;
   private messages: NotificationMessagesService;
+  private stripe: Stripe;
+  private emailMetadata: EmailMetadataService;
 
   constructor(
     storage: any, 
@@ -123,6 +137,14 @@ class NotificationServiceImpl implements NotificationService {
       process.env.RESEND_API_KEY || 'dummy-key-not-configured'
     );
     this.messages = messages || new NotificationMessagesService();
+    
+    // Initialize Stripe
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      apiVersion: "2025-09-30.clover",
+    });
+    
+    // Initialize EmailMetadataService
+    this.emailMetadata = new EmailMetadataService(storage, this.stripe);
   }
 
   /**
@@ -254,8 +276,15 @@ class NotificationServiceImpl implements NotificationService {
     
     const magicLink = await this.generateMagicLinkForEmail(buyerEmail, `/orders/${order.id}`, sellerContext);
 
-    // Generate branded email HTML with magic link
-    const emailHtml = this.generateOrderConfirmationEmail(order, seller, products, buyerName, magicLink);
+    // Generate branded email HTML with magic link (ASYNC)
+    const emailHtml = await this.generateOrderConfirmationEmail(order, seller, products, buyerName, magicLink);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ORDER_CONFIRMATION, {
+      orderId: order.id
+    });
 
     // Generate invoice PDF
     let attachments: EmailAttachment[] = [];
@@ -291,12 +320,12 @@ class NotificationServiceImpl implements NotificationService {
       // Continue sending email without attachment
     }
 
-    // Send email from verified domain with seller as reply-to
-    const template = this.messages.orderConfirmation(order, seller.firstName || seller.username || 'Store');
+    // Send email with seller branding
     const result = await this.sendEmail({
       to: buyerEmail,
-      replyTo: seller.email || undefined,
-      subject: template.emailSubject,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
       attachments,
     });
@@ -308,7 +337,7 @@ class NotificationServiceImpl implements NotificationService {
           orderId: order.id,
           eventType: 'email_sent',
           recipientEmail: buyerEmail,
-          subject: template.emailSubject,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             emailType: 'order_confirmation',
@@ -342,13 +371,26 @@ class NotificationServiceImpl implements NotificationService {
    * Send order shipped notification (Seller → Buyer) with tracking
    */
   async sendOrderShipped(order: Order, seller: User): Promise<void> {
-    const emailHtml = this.generateOrderShippedEmail(order, seller);
-    const template = this.messages.orderShipped(order, seller.firstName || seller.username || 'Store', order.trackingNumber || undefined);
+    // Get products from order items
+    const items = JSON.parse(order.items);
+    const productIds = items.map((item: any) => item.productId);
+    const products = await this.storage.getProductsByIds(productIds);
+    
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateOrderShippedEmail(order, seller, products);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ORDER_SHIPPED, {
+      orderId: order.id
+    });
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      replyTo: seller.email || undefined,
-      subject: template.emailSubject,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
     });
 
@@ -359,7 +401,7 @@ class NotificationServiceImpl implements NotificationService {
           orderId: order.id,
           eventType: 'email_sent',
           recipientEmail: order.customerEmail,
-          subject: template.emailSubject,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             emailType: 'order_shipped',
@@ -392,8 +434,16 @@ class NotificationServiceImpl implements NotificationService {
    * Send item tracking notification (Seller → Buyer) when individual item ships
    */
   async sendItemTracking(order: Order, item: OrderItem, seller: User): Promise<void> {
-    const emailHtml = this.generateItemTrackingEmail(order, item, seller);
-    const template = this.messages.itemShipped(order.id, item.productName);
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateItemTrackingEmail(order, item, seller);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ITEM_TRACKING_UPDATE, {
+      productName: item.productName,
+      orderId: order.id
+    });
 
     // Generate packing slip PDF for this specific item
     let attachments: EmailAttachment[] = [];
@@ -420,8 +470,9 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      replyTo: seller.email || undefined,
-      subject: template.emailSubject,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
       attachments,
     });
@@ -433,7 +484,7 @@ class NotificationServiceImpl implements NotificationService {
           orderId: order.id,
           eventType: 'tracking_updated',
           recipientEmail: order.customerEmail,
-          subject: template.emailSubject,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             itemId: item.id,
@@ -469,16 +520,24 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send item delivered notification (Seller → Buyer)
+   * Send order delivered notification (Seller → Buyer) - TASK 5f
    */
-  async sendItemDelivered(order: Order, item: OrderItem, seller: User): Promise<void> {
-    const emailHtml = this.generateItemDeliveredEmail(order, item, seller);
-    const template = this.messages.itemDelivered(order.id, item.productName);
+  async sendOrderDelivered(order: Order, seller: User, products: Product[]): Promise<void> {
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateOrderDeliveredEmail(order, seller, products);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ORDER_DELIVERED, {
+      orderId: order.id
+    });
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      replyTo: seller.email || undefined,
-      subject: template.emailSubject,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
     });
 
@@ -487,9 +546,202 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'email_sent',
+          eventType: 'order_delivered',
           recipientEmail: order.customerEmail,
-          subject: template.emailSubject,
+          subject: subject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'order_delivered',
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log order delivered event:", error);
+      }
+    }
+
+    console.log(`[Notifications] Order delivered notification sent:`, result.success);
+  }
+
+  /**
+   * Send order refunded notification (Seller → Buyer) - TASK 5f
+   */
+  async sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<void> {
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateOrderRefundedEmail(order, seller, refundAmount, refundedItems);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ORDER_REFUNDED, {
+      orderId: order.id
+    });
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
+      html: emailHtml,
+    });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'order_refunded',
+          recipientEmail: order.customerEmail,
+          subject: subject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'order_refunded',
+            refundAmount,
+            refundedItems: refundedItems.length,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log order refunded event:", error);
+      }
+    }
+
+    console.log(`[Notifications] Order refunded notification sent:`, result.success);
+  }
+
+  /**
+   * Send balance payment received notification (Seller → Buyer) - TASK 5f
+   */
+  async sendBalancePaymentReceived(order: Order, seller: User, balanceAmount: number): Promise<void> {
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateBalancePaymentReceivedEmail(order, seller, balanceAmount);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_RECEIVED, {
+      orderId: order.id
+    });
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
+      html: emailHtml,
+    });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'balance_payment_received',
+          recipientEmail: order.customerEmail,
+          subject: subject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'balance_payment_received',
+            balanceAmount,
+            currency: order.currency,
+            sellerName: seller.firstName || seller.username || 'Store',
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log balance payment received event:", error);
+      }
+    }
+
+    console.log(`[Notifications] Balance payment received notification sent:`, result.success);
+  }
+
+  /**
+   * Send welcome email for first order (Seller → Buyer) - TASK 5f
+   */
+  async sendWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[]): Promise<void> {
+    // Generate magic link for auto-login
+    const sellerContext = seller.username || seller.id;
+    if (!sellerContext) {
+      logger.error("[Notifications] Cannot generate buyer magic link - seller has no username or ID");
+      throw new Error('Seller must have username or ID to send buyer emails');
+    }
+    
+    const magicLink = await this.generateMagicLinkForEmail(order.customerEmail, `/orders/${order.id}`, sellerContext);
+    
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateWelcomeEmailFirstOrder(order, seller, products, magicLink);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.WELCOME_ORDER, {
+      orderId: order.id,
+      sellerName: seller.firstName || seller.username || 'Store'
+    });
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
+      html: emailHtml,
+    });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'welcome_email_sent',
+          recipientEmail: order.customerEmail,
+          subject: subject,
+          sentAt: new Date(),
+          metadata: JSON.stringify({
+            emailType: 'welcome_email_first_order',
+            sellerName: seller.firstName || seller.username || 'Store',
+            productCount: products.length,
+          }),
+        });
+      } catch (error) {
+        logger.error("[Notifications] Failed to log welcome email event:", error);
+      }
+    }
+
+    console.log(`[Notifications] Welcome email sent:`, result.success);
+  }
+
+  /**
+   * Send item delivered notification (Seller → Buyer)
+   * MIGRATED: Uses EmailMetadataService for From/ReplyTo/Subject + seller branding
+   */
+  async sendItemDelivered(order: Order, item: OrderItem, seller: User): Promise<void> {
+    // Generate email HTML with seller branding (ASYNC)
+    const emailHtml = await this.generateItemDeliveredEmail(order, item, seller);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ITEM_DELIVERED, {
+      productName: item.productName,
+      orderId: order.id
+    });
+
+    const result = await this.sendEmail({
+      to: order.customerEmail,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
+      html: emailHtml,
+    });
+
+    // Log email event to order_events table
+    if (result.success) {
+      try {
+        await this.storage.createOrderEvent({
+          orderId: order.id,
+          eventType: 'item_delivered',
+          recipientEmail: order.customerEmail,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             emailType: 'item_delivered',
@@ -525,15 +777,25 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Send item cancelled notification (Seller → Buyer)
+   * MIGRATED: Uses EmailMetadataService for From/ReplyTo/Subject + seller branding
    */
   async sendItemCancelled(order: Order, item: OrderItem, seller: User, reason?: string): Promise<void> {
-    const emailHtml = this.generateItemCancelledEmail(order, item, seller, reason);
-    const template = this.messages.itemCancelled(order.id, item.productName, reason);
+    // Generate email HTML with seller branding (ASYNC)
+    const emailHtml = await this.generateItemCancelledEmail(order, item, seller, reason);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ITEM_CANCELLED, {
+      productName: item.productName,
+      orderId: order.id
+    });
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      replyTo: seller.email || undefined,
-      subject: template.emailSubject,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
     });
 
@@ -542,9 +804,9 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'email_sent',
+          eventType: 'item_cancelled',
           recipientEmail: order.customerEmail,
-          subject: template.emailSubject,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             emailType: 'item_cancelled',
@@ -582,15 +844,27 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Send item refunded notification (Seller → Buyer)
+   * MIGRATED: Uses EmailMetadataService for From/ReplyTo/Subject + seller branding
    */
   async sendItemRefunded(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number, currency: string = 'USD'): Promise<void> {
-    const emailHtml = this.generateItemRefundedEmail(order, item, seller, refundAmount, refundedQuantity);
-    const template = this.messages.itemRefunded(order.id, item.productName, refundAmount, currency);
+    // Generate email HTML with seller branding (ASYNC)
+    const emailHtml = await this.generateItemRefundedEmail(order, item, seller, refundAmount, refundedQuantity);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.ITEM_REFUNDED, {
+      productName: item.productName,
+      orderId: order.id,
+      amount: refundAmount,
+      currency: currency
+    });
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      replyTo: seller.email || undefined,
-      subject: template.emailSubject,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
     });
 
@@ -599,9 +873,9 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'email_sent',
+          eventType: 'item_refunded',
           recipientEmail: order.customerEmail,
-          subject: template.emailSubject,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             emailType: 'item_refunded',
@@ -738,43 +1012,29 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Generate branded order confirmation email with seller banner and product images
+   * SELLER → BUYER EMAIL - Uses seller branding infrastructure
    * DARK MODE SAFE - Works across all email clients
    */
-  private generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string, magicLink: string): string {
+  private async generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string, magicLink: string): Promise<string> {
     const items = JSON.parse(order.items);
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
-    const storeName = seller.firstName || seller.username || 'Store';
-
-    // Build order items table
-    const orderItemsHtml = items.map((item: any) => `
-      <tr>
-        <td style="padding: 15px 0; border-bottom: 1px solid #e5e7eb;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-            <tr>
-              <td style="width: 80px; vertical-align: top;">
-                ${item.image ? `<img src="${item.image}" alt="${item.name}" style="display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 0;">` : ''}
-              </td>
-              <td style="padding-left: 15px; vertical-align: top;">
-                <p style="margin: 0 0 5px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-                  ${item.name}
-                </p>
-                <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                  Quantity: ${item.quantity} × $${item.price}
-                  ${item.variant ? `<br>Variant: ${item.variant}` : ''}
-                </p>
-              </td>
-              <td style="text-align: right; vertical-align: top; white-space: nowrap;">
-                <p style="margin: 0; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-                  $${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    `).join('');
-
+    
+    // Generate seller header and footer
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build product thumbnails using helper
+    const productThumbnailsHtml = items.map((item: any) => {
+      const product: Product = products.find((p: any) => p.id === item.productId) || {
+        id: item.productId,
+        name: item.name,
+        image: item.image,
+        price: item.price,
+      } as Product;
+      
+      const variant = item.variant ? { size: item.variant, color: item.color } : null;
+      return generateProductThumbnail(product, item.quantity, variant);
+    }).join('');
+    
     // Build content
     const content = `
       <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
@@ -784,222 +1044,459 @@ class NotificationServiceImpl implements NotificationService {
         Thank you for your order, ${buyerName}!
       </p>
 
-      <!-- Order Details Box -->
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
-        <tr>
-          <td style="padding: 20px;">
-            <h3 style="margin: 0 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-              Order #${order.id.slice(0, 8)}
-            </h3>
-            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-              <strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}
-            </p>
-            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-              <strong>Payment Status:</strong> ${order.paymentStatus}
-            </p>
-            ${order.paymentType === 'deposit' ? `
-              <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-                <strong>Deposit Paid:</strong> $${order.amountPaid}<br>
-                <strong>Remaining Balance:</strong> $${order.remainingBalance}
-              </p>
-            ` : ''}
-          </td>
-        </tr>
-      </table>
-
-      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+      <h3 style="margin: 20px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
         Order Items
       </h3>
-
-      <!-- Order Items Table -->
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-        ${orderItemsHtml}
-      </table>
-
-      <!-- Total -->
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0;">
-        <tr>
-          <td style="padding: 20px 0; border-top: 2px solid #1a1a1a; text-align: right;">
-            <p style="margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-              Total: $${order.total}
-            </p>
-          </td>
-        </tr>
-      </table>
-
-      <!-- View Order Button -->
-      <div style="text-align: center; margin: 30px 0;">
-        ${createEmailButton('View Order Status', magicLink, '#1a1a1a')}
-      </div>
-
-      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-        Shipping Address
-      </h3>
-      <p style="margin: 0 0 30px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; white-space: pre-line;" class="dark-mode-text-dark">
-        ${order.customerAddress}
-      </p>
-
-      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
-        If you have any questions about your order, please reply to this email or contact us at ${seller.email || this.emailConfig.getSupportEmail()}.
+      ${productThumbnailsHtml}
+      
+      ${generateOrderSummary(order)}
+      
+      ${generateShippingAddress(order.customerAddress)}
+      
+      ${generateMagicLinkButton(magicLink, 'View Order')}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        If you have any questions about your order, please reply to this email.
       </p>
     `;
 
-    return createEmailTemplate({
-      preheader: `Order confirmation - Order #${order.id.slice(0, 8)}`,
-      bannerUrl,
-      logoUrl,
-      storeName,
+    return generateEmailBaseLayout({
+      header,
       content,
-      footerText: `© ${new Date().getFullYear()} ${storeName}. All rights reserved.${seller.username ? ` | ${seller.username}.upfirst.io` : ''}`,
+      footer,
+      preheader: `Order confirmation - Order #${order.id.slice(0, 8)}`,
+      darkModeSafe: true,
     });
   }
 
   /**
-   * Generate order shipped email
+   * Generate order shipped email - SELLER → BUYER EMAIL
    */
-  private generateOrderShippedEmail(order: Order, seller: User): string {
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
+  private async generateOrderShippedEmail(order: Order, seller: User, products: Product[]): Promise<string> {
+    const items = JSON.parse(order.items);
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build product thumbnails
+    const productThumbnailsHtml = items.map((item: any) => {
+      const product: Product = products.find((p: any) => p.id === item.productId) || {
+        id: item.productId,
+        name: item.name,
+        image: item.image,
+        price: item.price,
+      } as Product;
+      
+      const variant = item.variant ? { size: item.variant, color: item.color } : null;
+      return generateProductThumbnail(product, item.quantity, variant);
+    }).join('');
+    
+    // Generate tracking info if available
+    const trackingHtml = order.trackingNumber 
+      ? generateTrackingInfo(order.carrier || 'USPS', order.trackingNumber, order.trackingLink || '')
+      : '<p style="margin: 20px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">You\'ll receive tracking information shortly.</p>';
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your Order Has Shipped!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Great news ${order.customerName}! Your order is on its way.
+      </p>
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; }
-            .banner { width: 100%; height: 200px; object-fit: cover; }
-            .header { padding: 30px; text-align: center; }
-            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
-            .content { padding: 0 30px 30px; }
-            .tracking-box { background: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-            .tracking-number { font-size: 24px; font-weight: bold; margin: 15px 0; letter-spacing: 1px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-            .footer { padding: 30px; text-align: center; color: #666; font-size: 14px; background: #f9f9f9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
-            
-            <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="${seller.firstName || 'Store'} Logo" class="logo">` : ''}
-              <h1>Your Order Has Shipped!</h1>
-              <p>Great news! Your order is on its way.</p>
-            </div>
-
-            <div class="content">
-              <p>Hi ${order.customerName},</p>
-              <p>Your order <strong>#${order.id.slice(0, 8)}</strong> has been shipped and is on its way to you!</p>
-
-              ${order.trackingNumber ? `
-                <div class="tracking-box">
-                  <p style="margin: 0 0 10px; color: #666;">Tracking Number</p>
-                  <div class="tracking-number">${order.trackingNumber}</div>
-                  ${order.trackingLink ? `
-                    <a href="${order.trackingLink}" class="button">Track Your Package</a>
-                  ` : ''}
-                </div>
-              ` : `
-                <p>You'll receive tracking information shortly.</p>
-              `}
-
-              <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
-
-              <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact us at ${seller.email || this.emailConfig.getSupportEmail()}.
-              </p>
-            </div>
-
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <h3 style="margin: 20px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Shipped Items
+      </h3>
+      ${productThumbnailsHtml}
+      
+      ${trackingHtml}
+      
+      ${generateShippingAddress(order.customerAddress)}
+      
+      ${order.trackingLink ? generateMagicLinkButton(order.trackingLink, 'Track Package') : ''}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Questions? Reply to this email for assistance.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Order #${order.id.slice(0, 8)} has shipped`,
+      darkModeSafe: true,
+    });
   }
 
   /**
-   * Generate item tracking email (Seller → Buyer) for individual item shipment
+   * Generate order delivered email - SELLER → BUYER EMAIL
    */
-  private generateItemTrackingEmail(order: Order, item: OrderItem, seller: User): string {
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
+  private async generateOrderDeliveredEmail(order: Order, seller: User, products: Product[]): Promise<string> {
+    const items = JSON.parse(order.items);
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build product thumbnails
+    const productThumbnailsHtml = items.map((item: any) => {
+      const product: Product = products.find((p: any) => p.id === item.productId) || {
+        id: item.productId,
+        name: item.name,
+        image: item.image,
+        price: item.price,
+      } as Product;
+      
+      const variant = item.variant ? { size: item.variant, color: item.color } : null;
+      return generateProductThumbnail(product, item.quantity, variant);
+    }).join('');
+    
+    const deliveredDate = order.deliveredAt ? new Date(order.deliveredAt).toLocaleDateString('en-US', { 
+      month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : new Date().toLocaleDateString('en-US', { 
+      month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Order Delivered!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Good news ${order.customerName}! Your order has been delivered.
+      </p>
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; }
-            .banner { width: 100%; height: 200px; object-fit: cover; }
-            .header { padding: 30px; text-align: center; }
-            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
-            .content { padding: 0 30px 30px; }
-            .item-box { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .item-image { max-width: 100px; height: auto; border-radius: 6px; margin-right: 15px; }
-            .item-details { display: flex; align-items: center; }
-            .tracking-box { background: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-            .tracking-number { font-size: 24px; font-weight: bold; margin: 15px 0; letter-spacing: 1px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-            .footer { padding: 30px; text-align: center; color: #666; font-size: 14px; background: #f9f9f9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
-            
-            <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="${seller.firstName || 'Store'} Logo" class="logo">` : ''}
-              <h1>Item Shipped!</h1>
-              <p>An item from your order has been shipped.</p>
-            </div>
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0; color: #047857 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Delivered on ${deliveredDate}
+        </p>
+      </div>
 
-            <div class="content">
-              <p>Hi ${order.customerName},</p>
-              <p>We've shipped an item from your order <strong>#${order.id.slice(0, 8)}</strong>!</p>
-
-              <div class="item-box">
-                <div class="item-details">
-                  ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="item-image">` : ''}
-                  <div>
-                    <h3 style="margin: 0 0 10px;">${item.productName}</h3>
-                    <p style="margin: 0; color: #666;">Quantity: ${item.quantity}</p>
-                    ${item.variant ? `<p style="margin: 5px 0 0; color: #666;">Variant: ${JSON.stringify(item.variant).replace(/[{}"]/g, '').replace(/,/g, ', ')}</p>` : ''}
-                  </div>
-                </div>
-              </div>
-
-              ${item.trackingNumber ? `
-                <div class="tracking-box">
-                  <p style="margin: 0 0 10px; color: #666;">Tracking Number</p>
-                  <div class="tracking-number">${item.trackingNumber}</div>
-                  ${item.trackingLink ? `
-                    <a href="${item.trackingLink}" class="button">Track Your Package</a>
-                  ` : ''}
-                </div>
-              ` : `
-                <p>You'll receive tracking information shortly.</p>
-              `}
-
-              <p><strong>Shipping Address:</strong><br>${order.customerAddress}</p>
-
-              <p style="margin-top: 30px; color: #666;">
-                Questions? Reply to this email or contact us at ${seller.email || this.emailConfig.getSupportEmail()}.
-              </p>
-            </div>
-
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} ${seller.firstName || 'Upfirst'}. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <h3 style="margin: 20px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Delivered Items
+      </h3>
+      ${productThumbnailsHtml}
+      
+      ${generateShippingAddress(order.customerAddress)}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        We hope you love your order! If you have any issues, please reply to this email.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Order #${order.id.slice(0, 8)} has been delivered`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate order refunded email - SELLER → BUYER EMAIL
+   */
+  private async generateOrderRefundedEmail(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build refunded items list
+    const refundedItemsHtml = refundedItems.map((item: OrderItem) => 
+      generateProductThumbnail({
+        id: item.productId,
+        name: item.productName,
+        image: item.productImage,
+        price: item.price.toString(),
+      } as Product, item.quantity, item.variant ? { size: item.variant.size, color: item.variant.color } : null)
+    ).join('');
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Refund Processed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${order.customerName}, your refund has been processed.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #eff6ff !important; border-left: 4px solid #3b82f6; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #1e40af !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${refundAmount.toFixed(2)} refunded
+        </p>
+        <p style="margin: 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Refund to your original payment method • Processing time: 5-10 business days
+        </p>
+      </div>
+
+      <h3 style="margin: 20px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Refunded Items
+      </h3>
+      ${refundedItemsHtml}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Questions about your refund? Reply to this email for assistance.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Refund processed for Order #${order.id.slice(0, 8)}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate balance payment reminder email - SELLER → BUYER EMAIL
+   */
+  private async generateBalancePaymentReminderEmail(order: Order, seller: User, paymentLink: string): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    const balanceAmount = parseFloat(order.remainingBalance) || 0;
+    const depositAmount = parseFloat(order.amountPaid) || 0;
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Balance Payment Due
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${order.customerName}, your balance payment is now due for order #${order.id.slice(0, 8)}.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #92400e !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${balanceAmount.toFixed(2)} due
+        </p>
+        <p style="margin: 0; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Deposit paid: $${depositAmount.toFixed(2)} • Total order: $${order.total}
+        </p>
+      </div>
+
+      ${generateMagicLinkButton(paymentLink, 'Pay Balance Now')}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #fef2f2 !important; border-radius: 8px; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        <strong>Important:</strong> If payment is not received, your order may be cancelled.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Balance payment due: $${balanceAmount.toFixed(2)}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate balance payment received email - SELLER → BUYER EMAIL
+   */
+  private async generateBalancePaymentReceivedEmail(order: Order, seller: User, balanceAmount: number): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    const depositAmount = parseFloat(order.amountPaid) || 0;
+    const totalPaid = depositAmount + balanceAmount;
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Balance Payment Received!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Thank you ${order.customerName}! Your balance payment has been received.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #047857 !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${balanceAmount.toFixed(2)} paid
+        </p>
+        <p style="margin: 0; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Total paid: $${totalPaid.toFixed(2)} • Order complete
+        </p>
+      </div>
+
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Next Steps
+      </h3>
+      <p style="margin: 0 0 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Your order is now complete and will be processed for shipping. You'll receive a shipping notification once your order is on its way.
+      </p>
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Questions? Reply to this email for assistance.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Balance payment received: $${balanceAmount.toFixed(2)}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate payment failed email - SELLER → BUYER EMAIL
+   */
+  private async generatePaymentFailedEmail(order: Order, seller: User, amount: number, reason: string, retryLink?: string): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Payment Failed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${order.customerName}, we were unable to process your payment for order #${order.id.slice(0, 8)}.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2 !important; border-left: 4px solid #ef4444; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #991b1b !important; font-weight: 600; font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Payment of $${amount.toFixed(2)} failed
+        </p>
+        <p style="margin: 0; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Reason: ${reason}
+        </p>
+      </div>
+
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Action Required
+      </h3>
+      <p style="margin: 0 0 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Please update your payment method to complete this order. If not resolved, your order will be cancelled.
+      </p>
+
+      ${retryLink ? generateMagicLinkButton(retryLink, 'Update Payment Method') : ''}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Need help? Reply to this email or contact support.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Payment failed for Order #${order.id.slice(0, 8)}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate welcome email for first order - SELLER → BUYER EMAIL
+   */
+  private async generateWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[], magicLink: string): Promise<string> {
+    const items = JSON.parse(order.items);
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build product thumbnails
+    const productThumbnailsHtml = items.map((item: any) => {
+      const product: Product = products.find((p: any) => p.id === item.productId) || {
+        id: item.productId,
+        name: item.name,
+        image: item.image,
+        price: item.price,
+      } as Product;
+      
+      const variant = item.variant ? { size: item.variant, color: item.color } : null;
+      return generateProductThumbnail(product, item.quantity, variant);
+    }).join('');
+    
+    const storeName = seller.firstName || seller.username || 'our store';
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Welcome to ${storeName}!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Thank you for your first order, ${order.customerName}! We're excited to have you as a customer.
+      </p>
+
+      ${seller.bio ? `
+        <div style="margin: 20px 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+          <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+            ${seller.bio}
+          </p>
+        </div>
+      ` : ''}
+
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your Order
+      </h3>
+      ${productThumbnailsHtml}
+      
+      ${generateOrderSummary(order)}
+      
+      ${generateMagicLinkButton(magicLink, 'View Order')}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Stay connected! Follow us for updates, new products, and exclusive offers.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Welcome! Order #${order.id.slice(0, 8)} confirmed`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate item tracking email (Seller → Buyer) for individual item shipment - SELLER → BUYER EMAIL
+   */
+  private async generateItemTrackingEmail(order: Order, item: OrderItem, seller: User): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build product thumbnail for shipped item
+    const product: Product = {
+      id: item.productId,
+      name: item.productName,
+      image: item.productImage,
+      price: item.price.toString(),
+    } as Product;
+    
+    const variant = item.variant ? { size: item.variant.size, color: item.variant.color } : null;
+    const productThumbnailHtml = generateProductThumbnail(product, item.quantity, variant);
+    
+    // Generate tracking info if available
+    const trackingHtml = item.trackingNumber 
+      ? generateTrackingInfo(item.carrier || 'USPS', item.trackingNumber, item.trackingLink || '')
+      : '<p style="margin: 20px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">You\'ll receive tracking information shortly.</p>';
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Item Shipped!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${order.customerName}, an item from your order has been shipped.
+      </p>
+
+      <h3 style="margin: 20px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Shipped Item
+      </h3>
+      ${productThumbnailHtml}
+      
+      ${trackingHtml}
+      
+      ${generateShippingAddress(order.customerAddress)}
+      
+      ${item.trackingLink ? generateMagicLinkButton(item.trackingLink, 'Track Package') : ''}
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        <strong>Note:</strong> Other items from your order may ship separately.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `${item.productName} from Order #${order.id.slice(0, 8)} has shipped`,
+      darkModeSafe: true,
+    });
   }
 
   /**
@@ -1080,213 +1577,143 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Generate item delivered email (Seller → Buyer, branded)
+   * MIGRATED: Uses generateSellerHeader/Footer + generateEmailBaseLayout
    */
-  private generateItemDeliveredEmail(order: Order, item: OrderItem, seller: User): string {
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
+  private async generateItemDeliveredEmail(order: Order, item: OrderItem, seller: User): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Item Delivered! 📦
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Your item from order #${order.id.slice(0, 8)} has been delivered
+      </p>
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; }
-            .banner { width: 100%; height: 200px; object-fit: cover; }
-            .header { padding: 30px; text-align: center; }
-            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
-            .content { padding: 0 30px 30px; }
-            .product-item { display: flex; gap: 15px; padding: 20px; background: #f9f9f9; border-radius: 8px; margin: 20px 0; }
-            .product-image { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
-            .status-badge { display: inline-block; padding: 6px 12px; background: #22c55e; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 10px 0; }
-            .button { display: inline-block; padding: 12px 24px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { padding: 30px; background: #f9f9f9; text-align: center; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
-            
-            <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="Store Logo" class="logo">` : ''}
-              <h1>Item Delivered! 📦</h1>
-              <p>Your item from order #${order.id.slice(0, 8)} has been delivered</p>
-            </div>
+      <div style="display: flex; gap: 15px; padding: 20px; background: #f9fafb !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+        <div style="flex: 1;">
+          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.productName}</h3>
+          <span style="display: inline-block; padding: 6px 12px; background: #22c55e; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">DELIVERED</span>
+          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
+        </div>
+      </div>
 
-            <div class="content">
-              <div class="product-item">
-                ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="product-image">` : ''}
-                <div style="flex: 1;">
-                  <h3 style="margin: 0 0 10px 0;">${item.productName}</h3>
-                  <span class="status-badge">DELIVERED</span>
-                  <p style="color: #666; margin: 10px 0 0 0;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
-                </div>
-              </div>
-
-              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; font-weight: 600; color: #0369a1;">We hope you love your purchase!</p>
-                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">If you have any questions or concerns, please reply to this email.</p>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p style="margin: 0 0 10px 0;">Thank you for shopping with ${seller.firstName || 'us'}!</p>
-              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${seller.firstName || 'Store'}. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <div style="background: #f0f9ff !important; padding: 20px; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        <p style="margin: 0; font-weight: 600; color: #0369a1 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">We hope you love your purchase!</p>
+        <p style="margin: 10px 0 0 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">If you have any questions or concerns, please reply to this email.</p>
+      </div>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Item delivered from order #${order.id.slice(0, 8)}`,
+      darkModeSafe: true,
+    });
   }
 
   /**
    * Generate item cancelled email (Seller → Buyer, branded)
+   * MIGRATED: Uses generateSellerHeader/Footer + generateEmailBaseLayout
    */
-  private generateItemCancelledEmail(order: Order, item: OrderItem, seller: User, reason?: string): string {
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
+  private async generateItemCancelledEmail(order: Order, item: OrderItem, seller: User, reason?: string): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Item Cancelled
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        An item from your order #${order.id.slice(0, 8)} has been cancelled
+      </p>
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; }
-            .banner { width: 100%; height: 200px; object-fit: cover; }
-            .header { padding: 30px; text-align: center; }
-            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
-            .content { padding: 0 30px 30px; }
-            .product-item { display: flex; gap: 15px; padding: 20px; background: #f9f9f9; border-radius: 8px; margin: 20px 0; }
-            .product-image { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
-            .status-badge { display: inline-block; padding: 6px 12px; background: #ef4444; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 10px 0; }
-            .button { display: inline-block; padding: 12px 24px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { padding: 30px; background: #f9f9f9; text-align: center; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
-            
-            <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="Store Logo" class="logo">` : ''}
-              <h1>Item Cancelled</h1>
-              <p>An item from your order #${order.id.slice(0, 8)} has been cancelled</p>
-            </div>
+      <div style="display: flex; gap: 15px; padding: 20px; background: #f9fafb !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+        <div style="flex: 1;">
+          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.productName}</h3>
+          <span style="display: inline-block; padding: 6px 12px; background: #ef4444; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">CANCELLED</span>
+          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
+        </div>
+      </div>
 
-            <div class="content">
-              <div class="product-item">
-                ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="product-image">` : ''}
-                <div style="flex: 1;">
-                  <h3 style="margin: 0 0 10px 0;">${item.productName}</h3>
-                  <span class="status-badge">CANCELLED</span>
-                  <p style="color: #666; margin: 10px 0 0 0;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
-                </div>
-              </div>
+      ${reason ? `
+        <div style="background: #fef2f2 !important; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;" class="dark-mode-bg-white">
+          <p style="margin: 0; font-weight: 600; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Cancellation Reason:</p>
+          <p style="margin: 10px 0 0 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${reason}</p>
+        </div>
+      ` : ''}
 
-              ${reason ? `
-                <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
-                  <p style="margin: 0; font-weight: 600; color: #991b1b;">Cancellation Reason:</p>
-                  <p style="margin: 10px 0 0 0; color: #666;">${reason}</p>
-                </div>
-              ` : ''}
+      <div style="background: #f0f9ff !important; padding: 20px; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        <p style="margin: 0; font-weight: 600; color: #0369a1 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refund Information</p>
+        <p style="margin: 10px 0 0 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">If you were charged for this item, you'll receive a refund within 5-10 business days.</p>
+      </div>
 
-              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; font-weight: 600; color: #0369a1;">Refund Information</p>
-                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">If you were charged for this item, you'll receive a refund within 5-10 business days.</p>
-              </div>
-
-              <p style="color: #666;">If you have any questions, please reply to this email and we'll be happy to help.</p>
-            </div>
-
-            <div class="footer">
-              <p style="margin: 0 0 10px 0;">Thank you for shopping with ${seller.firstName || 'us'}.</p>
-              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${seller.firstName || 'Store'}. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <p style="color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">If you have any questions, please reply to this email and we'll be happy to help.</p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Item cancelled from order #${order.id.slice(0, 8)}`,
+      darkModeSafe: true,
+    });
   }
 
   /**
    * Generate item refunded email (Seller → Buyer, branded)
+   * MIGRATED: Uses generateSellerHeader/Footer + generateEmailBaseLayout
    */
-  private generateItemRefundedEmail(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number): string {
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
+  private async generateItemRefundedEmail(order: Order, item: OrderItem, seller: User, refundAmount: number, refundedQuantity: number): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Refund Processed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Your refund for order #${order.id.slice(0, 8)} has been processed
+      </p>
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 0 auto; background: white; }
-            .banner { width: 100%; height: 200px; object-fit: cover; }
-            .header { padding: 30px; text-align: center; }
-            .logo { max-width: 120px; height: auto; margin-bottom: 20px; }
-            .content { padding: 0 30px 30px; }
-            .product-item { display: flex; gap: 15px; padding: 20px; background: #f9f9f9; border-radius: 8px; margin: 20px 0; }
-            .product-image { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
-            .status-badge { display: inline-block; padding: 6px 12px; background: #3b82f6; color: white; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 10px 0; }
-            .refund-amount { font-size: 32px; font-weight: bold; color: #22c55e; margin: 20px 0; }
-            .button { display: inline-block; padding: 12px 24px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { padding: 30px; background: #f9f9f9; text-align: center; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            ${bannerUrl ? `<img src="${bannerUrl}" alt="Store Banner" class="banner">` : ''}
-            
-            <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="Store Logo" class="logo">` : ''}
-              <h1>Refund Processed</h1>
-              <p>Your refund for order #${order.id.slice(0, 8)} has been processed</p>
-            </div>
+      <div style="text-align: center; padding: 30px; background: #f0fdf4 !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px 0; color: #166534 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refund Amount</p>
+        <div style="font-size: 32px; font-weight: bold; color: #22c55e !important; margin: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${refundAmount.toFixed(2)}</div>
+        <p style="margin: 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">This amount will appear in your account within 5-10 business days</p>
+      </div>
 
-            <div class="content">
-              <div style="text-align: center; padding: 30px; background: #f0fdf4; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0 0 10px 0; color: #166534; font-weight: 600;">Refund Amount</p>
-                <div class="refund-amount">$${refundAmount.toFixed(2)}</div>
-                <p style="margin: 0; color: #666; font-size: 14px;">This amount will appear in your account within 5-10 business days</p>
-              </div>
+      <div style="display: flex; gap: 15px; padding: 20px; background: #f9fafb !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+        <div style="flex: 1;">
+          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.productName}</h3>
+          <span style="display: inline-block; padding: 6px 12px; background: #3b82f6; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">REFUNDED</span>
+          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refunded Quantity: ${refundedQuantity} • $${(refundAmount / refundedQuantity).toFixed(2)} each</p>
+        </div>
+      </div>
 
-              <div class="product-item">
-                ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" class="product-image">` : ''}
-                <div style="flex: 1;">
-                  <h3 style="margin: 0 0 10px 0;">${item.productName}</h3>
-                  <span class="status-badge">REFUNDED</span>
-                  <p style="color: #666; margin: 10px 0 0 0;">Refunded Quantity: ${refundedQuantity} • $${(refundAmount / refundedQuantity).toFixed(2)} each</p>
-                </div>
-              </div>
+      <div style="background: #f0f9ff !important; padding: 20px; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
+        <p style="margin: 0; font-weight: 600; color: #0369a1 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refund Details</p>
+        <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <li>The refund has been issued to your original payment method</li>
+          <li>Processing time: 5-10 business days</li>
+          <li>You'll see the credit from your bank or card issuer</li>
+        </ul>
+      </div>
 
-              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; font-weight: 600; color: #0369a1;">Refund Details</p>
-                <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #666; font-size: 14px;">
-                  <li>The refund has been issued to your original payment method</li>
-                  <li>Processing time: 5-10 business days</li>
-                  <li>You'll see the credit from your bank or card issuer</li>
-                </ul>
-              </div>
-
-              <p style="color: #666;">If you have any questions about this refund, please reply to this email.</p>
-            </div>
-
-            <div class="footer">
-              <p style="margin: 0 0 10px 0;">Thank you for shopping with ${seller.firstName || 'us'}.</p>
-              <p style="margin: 0; color: #999; font-size: 12px;">© ${new Date().getFullYear()} ${seller.firstName || 'Store'}. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <p style="color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">If you have any questions about this refund, please reply to this email.</p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Refund processed for order #${order.id.slice(0, 8)} - $${refundAmount.toFixed(2)}`,
+      darkModeSafe: true,
+    });
   }
 
   /**
@@ -1726,16 +2153,24 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Send balance payment request (Seller → Buyer)
+   * Send balance payment request (Seller → Buyer) - TASK 5f
    */
   async sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void> {
-    const emailHtml = this.generateBalancePaymentRequestEmail(order, seller, paymentLink);
+    // Generate email HTML (ASYNC)
+    const emailHtml = await this.generateBalancePaymentReminderEmail(order, seller, paymentLink);
+    
+    // Get email metadata using EmailMetadataService
+    const fromName = await this.emailMetadata.getFromName(seller);
+    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+    const subject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_REMINDER, {
+      orderId: order.id
+    });
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-
-      replyTo: seller.email || undefined,
-      subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
+      from: `${fromName} <noreply@upfirst.com>`,
+      replyTo: replyTo || undefined,
+      subject: subject,
       html: emailHtml,
     });
 
@@ -1746,7 +2181,7 @@ class NotificationServiceImpl implements NotificationService {
           orderId: order.id,
           eventType: 'balance_payment_requested',
           recipientEmail: order.customerEmail,
-          subject: `Balance Payment Due - Order #${order.id.slice(0, 8)}`,
+          subject: subject,
           sentAt: new Date(),
           metadata: JSON.stringify({
             emailType: 'balance_payment_request',

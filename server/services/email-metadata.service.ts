@@ -32,10 +32,17 @@ export enum EmailType {
   ORDER_SHIPPED = 'order_shipped',
   ORDER_DELIVERED = 'order_delivered',
   ORDER_ITEM_SHIPPED = 'order_item_shipped',
+  ITEM_TRACKING_UPDATE = 'item_tracking_update',
   ORDER_REFUNDED = 'order_refunded',
   BALANCE_PAYMENT_REQUEST = 'balance_payment_request',
   BALANCE_PAYMENT_RECEIVED = 'balance_payment_received',
   PAYMENT_FAILED = 'payment_failed',
+  WELCOME_ORDER = 'welcome_order',
+  
+  // Item-level emails
+  ITEM_DELIVERED = 'item_delivered',
+  ITEM_CANCELLED = 'item_cancelled',
+  ITEM_REFUNDED = 'item_refunded',
   
   // Seller → Platform emails
   SELLER_NEW_ORDER = 'seller_new_order',
@@ -340,8 +347,36 @@ export class EmailMetadataService implements IEmailMetadataService {
           }
           return `Item from order #${shortOrderId} has shipped`;
         
+        case EmailType.ITEM_TRACKING_UPDATE:
+          if (data.productName && data.trackingNumber) {
+            return `Tracking update: ${data.productName} - Track: ${data.trackingNumber}`;
+          } else if (data.productName) {
+            return `Tracking update for ${data.productName}`;
+          }
+          return `Tracking update for order #${shortOrderId}`;
+        
         case EmailType.ORDER_DELIVERED:
           return `Your order #${shortOrderId} has been delivered`;
+        
+        case EmailType.ITEM_DELIVERED:
+          if (data.productName) {
+            return `Item Delivered: ${data.productName} from Order #${shortOrderId}`;
+          }
+          return `Item delivered from order #${shortOrderId}`;
+        
+        case EmailType.ITEM_CANCELLED:
+          if (data.productName) {
+            return `Item Cancelled: ${data.productName} from Order #${shortOrderId}`;
+          }
+          return `Item cancelled from order #${shortOrderId}`;
+        
+        case EmailType.ITEM_REFUNDED:
+          if (data.productName && data.amount && data.currency) {
+            return `Item Refunded: ${data.productName} - ${data.currency} ${data.amount}`;
+          } else if (data.productName) {
+            return `Item Refunded: ${data.productName}`;
+          }
+          return `Item refunded from order #${shortOrderId}`;
         
         case EmailType.ORDER_REFUNDED:
           if (data.amount && data.currency) {
@@ -360,6 +395,12 @@ export class EmailMetadataService implements IEmailMetadataService {
         
         case EmailType.PAYMENT_FAILED:
           return `Payment failed for order #${shortOrderId} - Action required`;
+        
+        case EmailType.WELCOME_ORDER:
+          if (data.sellerName) {
+            return `Welcome! Your Order #${shortOrderId} from ${data.sellerName} is Confirmed`;
+          }
+          return `Welcome! Your Order #${shortOrderId} is Confirmed`;
         
         // Seller-facing order emails
         case EmailType.SELLER_NEW_ORDER:
