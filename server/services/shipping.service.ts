@@ -7,6 +7,7 @@
 import type { IStorage } from "../storage";
 import type { Product } from "@shared/schema";
 import { requiresState, isValidState } from "@shared/shipping-validation";
+import { ConfigurationError } from "../errors";
 
 export interface ShippingRate {
   zone: string;
@@ -135,10 +136,11 @@ export class ShippingService {
     // Priority 1: Try to match by city (highest priority) - using state field as city indicator
     // Note: For city-level matching to work properly, destination.state should contain city or zone code
     if (destination.state) {
+      const stateValue = destination.state.toLowerCase();
       const cityZone = zones.find(z => 
         z.zoneType === 'city' && 
         (z.zoneCode?.toUpperCase() === destination.state?.toUpperCase() ||
-         z.zoneName.toLowerCase().includes(destination.state.toLowerCase()))
+         z.zoneName.toLowerCase().includes(stateValue))
       );
       
       if (cityZone) {
@@ -242,12 +244,12 @@ export class ShippingService {
   ): Promise<ShippingCalculation> {
     // Check if Shippo credentials are configured
     if (!process.env.SHIPPO_API_KEY) {
-      throw new Error("Shippo API key not configured. Please add SHIPPO_API_KEY to environment variables.");
+      throw new ConfigurationError("Shippo API key not configured. Please add SHIPPO_API_KEY to environment variables.");
     }
 
     // Validate package dimensions are configured
     if (!product.shippoWeight || !product.shippoLength || !product.shippoWidth || !product.shippoHeight) {
-      throw new Error("Package dimensions not configured for Shippo shipping. Please set weight, length, width, and height in product settings.");
+      throw new ConfigurationError("Package dimensions not configured for Shippo shipping. Please set weight, length, width, and height in product settings.");
     }
 
     try {
@@ -264,7 +266,7 @@ export class ShippingService {
 
       // Validate warehouse address is configured
       if (!seller.warehouseStreet || !seller.warehouseCity || !seller.warehousePostalCode || !seller.warehouseCountry) {
-        throw new Error("Warehouse address not configured. Please configure your warehouse address in Settings > Warehouse before using Shippo shipping.");
+        throw new ConfigurationError("Warehouse address not configured. Please set up your warehouse address in Settings > Warehouse to enable shipping calculations.");
       }
 
       const addressFrom = {

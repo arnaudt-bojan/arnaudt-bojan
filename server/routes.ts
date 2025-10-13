@@ -35,6 +35,7 @@ import { OrderLifecycleService } from "./services/order-lifecycle.service";
 import { PricingCalculationService } from "./services/pricing-calculation.service";
 import { StripeWebhookService } from "./services/stripe-webhook.service";
 import { MetaIntegrationService } from "./services/meta-integration.service";
+import { ConfigurationError } from "./errors";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -692,6 +693,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(result.order);
     } catch (error) {
+      if (error instanceof ConfigurationError) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error("Order creation error", error);
       res.status(500).json({ error: "Failed to create order" });
     }
@@ -1681,6 +1685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(pricingBreakdown);
     } catch (error: any) {
+      if (error instanceof ConfigurationError) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error("[Pricing API] Error calculating pricing:", error);
       res.status(500).json({ error: "Failed to calculate pricing" });
     }
@@ -5036,6 +5043,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shipping = await shippingService.calculateShipping(items, destination);
       res.json(shipping);
     } catch (error) {
+      if (error instanceof ConfigurationError) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error("Shipping calculate error", error);
       res.status(500).json({ error: "Failed to calculate shipping" });
     }
@@ -5105,6 +5115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedItems: validation.items,
       });
     } catch (error) {
+      if (error instanceof ConfigurationError) {
+        return res.status(400).json({ error: error.message });
+      }
       logger.error("Order calculate error", error);
       res.status(500).json({ error: "Failed to calculate order" });
     }

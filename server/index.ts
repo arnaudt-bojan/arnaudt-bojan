@@ -14,6 +14,7 @@ import {
 } from "./security";
 import { ReservationCleanupJob } from "./jobs/cleanup-reservations";
 import { storage } from "./storage";
+import { ConfigurationError } from "./errors";
 
 const app = express();
 
@@ -87,6 +88,13 @@ app.use((req, res, next) => {
     // Prevent double responses
     if (res.headersSent) {
       return _next(err);
+    }
+
+    // Handle ConfigurationError - always return 400
+    if (err instanceof ConfigurationError) {
+      res.status(400).json({ message: err.message });
+      throw err;
+      return;
     }
 
     const status = err.status || err.statusCode || 500;
