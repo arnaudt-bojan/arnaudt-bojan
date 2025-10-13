@@ -901,9 +901,13 @@ export class OrderService {
         customerEmail: order.customerEmail,
       });
 
-      // NOTE: Seller email notification is handled by NotificationService.sendOrderConfirmation
-      // which creates an in-app notification for the seller. If email to seller is needed,
-      // a sendNewOrderReceived method should be added to NotificationService.
+      // Send order notification email to seller
+      await this.notificationService.sendSellerOrderNotification(order, seller, products);
+
+      logger.info('[OrderService] Seller order notification sent', {
+        orderId: order.id,
+        sellerEmail: seller.email,
+      });
     } catch (error) {
       logger.error('[OrderService] Failed to send order notifications', { error, orderId: order.id });
     }
