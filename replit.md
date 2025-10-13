@@ -50,8 +50,8 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **Migration Status**: Completed October 2025. Routes.ts reduced from ~6,382 → ~5,600 lines (~1,300+ lines extracted to services)
 
 **Testing Strategy (October 2025):**
-- **Current Status**: Phase 1 complete - Manual E2E testing executed (October 13, 2025)
-- **Test Results**: 7/10 services validated, 0 critical bugs discovered ✅
+- **Current Status**: Architecture 3 regression testing 70% complete (7/10 services validated)
+- **Test Results**: All critical bugs fixed ✅ (cart persistence, routing, shipping errors)
 - **Testability Score**: 9/10 - Services excellently designed with dependency injection, clear interfaces, mockable dependencies
 - **Recommended Approach**: Hybrid testing strategy (Option C)
   - Phase 1: ✅ **COMPLETE** - Manual E2E testing for immediate regression coverage
@@ -69,7 +69,7 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
   5. ✅ ConfigurationError - Error handling improved
   6. ✅ CartValidationService - Server-side validation working
   7. ✅ InventoryService - Stock reservation working
-- **Blocked Services** (2/10): OrderLifecycleService, LegacyStripeCheckoutService (Stripe Connect onboarding required)
+- **Blocked Services** (3/10): StripeConnectService, LegacyStripeCheckoutService, OrderLifecycleService (requires Stripe Connect onboarding - see Testing Protocol above for test credentials)
 - **Priority Services for Unit Testing** (Future):
   1. PricingCalculationService (complex pricing logic)
   2. OrderLifecycleService (security-critical refund calculations)
@@ -98,7 +98,11 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
   - Returns: cost, method, zone, carrier, estimated days, human-readable description for checkout display
 - **Shopping & Checkout**: Features slide-over/persistent cart, guest checkout, server-side shipping cost calculation, and single-seller constraint per cart.
 - **Authentication & Authorization**: Email-based authentication with dual-token system (6-digit codes, magic links). Capability-based authorization with resource-scoped permissions for seller, buyer, and collaborator roles.
-- **Notification System**: Refactored email notifications using Resend with dark mode and templated messages.
+- **Notification System**: Comprehensive email & in-app notification infrastructure (October 2025 overhaul):
+  - **Email Infrastructure**: Shared templates (Upfirst platform & seller-branded), EmailMetadataService for metadata management, dark-mode-safe designs, mobile-responsive layouts
+  - **Email Types**: 21+ redesigned emails (auth codes, orders, shipping, refunds, subscriptions, team invites, wholesale)
+  - **In-App Notifications**: 17+ notification types with icon/badge system, aligned with email branding
+  - **Technical**: Resend integration, fallback chain for sender metadata, explicit color styling for cross-client compatibility
 - **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods and country-selectable seller onboarding. Includes PCI-DSS compliant saved addresses and payment methods, with automatic sync of subscription payment methods.
 - **Subscription System**: Monthly/annual seller subscriptions managed via Stripe, including a 30-day trial activated with a credit card on file.
 - **Multi-Currency Support**: IP-based detection with user-selectable currency, real-time exchange rates, and backend-driven seller-specific currency display.
