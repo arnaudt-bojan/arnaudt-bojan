@@ -63,6 +63,7 @@ export interface CreateOrderParams {
     state?: string;
     postalCode?: string;
   };
+  paymentIntentId?: string; // Stripe payment intent ID (if payment intent created before order)
 }
 
 export interface CreateOrderResult {
@@ -241,7 +242,8 @@ export class OrderService {
         sellerCurrency,
         checkoutSessionId,
         taxCalculation.calculationId,
-        shipping
+        shipping,
+        params.paymentIntentId // Pass payment intent ID from frontend
       );
       createdOrder = order; // Track for rollback
 
@@ -824,7 +826,8 @@ export class OrderService {
       zone?: string;
       estimatedDays?: string;
       carrier?: string;
-    }
+    },
+    paymentIntentId?: string
   ): Promise<Order> {
     const fullAddress = [
       params.customerAddress.line1,
@@ -864,6 +867,8 @@ export class OrderService {
       subtotalBeforeTax: pricing.subtotal.toString(),
       taxAmount: taxAmount.toString(),
       currency,
+      // Save payment intent ID if provided (from frontend payment flow)
+      stripePaymentIntentId: paymentIntentId || null,
       // Save shipping data from ShippingService
       shippingCost: shipping ? shipping.cost.toString() : null,
       shippingMethod: shipping ? shipping.method : null,
