@@ -437,6 +437,7 @@ export interface IStorage {
   
   // Shopping Carts - Bridge table pattern
   getCartBySession(sessionId: string): Promise<Cart | undefined>;
+  getCartByUserId(userId: string): Promise<Cart | undefined>;
   saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart>;
   clearCartBySession(sessionId: string): Promise<void>;
 }
@@ -2518,6 +2519,17 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return cart[0];
+  }
+
+  async getCartByUserId(userId: string): Promise<Cart | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(carts)
+      .where(eq(carts.buyerId, userId))
+      .orderBy(desc(carts.updatedAt))
+      .limit(1);
+    return result[0];
   }
 
   async saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart> {

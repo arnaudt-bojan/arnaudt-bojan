@@ -4908,17 +4908,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Note: cartValidationService, shippingService, and orderService are already initialized at the top
 
-  // Cart API - Backend cart management
+  // Cart API - Backend cart management with session-based storage
   app.post("/api/cart/add", async (req: any, res) => {
     try {
-      const { productId, quantity = 1 } = req.body;
-      const userId = req.user?.claims?.sub || null;
+      const { productId, quantity = 1, variantId } = req.body;
+      const sessionId = req.sessionID;
+      const userId = req.user?.claims?.sub;
 
       if (!productId) {
         return res.status(400).json({ error: "Product ID is required" });
       }
 
-      const result = await cartService.addToCart(userId, productId, quantity);
+      if (!sessionId) {
+        return res.status(500).json({ error: "Session not available" });
+      }
+
+      const result = await cartService.addToCart(sessionId, productId, quantity, variantId, userId);
       
       if (!result.success) {
         return res.status(400).json({ error: result.error });
@@ -4933,14 +4938,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/cart/remove", async (req: any, res) => {
     try {
-      const { productId } = req.body;
-      const userId = req.user?.claims?.sub || null;
+      const { itemId } = req.body;
+      const sessionId = req.sessionID;
+      const userId = req.user?.claims?.sub;
 
-      if (!productId) {
-        return res.status(400).json({ error: "Product ID is required" });
+      if (!itemId) {
+        return res.status(400).json({ error: "Item ID is required" });
       }
 
-      const result = await cartService.removeFromCart(userId, productId);
+      if (!sessionId) {
+        return res.status(500).json({ error: "Session not available" });
+      }
+
+      const result = await cartService.removeFromCart(sessionId, itemId, userId);
       res.json(result.cart);
     } catch (error) {
       logger.error("Cart remove error", error);
@@ -4950,14 +4960,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/cart/update", async (req: any, res) => {
     try {
-      const { productId, quantity } = req.body;
-      const userId = req.user?.claims?.sub || null;
+      const { itemId, quantity } = req.body;
+      const sessionId = req.sessionID;
+      const userId = req.user?.claims?.sub;
 
-      if (!productId || quantity === undefined) {
-        return res.status(400).json({ error: "Product ID and quantity are required" });
+      if (!itemId || quantity === undefined) {
+        return res.status(400).json({ error: "Item ID and quantity are required" });
       }
 
-      const result = await cartService.updateQuantity(userId, productId, quantity);
+      if (!sessionId) {
+        return res.status(500).json({ error: "Session not available" });
+      }
+
+      const result = await cartService.updateQuantity(sessionId, itemId, quantity, userId);
       res.json(result.cart);
     } catch (error) {
       logger.error("Cart update error", error);
@@ -4967,8 +4982,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/cart", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || null;
-      const result = await cartService.clearCart(userId);
+      const sessionId = req.sessionID;
+
+      if (!sessionId) {
+        return res.status(500).json({ error: "Session not available" });
+      }
+
+      const result = await cartService.clearCart(sessionId);
       res.json(result);
     } catch (error) {
       logger.error("Cart clear error", error);
@@ -4978,8 +4998,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/cart", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || null;
-      const cart = await cartService.getCart(userId);
+      const sessionId = req.sessionID;
+
+      if (!sessionId) {
+        return res.status(500).json({ error: "Session not available" });
+      }
+
+      const cart = await cartService.getCart(sessionId);
       res.json(cart);
     } catch (error) {
       logger.error("Cart get error", error);

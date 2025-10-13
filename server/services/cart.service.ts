@@ -1,12 +1,15 @@
 /**
  * Cart Service
  * 
- * Backend cart management - all cart business logic centralized here
- * Frontend should only make API calls to these services
+ * Backend cart management with storage persistence
+ * - Session-based cart storage (guest and authenticated users)
+ * - Single-seller cart constraint enforcement
+ * - Guest→Auth migration support
  */
 
 import type { IStorage } from "../storage";
-import type { Product } from "@shared/schema";
+import type { Product, Cart as StorageCart } from "@shared/schema";
+import { logger } from "../logger";
 
 export interface CartItem {
   id: string;
@@ -20,11 +23,16 @@ export interface CartItem {
   images?: string[];
   discountPercentage?: string;
   promotionActive?: number;
+  variantId?: string;
+  variant?: {
+    size?: string;
+    color?: string;
+  };
 }
 
 export interface Cart {
   items: CartItem[];
-  sellerId: string | null; // Single seller constraint
+  sellerId: string | null;
   total: number;
   itemsCount: number;
 }
@@ -33,12 +41,42 @@ export class CartService {
   constructor(private storage: IStorage) {}
 
   /**
-   * Add item to cart with validation
+   * Get cart by session ID
+   */
+  async getCart(sessionId: string): Promise<Cart> {
+    try {
+      const storageCart = await this.storage.getCartBySession(sessionId);
+      
+      if (!storageCart) {
+        return this.createEmptyCart();
+      }
+
+      // Convert storage cart to service cart format
+      const items = (storageCart.items as CartItem[]) || [];
+      const cart: Cart = {
+        items,
+        sellerId: storageCart.sellerId,
+        total: 0,
+        itemsCount: 0,
+      };
+
+      this.recalculateCart(cart);
+      return cart;
+    } catch (error: any) {
+      logger.error("[CartService] Error getting cart", error, { sessionId });
+      return this.createEmptyCart();
+    }
+  }
+
+  /**
+   * Add item to cart with seller validation
    */
   async addToCart(
-    userId: string | null,
+    sessionId: string,
     productId: string,
-    quantity: number = 1
+    quantity: number = 1,
+    variantId?: string,
+    userId?: string
   ): Promise<{ success: boolean; cart?: Cart; error?: string }> {
     try {
       // Fetch product
@@ -48,18 +86,39 @@ export class CartService {
       }
 
       // Get current cart
-      const cart = await this.getCart(userId);
+      const currentCart = await this.getCart(sessionId);
 
-      // Validate seller constraint
-      if (cart.sellerId && cart.sellerId !== product.sellerId) {
+      // Validate seller constraint (single-seller cart)
+      if (currentCart.sellerId && currentCart.sellerId !== product.sellerId) {
         return {
           success: false,
           error: "Cannot add products from different sellers to the same cart. Please checkout your current items first.",
         };
       }
 
-      // Check if item already exists
-      const existingItem = cart.items.find((item) => item.id === productId);
+      // Find variant if applicable
+      let variant: { size?: string; color?: string } | undefined;
+      if (variantId && product.variants) {
+        const variants = product.variants as any[];
+        const foundVariant = variants.find((v: any) => {
+          const vId = `${v.size || ''}-${v.color || ''}`.trim().replace(/^-|-$/g, '');
+          return vId === variantId;
+        });
+        
+        if (foundVariant) {
+          variant = {
+            size: foundVariant.size,
+            color: foundVariant.color,
+          };
+        }
+      }
+
+      // Check if item already exists (same product and variant)
+      const itemKey = variantId ? `${productId}-${variantId}` : productId;
+      const existingItem = currentCart.items.find((item) => {
+        const existingKey = item.variantId ? `${item.id}-${item.variantId}` : item.id;
+        return existingKey === itemKey;
+      });
 
       if (existingItem) {
         existingItem.quantity += quantity;
@@ -89,21 +148,28 @@ export class CartService {
           images: product.images || [product.image],
           discountPercentage: product.discountPercentage || undefined,
           promotionActive: product.promotionActive || undefined,
+          variantId,
+          variant,
         };
 
-        cart.items.push(cartItem);
-        cart.sellerId = product.sellerId;
+        currentCart.items.push(cartItem);
+        currentCart.sellerId = product.sellerId;
       }
 
       // Recalculate totals
-      this.recalculateCart(cart);
+      this.recalculateCart(currentCart);
 
-      // Save cart
-      await this.saveCart(userId, cart);
+      // Save cart to storage
+      await this.storage.saveCart(
+        sessionId,
+        currentCart.sellerId!,
+        currentCart.items,
+        userId
+      );
 
-      return { success: true, cart };
+      return { success: true, cart: currentCart };
     } catch (error: any) {
-      console.error("[CartService] Error adding to cart:", error);
+      logger.error("[CartService] Error adding to cart", error, { sessionId, productId });
       return { success: false, error: error.message };
     }
   }
@@ -112,82 +178,152 @@ export class CartService {
    * Remove item from cart
    */
   async removeFromCart(
-    userId: string | null,
-    productId: string
+    sessionId: string,
+    itemId: string,
+    userId?: string
   ): Promise<{ success: boolean; cart?: Cart }> {
-    const cart = await this.getCart(userId);
-    cart.items = cart.items.filter((item) => item.id !== productId);
+    try {
+      const cart = await this.getCart(sessionId);
+      
+      // Remove item (handles both productId and productId-variantId)
+      const initialLength = cart.items.length;
+      cart.items = cart.items.filter((item) => {
+        const itemKey = item.variantId ? `${item.id}-${item.variantId}` : item.id;
+        return itemKey !== itemId && item.id !== itemId;
+      });
 
-    // Clear seller if cart is empty
-    if (cart.items.length === 0) {
-      cart.sellerId = null;
+      // If no items were removed, return current cart
+      if (cart.items.length === initialLength) {
+        return { success: true, cart };
+      }
+
+      // Clear seller if cart is empty
+      if (cart.items.length === 0) {
+        cart.sellerId = null;
+        await this.storage.clearCartBySession(sessionId);
+      } else {
+        this.recalculateCart(cart);
+        await this.storage.saveCart(
+          sessionId,
+          cart.sellerId!,
+          cart.items,
+          userId
+        );
+      }
+
+      return { success: true, cart };
+    } catch (error: any) {
+      logger.error("[CartService] Error removing from cart", error, { sessionId, itemId });
+      return { success: false, cart: this.createEmptyCart() };
     }
-
-    this.recalculateCart(cart);
-    await this.saveCart(userId, cart);
-
-    return { success: true, cart };
   }
 
   /**
    * Update item quantity
    */
   async updateQuantity(
-    userId: string | null,
-    productId: string,
-    quantity: number
+    sessionId: string,
+    itemId: string,
+    quantity: number,
+    userId?: string
   ): Promise<{ success: boolean; cart?: Cart }> {
-    const cart = await this.getCart(userId);
-    const item = cart.items.find((item) => item.id === productId);
-
-    if (item) {
+    try {
+      // If quantity is 0 or negative, remove the item
       if (quantity <= 0) {
-        return this.removeFromCart(userId, productId);
+        return this.removeFromCart(sessionId, itemId, userId);
       }
-      item.quantity = quantity;
-      this.recalculateCart(cart);
-      await this.saveCart(userId, cart);
-    }
 
-    return { success: true, cart };
+      const cart = await this.getCart(sessionId);
+      
+      // Find item (handles both productId and productId-variantId)
+      const item = cart.items.find((item) => {
+        const itemKey = item.variantId ? `${item.id}-${item.variantId}` : item.id;
+        return itemKey === itemId || item.id === itemId;
+      });
+
+      if (item) {
+        item.quantity = quantity;
+        this.recalculateCart(cart);
+        await this.storage.saveCart(
+          sessionId,
+          cart.sellerId!,
+          cart.items,
+          userId
+        );
+      }
+
+      return { success: true, cart };
+    } catch (error: any) {
+      logger.error("[CartService] Error updating cart quantity", error, { sessionId, itemId, quantity });
+      return { success: false, cart: this.createEmptyCart() };
+    }
   }
 
   /**
    * Clear cart
    */
-  async clearCart(userId: string | null): Promise<{ success: boolean }> {
-    const emptyCart: Cart = {
-      items: [],
-      sellerId: null,
-      total: 0,
-      itemsCount: 0,
-    };
-    await this.saveCart(userId, emptyCart);
-    return { success: true };
+  async clearCart(sessionId: string): Promise<{ success: boolean }> {
+    try {
+      await this.storage.clearCartBySession(sessionId);
+      return { success: true };
+    } catch (error: any) {
+      logger.error("[CartService] Error clearing cart", error, { sessionId });
+      return { success: false };
+    }
   }
 
   /**
-   * Get cart - In a production system, this would be session/database backed
-   * For now, cart is managed client-side; backend validates and calculates
+   * Migrate guest cart to authenticated user (called on login)
+   * 
+   * CRITICAL FIX: Always check for existing user cart first to handle returning users with new sessions
    */
-  async getCart(userId: string | null): Promise<Cart> {
-    // Cart is client-side (localStorage) - backend only validates/calculates
-    // This method is a placeholder for future session-based cart
-    return {
-      items: [],
-      sellerId: null,
-      total: 0,
-      itemsCount: 0,
-    };
-  }
-
-  /**
-   * Save cart - In a production system, this would persist to session/database
-   * For now, cart is managed client-side; backend only validates/calculates
-   */
-  private async saveCart(userId: string | null, cart: Cart): Promise<void> {
-    // Cart is client-side (localStorage) - backend only validates/calculates
-    // This method is a placeholder for future session-based cart
+  async migrateGuestCart(
+    sessionId: string,
+    userId: string
+  ): Promise<{ success: boolean; cart?: Cart; error?: string }> {
+    try {
+      // ALWAYS try to get authenticated user's cart first
+      const userCart = await this.storage.getCartByUserId(userId);
+      
+      if (userCart) {
+        // User has existing cart - bind new session to it
+        await this.storage.saveCart(sessionId, userCart.sellerId, userCart.items as any[], userId);
+        
+        // Convert to service cart format
+        const cart: Cart = {
+          items: (userCart.items as CartItem[]) || [],
+          sellerId: userCart.sellerId,
+          total: 0,
+          itemsCount: 0,
+        };
+        this.recalculateCart(cart);
+        
+        logger.info("[CartService] Bound new session to existing user cart", { sessionId, userId, cartId: userCart.id });
+        return { success: true, cart };
+      }
+      
+      // No user cart exists - check guest cart
+      const guestCart = await this.getCart(sessionId);
+      
+      if (guestCart && guestCart.items.length > 0) {
+        // Promote guest cart to authenticated
+        await this.storage.saveCart(
+          sessionId,
+          guestCart.sellerId!,
+          guestCart.items,
+          userId
+        );
+        
+        logger.info("[CartService] Promoted guest cart to authenticated", { sessionId, userId });
+        return { success: true, cart: guestCart };
+      }
+      
+      // No cart exists for user or session
+      return { success: true, cart: this.createEmptyCart() };
+    } catch (error: any) {
+      logger.error("[CartService] Error migrating guest cart", error, { sessionId, userId });
+      return { success: false, error: error.message };
+    }
   }
 
   /**
@@ -202,10 +338,22 @@ export class CartService {
   }
 
   /**
+   * Create empty cart
+   */
+  private createEmptyCart(): Cart {
+    return {
+      items: [],
+      sellerId: null,
+      total: 0,
+      itemsCount: 0,
+    };
+  }
+
+  /**
    * Validate inventory (placeholder for future enhancement)
    */
-  async validateInventory(productId: string, quantity: number): Promise<boolean> {
-    // TODO: Add actual inventory check
+  async validateInventory(productId: string, quantity: number, variantId?: string): Promise<boolean> {
+    // TODO: Add actual inventory check with stock reservations
     return true;
   }
 }
