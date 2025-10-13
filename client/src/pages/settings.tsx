@@ -2072,7 +2072,7 @@ export default function Settings() {
   const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
   const [isCountrySelectorOpen, setIsCountrySelectorOpen] = useState(false);
   const [pendingStripeAction, setPendingStripeAction] = useState<{ reset: boolean } | null>(null);
-  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'ipad' | 'iphone'>('desktop');
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'ipad' | 'iphone'>('iphone');
   
   // Check if charges are enabled but payouts are not (progressive onboarding state)
   const canAcceptPayments = user?.stripeChargesEnabled === 1;
@@ -2992,20 +2992,6 @@ export default function Settings() {
                           title="Store Preview"
                           data-testid="iframe-store-preview"
                         />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="flex-1"
-                          asChild
-                          data-testid="button-preview-fullscreen"
-                        >
-                          <Link href={`/s/${quickSetupForm.watch('username')}?preview=true&previewLogo=${encodeURIComponent(quickSetupForm.watch('storeLogo') || '')}&previewBanner=${encodeURIComponent(quickSetupForm.watch('storeBanner') || '')}`} target="_blank">
-                            <Globe className="h-4 w-4 mr-2" />
-                            Open in New Tab
-                          </Link>
-                        </Button>
                       </div>
                     </div>
                   ) : (

@@ -7,6 +7,8 @@ import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList } from "lucide-reac
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
+import { StorefrontHeader } from "@/components/headers/storefront-header";
+import { useCart } from "@/lib/cart-context";
 import type { User, Product } from "@shared/schema";
 
 interface FilterOptions {
@@ -21,6 +23,7 @@ interface FilterOptions {
 export default function SellerStorefront() {
   const { username } = useParams();
   const [, setLocation] = useLocation();
+  const { cart } = useCart();
   const [cardSize, setCardSize] = useState<"compact" | "medium" | "large">("medium");
   const [filters, setFilters] = useState<FilterOptions>({
     categories: [],
@@ -173,6 +176,7 @@ export default function SellerStorefront() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <StorefrontHeader cartItemsCount={cart?.itemsCount || 0} />
       
       {/* Banner - Only show if uploaded */}
       {effectiveSeller.storeBanner && (
