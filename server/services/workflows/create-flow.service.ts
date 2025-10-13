@@ -28,6 +28,7 @@ import type {
   WorkflowExecutionOptions,
   WorkflowProgressEvent,
   WorkflowStepResult,
+  WorkflowError,
 } from './types';
 import { CartValidationService } from '../cart-validation.service';
 import { ShippingService } from '../shipping.service';
@@ -220,13 +221,13 @@ export class CreateFlowService extends WorkflowExecutor {
    * @param checkoutSessionId - Unique checkout session identifier
    * @param initialContext - Initial workflow context
    * @param options - Execution options (emitEvents, skipCompensation, etc.)
-   * @returns Workflow result with orderId if successful
+   * @returns Workflow result with orderId if successful, or WorkflowError if failed
    */
   async run(
     checkoutSessionId: string,
     initialContext: WorkflowContext,
     options: WorkflowExecutionOptions = {}
-  ): Promise<{ success: boolean; orderId?: string; error?: string }> {
+  ): Promise<{ success: boolean; orderId?: string; error?: WorkflowError }> {
     // Default options
     const execOptions = {
       emitEvents: true,
@@ -293,10 +294,13 @@ export class CreateFlowService extends WorkflowExecutor {
           throw new Error(`No step found for transition ${fromState} → ${toState}`);
         }
 
+        const transitionStartTime = Date.now();
+
         logger.info(`[CreateFlow] Executing step: ${step.name} (${fromState} → ${toState})`, {
           workflowId: workflow.id,
           checkoutSessionId,
           contextKeys: Object.keys(currentContext),
+          timestamp: new Date().toISOString(),
         });
 
         // Create STATE_TRANSITION event
@@ -305,7 +309,7 @@ export class CreateFlowService extends WorkflowExecutor {
           'STATE_TRANSITION',
           fromState as any,
           toState as any,
-          { stepName: step.name }
+          { stepName: step.name, timestamp: new Date().toISOString() }
         );
 
         // Execute step with retry logic and context merging
@@ -313,6 +317,24 @@ export class CreateFlowService extends WorkflowExecutor {
         const result = await this.executeStep(workflow, step, currentContext);
 
         if (!result.success) {
+          const transitionTime = Date.now() - transitionStartTime;
+
+          // Log structured error with step/state/error context
+          logger.error('[CreateFlow] Step failed', {
+            workflowId: workflow.id,
+            checkoutSessionId,
+            step: step.name,
+            state: fromState,
+            targetState: toState,
+            transitionTimeMs: transitionTime,
+            error: {
+              message: result.error?.message,
+              code: result.error?.code,
+              retryable: result.error?.retryable ?? false,
+              details: result.error,
+            },
+          });
+
           // Step failed - trigger compensation if not skipped
           if (!execOptions.skipCompensation) {
             await this.compensate(currentContext);
@@ -327,6 +349,7 @@ export class CreateFlowService extends WorkflowExecutor {
             {
               stepName: step.name,
               error: result.error,
+              transitionTimeMs: transitionTime,
             }
           );
 
@@ -337,16 +360,18 @@ export class CreateFlowService extends WorkflowExecutor {
             errorCode: result.error?.code,
           });
 
-          // Emit failure event
+          // Emit failure event with retryable flag
           if (execOptions.emitEvents) {
             await this.emitProgress({
               workflowId: workflow.id,
               checkoutSessionId,
               currentState: fromState,
               status: 'failure',
+              stepName: step.name,
               error: {
                 message: result.error?.message || 'Step failed',
                 code: result.error?.code,
+                retryable: result.error?.retryable ?? false,
               },
             });
           }
@@ -354,25 +379,42 @@ export class CreateFlowService extends WorkflowExecutor {
           // Create WORKFLOW_FAILED event
           await this.createEvent(workflow.id, 'WORKFLOW_FAILED', null, null, {
             error: result.error,
+            step: step.name,
+            state: fromState,
           });
+
+          // Return structured WorkflowError with step and state context
+          const workflowError: WorkflowError = {
+            message: result.error?.message || 'Workflow failed',
+            code: result.error?.code || 'WORKFLOW_STEP_FAILED',
+            retryable: result.error?.retryable ?? false,
+            step: step.name,
+            state: fromState as any,
+            details: result.error,
+          };
 
           return {
             success: false,
-            error: result.error?.message || 'Workflow failed',
+            error: workflowError,
           };
         }
 
         // Step succeeded - update workflow state with merged context
         // CRITICAL: Persist the merged context so it's available on resume
+        const transitionTime = Date.now() - transitionStartTime;
+
         await this.storage.updateWorkflowState(workflow.id, toState as any, {
           data: currentContext,
         });
 
         currentState = toState;
 
-        logger.debug(`[CreateFlow] Step completed, context updated`, {
+        logger.info(`[CreateFlow] Step completed, context updated`, {
           workflowId: workflow.id,
           stepName: step.name,
+          fromState,
+          toState,
+          transitionTimeMs: transitionTime,
           contextKeys: Object.keys(currentContext),
           addedData: result.data ? Object.keys(result.data) : [],
         });
@@ -386,6 +428,7 @@ export class CreateFlowService extends WorkflowExecutor {
           {
             stepName: step.name,
             contextUpdates: result.data,
+            transitionTimeMs: transitionTime,
           }
         );
 
@@ -437,7 +480,17 @@ export class CreateFlowService extends WorkflowExecutor {
         orderId: currentContext.orderId,
       };
     } catch (error: any) {
-      logger.error(`[CreateFlow] Workflow execution failed:`, error);
+      // Log structured error with state context
+      logger.error('[CreateFlow] Workflow execution failed', {
+        workflowId: workflow?.id,
+        checkoutSessionId,
+        state: workflow?.currentState,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          code: error.code,
+        },
+      });
 
       if (workflow) {
         // Trigger compensation on error
@@ -455,9 +508,10 @@ export class CreateFlowService extends WorkflowExecutor {
         await this.createEvent(workflow.id, 'WORKFLOW_FAILED', null, null, {
           error: error.message,
           stack: error.stack,
+          state: workflow.currentState,
         });
 
-        // Emit failure event
+        // Emit failure event with full error context
         if (execOptions.emitEvents) {
           await this.emitProgress({
             workflowId: workflow.id,
@@ -466,6 +520,8 @@ export class CreateFlowService extends WorkflowExecutor {
             status: 'failure',
             error: {
               message: error.message,
+              code: error.code,
+              retryable: false,
             },
           });
         }

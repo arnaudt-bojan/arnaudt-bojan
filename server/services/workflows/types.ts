@@ -1,4 +1,16 @@
-import type { OrderWorkflow, OrderWorkflowEvent } from '@shared/schema';
+import type { OrderWorkflow, OrderWorkflowEvent, WorkflowState } from '@shared/schema';
+
+/**
+ * Structured workflow error with step and state context
+ */
+export interface WorkflowError {
+  message: string;
+  code: string;
+  retryable: boolean;
+  step?: string;
+  state?: WorkflowState;
+  details?: any;
+}
 
 /**
  * Workflow execution context - carries data between steps
@@ -98,6 +110,7 @@ export interface WorkflowProgressEvent {
   error?: {
     message: string;
     code?: string;
+    retryable?: boolean; // Whether the error is retryable (for UI retry buttons)
   };
 }
 

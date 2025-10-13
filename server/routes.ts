@@ -1784,7 +1784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw error;
       }
 
-      const { items, shippingAddress, customerEmail, customerName } = validatedData;
+      const { items, shippingAddress, customerEmail, customerName, checkoutSessionId } = validatedData;
 
       // Delegate to CheckoutService workflow orchestrator
       const result = await checkoutService.initiateCheckout({
@@ -1798,12 +1798,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         customerEmail,
         customerName,
+        checkoutSessionId,
       });
 
       if (!result.success) {
-        return res.status(400).json({
+        // Determine appropriate status code: 400 for client errors, 500 for server errors
+        const isClientError = result.errorCode?.startsWith('VALIDATION_') || 
+                              result.errorCode?.startsWith('CART_') ||
+                              result.errorCode?.startsWith('SELLER_') ||
+                              result.errorCode === 'INSUFFICIENT_STOCK';
+        const statusCode = isClientError ? 400 : 500;
+        
+        return res.status(statusCode).json({
           error: result.error,
           errorCode: result.errorCode,
+          retryable: result.retryable,
+          step: result.step,
+          state: result.state,
+          details: result.details,
         });
       }
 
@@ -1817,6 +1829,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error: any) {
       logger.error('[API] Checkout initiate failed:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        errorCode: 'SERVER_ERROR' 
+      });
+    }
+  });
+
+  // Get workflow status by checkout session ID (idempotency support)
+  app.get('/api/checkout/session/:sessionId', async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+
+      if (!sessionId) {
+        return res.status(400).json({ 
+          error: 'Session ID is required',
+          errorCode: 'MISSING_SESSION_ID' 
+        });
+      }
+
+      // Fetch workflow by checkout session ID
+      const workflow = await storage.getWorkflowByCheckoutSession(sessionId);
+
+      if (!workflow) {
+        return res.status(404).json({ 
+          error: 'Workflow not found',
+          errorCode: 'WORKFLOW_NOT_FOUND',
+          sessionId 
+        });
+      }
+
+      // Build response based on workflow status
+      const response: any = {
+        sessionId,
+        status: workflow.status,
+        currentState: workflow.currentState,
+        orderId: workflow.orderId,
+        paymentIntentId: workflow.paymentIntentId,
+        createdAt: workflow.createdAt,
+        updatedAt: workflow.updatedAt,
+      };
+
+      // Include error details if failed
+      if (workflow.status === 'failed') {
+        response.error = workflow.error;
+        response.errorCode = workflow.errorCode;
+        response.retryCount = workflow.retryCount;
+        response.lastRetryAt = workflow.lastRetryAt;
+      }
+
+      // Include workflow data/context if completed (for retrieving results)
+      if (workflow.status === 'completed' && workflow.data) {
+        const context = workflow.data as any;
+        response.result = {
+          clientSecret: context.clientSecret,
+          paymentIntentId: context.paymentIntentId,
+          amountToCharge: context.totalAmount,
+          currency: context.currency || 'USD',
+        };
+      }
+
+      return res.json(response);
+
+    } catch (error: any) {
+      logger.error('[API] Get workflow status failed:', error);
       return res.status(500).json({ 
         error: 'Internal server error',
         errorCode: 'SERVER_ERROR' 

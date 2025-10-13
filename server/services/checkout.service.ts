@@ -1,7 +1,8 @@
 import { IStorage } from '../storage';
 import { IPaymentProvider } from './payment/payment-provider.interface';
 import { CreateFlowService } from './workflows/create-flow.service';
-import type { WorkflowContext } from './workflows/types';
+import type { WorkflowContext, WorkflowError } from './workflows/types';
+import type { WorkflowState } from '@shared/schema';
 import { logger } from '../logger';
 
 export interface CheckoutInitiateParams {
@@ -23,6 +24,7 @@ export interface CheckoutInitiateParams {
   };
   customerEmail: string;
   customerName: string;
+  checkoutSessionId?: string;
 }
 
 export interface CheckoutInitiateResult {
@@ -34,6 +36,10 @@ export interface CheckoutInitiateResult {
   currency?: string;
   error?: string;
   errorCode?: string;
+  retryable?: boolean;
+  step?: string;
+  state?: WorkflowState;
+  details?: any;
 }
 
 export class CheckoutService {
@@ -44,12 +50,20 @@ export class CheckoutService {
   ) {}
 
   /**
-   * Initiate checkout - Delegates to CreateFlowService workflow orchestrator
+   * Initiate checkout - Idempotent workflow orchestration for order creation
    * 
-   * Architecture 3 (Service Layer): Thin adapter that converts API interface
-   * to workflow context and delegates all business logic to CreateFlowService.
+   * **Idempotency Contract:**
+   * - If `checkoutSessionId` is provided and a workflow exists:
+   *   - Completed workflows: Returns existing result (no duplicate orders/payments)
+   *   - Failed workflows: Returns error with details for retry/resume
+   *   - Running workflows: Returns existing workflow state
+   * - If no `checkoutSessionId` provided: Generates new session and creates workflow
    * 
-   * The workflow handles:
+   * **Architecture:**
+   * This service acts as a thin adapter that converts API interface to workflow context
+   * and delegates all business logic to CreateFlowService workflow orchestrator.
+   * 
+   * **The workflow handles:**
    * - Cart validation
    * - Seller verification
    * - Shipping calculation
@@ -59,11 +73,116 @@ export class CheckoutService {
    * - Order creation
    * - Notifications
    * - Saga-based compensation on errors
+   * 
+   * @param params - Checkout parameters including items, shipping, and optional sessionId
+   * @returns Result containing clientSecret, paymentIntentId, and checkoutSessionId
+   * 
+   * @example
+   * // First request - creates new workflow
+   * const result1 = await checkoutService.initiateCheckout({
+   *   items: [...],
+   *   shippingAddress: {...},
+   *   customerEmail: 'buyer@example.com',
+   *   customerName: 'John Doe'
+   * });
+   * // result1.checkoutSessionId = "checkout_123456_abc"
+   * 
+   * // Retry with same sessionId - returns existing result (idempotent)
+   * const result2 = await checkoutService.initiateCheckout({
+   *   items: [...],
+   *   shippingAddress: {...},
+   *   customerEmail: 'buyer@example.com',
+   *   customerName: 'John Doe',
+   *   checkoutSessionId: result1.checkoutSessionId
+   * });
+   * // result2 === result1 (same payment intent, no duplicate order)
    */
   async initiateCheckout(params: CheckoutInitiateParams): Promise<CheckoutInitiateResult> {
-    const checkoutSessionId = `checkout_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    // Use provided sessionId or generate new one
+    const checkoutSessionId = params.checkoutSessionId || 
+      `checkout_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     try {
+      // IDEMPOTENCY CHECK: Look for existing workflow with this session ID
+      const existingWorkflow = await this.storage.getWorkflowByCheckoutSession(checkoutSessionId);
+      
+      if (existingWorkflow) {
+        logger.info(`[Checkout] Found existing workflow for session ${checkoutSessionId}`, {
+          status: existingWorkflow.status,
+          currentState: existingWorkflow.currentState,
+          orderId: existingWorkflow.orderId ?? undefined,
+        });
+
+        // Handle completed workflows - return existing result (idempotent)
+        if (existingWorkflow.status === 'completed' && existingWorkflow.data) {
+          const finalContext = existingWorkflow.data as WorkflowContext;
+          const clientSecret = (finalContext as any).clientSecret;
+          
+          if (!finalContext.paymentIntentId || !clientSecret) {
+            logger.error(`[Checkout] Completed workflow missing required data for session ${checkoutSessionId}`);
+            return {
+              success: false,
+              error: 'Completed workflow missing payment data',
+              errorCode: 'INCOMPLETE_WORKFLOW_DATA',
+              checkoutSessionId,
+            };
+          }
+
+          logger.info(`[Checkout] Returning existing result for completed workflow ${checkoutSessionId}`);
+          return {
+            success: true,
+            clientSecret,
+            paymentIntentId: finalContext.paymentIntentId,
+            checkoutSessionId,
+            amountToCharge: finalContext.totalAmount || 0,
+            currency: (finalContext as any).currency || 'USD',
+          };
+        }
+
+        // Handle failed workflows - return error with resume instructions
+        if (existingWorkflow.status === 'failed') {
+          logger.warn(`[Checkout] Workflow failed for session ${checkoutSessionId}`, {
+            error: existingWorkflow.error ?? undefined,
+            errorCode: existingWorkflow.errorCode ?? undefined,
+            currentState: existingWorkflow.currentState,
+          });
+
+          return {
+            success: false,
+            error: existingWorkflow.error || 'Workflow failed',
+            errorCode: existingWorkflow.errorCode || 'WORKFLOW_FAILED',
+            retryable: true,
+            state: existingWorkflow.currentState,
+            checkoutSessionId,
+            details: {
+              message: 'Previous workflow failed. To retry, use a new checkoutSessionId or contact support.',
+              failedAt: existingWorkflow.updatedAt,
+              retryCount: existingWorkflow.retryCount,
+            },
+          };
+        }
+
+        // Handle active/running workflows - return current state
+        if (existingWorkflow.status === 'active') {
+          logger.info(`[Checkout] Workflow still active for session ${checkoutSessionId}`);
+          return {
+            success: false,
+            error: 'Workflow already in progress',
+            errorCode: 'WORKFLOW_IN_PROGRESS',
+            retryable: false,
+            state: existingWorkflow.currentState,
+            checkoutSessionId,
+            details: {
+              message: 'Workflow is currently running. Please wait or check status using GET /api/checkout/session/:sessionId',
+              startedAt: existingWorkflow.createdAt,
+            },
+          };
+        }
+      }
+
+      // No existing workflow or workflow cancelled - create new workflow
+      logger.info(`[Checkout] Creating new workflow for session ${checkoutSessionId}`);
+
       // Build initial workflow context from params
       const initialContext: WorkflowContext = {
         checkoutSessionId,
@@ -80,8 +199,6 @@ export class CheckoutService {
       };
 
       // Delegate to CreateFlowService workflow orchestrator
-      logger.info(`[Checkout] Initiating workflow for session ${checkoutSessionId}`);
-      
       const workflowResult = await this.createFlowService.run(
         checkoutSessionId,
         initialContext,
@@ -89,11 +206,23 @@ export class CheckoutService {
       );
 
       if (!workflowResult.success) {
-        logger.warn(`[Checkout] Workflow failed for session ${checkoutSessionId}: ${workflowResult.error || 'Unknown error'}`);
+        const workflowError = workflowResult.error;
+        logger.warn(`[Checkout] Workflow failed for session ${checkoutSessionId}:`, {
+          message: workflowError?.message,
+          code: workflowError?.code,
+          step: workflowError?.step,
+          state: workflowError?.state,
+        });
+        
         return {
           success: false,
-          error: workflowResult.error || 'Checkout failed',
-          errorCode: 'WORKFLOW_FAILED',
+          error: workflowError?.message || 'Checkout failed',
+          errorCode: workflowError?.code || 'WORKFLOW_FAILED',
+          retryable: workflowError?.retryable ?? false,
+          step: workflowError?.step,
+          state: workflowError?.state,
+          checkoutSessionId,
+          details: workflowError?.details,
         };
       }
 
@@ -105,6 +234,7 @@ export class CheckoutService {
           success: false,
           error: 'Failed to retrieve checkout context',
           errorCode: 'WORKFLOW_CONTEXT_MISSING',
+          checkoutSessionId,
         };
       }
 
@@ -117,6 +247,7 @@ export class CheckoutService {
           success: false,
           error: 'Workflow did not produce payment intent',
           errorCode: 'MISSING_PAYMENT_INTENT',
+          checkoutSessionId,
         };
       }
 
@@ -127,6 +258,7 @@ export class CheckoutService {
           success: false,
           error: 'Workflow did not produce client secret',
           errorCode: 'MISSING_CLIENT_SECRET',
+          checkoutSessionId,
         };
       }
       
@@ -151,6 +283,7 @@ export class CheckoutService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to initiate checkout',
         errorCode: 'CHECKOUT_FAILED',
+        checkoutSessionId,
       };
     }
   }

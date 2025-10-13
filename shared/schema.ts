@@ -239,6 +239,7 @@ export const checkoutInitiateRequestSchema = z.object({
   shippingAddress: shippingAddressSchema,
   customerEmail: z.string().email("Valid email is required"),
   customerName: z.string().min(1, "Customer name is required"),
+  checkoutSessionId: z.string().optional(),
 });
 
 export type CheckoutItem = z.infer<typeof checkoutItemSchema>;
