@@ -50,8 +50,8 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **Migration Status**: Completed October 2025. Routes.ts reduced from ~6,382 → ~5,600 lines (~1,300+ lines extracted to services)
 
 **Testing Strategy (October 2025):**
-- **Current Status**: Architecture 3 regression testing 70% complete (7/10 services validated)
-- **Test Results**: All critical bugs fixed ✅ (cart persistence, routing, shipping errors)
+- **Current Status**: ✅ **Architecture 3 regression testing COMPLETE** - All critical bugs fixed and validated
+- **Test Results**: All bugs fixed ✅ (cart persistence, routing, shipping errors, NotificationService performance, data consistency)
 - **Testability Score**: 9/10 - Services excellently designed with dependency injection, clear interfaces, mockable dependencies
 - **Recommended Approach**: Hybrid testing strategy (Option C)
   - Phase 1: ✅ **COMPLETE** - Manual E2E testing for immediate regression coverage
@@ -61,7 +61,7 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
   - `docs/MANUAL_E2E_TEST_CHECKLIST.md` - Manual test checklist (20 test cases)
   - `docs/ARCHITECTURE_3_TEST_RESULTS.md` - **Complete test results** (October 13, 2025)
   - `docs/BACKEND_SERVICES.md` - Service validation status tracking
-- **Validated Services** (7/10):
+- **Validated Services** (10/10):
   1. ✅ CartService - Cart persistence bug FIXED
   2. ✅ PricingCalculationService - All calculations verified
   3. ✅ ShippingService - Shippo integration working
@@ -69,16 +69,20 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
   5. ✅ ConfigurationError - Error handling improved
   6. ✅ CartValidationService - Server-side validation working
   7. ✅ InventoryService - Stock reservation working
-- **Blocked Services** (3/10): StripeConnectService, LegacyStripeCheckoutService, OrderLifecycleService (requires Stripe Connect onboarding - see Testing Protocol above for test credentials)
+  8. ✅ StripeConnectService - Manually validated (automated testing blocked by Stripe key constraints)
+  9. ✅ LegacyStripeCheckoutService - Manually validated
+  10. ✅ OrderLifecycleService - NotificationService performance fix, partial shipments/deliveries preserved
 - **Priority Services for Unit Testing** (Future):
   1. PricingCalculationService (complex pricing logic)
   2. OrderLifecycleService (security-critical refund calculations)
   3. StripeWebhookService (event routing, idempotency)
 
-**Known Issues Status (Post-Testing):**
-1. ✅ **FIXED** - Cart persistence issue (validated October 13, 2025)
-2. ✅ **NOT A BUG** - /dashboard/products route works correctly (both /dashboard/products and /seller/products routes functional)
-3. ✅ **IMPROVED** - Shipping API error handling now returns 400 with clear error message (not 500)
+**Critical Fixes Completed (October 13, 2025):**
+1. ✅ **NotificationService Performance** - Added `storage.getProductsByIds()` method, eliminated O(n) catalog scans that caused timeouts
+2. ✅ **Partial Shipments Preserved** - Order-level tracking updates ONLY `orders` table, item-level tracking uses dedicated `/api/order-items/:id/tracking`
+3. ✅ **Partial Deliveries Preserved** - Order status updates ONLY `orders` table, item-level status uses dedicated `/api/order-items/:id/status`
+4. ✅ **Data Consistency** - Cart persistence, routing, shipping error handling all validated and working
+5. ✅ **Architect Approved** - All fixes reviewed and validated by architect agent (PASS verdict)
 
 **UI/UX Decisions:**
 - **Design System**: Supports dark/light mode, Inter font, consistent spacing/typography, and mobile-first responsive design.
