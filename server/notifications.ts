@@ -353,11 +353,15 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for seller
     if (seller.id) {
+      const sellerSubject = this.emailMetadata.generateSubject(EmailType.SELLER_NEW_ORDER, {
+        orderId: order.id,
+        buyerName
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'order_placed',
-        title: 'New Order Received!',
-        message: `Order #${order.id.slice(0, 8)} from ${buyerName} - $${order.total}`,
+        type: 'seller_new_order',
+        title: sellerSubject,
+        message: `Order from ${buyerName} - $${order.total.toFixed(2)} - View details`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { orderId: order.id, buyerEmail, total: order.total },
@@ -416,11 +420,14 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for buyer (if they have an account)
     if (order.userId) {
+      const buyerSubject = this.emailMetadata.generateSubject(EmailType.ORDER_SHIPPED, {
+        orderId: order.id
+      });
       await this.createNotification({
         userId: order.userId,
         type: 'order_shipped',
-        title: 'Order Shipped!',
-        message: `Your order #${order.id.slice(0, 8)} has been shipped${order.trackingNumber ? ` - Tracking: ${order.trackingNumber}` : ''}`,
+        title: buyerSubject,
+        message: `Your order has been shipped${order.trackingNumber ? ` - Tracking: ${order.trackingNumber}` : ''}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { orderId: order.id, trackingNumber: order.trackingNumber },
@@ -500,11 +507,15 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for buyer (if they have an account)
     if (order.userId) {
+      const trackingSubject = this.emailMetadata.generateSubject(EmailType.ITEM_TRACKING_UPDATE, {
+        productName: item.productName,
+        orderId: order.id
+      });
       await this.createNotification({
         userId: order.userId,
-        type: 'order_shipped',
-        title: 'Item Shipped!',
-        message: `${item.productName} from order #${order.id.slice(0, 8)} has shipped${item.trackingNumber ? ` - Tracking: ${item.trackingNumber}` : ''}`,
+        type: 'item_tracking',
+        title: trackingSubject,
+        message: `${item.productName} has shipped${item.trackingNumber ? ` - Tracking: ${item.trackingNumber}` : ''}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { 
@@ -757,11 +768,15 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for buyer
     if (order.userId) {
+      const deliveredSubject = this.emailMetadata.generateSubject(EmailType.ITEM_DELIVERED, {
+        productName: item.productName,
+        orderId: order.id
+      });
       await this.createNotification({
         userId: order.userId,
-        type: 'order_delivered',
-        title: 'Item Delivered!',
-        message: `${item.productName} from order #${order.id.slice(0, 8)} has been delivered`,
+        type: 'item_delivered',
+        title: deliveredSubject,
+        message: `${item.productName} has been delivered`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { 
@@ -823,11 +838,15 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for buyer
     if (order.userId) {
+      const cancelSubject = this.emailMetadata.generateSubject(EmailType.ITEM_CANCELLED, {
+        productName: item.productName,
+        orderId: order.id
+      });
       await this.createNotification({
         userId: order.userId,
-        type: 'order_cancelled',
-        title: 'Item Cancelled',
-        message: `${item.productName} from order #${order.id.slice(0, 8)} has been cancelled${reason ? `: ${reason}` : ''}`,
+        type: 'item_cancelled',
+        title: cancelSubject,
+        message: `${item.productName} has been cancelled${reason ? `: ${reason}` : ''}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { 
@@ -894,11 +913,17 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for buyer
     if (order.userId) {
+      const refundSubject = this.emailMetadata.generateSubject(EmailType.ITEM_REFUNDED, {
+        productName: item.productName,
+        orderId: order.id,
+        amount: refundAmount,
+        currency: currency
+      });
       await this.createNotification({
         userId: order.userId,
-        type: 'order_refunded',
-        title: 'Refund Processed',
-        message: `$${refundAmount.toFixed(2)} refund processed for ${item.productName} from order #${order.id.slice(0, 8)}`,
+        type: 'item_refunded',
+        title: refundSubject,
+        message: `$${refundAmount.toFixed(2)} refund processed for ${item.productName}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { 
@@ -1856,13 +1881,17 @@ class NotificationServiceImpl implements NotificationService {
     const magicLink = await this.generateMagicLinkForEmail(seller.email || '', '/settings', undefined);
     
     const emailHtml = this.generateSellerWelcomeEmail(seller, magicLink);
-    const template = this.messages.sellerWelcome(seller);
+    
+    // Use EmailMetadataService for subject
+    const subject = this.emailMetadata.generateSubject(EmailType.SELLER_WELCOME, {
+      sellerName: seller.firstName || seller.username || 'Seller'
+    });
 
     const result = await this.sendEmail({
       from: 'UPPFIRST <noreply@upfirst.com>',
       to: seller.email || '',
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: template.emailSubject,
+      subject: subject,
       html: emailHtml,
     });
 
@@ -1870,7 +1899,7 @@ class NotificationServiceImpl implements NotificationService {
       await this.createNotification({
         userId: seller.id,
         type: 'seller_welcome',
-        title: 'Welcome to Upfirst!',
+        title: subject,
         message: 'Get started by setting up your payment method and listing your first product',
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
@@ -1886,21 +1915,25 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendStripeOnboardingIncomplete(seller: User): Promise<void> {
     const emailHtml = this.generateStripeOnboardingIncompleteEmail(seller);
-    const template = this.messages.stripeOnboardingIncomplete(seller);
+    
+    // Use EmailMetadataService for subject
+    const subject = this.emailMetadata.generateSubject(EmailType.SELLER_STRIPE_INCOMPLETE, {
+      sellerName: seller.firstName || seller.username || 'Seller'
+    });
 
     const result = await this.sendEmail({
       from: 'UPPFIRST <noreply@upfirst.com>',
       to: seller.email || '',
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: template.emailSubject,
+      subject: subject,
       html: emailHtml,
     });
 
     if (seller.id) {
       await this.createNotification({
         userId: seller.id,
-        type: 'stripe_onboarding_incomplete',
-        title: 'Complete Stripe Setup',
+        type: 'seller_stripe_incomplete',
+        title: subject,
         message: 'Your Stripe account setup is incomplete. Complete it now to start accepting payments.',
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
@@ -1926,11 +1959,16 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const paymentSubject = this.emailMetadata.generateSubject(EmailType.PAYMENT_FAILED, {
+        orderId,
+        amount,
+        currency: 'USD'
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'order_payment_failed',
-        title: 'Order Payment Failed',
-        message: `Payment of $${amount} failed for order #${orderId.slice(0, 8)} - ${reason}`,
+        type: 'payment_failed',
+        title: paymentSubject,
+        message: `Payment of $${amount.toFixed(2)} failed - ${reason}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { orderId, amount, reason },
@@ -1972,11 +2010,15 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const subscriptionSubject = this.emailMetadata.generateSubject(EmailType.SELLER_SUBSCRIPTION_FAILED, {
+        amount,
+        currency
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'subscription_payment_failed',
-        title: 'Subscription Payment Failed',
-        message: `Your subscription payment of $${amount} failed - ${reason}. Please update your payment method.`,
+        type: 'seller_subscription_failed',
+        title: subscriptionSubject,
+        message: `Your subscription payment of $${amount.toFixed(2)} failed - ${reason}. Please update your payment method.`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { amount, reason },
@@ -2016,10 +2058,14 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const inventorySubject = this.emailMetadata.generateSubject(EmailType.SELLER_INVENTORY_LOW, {
+        productName: product.name,
+        currentStock
+      });
       await this.createNotification({
         userId: seller.id,
-        type: currentStock === 0 ? 'inventory_out_of_stock' : 'low_inventory',
-        title: currentStock === 0 ? 'Product Out of Stock' : 'Low Inventory Alert',
+        type: 'seller_inventory_low',
+        title: inventorySubject,
         message: currentStock === 0 
           ? `${product.name} is now out of stock and has been hidden from your store`
           : `${product.name} is running low (${currentStock} units remaining)`,
@@ -2052,10 +2098,13 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const trialSubject = this.emailMetadata.generateSubject(EmailType.SELLER_TRIAL_ENDING, {
+        daysRemaining
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'subscription_trial_ending',
-        title: 'Trial Ending Soon',
+        type: 'seller_trial_ending',
+        title: trialSubject,
         message: `Your trial ends in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
@@ -2086,10 +2135,13 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const activatedSubject = this.emailMetadata.generateSubject(EmailType.SELLER_SUBSCRIPTION_ACTIVATED, {
+        plan: subscription.plan
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'subscription_activated',
-        title: 'Subscription Activated',
+        type: 'seller_subscription_activated',
+        title: activatedSubject,
         message: `Your ${subscription.plan} subscription is now active`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
@@ -2125,10 +2177,13 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const cancelledSubject = this.emailMetadata.generateSubject(EmailType.SELLER_SUBSCRIPTION_CANCELLED, {
+        endDate: endDate.toISOString()
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'subscription_cancelled',
-        title: 'Subscription Cancelled',
+        type: 'seller_subscription_cancelled',
+        title: cancelledSubject,
         message: `Your subscription has been cancelled. Access until ${endDateFormatted}`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
@@ -2154,11 +2209,15 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     if (seller.id) {
+      const payoutSubject = this.emailMetadata.generateSubject(EmailType.SELLER_PAYOUT_FAILED, {
+        amount,
+        currency
+      });
       await this.createNotification({
         userId: seller.id,
-        type: 'payout_failed',
-        title: 'Payout Failed',
-        message: `Your payout of $${amount} failed - ${reason}. Please update your bank account details.`,
+        type: 'seller_payout_failed',
+        title: payoutSubject,
+        message: `Your payout of $${amount.toFixed(2)} failed - ${reason}. Please update your bank account details.`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { amount, reason },
@@ -2214,11 +2273,14 @@ class NotificationServiceImpl implements NotificationService {
 
     // Create in-app notification for buyer (if they have an account)
     if (order.userId) {
+      const balanceSubject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_REQUEST, {
+        orderId: order.id
+      });
       await this.createNotification({
         userId: order.userId,
-        type: 'preorder_balance_due',
-        title: 'Balance Payment Due',
-        message: `Your remaining balance of $${order.remainingBalance} is now due for order #${order.id.slice(0, 8)}`,
+        type: 'balance_payment_request',
+        title: balanceSubject,
+        message: `Your remaining balance of $${order.remainingBalance} is now due`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
         metadata: { orderId: order.id, amount: order.remainingBalance, paymentLink },
@@ -2303,10 +2365,15 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     // Create in-app notification
+    const invoiceSubject = this.emailMetadata.generateSubject(EmailType.SELLER_SUBSCRIPTION_INVOICE, {
+      plan: invoiceData.plan,
+      amount: invoiceData.amount / 100,
+      currency: invoiceData.currency
+    });
     await this.createNotification({
       userId: user.id,
-      type: 'subscription_charged',
-      title: 'Subscription Payment Processed',
+      type: 'seller_subscription_invoice',
+      title: invoiceSubject,
       message: `Your Upfirst ${invoiceData.plan} subscription has been charged $${(invoiceData.amount / 100).toFixed(2)}`,
       emailSent: result.success ? 1 : 0,
       emailId: result.emailId,

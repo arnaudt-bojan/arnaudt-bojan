@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, Check, Trash2, Package, Truck, ShoppingBag, AlertCircle, Mail, CheckCircle } from "lucide-react";
+import { Bell, Check, Trash2, Package, Truck, ShoppingBag, AlertCircle, Mail, CheckCircle, DollarSign, CreditCard, AlertTriangle, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Notification } from "@shared/schema";
 
@@ -63,17 +63,107 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
+      // Seller order notifications
+      case 'seller_new_order':
       case 'order_placed':
-        return <ShoppingBag className="h-4 w-4" />;
-      case 'order_shipped':
-        return <Truck className="h-4 w-4" />;
+        return <ShoppingBag className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
+      // Item-level tracking and delivery
+      case 'item_tracking':
+        return <Truck className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'item_delivered':
       case 'order_delivered':
-        return <Package className="h-4 w-4" />;
+        return <Package className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'item_cancelled':
+        return <X className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'item_refunded':
+      case 'order_refunded':
+        return <DollarSign className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
+      // Shipping
+      case 'order_shipped':
+        return <Truck className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
+      // Seller onboarding and setup
+      case 'seller_welcome':
       case 'product_listed':
-        return <Package className="h-4 w-4" />;
+        return <Mail className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'seller_stripe_incomplete':
+        return <AlertTriangle className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
+      // Inventory
+      case 'seller_inventory_low':
+      case 'low_inventory':
+        return <AlertTriangle className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
+      // Subscription notifications
+      case 'seller_trial_ending':
+      case 'subscription_trial_ending':
+        return <AlertTriangle className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'seller_subscription_activated':
+      case 'subscription_activated':
+        return <CheckCircle className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'seller_subscription_cancelled':
+      case 'subscription_cancelled':
+        return <CreditCard className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'seller_subscription_invoice':
+      case 'subscription_charged':
+        return <CreditCard className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
+      // Payment notifications
+      case 'seller_payout_failed':
+      case 'payment_failed':
+      case 'seller_subscription_failed':
+        return <AlertCircle className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'balance_payment_request':
+      case 'preorder_balance_due':
+      case 'balance_payment_due':
+        return <DollarSign className="h-4 w-4" data-testid={`icon-${type}`} />;
+      case 'balance_payment_received':
+        return <CheckCircle className="h-4 w-4" data-testid={`icon-${type}`} />;
+      
       default:
-        return <AlertCircle className="h-4 w-4" />;
+        return <Bell className="h-4 w-4" data-testid={`icon-${type}`} />;
     }
+  };
+
+  const getNotificationBadgeVariant = (type: string): "default" | "secondary" | "destructive" | "outline" => {
+    // Success types - use default (primary color)
+    const successTypes = [
+      'item_delivered', 
+      'order_delivered', 
+      'balance_payment_received', 
+      'product_listed',
+      'seller_subscription_activated',
+      'subscription_activated'
+    ];
+    
+    // Warning types - use secondary (yellow/amber)
+    const warningTypes = [
+      'seller_inventory_low',
+      'low_inventory',
+      'seller_trial_ending',
+      'subscription_trial_ending',
+      'balance_payment_request',
+      'balance_payment_due',
+      'preorder_balance_due'
+    ];
+    
+    // Destructive types - use destructive (red)
+    const destructiveTypes = [
+      'payment_failed',
+      'seller_payout_failed',
+      'seller_subscription_failed',
+      'seller_stripe_incomplete',
+      'order_refunded',
+      'item_refunded',
+      'item_cancelled'
+    ];
+    
+    if (successTypes.includes(type)) return 'default';
+    if (warningTypes.includes(type)) return 'secondary';
+    if (destructiveTypes.includes(type)) return 'destructive';
+    return 'outline';
   };
 
   const handleMarkAsRead = (id: string, e: React.MouseEvent) => {
@@ -131,39 +221,41 @@ export function NotificationBell({ className }: NotificationBellProps) {
               {/* Main message - email body style */}
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <p className="text-base leading-relaxed whitespace-pre-wrap text-foreground">
-                  {selectedNotification?.message}
+                  {String(selectedNotification?.message || '')}
                 </p>
               </div>
 
               {/* Metadata - presented as clean key-value pairs */}
-              {selectedNotification?.metadata && (() => {
-                // Filter out technical/internal fields that users shouldn't see
-                const hiddenFields = ['emailId', 'internalId', 'requestId', 'debugInfo', 'systemInfo'];
-                const userFriendlyMetadata = Object.entries(selectedNotification.metadata as Record<string, any>)
-                  .filter(([key]) => !hiddenFields.includes(key));
-                
-                return userFriendlyMetadata.length > 0 ? (
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                      Additional Details
-                    </h4>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <dl className="space-y-3">
-                        {userFriendlyMetadata.map(([key, value]) => (
-                          <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                            <dt className="text-sm font-medium text-muted-foreground capitalize">
-                              {key.replace(/([A-Z])/g, ' $1').trim()}
-                            </dt>
-                            <dd className="text-sm font-semibold text-foreground sm:text-right">
-                              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
+              {selectedNotification?.metadata && (
+                (() => {
+                  // Filter out technical/internal fields that users shouldn't see
+                  const hiddenFields = ['emailId', 'internalId', 'requestId', 'debugInfo', 'systemInfo'];
+                  const userFriendlyMetadata = Object.entries(selectedNotification.metadata as Record<string, any>)
+                    .filter(([key]) => !hiddenFields.includes(key));
+                  
+                  return userFriendlyMetadata.length > 0 ? (
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                        Additional Details
+                      </h4>
+                      <div className="bg-muted/30 rounded-lg p-4">
+                        <dl className="space-y-3">
+                          {userFriendlyMetadata.map(([key, value]) => (
+                            <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                              <dt className="text-sm font-medium text-muted-foreground capitalize">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                              </dt>
+                              <dd className="text-sm font-semibold text-foreground sm:text-right">
+                                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
                     </div>
-                  </div>
-                ) : null;
-              })()}
+                  ) : null;
+                })()
+              )}
             </div>
           </ScrollArea>
         </DialogContent>
@@ -210,52 +302,72 @@ export function NotificationBell({ className }: NotificationBellProps) {
           </div>
         ) : (
           <ScrollArea className="max-h-[400px]">
-            {notifications.map((notification) => (
-              <DropdownMenuItem
-                key={notification.id}
-                className={`flex items-start gap-3 p-3 cursor-pointer ${
-                  notification.read === 0 ? 'bg-accent/50' : ''
-                }`}
-                onSelect={(e) => e.preventDefault()}
-                onClick={() => handleNotificationClick(notification)}
-                data-testid={`notification-${notification.id}`}
-              >
-                <div className={`mt-0.5 ${notification.read === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {getNotificationIcon(notification.type)}
-                </div>
-                <div className="flex-1 space-y-1 min-w-0">
-                  <p className="text-sm font-medium leading-none">{notification.title}</p>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {notification.message}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  {notification.read === 0 && (
+            {notifications.map((notification) => {
+              const badgeVariant = getNotificationBadgeVariant(notification.type);
+              const borderColorClass = 
+                badgeVariant === 'destructive' ? 'border-l-destructive' :
+                badgeVariant === 'secondary' ? 'border-l-secondary' :
+                badgeVariant === 'default' ? 'border-l-primary' :
+                'border-l-border';
+              
+              return (
+                <DropdownMenuItem
+                  key={notification.id}
+                  className={`flex items-start gap-3 p-3 cursor-pointer border-l-2 ${borderColorClass} ${
+                    notification.read === 0 ? 'bg-accent/50' : ''
+                  }`}
+                  onSelect={(e) => e.preventDefault()}
+                  onClick={() => handleNotificationClick(notification)}
+                  data-testid={`notification-${notification.id}`}
+                >
+                  <div className={`mt-0.5 ${notification.read === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium leading-none">{notification.title}</p>
+                      <Badge 
+                        variant={badgeVariant} 
+                        className="text-xs px-1.5 py-0 h-5"
+                        data-testid={`badge-variant-${notification.id}`}
+                      >
+                        {badgeVariant === 'destructive' ? 'urgent' : 
+                         badgeVariant === 'secondary' ? 'action' : 
+                         badgeVariant === 'default' ? 'info' : 'note' as string}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {notification.message}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {notification.read === 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => handleMarkAsRead(notification.id, e)}
+                        data-testid={`button-mark-read-${notification.id}`}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => handleMarkAsRead(notification.id, e)}
-                      data-testid={`button-mark-read-${notification.id}`}
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={(e) => handleDelete(notification.id, e)}
+                      data-testid={`button-delete-${notification.id}`}
                     >
-                      <Check className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={(e) => handleDelete(notification.id, e)}
-                    data-testid={`button-delete-${notification.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </DropdownMenuItem>
-            ))}
+                  </div>
+                </DropdownMenuItem>
+              );
+            })}
           </ScrollArea>
         )}
       </DropdownMenuContent>
