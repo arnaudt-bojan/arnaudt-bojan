@@ -1471,6 +1471,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Order not found" });
       }
 
+      // ALSO update order_items with tracking info (item-level tracking)
+      const orderItems = await storage.getOrderItems(req.params.id);
+      for (const item of orderItems) {
+        await storage.updateOrderItemTracking(
+          item.id,
+          validationResult.data.trackingNumber,
+          undefined, // carrier not provided in this endpoint
+          validationResult.data.trackingLink
+        );
+      }
+
       // Send shipping notification if requested
       if (validationResult.data.notifyCustomer) {
         void (async () => {
