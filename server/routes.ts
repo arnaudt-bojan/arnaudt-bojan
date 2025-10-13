@@ -689,8 +689,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req: any, res) => {
     try {
-      // Extract request data
-      const { customerEmail, customerName, customerAddress, items, destination, paymentIntentId } = req.body;
+      // Extract request data (frontend sends stripePaymentIntentId)
+      const { customerEmail, customerName, customerAddress, items, destination, stripePaymentIntentId } = req.body;
       
       // Basic validation (business logic validation happens in OrderService)
       if (!customerEmail) {
@@ -712,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerAddress,
         items,
         destination,
-        paymentIntentId, // Pass payment intent ID if provided
+        paymentIntentId: stripePaymentIntentId, // Pass payment intent ID if provided
       });
 
       if (!result.success) {
