@@ -22,6 +22,7 @@ A service layer pattern is employed, abstracting business logic from thin route 
 - `PricingCalculationService`
 - `StripeWebhookService`
 - `MetaIntegrationService`
+- `TeamManagementService`
 - Specialized services for Shipping, Tax, Notification, and Inventory.
 
 **UI/UX Decisions:**
@@ -43,7 +44,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Subdomain Architecture**: Environment-aware routing for seller storefronts.
 -   **Tax System (B2C)**: Automated sales tax calculation via Stripe Tax API, leveraging seller-configured tax nexus and product codes.
 -   **Pricing Service**: Centralized pricing calculations for consistency and security.
--   **Team Management**: Role-based access with granular permissions.
+-   **Team Management**: Simplified single-collaborator model. Sellers invite collaborators via email with 7-day expiry tokens. Collaborators have full store access. Invitations promote buyers to sellers automatically. Team management UI in settings allows invite/revoke operations.
 -   **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.
 -   **Storefront Customization**: Sellers can customize their storefront with About Story, contact info, and social media links.
 -   **Settings Page Organization**: Comprehensive seller settings across 12 tabs, including 'Quick Setup' and 'Warehouse' configuration. Profile tab simplified to show only Contact Email as editable field, with all business information (including address) displayed from Stripe Connect account. "Saved Cards" tab focuses exclusively on payment method management (removed saved addresses section). "Terms & Policies" tab renamed from "Store Policies & T&C" with platform default link and working PDF upload.
