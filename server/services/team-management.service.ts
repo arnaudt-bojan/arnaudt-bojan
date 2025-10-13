@@ -181,23 +181,24 @@ export class TeamManagementService {
           shippingCost: null,
           instagramUsername: null,
           role: 'admin', // Collaborators have admin access to the store
-          sellerId: null,
+          sellerId: invitation.storeOwnerId, // Link collaborator to store owner
         });
         requiresLogin = true;
-        logger.info('[TeamManagement] New user created from invitation', { userId: user.id, email: user.email });
+        logger.info('[TeamManagement] New user created from invitation', { userId: user.id, email: user.email, sellerId: invitation.storeOwnerId });
       } else if (acceptingUserId && acceptingUserId !== user.id) {
         return {
           success: false,
           error: "This invitation is for a different email address"
         };
       } else {
-        // 3. If user is buyer, promote to seller
-        if (user.userType === 'buyer') {
+        // 3. If user is buyer, promote to seller and set sellerId
+        if (user.userType === 'buyer' || !user.sellerId) {
           user = await this.storage.upsertUser({
             ...user,
-            userType: 'seller'
+            userType: 'seller',
+            sellerId: invitation.storeOwnerId // Link collaborator to store owner
           });
-          logger.info('[TeamManagement] User promoted from buyer to seller', { userId: user.id });
+          logger.info('[TeamManagement] User promoted to seller/collaborator', { userId: user.id, sellerId: invitation.storeOwnerId });
         }
       }
 
