@@ -254,7 +254,7 @@ export class CreateFlowService extends WorkflowExecutor {
         logger.info(`[CreateFlow] Using persisted context from workflow`, {
           workflowId: workflow.id,
           currentState: workflow.currentState,
-          contextKeys: Object.keys(currentContext),
+          contextKeys: Object.keys(currentContext).join(', '),
         });
       }
 
@@ -299,7 +299,7 @@ export class CreateFlowService extends WorkflowExecutor {
         logger.info(`[CreateFlow] Executing step: ${step.name} (${fromState} → ${toState})`, {
           workflowId: workflow.id,
           checkoutSessionId,
-          contextKeys: Object.keys(currentContext),
+          contextKeys: Object.keys(currentContext).join(', '),
           timestamp: new Date().toISOString(),
         });
 
@@ -407,7 +407,7 @@ export class CreateFlowService extends WorkflowExecutor {
           data: currentContext,
         });
 
-        currentState = toState;
+        currentState = toState as any;
 
         logger.info(`[CreateFlow] Step completed, context updated`, {
           workflowId: workflow.id,
@@ -415,8 +415,8 @@ export class CreateFlowService extends WorkflowExecutor {
           fromState,
           toState,
           transitionTimeMs: transitionTime,
-          contextKeys: Object.keys(currentContext),
-          addedData: result.data ? Object.keys(result.data) : [],
+          contextKeys: Object.keys(currentContext).join(', '),
+          addedData: result.data ? Object.keys(result.data).join(', ') : '',
         });
 
         // Create STEP_COMPLETED event

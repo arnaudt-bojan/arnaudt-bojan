@@ -131,7 +131,9 @@ export abstract class WorkflowExecutor {
             workflowId: workflow.id,
             stepName: step.name,
             attemptNumber: attempt + 1,
-            error: result.error,
+            errorMessage: result.error?.message,
+            errorCode: result.error?.code,
+            retryable: result.error?.retryable,
             nextRetryAttempt: attempt + 2,
           });
           
@@ -210,7 +212,7 @@ export abstract class WorkflowExecutor {
     logger.info(`[WorkflowExecutor] Compensation triggered`, {
       checkoutSessionId: context.checkoutSessionId,
       stepsToCompensate,
-      compensationStack: this.compensationStack.map(s => s.name),
+      compensationStack: this.compensationStack.map(s => s.name).join(', '),
     });
     
     let compensatedCount = 0;
