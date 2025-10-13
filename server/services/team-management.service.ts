@@ -195,27 +195,19 @@ export class TeamManagementService {
           };
         }
         
-        // Check if this is a revoked collaborator being reinvited
-        const existingMembership = await this.storage.getUserStoreMembership(user.id, invitation.storeOwnerId);
-        if (existingMembership && existingMembership.status === 'revoked') {
-          // This is a re-invitation - just need to reactivate, no need to update sellerId
-          logger.info('[TeamManagement] Reactivating revoked collaborator', { 
-            userId: user.id, 
-            membershipId: existingMembership.id 
+        // ALWAYS update sellerId when accepting invitation (even if already a collaborator elsewhere)
+        // This ensures the user's sellerId matches their active store membership
+        if (user.userType === 'buyer' || user.sellerId !== invitation.storeOwnerId) {
+          user = await this.storage.upsertUser({
+            ...user,
+            userType: 'seller', // Promote buyers to sellers
+            sellerId: invitation.storeOwnerId // Link collaborator to this store owner
           });
-        } else {
-          // 3. If user is buyer or new collaborator, promote to seller and set sellerId
-          if (user.userType === 'buyer' || !user.sellerId || user.sellerId !== invitation.storeOwnerId) {
-            user = await this.storage.upsertUser({
-              ...user,
-              userType: 'seller',
-              sellerId: invitation.storeOwnerId // Link collaborator to store owner
-            });
-            logger.info('[TeamManagement] User promoted to seller/collaborator', { 
-              userId: user.id, 
-              sellerId: invitation.storeOwnerId 
-            });
-          }
+          logger.info('[TeamManagement] User updated for collaboration', { 
+            userId: user.id, 
+            sellerId: invitation.storeOwnerId,
+            previousSellerId: user.sellerId !== invitation.storeOwnerId ? user.sellerId : undefined
+          });
         }
         
         // Require login to refresh session with updated user data
