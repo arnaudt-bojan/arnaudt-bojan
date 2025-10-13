@@ -132,6 +132,33 @@ export class LegacyStripeCheckoutService {
 
       const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentParams);
 
+      // Update order with payment intent ID if orderId was provided
+      if (orderId) {
+        try {
+          const order = await this.storage.getOrder(orderId);
+          if (order) {
+            // Determine which field to update based on payment type
+            const updateData: any = { ...order };
+            
+            if (paymentType === 'balance') {
+              updateData.stripeBalancePaymentIntentId = paymentIntent.id;
+              logger.info(`[Legacy Checkout] Updated order ${orderId} with balance payment intent ${paymentIntent.id}`);
+            } else {
+              // For 'full', 'deposit', or 'partial' payment types
+              updateData.stripePaymentIntentId = paymentIntent.id;
+              logger.info(`[Legacy Checkout] Updated order ${orderId} with payment intent ${paymentIntent.id}`);
+            }
+            
+            await this.storage.upsertOrder(updateData);
+          } else {
+            logger.warn(`[Legacy Checkout] Order ${orderId} not found, cannot update with payment intent ID`);
+          }
+        } catch (error) {
+          logger.error(`[Legacy Checkout] Failed to update order ${orderId} with payment intent:`, error);
+          // Don't fail the request - payment intent was created successfully
+        }
+      }
+
       return {
         success: true,
         clientSecret: paymentIntent.client_secret!,
