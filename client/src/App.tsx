@@ -13,6 +13,7 @@ import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
 import { ProtectedRoute } from "@/components/protected-route";
+import { useOrderWebSocket } from "@/hooks/use-order-websocket";
 import Home from "@/pages/home";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
@@ -56,6 +57,9 @@ function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { itemsCount } = useCart();
   const [location] = useLocation();
+  
+  // Connect to WebSocket for real-time order updates
+  useOrderWebSocket();
   
   // Scroll to top on route change
   useEffect(() => {

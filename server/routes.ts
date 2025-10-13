@@ -5503,12 +5503,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get checkout session ID (if exists)
         const checkoutSessionId = `checkout_session_${orderId}`;
 
-        // Calculate amount from order total
-        const amount = parseFloat(order.total);
+        // Calculate correct payment amount based on payment type
+        let amount: number;
+        if (order.paymentType === 'deposit') {
+          // For deposits, calculate 10% of total minus already paid
+          const totalAmount = parseFloat(order.total);
+          const depositAmount = totalAmount * 0.1; // 10% deposit
+          const alreadyPaid = parseFloat(order.amountPaid || '0');
+          amount = depositAmount - alreadyPaid;
+        } else if (order.paymentType === 'balance') {
+          // For balance payments, use remaining balance
+          amount = parseFloat(order.remainingBalance || '0');
+        } else {
+          // For full payments, use total minus already paid
+          const totalAmount = parseFloat(order.total);
+          const alreadyPaid = parseFloat(order.amountPaid || '0');
+          amount = totalAmount - alreadyPaid;
+        }
 
         logger.info('[DEV] Manually confirming payment', {
           orderId,
           paymentIntentId,
+          paymentType: order.paymentType,
           amount,
           checkoutSessionId,
         });
@@ -5540,6 +5556,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   const httpServer = createServer(app);
+
+  // Initialize WebSocket for real-time order updates
+  const { orderWebSocketService } = await import('./websocket');
+  orderWebSocketService.initialize(httpServer);
 
   return httpServer;
 }
