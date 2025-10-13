@@ -2377,10 +2377,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: result.error });
       }
       
-      res.json({ 
-        message: "Invitation accepted successfully",
-        user: result.data?.user,
-        redirectTo: "/seller-dashboard"
+      // Log the user in by creating a session
+      const user = result.data!.user;
+      const sessionUser = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+        },
+        access_token: 'email-auth', // Similar to local auth
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
+      };
+      
+      // Use passport's login to properly set up the session
+      req.login(sessionUser, (err: any) => {
+        if (err) {
+          logger.error('[TeamManagement] Error logging in after invitation acceptance', err);
+          return res.status(500).json({ error: "Failed to log in" });
+        }
+        
+        res.json({ 
+          message: "Invitation accepted successfully",
+          user: result.data?.user,
+          redirectTo: "/seller-dashboard"
+        });
       });
     } catch (error) {
       logger.error("Error accepting invitation", error);
