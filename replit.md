@@ -46,7 +46,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Team Management**: Role-based access with granular permissions.
 -   **Platform Admin Dashboard**: Comprehensive dashboard for Upfirst platform owners.
 -   **Storefront Customization**: Sellers can customize their storefront with About Story, contact info, and social media links.
--   **Settings Page Organization**: Comprehensive seller settings across 12 tabs, including 'Quick Setup' and 'Warehouse' configuration. Profile tab simplified to show only Contact Email as editable field, with all business information (including address) displayed from Stripe Connect account.
+-   **Settings Page Organization**: Comprehensive seller settings across 12 tabs, including 'Quick Setup' and 'Warehouse' configuration. Profile tab simplified to show only Contact Email as editable field, with all business information (including address) displayed from Stripe Connect account. "Saved Cards" tab focuses exclusively on payment method management (removed saved addresses section).
 -   **Terms & Conditions System**: Seller T&C management integrated into the storefront footer.
 -   **Inventory Management System**: Transaction-based stock reservation with atomic operations, PostgreSQL row-level locking, and automatic stock synchronization.
 -   **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, and balance payments.
