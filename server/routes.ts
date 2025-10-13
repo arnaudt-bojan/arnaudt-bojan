@@ -2468,11 +2468,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/team/collaborators", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       
-      // Get both collaborators and pending invitations
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // For collaborators, use the store owner's ID; for store owners, use their own ID
+      const effectiveSellerId = user.sellerId || userId;
+      
+      // Get both collaborators and pending invitations for the store owner
       const [collaboratorsResult, invitationsResult] = await Promise.all([
-        teamService.listCollaborators(userId),
-        teamService.getPendingInvitations(userId)
+        teamService.listCollaborators(effectiveSellerId),
+        teamService.getPendingInvitations(effectiveSellerId)
       ]);
       
       if (!collaboratorsResult.success) {
