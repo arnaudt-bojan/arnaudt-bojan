@@ -56,7 +56,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Add to cart mutation
   const addMutation = useMutation({
     mutationFn: async ({ productId, quantity = 1, variantId }: { productId: string; quantity?: number; variantId?: string }) => {
-      const response = await apiRequest('/api/cart/add', 'POST', { productId, quantity, variantId });
+      const response = await apiRequest('POST', '/api/cart/add', { productId, quantity, variantId });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add to cart');
@@ -72,7 +72,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Remove from cart mutation
   const removeMutation = useMutation({
     mutationFn: async ({ itemId }: { itemId: string }) => {
-      const response = await apiRequest('/api/cart/remove', 'POST', { itemId });
+      const response = await apiRequest('POST', '/api/cart/remove', { itemId });
       if (!response.ok) {
         throw new Error('Failed to remove from cart');
       }
@@ -86,7 +86,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Update quantity mutation
   const updateMutation = useMutation({
     mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
-      const response = await apiRequest('/api/cart/update', 'POST', { itemId, quantity });
+      const response = await apiRequest('POST', '/api/cart/update', { itemId, quantity });
       if (!response.ok) {
         throw new Error('Failed to update cart');
       }
@@ -100,7 +100,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Clear cart mutation
   const clearMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/cart', 'DELETE', null);
+      const response = await apiRequest('DELETE', '/api/cart', null);
       if (!response.ok) {
         throw new Error('Failed to clear cart');
       }
