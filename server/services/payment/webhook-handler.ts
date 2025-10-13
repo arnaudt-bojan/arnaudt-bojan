@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { IStorage } from '../../storage';
 import { IPaymentProvider } from './payment-provider.interface';
 import { InventoryService } from '../inventory/inventory.service';
+import { NotificationService } from '../../notifications';
 import { logger } from '../../logger';
 
 export interface WebhookEvent {
@@ -19,7 +20,8 @@ export class WebhookHandler {
   constructor(
     private storage: IStorage,
     private provider: IPaymentProvider,
-    private inventoryService: InventoryService
+    private inventoryService: InventoryService,
+    private notificationService: NotificationService
   ) {}
 
   /**
@@ -232,6 +234,51 @@ export class WebhookHandler {
       }
       
       logger.info(`[Webhook] Updated order ${orderId} to fully_paid (${currency} ${amountPaid}) and processing`);
+      
+      // Send order notifications NOW (after amountPaid is set) with idempotent guard
+      try {
+        // Idempotent check: Only send if no email_sent event exists for this order
+        const existingEmailEvents = await this.storage.getOrderEventsByType(orderId, 'email_sent');
+        const buyerConfirmationSent = existingEmailEvents.some(e => {
+          try {
+            const metadata = JSON.parse(e.payload || '{}');
+            return metadata.emailType === 'order_confirmation';
+          } catch {
+            return false;
+          }
+        });
+        
+        if (!buyerConfirmationSent) {
+          // Get fresh order data with updated amountPaid
+          const updatedOrder = await this.storage.getOrder(orderId);
+          if (updatedOrder) {
+            // Get products for the order
+            const orderItems = await this.storage.getOrderItems(orderId);
+            const productIds = [...new Set(orderItems.map(item => item.productId))];
+            const products = [];
+            for (const productId of productIds) {
+              const product = await this.storage.getProduct(productId);
+              if (product) products.push(product);
+            }
+            
+            // Get seller
+            const seller = products[0] ? await this.storage.getUser(products[0].sellerId) : null;
+            
+            if (seller && products.length > 0) {
+              await this.notificationService.sendOrderConfirmation(updatedOrder, seller, products);
+              await this.notificationService.sendSellerOrderNotification(updatedOrder, seller, products);
+              logger.info(`[Webhook] Order notifications sent for ${orderId} with amountPaid ${amountPaid}`);
+            } else {
+              logger.warn(`[Webhook] Missing seller or products for order ${orderId}, skipping notifications`);
+            }
+          }
+        } else {
+          logger.info(`[Webhook] Order notifications already sent for ${orderId}, skipping (idempotent)`);
+        }
+      } catch (notificationError) {
+        logger.error(`[Webhook] Failed to send order notifications for ${orderId}:`, notificationError);
+        // Don't throw - payment is successful, notifications are best-effort
+      }
     }
   }
 

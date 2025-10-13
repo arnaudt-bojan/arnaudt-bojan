@@ -288,10 +288,9 @@ export class OrderService {
         committed: commitResult.committed,
       });
 
-      // Step 10: Send notifications (async, don't block response)
-      this.sendOrderNotifications(order).catch(error => {
-        logger.error('[OrderService] Failed to send notifications', { error });
-      });
+      // NOTE: Order notifications are now sent from payment webhook after amountPaid is set
+      // This fixes the "$0.00 Amount Paid" bug in seller emails
+      // See: server/services/payment/webhook-handler.ts - handlePaymentIntentSucceeded()
 
       logger.info('[OrderService] Order created successfully', {
         orderId: order.id,
