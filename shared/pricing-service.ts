@@ -74,18 +74,33 @@ export function calculatePricing(
   let depositAmount = 0;
   let hasPreOrders = false;
   
-  // Calculate subtotal and deposit amounts
-  items.forEach((item) => {
-    const itemTotal = parseFloat(item.price) * item.quantity;
-    subtotal += itemTotal;
+  // Calculate per-item totals (FIX: BUG #1 and BUG #2)
+  // BUG #1: Include made-to-order in deposit check
+  // BUG #2: Calculate balance per item to handle mixed carts correctly
+  let depositTotal = 0;
+  let remainingBalance = 0;
+  
+  for (const item of items) {
+    const itemPrice = parseFloat(item.price);
+    const fullItemPrice = itemPrice * item.quantity;
+    subtotal += fullItemPrice;
     
-    // Check if this is a pre-order requiring deposit
-    if (item.productType === "pre-order" && item.requiresDeposit && item.depositAmount) {
+    // Check if this is a pre-order or made-to-order requiring deposit
+    if ((item.productType === "pre-order" || item.productType === "made-to-order") && item.depositAmount) {
       hasPreOrders = true;
       const depositPerItem = parseFloat(item.depositAmount);
-      depositAmount += depositPerItem * item.quantity;
+      const itemDeposit = depositPerItem * item.quantity;
+      
+      depositAmount += itemDeposit;
+      depositTotal += itemDeposit;
+      
+      // Balance = full price - deposit (only for deposit-eligible items)
+      remainingBalance += fullItemPrice - itemDeposit;
+    } else {
+      // In-stock items: fully paid upfront (no balance)
+      depositTotal += fullItemPrice;
     }
-  });
+  }
   
   // Calculate shipping distribution
   // BEST PRACTICE: Charge shipping when item ships (with balance), not with deposit
@@ -99,10 +114,15 @@ export function calculatePricing(
     shippingInBalance = 0;
   }
   
-  // Calculate totals
-  const depositTotal = depositAmount + shippingInDeposit;
+  // Add shipping to deposit total
+  depositTotal += shippingInDeposit;
   const fullTotal = subtotal + shippingCost;
-  const remainingBalance = fullTotal - depositTotal;
+  
+  // CRITICAL FIX: Recalculate remainingBalance to include shipping (only for pre-orders)
+  // For pure in-stock carts, remainingBalance should stay 0
+  if (hasPreOrders && depositAmount > 0) {
+    remainingBalance = fullTotal - depositTotal;
+  }
   
   // Determine payment flow
   const payingDepositOnly = hasPreOrders && depositAmount > 0;

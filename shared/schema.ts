@@ -214,6 +214,7 @@ export const orderItems = pgTable("order_items", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Price per unit at time of order
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(), // quantity * price
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
+  balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }), // FIX BUG #3: Per-item balance tracking
   requiresDeposit: integer("requires_deposit").default(0),
   variant: jsonb("variant"), // {size, color} if applicable
   itemStatus: text("item_status").notNull().default("pending"), // "pending", "processing", "ready_to_ship", "shipped", "delivered", "cancelled", "returned", "refunded"

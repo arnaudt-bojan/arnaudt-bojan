@@ -709,20 +709,35 @@ export class OrderService {
   private async createOrderItems(order: Order): Promise<void> {
     try {
       const items = JSON.parse(order.items);
-      const orderItemsToCreate: InsertOrderItem[] = items.map((item: any) => ({
-        orderId: order.id,
-        productId: item.productId || item.id,
-        productName: item.name,
-        productImage: item.image || null,
-        productType: item.productType || 'in-stock',
-        quantity: item.quantity,
-        price: String(item.price),
-        subtotal: String(parseFloat(item.price) * item.quantity),
-        depositAmount: item.depositAmount ? String(item.depositAmount) : null,
-        requiresDeposit: item.requiresDeposit ? 1 : 0,
-        variant: item.variant || null,
-        itemStatus: 'pending' as const,
-      }));
+      const orderItemsToCreate: InsertOrderItem[] = items.map((item: any) => {
+        const itemPrice = parseFloat(item.price);
+        const subtotal = itemPrice * item.quantity;
+        const productType = item.productType || 'in-stock';
+        
+        // FIX BUG #3: Calculate per-item balance amount
+        let balanceAmount: string | null = null;
+        if ((productType === 'pre-order' || productType === 'made-to-order') && item.depositAmount) {
+          const depositPerItem = parseFloat(item.depositAmount);
+          const totalDeposit = depositPerItem * item.quantity;
+          balanceAmount = String(subtotal - totalDeposit);
+        }
+        
+        return {
+          orderId: order.id,
+          productId: item.productId || item.id,
+          productName: item.name,
+          productImage: item.image || null,
+          productType,
+          quantity: item.quantity,
+          price: String(item.price),
+          subtotal: String(subtotal),
+          depositAmount: item.depositAmount ? String(item.depositAmount) : null,
+          balanceAmount,
+          requiresDeposit: item.requiresDeposit ? 1 : 0,
+          variant: item.variant || null,
+          itemStatus: 'pending' as const,
+        };
+      });
 
       await this.storage.createOrderItems(orderItemsToCreate);
       logger.info('[OrderService] Created order items', {
