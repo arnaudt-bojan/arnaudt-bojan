@@ -17,6 +17,7 @@ import documentRoutes from "./routes/documents";
 import { DocumentGenerator } from "./services/document-generator";
 import { logger } from "./logger";
 import { generateUniqueUsername, generateOrderNumber } from "./utils";
+import { generateCollaboratorInvitationEmail } from "./utils/email-templates";
 import { InventoryService } from "./services/inventory.service";
 import { OrderService } from "./services/order.service";
 import { CartValidationService } from "./services/cart-validation.service";
@@ -2313,6 +2314,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to delete team member" });
+    }
+  });
+
+  // New Team Management Routes (Architecture 3)
+  app.post("/api/team/invite", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      const result = await teamService.inviteCollaborator({
+        storeOwnerId: userId,
+        inviteeEmail: email.toLowerCase().trim(),
+        invitedByUserId: userId
+      });
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      // Send invitation email
+      const inviter = await storage.getUser(userId);
+      const inviterName = `${inviter?.firstName || ''} ${inviter?.lastName || ''}`.trim() || 'A seller';
+      const storeName = inviter?.username || 'a store';
+      const invitationLink = `${req.protocol}://${req.get('host')}/accept-invitation?token=${result.data?.token}`;
+      
+      const emailHtml = generateCollaboratorInvitationEmail(
+        inviterName,
+        storeName,
+        invitationLink
+      );
+      
+      await notificationService.sendEmail({
+        to: email,
+        subject: `You've been invited to join ${storeName} on Upfirst`,
+        html: emailHtml
+      });
+      
+      res.json({ message: "Invitation sent successfully" });
+    } catch (error) {
+      logger.error("Error inviting collaborator", error);
+      res.status(500).json({ error: "Failed to send invitation" });
+    }
+  });
+
+  app.post("/api/team/accept-invitation", async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      const acceptingUserId = req.user?.claims?.sub; // May be null if not logged in
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+      
+      const result = await teamService.acceptInvitation({ token, acceptingUserId });
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json({ 
+        message: "Invitation accepted successfully",
+        user: result.data?.user,
+        redirectTo: "/seller-dashboard"
+      });
+    } catch (error) {
+      logger.error("Error accepting invitation", error);
+      res.status(500).json({ error: "Failed to accept invitation" });
+    }
+  });
+
+  app.delete("/api/team/members/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const result = await teamService.revokeCollaborator({
+        membershipId: id,
+        revokedByUserId: userId
+      });
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json({ message: "Collaborator removed successfully" });
+    } catch (error) {
+      logger.error("Error revoking collaborator", error);
+      res.status(500).json({ error: "Failed to remove collaborator" });
+    }
+  });
+
+  app.get("/api/team/collaborators", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const result = await teamService.listCollaborators(userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json(result.data?.collaborators || []);
+    } catch (error) {
+      logger.error("Error listing collaborators", error);
+      res.status(500).json({ error: "Failed to load team members" });
     }
   });
 

@@ -1,175 +1,176 @@
 import type { IStorage } from '../storage';
+import type { StoreInvitation, UserStoreMembership, User } from '@shared/schema';
 import { logger } from '../logger';
+import crypto from 'crypto';
 
-interface CreateInvitationInput {
-  email: string;
-  role: string;
-  inviterId: string;
-  protocol: string;
-  host: string;
+interface InviteCollaboratorParams {
+  storeOwnerId: string;
+  inviteeEmail: string;
+  invitedByUserId: string;
 }
 
-interface AcceptInvitationInput {
+interface AcceptInvitationParams {
   token: string;
+  acceptingUserId?: string; // If already logged in
 }
 
-interface UpdateRoleInput {
-  userId: string;
-  role: string;
-  currentUserId: string;
-}
-
-interface DeleteMemberInput {
-  userId: string;
-  currentUserId: string;
+interface RevokeCollaboratorParams {
+  membershipId: string;
+  revokedByUserId: string;
 }
 
 export class TeamManagementService {
-  constructor(
-    private storage: IStorage,
-    private notificationService: any // NotificationService type
-  ) {}
+  constructor(private storage: IStorage) {}
 
-  async createInvitation(input: CreateInvitationInput) {
+  /**
+   * Invite a collaborator to join the store team
+   * Architecture 3: All business logic in service layer
+   */
+  async inviteCollaborator(params: InviteCollaboratorParams): Promise<{
+    success: boolean;
+    data?: { invitation: StoreInvitation; token: string };
+    error?: string;
+  }> {
     try {
-      const { email, role, inviterId, protocol, host } = input;
+      const { storeOwnerId, inviteeEmail, invitedByUserId } = params;
 
-      // Validate role
-      if (!["admin", "editor", "viewer"].includes(role)) {
-        return { 
-          success: false, 
-          error: "Invalid role. Valid roles: admin, editor, viewer",
-          statusCode: 400
+      // 1. Validate store ownership
+      const storeOwner = await this.storage.getUser(storeOwnerId);
+      if (!storeOwner) {
+        return {
+          success: false,
+          error: "Store owner not found"
         };
       }
 
-      // Check if user already exists
-      const existingUser = await this.storage.getUserByEmail(email);
+      // Verify the inviter has permission (must be store owner or existing collaborator)
+      const inviter = await this.storage.getUser(invitedByUserId);
+      if (!inviter) {
+        return {
+          success: false,
+          error: "Inviter not found"
+        };
+      }
+
+      // Check if inviter is the owner or has membership to this store
+      if (invitedByUserId !== storeOwnerId) {
+        // Check if inviter is a collaborator with active membership
+        const inviterMembership = await this.storage.getUserStoreMembership(invitedByUserId, storeOwnerId);
+        if (!inviterMembership || inviterMembership.status !== 'active') {
+          return {
+            success: false,
+            error: "Only store owners and active collaborators can invite team members"
+          };
+        }
+      }
+
+      // 2. Check if user is already a team member
+      const existingUser = await this.storage.getUserByEmail(inviteeEmail);
       if (existingUser) {
-        return { 
-          success: false, 
-          error: "User with this email already exists",
-          statusCode: 400
+        const existingMembership = await this.storage.getUserStoreMembership(existingUser.id, storeOwnerId);
+        if (existingMembership && existingMembership.status === 'active') {
+          return {
+            success: false,
+            error: "This user is already a team member"
+          };
+        }
+      }
+
+      // 3. Check for existing pending invitation
+      const existingInvitations = await this.storage.getPendingStoreInvitations(storeOwnerId);
+      const pendingInvitation = existingInvitations.find(
+        inv => inv.inviteeEmail.toLowerCase() === inviteeEmail.toLowerCase() && inv.status === 'pending'
+      );
+
+      if (pendingInvitation) {
+        return {
+          success: false,
+          error: "A pending invitation already exists for this email"
         };
       }
 
-      // Generate unique token
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // 4. Generate secure token
+      const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-      const invitation = await this.storage.createInvitation({
-        email,
-        role,
-        invitedBy: inviterId,
-        status: "pending",
+      // 5. Create invitation
+      const invitation = await this.storage.createStoreInvitation({
+        storeOwnerId: storeOwnerId,
+        inviteeEmail: inviteeEmail.toLowerCase().trim(),
+        invitedByUserId,
+        status: 'pending',
         token,
         expiresAt,
       });
 
-      const invitationLink = `${protocol}://${host}/accept-invitation?token=${token}`;
+      logger.info('[TeamManagement] Collaborator invitation created', {
+        invitationId: invitation.id,
+        storeOwnerId: storeOwnerId,
+        inviteeEmail: inviteeEmail,
+        invitedBy: invitedByUserId
+      });
 
-      return { 
-        success: true, 
-        data: { 
-          invitation, 
-          invitationLink 
-        } 
+      return {
+        success: true,
+        data: { invitation, token }
       };
     } catch (error) {
-      logger.error("TeamManagementService: Error creating invitation", error);
-      return { 
-        success: false, 
-        error: "Failed to create invitation",
-        statusCode: 500
+      logger.error('[TeamManagement] Error creating invitation', error);
+      return {
+        success: false,
+        error: "Failed to create invitation"
       };
     }
   }
 
-  async getInvitations(userId: string) {
+  /**
+   * Accept a team invitation
+   * Architecture 3: Handles user creation, type promotion, and membership creation
+   */
+  async acceptInvitation(params: AcceptInvitationParams): Promise<{
+    success: boolean;
+    data?: { membership: UserStoreMembership; user: User; requiresLogin: boolean };
+    error?: string;
+  }> {
     try {
-      const allInvitations = await this.storage.getAllInvitations();
-      // Filter to only return invitations created by this user (seller scoping)
-      const userInvitations = allInvitations.filter(inv => inv.invitedBy === userId);
-      return { success: true, data: userInvitations };
-    } catch (error) {
-      logger.error("TeamManagementService: Error fetching invitations", error);
-      return { 
-        success: false, 
-        error: "Failed to fetch invitations",
-        statusCode: 500
-      };
-    }
-  }
+      const { token, acceptingUserId } = params;
 
-  async acceptInvitation(input: AcceptInvitationInput) {
-    try {
-      const { token } = input;
-
-      const invitation = await this.storage.getInvitationByToken(token);
+      // 1. Verify token and check expiry
+      const invitation = await this.storage.getStoreInvitationByToken(token);
       if (!invitation) {
-        return { 
-          success: false, 
-          error: "Invitation not found",
-          statusCode: 404
+        return {
+          success: false,
+          error: "Invitation not found"
         };
       }
 
-      if (invitation.status !== "pending") {
-        return { 
-          success: false, 
-          error: "Invitation already used or expired",
-          statusCode: 400
+      if (invitation.status !== 'pending') {
+        return {
+          success: false,
+          error: `Invitation has already been ${invitation.status}`
         };
       }
 
       if (new Date() > new Date(invitation.expiresAt)) {
-        await this.storage.updateInvitationStatus(invitation.token, "expired");
-        return { 
-          success: false, 
-          error: "Invitation has expired",
-          statusCode: 400
+        await this.storage.updateStoreInvitationStatus(invitation.id, 'expired');
+        return {
+          success: false,
+          error: "Invitation has expired"
         };
       }
 
-      // Get the inviter to determine sellerId
-      const inviter = await this.storage.getUser(invitation.invitedBy);
-      if (!inviter) {
-        return { 
-          success: false, 
-          error: "Inviter not found",
-          statusCode: 400
-        };
-      }
+      // 2. Get or create user for invitee email
+      let user = await this.storage.getUserByEmail(invitation.inviteeEmail);
+      let requiresLogin = false;
 
-      // Get canonical owner ID
-      const canonicalOwnerId = inviter.sellerId || inviter.id;
-      if (!canonicalOwnerId) {
-        return { 
-          success: false, 
-          error: "Could not determine store owner",
-          statusCode: 400
-        };
-      }
-
-      // Check if user exists
-      let user = await this.storage.getUserByEmail(invitation.email);
-      
-      if (user) {
-        // User exists - update their role and sellerId
-        await this.storage.upsertUser({
-          ...user,
-          role: invitation.role,
-          sellerId: canonicalOwnerId,
-        });
-      } else {
+      if (!user) {
         // New user - create account
-        const newUserId = `usr_${Math.random().toString(36).substring(2, 15)}`;
+        const newUserId = `user_${crypto.randomBytes(16).toString('hex')}`;
         user = await this.storage.upsertUser({
           id: newUserId,
-          email: invitation.email.toLowerCase().trim(),
+          email: invitation.inviteeEmail.toLowerCase().trim(),
           password: null,
-          role: invitation.role,
-          sellerId: canonicalOwnerId,
+          userType: 'seller', // Collaborators are sellers
           firstName: null,
           lastName: null,
           username: null,
@@ -179,209 +180,190 @@ export class TeamManagementService {
           storeActive: null,
           shippingCost: null,
           instagramUsername: null,
+          role: null,
+          sellerId: null,
+        });
+        requiresLogin = true;
+        logger.info('[TeamManagement] New user created from invitation', { userId: user.id, email: user.email });
+      } else if (acceptingUserId && acceptingUserId !== user.id) {
+        return {
+          success: false,
+          error: "This invitation is for a different email address"
+        };
+      } else {
+        // 3. If user is buyer, promote to seller
+        if (user.userType === 'buyer') {
+          user = await this.storage.upsertUser({
+            ...user,
+            userType: 'seller'
+          });
+          logger.info('[TeamManagement] User promoted from buyer to seller', { userId: user.id });
+        }
+      }
+
+      // 4. Create membership with accessLevel='collaborator', status='active'
+      const existingMembership = await this.storage.getUserStoreMembership(user.id, invitation.storeOwnerId);
+      
+      let membership: UserStoreMembership;
+      if (existingMembership) {
+        // Reactivate existing membership
+        membership = await this.storage.updateUserStoreMembership(existingMembership.id, {
+          status: 'active',
+          accessLevel: 'collaborator',
+          invitedBy: invitation.invitedByUserId,
+        });
+      } else {
+        // Create new membership
+        membership = await this.storage.createUserStoreMembership({
+          userId: user.id,
+          storeOwnerId: invitation.storeOwnerId,
+          accessLevel: 'collaborator',
+          invitedBy: invitation.invitedByUserId,
+          status: 'active',
         });
       }
 
-      // Mark invitation as accepted
-      await this.storage.updateInvitationStatus(invitation.token, "accepted");
+      // 5. Mark invitation as accepted
+      await this.storage.updateStoreInvitationStatus(invitation.id, 'accepted');
 
-      // Generate auth token for auto-login
-      const authToken = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-      const authExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-      
-      await this.storage.createAuthToken({
-        email: invitation.email,
-        token: authToken,
-        expiresAt: authExpiresAt,
-        used: 0,
-        sellerContext: null,
+      logger.info('[TeamManagement] Invitation accepted', {
+        invitationId: invitation.id,
+        userId: user.id,
+        storeOwnerId: invitation.storeOwnerId,
+        membershipId: membership.id
       });
 
-      // Generate magic link URL
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
-        : `http://localhost:${process.env.PORT || 5000}`;
-      const magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${authToken}&redirect=/seller-dashboard`;
-
-      // Send magic link for auto-login
-      await this.notificationService.sendMagicLink(invitation.email, magicLink);
-
-      return { 
-        success: true, 
-        data: {
-          message: "Invitation accepted successfully. Check your email for login link.", 
-          role: invitation.role,
-          requiresLogin: true,
-          email: invitation.email
-        }
+      return {
+        success: true,
+        data: { membership, user, requiresLogin }
       };
     } catch (error) {
-      logger.error("TeamManagementService: Error accepting invitation", error);
-      return { 
-        success: false, 
-        error: "Failed to accept invitation",
-        statusCode: 500
+      logger.error('[TeamManagement] Error accepting invitation', error);
+      return {
+        success: false,
+        error: "Failed to accept invitation"
       };
     }
   }
 
-  async getTeamMembers(userId: string) {
+  /**
+   * Revoke a collaborator's access to the store
+   * Architecture 3: Validates permissions and updates membership status
+   */
+  async revokeCollaborator(params: RevokeCollaboratorParams): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     try {
-      const currentUser = await this.storage.getUser(userId);
-      if (!currentUser) {
-        return { 
-          success: false, 
-          error: "User not found",
-          statusCode: 404
+      const { membershipId, revokedByUserId } = params;
+
+      // Get the membership
+      const membership = await this.storage.getUserStoreMembershipById(membershipId);
+      if (!membership) {
+        return {
+          success: false,
+          error: "Membership not found"
         };
       }
 
-      // Only sellers (admin/owner) can view their team
-      if (!["admin", "owner"].includes(currentUser.role)) {
-        return { 
-          success: false, 
-          error: "Only store owners can manage team members",
-          statusCode: 403
+      // 1. Verify requester is store owner or has permission
+      const revoker = await this.storage.getUser(revokedByUserId);
+      if (!revoker) {
+        return {
+          success: false,
+          error: "Revoker not found"
         };
       }
 
-      // Get canonical owner ID
-      const canonicalOwnerId = currentUser.role === "owner" ? currentUser.id : currentUser.sellerId;
-      if (!canonicalOwnerId) {
-        return { 
-          success: false, 
-          error: "No store owner found for this user",
-          statusCode: 400
+      // Only store owner can revoke memberships
+      if (revokedByUserId !== membership.storeOwnerId) {
+        return {
+          success: false,
+          error: "Only the store owner can revoke team members"
         };
       }
 
-      // Get team members for this seller's store
-      const users = await this.storage.getTeamMembersBySellerId(canonicalOwnerId);
+      // 2. Update membership status to 'revoked'
+      await this.storage.updateUserStoreMembership(membershipId, {
+        status: 'revoked'
+      });
+
+      logger.info('[TeamManagement] Collaborator access revoked', {
+        membershipId,
+        revokedBy: revokedByUserId,
+        userId: membership.userId,
+        storeOwnerId: membership.storeOwnerId
+      });
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      logger.error('[TeamManagement] Error revoking collaborator', error);
+      return {
+        success: false,
+        error: "Failed to revoke collaborator"
+      };
+    }
+  }
+
+  /**
+   * List all active collaborators for a store
+   * Architecture 3: Returns enriched membership data with user info
+   */
+  async listCollaborators(storeOwnerId: string): Promise<{
+    success: boolean;
+    data?: Array<UserStoreMembership & { user: User }>;
+    error?: string;
+  }> {
+    try {
+      const memberships = await this.storage.getStoreCollaborators(storeOwnerId);
       
-      // Sanitize sensitive info
-      const sanitizedUsers = users.map(u => ({
-        id: u.id,
-        email: u.email,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        role: u.role,
-        createdAt: u.createdAt,
-      }));
+      // Enrich with user data
+      const enrichedMemberships = await Promise.all(
+        memberships.map(async (membership) => {
+          const user = await this.storage.getUser(membership.userId);
+          return {
+            ...membership,
+            user: user!
+          };
+        })
+      );
 
-      return { success: true, data: sanitizedUsers };
+      return {
+        success: true,
+        data: enrichedMemberships.filter(m => m.user) // Filter out any null users
+      };
     } catch (error) {
-      logger.error("TeamManagementService: Error fetching team members", error);
-      return { 
-        success: false, 
-        error: "Failed to fetch team members",
-        statusCode: 500
+      logger.error('[TeamManagement] Error listing collaborators', error);
+      return {
+        success: false,
+        error: "Failed to list collaborators"
       };
     }
   }
 
-  async updateMemberRole(input: UpdateRoleInput) {
+  /**
+   * Get pending invitations for a store
+   */
+  async getPendingInvitations(storeOwnerId: string): Promise<{
+    success: boolean;
+    data?: StoreInvitation[];
+    error?: string;
+  }> {
     try {
-      const { userId, role, currentUserId } = input;
-
-      // Validate role
-      if (!["admin", "editor", "viewer"].includes(role)) {
-        return { 
-          success: false, 
-          error: "Invalid role. Valid roles: admin, editor, viewer",
-          statusCode: 400
-        };
-      }
-
-      const updatedUser = await this.storage.updateUserRole(userId, role);
-      if (!updatedUser) {
-        return { 
-          success: false, 
-          error: "User not found",
-          statusCode: 404
-        };
-      }
-
-      return { 
-        success: true, 
-        data: { 
-          message: "User role updated successfully", 
-          user: updatedUser 
-        } 
-      };
-    } catch (error) {
-      logger.error("TeamManagementService: Error updating user role", error);
-      return { 
-        success: false, 
-        error: "Failed to update user role",
-        statusCode: 500
-      };
-    }
-  }
-
-  async deleteMember(input: DeleteMemberInput) {
-    try {
-      const { userId, currentUserId } = input;
-
-      const currentUser = await this.storage.getUser(currentUserId);
-      if (!currentUser) {
-        return { 
-          success: false, 
-          error: "Current user not found",
-          statusCode: 404
-        };
-      }
-
-      // Get canonical owner ID
-      const canonicalOwnerId = currentUser.sellerId || currentUser.id;
-      if (!canonicalOwnerId) {
-        return { 
-          success: false, 
-          error: "No store owner found for this user",
-          statusCode: 400
-        };
-      }
-
-      const deleted = await this.storage.deleteTeamMember(userId, canonicalOwnerId);
-      if (!deleted) {
-        return { 
-          success: false, 
-          error: "Team member not found or doesn't belong to your store",
-          statusCode: 404
-        };
-      }
-
-      return { 
-        success: true, 
-        data: { message: "Team member deleted successfully" } 
-      };
-    } catch (error) {
-      logger.error("TeamManagementService: Error deleting team member", error);
-      return { 
-        success: false, 
-        error: "Failed to delete team member",
-        statusCode: 500
-      };
-    }
-  }
-
-  async validateOwnerPermissions(userId: string): Promise<{ isOwner: boolean; error?: string }> {
-    try {
-      const currentUser = await this.storage.getUser(userId);
-      if (!currentUser) {
-        return { isOwner: false, error: "User not found" };
-      }
-
-      // Check if user is owner/admin without a sellerId (meaning they ARE the owner, not a team member)
-      const isOwner = ["seller", "owner", "admin"].includes(currentUser.role) && !currentUser.sellerId;
+      const invitations = await this.storage.getPendingStoreInvitations(storeOwnerId);
       
-      if (!isOwner) {
-        return { isOwner: false, error: "Only store owners can perform this action" };
-      }
-
-      return { isOwner: true };
+      return {
+        success: true,
+        data: invitations
+      };
     } catch (error) {
-      logger.error("TeamManagementService: Error validating owner permissions", error);
-      return { isOwner: false, error: "Failed to validate permissions" };
+      logger.error('[TeamManagement] Error fetching pending invitations', error);
+      return {
+        success: false,
+        error: "Failed to fetch pending invitations"
+      };
     }
   }
 }

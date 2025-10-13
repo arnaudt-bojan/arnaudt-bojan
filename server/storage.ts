@@ -38,6 +38,8 @@ import {
   type InsertWholesaleAccessGrant,
   type TeamInvitation,
   type InsertTeamInvitation,
+  type StoreInvitation,
+  type InsertStoreInvitation,
   type Category,
   type InsertCategory,
   type Notification,
@@ -127,6 +129,7 @@ import {
   userStoreMemberships,
   wholesaleAccessGrants,
   teamInvitations,
+  storeInvitations,
   paymentIntents,
   webhookEvents,
   failedWebhookEvents,
@@ -161,10 +164,12 @@ export interface IStorage {
   
   // New Auth System - User Store Memberships (collaborators/team members)
   getUserStoreMembership(userId: string, storeOwnerId: string): Promise<UserStoreMembership | undefined>;
+  getUserStoreMembershipById(id: string): Promise<UserStoreMembership | undefined>;
   getUserStoreMembershipsByStore(storeOwnerId: string): Promise<UserStoreMembership[]>;
   getUserStoreMembershipsByUser(userId: string): Promise<UserStoreMembership[]>;
+  getStoreCollaborators(storeOwnerId: string): Promise<UserStoreMembership[]>;
   createUserStoreMembership(membership: InsertUserStoreMembership): Promise<UserStoreMembership>;
-  updateUserStoreMembership(id: string, capabilities: any, status?: string): Promise<UserStoreMembership | undefined>;
+  updateUserStoreMembership(id: string, updates: Partial<UserStoreMembership>): Promise<UserStoreMembership | undefined>;
   deleteUserStoreMembership(id: string): Promise<boolean>;
   
   // New Auth System - Wholesale Access Grants
@@ -174,12 +179,18 @@ export interface IStorage {
   createWholesaleAccessGrant(grant: InsertWholesaleAccessGrant): Promise<WholesaleAccessGrant>;
   updateWholesaleAccessGrant(id: string, status: string): Promise<WholesaleAccessGrant | undefined>;
   
-  // New Auth System - Team Invitations
+  // New Auth System - Team Invitations (legacy)
   getTeamInvitation(id: string): Promise<TeamInvitation | undefined>;
   getTeamInvitationByToken(token: string): Promise<TeamInvitation | undefined>;
   getTeamInvitationsByStore(storeOwnerId: string): Promise<TeamInvitation[]>;
   createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
   updateTeamInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvitation | undefined>;
+  
+  // New Auth System - Store Invitations (new simplified system)
+  getStoreInvitationByToken(token: string): Promise<StoreInvitation | undefined>;
+  getPendingStoreInvitations(storeOwnerId: string): Promise<StoreInvitation[]>;
+  createStoreInvitation(invitation: InsertStoreInvitation): Promise<StoreInvitation>;
+  updateStoreInvitationStatus(id: string, status: string): Promise<StoreInvitation | undefined>;
   
   // New Auth System - Wholesale Invitations
   getWholesaleInvitation(id: string): Promise<WholesaleInvitation | undefined>;
@@ -1389,10 +1400,8 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateUserStoreMembership(id: string, capabilities: any, status?: string): Promise<UserStoreMembership | undefined> {
+  async updateUserStoreMembership(id: string, updates: Partial<UserStoreMembership>): Promise<UserStoreMembership | undefined> {
     await this.ensureInitialized();
-    const updates: any = { capabilities };
-    if (status) updates.status = status;
     const result = await this.db
       .update(userStoreMemberships)
       .set(updates)
@@ -1408,6 +1417,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userStoreMemberships.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  async getUserStoreMembershipById(id: string): Promise<UserStoreMembership | undefined> {
+    await this.ensureInitialized();
+    const [membership] = await this.db.select().from(userStoreMemberships).where(eq(userStoreMemberships.id, id));
+    return membership || undefined;
+  }
+
+  async getStoreCollaborators(storeOwnerId: string): Promise<UserStoreMembership[]> {
+    await this.ensureInitialized();
+    const memberships = await this.db
+      .select()
+      .from(userStoreMemberships)
+      .leftJoin(users, eq(users.id, userStoreMemberships.userId))
+      .where(and(
+        eq(userStoreMemberships.storeOwnerId, storeOwnerId),
+        eq(userStoreMemberships.status, 'active')
+      ));
+    
+    return memberships.map(m => ({
+      ...m.user_store_memberships,
+      user: m.users!
+    })) as any;
   }
 
   // New Auth System - Wholesale Access Grants
@@ -1511,6 +1543,37 @@ export class DatabaseStorage implements IStorage {
       .where(eq(teamInvitations.id, id))
       .returning();
     return result[0];
+  }
+
+  // New Auth System - Store Invitations (new simplified system)
+  async getStoreInvitationByToken(token: string): Promise<StoreInvitation | undefined> {
+    await this.ensureInitialized();
+    const [invitation] = await this.db.select().from(storeInvitations).where(eq(storeInvitations.token, token));
+    return invitation || undefined;
+  }
+
+  async getPendingStoreInvitations(storeOwnerId: string): Promise<StoreInvitation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(storeInvitations)
+      .where(and(
+        eq(storeInvitations.storeOwnerId, storeOwnerId),
+        eq(storeInvitations.status, 'pending')
+      ));
+  }
+
+  async createStoreInvitation(invitation: InsertStoreInvitation): Promise<StoreInvitation> {
+    await this.ensureInitialized();
+    const [created] = await this.db.insert(storeInvitations).values(invitation).returning();
+    return created;
+  }
+
+  async updateStoreInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<void> {
+    await this.ensureInitialized();
+    const updates: any = { status };
+    if (acceptedAt) updates.acceptedAt = acceptedAt;
+    await this.db.update(storeInvitations)
+      .set(updates)
+      .where(eq(storeInvitations.id, id));
   }
 
   // New Auth System - Wholesale Invitations

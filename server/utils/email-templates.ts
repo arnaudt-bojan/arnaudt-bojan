@@ -841,3 +841,74 @@ export function escapeHtml(text: string): string {
   };
   return text.replace(/[&<>"']/g, m => map[m]);
 }
+
+// ============================================================================
+// TEAM COLLABORATION EMAILS
+// ============================================================================
+
+/**
+ * Generate collaborator invitation email
+ * UPPFIRST → Invitee (platform email)
+ * 
+ * Shows store name, inviter name, what collaborator access means,
+ * and centered CTA button with 7-day expiry notice
+ * 
+ * @param inviterName - Name of the person who sent the invitation
+ * @param storeName - Name of the store they're being invited to
+ * @param invitationLink - Full URL with invitation token
+ * @returns Complete HTML email string
+ */
+export function generateCollaboratorInvitationEmail(
+  inviterName: string,
+  storeName: string,
+  invitationLink: string
+): string {
+  // Email content
+  const content = `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h1 style="margin: 0 0 20px; font-size: 28px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.3;" class="dark-mode-text-dark">
+        You've Been Invited!
+      </h1>
+      <p style="margin: 0 0 15px; font-size: 18px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6;" class="dark-mode-text-dark">
+        <strong style="font-weight: 600;">${escapeHtml(inviterName)}</strong> invited you to join their team
+      </p>
+      <p style="margin: 0; font-size: 24px; font-weight: 600; color: #6366f1 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        ${escapeHtml(storeName)}
+      </p>
+    </div>
+    
+    <!-- What Collaborator Access Means -->
+    <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin: 30px 0;" class="dark-mode-bg-white">
+      <h2 style="margin: 0 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        As a Collaborator, You Can:
+      </h2>
+      <ul style="margin: 0; padding-left: 20px; font-size: 15px; color: #4b5563 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.8;">
+        <li style="margin-bottom: 8px;">Manage products and inventory</li>
+        <li style="margin-bottom: 8px;">Process and fulfill orders</li>
+        <li style="margin-bottom: 8px;">View store analytics and reports</li>
+        <li style="margin-bottom: 8px;">Communicate with customers</li>
+        <li style="margin-bottom: 0;">Help grow the business together</li>
+      </ul>
+    </div>
+    
+    <!-- Centered CTA Button -->
+    <div style="text-align: center; margin: 35px 0;">
+      ${generateCTAButton('Accept Invitation', invitationLink, '#6366f1')}
+    </div>
+    
+    <!-- Expiry Notice -->
+    <p style="margin: 30px 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #9ca3af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; line-height: 1.6;">
+      This invitation expires in <strong style="color: #6b7280 !important;">7 days</strong>.<br>
+      If you didn't expect this invitation, you can safely ignore this email.
+    </p>
+  `.trim();
+  
+  // Generate complete email with Upfirst header/footer
+  return generateEmailBaseLayout({
+    header: generateUpfirstHeader(),
+    content,
+    footer: generateUpfirstFooter(),
+    preheader: `${inviterName} invited you to join ${storeName}`,
+    darkModeSafe: true,
+  });
+}

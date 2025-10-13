@@ -15,18 +15,15 @@ export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
 export const itemStatusEnum = z.enum(["pending", "processing", "ready_to_ship", "shipped", "delivered", "cancelled", "returned", "refunded"]);
 export type ItemStatus = z.infer<typeof itemStatusEnum>;
 
-export const userRoleEnum = z.enum(["admin", "editor", "viewer", "buyer"]);
-export type UserRole = z.infer<typeof userRoleEnum>;
-
 export const storeContextRoleEnum = z.enum(["buyer", "seller", "owner"]);
 export type StoreContextRole = z.infer<typeof storeContextRoleEnum>;
 
 // New auth system: user_type enum (single source of truth for user identity)
-export const userTypeEnum = z.enum(["seller", "buyer", "collaborator"]);
+export const userTypeEnum = z.enum(["seller", "buyer"]);
 export type UserType = z.infer<typeof userTypeEnum>;
 
 // PostgreSQL enum for user_type
-export const userTypePgEnum = pgEnum("user_type", ["seller", "buyer", "collaborator"]);
+export const userTypePgEnum = pgEnum("user_type", ["seller", "buyer"]);
 
 // PostgreSQL enum for store context roles (buyer/seller/owner)
 export const storeContextRolePgEnum = pgEnum("store_context_role", ["buyer", "seller", "owner"]);
@@ -695,13 +692,14 @@ export type User = typeof users.$inferSelect;
 // New Auth System Tables
 
 // User Store Memberships - tracks collaborators (team members) of a store
-// Capabilities define what actions a team member can perform
+// Simplified with single collaborator role and clear ownership tracking
 export const userStoreMemberships = pgTable("user_store_memberships", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The collaborator
-  storeOwnerId: varchar("store_owner_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The store owner
-  capabilities: jsonb("capabilities").notNull(), // { manageProducts: boolean, manageOrders: boolean, manageTeam: boolean, ... }
-  status: varchar("status").notNull().default("active"), // "active", "suspended"
+  storeOwnerId: varchar("store_owner_id").notNull().references(() => users.id, { onDelete: "cascade" }), // The store owner (seller user id)
+  accessLevel: varchar("access_level").notNull(), // "owner" | "collaborator"
+  invitedBy: varchar("invited_by").references(() => users.id), // Who invited this member
+  status: varchar("status").notNull().default("active"), // "active" | "revoked"
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -801,6 +799,33 @@ export const insertUserStoreRoleSchema = createInsertSchema(userStoreRoles).omit
 export type InsertUserStoreRole = z.infer<typeof insertUserStoreRoleSchema>;
 export type UserStoreRole = typeof userStoreRoles.$inferSelect;
 
+// Store Invitations - simplified team member invitations
+export const storeInvitations = pgTable("store_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  storeOwnerId: varchar("store_owner_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Store owner (seller user id)
+  inviteeEmail: varchar("invitee_email").notNull(),
+  invitedByUserId: varchar("invited_by_user_id").notNull().references(() => users.id), // Who sent invitation
+  status: varchar("status").notNull().default("pending"), // "pending" | "accepted" | "expired" | "revoked"
+  token: varchar("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  // Unique constraint: one pending invitation per email per store
+  uniquePendingInvitation: uniqueIndex("unique_pending_store_invitation")
+    .on(table.storeOwnerId, table.inviteeEmail)
+    .where(sql`${table.status} = 'pending'`),
+}));
+
+export const insertStoreInvitationSchema = createInsertSchema(storeInvitations).omit({ 
+  id: true, 
+  createdAt: true,
+  acceptedAt: true 
+});
+export type InsertStoreInvitation = z.infer<typeof insertStoreInvitationSchema>;
+export type StoreInvitation = typeof storeInvitations.$inferSelect;
+
+// Legacy invitations table - kept for backward compatibility
 export const invitations = pgTable("invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").notNull(),
