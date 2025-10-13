@@ -74,6 +74,17 @@ const pricingCalculationService = new PricingCalculationService(
   stripe || undefined
 );
 
+// Initialize order service with all dependencies (BEFORE webhook handler for Architecture 3)
+const orderService = new OrderService(
+  storage,
+  inventoryService,
+  cartValidationService,
+  shippingService,
+  taxService,
+  notificationService,
+  stripe || undefined
+);
+
 // Initialize payment provider, webhook handler, and payment service
 let stripeProvider: StripePaymentProvider | null = null;
 let webhookHandler: WebhookHandler | null = null;
@@ -88,7 +99,9 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
   webhookHandler = new WebhookHandler(
     storage,
     stripeProvider,
-    inventoryService
+    inventoryService,
+    notificationService,
+    orderService
   );
   paymentService = new PaymentService(
     storage,
@@ -107,17 +120,6 @@ if (stripe && process.env.STRIPE_WEBHOOK_SECRET) {
     webhookHandler
   );
 }
-
-// Initialize order service with all dependencies (after all services are ready)
-const orderService = new OrderService(
-  storage,
-  inventoryService,
-  cartValidationService,
-  shippingService,
-  taxService,
-  notificationService,
-  stripe || undefined
-);
 
 // Initialize product service (Architecture 3 migration)
 const productService = new ProductService(

@@ -336,15 +336,16 @@ class NotificationServiceImpl implements NotificationService {
         await this.storage.createOrderEvent({
           orderId: order.id,
           eventType: 'email_sent',
-          recipientEmail: buyerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          description: `Order confirmation email sent to ${buyerEmail}`,
+          payload: JSON.stringify({
             emailType: 'order_confirmation',
+            recipientEmail: buyerEmail,
+            subject: subject,
             sellerName: seller.firstName || seller.username || 'Store',
             total: order.total,
             currency: order.currency,
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log order confirmation event:", error);
@@ -2322,17 +2323,18 @@ class NotificationServiceImpl implements NotificationService {
         await this.storage.createOrderEvent({
           orderId: order.id,
           eventType: 'email_sent',
-          recipientEmail: seller.email,
-          subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          description: `Seller order notification sent to ${seller.email}`,
+          payload: JSON.stringify({
             emailType: 'seller_order_notification',
+            recipientEmail: seller.email,
+            subject,
             buyerName: order.customerName,
             buyerEmail: order.customerEmail,
             total: order.total,
             currency: order.currency,
             productCount: products.length,
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log seller order notification event:", error);

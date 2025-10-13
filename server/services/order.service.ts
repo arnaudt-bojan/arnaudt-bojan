@@ -545,6 +545,153 @@ export class OrderService {
     }
   }
 
+  /**
+   * Confirm payment - Called by webhook after successful payment
+   * 
+   * Architecture 3 Compliance:
+   * - Webhook delegates to OrderService
+   * - OrderService orchestrates: update DB + commit inventory + send notifications
+   * - Single responsibility for payment confirmation logic
+   */
+  async confirmPayment(
+    paymentIntentId: string,
+    amount: number,
+    checkoutSessionId?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Find order by payment intent ID
+      const order = await this.storage.getOrderByPaymentIntent(paymentIntentId);
+      
+      if (!order) {
+        logger.error('[OrderService] Order not found for payment intent', { paymentIntentId });
+        return {
+          success: false,
+          error: 'Order not found',
+        };
+      }
+
+      logger.info('[OrderService] Confirming payment for order', {
+        orderId: order.id,
+        paymentIntentId,
+        amount,
+        checkoutSessionId,
+      });
+
+      // CRITICAL: Commit inventory reservations (decrement stock)
+      if (checkoutSessionId) {
+        try {
+          const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
+          
+          for (const reservation of reservations) {
+            await this.inventoryService.commitReservation(reservation.id);
+            logger.info('[OrderService] Committed inventory reservation', {
+              reservationId: reservation.id,
+              productId: reservation.productId,
+              orderId: order.id,
+            });
+          }
+          
+          logger.info('[OrderService] Committed all inventory reservations', {
+            orderId: order.id,
+            count: reservations.length,
+          });
+        } catch (inventoryError: any) {
+          logger.error('[OrderService] Failed to commit inventory reservations', {
+            orderId: order.id,
+            error: inventoryError.message,
+          });
+          // Continue with payment confirmation - inventory commit is best-effort
+        }
+      } else {
+        logger.warn('[OrderService] No checkout session ID provided, skipping inventory commit', {
+          orderId: order.id,
+        });
+      }
+
+      // Update amountPaid and payment status
+      await this.storage.updateOrder(order.id, { 
+        amountPaid: amount.toString() 
+      });
+      await this.storage.updateOrderPaymentStatus(order.id, 'fully_paid');
+      await this.storage.updateOrderStatus(order.id, 'processing');
+
+      // Create payment_received event
+      await this.storage.createOrderEvent({
+        orderId: order.id,
+        eventType: 'payment_received',
+        description: `Payment of ${order.currency} ${amount} received`,
+        payload: JSON.stringify({
+          paymentIntentId,
+          amount,
+          currency: order.currency,
+          amountPaid: amount.toString(),
+        }),
+        performedBy: null, // System event
+      });
+
+      logger.info('[OrderService] Payment confirmed, sending notifications', {
+        orderId: order.id,
+        amount,
+      });
+
+      // Send order confirmation emails
+      try {
+        // Get fresh order data with updated amountPaid
+        const updatedOrder = await this.storage.getOrder(order.id);
+        if (!updatedOrder) {
+          throw new Error('Failed to retrieve updated order');
+        }
+
+        // Get products for the order
+        const orderItems = await this.storage.getOrderItems(order.id);
+        const productIds = [...new Set(orderItems.map(item => item.productId))];
+        const products = [];
+        for (const productId of productIds) {
+          const product = await this.storage.getProduct(productId);
+          if (product) products.push(product);
+        }
+
+        // Get seller
+        const seller = products[0] ? await this.storage.getUser(products[0].sellerId) : null;
+
+        if (seller && products.length > 0) {
+          // Send buyer confirmation
+          await this.notificationService.sendOrderConfirmation(updatedOrder, seller, products);
+          
+          // Send seller notification
+          await this.notificationService.sendSellerOrderNotification(updatedOrder, seller, products);
+          
+          logger.info('[OrderService] Order confirmation emails sent', {
+            orderId: order.id,
+            amountPaid: amount,
+          });
+        } else {
+          logger.warn('[OrderService] Missing seller or products, skipping notifications', {
+            orderId: order.id,
+          });
+        }
+      } catch (notificationError: any) {
+        logger.error('[OrderService] Failed to send order notifications', {
+          orderId: order.id,
+          error: notificationError.message,
+        });
+        // Don't fail the payment confirmation - notifications are best-effort
+      }
+
+      return { success: true };
+
+    } catch (error: any) {
+      logger.error('[OrderService] Payment confirmation failed', { 
+        error: error.message,
+        paymentIntentId,
+      });
+      return {
+        success: false,
+        error: error.message || 'Failed to confirm payment',
+      };
+    }
+  }
+
   // ============================================================================
   // Private Helper Methods
   // ============================================================================

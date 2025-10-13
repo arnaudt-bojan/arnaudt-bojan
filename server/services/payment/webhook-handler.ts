@@ -4,6 +4,7 @@ import { IPaymentProvider } from './payment-provider.interface';
 import { InventoryService } from '../inventory/inventory.service';
 import { NotificationService } from '../../notifications';
 import { logger } from '../../logger';
+import type { OrderService } from '../order.service';
 
 export interface WebhookEvent {
   id: string;
@@ -21,7 +22,8 @@ export class WebhookHandler {
     private storage: IStorage,
     private provider: IPaymentProvider,
     private inventoryService: InventoryService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private orderService: OrderService
   ) {}
 
   /**
@@ -171,6 +173,11 @@ export class WebhookHandler {
 
   /**
    * Handle successful payment intent
+   * 
+   * Architecture 3 Compliance:
+   * - Thin webhook handler
+   * - Delegates to OrderService for business logic
+   * - OrderService handles: DB updates + notifications
    */
   private async handlePaymentIntentSucceeded(event: WebhookEvent): Promise<void> {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -181,104 +188,45 @@ export class WebhookHandler {
     
     if (existingIntent) {
       await this.storage.updatePaymentIntentStatus(existingIntent.id, 'succeeded');
-      logger.info(`Updated payment intent ${existingIntent.id} to succeeded`);
+      logger.info(`[Webhook] Updated payment intent ${existingIntent.id} to succeeded`);
     } else {
-      logger.warn(`Payment intent ${paymentIntent.id} not found in database`);
+      logger.warn(`[Webhook] Payment intent ${paymentIntent.id} not found in database`);
     }
 
-    // CRITICAL: Update order with amountPaid (fixes the £0.00 bug)
+    // Calculate amountPaid with proper currency conversion
+    const amountInMinorUnits = paymentIntent.amount_received || paymentIntent.amount;
+    const currency = paymentIntent.currency.toUpperCase();
+    
+    // Currency conversion
+    const zeroDecimalCurrencies = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
+    const threeDecimalCurrencies = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
+    
+    let divisor = 100; // Default: 2 decimal places
+    if (zeroDecimalCurrencies.includes(currency)) {
+      divisor = 1;
+    } else if (threeDecimalCurrencies.includes(currency)) {
+      divisor = 1000;
+    }
+    
+    const amountPaid = amountInMinorUnits / divisor;
+    const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
+
+    // Architecture 3: Delegate to OrderService for payment confirmation
+    // OrderService handles: DB updates + inventory commit + event creation + notifications
     if (orderId) {
-      logger.info(`[Webhook] Payment succeeded for order ${orderId}`);
+      const result = await this.orderService.confirmPayment(
+        paymentIntent.id, 
+        amountPaid, 
+        checkoutSessionId
+      );
       
-      // Calculate amountPaid with proper currency conversion
-      const amountInMinorUnits = paymentIntent.amount_received || paymentIntent.amount;
-      const currency = paymentIntent.currency.toUpperCase();
-      
-      // Currency conversion (same logic as in routes.ts webhook handler)
-      const zeroDecimalCurrencies = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
-      const threeDecimalCurrencies = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
-      
-      let divisor = 100; // Default: 2 decimal places
-      if (zeroDecimalCurrencies.includes(currency)) {
-        divisor = 1;
-      } else if (threeDecimalCurrencies.includes(currency)) {
-        divisor = 1000;
-      }
-      
-      const amountPaid = (amountInMinorUnits / divisor).toString();
-      
-      // Update order with payment info
-      await this.storage.updateOrderPaymentStatus(orderId, 'fully_paid');
-      await this.storage.updateOrder(orderId, { amountPaid }); // CRITICAL: Persist amountPaid
-      await this.storage.updateOrderStatus(orderId, 'processing');
-      
-      // CRITICAL: Commit inventory reservations (decrement stock)
-      const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
-      if (checkoutSessionId) {
-        try {
-          const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
-          
-          for (const reservation of reservations) {
-            // Commit the reservation (decrements stock, deletes reservation)
-            await this.inventoryService.commitReservation(reservation.id);
-            logger.info(`[Webhook] Committed inventory reservation ${reservation.id} for product ${reservation.productId}`);
-          }
-          
-          logger.info(`[Webhook] Committed ${reservations.length} inventory reservations for order ${orderId}`);
-        } catch (inventoryError) {
-          logger.error(`[Webhook] Failed to commit inventory for order ${orderId}:`, inventoryError);
-          // Don't throw - order is paid, we'll handle inventory manually if needed
-        }
+      if (result.success) {
+        logger.info(`[Webhook] Payment confirmed successfully for order ${orderId}`);
       } else {
-        logger.warn(`[Webhook] No checkoutSessionId in payment intent metadata for order ${orderId}`);
+        logger.error(`[Webhook] Payment confirmation failed for order ${orderId}:`, result.error);
       }
-      
-      logger.info(`[Webhook] Updated order ${orderId} to fully_paid (${currency} ${amountPaid}) and processing`);
-      
-      // Send order notifications NOW (after amountPaid is set) with idempotent guard
-      try {
-        // Idempotent check: Only send if no email_sent event exists for this order
-        const existingEmailEvents = await this.storage.getOrderEventsByType(orderId, 'email_sent');
-        const buyerConfirmationSent = existingEmailEvents.some(e => {
-          try {
-            const metadata = JSON.parse(e.payload || '{}');
-            return metadata.emailType === 'order_confirmation';
-          } catch {
-            return false;
-          }
-        });
-        
-        if (!buyerConfirmationSent) {
-          // Get fresh order data with updated amountPaid
-          const updatedOrder = await this.storage.getOrder(orderId);
-          if (updatedOrder) {
-            // Get products for the order
-            const orderItems = await this.storage.getOrderItems(orderId);
-            const productIds = [...new Set(orderItems.map(item => item.productId))];
-            const products = [];
-            for (const productId of productIds) {
-              const product = await this.storage.getProduct(productId);
-              if (product) products.push(product);
-            }
-            
-            // Get seller
-            const seller = products[0] ? await this.storage.getUser(products[0].sellerId) : null;
-            
-            if (seller && products.length > 0) {
-              await this.notificationService.sendOrderConfirmation(updatedOrder, seller, products);
-              await this.notificationService.sendSellerOrderNotification(updatedOrder, seller, products);
-              logger.info(`[Webhook] Order notifications sent for ${orderId} with amountPaid ${amountPaid}`);
-            } else {
-              logger.warn(`[Webhook] Missing seller or products for order ${orderId}, skipping notifications`);
-            }
-          }
-        } else {
-          logger.info(`[Webhook] Order notifications already sent for ${orderId}, skipping (idempotent)`);
-        }
-      } catch (notificationError) {
-        logger.error(`[Webhook] Failed to send order notifications for ${orderId}:`, notificationError);
-        // Don't throw - payment is successful, notifications are best-effort
-      }
+    } else {
+      logger.warn(`[Webhook] No orderId in payment intent metadata`);
     }
   }
 
