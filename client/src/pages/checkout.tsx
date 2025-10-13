@@ -176,9 +176,17 @@ function PaymentForm({
         }
         
         // Create order in database with payment info and tax data
-        // CRITICAL: Server expects items as array and destination object
+        // CRITICAL: Server expects items as array, customerAddress object, and destination object
         const updatedOrderData = {
           ...orderData,
+          customerAddress: {
+            line1: billingDetails.addressLine1,
+            line2: billingDetails.addressLine2 || undefined,
+            city: billingDetails.city,
+            state: billingDetails.state || '',
+            postalCode: billingDetails.postalCode,
+            country: billingDetails.country,
+          },
           items: items.map((item: any) => ({
             productId: item.id,
             price: item.price,
@@ -188,12 +196,9 @@ function PaymentForm({
             requiresDeposit: item.requiresDeposit,
           })),
           destination: {
-            line1: billingDetails.addressLine1,
-            line2: billingDetails.addressLine2 || undefined,
-            city: billingDetails.city,
-            state: billingDetails.state,
-            postalCode: billingDetails.postalCode,
             country: billingDetails.country,
+            state: billingDetails.state || undefined,
+            postalCode: billingDetails.postalCode || undefined,
           },
           amountPaid: amount.toString(),
           paymentStatus: paymentType === 'deposit' ? "deposit_paid" : "fully_paid",

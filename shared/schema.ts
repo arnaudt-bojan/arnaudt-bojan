@@ -194,6 +194,20 @@ export const orders = pgTable("orders", {
   // Currency field - seller's listing currency at time of order
   currency: varchar("currency", { length: 3 }).default("USD"), // ISO 4217 currency code (USD, GBP, EUR, etc.)
   
+  // Shipping fields - calculated and stored at order creation
+  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }),
+  shippingMethod: varchar("shipping_method"), // "flat", "matrix", "shippo", "free"
+  shippingZone: varchar("shipping_zone"), // For matrix shipping
+  shippingCarrier: varchar("shipping_carrier"), // For Shippo shipping (e.g., "USPS", "FedEx")
+  shippingEstimatedDays: varchar("shipping_estimated_days"), // Delivery estimate (e.g., "3-5 business days")
+  
+  // Shipping address (separate fields for better querying and display)
+  shippingStreet: text("shipping_street"),
+  shippingCity: text("shipping_city"),
+  shippingState: text("shipping_state"),
+  shippingPostalCode: varchar("shipping_postal_code"),
+  shippingCountry: varchar("shipping_country"),
+  
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

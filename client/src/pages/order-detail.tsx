@@ -34,6 +34,18 @@ type Order = {
   subtotalBeforeTax?: string;
   taxAmount?: string;
   currency?: string; // Seller's currency at time of order
+  // Shipping fields from ShippingService
+  shippingCost?: string;
+  shippingMethod?: string;
+  shippingZone?: string;
+  shippingCarrier?: string;
+  shippingEstimatedDays?: string;
+  // Shipping address fields (structured)
+  shippingStreet?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  shippingCountry?: string;
   createdAt: string;
 };
 
@@ -102,7 +114,7 @@ function OrderItemRow({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="font-medium" data-testid={`text-item-name-${item.id}`}>{item.productName}</p>
-              {item.variant && (
+              {item.variant && item.variant !== "0" && item.variant.trim() !== "" && (
                 <p className="text-sm text-muted-foreground">Variant: {item.variant}</p>
               )}
               <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
@@ -526,7 +538,19 @@ export default function OrderDetail() {
                   <MapPin className="h-4 w-4" />
                   Shipping Address
                 </h4>
-                <p className="text-sm">{order.customerAddress}</p>
+                {order.shippingStreet ? (
+                  <div className="text-sm space-y-1" data-testid="shipping-address">
+                    <p>{order.shippingStreet}</p>
+                    <p>
+                      {order.shippingCity}
+                      {order.shippingState && `, ${order.shippingState}`}
+                      {order.shippingPostalCode && ` ${order.shippingPostalCode}`}
+                    </p>
+                    {order.shippingCountry && <p>{order.shippingCountry}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm">{order.customerAddress}</p>
+                )}
               </div>
             </div>
 
@@ -553,6 +577,17 @@ export default function OrderDetail() {
                     <span className="text-muted-foreground">Subtotal:</span>
                     <span className="font-medium" data-testid="text-subtotal">
                       {formatPrice(parseFloat(order.subtotalBeforeTax), order.currency)}
+                    </span>
+                  </div>
+                )}
+                {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Shipping
+                      {order.shippingZone && ` (${order.shippingZone})`}:
+                    </span>
+                    <span className="font-medium" data-testid="text-shipping-cost">
+                      {formatPrice(parseFloat(order.shippingCost), order.currency)}
                     </span>
                   </div>
                 )}

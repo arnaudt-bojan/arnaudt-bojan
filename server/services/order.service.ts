@@ -231,7 +231,7 @@ export class OrderService {
 
       successfulReservations.push(...(reservationResult.reservations || []));
 
-      // Step 7: Create order
+      // Step 7: Create order with shipping data
       const order = await this.createOrderRecord(
         userId,
         params,
@@ -240,7 +240,8 @@ export class OrderService {
         taxCalculation.taxAmount,
         sellerCurrency,
         checkoutSessionId,
-        taxCalculation.calculationId
+        taxCalculation.calculationId,
+        shipping
       );
       createdOrder = order; // Track for rollback
 
@@ -660,7 +661,14 @@ export class OrderService {
     taxAmount: number,
     currency: string,
     checkoutSessionId: string,
-    taxCalculationId?: string
+    taxCalculationId?: string,
+    shipping?: {
+      cost: number;
+      method: string;
+      zone?: string;
+      estimatedDays?: string;
+      carrier?: string;
+    }
   ): Promise<Order> {
     const fullAddress = [
       params.customerAddress.line1,
@@ -700,6 +708,18 @@ export class OrderService {
       subtotalBeforeTax: pricing.subtotal.toString(),
       taxAmount: taxAmount.toString(),
       currency,
+      // Save shipping data from ShippingService
+      shippingCost: shipping ? shipping.cost.toString() : null,
+      shippingMethod: shipping ? shipping.method : null,
+      shippingZone: shipping?.zone || null,
+      shippingCarrier: shipping?.carrier || null,
+      shippingEstimatedDays: shipping?.estimatedDays || null,
+      // Save shipping address fields for better querying and display
+      shippingStreet: params.customerAddress.line1,
+      shippingCity: params.customerAddress.city,
+      shippingState: params.customerAddress.state,
+      shippingPostalCode: params.customerAddress.postalCode,
+      shippingCountry: params.customerAddress.country,
     };
 
     return await this.storage.createOrder(orderData);
