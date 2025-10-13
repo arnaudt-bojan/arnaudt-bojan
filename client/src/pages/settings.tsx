@@ -3058,12 +3058,9 @@ export default function Settings() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              await apiRequest('/api/settings/terms', {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  termsSource: null,
-                                  termsPdfUrl: null,
-                                }),
+                              await apiRequest('POST', '/api/settings/terms', {
+                                termsSource: null,
+                                termsPdfUrl: null,
                               });
                               queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
                               toast({
@@ -3112,12 +3109,9 @@ export default function Settings() {
                           className="mt-3"
                           onClick={async () => {
                             try {
-                              await apiRequest('/api/settings/terms', {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  termsSource: null,
-                                  termsPdfUrl: null,
-                                }),
+                              await apiRequest('POST', '/api/settings/terms', {
+                                termsSource: null,
+                                termsPdfUrl: null,
                               });
                               queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
                               toast({
@@ -3145,12 +3139,9 @@ export default function Settings() {
                         className="w-full justify-start"
                         onClick={async () => {
                           try {
-                            await apiRequest('/api/settings/terms', {
-                              method: 'POST',
-                              body: JSON.stringify({
-                                termsSource: 'platform_default',
-                                termsPdfUrl: user?.termsPdfUrl || null,
-                              }),
+                            await apiRequest('POST', '/api/settings/terms', {
+                              termsSource: 'platform_default',
+                              termsPdfUrl: null,
                             });
                             queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
                             toast({
@@ -3219,12 +3210,9 @@ export default function Settings() {
                               const { objectPath } = await uploadRes.json();
                               const pdfUrl = `/objects/${objectPath}`;
 
-                              await apiRequest('/api/settings/terms', {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  termsSource: 'custom_pdf',
-                                  termsPdfUrl: pdfUrl,
-                                }),
+                              await apiRequest('POST', '/api/settings/terms', {
+                                termsSource: 'custom_pdf',
+                                termsPdfUrl: pdfUrl,
                               });
 
                               queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
