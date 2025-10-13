@@ -411,7 +411,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const publicProducts = products.filter(p => 
         p.status === "active" || p.status === "coming-soon"
       );
-      res.json(publicProducts);
+      
+      // CRITICAL FIX: Explicitly ensure sellerId is included in response
+      const productsWithSellerId = publicProducts.map(p => ({
+        ...p,
+        sellerId: p.sellerId, // Explicit field inclusion for cart validation
+      }));
+      
+      res.json(productsWithSellerId);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch products" });
     }
@@ -433,9 +440,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (p.status === "active" || p.status === "coming-soon")
       );
       
-      // Add currency to each product
+      // CRITICAL FIX: Explicitly ensure sellerId is included in response (required for cart validation)
       const productsWithCurrency = sellerProducts.map(p => ({
         ...p,
+        sellerId: p.sellerId, // Explicit field inclusion for cart validation
         currency,
       }));
       

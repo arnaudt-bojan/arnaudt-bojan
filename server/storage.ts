@@ -517,12 +517,28 @@ export class DatabaseStorage implements IStorage {
 
   async getAllProducts(): Promise<Product[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(products);
+    const results = await this.db.select().from(products);
+    
+    // CRITICAL FIX: Ensure sellerId is always mapped correctly from seller_id column
+    // Drizzle should handle this, but this failsafe ensures it's never undefined
+    return results.map(product => ({
+      ...product,
+      sellerId: product.sellerId || (product as any).seller_id,
+    }));
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
     await this.ensureInitialized();
     const result = await this.db.select().from(products).where(eq(products.id, id)).limit(1);
+    
+    // CRITICAL FIX: Ensure sellerId is always mapped correctly from seller_id column
+    if (result[0]) {
+      return {
+        ...result[0],
+        sellerId: result[0].sellerId || (result[0] as any).seller_id,
+      };
+    }
+    
     return result[0];
   }
 
