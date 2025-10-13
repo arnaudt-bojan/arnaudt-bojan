@@ -1848,3 +1848,23 @@ export const failedWebhookEvents = pgTable("failed_webhook_events", {
 export const insertFailedWebhookEventSchema = createInsertSchema(failedWebhookEvents).omit({ id: true, createdAt: true });
 export type InsertFailedWebhookEvent = z.infer<typeof insertFailedWebhookEventSchema>;
 export type FailedWebhookEvent = typeof failedWebhookEvents.$inferSelect;
+
+// Shopping Carts - Session-based cart storage for guest and authenticated users
+export const carts = pgTable("carts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(), // For guest users
+  userId: varchar("user_id"), // For authenticated users (optional)
+  sellerId: varchar("seller_id"), // Single seller constraint
+  items: jsonb("items").notNull().default('[]'), // Array of CartItem objects
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sessionIdIdx: uniqueIndex("carts_session_id_idx").on(table.sessionId),
+    userIdIdx: index("carts_user_id_idx").on(table.userId),
+  };
+});
+
+export const insertCartSchema = createInsertSchema(carts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCart = z.infer<typeof insertCartSchema>;
+export type Cart = typeof carts.$inferSelect;
