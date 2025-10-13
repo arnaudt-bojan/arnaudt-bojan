@@ -44,8 +44,13 @@ interface Category {
 }
 
 export default function ProductDetail() {
-  const [, params] = useRoute("/products/:id");
-  const productId = params?.id;
+  // CRITICAL FIX: Try both route patterns to extract product ID
+  // Pattern 1: Nested route /s/:username/products/:id
+  const [matchNested, paramsNested] = useRoute("/s/:username/products/:id");
+  // Pattern 2: Fallback route /products/:id
+  const [matchFallback, paramsFallback] = useRoute("/products/:id");
+  // Extract product ID from whichever route matched
+  const productId = paramsNested?.id || paramsFallback?.id;
   const [, setLocation] = useLocation();
   const { addItem, isLoading: isCartLoading } = useCart();
   const { toast } = useToast();
@@ -297,12 +302,13 @@ export default function ProductDetail() {
   }
 
   if (!product) {
+    const storefrontPath = getSellerAwarePath("/", effectiveSellerUsername);
     return (
       <div className="min-h-screen py-12">
         <div className="container mx-auto px-4 max-w-6xl text-center">
           <h1 className="text-2xl font-bold mb-4">Product not found</h1>
-          <Link href="/products">
-            <Button>Back to Products</Button>
+          <Link href={storefrontPath}>
+            <Button>Back to Storefront</Button>
           </Link>
         </div>
       </div>
@@ -329,10 +335,10 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-6xl">
-        <Link href="/products">
+        <Link href={getSellerAwarePath("/", effectiveSellerUsername)}>
           <Button variant="ghost" className="mb-4 gap-2" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
-            Back to Products
+            Back to Storefront
           </Button>
         </Link>
 
