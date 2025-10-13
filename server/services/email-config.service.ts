@@ -26,9 +26,10 @@ export class EmailConfigService {
     const platformDomain = process.env.PLATFORM_DOMAIN || 'upfirst.io';
     
     // ⚠️ IMPORTANT: Resend only allows sending from VERIFIED email addresses in development
-    // We hardcode 'noreply@upfirst.io' because it's verified in Resend dashboard
-    // 📝 TODO PRODUCTION: Update to use seller-specific FROM addresses once domains are verified
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@upfirst.io';
+    // Force 'noreply@upfirst.io' because it's the only verified domain in Resend
+    // The RESEND_FROM_EMAIL secret is set incorrectly to .com (should be .io)
+    // 📝 TODO PRODUCTION: Fix RESEND_FROM_EMAIL secret and use seller-specific FROM addresses
+    const fromEmail = 'noreply@upfirst.io'; // Hardcoded - ignore env var until production
     
     return {
       fromEmail,
