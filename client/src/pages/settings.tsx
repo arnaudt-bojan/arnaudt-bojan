@@ -1976,7 +1976,7 @@ export default function Settings() {
   const canReceivePayouts = user?.stripePayoutsEnabled === 1;
 
   // Fetch Stripe account status including capabilities
-  const { data: stripeAccountStatus } = useQuery<any>({
+  const { data: stripeAccountStatus, isLoading: isStripeStatusLoading } = useQuery<any>({
     queryKey: ["/api/stripe/account-status"],
     enabled: !!user?.stripeConnectedAccountId,
   });
@@ -3549,7 +3549,9 @@ export default function Settings() {
                           <p className="text-sm text-muted-foreground">Global payment processing</p>
                         </div>
                       </div>
-                      {isStripeConnected ? (
+                      {isStripeStatusLoading ? (
+                        <div className="h-6 w-24 bg-muted animate-pulse rounded-full" />
+                      ) : isStripeConnected ? (
                         stripeAccountStatus?.capabilities?.card_payments === 'active' && 
                         stripeAccountStatus?.capabilities?.transfers === 'active' ? (
                           <Badge className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800" data-testid="badge-stripe-status">
@@ -3587,83 +3589,90 @@ export default function Settings() {
                     </div>
 
                     {isStripeConnected ? (
-                      <div className="space-y-3">
-                        {/* Check for non-active capabilities - critical for payment processing */}
-                        {stripeAccountStatus?.capabilities && 
-                         (stripeAccountStatus.capabilities.card_payments !== 'active' || 
-                          stripeAccountStatus.capabilities.transfers !== 'active') && (
-                          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                            <p className="text-sm text-red-800 dark:text-red-200">
-                              <strong>Setup Required:</strong> Your Stripe account needs to be fully activated. 
-                              {stripeAccountStatus.capabilities.card_payments === 'pending' || stripeAccountStatus.capabilities.transfers === 'pending' 
-                                ? ' Your account is pending review by Stripe.' 
-                                : ' Please complete the onboarding process below to accept payments.'}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* Show payout status if charges are enabled */}
-                        {canAcceptPayments && !canReceivePayouts && 
-                         stripeAccountStatus?.capabilities?.card_payments === 'active' && 
-                         stripeAccountStatus?.capabilities?.transfers === 'active' && (
-                          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                            <p className="text-sm text-amber-800 dark:text-amber-200">
-                              <strong>Payments Enabled:</strong> You can accept payments! Add bank details to receive payouts.
-                            </p>
-                          </div>
-                        )}
-                        {canAcceptPayments && canReceivePayouts && 
-                         stripeAccountStatus?.capabilities?.card_payments === 'active' && 
-                         stripeAccountStatus?.capabilities?.transfers === 'active' && (
-                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                            <p className="text-sm text-green-800 dark:text-green-200">
-                              <strong>Fully Enabled:</strong> You can accept payments and receive payouts.
-                            </p>
-                          </div>
-                        )}
-                        
-                        <div className="space-y-2">
-                          {canAcceptPayments && !canReceivePayouts && (
-                            <Button 
-                              onClick={() => setIsPayoutsModalOpen(true)}
-                              data-testid="button-add-bank-details"
-                              className="w-full"
-                            >
-                              Add Bank Details
-                            </Button>
+                      isStripeStatusLoading ? (
+                        <div className="space-y-3">
+                          <div className="h-16 bg-muted animate-pulse rounded-lg" />
+                          <div className="h-10 bg-muted animate-pulse rounded" />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {/* Check for non-active capabilities - critical for payment processing */}
+                          {stripeAccountStatus?.capabilities && 
+                           (stripeAccountStatus.capabilities.card_payments !== 'active' || 
+                            stripeAccountStatus.capabilities.transfers !== 'active') && (
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                              <p className="text-sm text-red-800 dark:text-red-200">
+                                <strong>Setup Required:</strong> Your Stripe account needs to be fully activated. 
+                                {stripeAccountStatus.capabilities.card_payments === 'pending' || stripeAccountStatus.capabilities.transfers === 'pending' 
+                                  ? ' Your account is pending review by Stripe.' 
+                                  : ' Please complete the onboarding process below to accept payments.'}
+                              </p>
+                            </div>
                           )}
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              onClick={() => handleConnectStripe(false)}
-                              data-testid="button-update-stripe"
-                              className="flex-1"
-                            >
-                              {stripeAccountStatus?.capabilities?.card_payments !== 'active' || 
-                               stripeAccountStatus?.capabilities?.transfers !== 'active' 
-                                ? 'Complete Onboarding' 
-                                : 'Update Account'}
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              onClick={() => handleConnectStripe(true)}
-                              data-testid="button-restart-stripe"
-                              className="flex-1"
-                            >
-                              Start Over
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              onClick={() => disconnectStripeMutation.mutate()}
-                              disabled={disconnectStripeMutation.isPending}
-                              data-testid="button-disconnect-stripe"
-                              className="flex-1"
-                            >
-                              {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
-                            </Button>
+                          
+                          {/* Show payout status if charges are enabled */}
+                          {canAcceptPayments && !canReceivePayouts && 
+                           stripeAccountStatus?.capabilities?.card_payments === 'active' && 
+                           stripeAccountStatus?.capabilities?.transfers === 'active' && (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                              <p className="text-sm text-amber-800 dark:text-amber-200">
+                                <strong>Payments Enabled:</strong> You can accept payments! Add bank details to receive payouts.
+                              </p>
+                            </div>
+                          )}
+                          {canAcceptPayments && canReceivePayouts && 
+                           stripeAccountStatus?.capabilities?.card_payments === 'active' && 
+                           stripeAccountStatus?.capabilities?.transfers === 'active' && (
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                              <p className="text-sm text-green-800 dark:text-green-200">
+                                <strong>Fully Enabled:</strong> You can accept payments and receive payouts.
+                              </p>
+                            </div>
+                          )}
+                          
+                          <div className="space-y-2">
+                            {canAcceptPayments && !canReceivePayouts && (
+                              <Button 
+                                onClick={() => setIsPayoutsModalOpen(true)}
+                                data-testid="button-add-bank-details"
+                                className="w-full"
+                              >
+                                Add Bank Details
+                              </Button>
+                            )}
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                onClick={() => handleConnectStripe(false)}
+                                data-testid="button-update-stripe"
+                                className="flex-1"
+                              >
+                                {stripeAccountStatus?.capabilities?.card_payments !== 'active' || 
+                                 stripeAccountStatus?.capabilities?.transfers !== 'active' 
+                                  ? 'Complete Onboarding' 
+                                  : 'Update Account'}
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                onClick={() => handleConnectStripe(true)}
+                                data-testid="button-restart-stripe"
+                                className="flex-1"
+                              >
+                                Start Over
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                onClick={() => disconnectStripeMutation.mutate()}
+                                disabled={disconnectStripeMutation.isPending}
+                                data-testid="button-disconnect-stripe"
+                                className="flex-1"
+                              >
+                                {disconnectStripeMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )
                     ) : (
                       <Button
                         onClick={() => handleConnectStripe(false)}
