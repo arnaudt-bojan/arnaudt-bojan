@@ -120,6 +120,12 @@ Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn
 - **Terms & Conditions System**: Seller T&C management with custom PDF upload or platform fallback, integrated into storefront footer.
 - **Inventory Management System**: Transaction-based stock reservation with atomic operations, PostgreSQL row-level locking, variant-level race protection, and automatic stock synchronization.
 - **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, shipping updates, and balance payments, using Stripe for processing and an automated email notification system.
+- **Platform Analytics API**: ShopSwift integration endpoint (GET /api/platform-analytics) providing comprehensive platform metrics:
+  - **Authentication**: X-API-Key header with SHOPSWIFT_API_KEY secret (constant-time comparison for security)
+  - **Seller Metrics**: Total sellers, active sellers, signups (7/30 days), trial-to-paid conversion, churn rate
+  - **Platform Health**: Active stores, total GMV, average order value, total orders
+  - **Feature Usage**: Count of sellers using made-to-order, pre-order, in-stock, wholesale product types
+  - **Market Signals**: Signup trend analysis, seasonal boost detection, ad budget availability
 
 ## External Dependencies
 - **Database**: PostgreSQL (Neon)

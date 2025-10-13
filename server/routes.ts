@@ -36,6 +36,8 @@ import { PricingCalculationService } from "./services/pricing-calculation.servic
 import { StripeWebhookService } from "./services/stripe-webhook.service";
 import { MetaIntegrationService } from "./services/meta-integration.service";
 import { ConfigurationError } from "./errors";
+import { PlatformAnalyticsService } from "./services/platform-analytics.service";
+import crypto from "crypto";
 
 // Initialize PDF service with Stripe secret key
 const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
@@ -163,6 +165,47 @@ const metaIntegrationService = new MetaIntegrationService(
   process.env.META_APP_SECRET || "",
   redirectUri
 );
+
+// Initialize Platform Analytics service (Architecture 3)
+const platformAnalyticsService = new PlatformAnalyticsService(storage);
+
+/**
+ * API Key Middleware - Validates X-API-Key header using constant-time comparison
+ */
+const requireApiKey: any = (req: any, res: any, next: any) => {
+  const apiKey = req.headers['x-api-key'];
+  const expectedKey = process.env.SHOPSWIFT_API_KEY;
+
+  if (!expectedKey) {
+    logger.error('[API Key Auth] SHOPSWIFT_API_KEY not configured');
+    return res.status(500).json({ error: 'API key authentication not configured' });
+  }
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Missing API key' });
+  }
+
+  // Use constant-time comparison to prevent timing attacks
+  try {
+    const apiKeyBuffer = Buffer.from(apiKey as string);
+    const expectedKeyBuffer = Buffer.from(expectedKey);
+
+    if (apiKeyBuffer.length !== expectedKeyBuffer.length) {
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    const isValid = crypto.timingSafeEqual(apiKeyBuffer, expectedKeyBuffer);
+    
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('[API Key Auth] Comparison failed:', error);
+    return res.status(401).json({ error: 'Invalid API key' });
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -5439,6 +5482,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Auth migration error", error);
       res.status(500).json({ error: "Failed to run migration" });
+    }
+  });
+
+  // Platform Analytics API - Requires API key authentication
+  app.get("/api/platform-analytics", requireApiKey, async (req, res) => {
+    try {
+      const analytics = await platformAnalyticsService.getPlatformAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      logger.error("[PlatformAnalytics] Failed to get analytics:", error);
+      res.status(500).json({ error: "Failed to retrieve platform analytics" });
     }
   });
 
