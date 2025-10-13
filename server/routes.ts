@@ -459,14 +459,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      const hasStripeConnected = !!user.stripeConnectedAccountId;
+      // For collaborators, use the store owner's ID; for store owners, use their own ID
+      const effectiveSellerId = user.sellerId || userId;
+      const storeOwner = await storage.getUser(effectiveSellerId);
+      
+      if (!storeOwner) {
+        return res.status(404).json({ error: "Store owner not found" });
+      }
+      
+      const hasStripeConnected = !!storeOwner.stripeConnectedAccountId;
       // Only return currency if Stripe is connected and has a currency set
-      const currency = hasStripeConnected ? (user.listingCurrency || null) : null;
+      const currency = hasStripeConnected ? (storeOwner.listingCurrency || null) : null;
       
       res.json({
         hasStripeConnected,
         currency,
-        stripeChargesEnabled: user.stripeChargesEnabled === 1,
+        stripeChargesEnabled: storeOwner.stripeChargesEnabled === 1,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch payment setup status" });
@@ -477,8 +485,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/seller/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // For collaborators, use the store owner's ID; for store owners, use their own ID
+      const effectiveSellerId = user.sellerId || userId;
+      
       const allProducts = await storage.getAllProducts();
-      const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+      const sellerProducts = allProducts.filter(p => p.sellerId === effectiveSellerId);
       res.json(sellerProducts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch products" });
