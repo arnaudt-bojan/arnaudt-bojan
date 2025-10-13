@@ -5481,6 +5481,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEVELOPMENT ONLY: Manual payment confirmation for testing webhooks
+  if (process.env.NODE_ENV === 'development') {
+    app.post("/api/dev/confirm-payment/:orderId", async (req, res) => {
+      try {
+        const { orderId } = req.params;
+        
+        // Get order
+        const order = await storage.getOrder(orderId);
+        if (!order) {
+          return res.status(404).json({ error: "Order not found" });
+        }
+
+        // Get payment intent ID
+        const paymentIntentId = order.stripePaymentIntentId;
+        if (!paymentIntentId) {
+          return res.status(400).json({ error: "No payment intent found for this order" });
+        }
+
+        // Get checkout session ID (if exists)
+        const checkoutSessionId = `checkout_session_${orderId}`;
+
+        // Calculate amount from order total
+        const amount = parseFloat(order.total);
+
+        logger.info('[DEV] Manually confirming payment', {
+          orderId,
+          paymentIntentId,
+          amount,
+          checkoutSessionId,
+        });
+
+        // Call OrderService.confirmPayment() just like the webhook would
+        const result = await orderService.confirmPayment(
+          paymentIntentId,
+          amount,
+          checkoutSessionId
+        );
+
+        if (result.success) {
+          res.json({ 
+            success: true, 
+            message: 'Payment confirmed, emails sent',
+            orderId,
+          });
+        } else {
+          res.status(500).json({ 
+            success: false, 
+            error: result.error 
+          });
+        }
+      } catch (error: any) {
+        logger.error('[DEV] Manual payment confirmation failed', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
   const httpServer = createServer(app);
 
   return httpServer;

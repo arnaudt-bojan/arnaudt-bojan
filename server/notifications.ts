@@ -323,7 +323,7 @@ class NotificationServiceImpl implements NotificationService {
     // Send email with seller branding
     const result = await this.sendEmail({
       to: buyerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -393,7 +393,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -478,7 +478,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -547,7 +547,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -591,7 +591,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -637,7 +637,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -693,7 +693,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -740,7 +740,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -809,7 +809,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -882,7 +882,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
@@ -948,7 +948,7 @@ class NotificationServiceImpl implements NotificationService {
     const template = this.messages.productListed(product);
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email!,
       replyTo: this.emailConfig.getSupportEmail(),
       subject: template.emailSubject,
@@ -1889,7 +1889,7 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email || '',
       replyTo: this.emailConfig.getSupportEmail(),
       subject: subject,
@@ -1923,7 +1923,7 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email || '',
       replyTo: this.emailConfig.getSupportEmail(),
       subject: subject,
@@ -2051,7 +2051,7 @@ class NotificationServiceImpl implements NotificationService {
     const emailHtml = this.generateLowInventoryAlertEmail(seller, product, currentStock);
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email,
       replyTo: this.emailConfig.getSupportEmail(),
       subject: currentStock === 0 ? `Out of Stock: ${product.name}` : `Low Stock Alert: ${product.name}`,
@@ -2091,7 +2091,7 @@ class NotificationServiceImpl implements NotificationService {
     const emailHtml = this.generateSubscriptionTrialEndingEmail(seller, daysRemaining);
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email,
       replyTo: this.emailConfig.getSupportEmail(),
       subject: `Your UPPFIRST Trial Ends in ${daysRemaining} ${daysRemaining === 1 ? 'Day' : 'Days'}`,
@@ -2128,7 +2128,7 @@ class NotificationServiceImpl implements NotificationService {
     const emailHtml = this.generateSubscriptionActivatedEmail(seller, subscription);
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email,
       replyTo: this.emailConfig.getSupportEmail(),
       subject: 'Your UPPFIRST Subscription is Active',
@@ -2170,7 +2170,7 @@ class NotificationServiceImpl implements NotificationService {
     });
 
     const result = await this.sendEmail({
-      from: 'UPPFIRST <noreply@upfirst.com>',
+      from: 'UPPFIRST <noreply@upfirst.io>',
       to: seller.email,
       replyTo: this.emailConfig.getSupportEmail(),
       subject: 'Your UPPFIRST Subscription Has Been Cancelled',
@@ -2244,7 +2244,7 @@ class NotificationServiceImpl implements NotificationService {
 
     const result = await this.sendEmail({
       to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.com>`,
+      from: `${fromName} <noreply@upfirst.io>`,
       replyTo: replyTo || undefined,
       subject: subject,
       html: emailHtml,
