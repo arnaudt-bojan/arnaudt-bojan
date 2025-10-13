@@ -1850,21 +1850,35 @@ export type InsertFailedWebhookEvent = z.infer<typeof insertFailedWebhookEventSc
 export type FailedWebhookEvent = typeof failedWebhookEvents.$inferSelect;
 
 // Shopping Carts - Session-based cart storage for guest and authenticated users
+// Carts - One cart per buyer per seller (anonymous carts have null buyer_id)
 export const carts = pgTable("carts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").notNull(), // For guest users
-  userId: varchar("user_id"), // For authenticated users (optional)
-  sellerId: varchar("seller_id"), // Single seller constraint
-  items: jsonb("items").notNull().default('[]'), // Array of CartItem objects
+  sellerId: varchar("seller_id").notNull(),
+  buyerId: varchar("buyer_id"), // NULLABLE for anonymous carts
+  items: jsonb("items").notNull().default('[]'),
+  status: varchar("status").default('active'),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => {
   return {
-    sessionIdIdx: uniqueIndex("carts_session_id_idx").on(table.sessionId),
-    userIdIdx: index("carts_user_id_idx").on(table.userId),
+    // Partial unique index: one cart per buyer per seller (only when buyer_id IS NOT NULL)
+    buyerSellerIdx: uniqueIndex("carts_buyer_seller_idx")
+      .on(table.sellerId, table.buyerId)
+      .where(sql`${table.buyerId} IS NOT NULL`),
   };
+});
+
+// Cart Sessions - Bridge table: every session maps to exactly one cart
+export const cartSessions = pgTable("cart_sessions", {
+  sessionId: varchar("session_id").primaryKey(),
+  cartId: varchar("cart_id").notNull().references(() => carts.id, { onDelete: 'cascade' }),
+  lastSeen: timestamp("last_seen").notNull().defaultNow(),
 });
 
 export const insertCartSchema = createInsertSchema(carts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCart = z.infer<typeof insertCartSchema>;
 export type Cart = typeof carts.$inferSelect;
+
+export const insertCartSessionSchema = createInsertSchema(cartSessions);
+export type InsertCartSession = z.infer<typeof insertCartSessionSchema>;
+export type CartSession = typeof cartSessions.$inferSelect;

@@ -80,6 +80,10 @@ import {
   type InsertWebhookEvent,
   type FailedWebhookEvent,
   type InsertFailedWebhookEvent,
+  type Cart,
+  type InsertCart,
+  type CartSession,
+  type InsertCartSession,
   users,
   products,
   orders,
@@ -121,7 +125,9 @@ import {
   teamInvitations,
   paymentIntents,
   webhookEvents,
-  failedWebhookEvents
+  failedWebhookEvents,
+  carts,
+  cartSessions
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -428,6 +434,11 @@ export interface IStorage {
   getUnprocessedFailedWebhooks(limit?: number): Promise<FailedWebhookEvent[]>;
   incrementWebhookRetryCount(id: string): Promise<void>;
   deleteFailedWebhookEvent(id: string): Promise<void>;
+  
+  // Shopping Carts - Bridge table pattern
+  getCartBySession(sessionId: string): Promise<Cart | undefined>;
+  saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart>;
+  clearCartBySession(sessionId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2487,6 +2498,93 @@ export class DatabaseStorage implements IStorage {
     await this.db
       .delete(failedWebhookEvents)
       .where(eq(failedWebhookEvents.id, id));
+  }
+
+  // Shopping Carts - Session-based cart storage
+  async getCartBySession(sessionId: string): Promise<Cart | undefined> {
+    await this.ensureInitialized();
+    const sessionMap = await this.db
+      .select()
+      .from(cartSessions)
+      .where(eq(cartSessions.sessionId, sessionId))
+      .limit(1);
+    
+    if (!sessionMap[0]) return undefined;
+    
+    const cart = await this.db
+      .select()
+      .from(carts)
+      .where(eq(carts.id, sessionMap[0].cartId))
+      .limit(1);
+    
+    return cart[0];
+  }
+
+  async saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart> {
+    await this.ensureInitialized();
+    
+    return await this.db.transaction(async (tx) => {
+      let targetCart: Cart | undefined;
+      
+      if (userId) {
+        // Auth user: lock and get/create cart for (sellerId, userId)
+        const existing = await tx.select().from(carts)
+          .where(and(eq(carts.sellerId, sellerId), eq(carts.buyerId, userId)))
+          .for('update').limit(1);
+        
+        if (existing[0]) {
+          targetCart = existing[0];
+        } else {
+          // Create new authenticated cart
+          const [newCart] = await tx.insert(carts).values({
+            sellerId,
+            buyerId: userId,
+            items,
+          }).returning();
+          targetCart = newCart;
+        }
+      } else {
+        // Guest: get cart via session mapping or create new
+        const sessionMap = await tx.select().from(cartSessions)
+          .where(eq(cartSessions.sessionId, sessionId)).limit(1);
+        
+        if (sessionMap[0]) {
+          const [existingCart] = await tx.select().from(carts)
+            .where(eq(carts.id, sessionMap[0].cartId)).limit(1);
+          targetCart = existingCart;
+        } else {
+          // Create new guest cart
+          const [newCart] = await tx.insert(carts).values({
+            sellerId,
+            buyerId: null,
+            items,
+          }).returning();
+          targetCart = newCart;
+        }
+      }
+      
+      // Update cart items (only mutable fields)
+      await tx.update(carts)
+        .set({ items, sellerId, buyerId: userId || null, updatedAt: new Date() })
+        .where(eq(carts.id, targetCart.id));
+      
+      // Upsert session mapping
+      await tx.insert(cartSessions)
+        .values({ sessionId, cartId: targetCart.id, lastSeen: new Date() })
+        .onConflictDoUpdate({
+          target: cartSessions.sessionId,
+          set: { cartId: targetCart.id, lastSeen: new Date() },
+        });
+      
+      return targetCart;
+    });
+  }
+
+  async clearCartBySession(sessionId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.db
+      .delete(cartSessions)
+      .where(eq(cartSessions.sessionId, sessionId));
   }
 }
 
