@@ -657,7 +657,7 @@ export const users = pgTable("users", {
   socialWebsite: varchar("social_website"), // Website URL
   
   // Tax settings (Stripe Tax integration - B2C only, not wholesale)
-  taxEnabled: integer("tax_enabled").default(1), // Auto-collect tax at checkout (0=disabled, 1=enabled)
+  taxEnabled: integer("tax_enabled").default(0), // Auto-collect tax at checkout (0=disabled, 1=enabled) - disabled by default until seller configures tax nexus
   taxNexusCountries: text("tax_nexus_countries").array(), // Countries where seller has tax nexus (e.g., ["US", "CA", "GB"])
   taxNexusStates: text("tax_nexus_states").array(), // US states where seller has tax nexus (e.g., ["NY", "CA", "TX"])
   taxProductCode: varchar("tax_product_code"), // Default Stripe Tax product code for all products (can be overridden per product)
