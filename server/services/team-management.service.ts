@@ -180,7 +180,7 @@ export class TeamManagementService {
           storeActive: null,
           shippingCost: null,
           instagramUsername: null,
-          role: null,
+          role: 'admin', // Collaborators have admin access to the store
           sellerId: null,
         });
         requiresLogin = true;
