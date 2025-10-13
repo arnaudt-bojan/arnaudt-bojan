@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/lib/cart-context";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { SellerProvider } from "@/contexts/seller-context";
 import { AuthStoreProvider } from "@/contexts/auth-store-context";
 import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
@@ -133,6 +134,14 @@ function AppContent() {
               <Route path="/" component={Home} />
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/s/:username" component={SellerStorefront} />
+              
+              {/* Nested seller routes - maintain seller context through navigation */}
+              <Route path="/s/:username/products/:id" component={ProductDetail} />
+              <Route path="/s/:username/checkout" component={Checkout} />
+              <Route path="/s/:username/checkout/complete" component={CheckoutComplete} />
+              <Route path="/s/:username/order-success/:orderId" component={OrderSuccess} />
+              
+              {/* Fallback routes - work without seller context */}
               <Route path="/products/:id" component={ProductDetail} />
               <Route path="/checkout" component={Checkout} />
               <Route path="/checkout/complete" component={CheckoutComplete} />
@@ -366,14 +375,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <AuthStoreProvider>
-            <CurrencyProvider>
-              <CartProvider>
-                <AppContent />
-                <Toaster />
-              </CartProvider>
-            </CurrencyProvider>
-          </AuthStoreProvider>
+          <SellerProvider>
+            <AuthStoreProvider>
+              <CurrencyProvider>
+                <CartProvider>
+                  <AppContent />
+                  <Toaster />
+                </CartProvider>
+              </CurrencyProvider>
+            </AuthStoreProvider>
+          </SellerProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

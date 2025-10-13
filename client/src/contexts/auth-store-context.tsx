@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { detectDomain } from "@/lib/domain-utils";
+import { useSellerContext } from "@/contexts/seller-context";
 import type { User } from "@shared/schema";
 
 export type ViewMode = 
@@ -38,24 +39,30 @@ export function AuthStoreProvider({ children }: { children: ReactNode }) {
   // Get domain info - recomputes when location changes
   const domainInfo = useMemo(() => detectDomain(), [location]);
   
+  // Use SellerContext as fallback when domainInfo doesn't have seller username
+  const sellerContext = useSellerContext();
+  
+  // Determine effective seller username (domain takes priority, then SellerContext)
+  const effectiveSellerUsername = domainInfo.sellerUsername || sellerContext.sellerUsername;
+  
   // Fetch current logged-in user
   const { data: currentUser, isLoading: userLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
   });
   
-  // Fetch active seller if on seller domain
+  // Fetch active seller if we have a seller username (from domain or context)
   const { data: activeSeller, isLoading: sellerLoading, error: sellerError } = useQuery<any>({
-    queryKey: ["/api/sellers", domainInfo.sellerUsername],
+    queryKey: ["/api/sellers", effectiveSellerUsername],
     queryFn: async () => {
-      if (!domainInfo.sellerUsername) return null;
-      const response = await fetch(`/api/sellers/${domainInfo.sellerUsername}`);
+      if (!effectiveSellerUsername) return null;
+      const response = await fetch(`/api/sellers/${effectiveSellerUsername}`);
       if (!response.ok) {
         // Seller not found - this is okay, return null
         return null;
       }
       return response.json();
     },
-    enabled: domainInfo.isSellerDomain && !!domainInfo.sellerUsername,
+    enabled: !!effectiveSellerUsername,
     retry: false, // Don't retry on 404
   });
   
@@ -110,7 +117,7 @@ export function AuthStoreProvider({ children }: { children: ReactNode }) {
     activeSeller: activeSeller || null,
     isMainDomain: domainInfo.isMainDomain,
     isSellerDomain: domainInfo.isSellerDomain,
-    sellerUsername: domainInfo.sellerUsername,
+    sellerUsername: effectiveSellerUsername,
     viewMode,
     isLoading: userLoading || sellerLoading,
   };

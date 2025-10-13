@@ -6,6 +6,7 @@ import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CurrencyDisclaimer } from "./currency-disclaimer";
+import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 interface CartSheetProps {
   open: boolean;
@@ -16,6 +17,10 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
   const { items, updateQuantity, removeItem, total, itemsCount, isLoading } = useCart();
   const [, setLocation] = useLocation();
   const { formatPrice } = useCurrency();
+  const { sellerUsername } = useSellerContext();
+  
+  // CRITICAL FIX: Use fallback to extract seller from current path if context is null
+  const effectiveSellerUsername = sellerUsername || extractSellerFromCurrentPath();
   
   // Get seller ID and currency from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : null;
@@ -29,7 +34,8 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
 
   const handleCheckout = () => {
     onClose();
-    setLocation("/checkout");
+    const checkoutPath = getSellerAwarePath("/checkout", effectiveSellerUsername);
+    setLocation(checkoutPath);
   };
   
   // Calculate tax estimate (8% default rate if tax is enabled)

@@ -33,6 +33,7 @@ import { Footer } from "@/components/footer";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 interface Category {
   id: string;
@@ -50,6 +51,10 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const { user, isSeller, isCollaborator } = useAuth();
   const { formatPrice } = useCurrency();
+  const { sellerUsername } = useSellerContext();
+  
+  // CRITICAL FIX: Use fallback to extract seller from current path if context is null
+  const effectiveSellerUsername = sellerUsername || extractSellerFromCurrentPath();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -268,7 +273,8 @@ export default function ProductDetail() {
     }
     
     // Only navigate if successful
-    setLocation("/checkout");
+    const checkoutPath = getSellerAwarePath("/checkout", effectiveSellerUsername);
+    setLocation(checkoutPath);
   };
 
   if (isLoading) {

@@ -44,6 +44,7 @@ import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/p
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { requiresState, isValidState } from "@shared/shipping-validation";
+import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -555,6 +556,11 @@ export default function Checkout() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { isSeller, isCollaborator } = useAuth();
+  const { sellerUsername } = useSellerContext();
+  
+  // CRITICAL FIX: Use fallback to extract seller from current path if context is null
+  const effectiveSellerUsername = sellerUsername || extractSellerFromCurrentPath();
+  
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<InsertOrder | null>(null);
   const [billingDetails, setBillingDetails] = useState<CheckoutForm | null>(null);
@@ -876,7 +882,8 @@ export default function Checkout() {
     clearCart();
     // Pass email for public order lookup (guest checkout users)
     const email = encodeURIComponent(billingDetails?.customerEmail || '');
-    setLocation(`/order-success/${orderId}?email=${email}`);
+    const orderSuccessPath = getSellerAwarePath(`/order-success/${orderId}?email=${email}`, effectiveSellerUsername);
+    setLocation(orderSuccessPath);
   };
 
   const handleCancelPayment = async () => {

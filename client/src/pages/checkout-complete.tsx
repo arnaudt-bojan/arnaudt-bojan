@@ -5,9 +5,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
+import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 export default function CheckoutComplete() {
   const [, setLocation] = useLocation();
+  const { sellerUsername } = useSellerContext();
+  
+  // CRITICAL FIX: Use fallback to extract seller from current path if context is null
+  const effectiveSellerUsername = sellerUsername || extractSellerFromCurrentPath();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -64,7 +69,8 @@ export default function CheckoutComplete() {
               // Redirect to order success after 1 second
               setTimeout(() => {
                 const emailParam = emailFromMetadata ? `?email=${encodeURIComponent(emailFromMetadata)}` : '';
-                setLocation(`/order-success/${orderIdFromMetadata}${emailParam}`);
+                const orderSuccessPath = getSellerAwarePath(`/order-success/${orderIdFromMetadata}${emailParam}`, effectiveSellerUsername);
+                setLocation(orderSuccessPath);
               }, 1000);
               return;
             }
@@ -159,7 +165,8 @@ export default function CheckoutComplete() {
                 <Button 
                   onClick={() => {
                     const emailParam = customerEmail ? `?email=${encodeURIComponent(customerEmail)}` : '';
-                    setLocation(`/order-success/${orderId}${emailParam}`);
+                    const orderSuccessPath = getSellerAwarePath(`/order-success/${orderId}${emailParam}`, effectiveSellerUsername);
+                    setLocation(orderSuccessPath);
                   }}
                   data-testid="button-view-order"
                 >
@@ -189,7 +196,10 @@ export default function CheckoutComplete() {
             </div>
             <div className="flex gap-3 justify-center">
               <Button 
-                onClick={() => setLocation("/checkout")}
+                onClick={() => {
+                  const checkoutPath = getSellerAwarePath("/checkout", effectiveSellerUsername);
+                  setLocation(checkoutPath);
+                }}
                 data-testid="button-try-again"
               >
                 Try Again

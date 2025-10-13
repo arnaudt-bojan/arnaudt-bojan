@@ -6,6 +6,7 @@ import { ProductTypeBadge } from "./product-type-badge";
 import type { Product } from "@shared/schema";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 interface ProductCardProps {
   product: Product;
@@ -15,6 +16,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps) {
   const { formatPrice } = useCurrency();
+  const { sellerUsername } = useSellerContext();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Use images array if available, otherwise fall back to single image
@@ -36,9 +38,16 @@ export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps
     setCurrentImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length);
   };
 
+  // CRITICAL FIX: Use fallback to extract seller from current path if context is null
+  // This prevents losing seller context on first click
+  const effectiveSellerUsername = sellerUsername || extractSellerFromCurrentPath();
+  
+  // Create seller-aware product link
+  const productPath = getSellerAwarePath(`/products/${product.id}`, effectiveSellerUsername);
+
   return (
     <Card className="overflow-hidden hover-elevate transition-all duration-300 group">
-      <Link href={`/products/${product.id}`} data-testid={`link-product-${product.id}`}>
+      <Link href={productPath} data-testid={`link-product-${product.id}`}>
         <div className="aspect-square relative overflow-hidden bg-muted">
           <img
             src={productImages[currentImageIndex]}

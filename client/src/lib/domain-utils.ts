@@ -12,9 +12,24 @@ export interface DomainInfo {
 
 /**
  * Detect domain type and extract seller username if on seller domain
+ * CRITICAL: Always checks pathname FIRST for /s/:username pattern (works on all environments)
  */
 export function detectDomain(): DomainInfo {
+  const pathname = window.location.pathname;
   const hostname = window.location.hostname;
+  
+  // FIRST: Always check if path contains /s/:username pattern (PRIMARY METHOD)
+  // This works regardless of hostname (localhost, replit, production)
+  const storefrontMatch = pathname.match(/^\/s\/([^\/]+)/);
+  if (storefrontMatch && storefrontMatch[1]) {
+    return {
+      isMainDomain: false,
+      isSellerDomain: true,
+      sellerUsername: storefrontMatch[1],
+    };
+  }
+  
+  // THEN: Check domain-based logic (SECONDARY METHOD - for production subdomains)
   const parts = hostname.split('.');
   
   // For localhost development
@@ -39,7 +54,6 @@ export function detectDomain(): DomainInfo {
   }
   
   // For Replit deployment domains (all replit.app and replit.dev URLs)
-  // Treat as MAIN domain by default - seller context only determined by routes or params
   if (hostname.includes('replit')) {
     // Check for explicit seller parameter for testing/sharing
     const urlParams = new URLSearchParams(window.location.search);
@@ -50,18 +64,6 @@ export function detectDomain(): DomainInfo {
         isMainDomain: false,
         isSellerDomain: true,
         sellerUsername: sellerParam,
-      };
-    }
-    
-    // Check if we're on a /s/:username route (storefront route)
-    const pathname = window.location.pathname;
-    const storefrontMatch = pathname.match(/^\/s\/([^\/]+)/);
-    
-    if (storefrontMatch && storefrontMatch[1]) {
-      return {
-        isMainDomain: false,
-        isSellerDomain: true,
-        sellerUsername: storefrontMatch[1],
       };
     }
     
@@ -112,4 +114,13 @@ export function canSellerLogin(): boolean {
  */
 export function canBuyerAccess(): boolean {
   return detectDomain().isSellerDomain;
+}
+
+/**
+ * Extract seller username from pathname
+ * Supports patterns like /s/:username/... 
+ */
+export function extractSellerFromPath(pathname: string): string | null {
+  const storefrontMatch = pathname.match(/^\/s\/([^\/]+)/);
+  return storefrontMatch?.[1] || null;
 }
