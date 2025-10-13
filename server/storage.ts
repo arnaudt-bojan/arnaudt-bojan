@@ -84,6 +84,10 @@ import {
   type InsertCart,
   type CartSession,
   type InsertCartSession,
+  type OrderWorkflow,
+  type InsertOrderWorkflow,
+  type OrderWorkflowEvent,
+  type InsertOrderWorkflowEvent,
   users,
   products,
   orders,
@@ -127,7 +131,9 @@ import {
   webhookEvents,
   failedWebhookEvents,
   carts,
-  cartSessions
+  cartSessions,
+  orderWorkflows,
+  orderWorkflowEvents
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -263,6 +269,19 @@ export interface IStorage {
   getBalancePayment(id: string): Promise<OrderBalancePayment | undefined>;
   createBalancePayment(payment: InsertOrderBalancePayment): Promise<OrderBalancePayment>;
   updateBalancePayment(id: string, data: Partial<OrderBalancePayment>): Promise<OrderBalancePayment | undefined>;
+  
+  // Order Workflows - orchestration and state management for order creation
+  createWorkflow(workflow: InsertOrderWorkflow): Promise<OrderWorkflow>;
+  getWorkflow(id: string): Promise<OrderWorkflow | undefined>;
+  getWorkflowByCheckoutSession(checkoutSessionId: string): Promise<OrderWorkflow | undefined>;
+  getWorkflowByPaymentIntent(paymentIntentId: string): Promise<OrderWorkflow | undefined>;
+  updateWorkflowState(id: string, state: string, data?: any): Promise<OrderWorkflow | undefined>;
+  updateWorkflowStatus(id: string, status: string, error?: string, errorCode?: string): Promise<OrderWorkflow | undefined>;
+  updateWorkflowOrderId(id: string, orderId: string): Promise<OrderWorkflow | undefined>;
+  updateWorkflowPaymentIntentId(id: string, paymentIntentId: string): Promise<OrderWorkflow | undefined>;
+  updateWorkflowRetry(id: string, retryCount: number): Promise<OrderWorkflow | undefined>;
+  createWorkflowEvent(event: InsertOrderWorkflowEvent): Promise<OrderWorkflowEvent>;
+  getWorkflowEvents(workflowId: string): Promise<OrderWorkflowEvent[]>;
   
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
@@ -1129,6 +1148,116 @@ export class DatabaseStorage implements IStorage {
     const result = await this.db.update(orderBalancePayments)
       .set(updateData)
       .where(eq(orderBalancePayments.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Order Workflow methods - orchestration and state management
+  async createWorkflow(workflow: InsertOrderWorkflow): Promise<OrderWorkflow> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(orderWorkflows).values(workflow).returning();
+    return result[0];
+  }
+
+  async getWorkflow(id: string): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(orderWorkflows)
+      .where(eq(orderWorkflows.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWorkflowByCheckoutSession(checkoutSessionId: string): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(orderWorkflows)
+      .where(eq(orderWorkflows.checkoutSessionId, checkoutSessionId))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWorkflowByPaymentIntent(paymentIntentId: string): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(orderWorkflows)
+      .where(eq(orderWorkflows.paymentIntentId, paymentIntentId))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateWorkflowState(id: string, state: string, data?: any): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const updateData: Record<string, any> = { 
+      currentState: state,
+      updatedAt: new Date() 
+    };
+    if (data !== undefined) {
+      updateData.data = data;
+    }
+    const result = await this.db.update(orderWorkflows)
+      .set(updateData)
+      .where(eq(orderWorkflows.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateWorkflowStatus(id: string, status: string, error?: string, errorCode?: string): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const updateData: Record<string, any> = { 
+      status,
+      updatedAt: new Date() 
+    };
+    if (error !== undefined) {
+      updateData.error = error;
+    }
+    if (errorCode !== undefined) {
+      updateData.errorCode = errorCode;
+    }
+    const result = await this.db.update(orderWorkflows)
+      .set(updateData)
+      .where(eq(orderWorkflows.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async createWorkflowEvent(event: InsertOrderWorkflowEvent): Promise<OrderWorkflowEvent> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(orderWorkflowEvents).values(event).returning();
+    return result[0];
+  }
+
+  async getWorkflowEvents(workflowId: string): Promise<OrderWorkflowEvent[]> {
+    await this.ensureInitialized();
+    return await this.db.select()
+      .from(orderWorkflowEvents)
+      .where(eq(orderWorkflowEvents.workflowId, workflowId))
+      .orderBy(desc(orderWorkflowEvents.occurredAt));
+  }
+
+  async updateWorkflowOrderId(id: string, orderId: string): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orderWorkflows)
+      .set({ orderId, updatedAt: new Date() })
+      .where(eq(orderWorkflows.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateWorkflowPaymentIntentId(id: string, paymentIntentId: string): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orderWorkflows)
+      .set({ paymentIntentId, updatedAt: new Date() })
+      .where(eq(orderWorkflows.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateWorkflowRetry(id: string, retryCount: number): Promise<OrderWorkflow | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orderWorkflows)
+      .set({ retryCount, lastRetryAt: new Date(), updatedAt: new Date() })
+      .where(eq(orderWorkflows.id, id))
       .returning();
     return result[0];
   }

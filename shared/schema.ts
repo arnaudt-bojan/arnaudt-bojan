@@ -386,6 +386,122 @@ export const insertOrderBalancePaymentSchema = createInsertSchema(orderBalancePa
 export type InsertOrderBalancePayment = z.infer<typeof insertOrderBalancePaymentSchema>;
 export type OrderBalancePayment = typeof orderBalancePayments.$inferSelect;
 
+// Order Workflows - orchestration and state management for complex order creation flows
+export const workflowStateEnum = z.enum([
+  "INIT",
+  "CART_VALIDATED",
+  "SELLER_VERIFIED",
+  "SHIPPING_PRICED",
+  "PRICING_COMPUTED",
+  "INVENTORY_RESERVED",
+  "PAYMENT_INTENT_CREATED",
+  "ORDER_CREATED",
+  "AWAITING_PAYMENT_CONFIRMATION",
+  "PAYMENT_CONFIRMED",
+  "INVENTORY_COMMITTED",
+  "NOTIFICATIONS_SENT",
+  "COMPLETED",
+  "FAILURE",
+  "CANCELLED"
+]);
+export type WorkflowState = z.infer<typeof workflowStateEnum>;
+
+export const workflowStatePgEnum = pgEnum("workflow_state", [
+  "INIT",
+  "CART_VALIDATED",
+  "SELLER_VERIFIED",
+  "SHIPPING_PRICED",
+  "PRICING_COMPUTED",
+  "INVENTORY_RESERVED",
+  "PAYMENT_INTENT_CREATED",
+  "ORDER_CREATED",
+  "AWAITING_PAYMENT_CONFIRMATION",
+  "PAYMENT_CONFIRMED",
+  "INVENTORY_COMMITTED",
+  "NOTIFICATIONS_SENT",
+  "COMPLETED",
+  "FAILURE",
+  "CANCELLED"
+]);
+
+export const workflowEventTypeEnum = z.enum([
+  "WORKFLOW_STARTED",
+  "STATE_TRANSITION",
+  "STEP_COMPLETED",
+  "STEP_FAILED",
+  "COMPENSATION_TRIGGERED",
+  "RETRY_ATTEMPTED",
+  "WORKFLOW_COMPLETED",
+  "WORKFLOW_FAILED"
+]);
+export type WorkflowEventType = z.infer<typeof workflowEventTypeEnum>;
+
+export const workflowEventTypePgEnum = pgEnum("workflow_event_type", [
+  "WORKFLOW_STARTED",
+  "STATE_TRANSITION",
+  "STEP_COMPLETED",
+  "STEP_FAILED",
+  "COMPENSATION_TRIGGERED",
+  "RETRY_ATTEMPTED",
+  "WORKFLOW_COMPLETED",
+  "WORKFLOW_FAILED"
+]);
+
+export const orderWorkflows = pgTable("order_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  checkoutSessionId: varchar("checkout_session_id").notNull(), // Links to checkout session
+  orderId: varchar("order_id"), // References orders.id (null until order created)
+  paymentIntentId: varchar("payment_intent_id"), // Stripe payment intent ID (for tracking)
+  status: text("status").notNull().default("running"), // "running", "completed", "failed", "cancelled"
+  currentState: workflowStatePgEnum("current_state").notNull().default("INIT"),
+  data: jsonb("data"), // Workflow context: { items, pricing, reservationIds, etc. }
+  error: text("error"), // Error message if failed
+  errorCode: varchar("error_code"), // Machine-readable error code
+  retryCount: integer("retry_count").default(0), // Number of retry attempts
+  lastRetryAt: timestamp("last_retry_at"), // When last retry was attempted
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    checkoutSessionIdx: uniqueIndex("order_workflows_checkout_session_idx").on(table.checkoutSessionId),
+    orderIdIdx: index("order_workflows_order_id_idx").on(table.orderId),
+    paymentIntentIdx: index("order_workflows_payment_intent_idx").on(table.paymentIntentId),
+    statusStateIdx: index("order_workflows_status_state_idx").on(table.status, table.currentState),
+  };
+});
+
+export const insertOrderWorkflowSchema = createInsertSchema(orderWorkflows).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertOrderWorkflow = z.infer<typeof insertOrderWorkflowSchema>;
+export type OrderWorkflow = typeof orderWorkflows.$inferSelect;
+
+// Order Workflow Events - audit trail and progress tracking for workflows
+export const orderWorkflowEvents = pgTable("order_workflow_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").notNull(), // References order_workflows.id
+  eventType: workflowEventTypePgEnum("event_type").notNull(),
+  fromState: workflowStatePgEnum("from_state"),
+  toState: workflowStatePgEnum("to_state"),
+  payload: jsonb("payload"), // Event-specific data
+  error: text("error"), // Error details if step failed
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    workflowIdIdx: index("workflow_events_workflow_id_idx").on(table.workflowId),
+    occurredAtIdx: index("workflow_events_occurred_at_idx").on(table.occurredAt),
+  };
+});
+
+export const insertOrderWorkflowEventSchema = createInsertSchema(orderWorkflowEvents).omit({ 
+  id: true, 
+  occurredAt: true 
+});
+export type InsertOrderWorkflowEvent = z.infer<typeof insertOrderWorkflowEventSchema>;
+export type OrderWorkflowEvent = typeof orderWorkflowEvents.$inferSelect;
+
 // Cancellation Requests - track buyer cancellation requests for pre-shipment orders
 export const cancellationRequests = pgTable("cancellation_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
