@@ -76,12 +76,28 @@ export class InventoryCommitmentStep implements WorkflowStep {
   }
 
   async compensate(context: WorkflowContext): Promise<void> {
-    // If inventory was committed, we cannot easily "uncommit" it
-    // This would require restocking, which is a business decision
-    // For now, we log the issue - manual intervention may be needed
-    logger.warn('[InventoryCommitment] Compensation requested but inventory already committed', {
-      orderId: context.orderId,
-      reservationIds: context.metadata?.reservationIds,
+    const reservationIds = context.metadata?.reservationIds || [];
+    const orderId = context.orderId;
+
+    if (!reservationIds.length && !orderId) {
+      logger.info('[InventoryCommitment] No reservations or order to restore');
+      return;
+    }
+
+    logger.info(`[InventoryCommitment] Compensating - restoring stock for ${reservationIds.length} items`, {
+      orderId,
+      reservationIds
     });
+
+    try {
+      // Restore committed stock back to available
+      // This reverses the inventory.commitReservation() operation
+      await this.inventoryService.restoreCommittedStock(reservationIds, orderId);
+      
+      logger.info('[InventoryCommitment] Successfully restored committed stock');
+    } catch (error) {
+      logger.error('[InventoryCommitment] Failed to restore stock during compensation:', error);
+      // Don't throw - compensation must be best-effort
+    }
   }
 }

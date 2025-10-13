@@ -6,6 +6,7 @@
 import type { WorkflowStep, WorkflowContext, WorkflowStepResult } from '../types';
 import type { OrderService } from '../../order.service';
 import type { IStorage } from '../../../storage';
+import { logger } from '../../../logger';
 
 export class OrderCreationStep implements WorkflowStep {
   readonly name = 'OrderCreation';
@@ -71,7 +72,23 @@ export class OrderCreationStep implements WorkflowStep {
   }
 
   async compensate(context: WorkflowContext): Promise<void> {
-    // Order deletion handled by PaymentService.cancelPayment()
-    // No additional compensation needed here
+    const orderId = context.orderId;
+
+    if (!orderId) {
+      logger.info('[OrderCreation] No order to delete');
+      return;
+    }
+
+    logger.info(`[OrderCreation] Compensating - deleting order ${orderId}`);
+
+    try {
+      // Explicitly delete the order to prevent orphaned records
+      await this.storage.deleteOrder(orderId);
+      
+      logger.info(`[OrderCreation] Successfully deleted order ${orderId}`);
+    } catch (error) {
+      logger.error(`[OrderCreation] Failed to delete order during compensation:`, error);
+      // Don't throw - compensation must be best-effort
+    }
   }
 }

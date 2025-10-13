@@ -232,6 +232,46 @@ export class InventoryService {
   }
 
 
+  async commitReservation(reservationId: string, orderId: string): Promise<void> {
+    const reservation = await this.storage.getStockReservation(reservationId);
+    
+    if (!reservation) {
+      throw new Error(`Reservation ${reservationId} not found`);
+    }
+
+    if (reservation.status !== 'active') {
+      logger.warn('[InventoryService] Cannot commit non-active reservation', {
+        reservationId,
+        status: reservation.status,
+      });
+      return;
+    }
+
+    // Update reservation status and decrement stock
+    await this.storage.updateStockReservation(reservationId, {
+      status: 'committed',
+      committedAt: new Date(),
+      orderId,
+    });
+
+    // Decrement stock for in-stock products only
+    const product = await this.storage.getProduct(reservation.productId);
+    if (product && product.productType !== 'pre-order' && product.productType !== 'made-to-order') {
+      await this.decrementStock(
+        reservation.productId,
+        reservation.quantity,
+        reservation.variantId || undefined
+      );
+    }
+
+    logger.info('[InventoryService] Reservation committed', {
+      reservationId,
+      productId: reservation.productId,
+      quantity: reservation.quantity,
+      orderId,
+    });
+  }
+
   async commitReservationsBySession(sessionId: string, orderId: string): Promise<{
     success: boolean;
     committed: number;
@@ -256,6 +296,116 @@ export class InventoryService {
     }
 
     return result;
+  }
+
+  async restoreCommittedStock(reservationIds: string[], orderId?: string): Promise<void> {
+    if (!reservationIds || reservationIds.length === 0) {
+      logger.info('[InventoryService] No reservations to restore');
+      return;
+    }
+
+    logger.info('[InventoryService] Restoring committed stock', {
+      orderId,
+      count: reservationIds.length,
+    });
+
+    for (const reservationId of reservationIds) {
+      try {
+        const reservation = await this.storage.getStockReservation(reservationId);
+        
+        if (!reservation) {
+          logger.warn('[InventoryService] Reservation not found for restoration', { reservationId });
+          continue;
+        }
+
+        if (reservation.status !== 'committed') {
+          logger.warn('[InventoryService] Reservation not in committed state, skipping restoration', {
+            reservationId,
+            status: reservation.status,
+          });
+          continue;
+        }
+
+        // First, increment stock back (reverse the decrement)
+        const product = await this.storage.getProduct(reservation.productId);
+        if (product && product.productType !== 'pre-order' && product.productType !== 'made-to-order') {
+          await this.incrementStock(
+            reservation.productId,
+            reservation.quantity,
+            reservation.variantId || undefined
+          );
+        }
+
+        // Then update reservation status to released
+        await this.storage.updateStockReservation(reservationId, {
+          status: 'released',
+          releasedAt: new Date(),
+        });
+
+        logger.info('[InventoryService] Reservation stock restored', {
+          reservationId,
+          productId: reservation.productId,
+          quantity: reservation.quantity,
+        });
+      } catch (error) {
+        logger.error('[InventoryService] Failed to restore reservation', {
+          reservationId,
+          error,
+        });
+        // Continue with other reservations even if one fails
+      }
+    }
+
+    logger.info('[InventoryService] Stock restoration completed', {
+      count: reservationIds.length,
+      orderId,
+    });
+  }
+
+  async incrementStock(
+    productId: string,
+    quantity: number,
+    variantId?: string
+  ): Promise<void> {
+    const product = await this.storage.getProduct(productId);
+    
+    if (!product) {
+      throw new Error(`Product ${productId} not found`);
+    }
+
+    if (variantId && product.variants) {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const updatedVariants = variants.map((v: any) => {
+        if (this.getVariantId(v.size, v.color) === variantId) {
+          return {
+            ...v,
+            stock: (v.stock || 0) + quantity,
+          };
+        }
+        return v;
+      });
+
+      await this.storage.updateProduct(productId, {
+        variants: updatedVariants,
+      });
+
+      logger.info('[InventoryService] Variant stock incremented', {
+        productId,
+        variantId,
+        quantity,
+      });
+    } else {
+      const newStock = (product.stock || 0) + quantity;
+      await this.storage.updateProduct(productId, {
+        stock: newStock,
+      });
+
+      logger.info('[InventoryService] Product stock incremented', {
+        productId,
+        quantity,
+        newStock,
+      });
+    }
   }
 
   async releaseExpiredReservations(): Promise<number> {
