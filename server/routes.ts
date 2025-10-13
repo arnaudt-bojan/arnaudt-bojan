@@ -5507,12 +5507,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use integer cents to avoid floating-point precision issues
         let amount: number;
         if (order.paymentType === 'deposit') {
-          // For deposits, calculate 10% of total minus already paid
-          const totalCents = Math.round(parseFloat(order.total) * 100);
-          const depositCents = Math.round(totalCents * 0.1); // 10% deposit
+          // For deposits, use seller-configured deposit amounts from order items
+          const items = JSON.parse(order.items);
+          let depositTotal = 0;
+          
+          for (const item of items) {
+            if (item.depositAmount && item.requiresDeposit) {
+              const depositPerItem = parseFloat(item.depositAmount);
+              const itemDeposit = depositPerItem * item.quantity;
+              depositTotal += itemDeposit;
+            }
+          }
+          
+          // Calculate in cents to avoid floating-point issues
+          const depositCents = Math.round(depositTotal * 100);
           const alreadyPaidCents = Math.round(parseFloat(order.amountPaid || '0') * 100);
-          const amountCents = depositCents - alreadyPaidCents;
-          amount = amountCents / 100; // Convert back to dollars
+          const amountCents = Math.max(0, depositCents - alreadyPaidCents); // Prevent negative amounts
+          amount = amountCents / 100;
         } else if (order.paymentType === 'balance') {
           // For balance payments, use remaining balance
           const balanceCents = Math.round(parseFloat(order.remainingBalance || '0') * 100);
