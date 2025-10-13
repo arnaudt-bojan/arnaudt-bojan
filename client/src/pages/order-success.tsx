@@ -322,6 +322,14 @@ export default function OrderSuccess() {
                 </div>
               )}
               
+              {/* Shipping - Use order.shippingCost as single source of truth */}
+              {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Shipping</span>
+                  <span data-testid="text-shipping">{formatOrderPrice(parseFloat(order.shippingCost), currency)}</span>
+                </div>
+              )}
+              
               {/* Tax (if applicable) */}
               {order.taxAmount && parseFloat(order.taxAmount) > 0 && (
                 <div className="flex justify-between text-sm">

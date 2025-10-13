@@ -20,6 +20,32 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
+/**
+ * Convert relative image URLs to absolute URLs for email compatibility
+ * Email clients require full URLs (http:// or https://)
+ * 
+ * @param url - Image URL (relative or absolute)
+ * @returns Absolute URL for use in emails
+ */
+export function convertToAbsoluteUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  
+  // Already absolute URL
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // Get base URL from environment
+  const baseUrl = process.env.REPLIT_DOMAINS 
+    ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+    : `http://localhost:${process.env.PORT || 5000}`;
+  
+  // Ensure URL starts with /
+  const path = url.startsWith('/') ? url : `/${url}`;
+  
+  return `${baseUrl}${path}`;
+}
+
 // ============================================================================
 // TYPES & INTERFACES
 // ============================================================================
@@ -229,11 +255,12 @@ export function generateSellerHeader(seller: User): string {
   
   // Priority 1: Store banner (full-width banner image)
   if (seller.storeBanner) {
+    const bannerUrl = convertToAbsoluteUrl(seller.storeBanner);
     return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
   <tr>
     <td style="padding: 0;">
-      <img src="${seller.storeBanner}" alt="${storeName}" width="600" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
+      <img src="${bannerUrl}" alt="${storeName}" width="600" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
     </td>
   </tr>
 </table>
@@ -242,11 +269,12 @@ export function generateSellerHeader(seller: User): string {
   
   // Priority 2: Store logo (centered logo)
   if (seller.storeLogo) {
+    const logoUrl = convertToAbsoluteUrl(seller.storeLogo);
     return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #ffffff !important;" class="dark-mode-bg-white">
   <tr>
     <td style="padding: 40px; text-align: center;">
-      <img src="${seller.storeLogo}" alt="${storeName}" style="display: inline-block; max-width: 200px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
+      <img src="${logoUrl}" alt="${storeName}" style="display: inline-block; max-width: 200px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
     </td>
   </tr>
 </table>
@@ -512,7 +540,7 @@ export function generateProductThumbnail(
   quantity: number,
   variant?: { size?: string; color?: string } | null
 ): string {
-  const productImage = product.image || '';
+  const productImage = convertToAbsoluteUrl(product.image || '');
   const productName = product.name;
   const productPrice = parseFloat(product.price.toString());
   const subtotal = productPrice * quantity;
