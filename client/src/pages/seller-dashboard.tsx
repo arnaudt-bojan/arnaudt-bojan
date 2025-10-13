@@ -19,7 +19,6 @@ import type { Order } from "@shared/schema";
 import { Package, DollarSign, ShoppingBag, TrendingUp, Plus, LayoutGrid, Mail, Store, Share2, AlertTriangle, Users, Megaphone, FileText, Settings } from "lucide-react";
 import { useLocation } from "wouter";
 import { ShareStoreModal } from "@/components/share-store-modal";
-import { OnboardingModal } from "@/components/onboarding-modal";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
 import { RecentOrdersCard } from "@/components/recent-orders-card";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -36,7 +35,6 @@ export default function SellerDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
   
   const { data: orders, isLoading } = useQuery<Order[]>({
@@ -46,21 +44,6 @@ export default function SellerDashboard() {
   const { data: user } = useQuery<any>({ 
     queryKey: ["/api/auth/user"] 
   });
-
-  // Show onboarding modal for new sellers without Instagram or custom domain
-  // Skip for collaborators (they have a sellerId set to a different user's ID)
-  useEffect(() => {
-    // Check if user is a store owner (not a collaborator)
-    const isStoreOwner = !user?.sellerId || user.sellerId === user.id;
-    
-    if (user && isStoreOwner && !user.instagramUsername && !user.customDomain) {
-      // Check if this specific user has seen onboarding before (scoped by user ID)
-      const hasSeenOnboarding = localStorage.getItem(`hasSeenOnboarding:${user.id}`);
-      if (!hasSeenOnboarding) {
-        setOnboardingModalOpen(true);
-      }
-    }
-  }, [user]);
 
   // Auto-activate store after successful subscription
   useEffect(() => {
@@ -469,15 +452,6 @@ export default function SellerDashboard() {
         />
       </div>
       <ShareStoreModal open={shareModalOpen} onOpenChange={setShareModalOpen} />
-      <OnboardingModal 
-        open={onboardingModalOpen} 
-        onClose={() => {
-          setOnboardingModalOpen(false);
-          if (user?.id) {
-            localStorage.setItem(`hasSeenOnboarding:${user.id}`, 'true');
-          }
-        }} 
-      />
       <SubscriptionPricingDialog 
         open={showSubscriptionDialog} 
         onOpenChange={setShowSubscriptionDialog}
