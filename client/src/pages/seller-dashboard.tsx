@@ -48,8 +48,12 @@ export default function SellerDashboard() {
   });
 
   // Show onboarding modal for new sellers without Instagram or custom domain
+  // Skip for collaborators (they have a sellerId set to a different user's ID)
   useEffect(() => {
-    if (user && !user.instagramUsername && !user.customDomain) {
+    // Check if user is a store owner (not a collaborator)
+    const isStoreOwner = !user?.sellerId || user.sellerId === user.id;
+    
+    if (user && isStoreOwner && !user.instagramUsername && !user.customDomain) {
       // Check if this specific user has seen onboarding before (scoped by user ID)
       const hasSeenOnboarding = localStorage.getItem(`hasSeenOnboarding:${user.id}`);
       if (!hasSeenOnboarding) {
