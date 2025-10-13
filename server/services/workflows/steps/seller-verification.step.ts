@@ -15,6 +15,17 @@ export class SellerVerificationStep implements WorkflowStep {
     private storage: IStorage
   ) {}
 
+  private getCurrencyFromCountry(country: string): string {
+    const currencyMap: Record<string, string> = {
+      AE: 'AED', AT: 'EUR', AU: 'AUD', BE: 'EUR', BR: 'BRL',
+      CA: 'CAD', CH: 'CHF', DE: 'EUR', DK: 'DKK', ES: 'EUR',
+      FI: 'EUR', FR: 'EUR', GB: 'GBP', HK: 'HKD', IE: 'EUR',
+      IT: 'EUR', JP: 'JPY', MX: 'MXN', NL: 'EUR', NO: 'NOK',
+      NZ: 'NZD', PL: 'PLN', SE: 'SEK', SG: 'SGD', US: 'USD',
+    };
+    return currencyMap[country] || 'USD';
+  }
+
   async execute(context: WorkflowContext): Promise<WorkflowStepResult> {
     try {
       if (!context.sellerId) {
@@ -66,15 +77,20 @@ export class SellerVerificationStep implements WorkflowStep {
         };
       }
 
+      // Derive currency from seller's country
+      const currency = this.getCurrencyFromCountry(seller.stripeCountry || 'US');
+
       // Success - seller verified
       return {
         success: true,
         nextState: this.toState,
         data: {
+          sellerId: seller.id,
+          currency,
           metadata: {
             ...context.metadata,
             sellerVerified: true,
-            sellerCurrency: seller.listingCurrency || 'USD',
+            currency,
           },
         },
       };

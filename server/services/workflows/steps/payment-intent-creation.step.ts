@@ -82,6 +82,20 @@ export class PaymentIntentCreationStep implements WorkflowStep {
         } : undefined,
       });
 
+      // CRITICAL: Store payment intent in database for downstream retrieval
+      await this.storage.storePaymentIntent({
+        providerName: result.providerName || 'stripe',
+        providerIntentId: result.paymentIntentId,
+        idempotencyKey: `checkout_${checkoutSessionId}`,
+        clientSecret: result.clientSecret || null,
+        amount: totalAmount.toString(),
+        currency,
+        status: result.status || 'requires_payment_method',
+        metadata: result.metadata ? JSON.stringify(result.metadata) : null,
+      });
+
+      logger.info(`[PaymentIntentCreation] Stored payment intent ${result.paymentIntentId} for checkout session ${checkoutSessionId}`);
+
       // Update context with payment intent details and order ID
       return {
         success: true,
@@ -89,6 +103,8 @@ export class PaymentIntentCreationStep implements WorkflowStep {
         data: {
           paymentIntentId: result.paymentIntentId,
           orderId: result.orderId, // Order created by PaymentService
+          clientSecret: result.clientSecret,
+          currency,
           metadata: {
             ...context.metadata,
             clientSecret: result.clientSecret,
