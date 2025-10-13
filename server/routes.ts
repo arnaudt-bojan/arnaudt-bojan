@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema } from "@shared/schema";
+import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { setupAuth } from "./replitAuth";
@@ -1770,20 +1770,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { items, shippingAddress, customerEmail, customerName } = req.body;
-
-      // Validate required parameters
-      if (!items || !shippingAddress || !customerEmail || !customerName) {
-        return res.status(400).json({ 
-          error: 'Missing required checkout parameters',
-          errorCode: 'INVALID_REQUEST' 
-        });
+      // Validate request body with Zod schema
+      let validatedData;
+      try {
+        validatedData = checkoutInitiateRequestSchema.parse(req.body);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ 
+            error: 'Validation failed',
+            details: error.errors
+          });
+        }
+        throw error;
       }
+
+      const { items, shippingAddress, customerEmail, customerName } = validatedData;
 
       // Delegate to CheckoutService workflow orchestrator
       const result = await checkoutService.initiateCheckout({
         items,
-        shippingAddress,
+        shippingAddress: {
+          line1: shippingAddress.street,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country,
+        },
         customerEmail,
         customerName,
       });

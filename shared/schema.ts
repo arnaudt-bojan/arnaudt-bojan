@@ -216,6 +216,35 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 export type SelectOrder = typeof orders.$inferSelect;
 
+// Checkout validation schemas - for /api/checkout/initiate endpoint
+export const checkoutItemSchema = z.object({
+  productId: z.string().min(1, "Product ID is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1"),
+  variant: z.object({
+    size: z.string().optional(),
+    color: z.string().optional(),
+  }).optional(),
+});
+
+export const shippingAddressSchema = z.object({
+  street: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  postalCode: z.string().min(1, "Postal code is required"),
+  country: z.string().min(1, "Country is required"),
+});
+
+export const checkoutInitiateRequestSchema = z.object({
+  items: z.array(checkoutItemSchema).min(1, "At least one item is required"),
+  shippingAddress: shippingAddressSchema,
+  customerEmail: z.string().email("Valid email is required"),
+  customerName: z.string().min(1, "Customer name is required"),
+});
+
+export type CheckoutItem = z.infer<typeof checkoutItemSchema>;
+export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
+export type CheckoutInitiateRequest = z.infer<typeof checkoutInitiateRequestSchema>;
+
 // Order Items - for item-level tracking and fulfillment
 export const orderItems = pgTable("order_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
