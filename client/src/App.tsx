@@ -23,9 +23,6 @@ import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
 import CreateProduct from "@/pages/create-product";
 import EditProduct from "@/pages/edit-product";
-import Orders from "@/pages/orders";
-import OrderDetail from "@/pages/order-detail";
-import BuyerOrderDetail from "@/pages/buyer-order-detail";
 import Settings from "@/pages/settings";
 import QuickAccess from "@/pages/quick-access";
 import Team from "@/pages/team";
@@ -96,22 +93,6 @@ function AppContent() {
               <Route path="/help" component={Help} />
               <Route path="/privacy" component={Privacy} />
               <Route path="/terms" component={Terms} />
-              
-              {/* Protected buyer routes on seller subdomain */}
-              <Route path="/orders">
-                {() => (
-                  <ProtectedRoute>
-                    <Orders />
-                  </ProtectedRoute>
-                )}
-              </Route>
-              <Route path="/orders/:id">
-                {() => (
-                  <ProtectedRoute>
-                    <BuyerOrderDetail />
-                  </ProtectedRoute>
-                )}
-              </Route>
               
               {/* Protected wholesale routes on seller subdomain */}
               <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
@@ -215,13 +196,6 @@ function AppContent() {
                   </ProtectedRoute>
                 )}
               </Route>
-              <Route path="/seller/order/:id">
-                {() => (
-                  <ProtectedRoute requireSeller>
-                    <OrderDetail />
-                  </ProtectedRoute>
-                )}
-              </Route>
               <Route path="/seller/orders">
                 {() => (
                   <ProtectedRoute requireSeller>
@@ -231,20 +205,6 @@ function AppContent() {
               </Route>
               
               {/* Protected authenticated routes */}
-              <Route path="/orders">
-                {() => (
-                  <ProtectedRoute>
-                    <Orders />
-                  </ProtectedRoute>
-                )}
-              </Route>
-              <Route path="/orders/:id">
-                {() => (
-                  <ProtectedRoute>
-                    <BuyerOrderDetail />
-                  </ProtectedRoute>
-                )}
-              </Route>
               <Route path="/settings">
                 {() => (
                   <ProtectedRoute>
