@@ -160,6 +160,16 @@ export function StorefrontHeader({ cartItemsCount = 0, onCartClick }: Storefront
                       )}
                     </button>
                   </div>
+                  
+                  <Separator />
+                  
+                  {/* Powered by Upfirst branding */}
+                  <div className="px-3 py-2">
+                    <div className="flex items-center gap-2 justify-center">
+                      <span className="text-xs text-muted-foreground">Powered by</span>
+                      <img src={logoImage} alt="Upfirst" className="h-4 dark:invert" />
+                    </div>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

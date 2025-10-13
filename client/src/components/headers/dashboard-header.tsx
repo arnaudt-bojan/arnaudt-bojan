@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { LogOut, User, Menu, Settings, Sun, Moon, DollarSign } from "lucide-react";
+import { LogOut, User, Menu, Settings, Sun, Moon } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "../theme-toggle";
-import { CurrencySelector } from "../currency-selector";
 import { NotificationBell } from "../notification-bell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -155,14 +154,6 @@ export function DashboardHeader() {
                 <div className="flex flex-col gap-3">
                   <div className="text-xs font-semibold text-muted-foreground px-3">Preferences</div>
                   
-                  {/* Currency Selector */}
-                  <div className="px-3 py-2 hover-elevate rounded-lg cursor-pointer">
-                    <div className="flex items-center gap-2 text-sm">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <CurrencySelector />
-                    </div>
-                  </div>
-
                   {/* Notifications */}
                   <div className="px-3 py-2">
                     <NotificationBell />
@@ -199,9 +190,8 @@ export function DashboardHeader() {
 
         {/* Desktop controls - right side */}
         <div className="flex items-center gap-2">
-          {/* Desktop-only: Currency, Notifications, Theme */}
+          {/* Desktop-only: Notifications, Theme */}
           <div className="hidden md:flex items-center gap-2">
-            <CurrencySelector />
             <NotificationBell />
             <ThemeToggle />
           </div>
