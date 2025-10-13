@@ -57,18 +57,25 @@ export class InventoryService {
 
     const reservedStock = await this.storage.getReservedStock(productId, variantId);
     const availableStock = Math.max(0, currentStock - reservedStock);
+    
+    // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
+    const isAvailable = (product.productType === 'pre-order' || product.productType === 'made-to-order')
+      ? true
+      : availableStock >= quantity;
 
     logger.info('[InventoryService] Stock availability check', {
       productId,
       variantId,
+      productType: product.productType,
       currentStock,
       reservedStock,
       availableStock,
       requestedQuantity: quantity,
+      isAvailable,
     });
 
     return {
-      available: availableStock >= quantity,
+      available: isAvailable,
       currentStock,
       reservedStock,
       availableStock,

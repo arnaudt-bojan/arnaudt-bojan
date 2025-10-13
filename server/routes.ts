@@ -610,13 +610,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const availableStock = Math.max(0, variantStock - reservedStock);
+        // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
+        const isAvailable = (product.productType === 'pre-order' || product.productType === 'made-to-order') 
+          ? true 
+          : availableStock > 0;
+        
         return res.json({
           productId,
           variantId,
           totalStock: variantStock,
           reservedStock,
           availableStock,
-          isAvailable: availableStock > 0,
+          isAvailable,
           isVariant: true,
         });
       }
@@ -624,13 +629,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For simple products or product-level stock
       const totalStock = typeof product.stock === 'number' ? product.stock : 0;
       const availableStock = Math.max(0, totalStock - reservedStock);
+      
+      // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
+      const isAvailable = (product.productType === 'pre-order' || product.productType === 'made-to-order') 
+        ? true 
+        : availableStock > 0;
 
       res.json({
         productId,
         totalStock,
         reservedStock,
         availableStock,
-        isAvailable: availableStock > 0,
+        isAvailable,
         isVariant: false,
       });
     } catch (error) {

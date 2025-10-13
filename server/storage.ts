@@ -836,9 +836,13 @@ export class DatabaseStorage implements IStorage {
       
       const reservedStock = activeReservations.reduce((total, res) => total + res.quantity, 0);
       const availableStock = Math.max(0, currentStock - reservedStock);
+      
+      // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
+      const isPreOrderOrMadeToOrder = prod.productType === 'pre-order' || prod.productType === 'made-to-order';
+      const isAvailable = isPreOrderOrMadeToOrder ? true : availableStock >= quantity;
 
       const availability = {
-        available: availableStock >= quantity,
+        available: isAvailable,
         currentStock,
         reservedStock,
         availableStock,
@@ -846,8 +850,8 @@ export class DatabaseStorage implements IStorage {
         variantId,
       };
 
-      // Step 4: Check if enough stock is available
-      if (availableStock < quantity) {
+      // Step 4: Check if enough stock is available (skip check for pre-order/made-to-order)
+      if (!isPreOrderOrMadeToOrder && availableStock < quantity) {
         return {
           success: false,
           error: `Insufficient stock. Only ${availableStock} available.`,
