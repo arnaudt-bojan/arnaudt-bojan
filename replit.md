@@ -11,11 +11,17 @@ Upfirst is a D2C (Direct-to-Consumer) e-commerce platform enabling creators and 
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
 ## Testing Protocol
-- **Test Seller Account**: 
-  - Email: `mirtorabi+testseller@gmail.com`
-  - Username: `mirtorabi`
-  - Fixed Authentication Code: `111111` (no need to check email for code)
-  - Storefront URL (dev): `/s/mirtorabi`
+- **Test Seller Accounts**: 
+  - **Primary Test Seller**:
+    - Email: `mirtorabi+testseller@gmail.com`
+    - Username: `mirtorabi`
+    - Fixed Authentication Code: `111111` (no need to check email for code)
+    - Storefront URL (dev): `/s/mirtorabi`
+  - **Local Test Seller**:
+    - Email: `testseller@test.com`
+    - Username: (auto-generated)
+    - Fixed Authentication Code: `111111` (no need to check email for code)
+    - Storefront URL (dev): `/s/{username}` (check dashboard for exact username)
 - **Testing Workflow**:
   1. When testing as seller, use the test seller account above
   2. **IMPORTANT**: Always logout of the test seller before acting as a buyer (sellers cannot see cart on their own products)

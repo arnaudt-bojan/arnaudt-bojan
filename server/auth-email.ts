@@ -140,8 +140,8 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(400).json({ error: 'Email and code are required' });
     }
 
-    // Test seller bypass: Allow fixed code "111111" for test account
-    const isTestSeller = email.toLowerCase() === 'mirtorabi+testseller@gmail.com';
+    // Test seller bypass: Allow fixed code "111111" for test accounts
+    const isTestSeller = email.toLowerCase() === 'mirtorabi+testseller@gmail.com' || email.toLowerCase() === 'testseller@test.com';
     let authToken;
     
     if (isTestSeller && code === '111111') {
