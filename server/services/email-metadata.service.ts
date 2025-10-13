@@ -46,6 +46,9 @@ export enum EmailType {
   SELLER_INVENTORY_LOW = 'seller_inventory_low',
   SELLER_PAYOUT_FAILED = 'seller_payout_failed',
   SELLER_SUBSCRIPTION_INVOICE = 'seller_subscription_invoice',
+  SELLER_TRIAL_ENDING = 'seller_trial_ending',
+  SELLER_SUBSCRIPTION_ACTIVATED = 'seller_subscription_activated',
+  SELLER_SUBSCRIPTION_CANCELLED = 'seller_subscription_cancelled',
   
   // Auth emails
   AUTH_CODE = 'auth_code',
@@ -403,6 +406,18 @@ export class EmailMetadataService implements IEmailMetadataService {
             return `Upfirst subscription invoice - ${data.currency} ${data.amount}`;
           }
           return 'Upfirst subscription invoice';
+        
+        case EmailType.SELLER_TRIAL_ENDING:
+          if (data.daysRemaining !== undefined) {
+            return `Your UPPFIRST trial ends in ${data.daysRemaining} day${data.daysRemaining !== 1 ? 's' : ''}`;
+          }
+          return 'Your UPPFIRST trial is ending soon';
+        
+        case EmailType.SELLER_SUBSCRIPTION_ACTIVATED:
+          return 'Your UPPFIRST subscription is active';
+        
+        case EmailType.SELLER_SUBSCRIPTION_CANCELLED:
+          return 'Your UPPFIRST subscription has been cancelled';
         
         // Auth emails
         case EmailType.AUTH_CODE:

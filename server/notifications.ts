@@ -14,6 +14,13 @@ import {
 import { EmailConfigService } from './services/email-config.service';
 import { IEmailProvider, ResendEmailProvider } from './services/email-provider.service';
 import { NotificationMessagesService } from './services/notification-messages.service';
+import { 
+  generateEmailBaseLayout, 
+  generateUpfirstHeader, 
+  generateUpfirstFooter,
+  generateCTAButton
+} from './utils/email-templates';
+import { EmailType } from './services/email-metadata.service';
 
 export interface NotificationService {
   sendEmail(params: SendEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }>;
@@ -33,6 +40,12 @@ export interface NotificationService {
   sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string): Promise<void>;
   sendInventoryOutOfStock(seller: User, product: Product): Promise<void>;
   sendPayoutFailed(seller: User, amount: number, reason: string): Promise<void>;
+  
+  // Subscription Management Emails
+  sendSubscriptionTrialEnding(seller: User, daysRemaining: number): Promise<void>;
+  sendSubscriptionActivated(seller: User, subscription: { plan: string; amount: number; nextBillingDate: Date }): Promise<void>;
+  sendSubscriptionCancelled(seller: User, endDate: Date): Promise<void>;
+  sendLowInventoryAlert(seller: User, product: Product, currentStock: number): Promise<void>;
   
   // Balance Payment Request
   sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void>;
@@ -635,7 +648,9 @@ class NotificationServiceImpl implements NotificationService {
     const template = this.messages.productListed(product);
 
     const result = await this.sendEmail({
+      from: 'UPPFIRST <noreply@upfirst.com>',
       to: seller.email!,
+      replyTo: this.emailConfig.getSupportEmail(),
       subject: template.emailSubject,
       html: emailHtml,
     });
@@ -988,50 +1003,79 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Generate product listed email (Upfirst → Seller, no branding)
+   * Generate product listed email (Upfirst → Seller) - Using new infrastructure
    */
   private generateProductListedEmail(seller: User, product: Product): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            h1 { color: #000; margin-bottom: 10px; }
-            .product-card { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .product-image { width: 100%; max-width: 300px; height: auto; border-radius: 6px; margin: 15px 0; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Product Listed Successfully</h1>
-            <p>Hi ${seller.firstName || 'there'},</p>
-            <p>Your product has been successfully listed on your Upfirst store!</p>
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    const productUrl = `${baseUrl}/seller/products`;
+    const storeUrl = seller.username ? `${baseUrl}/${seller.username}` : baseUrl;
+    
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your Product is Live!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${seller.firstName || 'there'}, your product has been successfully listed on your UPPFIRST store.
+      </p>
 
-            <div class="product-card">
-              <h3>${product.name}</h3>
-              ${product.image ? `<img src="${product.image}" alt="${product.name}" class="product-image">` : ''}
-              <p><strong>Price:</strong> $${product.price}</p>
-              <p><strong>Type:</strong> ${product.productType}</p>
-              <p><strong>Category:</strong> ${product.category}</p>
+      <!-- Product Card -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 25px;">
+            ${product.image ? `
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="${product.image}" alt="${product.name}" style="display: inline-block; max-width: 200px; height: auto; border-radius: 8px; border: 0;">
             </div>
+            ` : ''}
+            <h3 style="margin: 0 0 15px; font-size: 20px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ${product.name}
+            </h3>
+            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Price:</strong> $${product.price}
+            </p>
+            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Type:</strong> ${product.productType}
+            </p>
+            ${product.category ? `
+            <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Category:</strong> ${product.category}
+            </p>
+            ` : ''}
+          </td>
+        </tr>
+      </table>
 
-            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/products/${product.id}" class="button">
-              View Product
-            </a>
+      ${generateCTAButton('View Product', productUrl)}
 
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-              <p>This is an automated notification from Upfirst.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <!-- Next Steps -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #f0f9ff !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0 0 15px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              Next Steps:
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.6;">
+              <li>Share your product on social media</li>
+              <li>Add more products to grow your catalog</li>
+              <li>View your storefront: <a href="${storeUrl}" style="color: #6366f1 !important; text-decoration: underline;">${seller.username ? seller.username + '.upfirst.io' : 'your store'}</a></li>
+            </ul>
+          </td>
+        </tr>
+      </table>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Your product "${product.name}" is now live on your store`,
+      darkModeSafe: true,
+    });
   }
 
   /**
@@ -1372,6 +1416,7 @@ class NotificationServiceImpl implements NotificationService {
     const template = this.messages.sellerWelcome(seller);
 
     const result = await this.sendEmail({
+      from: 'UPPFIRST <noreply@upfirst.com>',
       to: seller.email || '',
       replyTo: this.emailConfig.getSupportEmail(),
       subject: template.emailSubject,
@@ -1401,6 +1446,7 @@ class NotificationServiceImpl implements NotificationService {
     const template = this.messages.stripeOnboardingIncomplete(seller);
 
     const result = await this.sendEmail({
+      from: 'UPPFIRST <noreply@upfirst.com>',
       to: seller.email || '',
       replyTo: this.emailConfig.getSupportEmail(),
       subject: template.emailSubject,
@@ -1500,30 +1546,154 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send inventory out of stock alert (Upfirst → Seller)
    */
+  /**
+   * DEPRECATED: Use sendLowInventoryAlert instead
+   */
   async sendInventoryOutOfStock(seller: User, product: Product): Promise<void> {
-    const emailHtml = this.generateInventoryOutOfStockEmail(seller, product);
+    return this.sendLowInventoryAlert(seller, product, 0);
+  }
+
+  /**
+   * Send low inventory alert email (Upfirst → Seller)
+   */
+  async sendLowInventoryAlert(seller: User, product: Product, currentStock: number): Promise<void> {
+    if (!seller.email) {
+      console.error('[Notifications] Cannot send low inventory alert - seller has no email');
+      return;
+    }
+
+    const emailHtml = this.generateLowInventoryAlertEmail(seller, product, currentStock);
 
     const result = await this.sendEmail({
-      to: seller.email || '',
-
+      from: 'UPPFIRST <noreply@upfirst.com>',
+      to: seller.email,
       replyTo: this.emailConfig.getSupportEmail(),
-      subject: `Product Out of Stock: ${product.name}`,
+      subject: currentStock === 0 ? `Out of Stock: ${product.name}` : `Low Stock Alert: ${product.name}`,
       html: emailHtml,
     });
 
     if (seller.id) {
       await this.createNotification({
         userId: seller.id,
-        type: 'inventory_out_of_stock',
-        title: 'Product Out of Stock',
-        message: `${product.name} is now out of stock and has been hidden from your store`,
+        type: currentStock === 0 ? 'inventory_out_of_stock' : 'low_inventory',
+        title: currentStock === 0 ? 'Product Out of Stock' : 'Low Inventory Alert',
+        message: currentStock === 0 
+          ? `${product.name} is now out of stock and has been hidden from your store`
+          : `${product.name} is running low (${currentStock} units remaining)`,
         emailSent: result.success ? 1 : 0,
         emailId: result.emailId,
-        metadata: { productId: product.id, productName: product.name },
+        metadata: { productId: product.id, productName: product.name, currentStock },
       });
     }
 
-    console.log(`[Notifications] Inventory out of stock sent to ${seller.email}:`, result.success);
+    console.log(`[Notifications] Low inventory alert sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send subscription trial ending email (Upfirst → Seller)
+   */
+  async sendSubscriptionTrialEnding(seller: User, daysRemaining: number): Promise<void> {
+    if (!seller.email) {
+      console.error('[Notifications] Cannot send trial ending email - seller has no email');
+      return;
+    }
+
+    const emailHtml = this.generateSubscriptionTrialEndingEmail(seller, daysRemaining);
+
+    const result = await this.sendEmail({
+      from: 'UPPFIRST <noreply@upfirst.com>',
+      to: seller.email,
+      replyTo: this.emailConfig.getSupportEmail(),
+      subject: `Your UPPFIRST Trial Ends in ${daysRemaining} ${daysRemaining === 1 ? 'Day' : 'Days'}`,
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'subscription_trial_ending',
+        title: 'Trial Ending Soon',
+        message: `Your trial ends in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { daysRemaining },
+      });
+    }
+
+    console.log(`[Notifications] Trial ending email sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send subscription activated email (Upfirst → Seller)
+   */
+  async sendSubscriptionActivated(seller: User, subscription: { plan: string; amount: number; nextBillingDate: Date }): Promise<void> {
+    if (!seller.email) {
+      console.error('[Notifications] Cannot send subscription activated email - seller has no email');
+      return;
+    }
+
+    const emailHtml = this.generateSubscriptionActivatedEmail(seller, subscription);
+
+    const result = await this.sendEmail({
+      from: 'UPPFIRST <noreply@upfirst.com>',
+      to: seller.email,
+      replyTo: this.emailConfig.getSupportEmail(),
+      subject: 'Your UPPFIRST Subscription is Active',
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'subscription_activated',
+        title: 'Subscription Activated',
+        message: `Your ${subscription.plan} subscription is now active`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: subscription,
+      });
+    }
+
+    console.log(`[Notifications] Subscription activated email sent to ${seller.email}:`, result.success);
+  }
+
+  /**
+   * Send subscription cancelled email (Upfirst → Seller)
+   */
+  async sendSubscriptionCancelled(seller: User, endDate: Date): Promise<void> {
+    if (!seller.email) {
+      console.error('[Notifications] Cannot send subscription cancelled email - seller has no email');
+      return;
+    }
+
+    const emailHtml = this.generateSubscriptionCancelledEmail(seller, endDate);
+    const endDateFormatted = endDate.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    const result = await this.sendEmail({
+      from: 'UPPFIRST <noreply@upfirst.com>',
+      to: seller.email,
+      replyTo: this.emailConfig.getSupportEmail(),
+      subject: 'Your UPPFIRST Subscription Has Been Cancelled',
+      html: emailHtml,
+    });
+
+    if (seller.id) {
+      await this.createNotification({
+        userId: seller.id,
+        type: 'subscription_cancelled',
+        title: 'Subscription Cancelled',
+        message: `Your subscription has been cancelled. Access until ${endDateFormatted}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: { endDate: endDate.toISOString() },
+      });
+    }
+
+    console.log(`[Notifications] Subscription cancelled email sent to ${seller.email}:`, result.success);
   }
 
   /**
@@ -1701,114 +1871,177 @@ class NotificationServiceImpl implements NotificationService {
    * ============================================
    */
 
+  /**
+   * Generate seller welcome email (Upfirst → Seller) - Using new infrastructure
+   */
   private generateSellerWelcomeEmail(seller: User, magicLink: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            h1 { color: #000; margin-bottom: 10px; }
-            .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; text-align: center; border-radius: 8px; margin-bottom: 30px; }
-            .step { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 15px 0; }
-            .step-number { display: inline-block; width: 30px; height: 30px; background: #000; color: white; border-radius: 50%; text-align: center; line-height: 30px; margin-right: 10px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="hero">
-              <h1 style="color: white; margin: 0;">Welcome to Upfirst!</h1>
-              <p style="font-size: 18px; margin: 10px 0 0;">Your e-commerce journey starts here</p>
-            </div>
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 32px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center;" class="dark-mode-text-dark">
+        Welcome to UPPFIRST!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 18px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center;">
+        Your e-commerce journey starts here
+      </p>
 
-            <p>Hi ${seller.firstName || 'there'},</p>
-            <p>Congratulations! Your Upfirst store is ready to go. Here's how to get started:</p>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Hi ${seller.firstName || 'there'},
+      </p>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Congratulations! Your UPPFIRST store is ready to go. Here's how to get started:
+      </p>
 
-            <div class="step">
-              <span class="step-number">1</span>
-              <strong>Set Up Payments</strong>
-              <p style="margin: 10px 0 0;">Connect your Stripe account to start accepting payments (1.5% platform fee)</p>
-            </div>
+      <!-- Setup Steps -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0;">
+        <tr>
+          <td style="padding: 20px 0 0 0;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f9fafb !important; border-radius: 8px; margin-bottom: 15px;" class="dark-mode-bg-white">
+              <tr>
+                <td style="padding: 20px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="width: 40px; vertical-align: top;">
+                        <div style="width: 32px; height: 32px; background-color: #000000 !important; color: #ffffff !important; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">1</div>
+                      </td>
+                      <td style="padding-left: 15px;">
+                        <p style="margin: 0 0 8px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+                          Connect Stripe for Payments
+                        </p>
+                        <p style="margin: 0; font-size: 15px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5;">
+                          Start accepting payments with just 1.5% platform fee. Stripe handles secure payment processing.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f9fafb !important; border-radius: 8px; margin-bottom: 15px;" class="dark-mode-bg-white">
+              <tr>
+                <td style="padding: 20px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="width: 40px; vertical-align: top;">
+                        <div style="width: 32px; height: 32px; background-color: #000000 !important; color: #ffffff !important; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">2</div>
+                      </td>
+                      <td style="padding-left: 15px;">
+                        <p style="margin: 0 0 8px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+                          List Your First Product
+                        </p>
+                        <p style="margin: 0; font-size: 15px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5;">
+                          Add products with flexible types: in-stock, pre-order, made-to-order, or wholesale.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+              <tr>
+                <td style="padding: 20px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="width: 40px; vertical-align: top;">
+                        <div style="width: 32px; height: 32px; background-color: #000000 !important; color: #ffffff !important; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">3</div>
+                      </td>
+                      <td style="padding-left: 15px;">
+                        <p style="margin: 0 0 8px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+                          Customize Your Store
+                        </p>
+                        <p style="margin: 0; font-size: 15px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5;">
+                          Add your logo, banner, and branding to make your store uniquely yours.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
 
-            <div class="step">
-              <span class="step-number">2</span>
-              <strong>List Your First Product</strong>
-              <p style="margin: 10px 0 0;">Add products with flexible types: in-stock, pre-order, made-to-order, or wholesale</p>
-            </div>
+      ${generateCTAButton('Complete Your Store Setup', magicLink, '#000000')}
 
-            <div class="step">
-              <span class="step-number">3</span>
-              <strong>Customize Your Store</strong>
-              <p style="margin: 10px 0 0;">Add your logo, banner, and branding to make your store uniquely yours</p>
-            </div>
-
-            <a href="${magicLink}" class="button">
-              Get Started
-            </a>
-
-            <p style="margin-top: 30px; padding: 20px; background: #f0f7ff; border-radius: 8px;">
-              <strong>Pro Tip:</strong> You have a 30-day free trial to explore all features. No payment method required to start!
+      <!-- Pro Tip -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #f0f9ff !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0; font-size: 15px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>💡 Pro Tip:</strong> You have a 30-day free trial to explore all features. No payment method required to start!
             </p>
-
-            <div class="footer">
-              <p>Questions? Reply to this email or visit our help center.</p>
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+          </td>
+        </tr>
+      </table>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: 'Welcome to UPPFIRST - Your e-commerce journey starts here',
+      darkModeSafe: true,
+    });
   }
 
+  /**
+   * Generate Stripe onboarding incomplete email (Upfirst → Seller) - Using new infrastructure
+   */
   private generateStripeOnboardingIncompleteEmail(seller: User): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 4px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Complete Your Stripe Setup</h1>
-            <p>Hi ${seller.firstName || 'there'},</p>
-            
-            <div class="alert-box">
-              <strong>Action Required:</strong> Your Stripe account setup is incomplete. You won't be able to accept payments until this is done.
-            </div>
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    const settingsUrl = `${baseUrl}/settings?tab=payment`;
+    
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Action Required: Complete Your Payment Setup
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${seller.firstName || 'there'},
+      </p>
 
-            <p>Completing your Stripe setup takes just a few minutes and allows you to:</p>
-            <ul>
-              <li>Accept credit cards, Apple Pay, and Google Pay</li>
-              <li>Receive automatic payouts to your bank account</li>
-              <li>Start selling immediately</li>
-            </ul>
-
-            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/settings?tab=payment" class="button">
-              Complete Stripe Setup
-            </a>
-
-            <p style="color: #666; font-size: 14px;">
-              Need help? Our support team is here: ${this.emailConfig.getSupportEmail()}
+      <!-- Alert Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #fff3cd !important; border-left: 4px solid #ffc107 !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ⚠️ Your Stripe account setup is incomplete. You won't be able to accept payments until this is done.
             </p>
+          </td>
+        </tr>
+      </table>
 
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Completing your Stripe setup takes just a few minutes and allows you to:
+      </p>
+
+      <ul style="margin: 0 0 30px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.8;">
+        <li>Accept credit cards, Apple Pay, and Google Pay</li>
+        <li>Receive automatic payouts to your bank account</li>
+        <li>Start selling immediately with just 1.5% platform fee</li>
+      </ul>
+
+      ${generateCTAButton('Complete Stripe Setup', settingsUrl)}
+
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Need help? Contact our support team at ${this.emailConfig.getSupportEmail()}
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: 'Complete your Stripe setup to start accepting payments',
+      darkModeSafe: true,
+    });
   }
 
   private generateOrderPaymentFailedEmail(seller: User, orderId: string, amount: number, reason: string): string {
@@ -1955,56 +2188,292 @@ class NotificationServiceImpl implements NotificationService {
     `;
   }
 
-  private generateInventoryOutOfStockEmail(seller: User, product: Product): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 4px; }
-            .product-card { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Product Out of Stock</h1>
-            <p>Hi ${seller.firstName || 'there'},</p>
-            
-            <div class="alert-box">
-              <strong>Action Required:</strong> One of your products is out of stock
-            </div>
+  /**
+   * Generate low inventory alert email (Upfirst → Seller) - Using new infrastructure
+   */
+  private generateLowInventoryAlertEmail(seller: User, product: Product, currentStock: number): string {
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    const productUrl = `${baseUrl}/seller/products/${product.id}/edit`;
+    
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Low Stock Alert
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${seller.firstName || 'there'},
+      </p>
 
-            <div class="product-card">
-              <h3>${product.name}</h3>
-              <p><strong>Current Stock:</strong> 0 units</p>
-              <p><strong>Status:</strong> Hidden from store (automatically)</p>
-            </div>
+      <!-- Alert Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #fff3cd !important; border-left: 4px solid #ffc107 !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ⚠️ One of your products is running low on stock
+            </p>
+          </td>
+        </tr>
+      </table>
 
-            <p>This product has been automatically hidden from your storefront to prevent new orders.</p>
+      <!-- Product Card -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 25px;">
+            <h3 style="margin: 0 0 15px; font-size: 20px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ${product.name}
+            </h3>
+            <p style="margin: 0 0 8px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Current Stock:</strong> ${currentStock} units remaining
+            </p>
+            <p style="margin: 0; font-size: 15px; color: ${currentStock === 0 ? '#dc2626 !important' : '#6b7280 !important'}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Status:</strong> ${currentStock === 0 ? 'Out of stock (hidden from store)' : 'Low stock warning'}
+            </p>
+          </td>
+        </tr>
+      </table>
 
-            <p><strong>Next steps:</strong></p>
-            <ul>
-              <li>Restock the product</li>
-              <li>Update the inventory count</li>
-              <li>The product will be automatically shown again</li>
-            </ul>
+      <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        ${currentStock === 0 ? 'This product has been automatically hidden from your storefront to prevent new orders.' : 'Consider restocking soon to avoid running out.'}
+      </p>
 
-            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/seller/products/${product.id}/edit" class="button">
-              Update Inventory
-            </a>
+      <p style="margin: 0 0 10px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Next steps:
+      </p>
+      <ul style="margin: 0 0 30px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.8;">
+        <li>Restock the product</li>
+        <li>Update the inventory count</li>
+        <li>${currentStock === 0 ? 'The product will be automatically shown again' : 'Prevent stockouts and lost sales'}</li>
+      </ul>
 
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      ${generateCTAButton('Update Inventory', productUrl)}
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Low stock alert: ${product.name} - ${currentStock} units remaining`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * DEPRECATED: Use generateLowInventoryAlertEmail instead
+   */
+  private generateInventoryOutOfStockEmail(seller: User, product: Product): string {
+    return this.generateLowInventoryAlertEmail(seller, product, 0);
+  }
+
+  /**
+   * Generate subscription trial ending email (Upfirst → Seller) - Using new infrastructure
+   */
+  private generateSubscriptionTrialEndingEmail(seller: User, daysRemaining: number): string {
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    const billingUrl = `${baseUrl}/settings?tab=subscription`;
+    
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your UPPFIRST Trial Ends in ${daysRemaining} ${daysRemaining === 1 ? 'Day' : 'Days'}
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${seller.firstName || 'there'},
+      </p>
+
+      <p style="margin: 0 0 30px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your 30-day free trial is coming to an end. Continue your UPPFIRST subscription to keep selling and growing your business.
+      </p>
+
+      <!-- Benefits -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #f0f9ff !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 25px;">
+            <p style="margin: 0 0 15px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              With UPPFIRST you get:
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.8;">
+              <li>Just 1.5% platform fee on sales</li>
+              <li>Unlimited products and orders</li>
+              <li>Custom storefront with your branding</li>
+              <li>Integrated shipping and payments</li>
+              <li>24/7 seller support</li>
+            </ul>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Pricing -->
+      <p style="margin: 30px 0 10px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        <strong>Simple Pricing:</strong> $29/month or $290/year (save 17%)
+      </p>
+
+      ${generateCTAButton('Continue Subscription', billingUrl)}
+
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center;">
+        Questions? Contact us at ${this.emailConfig.getSupportEmail()}
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Your trial ends in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} - Continue your subscription`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate subscription activated email (Upfirst → Seller) - Using new infrastructure
+   */
+  private generateSubscriptionActivatedEmail(seller: User, subscription: { plan: string; amount: number; nextBillingDate: Date }): string {
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    const dashboardUrl = `${baseUrl}/seller`;
+    
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const nextBillingFormatted = subscription.nextBillingDate.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your UPPFIRST Subscription is Active
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${seller.firstName || 'there'},
+      </p>
+
+      <p style="margin: 0 0 30px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Great news! Your UPPFIRST subscription is now active and you're all set to sell.
+      </p>
+
+      <!-- Subscription Details -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 25px;">
+            <p style="margin: 0 0 12px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Plan:</strong> ${subscription.plan}
+            </p>
+            <p style="margin: 0 0 12px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Amount:</strong> $${(subscription.amount / 100).toFixed(2)}/${subscription.plan.toLowerCase().includes('annual') ? 'year' : 'month'}
+            </p>
+            <p style="margin: 0; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              <strong>Next Billing Date:</strong> ${nextBillingFormatted}
+            </p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Features Unlocked -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #f0f9ff !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 25px;">
+            <p style="margin: 0 0 15px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ✨ Features Unlocked:
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.8;">
+              <li>Unlimited product listings</li>
+              <li>Advanced analytics and reporting</li>
+              <li>Custom domain support</li>
+              <li>Priority customer support</li>
+              <li>Marketing tools and automations</li>
+            </ul>
+          </td>
+        </tr>
+      </table>
+
+      ${generateCTAButton('Go to Dashboard', dashboardUrl)}
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: 'Your UPPFIRST subscription is now active',
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate subscription cancelled email (Upfirst → Seller) - Using new infrastructure
+   */
+  private generateSubscriptionCancelledEmail(seller: User, endDate: Date): string {
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    const billingUrl = `${baseUrl}/settings?tab=subscription`;
+    
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const endDateFormatted = endDate.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your UPPFIRST Subscription Has Been Cancelled
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${seller.firstName || 'there'},
+      </p>
+
+      <p style="margin: 0 0 30px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        We're sorry to see you go. Your UPPFIRST subscription has been cancelled as requested.
+      </p>
+
+      <!-- Access Info -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 25px 0; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <tr>
+          <td style="padding: 25px;">
+            <p style="margin: 0 0 15px; font-weight: 600; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              Important Information:
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.8;">
+              <li>You'll have full access until <strong>${endDateFormatted}</strong></li>
+              <li>Your store will be deactivated after this date</li>
+              <li>Your data will be retained for 90 days</li>
+              <li>You can reactivate anytime before the end date</li>
+            </ul>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Reactivate Option -->
+      <p style="margin: 30px 0 20px; font-size: 16px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Changed your mind? You can reactivate your subscription at any time.
+      </p>
+
+      ${generateCTAButton('Reactivate Subscription', billingUrl)}
+
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center;">
+        Need help or have feedback? Contact us at ${this.emailConfig.getSupportEmail()}
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Your subscription has been cancelled - Access until ${endDateFormatted}`,
+      darkModeSafe: true,
+    });
   }
 
   private generatePayoutFailedEmail(seller: User, amount: number, reason: string): string {
