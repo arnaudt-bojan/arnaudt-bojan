@@ -185,21 +185,41 @@ export class TeamManagementService {
         });
         requiresLogin = true;
         logger.info('[TeamManagement] New user created from invitation', { userId: user.id, email: user.email, sellerId: invitation.storeOwnerId });
-      } else if (acceptingUserId && acceptingUserId !== user.id) {
-        return {
-          success: false,
-          error: "This invitation is for a different email address"
-        };
       } else {
-        // 3. If user is buyer, promote to seller and set sellerId
-        if (user.userType === 'buyer' || !user.sellerId) {
-          user = await this.storage.upsertUser({
-            ...user,
-            userType: 'seller',
-            sellerId: invitation.storeOwnerId // Link collaborator to store owner
-          });
-          logger.info('[TeamManagement] User promoted to seller/collaborator', { userId: user.id, sellerId: invitation.storeOwnerId });
+        // User already exists - check if they're logged in as the correct user
+        if (acceptingUserId && acceptingUserId !== user.id) {
+          // They're logged in but as a different user
+          return {
+            success: false,
+            error: "Please log out and try accepting the invitation again. This invitation is for a different email address."
+          };
         }
+        
+        // Check if this is a revoked collaborator being reinvited
+        const existingMembership = await this.storage.getUserStoreMembership(user.id, invitation.storeOwnerId);
+        if (existingMembership && existingMembership.status === 'revoked') {
+          // This is a re-invitation - just need to reactivate, no need to update sellerId
+          logger.info('[TeamManagement] Reactivating revoked collaborator', { 
+            userId: user.id, 
+            membershipId: existingMembership.id 
+          });
+        } else {
+          // 3. If user is buyer or new collaborator, promote to seller and set sellerId
+          if (user.userType === 'buyer' || !user.sellerId || user.sellerId !== invitation.storeOwnerId) {
+            user = await this.storage.upsertUser({
+              ...user,
+              userType: 'seller',
+              sellerId: invitation.storeOwnerId // Link collaborator to store owner
+            });
+            logger.info('[TeamManagement] User promoted to seller/collaborator', { 
+              userId: user.id, 
+              sellerId: invitation.storeOwnerId 
+            });
+          }
+        }
+        
+        // Require login to refresh session with updated user data
+        requiresLogin = true;
       }
 
       // 4. Create membership with accessLevel='collaborator', status='active'
