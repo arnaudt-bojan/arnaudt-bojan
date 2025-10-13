@@ -18,7 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText, Loader2 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
@@ -196,7 +196,7 @@ function SubscriptionTab({ user }: { user: any }) {
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   
-  const { data: subscriptionStatus, refetch: refetchSubscription } = useQuery<{
+  const { data: subscriptionStatus, isLoading: isLoadingSubscription, refetch: refetchSubscription } = useQuery<{
     status: string | null;
     plan: string | null;
     trialEndsAt: string | null;
@@ -359,7 +359,16 @@ function SubscriptionTab({ user }: { user: any }) {
               </div>
             )}
 
-            {!subscriptionStatus?.status && (
+            {isLoadingSubscription && (
+              <div className="bg-muted border rounded-lg p-4 flex items-center justify-center">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <p className="text-sm text-muted-foreground">Loading subscription status...</p>
+                </div>
+              </div>
+            )}
+
+            {!isLoadingSubscription && !subscriptionStatus?.status && (
               <div className="bg-muted border rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-4">
                   Subscribe to activate your store and start selling.
