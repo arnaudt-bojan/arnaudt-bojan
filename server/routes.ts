@@ -2320,11 +2320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/user/profile", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, contactEmail, companyName, businessType, taxId } = req.body;
-
-      if (!firstName || !lastName) {
-        return res.status(400).json({ error: "First name and last name are required" });
-      }
+      const { contactEmail } = req.body;
 
       // Validate contactEmail if provided
       if (contactEmail && contactEmail !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
@@ -2338,12 +2334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedUser = await storage.upsertUser({
         ...user,
-        firstName,
-        lastName,
         contactEmail: contactEmail || null,
-        companyName: companyName || null,
-        businessType: businessType || null,
-        taxId: taxId || null,
       });
 
       res.json({ message: "Profile updated successfully", user: updatedUser });

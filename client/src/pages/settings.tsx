@@ -35,13 +35,7 @@ import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-m
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const profileSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email(),
   contactEmail: z.string().email().optional().or(z.literal("")),
-  companyName: z.string().optional().or(z.literal("")),
-  businessType: z.string().optional().or(z.literal("")),
-  taxId: z.string().optional().or(z.literal("")),
 });
 
 const brandingSchema = z.object({
@@ -1643,13 +1637,7 @@ export default function Settings() {
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      email: user?.email || "",
       contactEmail: user?.contactEmail || "",
-      companyName: user?.companyName || "",
-      businessType: user?.businessType || "",
-      taxId: user?.taxId || "",
     },
   });
 
@@ -1657,13 +1645,7 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       profileForm.reset({
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        email: user.email || "",
         contactEmail: user.contactEmail || "",
-        companyName: user.companyName || "",
-        businessType: user.businessType || "",
-        taxId: user.taxId || "",
       });
     }
   }, [user, profileForm]);
@@ -2329,51 +2311,11 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your personal information</CardDescription>
+              <CardDescription>Business information from your Stripe Connect account</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...profileForm}>
                 <form onSubmit={profileForm.handleSubmit((data) => updateProfileMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={profileForm.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-firstName" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={profileForm.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-lastName" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={profileForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input {...field} disabled data-testid="input-email" />
-                        </FormControl>
-                        <FormDescription>Email cannot be changed</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   {isSeller && (
                     <FormField
                       control={profileForm.control}
@@ -2385,7 +2327,7 @@ export default function Settings() {
                             <Input {...field} placeholder="support@yourdomain.com" data-testid="input-contactEmail" />
                           </FormControl>
                           <FormDescription>
-                            Custom email for customer inquiries (defaults to login email if not set)
+                            Custom email for customer inquiries (defaults to {user?.email} if not set)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
