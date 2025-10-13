@@ -13,7 +13,7 @@ interface CartSheetProps {
 }
 
 export function CartSheet({ open, onClose }: CartSheetProps) {
-  const { items, updateQuantity, removeItem, total, itemsCount } = useCart();
+  const { items, updateQuantity, removeItem, total, itemsCount, isLoading } = useCart();
   const [, setLocation] = useLocation();
   const { formatPrice } = useCurrency();
   
@@ -46,7 +46,14 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
           </SheetTitle>
         </SheetHeader>
 
-        {items.length === 0 ? (
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-3">
+              <div className="h-12 w-12 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <p className="text-muted-foreground">Loading cart...</p>
+            </div>
+          </div>
+        ) : items.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">
               <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground" />

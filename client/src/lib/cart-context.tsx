@@ -1,10 +1,34 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext } from "react";
 import type { Product } from "@shared/schema";
-import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "./queryClient";
 
-interface CartItem extends Product {
+interface CartItem {
+  id: string;
+  name: string;
+  price: string;
   quantity: number;
-  currency?: string; // Explicitly include currency from product API response
+  productType: string;
+  depositAmount?: string;
+  requiresDeposit?: number;
+  sellerId: string;
+  images?: string[];
+  discountPercentage?: string;
+  promotionActive?: number;
+  variantId?: string;
+  variant?: {
+    size?: string;
+    color?: string;
+  };
+  currency?: string;
+  image?: string;
+}
+
+interface Cart {
+  items: CartItem[];
+  sellerId: string | null;
+  total: number;
+  itemsCount: number;
 }
 
 interface CartContextType {
@@ -15,103 +39,124 @@ interface CartContextType {
   clearCart: () => void;
   total: number;
   itemsCount: number;
+  isLoading: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CART_QUERY_KEY = ['/api/cart'];
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const [items, setItems] = useState<CartItem[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("cart");
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
+  // Fetch cart from backend using session-based storage
+  const { data: cart, isLoading } = useQuery<Cart>({
+    queryKey: CART_QUERY_KEY,
+    staleTime: 1000 * 60 * 5, // 5 minutes - cart data is relatively stable
   });
 
-  // Clear cart for sellers automatically (once per seller session)
-  useEffect(() => {
-    const isSeller = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer' || user?.role === 'seller' || user?.role === 'owner';
-    const hasCleared = sessionStorage.getItem('cart-cleared-for-seller');
-    
-    // If user is seller and cart has items and hasn't been cleared yet
-    if (isSeller && items.length > 0 && !hasCleared) {
-      console.log('[Cart] Clearing cart for seller user (one-time per session)');
-      setItems([]);
-      localStorage.removeItem("cart");
-      sessionStorage.setItem('cart-cleared-for-seller', 'true');
-    }
-    
-    // If user is NOT seller (buyer/guest/null), reset the flag for next seller login
-    if (!isSeller && hasCleared) {
-      sessionStorage.removeItem('cart-cleared-for-seller');
-    }
-  }, [user?.role, items.length]);
+  // Add to cart mutation
+  const addMutation = useMutation({
+    mutationFn: async ({ productId, quantity = 1, variantId }: { productId: string; quantity?: number; variantId?: string }) => {
+      const response = await apiRequest('/api/cart/add', 'POST', { productId, quantity, variantId });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add to cart');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Update cart cache with server response
+      queryClient.setQueryData(CART_QUERY_KEY, data);
+    },
+  });
 
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(items));
-  }, [items]);
+  // Remove from cart mutation
+  const removeMutation = useMutation({
+    mutationFn: async ({ itemId }: { itemId: string }) => {
+      const response = await apiRequest('/api/cart/remove', 'POST', { itemId });
+      if (!response.ok) {
+        throw new Error('Failed to remove from cart');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(CART_QUERY_KEY, data);
+    },
+  });
+
+  // Update quantity mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
+      const response = await apiRequest('/api/cart/update', 'POST', { itemId, quantity });
+      if (!response.ok) {
+        throw new Error('Failed to update cart');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(CART_QUERY_KEY, data);
+    },
+  });
+
+  // Clear cart mutation
+  const clearMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('/api/cart', 'DELETE', null);
+      if (!response.ok) {
+        throw new Error('Failed to clear cart');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(CART_QUERY_KEY, data);
+    },
+  });
+
+  // Helper to find cart item by productId and variant
+  const findCartItem = (productId: string, variant?: { size?: string; color?: string }) => {
+    if (!cart?.items) return null;
+    
+    const variantKey = variant ? `${variant.size || ''}-${variant.color || ''}`.trim().replace(/^-|-$/g, '') : null;
+    
+    return cart.items.find((item) => {
+      if (item.id !== productId) return false;
+      
+      if (variantKey) {
+        return item.variantId === variantKey;
+      }
+      
+      // No variant specified - match item without variant
+      return !item.variantId;
+    });
+  };
 
   const addItem = (product: Product, variant?: { size?: string; color?: string }) => {
-    // SYNCHRONOUS validation only - async checks done at PDP level
-    let error: string | undefined;
-    
-    setItems((prev) => {
-      // For products with variants, match by product ID AND variant
-      const variantKey = variant ? `${variant.size}-${variant.color}` : null;
-      const existing = prev.find((item) => {
-        if (item.id !== product.id) return false;
-        // Check variant match
-        const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
-        return variantKey === itemVariantKey;
-      });
-      
-      if (existing) {
-        return prev.map((item) => {
-          if (item.id !== product.id) return item;
-          const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
-          return variantKey === itemVariantKey
-            ? { ...item, quantity: item.quantity + 1 }
-            : item;
-        });
-      }
-      
-      // Prevent mixing products from different sellers
-      if (prev.length > 0 && prev[0].sellerId !== product.sellerId) {
-        error = "Cannot add products from different sellers to the same cart. Please checkout your current items first.";
-        return prev; // Don't modify cart
-      }
-      
-      // Calculate actual price (apply discount if active)
-      let actualPrice = product.price;
-      if (product.promotionActive && product.discountPercentage && parseFloat(product.discountPercentage) > 0) {
-        const discountDecimal = parseFloat(product.discountPercentage) / 100;
-        const discountedPrice = parseFloat(product.price) * (1 - discountDecimal);
-        actualPrice = discountedPrice.toString();
-      }
-      
-      // Add variant info to cart item
-      return [...prev, { ...product, price: actualPrice, quantity: 1, ...(variant && { variant }) }];
-    });
-    
-    if (error) {
-      return { success: false, error };
+    // Construct variantId if variant provided (format: "size-color")
+    const variantId = variant 
+      ? `${variant.size || ''}-${variant.color || ''}`.trim().replace(/^-|-$/g, '')
+      : undefined;
+
+    // Prevent mixing products from different sellers (client-side validation)
+    if (cart && cart.items.length > 0 && cart.sellerId !== product.sellerId) {
+      return { 
+        success: false, 
+        error: "Cannot add products from different sellers to the same cart. Please checkout your current items first." 
+      };
     }
+
+    // Call backend mutation
+    addMutation.mutate({ productId: product.id, quantity: 1, variantId });
+
+    // Return success - actual errors will be handled by mutation error callback
     return { success: true };
   };
 
   const removeItem = (productId: string, variant?: { size?: string; color?: string }) => {
-    setItems((prev) => prev.filter((item) => {
-      if (item.id !== productId) return true;
-      // If variant specified, only remove items with matching variant
-      if (variant) {
-        const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
-        const targetVariantKey = `${variant.size}-${variant.color}`;
-        return itemVariantKey !== targetVariantKey;
-      }
-      // No variant specified - remove all items with this productId (backward compatibility)
-      return false;
-    }));
+    const cartItem = findCartItem(productId, variant);
+    if (!cartItem) return;
+
+    // Construct itemId: "productId-variantId" for variants, "productId" for non-variants
+    const itemId = cartItem.variantId ? `${cartItem.id}-${cartItem.variantId}` : cartItem.id;
+    removeMutation.mutate({ itemId });
   };
 
   const updateQuantity = (productId: string, quantity: number, variant?: { size?: string; color?: string }) => {
@@ -119,31 +164,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem(productId, variant);
       return;
     }
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== productId) return item;
-        // If variant specified, only update items with matching variant
-        if (variant) {
-          const itemVariantKey = (item as any).variant ? `${(item as any).variant.size}-${(item as any).variant.color}` : null;
-          const targetVariantKey = `${variant.size}-${variant.color}`;
-          return itemVariantKey === targetVariantKey ? { ...item, quantity } : item;
-        }
-        // No variant specified - update first matching item (backward compatibility)
-        return { ...item, quantity };
-      })
-    );
+
+    const cartItem = findCartItem(productId, variant);
+    if (!cartItem) return;
+
+    // Construct itemId: "productId-variantId" for variants, "productId" for non-variants
+    const itemId = cartItem.variantId ? `${cartItem.id}-${cartItem.variantId}` : cartItem.id;
+    updateMutation.mutate({ itemId, quantity });
   };
 
   const clearCart = () => {
-    setItems([]);
+    clearMutation.mutate();
   };
 
-  const total = items.reduce(
-    (sum, item) => sum + parseFloat(item.price) * item.quantity,
-    0
-  );
-
-  const itemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  // Map cart items to include backward-compatible 'image' field
+  const items = (cart?.items || []).map(item => ({
+    ...item,
+    image: item.images?.[0] || item.image || "",
+  }));
 
   return (
     <CartContext.Provider
@@ -153,8 +191,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         removeItem,
         updateQuantity,
         clearCart,
-        total,
-        itemsCount,
+        total: cart?.total || 0,
+        itemsCount: cart?.itemsCount || 0,
+        isLoading,
       }}
     >
       {children}
