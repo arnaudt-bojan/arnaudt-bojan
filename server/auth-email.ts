@@ -141,13 +141,21 @@ router.post('/verify-code', async (req: any, res: Response) => {
     }
 
     // Test seller bypass: Allow fixed code "111111" for test accounts
-    const isTestSeller = email.toLowerCase() === 'mirtorabi+testseller@gmail.com' || email.toLowerCase() === 'testseller@test.com';
+    const normalizedEmailForTest = email.toLowerCase().trim();
+    const normalizedCode = String(code).trim();
+    const isTestSeller = normalizedEmailForTest === 'mirtorabi+testseller@gmail.com' || normalizedEmailForTest === 'testseller@test.com';
     let authToken;
     
-    if (isTestSeller && code === '111111') {
+    logger.auth('Auth verification attempt', { 
+      email: normalizedEmailForTest, 
+      code: normalizedCode,
+      isTestSeller 
+    });
+    
+    if (isTestSeller && normalizedCode === '111111') {
       // For test seller, skip token validation (no need for exact code match)
       authToken = null; // Will trigger user creation/lookup below
-      logger.auth('Test seller authentication with fixed code', { email });
+      logger.auth('✅ Test seller authentication with fixed code 111111', { email: normalizedEmailForTest });
     } else {
       // Normal flow: Find auth token by code
       authToken = await storage.getAuthTokenByCode(email, code);
