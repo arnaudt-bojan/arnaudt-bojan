@@ -948,15 +948,19 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendAuthCode(email: string, code: string, magicLinkToken?: string): Promise<boolean> {
     try {
-      const template = this.messages.authCode(code);
       logger.info(`[Notifications] Attempting to send auth code to ${email}`);
       logger.info(`[Notifications] Environment: ${process.env.NODE_ENV}`);
       
       const emailHtml = this.generateAuthCodeEmail(code, magicLinkToken);
+      
+      // Generate subject using EmailMetadataService
+      const subject = this.emailMetadata.generateSubject(EmailType.AUTH_CODE, {});
 
       const result = await this.sendEmail({
         to: email,
-        subject: template.emailSubject,
+        from: 'UPPFIRST <noreply@upfirst.com>',
+        replyTo: this.emailConfig.getSupportEmail(),
+        subject: subject,
         html: emailHtml,
       });
 
@@ -985,15 +989,19 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendMagicLink(email: string, link: string): Promise<boolean> {
     try {
-      const template = this.messages.magicLink();
       logger.info(`[Notifications] Attempting to send magic link to ${email}`);
       logger.info(`[Notifications] Environment: ${process.env.NODE_ENV}`);
       
       const emailHtml = this.generateMagicLinkEmail(link);
+      
+      // Generate subject using EmailMetadataService
+      const subject = this.emailMetadata.generateSubject(EmailType.MAGIC_LINK, {});
 
       const result = await this.sendEmail({
         to: email,
-        subject: template.emailSubject,
+        from: 'UPPFIRST <noreply@upfirst.com>',
+        replyTo: this.emailConfig.getSupportEmail(),
+        subject: subject,
         html: emailHtml,
       });
 
@@ -1717,16 +1725,18 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Generate auth code email with auto-login button
-   */
-  /**
-   * Generate auth code email - DARK MODE SAFE
+   * Generate auth code email - UPFIRST → USER - Uses new infrastructure
+   * DARK MODE SAFE - Works across all email clients
    */
   private generateAuthCodeEmail(code: string, magicLinkToken?: string): string {
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : `http://localhost:${process.env.PORT || 5000}`;
     const magicLink = magicLinkToken ? `${baseUrl}/api/auth/email/verify-magic-link?token=${magicLinkToken}` : null;
+
+    // Generate Upfirst header and footer using infrastructure
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
 
     const content = `
       <div style="text-align: center;">
@@ -1738,7 +1748,7 @@ class NotificationServiceImpl implements NotificationService {
           <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px;" class="dark-mode-text-dark">
             Click the button below to sign in instantly:
           </p>
-          ${createEmailButton('Sign In to Upfirst', magicLink, '#1a1a1a')}
+          ${generateMagicLinkButton(magicLink, 'Sign In to Upfirst')}
           
           <div style="margin: 30px 0; padding: 20px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
             <p style="margin: 0; color: #9ca3af !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-transform: uppercase; letter-spacing: 1px;">
@@ -1775,55 +1785,61 @@ class NotificationServiceImpl implements NotificationService {
       </div>
     `;
 
-    return createEmailTemplate({
-      preheader: `Your login code is ${code}`,
-      storeName: 'Upfirst',
+    return generateEmailBaseLayout({
+      header,
       content,
-      footerText: `© ${new Date().getFullYear()} Upfirst. All rights reserved.`,
+      footer,
+      preheader: `Your login code is ${code}`,
+      darkModeSafe: true,
     });
   }
 
   /**
-   * Generate magic link email
+   * Generate magic link email - UPFIRST → USER - Uses new infrastructure
+   * DARK MODE SAFE - Works across all email clients
    */
   private generateMagicLinkEmail(link: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; text-align: center; }
-            .button { display: inline-block; padding: 15px 40px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 30px 0; font-weight: 600; }
-            .link-box { background: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0; word-break: break-all; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Sign in to Upfirst</h1>
-            <p>Click the button below to securely sign in to your account:</p>
-            
-            <a href="${link}" class="button">Sign In to Upfirst</a>
+    // Generate Upfirst header and footer using infrastructure
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
 
-            <p style="color: #666; font-size: 14px;">This link expires in 15 minutes and can only be used once.</p>
-
-            <p style="color: #999; font-size: 12px; margin-top: 30px;">
-              Or copy and paste this link into your browser:
-            </p>
-            <div class="link-box">${link}</div>
-
-            <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              If you didn't request this link, please ignore this email.
-            </p>
-
-            <p style="margin-top: 30px; color: #666; font-size: 14px;">
-              © ${new Date().getFullYear()} Upfirst. All rights reserved.
-            </p>
-          </div>
-        </body>
-      </html>
+    const content = `
+      <div style="text-align: center;">
+        <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+          Sign in to Upfirst
+        </h1>
+        
+        <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px;" class="dark-mode-text-dark">
+          Click the button below to securely sign in to your account:
+        </p>
+        
+        ${generateMagicLinkButton(link, 'Sign In to Upfirst')}
+        
+        <p style="margin: 30px 0 15px; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          This link expires in 15 minutes and can only be used once.
+        </p>
+        
+        <p style="margin: 30px 0 10px; color: #9ca3af !important; font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Or copy and paste this link into your browser:
+        </p>
+        
+        <div style="background-color: #f9fafb !important; padding: 15px; border-radius: 6px; margin: 10px 0; word-break: break-all; color: #6b7280 !important; font-size: 14px; font-family: 'Courier New', monospace;" class="dark-mode-bg-white">
+          ${link}
+        </div>
+        
+        <p style="margin: 30px 0 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          If you didn't request this link, please ignore this email.
+        </p>
+      </div>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: 'Your secure sign-in link to Upfirst',
+      darkModeSafe: true,
+    });
   }
 
   /**
