@@ -29,7 +29,6 @@ import { StripeCountrySelector } from "@/components/stripe-country-selector";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
-import { SavedAddressesManager } from "@/components/saved-addresses-manager";
 import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-manager";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -455,8 +454,8 @@ function SubscriptionTab({ user }: { user: any }) {
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        // Switch to Addresses & Payments tab
-                        const addressesTab = document.querySelector('[value="addresses"]');
+                        // Switch to Saved Cards tab
+                        const addressesTab = document.querySelector('[value="addresses-payments"]');
                         if (addressesTab instanceof HTMLElement) {
                           addressesTab.click();
                         }
@@ -473,7 +472,7 @@ function SubscriptionTab({ user }: { user: any }) {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Update your payment method in the Addresses & Payments tab. Your subscription will use the default card.
+                    Update your payment method in the Saved Cards tab. Your subscription will use the default card.
                   </p>
                 </div>
               )}
@@ -2194,8 +2193,8 @@ export default function Settings() {
               )}
               <SelectItem value="addresses-payments">
                 <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  <span>Addresses & Payments</span>
+                  <CreditCard className="h-4 w-4" />
+                  <span>Saved Cards</span>
                 </div>
               </SelectItem>
               {isSeller && (
@@ -2273,9 +2272,8 @@ export default function Settings() {
             </>
           )}
           <TabsTrigger value="addresses-payments" data-testid="tab-addresses-payments" className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            <span className="hidden md:inline xl:hidden">Addresses</span>
-            <span className="hidden xl:inline">Addresses & Payments</span>
+            <CreditCard className="h-4 w-4" />
+            <span>Saved Cards</span>
           </TabsTrigger>
           {isSeller && (
             <>
@@ -2614,18 +2612,15 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5" />
-                Addresses & Payments
+                <CreditCard className="h-5 w-5" />
+                Saved Cards
               </CardTitle>
               <CardDescription>
-                Manage your saved addresses and payment methods for faster checkout
+                Manage your saved payment methods for faster checkout
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
-              <SavedAddressesManager />
-              <div className="border-t pt-8">
-                <SavedPaymentMethodsManager />
-              </div>
+            <CardContent>
+              <SavedPaymentMethodsManager />
             </CardContent>
           </Card>
         </TabsContent>
