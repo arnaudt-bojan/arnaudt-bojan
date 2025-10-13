@@ -610,12 +610,42 @@ export class OrderService {
         });
       }
 
-      // Update amountPaid and payment status
+      // Update amountPaid - use integer cents to avoid floating-point precision issues
+      const currentAmountPaid = parseFloat(order.amountPaid || '0');
+      const orderTotal = parseFloat(order.total);
+      
+      // Convert to cents (integer math), add, then convert back
+      const currentCents = Math.round(currentAmountPaid * 100);
+      const amountCents = Math.round(amount * 100);
+      const totalCents = Math.round(orderTotal * 100);
+      const newAmountCents = currentCents + amountCents;
+      
+      // Convert back to decimal with exactly 2 decimal places
+      const newAmountPaid = (newAmountCents / 100).toFixed(2);
+      
       await this.storage.updateOrder(order.id, { 
-        amountPaid: amount.toString() 
+        amountPaid: newAmountPaid
       });
-      await this.storage.updateOrderPaymentStatus(order.id, 'fully_paid');
-      await this.storage.updateOrderStatus(order.id, 'processing');
+
+      // Determine correct payment status based on payment type and amount
+      let paymentStatus: 'pending' | 'partially_paid' | 'fully_paid';
+      let orderStatus: string;
+
+      // Use integer comparison to avoid floating-point issues
+      if (newAmountCents >= totalCents) {
+        // Full payment received
+        paymentStatus = 'fully_paid';
+        // Only move to processing if in-stock or if pre-order is ready
+        orderStatus = 'processing';
+      } else {
+        // Partial payment (deposit)
+        paymentStatus = 'partially_paid';
+        // Keep as pending until full payment
+        orderStatus = 'pending';
+      }
+
+      await this.storage.updateOrderPaymentStatus(order.id, paymentStatus);
+      await this.storage.updateOrderStatus(order.id, orderStatus);
 
       // Create payment_received event
       await this.storage.createOrderEvent({
@@ -636,9 +666,9 @@ export class OrderService {
         const { orderWebSocketService } = await import('../websocket');
         const events = await this.storage.getOrderEvents(order.id);
         orderWebSocketService.broadcastOrderUpdate(order.id, {
-          paymentStatus: 'fully_paid',
-          amountPaid: amount.toString(),
-          status: 'processing',
+          paymentStatus,
+          amountPaid: newAmountPaid, // Already formatted as 2-decimal string
+          status: orderStatus,
           events,
         });
       } catch (wsError) {

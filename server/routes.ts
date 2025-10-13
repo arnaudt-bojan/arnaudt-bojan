@@ -5504,21 +5504,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const checkoutSessionId = `checkout_session_${orderId}`;
 
         // Calculate correct payment amount based on payment type
+        // Use integer cents to avoid floating-point precision issues
         let amount: number;
         if (order.paymentType === 'deposit') {
           // For deposits, calculate 10% of total minus already paid
-          const totalAmount = parseFloat(order.total);
-          const depositAmount = totalAmount * 0.1; // 10% deposit
-          const alreadyPaid = parseFloat(order.amountPaid || '0');
-          amount = depositAmount - alreadyPaid;
+          const totalCents = Math.round(parseFloat(order.total) * 100);
+          const depositCents = Math.round(totalCents * 0.1); // 10% deposit
+          const alreadyPaidCents = Math.round(parseFloat(order.amountPaid || '0') * 100);
+          const amountCents = depositCents - alreadyPaidCents;
+          amount = amountCents / 100; // Convert back to dollars
         } else if (order.paymentType === 'balance') {
           // For balance payments, use remaining balance
-          amount = parseFloat(order.remainingBalance || '0');
+          const balanceCents = Math.round(parseFloat(order.remainingBalance || '0') * 100);
+          amount = balanceCents / 100;
         } else {
           // For full payments, use total minus already paid
-          const totalAmount = parseFloat(order.total);
-          const alreadyPaid = parseFloat(order.amountPaid || '0');
-          amount = totalAmount - alreadyPaid;
+          const totalCents = Math.round(parseFloat(order.total) * 100);
+          const alreadyPaidCents = Math.round(parseFloat(order.amountPaid || '0') * 100);
+          const amountCents = totalCents - alreadyPaidCents;
+          amount = amountCents / 100;
         }
 
         logger.info('[DEV] Manually confirming payment', {
