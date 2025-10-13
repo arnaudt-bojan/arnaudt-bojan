@@ -11,6 +11,25 @@ export interface WorkflowContext {
   // Cart and seller info
   cartId?: string;
   sellerId?: string;
+  items?: Array<{
+    productId: string;
+    quantity: number;
+    variantId?: string;
+  }>;
+  
+  // Customer info
+  customerEmail?: string;
+  customerName?: string;
+  
+  // Shipping address
+  shippingAddress?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state?: string;
+    postalCode: string;
+    country: string;
+  };
   
   // Shipping and pricing
   shippingOptionId?: string;
