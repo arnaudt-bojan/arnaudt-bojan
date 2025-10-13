@@ -25,11 +25,10 @@ export class EmailConfigService {
     const platformName = process.env.PLATFORM_NAME || 'Upfirst';
     const platformDomain = process.env.PLATFORM_DOMAIN || 'upfirst.io';
     
-    // ⚠️ IMPORTANT: Resend only allows sending from VERIFIED email addresses in development
-    // Using 'hello@upfirst.io' which is verified in Resend (was working before)
-    // The RESEND_FROM_EMAIL secret may be set incorrectly, so we hardcode the working value
-    // 📝 TODO PRODUCTION: Fix RESEND_FROM_EMAIL secret and use seller-specific FROM addresses
-    const fromEmail = `${platformName} <hello@upfirst.io>`; // Hardcoded to working verified email
+    // ⚠️ IMPORTANT: Using the verified email that was working (from user's screenshot: noreply@upfirst.io)
+    // This was successfully delivering emails until we changed the email service
+    // 📝 TODO PRODUCTION: Update RESEND_FROM_EMAIL secret and use seller-specific FROM addresses
+    const fromEmail = 'noreply@upfirst.io'; // Exact match to what was working yesterday
     
     return {
       fromEmail,

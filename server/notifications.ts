@@ -983,7 +983,7 @@ class NotificationServiceImpl implements NotificationService {
 
       const result = await this.sendEmail({
         to: email,
-        from: 'UPPFIRST <noreply@upfirst.com>',
+        from: 'noreply@upfirst.io', // Verified email address in Resend
         replyTo: this.emailConfig.getSupportEmail(),
         subject: subject,
         html: emailHtml,
@@ -1024,7 +1024,7 @@ class NotificationServiceImpl implements NotificationService {
 
       const result = await this.sendEmail({
         to: email,
-        from: 'UPPFIRST <noreply@upfirst.com>',
+        from: 'noreply@upfirst.io', // Verified email address in Resend
         replyTo: this.emailConfig.getSupportEmail(),
         subject: subject,
         html: emailHtml,
