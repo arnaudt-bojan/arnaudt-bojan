@@ -1438,39 +1438,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let orderItems = await storage.getOrderItems(orderId);
       
       // Fallback to legacy items jsonb column if order_items table is empty
-      if (orderItems.length === 0 && order.items && Array.isArray(order.items)) {
-        // Convert legacy items format to order_items format for response
-        orderItems = order.items.map((item: any) => ({
-          id: `legacy-${item.productId}`,
-          orderId: order.id,
-          productId: item.productId,
-          productName: item.name || 'Unknown Product',
-          productImage: item.image || null,
-          productType: 'physical' as const,
-          quantity: item.quantity,
-          price: item.price,
-          originalPrice: item.price,
-          discountPercentage: null,
-          discountAmount: null,
-          subtotal: (parseFloat(item.price) * item.quantity).toFixed(2),
-          depositAmount: null,
-          balanceAmount: null,
-          requiresDeposit: 0,
-          variant: item.variant || null,
-          itemStatus: 'pending' as const,
-          trackingNumber: null,
-          trackingCarrier: null,
-          trackingUrl: null,
-          trackingLink: null,
-          shippedAt: null,
-          deliveredAt: null,
-          refundedQuantity: 0,
-          refundedAmount: "0",
-          returnedAt: null,
-          refundedAt: null,
-          createdAt: new Date(order.createdAt),
-          updatedAt: new Date(order.createdAt),
-        }));
+      if (orderItems.length === 0 && order.items) {
+        try {
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+          
+          // Validate items is an array before processing
+          if (Array.isArray(items) && items.length > 0) {
+            // Fetch product details to get images for legacy items
+            const productIds = items.map((item: any) => item.productId).filter(Boolean);
+            const allProducts = await storage.getAllProducts();
+            const productMap = new Map(
+              allProducts
+                .filter(p => productIds.includes(p.id))
+                .map(p => [p.id, p])
+            );
+            
+            // Convert legacy items format to order_items format for response
+            orderItems = items.map((item: any) => {
+              const product = productMap.get(item.productId);
+              const productImage = product?.images?.[0] || null;
+              
+              return {
+                id: `legacy-${item.productId}`,
+                orderId: order.id,
+                productId: item.productId,
+                productName: item.name || product?.name || 'Unknown Product',
+                productImage: productImage,
+                productType: (item.productType || 'physical') as const,
+                quantity: item.quantity,
+                price: item.price,
+                originalPrice: item.originalPrice || item.price,
+                discountPercentage: item.discountPercentage || null,
+                discountAmount: item.discountAmount || null,
+                subtotal: (parseFloat(item.price) * item.quantity).toFixed(2),
+                depositAmount: null,
+                balanceAmount: null,
+                requiresDeposit: 0,
+                variant: item.variant || null,
+                itemStatus: 'pending' as const,
+                trackingNumber: null,
+                trackingCarrier: null,
+                trackingUrl: null,
+                trackingLink: null,
+                shippedAt: null,
+                deliveredAt: null,
+                refundedQuantity: 0,
+                refundedAmount: "0",
+                returnedAt: null,
+                refundedAt: null,
+                createdAt: new Date(order.createdAt),
+                updatedAt: new Date(order.createdAt),
+              };
+            });
+          }
+        } catch (error) {
+          logger.error("Error processing legacy order items", error);
+          // If legacy items fail to parse, orderItems remains empty array
+        }
       }
       
       // Gather all related data

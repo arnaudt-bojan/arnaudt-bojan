@@ -1,7 +1,7 @@
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Package, MapPin, CreditCard, Truck, ExternalLink } from "lucide-react";
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, ExternalLink, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,13 @@ export default function BuyerOrderDetails() {
   const { data, isLoading, error } = useQuery<OrderDetailsResponse>({
     queryKey: [`/api/orders/${orderId}/details`],
     enabled: !!orderId,
+  });
+
+  // Fetch seller info for contact button
+  const sellerId = data?.order?.sellerId;
+  const { data: seller } = useQuery<any>({
+    queryKey: [`/api/users/${sellerId}`],
+    enabled: !!sellerId,
   });
 
   const getPaymentStatusColor = (status: string) => {
@@ -123,13 +130,25 @@ export default function BuyerOrderDetails() {
                   Placed on {format(new Date(order.createdAt), "PPP")}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 <Badge className={getPaymentStatusColor(order.paymentStatus || "pending")} data-testid="badge-payment-status">
                   {getPaymentStatusLabel(order.paymentStatus || "pending")}
                 </Badge>
                 <Badge className={getOrderStatusColor(order.status)} data-testid="badge-order-status">
                   {getOrderStatusLabel(order.status)}
                 </Badge>
+                {seller?.email && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.location.href = `mailto:${seller.email}?subject=Question about Order ${order.id.slice(0, 8)}`}
+                    data-testid="button-contact-seller"
+                    className="gap-2"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Contact Seller
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -280,7 +299,7 @@ export default function BuyerOrderDetails() {
                   {refunds.map((refund: any, idx: number) => (
                     <div key={idx} className="flex justify-between text-red-600 dark:text-red-400">
                       <span>Refund ({format(new Date(refund.createdAt), "MMM d, yyyy")})</span>
-                      <span>-${(refund.amount / 100).toFixed(2)}</span>
+                      <span>-${parseFloat(refund.amount).toFixed(2)}</span>
                     </div>
                   ))}
                 </>
