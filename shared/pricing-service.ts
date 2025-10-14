@@ -1,13 +1,16 @@
 /**
- * Pricing Service
+ * @deprecated THIS FILE IS DEPRECATED - DO NOT USE IN FRONTEND
  * 
- * Centralized pricing calculations to ensure consistency between:
- * - Frontend display
- * - Stripe charges
- * - Order records
+ * SECURITY WARNING: Client-side pricing calculations are a security vulnerability.
+ * Buyers can manipulate prices if calculations are done on the frontend.
  * 
- * CRITICAL: All monetary calculations MUST go through this service
- * to prevent discrepancies between what's shown and what's charged.
+ * USE INSTEAD:
+ * - B2C Pricing: Use server/services/pricing-calculation.service.ts via /api/pricing/calculate
+ * - B2B Pricing: Use server/services/wholesale-pricing.service.ts via /api/wholesale/pricing
+ * - Frontend: Import usePricing hook from client/src/hooks/use-pricing.ts
+ * 
+ * This file exists for reference only and should NOT be imported anywhere.
+ * All pricing calculations MUST be done server-side following Architecture 3.
  */
 
 export interface CartItem {

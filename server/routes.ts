@@ -38,6 +38,7 @@ import { WholesaleShippingService } from "./services/wholesale-shipping.service"
 import { TeamManagementService } from "./services/team-management.service";
 import { OrderLifecycleService } from "./services/order-lifecycle.service";
 import { PricingCalculationService } from "./services/pricing-calculation.service";
+import { WholesalePricingService } from "./services/wholesale-pricing.service";
 import { StripeWebhookService } from "./services/stripe-webhook.service";
 import { MetaIntegrationService } from "./services/meta-integration.service";
 import { ConfigurationError } from "./errors";
@@ -172,6 +173,9 @@ const wholesalePaymentService = new WholesalePaymentService(
 
 // Initialize Wholesale Shipping service for freight collect and buyer pickup
 const wholesaleShippingService = new WholesaleShippingService(storage);
+
+// Initialize Wholesale Pricing service for B2B pricing calculations (Architecture 3)
+const wholesalePricingService = new WholesalePricingService(storage);
 
 // Initialize Team Management service (Architecture 3 migration)
 const teamService = new TeamManagementService(storage, notificationService);
@@ -5223,6 +5227,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error removing cart item", error);
       res.status(500).json({ message: "Failed to remove cart item" });
+    }
+  });
+
+  // Wholesale pricing calculation endpoint (Architecture 3)
+  app.post("/api/wholesale/pricing", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      // Zod schema for wholesale pricing request validation
+      const wholesalePricingRequestSchema = z.object({
+        sellerId: z.string().min(1),
+        cartItems: z.array(z.object({
+          productId: z.string(),
+          quantity: z.number().int().positive(),
+          variant: z.object({
+            size: z.string().optional(),
+            color: z.string().optional(),
+            variantId: z.string().optional()
+          }).optional()
+        })).min(1),
+        depositPercentage: z.number().min(0).max(100).optional(),
+        depositAmountCents: z.number().int().min(0).optional()
+      });
+
+      // Validate request body with Zod schema
+      const validation = wholesalePricingRequestSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: fromZodError(validation.error).message });
+      }
+
+      const { sellerId, cartItems, depositPercentage, depositAmountCents } = validation.data;
+
+      // Calculate wholesale pricing using WholesalePricingService
+      const pricingResult = await wholesalePricingService.calculateWholesalePricing({
+        cartItems,
+        sellerId,
+        depositPercentage,
+        depositAmountCents,
+      });
+
+      if (!pricingResult.success) {
+        return res.status(400).json({ error: pricingResult.error || "Failed to calculate pricing" });
+      }
+
+      // Return pricing breakdown
+      res.json({
+        subtotalCents: pricingResult.subtotalCents,
+        depositCents: pricingResult.depositCents,
+        balanceCents: pricingResult.balanceCents,
+        validatedItems: pricingResult.validatedItems,
+        moqErrors: pricingResult.moqErrors || [],
+      });
+    } catch (error: any) {
+      logger.error("Error calculating wholesale pricing", error);
+      res.status(500).json({ error: error.message || "Failed to calculate pricing" });
     }
   });
 
