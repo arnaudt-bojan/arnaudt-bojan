@@ -975,7 +975,8 @@ export class OrderService {
     const finalTaxAmount = params.taxAmount || taxAmount.toString();
     const finalTaxCalculationId = params.taxCalculationId || taxCalculationId || null;
     const finalTaxBreakdown = params.taxBreakdown || taxBreakdown;
-    const finalSubtotalBeforeTax = params.subtotalBeforeTax || pricing.subtotal.toString();
+    // CRITICAL: Always use server-calculated subtotal (never trust frontend)
+    const finalSubtotalBeforeTax = pricing.subtotal.toString();
     
     const orderData: InsertOrder = {
       userId,

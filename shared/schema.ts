@@ -217,6 +217,7 @@ export type CartItem = typeof cartItems.$inferSelect;
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id"),
+  sellerId: varchar("seller_id"), // CRITICAL: Required for filtering orders by seller
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
   customerAddress: text("customer_address").notNull(),
