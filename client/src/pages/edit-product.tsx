@@ -212,6 +212,14 @@ export default function EditProduct() {
       fullData.preOrderDate = null;
     }
     
+    // Handle deposit for pre-order and made-to-order
+    if ((data.productType === "pre-order" || data.productType === "made-to-order") && data.depositAmount && parseFloat(data.depositAmount as string) > 0) {
+      fullData.requiresDeposit = 1;
+    } else {
+      fullData.requiresDeposit = 0;
+      fullData.depositAmount = undefined;
+    }
+    
     // Handle discount/promotion
     if (discountPercentage && parseFloat(discountPercentage) > 0) {
       fullData.promotionActive = 1;

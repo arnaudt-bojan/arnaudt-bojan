@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrencySymbol } from "@/lib/currency-utils";
+import { CurrencyInput } from "@/components/currency-input";
 
 interface ProductFormFieldsProps {
   form: UseFormReturn<FrontendProduct>;
@@ -232,7 +232,7 @@ export function ProductFormFields({
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
   
-  // Top-level deposit validation - runs for all product types
+  // Top-level deposit validation - runs for pre-order and made-to-order
   const priceValue = form.watch("price");
   const depositValue = form.watch("depositAmount");
   
@@ -240,8 +240,8 @@ export function ProductFormFields({
     const price = parseFloat(priceValue as string || "0") || 0; // Handle NaN
     const deposit = parseFloat(depositValue as string || "0") || 0; // Handle NaN
     
-    // Only validate deposit for pre-order products
-    if (selectedType === "pre-order") {
+    // Validate deposit for pre-order and made-to-order products
+    if (selectedType === "pre-order" || selectedType === "made-to-order") {
       if (deposit > 0 && deposit > price) {
         form.setError("depositAmount", {
           type: "manual",
@@ -257,7 +257,7 @@ export function ProductFormFields({
         }
       }
     } else {
-      // Clear deposit errors when not in pre-order mode
+      // Clear deposit errors when not in pre-order or made-to-order mode
       const currentError = form.formState.errors.depositAmount;
       if (currentError?.type === "manual") {
         form.clearErrors("depositAmount");
@@ -717,58 +717,20 @@ export function ProductFormFields({
           )}
 
           {selectedType === "pre-order" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <FormLabel>
-                  Expected Delivery Date <span className="text-muted-foreground font-normal">(optional)</span>
-                </FormLabel>
-                <Input
-                  type="date"
-                  value={preOrderDate}
-                  onChange={(e) => setPreOrderDate(e.target.value)}
-                  data-testid="input-preorder-date"
-                  className="text-base"
-                />
-                <p className="text-sm text-muted-foreground">
-                  When will this product be available?
-                </p>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="depositAmount"
-                render={({ field }) => {
-                  const price = parseFloat(priceValue as string || "0") || 0;
-                  const deposit = parseFloat(field.value as string || "0") || 0;
-                  const hasError = deposit > 0 && deposit > price;
-                  
-                  return (
-                    <FormItem>
-                      <FormLabel>
-                        Deposit Amount <span className="text-muted-foreground font-normal">(optional)</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{getCurrencySymbol(currency)}</span>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...field}
-                            value={field.value || ""}
-                            data-testid="input-deposit"
-                            className={cn("pl-8 text-base", hasError && "border-destructive focus-visible:ring-destructive")}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormDescription>
-                        Require a deposit for pre-orders (cannot exceed total price)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
+            <div className="space-y-2">
+              <FormLabel>
+                Expected Delivery Date <span className="text-muted-foreground font-normal">(optional)</span>
+              </FormLabel>
+              <Input
+                type="date"
+                value={preOrderDate}
+                onChange={(e) => setPreOrderDate(e.target.value)}
+                data-testid="input-preorder-date"
+                className="text-base"
               />
+              <p className="text-sm text-muted-foreground">
+                When will this product be available?
+              </p>
             </div>
           )}
 
@@ -841,18 +803,13 @@ export function ProductFormFields({
                 <FormItem>
                   <FormLabel>Flat Shipping Rate</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{getCurrencySymbol(currency)}</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...field}
-                        value={field.value || ""}
-                        data-testid="input-flat-shipping-rate"
-                        className="pl-8 text-base"
-                      />
-                    </div>
+                    <CurrencyInput
+                      {...field}
+                      value={field.value || ""}
+                      currency={currency}
+                      data-testid="input-flat-shipping-rate"
+                      className="text-base"
+                    />
                   </FormControl>
                   <FormDescription>
                     Fixed shipping cost for this product
@@ -1146,17 +1103,12 @@ export function ProductFormFields({
               <FormItem>
                 <FormLabel className="text-base font-semibold">Product Price</FormLabel>
                 <FormControl>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">{getCurrencySymbol(currency)}</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...field}
-                      data-testid="input-price"
-                      className="pl-8 text-base font-medium h-12"
-                    />
-                  </div>
+                  <CurrencyInput
+                    {...field}
+                    currency={currency}
+                    data-testid="input-price"
+                    className="text-base font-medium h-12"
+                  />
                 </FormControl>
                 <FormDescription>
                   The base price for this product
@@ -1165,6 +1117,40 @@ export function ProductFormFields({
               </FormItem>
             )}
           />
+
+          {/* Deposit Amount for Pre-Order and Made-to-Order */}
+          {(selectedType === "pre-order" || selectedType === "made-to-order") && (
+            <FormField
+              control={form.control}
+              name="depositAmount"
+              render={({ field }) => {
+                const price = parseFloat(priceValue as string || "0") || 0;
+                const deposit = parseFloat(field.value as string || "0") || 0;
+                const hasError = deposit > 0 && deposit > price;
+                
+                return (
+                  <FormItem>
+                    <FormLabel>
+                      Deposit Amount <span className="text-muted-foreground font-normal">(optional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        {...field}
+                        value={field.value || ""}
+                        currency={currency}
+                        data-testid="input-deposit"
+                        className={cn("text-base", hasError && "border-destructive focus-visible:ring-destructive")}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Require a deposit for {selectedType === "pre-order" ? "pre-orders" : "made-to-order items"} (cannot exceed total price)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+          )}
 
           {/* Discount & Promotion */}
           <div className="border-t pt-4">

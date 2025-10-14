@@ -143,8 +143,8 @@ export default function CreateProduct() {
 
   const createMutation = useMutation({
     mutationFn: async (data: FrontendProduct) => {
-      // For pre-orders with deposit, set requiresDeposit flag
-      if (data.productType === "pre-order" && data.depositAmount && parseFloat(data.depositAmount as string) > 0) {
+      // For pre-orders and made-to-order with deposit, set requiresDeposit flag
+      if ((data.productType === "pre-order" || data.productType === "made-to-order") && data.depositAmount && parseFloat(data.depositAmount as string) > 0) {
         data.requiresDeposit = 1;
       } else {
         data.requiresDeposit = 0;
