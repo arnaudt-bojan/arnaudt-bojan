@@ -21,6 +21,7 @@ import Checkout from "@/pages/checkout";
 import EmailLogin from "@/pages/email-login";
 import Login from "@/pages/login";
 import BuyerDashboard from "@/pages/buyer-dashboard";
+import BuyerOrderDetails from "@/pages/buyer-order-details";
 import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
 import CreateProduct from "@/pages/create-product";
@@ -193,6 +194,13 @@ function AppContent() {
                 {() => (
                   <ProtectedRoute>
                     <BuyerDashboard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/orders/:orderId">
+                {() => (
+                  <ProtectedRoute>
+                    <BuyerOrderDetails />
                   </ProtectedRoute>
                 )}
               </Route>

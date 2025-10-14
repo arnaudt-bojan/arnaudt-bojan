@@ -1062,37 +1062,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: `legacy-${item.productId}`,
           orderId: order.id,
           productId: item.productId,
-          variantId: item.variantId || null,
-          quantity: item.quantity,
-          priceAtPurchase: item.price,
-          currency: order.currency || 'USD',
           productName: item.name || 'Unknown Product',
-          variantName: item.variant || null,
-          imageUrl: item.image || null,
-          itemStatus: 'pending',
+          productImage: item.image || null,
+          productType: 'physical' as const,
+          quantity: item.quantity,
+          price: item.price,
+          originalPrice: item.price,
+          discountPercentage: null,
+          discountAmount: null,
+          subtotal: (parseFloat(item.price) * item.quantity).toFixed(2),
+          depositAmount: null,
+          balanceAmount: null,
+          requiresDeposit: 0,
+          variant: item.variant || null,
+          itemStatus: 'pending' as const,
           trackingNumber: null,
           trackingCarrier: null,
           trackingUrl: null,
-          createdAt: order.createdAt,
-          updatedAt: order.updatedAt,
-          price: item.price,
-          productType: 'physical',
-          depositAmount: null,
-          requiresDeposit: 0,
-          discountPercentage: null,
-          discountAmountCents: 0,
-          finalPriceCents: Math.round(parseFloat(item.price) * 100),
-          subtotalCents: Math.round(parseFloat(item.price) * item.quantity * 100),
-          taxAmountCents: 0,
-          shippingCostCents: 0,
-          totalCents: Math.round(parseFloat(item.price) * item.quantity * 100),
-          shippingStatus: null,
-          shippingCarrier: null,
-          shippingService: null,
-          shippingLabelUrl: null,
-          isRefunded: 0,
-          refundedAmount: null,
+          trackingLink: null,
+          shippedAt: null,
+          deliveredAt: null,
+          refundedQuantity: 0,
+          refundedAmount: "0",
+          returnedAt: null,
           refundedAt: null,
+          createdAt: new Date(order.createdAt),
+          updatedAt: new Date(order.createdAt),
         }));
       }
 
@@ -1366,7 +1361,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      const order = await storage.getOrder(req.params.id);
+      const orderId = req.params.id;
+      const order = await storage.getOrder(orderId);
       
       if (!order) {
         return res.status(404).json({ error: "Order not found" });
@@ -1395,9 +1391,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Return just the order object for backward compatibility
       res.json(order);
     } catch (error) {
+      logger.error("Error fetching order", error);
       res.status(500).json({ error: "Failed to fetch order" });
+    }
+  });
+
+  // New detailed order endpoint for buyer order details page
+  app.get("/api/orders/:id/details", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const orderId = req.params.id;
+      const order = await storage.getOrder(orderId);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Check authorization: user must be owner/admin, the buyer, or seller of products in the order
+      const isBuyer = order.userId === userId;
+      const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+      
+      if (!isBuyer && !isAdmin) {
+        // Check if user is the seller of any products in this order
+        try {
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+          const allProducts = await storage.getAllProducts();
+          const orderProductIds = items.map((item: any) => item.productId);
+          const sellerProducts = allProducts.filter(p => p.sellerId === userId);
+          const sellerProductIds = new Set(sellerProducts.map(p => p.id));
+          
+          const isSeller = orderProductIds.some((id: string) => sellerProductIds.has(id));
+          
+          if (!isSeller) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
+      // Get order items from order_items table
+      let orderItems = await storage.getOrderItems(orderId);
+      
+      // Fallback to legacy items jsonb column if order_items table is empty
+      if (orderItems.length === 0 && order.items && Array.isArray(order.items)) {
+        // Convert legacy items format to order_items format for response
+        orderItems = order.items.map((item: any) => ({
+          id: `legacy-${item.productId}`,
+          orderId: order.id,
+          productId: item.productId,
+          productName: item.name || 'Unknown Product',
+          productImage: item.image || null,
+          productType: 'physical' as const,
+          quantity: item.quantity,
+          price: item.price,
+          originalPrice: item.price,
+          discountPercentage: null,
+          discountAmount: null,
+          subtotal: (parseFloat(item.price) * item.quantity).toFixed(2),
+          depositAmount: null,
+          balanceAmount: null,
+          requiresDeposit: 0,
+          variant: item.variant || null,
+          itemStatus: 'pending' as const,
+          trackingNumber: null,
+          trackingCarrier: null,
+          trackingUrl: null,
+          trackingLink: null,
+          shippedAt: null,
+          deliveredAt: null,
+          refundedQuantity: 0,
+          refundedAmount: "0",
+          returnedAt: null,
+          refundedAt: null,
+          createdAt: new Date(order.createdAt),
+          updatedAt: new Date(order.createdAt),
+        }));
+      }
+      
+      // Gather all related data
+      const events = await storage.getOrderEvents(orderId);
+      const balancePayments = await storage.getBalancePaymentsByOrderId(orderId);
+      const refunds = await storage.getRefundsByOrderId(orderId);
+      
+      res.json({
+        order,
+        items: orderItems,
+        events,
+        balancePayments,
+        refunds,
+      });
+    } catch (error) {
+      logger.error("Error fetching order details", error);
+      res.status(500).json({ error: "Failed to fetch order details" });
     }
   });
 

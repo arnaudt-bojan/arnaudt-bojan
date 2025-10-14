@@ -24,7 +24,7 @@ export default function BuyerOrderDetails() {
   const [, navigate] = useLocation();
 
   const { data, isLoading, error } = useQuery<OrderDetailsResponse>({
-    queryKey: [`/api/orders/${orderId}`],
+    queryKey: [`/api/orders/${orderId}/details`],
     enabled: !!orderId,
   });
 
@@ -79,7 +79,7 @@ export default function BuyerOrderDetails() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Button 
           variant="ghost" 
-          onClick={() => navigate("/my-orders")}
+          onClick={() => navigate("/buyer-dashboard")}
           className="mb-6"
           data-testid="button-back-to-orders"
         >
@@ -102,7 +102,7 @@ export default function BuyerOrderDetails() {
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <Button 
         variant="ghost" 
-        onClick={() => navigate("/my-orders")}
+        onClick={() => navigate("/buyer-dashboard")}
         className="mb-6"
         data-testid="button-back-to-orders"
       >
