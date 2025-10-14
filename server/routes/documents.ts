@@ -99,6 +99,15 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
     // Prepare invoice data
     const invoiceNumber = DocumentGenerator.generateDocumentNumber('INV');
     
+    // Build seller address from Stripe Connect data
+    const sellerAddressParts = [];
+    if (seller.warehouseStreet) sellerAddressParts.push(seller.warehouseStreet);
+    if (seller.warehouseCity) sellerAddressParts.push(seller.warehouseCity);
+    if (seller.warehouseState) sellerAddressParts.push(seller.warehouseState);
+    if (seller.warehousePostalCode) sellerAddressParts.push(seller.warehousePostalCode);
+    if (seller.warehouseCountry) sellerAddressParts.push(seller.warehouseCountry);
+    const sellerAddress = sellerAddressParts.join(', ');
+
     const invoiceData: InvoiceData = {
       invoice: {
         number: invoiceNumber,
@@ -106,10 +115,12 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
         dueDate: data.paymentTerms ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : undefined,
       },
       seller: {
-        businessName: seller.firstName && seller.lastName 
+        businessName: seller.companyName || (seller.firstName && seller.lastName 
           ? `${seller.firstName} ${seller.lastName}` 
-          : seller.email!,
-        email: seller.email!,
+          : seller.email!),
+        email: seller.contactEmail || seller.email!,
+        phone: seller.businessPhone || undefined,
+        address: sellerAddress || undefined,
         logo: seller.storeLogo || undefined,
         vatNumber: data.vatNumber,
       },
@@ -245,15 +256,27 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
     // Prepare packing slip data
     const packingSlipNumber = DocumentGenerator.generateDocumentNumber('PS');
     
+    // Build seller address from Stripe Connect data
+    const psSellerAddressParts = [];
+    if (seller.warehouseStreet) psSellerAddressParts.push(seller.warehouseStreet);
+    if (seller.warehouseCity) psSellerAddressParts.push(seller.warehouseCity);
+    if (seller.warehouseState) psSellerAddressParts.push(seller.warehouseState);
+    if (seller.warehousePostalCode) psSellerAddressParts.push(seller.warehousePostalCode);
+    if (seller.warehouseCountry) psSellerAddressParts.push(seller.warehouseCountry);
+    const psSellerAddress = psSellerAddressParts.join(', ');
+
     const packingSlipData: PackingSlipData = {
       packingSlip: {
         number: packingSlipNumber,
         date: new Date(),
       },
       seller: {
-        businessName: seller.firstName && seller.lastName 
+        businessName: seller.companyName || (seller.firstName && seller.lastName 
           ? `${seller.firstName} ${seller.lastName}` 
-          : seller.email!,
+          : seller.email!),
+        email: (seller.contactEmail || seller.email) || undefined,
+        phone: seller.businessPhone || undefined,
+        address: psSellerAddress || undefined,
         logo: seller.storeLogo || undefined,
       },
       customer: {

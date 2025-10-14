@@ -62,6 +62,9 @@ export interface PackingSlipData {
   };
   seller: {
     businessName: string;
+    email?: string;
+    phone?: string;
+    address?: string;
     logo?: string;
   };
   customer: {
@@ -112,14 +115,31 @@ export class DocumentGenerator {
       .fontSize(9)
       .fillColor('#666666');
 
+    let sellerInfoY = 65;
+    
+    // Format seller address with line breaks
     if (data.seller.address) {
-      doc.text(data.seller.address, 350, 65, { align: 'right' });
+      const sellerAddressLines = data.seller.address.split(',').map(line => line.trim());
+      sellerAddressLines.forEach((line) => {
+        if (line) {
+          doc.text(line, 350, sellerInfoY, { align: 'right' });
+          sellerInfoY += 12;
+        }
+      });
     }
+    
+    if (data.seller.phone) {
+      doc.text(data.seller.phone, 350, sellerInfoY, { align: 'right' });
+      sellerInfoY += 12;
+    }
+    
     if (data.seller.email) {
-      doc.text(data.seller.email, 350, 80, { align: 'right' });
+      doc.text(data.seller.email, 350, sellerInfoY, { align: 'right' });
+      sellerInfoY += 12;
     }
+    
     if (data.seller.vatNumber) {
-      doc.text(`VAT: ${data.seller.vatNumber}`, 350, 95, { align: 'right' });
+      doc.text(`VAT: ${data.seller.vatNumber}`, 350, sellerInfoY, { align: 'right' });
     }
 
     // Invoice Title
@@ -322,11 +342,36 @@ export class DocumentGenerator {
       }
     }
 
-    // Company Name
+    // Company Info (Top Right)
     doc
-      .fontSize(14)
+      .fontSize(10)
       .font('Helvetica-Bold')
-      .text(data.seller.businessName, 350, 50, { align: 'right' });
+      .text(data.seller.businessName, 350, 50, { align: 'right' })
+      .fontSize(9)
+      .fillColor('#666666')
+      .font('Helvetica');
+
+    let psSellerInfoY = 65;
+    
+    // Format seller address with line breaks
+    if (data.seller.address) {
+      const psSellerAddressLines = data.seller.address.split(',').map(line => line.trim());
+      psSellerAddressLines.forEach((line) => {
+        if (line) {
+          doc.text(line, 350, psSellerInfoY, { align: 'right' });
+          psSellerInfoY += 12;
+        }
+      });
+    }
+    
+    if (data.seller.phone) {
+      doc.text(data.seller.phone, 350, psSellerInfoY, { align: 'right' });
+      psSellerInfoY += 12;
+    }
+    
+    if (data.seller.email) {
+      doc.text(data.seller.email, 350, psSellerInfoY, { align: 'right' });
+    }
 
     // Packing Slip Title
     doc

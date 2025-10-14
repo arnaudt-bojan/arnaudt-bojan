@@ -791,6 +791,7 @@ export const users = pgTable("users", {
   // Optional Company Information - populated from Stripe Connect or manual entry
   companyName: varchar("company_name"), // Business/company name
   businessType: varchar("business_type"), // Business type (individual, company, etc.)
+  businessPhone: varchar("business_phone"), // Business phone number from Stripe Connect
   taxId: varchar("tax_id"), // Tax ID / EIN number
   socialTiktok: varchar("social_tiktok"), // TikTok profile username
   socialSnapchat: varchar("social_snapchat"), // Snapchat profile username

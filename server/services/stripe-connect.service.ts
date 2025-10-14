@@ -356,6 +356,9 @@ export class StripeConnectService {
       const stripeCompanyName = account.business_profile?.name?.trim() || account.company?.name?.trim() || '';
       const companyName = !user.companyName && stripeCompanyName ? stripeCompanyName : user.companyName;
       const businessType = !user.businessType && account.business_type ? account.business_type : user.businessType;
+      const businessPhone = !user.businessPhone && account.business_profile?.support_phone 
+        ? account.business_profile.support_phone 
+        : user.businessPhone;
 
       // Auto-populate warehouse address
       const stripeAddress = account.individual?.address || account.company?.address;
@@ -391,6 +394,7 @@ export class StripeConnectService {
         listingCurrency: account.default_currency?.toUpperCase() || 'USD',
         companyName,
         businessType,
+        businessPhone,
         warehouseStreet,
         warehouseCity,
         warehouseState,
