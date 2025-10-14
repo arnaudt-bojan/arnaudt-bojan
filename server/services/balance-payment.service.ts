@@ -326,6 +326,7 @@ export class BalancePaymentService {
           customerEmail: order.customerEmail,
           balanceDueCents: balanceRequest.balanceDueCents || 0,
           currency: balanceRequest.currency,
+          balanceRequestId: balanceRequest.id,
           shippingAddress,
           canChangeAddress,
           pricingSnapshot: balanceRequest.pricingSnapshot,
