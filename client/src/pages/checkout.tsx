@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import type { InsertOrder } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
-import { calculatePricing, validateChargeAmount, type CartItem } from "@shared/pricing-service";
+import { usePricing } from "@/hooks/use-pricing";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { requiresState, isValidState } from "@shared/shipping-validation";
@@ -88,7 +88,7 @@ function PaymentForm({
   orderData: InsertOrder;
   paymentType: 'deposit' | 'full';
   billingDetails: CheckoutForm;
-  items: CartItem[];
+  items: any[];
   onCancel?: () => void;
 }) {
   const stripe = useStripe();
@@ -617,85 +617,40 @@ export default function Checkout() {
     },
   });
 
-  // Watch shipping address fields for dynamic calculation
+  // Watch shipping address fields for backend pricing API
   const watchedCountry = form.watch("country");
   const watchedCity = form.watch("city");
   const watchedState = form.watch("state");
   const watchedPostalCode = form.watch("postalCode");
 
-  // Dynamic shipping calculation based on destination
-  const [shippingCalculation, setShippingCalculation] = useState<{
-    cost: number;
-    method?: string;
-    zone?: string;
-    carrier?: string;
-    estimatedDays?: string;
-    details?: string;
-    error?: string;
-  }>({ cost: 0 });
+  // Get sellerId from cart items (all items are from same seller)
+  const sellerId = items.length > 0 ? items[0].sellerId : undefined;
 
-  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  // Build destination object from watched form values
+  const destination = watchedCountry ? {
+    country: watchedCountry,
+    city: watchedCity,
+    state: watchedState,
+    postalCode: watchedPostalCode,
+  } : undefined;
 
-  // Calculate shipping when address changes
-  useEffect(() => {
-    const calculateShipping = async () => {
-      // Only calculate if we have a country (minimum requirement)
-      if (!watchedCountry || items.length === 0) {
-        setShippingCalculation({ cost: 0 });
-        return;
-      }
+  // Use backend pricing API for all calculations (includes shipping, tax, deposit/balance)
+  const { data: pricingData, isLoading: isPricingLoading, error: pricingError } = usePricing({
+    sellerId,
+    items: items.map(item => ({
+      productId: item.id,
+      quantity: item.quantity,
+    })),
+    destination,
+    enabled: items.length > 0 && !!sellerId,
+  });
 
-      setIsCalculatingShipping(true);
-      try {
-        const response = await apiRequest("POST", "/api/shipping/calculate", {
-          items: items.map(item => ({
-            id: item.id,
-            quantity: item.quantity,
-          })),
-          destination: {
-            country: watchedCountry,
-            city: watchedCity,
-            state: watchedState,
-            postalCode: watchedPostalCode,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setShippingCalculation({ ...data, error: undefined });
-        } else {
-          // Show error instead of defaulting to free shipping
-          const errorData = await response.json().catch(() => ({ error: "Failed to calculate shipping" }));
-          setShippingCalculation({ 
-            cost: 0, 
-            error: errorData.error || "Unable to calculate shipping. Please try again." 
-          });
-        }
-      } catch (error: any) {
-        console.error("Shipping calculation error:", error);
-        setShippingCalculation({ 
-          cost: 0, 
-          error: "Unable to calculate shipping. Please check your address and try again." 
-        });
-      } finally {
-        setIsCalculatingShipping(false);
-      }
-    };
-
-    // Only recalculate if we have items
-    if (items.length > 0) {
-      calculateShipping();
-    }
-  }, [watchedCountry, watchedCity, watchedState, watchedPostalCode, JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity })))]);
-
-  const shippingPrice = shippingCalculation.cost;
-
-  // Calculate payment info using centralized pricing service
+  // Calculate payment info using backend pricing API
   const paymentInfo = useMemo(() => {
     let earliestDeliveryDate: Date | undefined = undefined;
     let latestDeliveryDate: Date | undefined = undefined;
 
-    // Track pre-order dates for delivery estimates
+    // Track pre-order dates for delivery estimates (not pricing-related)
     items.forEach((item) => {
       if (item.productType === "pre-order" && (item as any).preOrderDate) {
         const preOrderDate = new Date((item as any).preOrderDate);
@@ -708,32 +663,38 @@ export default function Checkout() {
       }
     });
 
-    // Use centralized pricing service for accurate calculations
-    const cartItems: CartItem[] = items.map(item => ({
-      id: item.id,
-      price: item.price,
-      quantity: item.quantity,
-      productType: item.productType,
-      depositAmount: item.depositAmount || undefined,
-      requiresDeposit: item.requiresDeposit ?? undefined,
-    }));
-
-    // Calculate pricing (shipping charged with balance for pre-orders)
-    const pricing = calculatePricing(cartItems, shippingPrice, 0, false);
+    // Use backend pricing API data (includes shipping, tax, deposit/balance calculations)
+    if (!pricingData) {
+      // Return defaults while pricing is loading or unavailable
+      return {
+        hasPreOrders: false,
+        depositTotal: 0,
+        remainingBalance: 0,
+        fullTotal: 0,
+        subtotal: 0,
+        shipping: 0,
+        tax: 0,
+        payingDepositOnly: false,
+        amountToCharge: 0,
+        earliestDeliveryDate,
+        latestDeliveryDate,
+      };
+    }
 
     return {
-      hasPreOrders: pricing.hasPreOrders,
-      depositTotal: pricing.depositTotal,
-      remainingBalance: pricing.remainingBalance,
-      fullTotal: pricing.fullTotal,
-      subtotal: pricing.subtotal,
-      shipping: shippingPrice,
-      payingDepositOnly: pricing.payingDepositOnly,
-      amountToCharge: pricing.amountToCharge,
+      hasPreOrders: pricingData.hasPreOrders,
+      depositTotal: pricingData.depositTotal,
+      remainingBalance: pricingData.remainingBalance,
+      fullTotal: pricingData.total,
+      subtotal: pricingData.subtotal,
+      shipping: pricingData.shippingCost,
+      tax: pricingData.taxAmount,
+      payingDepositOnly: pricingData.payingDepositOnly,
+      amountToCharge: pricingData.amountToCharge,
       earliestDeliveryDate,
       latestDeliveryDate,
     };
-  }, [items, shippingPrice]);
+  }, [items, pricingData]);
 
   // Use the pricing service's calculated amount to charge
   const amountToPay = paymentInfo.amountToCharge;
@@ -810,19 +771,6 @@ export default function Checkout() {
 
       setOrderData(newOrderData);
       setBillingDetails(data); // Store billing details for Stripe
-
-      // FAIL-SAFE: Validate that displayed amount matches what we're charging
-      // This prevents discrepancies between UI and actual Stripe charge
-      const displayedAmount = payingDepositOnly ? depositTotal : fullTotal;
-      try {
-        validateChargeAmount(displayedAmount, amountToPay, 0.01);
-      } catch (error: any) {
-        throw new Error(
-          `PRICING ERROR: The amount displayed (${formatConvertedPrice(displayedAmount)}) ` +
-          `does not match the charge amount (${formatConvertedPrice(amountToPay)}). ` +
-          `Please refresh and try again.`
-        );
-      }
 
       // Create payment intent with shipping address for tax calculation
       const response = await apiRequest("POST", "/api/create-payment-intent", {
@@ -1255,36 +1203,27 @@ export default function Checkout() {
                     </div>
 
                     {!clientSecret && (
-                      <>
-                        {shippingCalculation.error && (
-                          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                            <p className="text-sm text-destructive">
-                              {shippingCalculation.error}
-                            </p>
-                          </div>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        size="lg"
+                        disabled={isCreatingIntent || isPricingLoading || !!pricingError}
+                        data-testid="button-continue-payment"
+                      >
+                        {isCreatingIntent ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Preparing Payment...
+                          </>
+                        ) : isPricingLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Calculating Pricing...
+                          </>
+                        ) : (
+                          "Continue to Payment"
                         )}
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          size="lg"
-                          disabled={isCreatingIntent || isCalculatingShipping || !!shippingCalculation.error}
-                          data-testid="button-continue-payment"
-                        >
-                          {isCreatingIntent ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Preparing Payment...
-                            </>
-                          ) : isCalculatingShipping ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Calculating Shipping...
-                            </>
-                          ) : (
-                            "Continue to Payment"
-                          )}
-                        </Button>
-                      </>
+                      </Button>
                     )}
                   </form>
                 </Form>
@@ -1437,39 +1376,52 @@ export default function Checkout() {
               </CardHeader>
               
               <CardContent className="pt-0">
+                {/* Pricing Error Alert */}
+                {pricingError && (
+                  <Alert variant="destructive" className="mb-4" data-testid="alert-pricing-error">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Pricing Error</AlertTitle>
+                    <AlertDescription>
+                      Unable to calculate pricing. Please check your shipping address and try again.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span data-testid="text-subtotal">{formatConvertedPrice(paymentInfo.subtotal)}</span>
+                    <span data-testid="text-subtotal">
+                      {isPricingLoading ? (
+                        <span className="text-muted-foreground">Calculating...</span>
+                      ) : (
+                        formatConvertedPrice(paymentInfo.subtotal)
+                      )}
+                    </span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span data-testid="text-shipping">
+                      {isPricingLoading ? (
+                        <span className="text-muted-foreground">Calculating...</span>
+                      ) : (
+                        paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)
+                      )}
+                    </span>
+                  </div>
+
+                  {paymentInfo.tax > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Shipping</span>
-                      <span data-testid="text-shipping">
-                        {isCalculatingShipping ? (
+                      <span className="text-muted-foreground">Tax</span>
+                      <span data-testid="text-tax">
+                        {isPricingLoading ? (
                           <span className="text-muted-foreground">Calculating...</span>
                         ) : (
-                          paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)
+                          formatConvertedPrice(paymentInfo.tax)
                         )}
                       </span>
                     </div>
-                    {shippingCalculation.details && (
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{shippingCalculation.details}</span>
-                      </div>
-                    )}
-                    {shippingCalculation.carrier && shippingCalculation.carrier !== 'Free Shipping' && (
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>via {shippingCalculation.carrier}</span>
-                      </div>
-                    )}
-                    {shippingCalculation.estimatedDays && (
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Estimated delivery: {shippingCalculation.estimatedDays} days</span>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   <Separator />
 

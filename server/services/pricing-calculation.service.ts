@@ -21,6 +21,14 @@ export interface PricingBreakdownResponse {
   taxCalculationId?: string;
   total: number;
   subtotalWithShipping: number;
+  
+  // Deposit/Balance information for pre-orders
+  hasPreOrders: boolean;
+  depositTotal: number;
+  remainingBalance: number;
+  payingDepositOnly: boolean;
+  amountToCharge: number;
+  
   items: Array<{
     productId: string;
     name: string;
@@ -186,9 +194,47 @@ export class PricingCalculationService {
       }
     }
 
-    // Step 5: Calculate totals
+    // Step 5: Calculate deposit/balance for pre-orders
+    let hasPreOrders = false;
+    let depositTotal = 0;
+    let remainingBalance = 0;
+    
+    for (const item of itemDetails) {
+      if ((item.productType === "pre-order" || item.productType === "made-to-order") && item.depositAmount) {
+        // Validate deposit is positive
+        if (item.depositAmount > 0) {
+          hasPreOrders = true;
+          // Clamp deposit to line total to prevent deposit exceeding item total
+          const itemTotal = item.price * item.quantity;
+          const itemDeposit = Math.min(item.depositAmount * item.quantity, itemTotal);
+          depositTotal += itemDeposit;
+        } else {
+          // Invalid deposit amount - treat as in-stock
+          depositTotal += item.total;
+        }
+      } else {
+        // In-stock items are fully paid upfront
+        depositTotal += item.total;
+      }
+    }
+    
+    // Honor includeShippingInDeposit parameter
+    if (params.includeShippingInDeposit && hasPreOrders) {
+      depositTotal += shippingCost;
+    }
+    
+    // Best practice: Shipping is charged with balance payment (not deposit) unless includeShippingInDeposit is true
     const subtotalWithShipping = subtotal + shippingCost;
     const total = subtotalWithShipping + taxAmount;
+    
+    if (hasPreOrders) {
+      // Remaining balance = full total - deposit (ensure it's never negative)
+      remainingBalance = Math.max(total - depositTotal, 0);
+    }
+    
+    const payingDepositOnly = hasPreOrders && depositTotal > 0;
+    // Ensure amountToCharge never exceeds total
+    const amountToCharge = Math.min(payingDepositOnly ? depositTotal : total, total);
 
     // Step 6: Assemble response
     const pricingBreakdown: PricingBreakdownResponse = {
@@ -199,6 +245,11 @@ export class PricingCalculationService {
       taxAmount,
       taxCalculationId,
       total,
+      hasPreOrders,
+      depositTotal,
+      remainingBalance,
+      payingDepositOnly,
+      amountToCharge,
       items: itemDetails,
     };
 
