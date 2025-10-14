@@ -367,9 +367,14 @@ export default function BalancePayment() {
       title: "Payment Successful!",
       description: "Your balance has been paid in full",
     });
-    // Redirect to order confirmation or success page with balancePayment flag
+    // Redirect to order confirmation or success page with balancePayment flag and email
     setTimeout(() => {
-      setLocation(`/order-success/${orderId}?balancePayment=true`);
+      const email = session?.customerEmail || '';
+      const params = new URLSearchParams({
+        balancePayment: 'true',
+        ...(email && { email }), // Include email for guest/unauthenticated users
+      });
+      setLocation(`/order-success/${orderId}?${params.toString()}`);
     }, 1500);
   };
 
