@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -19,6 +19,7 @@ import Home from "@/pages/home";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
 import EmailLogin from "@/pages/email-login";
+import Login from "@/pages/login";
 import BuyerDashboard from "@/pages/buyer-dashboard";
 import SellerDashboard from "@/pages/seller-dashboard";
 import SellerProducts from "@/pages/seller-products";
@@ -102,6 +103,26 @@ function AppContent() {
               <Route path="/checkout/complete" component={CheckoutComplete} />
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/auth/magic" component={MagicLinkVerify} />
+              <Route path="/login" component={Login} />
+              <Route path="/dashboard">
+                {() => {
+                  const { data: user } = useQuery({ queryKey: ["/api/auth/user"] });
+                  
+                  if (!user) {
+                    return <Redirect to="/login" />;
+                  }
+                  
+                  if (user.userType === 'seller' || user.role === 'admin') {
+                    return <Redirect to="/seller/dashboard" />;
+                  }
+                  
+                  if (user.userType === 'buyer') {
+                    return <Redirect to="/buyer-dashboard" />;
+                  }
+                  
+                  return <Redirect to="/seller/dashboard" />;
+                }}
+              </Route>
               <Route path="/order-success/:orderId" component={OrderSuccess} />
               <Route path="/accept-invitation" component={AcceptInvitation} />
               
@@ -163,6 +184,26 @@ function AppContent() {
               <Route path="/" component={Home} />
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/auth/magic" component={MagicLinkVerify} />
+              <Route path="/login" component={Login} />
+              <Route path="/dashboard">
+                {() => {
+                  const { data: user } = useQuery({ queryKey: ["/api/auth/user"] });
+                  
+                  if (!user) {
+                    return <Redirect to="/login" />;
+                  }
+                  
+                  if (user.userType === 'seller' || user.role === 'admin') {
+                    return <Redirect to="/seller/dashboard" />;
+                  }
+                  
+                  if (user.userType === 'buyer') {
+                    return <Redirect to="/buyer-dashboard" />;
+                  }
+                  
+                  return <Redirect to="/seller/dashboard" />;
+                }}
+              </Route>
               <Route path="/s/:username" component={SellerStorefront} />
               
               {/* Nested seller routes - maintain seller context through navigation */}
