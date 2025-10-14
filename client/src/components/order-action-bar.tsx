@@ -141,25 +141,36 @@ export function OrderActionBar({
       });
     },
     onSuccess: (data: any) => {
-      const downloadUrl = data.downloadUrl || data.invoice?.documentUrl;
-      toast({
-        title: "Invoice Generated",
-        description: downloadUrl ? (
-          <div className="flex flex-col gap-2">
-            <p>Invoice has been generated successfully.</p>
-            <a 
-              href={downloadUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              Download Invoice
-            </a>
-          </div>
-        ) : "Invoice has been generated successfully.",
-      });
+      console.log('Invoice response:', data);
+      const downloadUrl = data.downloadUrl || data.invoice?.documentUrl || data.invoice?.document_url;
+      console.log('Download URL:', downloadUrl);
+      
       if (downloadUrl) {
+        // Open in new tab
         window.open(downloadUrl, "_blank");
+        
+        // Show toast with download link
+        toast({
+          title: "Invoice Generated",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>Invoice has been generated successfully.</p>
+              <a 
+                href={downloadUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary underline font-semibold"
+              >
+                Click here to download
+              </a>
+            </div>
+          ),
+        });
+      } else {
+        toast({
+          title: "Invoice Generated",
+          description: "Invoice generated but download link not available.",
+        });
       }
     },
     onError: (error: any) => {
@@ -178,25 +189,36 @@ export function OrderActionBar({
       });
     },
     onSuccess: (data: any) => {
-      const downloadUrl = data.downloadUrl || data.packingSlip?.documentUrl;
-      toast({
-        title: "Packing Slip Generated",
-        description: downloadUrl ? (
-          <div className="flex flex-col gap-2">
-            <p>Packing slip has been generated successfully.</p>
-            <a 
-              href={downloadUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              Download Packing Slip
-            </a>
-          </div>
-        ) : "Packing slip has been generated successfully.",
-      });
+      console.log('Packing slip response:', data);
+      const downloadUrl = data.downloadUrl || data.packingSlip?.documentUrl || data.packingSlip?.document_url;
+      console.log('Download URL:', downloadUrl);
+      
       if (downloadUrl) {
+        // Open in new tab
         window.open(downloadUrl, "_blank");
+        
+        // Show toast with download link
+        toast({
+          title: "Packing Slip Generated",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>Packing slip has been generated successfully.</p>
+              <a 
+                href={downloadUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary underline font-semibold"
+              >
+                Click here to download
+              </a>
+            </div>
+          ),
+        });
+      } else {
+        toast({
+          title: "Packing Slip Generated",
+          description: "Packing slip generated but download link not available.",
+        });
       }
     },
     onError: (error: any) => {
