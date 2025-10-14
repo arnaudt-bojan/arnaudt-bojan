@@ -193,24 +193,63 @@ export class OrderLifecycleService {
           }
           refundAmount = customRefundAmount;
           logger.info(`[Refund] Using custom refund amount: $${customRefundAmount} (max refundable: $${maxRefundable})`);
+
+          // CRITICAL: Distribute custom amount proportionally across items
+          // Calculate total remaining refundable amount for proportion calculation
+          let totalRemainingRefundable = 0;
+          const itemRefundableAmounts = new Map<string, number>();
+          
+          for (const item of orderItems) {
+            const itemTotal = parseFloat(item.subtotal);
+            const alreadyRefunded = parseFloat(item.refundedAmount || '0');
+            const itemRefundable = itemTotal - alreadyRefunded;
+            
+            if (itemRefundable > 0) {
+              totalRemainingRefundable += itemRefundable;
+              itemRefundableAmounts.set(item.id, itemRefundable);
+            }
+          }
+
+          // Distribute custom amount proportionally
+          for (const item of orderItems) {
+            const refundedQty = item.refundedQuantity || 0;
+            const refundableQty = item.quantity - refundedQty;
+            const itemRefundable = itemRefundableAmounts.get(item.id) || 0;
+
+            if (refundableQty > 0 && itemRefundable > 0) {
+              // Calculate proportional amount: (item's refundable / total refundable) * custom amount
+              const proportionalAmount = (itemRefundable / totalRemainingRefundable) * customRefundAmount;
+              
+              // CRITICAL: Only mark quantity as refunded if the FULL item amount is being refunded
+              // For partial custom refunds, don't increment quantity - only track amount
+              const isFullItemRefund = Math.abs(proportionalAmount - itemRefundable) < 0.01;
+              
+              itemsToRefund.set(item.id, {
+                item,
+                quantity: isFullItemRefund ? refundableQty : 0, // Only mark qty if full amount refunded
+                amount: proportionalAmount,
+              });
+            }
+          }
         } else {
+          // No custom amount - refund full remaining balance
           refundAmount = maxRefundable;
-        }
 
-        // Distribute refund proportionally across items for tracking
-        for (const item of orderItems) {
-          const refundedQty = item.refundedQuantity || 0;
-          const refundableQty = item.quantity - refundedQty;
-          const itemTotal = parseFloat(item.subtotal);
-          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
-          const itemRefundAmount = itemTotal - alreadyRefunded;
+          // Distribute full refund across items
+          for (const item of orderItems) {
+            const refundedQty = item.refundedQuantity || 0;
+            const refundableQty = item.quantity - refundedQty;
+            const itemTotal = parseFloat(item.subtotal);
+            const alreadyRefunded = parseFloat(item.refundedAmount || '0');
+            const itemRefundAmount = itemTotal - alreadyRefunded;
 
-          if (refundableQty > 0 && itemRefundAmount > 0) {
-            itemsToRefund.set(item.id, {
-              item,
-              quantity: refundableQty,
-              amount: itemRefundAmount,
-            });
+            if (refundableQty > 0 && itemRefundAmount > 0) {
+              itemsToRefund.set(item.id, {
+                item,
+                quantity: refundableQty,
+                amount: itemRefundAmount,
+              });
+            }
           }
         }
 
