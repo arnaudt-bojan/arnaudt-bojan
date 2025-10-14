@@ -987,7 +987,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter orders that contain products from this seller's store
       const sellerOrders = allOrders.filter(order => {
         try {
-          const items = JSON.parse(order.items);
+          // Note: order.items is already parsed by Drizzle (jsonb column), no need for JSON.parse
+          const items = Array.isArray(order.items) ? order.items : [];
           const hasSellerProduct = items.some((item: any) => sellerProductIds.has(item.productId));
           if (hasSellerProduct) {
             logger.info(`[Seller Orders] Order ${order.id} belongs to seller`);
