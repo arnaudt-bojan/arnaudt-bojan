@@ -309,7 +309,7 @@ export default function SellerDashboard() {
           {/* Quick Actions */}
           <div className="mb-6 md:mb-8">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-5 gap-3 md:gap-4">
               <Card
                 className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/seller/create-product")}
@@ -332,18 +332,6 @@ export default function SellerDashboard() {
                     <LayoutGrid className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <span className="text-xs md:text-sm font-semibold">My Products</span>
-                </div>
-              </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/orders")}
-                data-testid="button-orders"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-purple-500/10">
-                    <Package className="h-5 w-5 md:h-6 md:w-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Orders</span>
                 </div>
               </Card>
               <Card
