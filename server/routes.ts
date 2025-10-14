@@ -6426,7 +6426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cart API - Backend cart management with session-based storage
   app.post("/api/cart/add", async (req: any, res) => {
     try {
-      const { productId, quantity = 1, variantId } = req.body;
+      const { productId, quantity = 1, variantId, variant } = req.body;
       const sessionId = req.sessionID;
       const userId = req.user?.claims?.sub;
 
@@ -6438,7 +6438,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Session not available" });
       }
 
-      const result = await cartService.addToCart(sessionId, productId, quantity, variantId, userId);
+      // ARCHITECTURE 3: Backend validation of variant selection
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Parse variant selection from request
+      // Frontend can send either variant object {size, color} or pre-constructed variantId
+      let variantSelection: { size?: string; color?: string } | undefined;
+      if (variant) {
+        variantSelection = variant;
+      } else if (variantId) {
+        // Parse variantId (format: "size-color" or "size")
+        const parts = variantId.split('-');
+        if (parts.length >= 2) {
+          variantSelection = { size: parts[0], color: parts[1] };
+        } else if (parts.length === 1) {
+          variantSelection = { size: parts[0] };
+        }
+      }
+
+      // Validate variant selection
+      const validation = productVariantService.validateVariantSelection(product, variantSelection);
+      
+      if (!validation.valid) {
+        logger.warn('[Cart] Variant validation failed', {
+          productId,
+          productName: product.name,
+          variantSelection,
+          error: validation.error,
+        });
+        return res.status(400).json({ error: validation.error });
+      }
+
+      // Construct variantId for cart storage
+      const finalVariantId = productVariantService.constructVariantId(variantSelection);
+
+      const result = await cartService.addToCart(sessionId, productId, quantity, finalVariantId, userId);
       
       if (!result.success) {
         return res.status(400).json({ error: result.error });
