@@ -990,6 +990,9 @@ export class OrderService {
           productId: item.id,
           name: item.name,
           price: item.price,
+          originalPrice: item.originalPrice || null, // CRITICAL: Store original price for discount display
+          discountPercentage: item.discountPercentage || null, // CRITICAL: Store discount % for emails
+          discountAmount: item.discountAmount || null, // CRITICAL: Store discount amount for savings display
           quantity: item.quantity,
           productType: item.productType,
           depositAmount: item.depositAmount,
