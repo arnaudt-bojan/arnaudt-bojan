@@ -16,6 +16,8 @@ import { ReservationCleanupJob } from "./jobs/cleanup-reservations";
 import { WholesaleBalanceReminderJob } from "./jobs/wholesale-balance-reminder.job";
 import { storage } from "./storage";
 import { ConfigurationError } from "./errors";
+import { PDFService } from "./pdf-service";
+import { createNotificationService } from "./notifications";
 
 const app = express();
 
@@ -165,7 +167,8 @@ app.use((req, res, next) => {
     cleanupJob.start();
     
     // Start wholesale balance reminder job
-    const notificationService = require('./notifications').notificationService;
+    const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
+    const notificationService = createNotificationService(storage, pdfService);
     balanceReminderJob = new WholesaleBalanceReminderJob(storage, notificationService);
     balanceReminderJob.start();
   });

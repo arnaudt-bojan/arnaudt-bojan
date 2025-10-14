@@ -37,7 +37,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods, PCI-DSS compliant saved details, and automated subscription payment method sync.
 -   **Subscription System**: Monthly/annual seller subscriptions managed via Stripe, including a 30-day trial.
 -   **Multi-Currency Support**: IP-based detection with user-selectable currency and real-time exchange rates.
--   **Wholesale B2B System**: Invitation-only access for managing wholesale products and orders.
+-   **Wholesale B2B System**: Comprehensive B2B platform with invitation-based access, MOQ enforcement (variant-level), deposit/balance payment split via Stripe, freight collect/buyer pickup shipping (NO traditional shipping methods), enhanced buyer invitation system with 7-day expiry, separate wholesale order management with status tracking (pending_deposit → deposit_paid → in_production → ready_to_release → fulfilled → delivered/completed), Stripe payment integration with webhook automation, automated email notifications (6 templates: order confirmation, deposit received, balance reminder, balance overdue, order shipped, order fulfilled), balance payment reminder job (runs daily), payment link generation, and complete order lifecycle management.
 -   **Social Ads System**: Multi-platform (Meta, TikTok, X) social advertising with AI optimization.
 -   **Item-Level Order Tracking**: Per-item fulfillment system with independent status, tracking, and automated buyer notifications.
 -   **Document Generation System**: Professional PDF invoice and packing slip generation.
