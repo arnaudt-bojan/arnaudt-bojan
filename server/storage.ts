@@ -90,6 +90,20 @@ import {
   type InsertOrderWorkflow,
   type OrderWorkflowEvent,
   type InsertOrderWorkflowEvent,
+  type WholesaleOrder,
+  type InsertWholesaleOrder,
+  type WholesaleOrderItem,
+  type InsertWholesaleOrderItem,
+  type WholesalePayment,
+  type InsertWholesalePayment,
+  type WholesaleShippingDetail,
+  type InsertWholesaleShippingDetail,
+  type WholesaleOrderEvent,
+  type InsertWholesaleOrderEvent,
+  type WarehouseLocation,
+  type InsertWarehouseLocation,
+  type BuyerProfile,
+  type InsertBuyerProfile,
   users,
   products,
   orders,
@@ -136,7 +150,14 @@ import {
   carts,
   cartSessions,
   orderWorkflows,
-  orderWorkflowEvents
+  orderWorkflowEvents,
+  wholesaleOrders,
+  wholesaleOrderItems,
+  wholesalePayments,
+  wholesaleShippingDetails,
+  wholesaleOrderEvents,
+  warehouseLocations,
+  buyerProfiles
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -367,6 +388,55 @@ export interface IStorage {
   getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined>;
   acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined>;
   deleteWholesaleInvitation(id: string): Promise<boolean>;
+  
+  // Wholesale B2B Orders
+  createWholesaleOrder(order: InsertWholesaleOrder): Promise<WholesaleOrder>;
+  getWholesaleOrder(id: string): Promise<WholesaleOrder | undefined>;
+  getWholesaleOrderByNumber(orderNumber: string): Promise<WholesaleOrder | undefined>;
+  getWholesaleOrdersBySellerId(sellerId: string): Promise<WholesaleOrder[]>;
+  getWholesaleOrdersByBuyerId(buyerId: string): Promise<WholesaleOrder[]>;
+  updateWholesaleOrder(id: string, updates: Partial<WholesaleOrder>): Promise<WholesaleOrder | undefined>;
+  deleteWholesaleOrder(id: string): Promise<boolean>;
+  
+  // Wholesale Order Items
+  createWholesaleOrderItem(item: InsertWholesaleOrderItem): Promise<WholesaleOrderItem>;
+  getWholesaleOrderItems(wholesaleOrderId: string): Promise<WholesaleOrderItem[]>;
+  getWholesaleOrderItem(id: string): Promise<WholesaleOrderItem | undefined>;
+  updateWholesaleOrderItem(id: string, updates: Partial<WholesaleOrderItem>): Promise<WholesaleOrderItem | undefined>;
+  deleteWholesaleOrderItem(id: string): Promise<boolean>;
+  
+  // Wholesale Payments
+  createWholesalePayment(payment: InsertWholesalePayment): Promise<WholesalePayment>;
+  getWholesalePayment(id: string): Promise<WholesalePayment | undefined>;
+  getWholesalePaymentsByOrderId(wholesaleOrderId: string): Promise<WholesalePayment[]>;
+  updateWholesalePayment(id: string, updates: Partial<WholesalePayment>): Promise<WholesalePayment | undefined>;
+  deleteWholesalePayment(id: string): Promise<boolean>;
+  
+  // Wholesale Shipping Details
+  createWholesaleShippingDetails(details: InsertWholesaleShippingDetail): Promise<WholesaleShippingDetail>;
+  getWholesaleShippingDetails(wholesaleOrderId: string): Promise<WholesaleShippingDetail | undefined>;
+  updateWholesaleShippingDetails(wholesaleOrderId: string, updates: Partial<WholesaleShippingDetail>): Promise<WholesaleShippingDetail | undefined>;
+  deleteWholesaleShippingDetails(wholesaleOrderId: string): Promise<boolean>;
+  
+  // Wholesale Order Events
+  createWholesaleOrderEvent(event: InsertWholesaleOrderEvent): Promise<WholesaleOrderEvent>;
+  getWholesaleOrderEvents(wholesaleOrderId: string): Promise<WholesaleOrderEvent[]>;
+  
+  // Warehouse Locations
+  createWarehouseLocation(location: InsertWarehouseLocation): Promise<WarehouseLocation>;
+  getWarehouseLocation(id: string): Promise<WarehouseLocation | undefined>;
+  getWarehouseLocationsBySellerId(sellerId: string): Promise<WarehouseLocation[]>;
+  getDefaultWarehouseLocation(sellerId: string): Promise<WarehouseLocation | undefined>;
+  updateWarehouseLocation(id: string, updates: Partial<WarehouseLocation>): Promise<WarehouseLocation | undefined>;
+  setDefaultWarehouseLocation(sellerId: string, locationId: string): Promise<WarehouseLocation | undefined>;
+  deleteWarehouseLocation(id: string): Promise<boolean>;
+  
+  // Buyer Profiles
+  createBuyerProfile(profile: InsertBuyerProfile): Promise<BuyerProfile>;
+  getBuyerProfile(id: string): Promise<BuyerProfile | undefined>;
+  getBuyerProfileByUserId(userId: string): Promise<BuyerProfile | undefined>;
+  updateBuyerProfile(id: string, updates: Partial<BuyerProfile>): Promise<BuyerProfile | undefined>;
+  deleteBuyerProfile(id: string): Promise<boolean>;
   
   getAllCategories(): Promise<Category[]>;
   getCategoriesByLevel(level: number): Promise<Category[]>;
@@ -2088,6 +2158,250 @@ export class DatabaseStorage implements IStorage {
   async deleteWholesaleProduct(id: string): Promise<boolean> {
     await this.ensureInitialized();
     await this.db.delete(wholesaleProducts).where(eq(wholesaleProducts.id, id));
+    return true;
+  }
+
+  // Wholesale Orders Methods
+  async createWholesaleOrder(order: InsertWholesaleOrder): Promise<WholesaleOrder> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesaleOrders).values(order).returning();
+    return result[0];
+  }
+
+  async getWholesaleOrder(id: string): Promise<WholesaleOrder | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getWholesaleOrderByNumber(orderNumber: string): Promise<WholesaleOrder | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.orderNumber, orderNumber)).limit(1);
+    return result[0];
+  }
+
+  async getWholesaleOrdersBySellerId(sellerId: string): Promise<WholesaleOrder[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.sellerId, sellerId)).orderBy(desc(wholesaleOrders.createdAt));
+  }
+
+  async getWholesaleOrdersByBuyerId(buyerId: string): Promise<WholesaleOrder[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.buyerId, buyerId)).orderBy(desc(wholesaleOrders.createdAt));
+  }
+
+  async updateWholesaleOrder(id: string, updates: Partial<WholesaleOrder>): Promise<WholesaleOrder | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleOrders)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(wholesaleOrders.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesaleOrder(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleOrders).where(eq(wholesaleOrders.id, id));
+    return true;
+  }
+
+  // Wholesale Order Items Methods
+  async createWholesaleOrderItem(item: InsertWholesaleOrderItem): Promise<WholesaleOrderItem> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesaleOrderItems).values(item).returning();
+    return result[0];
+  }
+
+  async getWholesaleOrderItems(wholesaleOrderId: string): Promise<WholesaleOrderItem[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleOrderItems).where(eq(wholesaleOrderItems.wholesaleOrderId, wholesaleOrderId));
+  }
+
+  async getWholesaleOrderItem(id: string): Promise<WholesaleOrderItem | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleOrderItems).where(eq(wholesaleOrderItems.id, id)).limit(1);
+    return result[0];
+  }
+
+  async updateWholesaleOrderItem(id: string, updates: Partial<WholesaleOrderItem>): Promise<WholesaleOrderItem | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleOrderItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(wholesaleOrderItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesaleOrderItem(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleOrderItems).where(eq(wholesaleOrderItems.id, id));
+    return true;
+  }
+
+  // Wholesale Payments Methods
+  async createWholesalePayment(payment: InsertWholesalePayment): Promise<WholesalePayment> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesalePayments).values(payment).returning();
+    return result[0];
+  }
+
+  async getWholesalePayment(id: string): Promise<WholesalePayment | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesalePayments).where(eq(wholesalePayments.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getWholesalePaymentsByOrderId(wholesaleOrderId: string): Promise<WholesalePayment[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesalePayments).where(eq(wholesalePayments.wholesaleOrderId, wholesaleOrderId)).orderBy(desc(wholesalePayments.createdAt));
+  }
+
+  async updateWholesalePayment(id: string, updates: Partial<WholesalePayment>): Promise<WholesalePayment | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesalePayments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(wholesalePayments.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesalePayment(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesalePayments).where(eq(wholesalePayments.id, id));
+    return true;
+  }
+
+  // Wholesale Shipping Details Methods
+  async createWholesaleShippingDetails(details: InsertWholesaleShippingDetail): Promise<WholesaleShippingDetail> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesaleShippingDetails).values(details).returning();
+    return result[0];
+  }
+
+  async getWholesaleShippingDetails(wholesaleOrderId: string): Promise<WholesaleShippingDetail | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleShippingDetails).where(eq(wholesaleShippingDetails.wholesaleOrderId, wholesaleOrderId)).limit(1);
+    return result[0];
+  }
+
+  async updateWholesaleShippingDetails(wholesaleOrderId: string, updates: Partial<WholesaleShippingDetail>): Promise<WholesaleShippingDetail | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleShippingDetails)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(wholesaleShippingDetails.wholesaleOrderId, wholesaleOrderId))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWholesaleShippingDetails(wholesaleOrderId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleShippingDetails).where(eq(wholesaleShippingDetails.wholesaleOrderId, wholesaleOrderId));
+    return true;
+  }
+
+  // Wholesale Order Events Methods
+  async createWholesaleOrderEvent(event: InsertWholesaleOrderEvent): Promise<WholesaleOrderEvent> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesaleOrderEvents).values(event).returning();
+    return result[0];
+  }
+
+  async getWholesaleOrderEvents(wholesaleOrderId: string): Promise<WholesaleOrderEvent[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(wholesaleOrderEvents).where(eq(wholesaleOrderEvents.wholesaleOrderId, wholesaleOrderId)).orderBy(desc(wholesaleOrderEvents.occurredAt));
+  }
+
+  // Warehouse Locations Methods
+  async createWarehouseLocation(location: InsertWarehouseLocation): Promise<WarehouseLocation> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(warehouseLocations).values(location).returning();
+    return result[0];
+  }
+
+  async getWarehouseLocation(id: string): Promise<WarehouseLocation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(warehouseLocations).where(eq(warehouseLocations.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getWarehouseLocationsBySellerId(sellerId: string): Promise<WarehouseLocation[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(warehouseLocations).where(eq(warehouseLocations.sellerId, sellerId)).orderBy(desc(warehouseLocations.isDefault), desc(warehouseLocations.createdAt));
+  }
+
+  async getDefaultWarehouseLocation(sellerId: string): Promise<WarehouseLocation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(warehouseLocations).where(and(eq(warehouseLocations.sellerId, sellerId), eq(warehouseLocations.isDefault, 1))).limit(1);
+    return result[0];
+  }
+
+  async updateWarehouseLocation(id: string, updates: Partial<WarehouseLocation>): Promise<WarehouseLocation | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(warehouseLocations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(warehouseLocations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async setDefaultWarehouseLocation(sellerId: string, locationId: string): Promise<WarehouseLocation | undefined> {
+    await this.ensureInitialized();
+    await this.db
+      .update(warehouseLocations)
+      .set({ isDefault: 0 })
+      .where(eq(warehouseLocations.sellerId, sellerId));
+    
+    const result = await this.db
+      .update(warehouseLocations)
+      .set({ isDefault: 1, updatedAt: new Date() })
+      .where(eq(warehouseLocations.id, locationId))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWarehouseLocation(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(warehouseLocations).where(eq(warehouseLocations.id, id));
+    return true;
+  }
+
+  // Buyer Profiles Methods
+  async createBuyerProfile(profile: InsertBuyerProfile): Promise<BuyerProfile> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(buyerProfiles).values(profile).returning();
+    return result[0];
+  }
+
+  async getBuyerProfile(id: string): Promise<BuyerProfile | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(buyerProfiles).where(eq(buyerProfiles.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getBuyerProfileByUserId(userId: string): Promise<BuyerProfile | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(buyerProfiles).where(eq(buyerProfiles.userId, userId)).limit(1);
+    return result[0];
+  }
+
+  async updateBuyerProfile(id: string, updates: Partial<BuyerProfile>): Promise<BuyerProfile | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(buyerProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(buyerProfiles.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteBuyerProfile(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(buyerProfiles).where(eq(buyerProfiles.id, id));
     return true;
   }
 
