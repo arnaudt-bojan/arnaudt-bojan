@@ -949,6 +949,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Shipping destination is required" });
       }
 
+      // ARCHITECTURE 3: Validate variants for all items before order creation
+      for (const item of items) {
+        const product = await storage.getProduct(item.productId);
+        if (!product) {
+          return res.status(400).json({ 
+            error: `Product not found: ${item.productId}` 
+          });
+        }
+
+        // Parse variant from item
+        let variantSelection: { size?: string; color?: string } | undefined;
+        if (item.variant) {
+          variantSelection = item.variant;
+        } else if (item.variantId) {
+          // Parse variantId (format: "size-color" or "size")
+          const parts = item.variantId.split('-');
+          if (parts.length >= 2) {
+            variantSelection = { size: parts[0], color: parts[1] };
+          } else if (parts.length === 1) {
+            variantSelection = { size: parts[0] };
+          }
+        }
+
+        // Validate variant selection
+        const validation = productVariantService.validateVariantSelection(product, variantSelection);
+        
+        if (!validation.valid) {
+          logger.warn('[Order] Variant validation failed', {
+            productId: item.productId,
+            productName: product.name,
+            variantSelection,
+            error: validation.error,
+          });
+          return res.status(400).json({ 
+            error: `${product.name}: ${validation.error}` 
+          });
+        }
+      }
+
       // Delegate to OrderService (service handles all orchestration)
       const result = await orderService.createOrder({
         customerEmail,
