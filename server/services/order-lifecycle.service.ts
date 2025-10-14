@@ -162,22 +162,41 @@ export class OrderLifecycleService {
       const itemsToRefund: Map<string, { item: OrderItem; quantity: number; amount: number }> = new Map();
 
       if (refundType === 'full') {
-        // Full refund - calculate from remaining refundable amounts
+        // ARCHITECTURE 3: Full refund uses stored order.total (includes shipping + tax)
+        // Calculate total already refunded across all items
+        let totalAlreadyRefunded = 0;
         for (const item of orderItems) {
-          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
+          totalAlreadyRefunded += parseFloat(item.refundedAmount || '0');
+        }
+
+        // Refund amount = order total - already refunded
+        const orderTotal = parseFloat(order.total);
+        refundAmount = orderTotal - totalAlreadyRefunded;
+
+        // Distribute refund proportionally across items for tracking
+        for (const item of orderItems) {
           const refundedQty = item.refundedQuantity || 0;
           const refundableQty = item.quantity - refundedQty;
           const itemTotal = parseFloat(item.subtotal);
+          const alreadyRefunded = parseFloat(item.refundedAmount || '0');
           const itemRefundAmount = itemTotal - alreadyRefunded;
 
           if (refundableQty > 0 && itemRefundAmount > 0) {
-            refundAmount += itemRefundAmount;
             itemsToRefund.set(item.id, {
               item,
               quantity: refundableQty,
               amount: itemRefundAmount,
             });
           }
+        }
+
+        // Validation: Ensure we have refundable amount
+        if (refundAmount <= 0) {
+          return {
+            success: false,
+            error: "No refundable amount available",
+            statusCode: 400,
+          };
         }
       } else if (refundType === 'item') {
         // Item-level refund with specified quantities
