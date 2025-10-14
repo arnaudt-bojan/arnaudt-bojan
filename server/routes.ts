@@ -1045,7 +1045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productName: item.name || 'Unknown Product',
           variantName: item.variant || null,
           imageUrl: item.image || null,
-          fulfillmentStatus: 'pending',
+          itemStatus: 'pending', // Frontend expects itemStatus, not fulfillmentStatus
           trackingNumber: null,
           trackingCarrier: null,
           trackingUrl: null,
