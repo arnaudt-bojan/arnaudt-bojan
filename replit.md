@@ -28,17 +28,21 @@ A service layer pattern is employed, abstracting business logic from thin route 
 **UI/UX Decisions:**
 The design system supports dark/light mode, uses the Inter font, and emphasizes consistent spacing, typography, and a mobile-first responsive approach. Navigation is dashboard-centric. Product displays feature multi-image support and interactive elements. Storefronts are customizable with seller branding.
 
-**B2C/B2B Environment Toggle & Wholesale Dashboard:**
-Sellers can switch between B2C (retail) and B2B (wholesale) environments using a toggle in the dashboard header. The toggle both changes environment context AND navigates:
-- **B2C → B2B**: Navigates to `/wholesale/dashboard` (separate wholesale dashboard with dedicated sidebar)
-- **B2B → B2C**: Navigates back to `/seller-dashboard` (main B2C dashboard)
+**B2C/B2B Environment Toggle & Wholesale Access:**
+Sellers can switch between B2C (retail) and B2B (wholesale) environments using a toggle in the dashboard header. The toggle changes environment context ONLY (no automatic navigation):
+- **B2C → B2B**: Environment switches to wholesale mode (stay on current page)
+- **B2B → B2C**: Environment switches to retail mode (stay on current page)
 
-The wholesale dashboard uses `WholesaleLayout` providing dedicated navigation to:
-- Dashboard: `/wholesale/dashboard` (stats overview, quick actions)
-- Products: `/wholesale/products` (B2B product management)
-- Orders: `/wholesale/orders` (wholesale order management)
-- Buyers: `/wholesale/buyers` (buyer invitation & management)
-- Preview: `/wholesale/preview` (preview wholesale catalog)
+Wholesale features are accessed via `/seller/wholesale/*` routes when in B2B mode:
+- Products: `/seller/wholesale/products` (B2B product management)
+- Invitations: `/seller/wholesale/invitations` (buyer invitation & management)
+- Orders: `/seller/wholesale/orders` (wholesale order management)
+
+Buyer wholesale access uses separate routes:
+- Catalog: `/wholesale/catalog` (browse seller's wholesale products)
+- Cart: `/wholesale/cart` (wholesale cart with MOQ validation)
+- Checkout: `/wholesale/checkout` (freight collect/buyer pickup)
+- Orders: `/wholesale/orders` (buyer order history)
 
 **System Design Choices & Feature Specifications:**
 -   **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and comprehensive multi-method shipping.
@@ -65,6 +69,49 @@ The wholesale dashboard uses `WholesaleLayout` providing dedicated navigation to
 -   **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, and balance payments.
 -   **Real-Time Order Updates (WebSocket)**: Live order synchronization system (`/ws/orders`) with automatic frontend cache invalidation, ensuring instant UI updates. Uses integer cents arithmetic for payment precision.
 -   **Platform Analytics API**: Endpoint for ShopSwift integration providing comprehensive platform and seller metrics, secured by an API key.
+
+## Testing & Development Guidelines
+
+**Proven Login Approach for E2E Tests:**
+
+For **ALL seller/buyer login tests**, use this OIDC-based approach to avoid wasting time:
+
+```
+SELLER LOGIN (ALWAYS USE THIS):
+1. [OIDC] Configure next login: {sub: "local-testseller@test.com", email: "testseller@test.com"}
+2. [Browser] Navigate to homepage (/)
+3. [Browser] Click "Log in" button in header
+4. [Verify] OIDC bypass authenticates automatically → redirected to dashboard
+5. [Verify] User authenticated and dashboard loads
+
+BUYER LOGIN (ALWAYS USE THIS):
+1. [OIDC] Configure next login: {sub: "local-testbuyer@test.com", email: "testbuyer@test.com"}
+2. [Browser] Navigate to homepage (/)
+3. [Browser] Click "Log in" button in header
+4. [Verify] OIDC bypass authenticates automatically → redirected to dashboard
+5. [Verify] User authenticated
+
+WHY THIS WORKS:
+- OIDC bypass is enabled in test environment
+- No email verification needed (bypass handles authentication)
+- Works for both sellers and buyers
+- Fastest, most reliable method
+```
+
+**AVOID:**
+- ❌ Email-code flow (`/email-login`) - requires actual email verification
+- ❌ Magic link flow - requires email access
+- ❌ Password flow (`/login`) - password mismatches in testing
+
+**Test Users Available:**
+- Seller: `testseller@test.com` (ID: `local-testseller@test.com`)
+- Buyer: `testbuyer@test.com` (ID: `local-testbuyer@test.com`)
+
+**Authentication Routes:**
+- `/login` - Email/password form (use OIDC instead)
+- `/email-login` - Email code verification (use OIDC instead)
+- `/dashboard` - Smart redirect based on role
+- `/auth/magic` - Magic link verification
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
