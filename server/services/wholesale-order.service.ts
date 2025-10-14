@@ -102,6 +102,31 @@ export interface GetTimelineResult {
   statusCode?: number;
 }
 
+export interface OrderDetailsResult {
+  success: boolean;
+  orderDetails?: {
+    order: WholesaleOrder;
+    items: WholesaleOrderItem[];
+    paymentIntents: WholesalePaymentIntent[];
+    shippingMetadata?: WholesaleShippingMetadata;
+    buyer?: {
+      id: string;
+      name?: string;
+      email: string;
+      companyName?: string;
+      phone?: string;
+    };
+    seller?: {
+      id: string;
+      name?: string;
+      email: string;
+      companyName?: string;
+    };
+  };
+  error?: string;
+  statusCode?: number;
+}
+
 // ============================================================================
 // WholesaleOrderService
 // ============================================================================
@@ -270,6 +295,84 @@ export class WholesaleOrderService {
   }
 
   /**
+   * Get order details with all relations (items, payments, shipping, buyer/seller info)
+   * Access control: seller OR buyer of order
+   */
+  async getOrderDetails(orderId: string, userId: string): Promise<OrderDetailsResult> {
+    try {
+      // Get order
+      const order = await this.storage.getWholesaleOrder(orderId);
+      if (!order) {
+        return {
+          success: false,
+          error: 'Order not found',
+          statusCode: 404,
+        };
+      }
+
+      // Access control: user must be seller or buyer
+      if (order.sellerId !== userId && order.buyerId !== userId) {
+        return {
+          success: false,
+          error: 'Access denied',
+          statusCode: 403,
+        };
+      }
+
+      // Fetch all related data in parallel
+      const [items, paymentIntents, shippingMetadata, buyerUser, sellerUser] = await Promise.all([
+        this.storage.getWholesaleOrderItems(orderId),
+        this.storage.getPaymentIntentsByOrderId(orderId),
+        this.storage.getShippingMetadataByOrderId(orderId),
+        this.storage.getUser(order.buyerId),
+        this.storage.getUser(order.sellerId),
+      ]);
+
+      // Format buyer info
+      const buyer = buyerUser ? {
+        id: buyerUser.id,
+        name: buyerUser.name || order.buyerName,
+        email: buyerUser.email || order.buyerEmail,
+        companyName: order.buyerCompanyName,
+        phone: buyerUser.phone,
+      } : undefined;
+
+      // Format seller info
+      const seller = sellerUser ? {
+        id: sellerUser.id,
+        name: sellerUser.name,
+        email: sellerUser.email,
+        companyName: sellerUser.businessName,
+      } : undefined;
+
+      logger.info('[WholesaleOrderService] Order details retrieved', {
+        orderId,
+        userId,
+        itemCount: items.length,
+      });
+
+      return {
+        success: true,
+        orderDetails: {
+          order,
+          items,
+          paymentIntents,
+          shippingMetadata,
+          buyer,
+          seller,
+        },
+      };
+    } catch (error: any) {
+      logger.error('[WholesaleOrderService] Failed to get order details', error, { orderId, userId });
+      return {
+        success: false,
+        error: error.message || 'Failed to get order details',
+        statusCode: 500,
+      };
+    }
+  }
+
+  /**
    * Validate status transition
    * Issue 2 Fix: Enforce order lifecycle state machine
    */
@@ -351,6 +454,58 @@ export class WholesaleOrderService {
         oldStatus: order.status,
         newStatus: status,
       });
+
+      // Send email notifications based on status change
+      if (this.notificationService) {
+        try {
+          const seller = await this.storage.getUser(order.sellerId);
+          const buyer = await this.storage.getUser(order.buyerId);
+
+          if (status === 'fulfilled' && seller) {
+            // Check if tracking info exists to determine email type
+            const shippingMetadata = await this.storage.getShippingMetadataByOrderId(orderId);
+            
+            if (shippingMetadata?.trackingNumber && shippingMetadata?.carrier) {
+              // Send shipped email with tracking
+              await this.notificationService.sendWholesaleOrderShipped(
+                updatedOrder, 
+                seller, 
+                {
+                  carrier: shippingMetadata.carrier,
+                  trackingNumber: shippingMetadata.trackingNumber,
+                  trackingUrl: `https://tracking.example.com/${shippingMetadata.trackingNumber}`
+                }
+              );
+            } else {
+              // Send fulfilled email (pickup or no tracking)
+              const shippingDetails = await this.storage.getWholesaleShippingDetails(orderId);
+              const fulfillmentType = shippingDetails?.shippingType === 'buyer_pickup' ? 'pickup' : 'shipped';
+              const pickupDetails = fulfillmentType === 'pickup' ? {
+                address: shippingDetails?.pickupAddress,
+                instructions: `Contact: ${shippingDetails?.pickupContactName || 'N/A'}`
+              } : undefined;
+              
+              await this.notificationService.sendWholesaleOrderFulfilled(
+                updatedOrder, 
+                seller, 
+                fulfillmentType, 
+                pickupDetails
+              );
+            }
+          } else if (status === 'balance_overdue' && seller && buyer) {
+            // Send overdue email to both buyer and seller
+            const paymentLink = `${process.env.BASE_URL || 'http://localhost:5000'}/wholesale/orders/${orderId}/pay-balance`;
+            await this.notificationService.sendWholesaleBalanceOverdue(
+              updatedOrder, 
+              seller, 
+              buyer, 
+              paymentLink
+            );
+          }
+        } catch (emailError: any) {
+          logger.error('[WholesaleOrderService] Failed to send status change email', emailError);
+        }
+      }
 
       return { success: true, order: updatedOrder };
     } catch (error: any) {

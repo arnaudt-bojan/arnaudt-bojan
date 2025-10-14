@@ -13,6 +13,7 @@ import {
   sanitizeInputMiddleware
 } from "./security";
 import { ReservationCleanupJob } from "./jobs/cleanup-reservations";
+import { WholesaleBalanceReminderJob } from "./jobs/wholesale-balance-reminder.job";
 import { storage } from "./storage";
 import { ConfigurationError } from "./errors";
 
@@ -33,8 +34,9 @@ app.use(fileUpload({
   debug: false,
 }));
 
-// Stripe webhook needs raw body for signature verification
+// Stripe webhooks need raw body for signature verification
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '10mb' }));
+app.use('/api/webhooks/stripe/wholesale', express.raw({ type: 'application/json', limit: '10mb' }));
 
 // Regular JSON parsing for all other routes with built-in size limits
 app.use(express.json({ limit: '10mb' }));
@@ -115,6 +117,7 @@ app.use((req, res, next) => {
 
   // Background jobs
   let cleanupJob: ReservationCleanupJob | null = null;
+  let balanceReminderJob: WholesaleBalanceReminderJob | null = null;
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -160,6 +163,11 @@ app.use((req, res, next) => {
     // Start reservation cleanup job
     cleanupJob = new ReservationCleanupJob(storage);
     cleanupJob.start();
+    
+    // Start wholesale balance reminder job
+    const notificationService = require('./notifications').notificationService;
+    balanceReminderJob = new WholesaleBalanceReminderJob(storage, notificationService);
+    balanceReminderJob.start();
   });
   
   // Graceful shutdown
@@ -169,6 +177,9 @@ app.use((req, res, next) => {
     importQueue.stop();
     if (cleanupJob) {
       cleanupJob.stop();
+    }
+    if (balanceReminderJob) {
+      balanceReminderJob.stop();
     }
     
     // Wait a bit for jobs to cleanup

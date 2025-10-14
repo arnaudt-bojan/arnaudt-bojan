@@ -33,6 +33,8 @@ import { SubscriptionService } from "./services/subscription.service";
 import { WholesaleService } from "./services/wholesale.service";
 import { WholesaleOrderService } from "./services/wholesale-order.service";
 import { WholesaleInvitationEnhancedService } from "./services/wholesale-invitation-enhanced.service";
+import { WholesalePaymentService } from "./services/wholesale-payment.service";
+import { WholesaleShippingService } from "./services/wholesale-shipping.service";
 import { TeamManagementService } from "./services/team-management.service";
 import { OrderLifecycleService } from "./services/order-lifecycle.service";
 import { PricingCalculationService } from "./services/pricing-calculation.service";
@@ -160,6 +162,16 @@ const wholesaleOrderService = new WholesaleOrderService(storage, notificationSer
 
 // Initialize Wholesale Invitation Enhanced service for buyer invitations
 const wholesaleInvitationService = new WholesaleInvitationEnhancedService(storage, notificationService);
+
+// Initialize Wholesale Payment service for Stripe payment integration
+const wholesalePaymentService = new WholesalePaymentService(
+  storage,
+  stripe || undefined,
+  notificationService
+);
+
+// Initialize Wholesale Shipping service for freight collect and buyer pickup
+const wholesaleShippingService = new WholesaleShippingService(storage);
 
 // Initialize Team Management service (Architecture 3 migration)
 const teamService = new TeamManagementService(storage, notificationService);
@@ -3600,6 +3612,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wholesale Stripe Webhook Handler
+  app.post("/api/webhooks/stripe/wholesale", async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const sig = req.headers['stripe-signature'];
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!sig || !webhookSecret) {
+        logger.error("[Wholesale Webhook] Signature or secret missing");
+        return res.status(400).json({ error: "Webhook signature or secret missing" });
+      }
+
+      // Ensure sig is a string
+      const signatureStr = Array.isArray(sig) ? sig[0] : sig;
+
+      // Construct Stripe event
+      const event = stripe.webhooks.constructEvent(req.body, signatureStr, webhookSecret);
+
+      // Process webhook through WholesalePaymentService
+      const result = await wholesalePaymentService.handlePaymentWebhook(event);
+
+      if (!result.success) {
+        logger.error("[Wholesale Webhook] Processing failed", { error: result.error });
+        return res.status(500).json({ error: result.error });
+      }
+
+      logger.info("[Wholesale Webhook] Processed successfully", { eventType: event.type });
+      res.json({ received: true });
+    } catch (error: any) {
+      logger.error("[Wholesale Webhook] Error", error);
+      res.status(400).json({ error: error.message || "Webhook error" });
+    }
+  });
+
   // Seller-triggered balance payment for pre-orders
   app.post("/api/trigger-balance-payment/:orderId", requireAuth, async (req, res) => {
     try {
@@ -5100,7 +5149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shippingData: {
           shippingType: shippingData.shippingType,
           carrierName: shippingData.carrierName,
-          carrierAccountNumber: shippingData.carrierAccountNumber,
+          freightAccountNumber: shippingData.freightAccountNumber,  // Changed from carrierAccountNumber
+          pickupInstructions: shippingData.pickupInstructions,     // Added for buyer pickup
           pickupAddress: shippingData.pickupAddress,
           invoicingAddress: shippingData.invoicingAddress,
         },
@@ -5148,6 +5198,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error fetching wholesale order", error);
       res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
+  // Create balance payment intent for wholesale order
+  app.post("/api/wholesale/orders/:orderId/balance-payment", requireAuth, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const userId = req.user.claims.sub;
+
+      // Get order to verify access and get balance amount
+      const orderResult = await wholesaleOrderService.getOrderById(orderId, userId);
+      
+      if (!orderResult.success || !orderResult.order) {
+        return res.status(orderResult.statusCode || 404).json({ 
+          error: orderResult.error || 'Order not found' 
+        });
+      }
+
+      const order = orderResult.order;
+
+      // Verify order is in correct status for balance payment
+      if (order.status !== 'deposit_paid' && order.status !== 'awaiting_balance') {
+        return res.status(400).json({ 
+          error: `Cannot create balance payment for order with status: ${order.status}` 
+        });
+      }
+
+      // Create balance payment intent
+      const result = await wholesalePaymentService.createBalancePaymentIntent(
+        orderId,
+        order.balanceAmountCents,
+        {
+          buyerId: order.buyerId,
+          sellerId: order.sellerId,
+          orderNumber: order.orderNumber,
+        }
+      );
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.json({ clientSecret: result.clientSecret });
+    } catch (error: any) {
+      logger.error("[API] Balance payment creation error", error);
+      res.status(500).json({ error: error.message || "Failed to create balance payment" });
+    }
+  });
+
+  // Get payment page for balance payment (accessed via email link)
+  app.get("/api/wholesale/orders/:orderId/pay-balance", requireAuth, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const userId = req.user.claims.sub;
+
+      // Get order to verify access
+      const orderResult = await wholesaleOrderService.getOrderById(orderId, userId);
+      
+      if (!orderResult.success || !orderResult.order) {
+        return res.status(orderResult.statusCode || 404).json({ 
+          error: orderResult.error || 'Order not found' 
+        });
+      }
+
+      const order = orderResult.order;
+
+      // Verify order is in correct status for balance payment
+      if (order.status !== 'deposit_paid' && order.status !== 'awaiting_balance') {
+        return res.status(400).json({ 
+          error: `Cannot pay balance for order with status: ${order.status}`,
+          order 
+        });
+      }
+
+      // Create balance payment intent
+      const result = await wholesalePaymentService.createBalancePaymentIntent(
+        orderId,
+        order.balanceAmountCents,
+        {
+          buyerId: order.buyerId,
+          sellerId: order.sellerId,
+          orderNumber: order.orderNumber,
+        }
+      );
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      // Return payment page data
+      res.json({ 
+        order,
+        clientSecret: result.clientSecret,
+        balanceAmount: order.balanceAmountCents,
+        currency: order.currency || 'USD'
+      });
+    } catch (error: any) {
+      logger.error("[API] Pay balance page error", error);
+      res.status(500).json({ error: error.message || "Failed to load payment page" });
+    }
+  });
+
+  // Get wholesale order details with all relations
+  app.get("/api/wholesale/orders/:orderId/details", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      
+      const result = await wholesaleOrderService.getOrderDetails(orderId, userId);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      
+      res.json(result.orderDetails);
+    } catch (error) {
+      logger.error("Error fetching wholesale order details", error);
+      res.status(500).json({ message: "Failed to fetch order details" });
+    }
+  });
+
+  // Update wholesale order status
+  app.post("/api/wholesale/orders/:orderId/update-status", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      const { newStatus } = req.body;
+
+      if (!newStatus) {
+        return res.status(400).json({ message: "newStatus is required" });
+      }
+
+      // Verify user is seller
+      const order = await storage.getWholesaleOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const result = await wholesaleOrderService.updateStatus(orderId, newStatus, userId);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      
+      res.json({ order: result.order });
+    } catch (error) {
+      logger.error("Error updating wholesale order status", error);
+      res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+
+  // Update tracking information for wholesale order
+  app.post("/api/wholesale/orders/:orderId/tracking", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      const { carrier, trackingNumber } = req.body;
+
+      if (!carrier || !trackingNumber) {
+        return res.status(400).json({ message: "carrier and trackingNumber are required" });
+      }
+
+      // Verify user is seller
+      const order = await storage.getWholesaleOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const result = await wholesaleShippingService.updateTrackingInfo(orderId, carrier, trackingNumber);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("Error updating tracking information", error);
+      res.status(500).json({ message: "Failed to update tracking information" });
+    }
+  });
+
+  // Cancel wholesale order
+  app.post("/api/wholesale/orders/:orderId/cancel", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      const { reason } = req.body;
+
+      // Verify user is seller
+      const order = await storage.getWholesaleOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const result = await wholesaleOrderService.cancelOrder(orderId, userId, reason);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      
+      res.json({ order: result.order });
+    } catch (error) {
+      logger.error("Error cancelling wholesale order", error);
+      res.status(500).json({ message: "Failed to cancel order" });
     }
   });
 

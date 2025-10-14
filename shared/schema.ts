@@ -93,6 +93,13 @@ export const wholesaleOrderEventTypePgEnum = pgEnum("wholesale_order_event_type"
   "order_cancelled"
 ]);
 
+export const wholesalePaymentIntentStatusPgEnum = pgEnum("wholesale_payment_intent_status", [
+  "pending",
+  "succeeded",
+  "failed",
+  "canceled"
+]);
+
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
 
@@ -1417,6 +1424,59 @@ export const insertBuyerProfileSchema = createInsertSchema(buyerProfiles).omit({
 });
 export type InsertBuyerProfile = z.infer<typeof insertBuyerProfileSchema>;
 export type BuyerProfile = typeof buyerProfiles.$inferSelect;
+
+// Wholesale Payment Intents - Track Stripe PaymentIntents for deposits and balance
+export const wholesalePaymentIntents = pgTable("wholesale_payment_intents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // FK to wholesale_orders
+  type: wholesalePaymentTypePgEnum("type").notNull(), // deposit or balance
+  stripePaymentIntentId: varchar("stripe_payment_intent_id").notNull().unique(),
+  amountCents: integer("amount_cents").notNull(), // Amount in cents
+  status: wholesalePaymentIntentStatusPgEnum("status").notNull().default("pending"),
+  metadata: jsonb("metadata"), // Additional Stripe metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("wholesale_payment_intents_order_id_idx").on(table.orderId),
+    stripePaymentIntentIdIdx: index("wholesale_payment_intents_stripe_id_idx").on(table.stripePaymentIntentId),
+    statusIdx: index("wholesale_payment_intents_status_idx").on(table.status),
+  };
+});
+
+export const insertWholesalePaymentIntentSchema = createInsertSchema(wholesalePaymentIntents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWholesalePaymentIntent = z.infer<typeof insertWholesalePaymentIntentSchema>;
+export type WholesalePaymentIntent = typeof wholesalePaymentIntents.$inferSelect;
+
+// Wholesale Shipping Metadata - Additional shipping information
+export const wholesaleShippingMetadata = pgTable("wholesale_shipping_metadata", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().unique(), // FK to wholesale_orders, one per order
+  shippingType: wholesaleShippingTypePgEnum("shipping_type").notNull(), // freight_collect or buyer_pickup
+  freightAccount: varchar("freight_account"), // For freight collect
+  carrier: varchar("carrier"), // UPS, FedEx, DHL, etc.
+  trackingNumber: varchar("tracking_number"),
+  pickupAddress: jsonb("pickup_address"), // For buyer pickup: {street, city, state, zip, country}
+  pickupInstructions: text("pickup_instructions"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("wholesale_shipping_metadata_order_id_idx").on(table.orderId),
+  };
+});
+
+export const insertWholesaleShippingMetadataSchema = createInsertSchema(wholesaleShippingMetadata).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWholesaleShippingMetadata = z.infer<typeof insertWholesaleShippingMetadataSchema>;
+export type WholesaleShippingMetadata = typeof wholesaleShippingMetadata.$inferSelect;
 
 // Wholesale Invitations - enhanced for new auth system
 export const wholesaleInvitations_legacy = pgTable("wholesale_invitations", {

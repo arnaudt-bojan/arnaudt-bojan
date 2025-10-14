@@ -9,6 +9,7 @@
 
 import type { IStorage } from '../storage';
 import type { WholesaleOrderService } from './wholesale-order.service';
+import type { NotificationService } from '../notifications';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -59,7 +60,8 @@ export interface CheckoutData {
   shippingData?: {
     shippingType: 'freight_collect' | 'buyer_pickup';
     carrierName?: string;
-    carrierAccountNumber?: string;
+    freightAccountNumber?: string;  // Changed from carrierAccountNumber
+    pickupInstructions?: string;     // Added for buyer pickup
     pickupAddress?: any;
     invoicingAddress?: any;
   };
@@ -118,7 +120,8 @@ export interface RemoveCartItemResult {
 export class WholesaleCheckoutService {
   constructor(
     private storage: IStorage,
-    private wholesaleOrderService: WholesaleOrderService
+    private wholesaleOrderService: WholesaleOrderService,
+    private notificationService: NotificationService
   ) {}
 
   /**
@@ -592,6 +595,21 @@ export class WholesaleCheckoutService {
           orderNumber: orderResult.order.orderNumber,
         });
 
+        // Send order confirmation email to buyer
+        try {
+          const seller = await this.storage.getUser(data.sellerId);
+          const items = await this.storage.getWholesaleOrderItems(orderResult.order.id);
+          if (seller) {
+            await this.notificationService.sendWholesaleOrderConfirmation(
+              orderResult.order, 
+              seller, 
+              items
+            );
+          }
+        } catch (emailError: any) {
+          logger.error('[WholesaleCheckoutService] Failed to send order confirmation email', emailError);
+        }
+
         return {
           success: true,
           orderId: orderResult.order.id,
@@ -697,21 +715,22 @@ export class WholesaleCheckoutService {
   // ============================================================================
 
   /**
-   * Create shipping details for order
+   * Create shipping metadata for order
+   * Maps frontend fields (freightAccountNumber) to database fields (freightAccount)
    */
   private async createShippingDetails(orderId: string, shippingData: any): Promise<any> {
     try {
-      const shipping = await this.storage.createWholesaleShippingDetails({
-        wholesaleOrderId: orderId,
+      const shipping = await this.storage.createShippingMetadata({
+        orderId: orderId,
         shippingType: shippingData.shippingType,
-        carrierName: shippingData.carrierName,
-        carrierAccountNumber: shippingData.carrierAccountNumber,
+        carrier: shippingData.carrierName,
+        freightAccount: shippingData.freightAccountNumber,  // Map freightAccountNumber -> freightAccount
         pickupAddress: shippingData.pickupAddress,
-        invoicingAddress: shippingData.invoicingAddress,
+        pickupInstructions: shippingData.pickupInstructions,  // Added pickup instructions support
       });
       return shipping;
     } catch (error: any) {
-      logger.error('[WholesaleCheckoutService] Failed to create shipping details', error);
+      logger.error('[WholesaleCheckoutService] Failed to create shipping metadata', error);
       throw error;
     }
   }

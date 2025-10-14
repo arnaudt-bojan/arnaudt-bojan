@@ -85,6 +85,14 @@ export interface NotificationService {
     webhookEventId?: string,
     eventData?: any
   ): Promise<void>;
+  
+  // Wholesale B2B Email Methods (Phase 4C)
+  sendWholesaleOrderConfirmation(wholesaleOrder: any, seller: User, items: any[]): Promise<void>;
+  sendWholesaleDepositReceived(wholesaleOrder: any, seller: User, buyer: User): Promise<void>;
+  sendWholesaleBalanceReminder(wholesaleOrder: any, seller: User, paymentLink: string): Promise<void>;
+  sendWholesaleBalanceOverdue(wholesaleOrder: any, seller: User, buyer: User, paymentLink: string): Promise<void>;
+  sendWholesaleOrderShipped(wholesaleOrder: any, seller: User, trackingInfo: any): Promise<void>;
+  sendWholesaleOrderFulfilled(wholesaleOrder: any, seller: User, fulfillmentType: 'shipped' | 'pickup', pickupDetails?: any): Promise<void>;
 }
 
 export interface SendNewsletterParams {
@@ -3641,6 +3649,619 @@ class NotificationServiceImpl implements NotificationService {
         </body>
       </html>
     `;
+  }
+
+  // ============================================================================
+  // WHOLESALE B2B EMAIL METHODS (Phase 4C)
+  // ============================================================================
+
+  /**
+   * Generate wholesale order confirmation email - SELLER → BUYER
+   */
+  private async generateWholesaleOrderConfirmationEmail(
+    wholesaleOrder: any,
+    seller: User,
+    items: any[]
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const totalCents = wholesaleOrder.totalCents || 0;
+    const depositCents = wholesaleOrder.depositAmountCents || 0;
+    const balanceCents = wholesaleOrder.balanceAmountCents || 0;
+    const currency = wholesaleOrder.currency || 'USD';
+
+    const formattedTotal = (totalCents / 100).toFixed(2);
+    const formattedDeposit = (depositCents / 100).toFixed(2);
+    const formattedBalance = (balanceCents / 100).toFixed(2);
+
+    const expectedShipDate = wholesaleOrder.expectedShipDate 
+      ? new Date(wholesaleOrder.expectedShipDate).toLocaleDateString()
+      : 'TBD';
+
+    const itemsHtml = items.map(item => `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #1a1a1a !important;">${item.productName}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #1a1a1a !important;">${item.quantity}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important;">$${(item.unitPriceCents / 100).toFixed(2)}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important;">$${(item.subtotalCents / 100).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your Order is Confirmed!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${wholesaleOrder.buyerName || wholesaleOrder.buyerEmail}, thank you for your wholesale order.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 5px; color: #047857 !important; font-weight: 600; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order Number
+        </p>
+        <p style="margin: 0; color: #065f46 !important; font-size: 24px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          ${wholesaleOrder.orderNumber}
+        </p>
+      </div>
+
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Order Items
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+          <tr style="background-color: #f9fafb !important;">
+            <th style="padding: 12px; text-align: left; color: #1a1a1a !important; border-bottom: 2px solid #e5e7eb;">Product</th>
+            <th style="padding: 12px; text-align: center; color: #1a1a1a !important; border-bottom: 2px solid #e5e7eb;">Quantity</th>
+            <th style="padding: 12px; text-align: right; color: #1a1a1a !important; border-bottom: 2px solid #e5e7eb;">Unit Price</th>
+            <th style="padding: 12px; text-align: right; color: #1a1a1a !important; border-bottom: 2px solid #e5e7eb;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <span style="color: #1a1a1a !important; font-weight: 600;">Order Total:</span>
+          <span style="color: #1a1a1a !important; font-weight: 600; font-size: 20px;">$${formattedTotal}</span>
+        </div>
+        ${depositCents > 0 ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+            <span style="color: #047857 !important;">Deposit Paid:</span>
+            <span style="color: #047857 !important; font-weight: 600;">$${formattedDeposit}</span>
+          </div>
+        ` : ''}
+        ${balanceCents > 0 ? `
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #dc2626 !important;">Balance Due:</span>
+            <span style="color: #dc2626 !important; font-weight: 600;">$${formattedBalance}</span>
+          </div>
+          ${wholesaleOrder.balancePaymentDueDate ? `
+            <p style="margin: 10px 0 0; color: #6b7280 !important; font-size: 14px;">
+              Due by: ${new Date(wholesaleOrder.balancePaymentDueDate).toLocaleDateString()}
+            </p>
+          ` : ''}
+        ` : ''}
+      </div>
+
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Shipping Information
+      </h3>
+      <p style="margin: 0 0 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Expected Ship Date: <strong>${expectedShipDate}</strong>
+      </p>
+
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        <strong>What's Next:</strong> We'll send you a shipping notification once your order is on its way.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Order ${wholesaleOrder.orderNumber} confirmed - $${formattedTotal}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate wholesale deposit received email - SELLER → BUYER/SELLER
+   */
+  private async generateWholesaleDepositReceivedEmail(
+    wholesaleOrder: any,
+    seller: User,
+    recipient: 'buyer' | 'seller'
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const depositCents = wholesaleOrder.depositAmountCents || 0;
+    const balanceCents = wholesaleOrder.balanceAmountCents || 0;
+    const formattedDeposit = (depositCents / 100).toFixed(2);
+    const formattedBalance = (balanceCents / 100).toFixed(2);
+
+    const balanceDueDate = wholesaleOrder.balancePaymentDueDate
+      ? new Date(wholesaleOrder.balancePaymentDueDate).toLocaleDateString()
+      : 'TBD';
+
+    const buyerContent = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Deposit Received!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Thank you ${wholesaleOrder.buyerName || ''}! Your deposit payment has been received.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #047857 !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${formattedDeposit} paid
+        </p>
+        <p style="margin: 0; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order: ${wholesaleOrder.orderNumber}
+        </p>
+      </div>
+
+      ${balanceCents > 0 ? `
+        <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
+          <p style="margin: 0 0 10px; color: #92400e !important; font-weight: 600; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Balance Due: $${formattedBalance}
+          </p>
+          <p style="margin: 0; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Due Date: ${balanceDueDate}
+          </p>
+        </div>
+      ` : ''}
+
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        We'll send you a reminder before the balance payment is due. Questions? Reply to this email.
+      </p>
+    `;
+
+    const sellerContent = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Deposit Payment Received
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        A deposit payment has been received for wholesale order ${wholesaleOrder.orderNumber}.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #047857 !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${formattedDeposit} received
+        </p>
+        <p style="margin: 0; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          From: ${wholesaleOrder.buyerEmail}
+        </p>
+      </div>
+
+      ${balanceCents > 0 ? `
+        <p style="margin: 20px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Balance payment of <strong>$${formattedBalance}</strong> is due by ${balanceDueDate}.
+        </p>
+      ` : ''}
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content: recipient === 'buyer' ? buyerContent : sellerContent,
+      footer,
+      preheader: `Deposit received for order ${wholesaleOrder.orderNumber}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate wholesale balance reminder email - SELLER → BUYER
+   */
+  private async generateWholesaleBalanceReminderEmail(
+    wholesaleOrder: any,
+    seller: User,
+    paymentLink: string
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const balanceCents = wholesaleOrder.balanceAmountCents || 0;
+    const formattedBalance = (balanceCents / 100).toFixed(2);
+
+    const dueDate = wholesaleOrder.balancePaymentDueDate
+      ? new Date(wholesaleOrder.balancePaymentDueDate).toLocaleDateString()
+      : 'soon';
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Balance Payment Reminder
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${wholesaleOrder.buyerName || wholesaleOrder.buyerEmail}, your balance payment will be due soon.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #92400e !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${formattedBalance} due
+        </p>
+        <p style="margin: 0; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order: ${wholesaleOrder.orderNumber} • Due: ${dueDate}
+        </p>
+      </div>
+
+      ${generateMagicLinkButton(paymentLink, 'Pay Balance Now')}
+
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        <strong>Reminder:</strong> Please complete your payment by ${dueDate} to avoid order cancellation.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Balance payment due: $${formattedBalance}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate wholesale balance overdue email - SELLER → BUYER/SELLER
+   */
+  private async generateWholesaleBalanceOverdueEmail(
+    wholesaleOrder: any,
+    seller: User,
+    recipient: 'buyer' | 'seller',
+    paymentLink?: string
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const balanceCents = wholesaleOrder.balanceAmountCents || 0;
+    const formattedBalance = (balanceCents / 100).toFixed(2);
+
+    const dueDate = wholesaleOrder.balancePaymentDueDate
+      ? new Date(wholesaleOrder.balancePaymentDueDate)
+      : new Date();
+    const now = new Date();
+    const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    const buyerContent = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #dc2626 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        OVERDUE: Balance Payment Required
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${wholesaleOrder.buyerName || wholesaleOrder.buyerEmail}, your balance payment is now overdue.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2 !important; border-left: 4px solid #dc2626; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #991b1b !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${formattedBalance} OVERDUE
+        </p>
+        <p style="margin: 0; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order: ${wholesaleOrder.orderNumber} • Overdue by: ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'}
+        </p>
+      </div>
+
+      ${paymentLink ? generateMagicLinkButton(paymentLink, 'Pay Now to Avoid Cancellation') : ''}
+
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #fef2f2 !important; border-radius: 8px; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        <strong>Urgent:</strong> If payment is not received immediately, your order will be cancelled.
+      </p>
+    `;
+
+    const sellerContent = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #dc2626 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Balance Payment Overdue
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        The balance payment for order ${wholesaleOrder.orderNumber} is overdue by ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'}.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2 !important; border-left: 4px solid #dc2626; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #991b1b !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          $${formattedBalance} overdue
+        </p>
+        <p style="margin: 0; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Buyer: ${wholesaleOrder.buyerEmail}
+        </p>
+      </div>
+
+      <p style="margin: 20px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        The buyer has been notified. You may need to follow up directly or cancel the order.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content: recipient === 'buyer' ? buyerContent : sellerContent,
+      footer,
+      preheader: `OVERDUE: Balance payment for ${wholesaleOrder.orderNumber}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate wholesale order shipped email - SELLER → BUYER
+   */
+  private async generateWholesaleOrderShippedEmail(
+    wholesaleOrder: any,
+    seller: User,
+    trackingInfo: any
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const trackingHtml = trackingInfo.trackingNumber ? `
+      <div style="margin: 20px 0; padding: 20px; background-color: #eff6ff !important; border-left: 4px solid #3b82f6; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #1e40af !important; font-weight: 600; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Tracking Number
+        </p>
+        <p style="margin: 0; color: #1e3a8a !important; font-size: 20px; font-family: monospace;">
+          ${trackingInfo.trackingNumber}
+        </p>
+        ${trackingInfo.carrier ? `
+          <p style="margin: 10px 0 0; color: #1e40af !important; font-size: 14px;">
+            Carrier: ${trackingInfo.carrier}
+          </p>
+        ` : ''}
+      </div>
+    ` : '';
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Your Order Has Shipped!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${wholesaleOrder.buyerName || wholesaleOrder.buyerEmail}, great news! Your order is on its way.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 5px; color: #047857 !important; font-weight: 600; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order Number
+        </p>
+        <p style="margin: 0; color: #065f46 !important; font-size: 20px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          ${wholesaleOrder.orderNumber}
+        </p>
+      </div>
+
+      ${trackingHtml}
+
+      ${trackingInfo.trackingUrl ? generateMagicLinkButton(trackingInfo.trackingUrl, 'Track Your Shipment') : ''}
+
+      ${trackingInfo.estimatedDelivery ? `
+        <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+          <strong>Estimated Delivery:</strong> ${new Date(trackingInfo.estimatedDelivery).toLocaleDateString()}
+        </p>
+      ` : ''}
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Order ${wholesaleOrder.orderNumber} has shipped`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Generate wholesale order fulfilled email - SELLER → BUYER
+   */
+  private async generateWholesaleOrderFulfilledEmail(
+    wholesaleOrder: any,
+    seller: User,
+    fulfillmentType: 'shipped' | 'pickup',
+    pickupDetails?: any
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const shippedContent = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Order Complete!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${wholesaleOrder.buyerName || wholesaleOrder.buyerEmail}, your order has been delivered.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0; color: #047857 !important; font-weight: 600; font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order ${wholesaleOrder.orderNumber} delivered
+        </p>
+      </div>
+
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Thank you for your business! We hope to work with you again soon.
+      </p>
+    `;
+
+    const pickupContent = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Order Ready for Pickup!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${wholesaleOrder.buyerName || wholesaleOrder.buyerEmail}, your order is ready for pickup.
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 5px; color: #047857 !important; font-weight: 600; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Order Number
+        </p>
+        <p style="margin: 0; color: #065f46 !important; font-size: 20px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          ${wholesaleOrder.orderNumber}
+        </p>
+      </div>
+
+      ${pickupDetails?.address ? `
+        <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+          Pickup Location
+        </h3>
+        <div style="margin: 20px 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+          <p style="margin: 0 0 10px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            ${pickupDetails.address}
+          </p>
+          ${pickupDetails.instructions ? `
+            <p style="margin: 10px 0 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+              <strong>Instructions:</strong> ${pickupDetails.instructions}
+            </p>
+          ` : ''}
+        </div>
+      ` : ''}
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content: fulfillmentType === 'shipped' ? shippedContent : pickupContent,
+      footer,
+      preheader: `Order ${wholesaleOrder.orderNumber} ${fulfillmentType === 'shipped' ? 'delivered' : 'ready for pickup'}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
+   * Send wholesale order confirmation email
+   */
+  async sendWholesaleOrderConfirmation(wholesaleOrder: any, seller: User, items: any[]): Promise<void> {
+    const emailHtml = await this.generateWholesaleOrderConfirmationEmail(wholesaleOrder, seller, items);
+
+    const result = await this.sendEmail({
+      to: wholesaleOrder.buyerEmail,
+      replyTo: seller.email,
+      subject: `Order Confirmed - ${wholesaleOrder.orderNumber}`,
+      html: emailHtml,
+    });
+
+    logger.info('[Notifications] Wholesale order confirmation sent', {
+      orderId: wholesaleOrder.id,
+      orderNumber: wholesaleOrder.orderNumber,
+      buyerEmail: wholesaleOrder.buyerEmail,
+      success: result.success,
+    });
+  }
+
+  /**
+   * Send wholesale deposit received email
+   */
+  async sendWholesaleDepositReceived(wholesaleOrder: any, seller: User, buyer: User): Promise<void> {
+    const buyerEmailHtml = await this.generateWholesaleDepositReceivedEmail(wholesaleOrder, seller, 'buyer');
+    const sellerEmailHtml = await this.generateWholesaleDepositReceivedEmail(wholesaleOrder, seller, 'seller');
+
+    const buyerResult = await this.sendEmail({
+      to: wholesaleOrder.buyerEmail,
+      replyTo: seller.email,
+      subject: `Deposit Received - ${wholesaleOrder.orderNumber}`,
+      html: buyerEmailHtml,
+    });
+
+    const sellerResult = await this.sendEmail({
+      to: seller.email,
+      subject: `Deposit Received - ${wholesaleOrder.orderNumber}`,
+      html: sellerEmailHtml,
+    });
+
+    logger.info('[Notifications] Wholesale deposit received emails sent', {
+      orderId: wholesaleOrder.id,
+      orderNumber: wholesaleOrder.orderNumber,
+      buyerSuccess: buyerResult.success,
+      sellerSuccess: sellerResult.success,
+    });
+  }
+
+  /**
+   * Send wholesale balance reminder email
+   */
+  async sendWholesaleBalanceReminder(wholesaleOrder: any, seller: User, paymentLink: string): Promise<void> {
+    const emailHtml = await this.generateWholesaleBalanceReminderEmail(wholesaleOrder, seller, paymentLink);
+
+    const result = await this.sendEmail({
+      to: wholesaleOrder.buyerEmail,
+      replyTo: seller.email,
+      subject: `Balance Payment Due - ${wholesaleOrder.orderNumber}`,
+      html: emailHtml,
+    });
+
+    logger.info('[Notifications] Wholesale balance reminder sent', {
+      orderId: wholesaleOrder.id,
+      orderNumber: wholesaleOrder.orderNumber,
+      buyerEmail: wholesaleOrder.buyerEmail,
+      success: result.success,
+    });
+  }
+
+  /**
+   * Send wholesale balance overdue email
+   */
+  async sendWholesaleBalanceOverdue(wholesaleOrder: any, seller: User, buyer: User, paymentLink: string): Promise<void> {
+    const buyerEmailHtml = await this.generateWholesaleBalanceOverdueEmail(wholesaleOrder, seller, 'buyer', paymentLink);
+    const sellerEmailHtml = await this.generateWholesaleBalanceOverdueEmail(wholesaleOrder, seller, 'seller');
+
+    const buyerResult = await this.sendEmail({
+      to: wholesaleOrder.buyerEmail,
+      replyTo: seller.email,
+      subject: `OVERDUE: Balance Payment Required - ${wholesaleOrder.orderNumber}`,
+      html: buyerEmailHtml,
+    });
+
+    const sellerResult = await this.sendEmail({
+      to: seller.email,
+      subject: `Balance Payment Overdue - ${wholesaleOrder.orderNumber}`,
+      html: sellerEmailHtml,
+    });
+
+    logger.info('[Notifications] Wholesale balance overdue emails sent', {
+      orderId: wholesaleOrder.id,
+      orderNumber: wholesaleOrder.orderNumber,
+      buyerSuccess: buyerResult.success,
+      sellerSuccess: sellerResult.success,
+    });
+  }
+
+  /**
+   * Send wholesale order shipped email
+   */
+  async sendWholesaleOrderShipped(wholesaleOrder: any, seller: User, trackingInfo: any): Promise<void> {
+    const emailHtml = await this.generateWholesaleOrderShippedEmail(wholesaleOrder, seller, trackingInfo);
+
+    const result = await this.sendEmail({
+      to: wholesaleOrder.buyerEmail,
+      replyTo: seller.email,
+      subject: `Order Shipped - ${wholesaleOrder.orderNumber}`,
+      html: emailHtml,
+    });
+
+    logger.info('[Notifications] Wholesale order shipped email sent', {
+      orderId: wholesaleOrder.id,
+      orderNumber: wholesaleOrder.orderNumber,
+      buyerEmail: wholesaleOrder.buyerEmail,
+      success: result.success,
+    });
+  }
+
+  /**
+   * Send wholesale order fulfilled email
+   */
+  async sendWholesaleOrderFulfilled(
+    wholesaleOrder: any,
+    seller: User,
+    fulfillmentType: 'shipped' | 'pickup',
+    pickupDetails?: any
+  ): Promise<void> {
+    const emailHtml = await this.generateWholesaleOrderFulfilledEmail(wholesaleOrder, seller, fulfillmentType, pickupDetails);
+
+    const result = await this.sendEmail({
+      to: wholesaleOrder.buyerEmail,
+      replyTo: seller.email,
+      subject: `Order Ready - ${wholesaleOrder.orderNumber}`,
+      html: emailHtml,
+    });
+
+    logger.info('[Notifications] Wholesale order fulfilled email sent', {
+      orderId: wholesaleOrder.id,
+      orderNumber: wholesaleOrder.orderNumber,
+      fulfillmentType,
+      buyerEmail: wholesaleOrder.buyerEmail,
+      success: result.success,
+    });
   }
 }
 

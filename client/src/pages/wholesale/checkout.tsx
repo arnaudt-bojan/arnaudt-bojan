@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,6 +21,8 @@ import { format } from "date-fns";
 const checkoutSchema = z.object({
   shippingType: z.enum(["freight_collect", "buyer_pickup"]),
   carrierName: z.string().optional(),
+  freightAccountNumber: z.string().optional(),
+  pickupInstructions: z.string().optional(),
   contactName: z.string().min(1, "Name is required"),
   contactEmail: z.string().email("Valid email is required"),
   contactPhone: z.string().min(1, "Phone number is required"),
@@ -70,6 +73,8 @@ export default function WholesaleCheckout() {
     defaultValues: {
       shippingType: "freight_collect",
       carrierName: "",
+      freightAccountNumber: "",
+      pickupInstructions: "",
       contactName: "",
       contactEmail: "",
       contactPhone: "",
@@ -116,6 +121,8 @@ export default function WholesaleCheckout() {
         shippingData: {
           shippingType: data.shippingType,
           carrierName: data.carrierName,
+          freightAccountNumber: data.freightAccountNumber,
+          pickupInstructions: data.pickupInstructions,
         },
         buyerContact: {
           name: data.contactName,
@@ -260,7 +267,7 @@ export default function WholesaleCheckout() {
                         />
 
                         {shippingType === "freight_collect" && (
-                          <div className="mt-4">
+                          <div className="mt-4 space-y-4">
                             <FormField
                               control={form.control}
                               name="carrierName"
@@ -279,6 +286,67 @@ export default function WholesaleCheckout() {
                                       <SelectItem value="DHL">DHL</SelectItem>
                                     </SelectContent>
                                   </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="freightAccountNumber"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Freight Account Number</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      {...field} 
+                                      placeholder="Enter your freight account number" 
+                                      data-testid="input-freight-account"
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    We'll ship using your freight account. You'll receive tracking info when shipped.
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
+
+                        {shippingType === "buyer_pickup" && (
+                          <div className="mt-4 space-y-4">
+                            <div className="p-4 bg-muted rounded-md">
+                              <h4 className="font-medium mb-2">Pickup Address</h4>
+                              <div className="text-sm text-muted-foreground" data-testid="text-pickup-address">
+                                {itemsWithDetails[0]?.sellerWarehouseAddress ? (
+                                  <>
+                                    {itemsWithDetails[0].sellerWarehouseAddress.street}<br />
+                                    {itemsWithDetails[0].sellerWarehouseAddress.city}, {itemsWithDetails[0].sellerWarehouseAddress.state} {itemsWithDetails[0].sellerWarehouseAddress.zip}
+                                  </>
+                                ) : (
+                                  "Address will be provided by seller"
+                                )}
+                              </div>
+                            </div>
+
+                            <FormField
+                              control={form.control}
+                              name="pickupInstructions"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Pickup Instructions (Optional)</FormLabel>
+                                  <FormControl>
+                                    <Textarea 
+                                      {...field} 
+                                      placeholder="Any special instructions for pickup?" 
+                                      data-testid="textarea-pickup-instructions"
+                                      rows={3}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    You can pick up your order from the address above after production is complete.
+                                  </FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}

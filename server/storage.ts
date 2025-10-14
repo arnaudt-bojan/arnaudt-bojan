@@ -106,6 +106,10 @@ import {
   type InsertBuyerProfile,
   type WholesaleCart,
   type InsertWholesaleCart,
+  type WholesalePaymentIntent,
+  type InsertWholesalePaymentIntent,
+  type WholesaleShippingMetadata,
+  type InsertWholesaleShippingMetadata,
   users,
   products,
   orders,
@@ -160,11 +164,13 @@ import {
   wholesaleOrderEvents,
   warehouseLocations,
   buyerProfiles,
-  wholesaleCarts
+  wholesaleCarts,
+  wholesalePaymentIntents,
+  wholesaleShippingMetadata
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, desc, sql, and, lt, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, or, lt, lte, asc, inArray } from "drizzle-orm";
 import ws from "ws";
 import { logger } from './logger';
 
@@ -404,6 +410,7 @@ export interface IStorage {
   getWholesaleOrderByNumber(orderNumber: string): Promise<WholesaleOrder | undefined>;
   getWholesaleOrdersBySellerId(sellerId: string): Promise<WholesaleOrder[]>;
   getWholesaleOrdersByBuyerId(buyerId: string): Promise<WholesaleOrder[]>;
+  getOrdersWithBalanceDueSoon(dueDate: Date): Promise<WholesaleOrder[]>;
   updateWholesaleOrder(id: string, updates: Partial<WholesaleOrder>): Promise<WholesaleOrder | undefined>;
   deleteWholesaleOrder(id: string): Promise<boolean>;
   
@@ -420,6 +427,17 @@ export interface IStorage {
   getWholesalePaymentsByOrderId(wholesaleOrderId: string): Promise<WholesalePayment[]>;
   updateWholesalePayment(id: string, updates: Partial<WholesalePayment>): Promise<WholesalePayment | undefined>;
   deleteWholesalePayment(id: string): Promise<boolean>;
+  
+  // Wholesale Payment Intents (Stripe Integration)
+  createPaymentIntent(data: InsertWholesalePaymentIntent): Promise<WholesalePaymentIntent>;
+  getPaymentIntentsByOrderId(orderId: string): Promise<WholesalePaymentIntent[]>;
+  getPaymentIntentByStripeId(stripePaymentIntentId: string): Promise<WholesalePaymentIntent | undefined>;
+  updatePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined>;
+  
+  // Wholesale Shipping Metadata
+  createShippingMetadata(data: InsertWholesaleShippingMetadata): Promise<WholesaleShippingMetadata>;
+  getShippingMetadataByOrderId(orderId: string): Promise<WholesaleShippingMetadata | undefined>;
+  updateShippingMetadata(id: string, data: Partial<InsertWholesaleShippingMetadata>): Promise<WholesaleShippingMetadata | undefined>;
   
   // Wholesale Shipping Details
   createWholesaleShippingDetails(details: InsertWholesaleShippingDetail): Promise<WholesaleShippingDetail>;
@@ -2236,6 +2254,23 @@ export class DatabaseStorage implements IStorage {
     return await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.buyerId, buyerId)).orderBy(desc(wholesaleOrders.createdAt));
   }
 
+  async getOrdersWithBalanceDueSoon(dueDate: Date): Promise<WholesaleOrder[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(wholesaleOrders)
+      .where(
+        and(
+          or(
+            eq(wholesaleOrders.status, 'deposit_paid'),
+            eq(wholesaleOrders.status, 'awaiting_balance')
+          ),
+          lte(wholesaleOrders.balancePaymentDueDate, dueDate)
+        )
+      )
+      .orderBy(asc(wholesaleOrders.balancePaymentDueDate));
+  }
+
   async updateWholesaleOrder(id: string, updates: Partial<WholesaleOrder>): Promise<WholesaleOrder | undefined> {
     await this.ensureInitialized();
     const result = await this.db
@@ -2318,6 +2353,69 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(wholesalePayments).where(eq(wholesalePayments.id, id));
     return true;
+  }
+
+  // Wholesale Payment Intents Methods (Stripe Integration)
+  async createPaymentIntent(data: InsertWholesalePaymentIntent): Promise<WholesalePaymentIntent> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesalePaymentIntents).values(data).returning();
+    return result[0];
+  }
+
+  async getPaymentIntentsByOrderId(orderId: string): Promise<WholesalePaymentIntent[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(wholesalePaymentIntents)
+      .where(eq(wholesalePaymentIntents.orderId, orderId))
+      .orderBy(desc(wholesalePaymentIntents.createdAt));
+  }
+
+  async getPaymentIntentByStripeId(stripePaymentIntentId: string): Promise<WholesalePaymentIntent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(wholesalePaymentIntents)
+      .where(eq(wholesalePaymentIntents.stripePaymentIntentId, stripePaymentIntentId))
+      .limit(1);
+    return result[0];
+  }
+
+  async updatePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesalePaymentIntents)
+      .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(wholesalePaymentIntents.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Wholesale Shipping Metadata Methods
+  async createShippingMetadata(data: InsertWholesaleShippingMetadata): Promise<WholesaleShippingMetadata> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(wholesaleShippingMetadata).values(data).returning();
+    return result[0];
+  }
+
+  async getShippingMetadataByOrderId(orderId: string): Promise<WholesaleShippingMetadata | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(wholesaleShippingMetadata)
+      .where(eq(wholesaleShippingMetadata.orderId, orderId))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateShippingMetadata(id: string, data: Partial<InsertWholesaleShippingMetadata>): Promise<WholesaleShippingMetadata | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleShippingMetadata)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(wholesaleShippingMetadata.id, id))
+      .returning();
+    return result[0];
   }
 
   // Wholesale Shipping Details Methods

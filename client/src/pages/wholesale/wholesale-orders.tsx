@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, Package } from "lucide-react";
+import { Eye, Package, CheckCircle, AlertCircle, Truck, MapPin } from "lucide-react";
 import type { WholesaleOrder } from "@shared/schema";
 
 export default function WholesaleOrders() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [, setLocation] = useLocation();
 
   // Fetch wholesale orders
   const { data: orders = [], isLoading } = useQuery<WholesaleOrder[]>({
@@ -123,42 +125,89 @@ export default function WholesaleOrders() {
                 <TableHead>Buyer</TableHead>
                 <TableHead>Order Date</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Payment Status</TableHead>
+                <TableHead>Shipping</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                  <TableCell className="font-medium" data-testid={`text-order-number-${order.id}`}>
-                    {order.orderNumber}
-                  </TableCell>
-                  <TableCell data-testid={`text-buyer-${order.id}`}>
-                    <div>
-                      <div className="font-medium">{order.buyerCompanyName || "N/A"}</div>
-                      <div className="text-sm text-muted-foreground">{order.buyerEmail}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell data-testid={`text-date-${order.id}`}>
-                    {order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "N/A"}
-                  </TableCell>
-                  <TableCell data-testid={`text-total-${order.id}`}>
-                    {formatPrice(order.totalCents)}
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(order.status)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      data-testid={`button-view-${order.id}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredOrders.map((order) => {
+                // Determine payment status
+                const hasDeposit = order.depositAmountCents > 0;
+                const hasBalance = order.balanceAmountCents > 0;
+                const isDepositPaid = ["deposit_paid", "awaiting_balance", "ready_to_release", "in_production", "fulfilled"].includes(order.status);
+                const isBalancePaid = ["ready_to_release", "in_production", "fulfilled"].includes(order.status);
+                const isBalanceOverdue = order.status === "balance_overdue";
+
+                return (
+                  <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                    <TableCell className="font-medium" data-testid={`text-order-number-${order.id}`}>
+                      {order.orderNumber}
+                    </TableCell>
+                    <TableCell data-testid={`text-buyer-${order.id}`}>
+                      <div>
+                        <div className="font-medium">{order.buyerCompanyName || "N/A"}</div>
+                        <div className="text-sm text-muted-foreground">{order.buyerEmail}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid={`text-date-${order.id}`}>
+                      {order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "N/A"}
+                    </TableCell>
+                    <TableCell data-testid={`text-total-${order.id}`}>
+                      {formatPrice(order.totalCents)}
+                    </TableCell>
+                    <TableCell data-testid={`payment-status-${order.id}`}>
+                      <div className="flex gap-1">
+                        {hasDeposit && (
+                          isDepositPaid ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" title="Deposit Paid" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-yellow-600" title="Deposit Pending" />
+                          )
+                        )}
+                        {hasBalance && (
+                          isBalancePaid ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" title="Balance Paid" />
+                          ) : isBalanceOverdue ? (
+                            <AlertCircle className="h-4 w-4 text-red-600" title="Balance Overdue" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-orange-600" title="Balance Due" />
+                          )
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid={`shipping-type-${order.id}`}>
+                      {order.shippingType === "freight_collect" ? (
+                        <Badge variant="outline" className="gap-1">
+                          <Truck className="h-3 w-3" />
+                          Freight
+                        </Badge>
+                      ) : order.shippingType === "buyer_pickup" ? (
+                        <Badge variant="outline" className="gap-1">
+                          <MapPin className="h-3 w-3" />
+                          Pickup
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(order.status)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setLocation(`/wholesale/orders/${order.id}`)}
+                        data-testid={`button-view-${order.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

@@ -12,6 +12,7 @@ import type {
   InsertWholesaleShippingDetail,
   WarehouseLocation 
 } from '@shared/schema';
+import type { NotificationService } from '../notifications';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -48,7 +49,8 @@ export interface ValidateFreightResult {
 export interface ShippingData {
   shippingType: 'freight_collect' | 'buyer_pickup';
   carrierName?: string;
-  carrierAccountNumber?: string;
+  freightAccountNumber?: string;  // Changed from carrierAccountNumber to match frontend
+  pickupInstructions?: string;     // Added for buyer pickup instructions
   prepaidLabelUrls?: string[];
   serviceLevel?: string;
   pickupAddress?: any;
@@ -67,10 +69,15 @@ export interface ShippingData {
 // ============================================================================
 
 export class WholesaleShippingService {
-  constructor(private storage: IStorage) {}
+  constructor(
+    private storage: IStorage,
+    private notificationService?: NotificationService
+  ) {}
 
   /**
    * Create shipping details for order
+   * Note: This uses wholesaleShippingDetails table (legacy)
+   * For new implementations, use shipping metadata instead
    */
   async createShippingDetails(
     orderId: string,
@@ -91,7 +98,7 @@ export class WholesaleShippingService {
         wholesaleOrderId: orderId,
         shippingType: shippingData.shippingType,
         carrierName: shippingData.carrierName,
-        carrierAccountNumber: shippingData.carrierAccountNumber,
+        carrierAccountNumber: shippingData.freightAccountNumber,  // Map from freightAccountNumber
         prepaidLabelUrls: shippingData.prepaidLabelUrls,
         serviceLevel: shippingData.serviceLevel,
         pickupAddress: shippingData.pickupAddress,
@@ -134,22 +141,22 @@ export class WholesaleShippingService {
   /**
    * Validate freight collect carrier account
    */
-  validateFreightCollect(carrierAccount?: string): ValidateFreightResult {
+  validateFreightCollect(freightAccountNumber?: string): ValidateFreightResult {
     try {
-      if (!carrierAccount || carrierAccount.trim().length === 0) {
+      if (!freightAccountNumber || freightAccountNumber.trim().length === 0) {
         return {
           success: true,
           valid: false,
-          error: 'Carrier account number is required for freight collect',
+          error: 'Freight account number is required for freight collect',
         };
       }
 
       // Basic validation - could be enhanced with carrier-specific rules
-      if (carrierAccount.length < 5) {
+      if (freightAccountNumber.length < 5) {
         return {
           success: true,
           valid: false,
-          error: 'Invalid carrier account number format',
+          error: 'Invalid freight account number format',
         };
       }
 
@@ -341,6 +348,101 @@ export class WholesaleShippingService {
       return {
         success: false,
         error: error.message || 'Failed to update shipping details',
+        statusCode: 500,
+      };
+    }
+  }
+
+  /**
+   * Update tracking information for freight collect orders
+   * Updates shipping metadata with carrier and tracking number
+   */
+  async updateTrackingInfo(
+    orderId: string,
+    carrier: string,
+    trackingNumber: string
+  ): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+    try {
+      // Check if order exists
+      const order = await this.storage.getWholesaleOrder(orderId);
+      if (!order) {
+        return {
+          success: false,
+          error: 'Order not found',
+          statusCode: 404,
+        };
+      }
+
+      // Get or create shipping metadata
+      let shippingMetadata = await this.storage.getShippingMetadataByOrderId(orderId);
+      
+      if (shippingMetadata) {
+        // Update existing metadata
+        const updated = await this.storage.updateShippingMetadata(shippingMetadata.id, {
+          carrier,
+          trackingNumber,
+        });
+
+        if (!updated) {
+          return {
+            success: false,
+            error: 'Failed to update tracking information',
+            statusCode: 500,
+          };
+        }
+      } else {
+        // Create new metadata if doesn't exist
+        shippingMetadata = await this.storage.createShippingMetadata({
+          orderId,
+          shippingType: 'freight_collect',
+          carrier,
+          trackingNumber,
+        });
+
+        if (!shippingMetadata) {
+          return {
+            success: false,
+            error: 'Failed to create tracking information',
+            statusCode: 500,
+          };
+        }
+      }
+
+      logger.info('[WholesaleShippingService] Tracking info updated', {
+        orderId,
+        carrier,
+        trackingNumber,
+      });
+
+      // Send shipped email with tracking info
+      if (this.notificationService) {
+        try {
+          const seller = await this.storage.getUser(order.sellerId);
+          
+          if (seller) {
+            const trackingInfo = {
+              carrier,
+              trackingNumber,
+              trackingUrl: `https://tracking.example.com/${trackingNumber}`
+            };
+            
+            await this.notificationService.sendWholesaleOrderShipped(
+              order, 
+              seller, 
+              trackingInfo
+            );
+          }
+        } catch (emailError: any) {
+          logger.error('[WholesaleShippingService] Failed to send shipping email', emailError);
+        }
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      logger.error('[WholesaleShippingService] Failed to update tracking info', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to update tracking info',
         statusCode: 500,
       };
     }

@@ -55,6 +55,7 @@ import WholesaleDashboard from "@/pages/wholesale/wholesale-dashboard";
 import WholesaleProductsPage from "@/pages/wholesale/wholesale-products";
 import CreateWholesaleProductPage from "@/pages/wholesale/create-wholesale-product";
 import WholesaleOrdersPage from "@/pages/wholesale/wholesale-orders";
+import WholesaleOrderDetailPage from "@/pages/wholesale/order-detail";
 import WholesaleBuyersPage from "@/pages/wholesale/wholesale-buyers";
 import WholesalePreviewPage from "@/pages/wholesale/wholesale-preview";
 import BuyerCatalog from "@/pages/wholesale/buyer-catalog";
@@ -416,6 +417,15 @@ function AppContent() {
                   <ProtectedRoute requireSeller>
                     <WholesaleLayout>
                       <CreateWholesaleProductPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/orders/:orderId">
+                {(params) => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleOrderDetailPage />
                     </WholesaleLayout>
                   </ProtectedRoute>
                 )}
