@@ -31,6 +31,8 @@ import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.s
 import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
 import { WholesaleService } from "./services/wholesale.service";
+import { WholesaleOrderService } from "./services/wholesale-order.service";
+import { WholesaleInvitationEnhancedService } from "./services/wholesale-invitation-enhanced.service";
 import { TeamManagementService } from "./services/team-management.service";
 import { OrderLifecycleService } from "./services/order-lifecycle.service";
 import { PricingCalculationService } from "./services/pricing-calculation.service";
@@ -152,6 +154,12 @@ const subscriptionService = new SubscriptionService(
 
 // Initialize Wholesale service (Architecture 3 migration)
 const wholesaleService = new WholesaleService(storage);
+
+// Initialize Wholesale Order service for B2B order management
+const wholesaleOrderService = new WholesaleOrderService(storage, notificationService);
+
+// Initialize Wholesale Invitation Enhanced service for buyer invitations
+const wholesaleInvitationService = new WholesaleInvitationEnhancedService(storage, notificationService);
 
 // Initialize Team Management service (Architecture 3 migration)
 const teamService = new TeamManagementService(storage, notificationService);
@@ -4639,15 +4647,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Wholesale Products Routes
-  app.get("/api/wholesale/products", async (req, res) => {
+  // Get seller's wholesale products (authenticated)
+  app.get("/api/wholesale/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
-      const result = await wholesaleService.getAllProducts();
+      const userId = req.user.claims.sub;
+      const result = await wholesaleService.getProductsBySellerId(userId);
       if (!result.success) {
         return res.status(500).json({ message: result.error });
       }
       res.json(result.data);
     } catch (error) {
-      logger.error("Error fetching wholesale products", error);
+      logger.error("Error fetching seller wholesale products", error);
       res.status(500).json({ message: "Failed to fetch wholesale products" });
     }
   });
@@ -4781,12 +4791,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/invitations", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const result = await wholesaleService.getInvitationsBySeller(userId);
+      const result = await wholesaleInvitationService.getSellerInvitations(userId);
       
       if (!result.success) {
-        return res.status(500).json({ message: result.error });
+        return res.status(result.statusCode || 500).json({ message: result.error });
       }
-      res.json(result.data);
+      res.json(result.invitations);
     } catch (error) {
       logger.error("Error fetching wholesale invitations", error);
       res.status(500).json({ message: "Failed to fetch wholesale invitations" });
@@ -4906,6 +4916,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error fetching wholesale product", error);
       res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
+  // Wholesale Orders Routes
+  app.get("/api/wholesale/orders", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const result = await wholesaleOrderService.getOrdersBySeller(userId);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      res.json(result.orders);
+    } catch (error) {
+      logger.error("Error fetching wholesale orders", error);
+      res.status(500).json({ message: "Failed to fetch wholesale orders" });
+    }
+  });
+
+  // Wholesale Buyers Routes
+  app.get("/api/wholesale/buyers", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const buyers = await storage.getWholesaleAccessGrantsBySeller(userId);
+      res.json(buyers);
+    } catch (error) {
+      logger.error("Error fetching wholesale buyers", error);
+      res.status(500).json({ message: "Failed to fetch wholesale buyers" });
+    }
+  });
+
+  // Wholesale Invite Route (using enhanced invitation service)
+  app.post("/api/wholesale/invite", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { email, expiryDays, wholesaleTerms } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const result = await wholesaleInvitationService.createInvitation(
+        userId,
+        email,
+        expiryDays || 7,
+        wholesaleTerms
+      );
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      res.status(201).json(result.invitation);
+    } catch (error) {
+      logger.error("Error creating wholesale invitation", error);
+      res.status(500).json({ message: "Failed to create invitation" });
     }
   });
 
