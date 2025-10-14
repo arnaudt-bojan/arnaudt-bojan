@@ -6,19 +6,6 @@ import { isAuthenticated } from '../replitAuth';
 
 const router = Router();
 
-// Helper to get seller ID from order
-async function getSellerIdFromOrder(orderId: string): Promise<string | null> {
-  const orderItems = await storage.getOrderItems(orderId);
-  if (orderItems.length === 0) return null;
-  
-  // Get first product to find seller
-  const firstItem = orderItems[0];
-  const product = await storage.getProduct(firstItem.productId);
-  if (!product) return null;
-  
-  return product.sellerId;
-}
-
 /**
  * POST /api/documents/invoices/generate
  * Generate an invoice for an order
@@ -55,8 +42,8 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
       return res.status(400).json({ error: 'Order has no items' });
     }
 
-    // Get seller ID from first product
-    const sellerId = await getSellerIdFromOrder(data.orderId);
+    // Get seller ID directly from order (updated schema)
+    const sellerId = order.sellerId;
     if (!sellerId) {
       return res.status(400).json({ error: 'Could not determine seller for this order' });
     }
@@ -211,8 +198,8 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
       return res.status(400).json({ error: 'Order has no items' });
     }
 
-    // Get seller ID
-    const sellerId = await getSellerIdFromOrder(data.orderId);
+    // Get seller ID directly from order (updated schema)
+    const sellerId = order.sellerId;
     if (!sellerId) {
       return res.status(400).json({ error: 'Could not determine seller for this order' });
     }
