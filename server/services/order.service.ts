@@ -1033,22 +1033,13 @@ export class OrderService {
         count: orderItemsToCreate.length,
       });
     } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      logger.error('[OrderService] Failed to create order items ERROR', {
-        message: errorMessage,
-        stack: error?.stack,
-        orderId: order.id,
-        itemCount: orderItemsToCreate.length,
-      });
-      
-      // Log each item individually for debugging
-      orderItemsToCreate.forEach((item, index) => {
-        logger.error(`[OrderService] Item ${index}:`, {
-          productId: item.productId,
-          variant: item.variant,
-          variantType: typeof item.variant,
-        });
-      });
+      console.error('=== ORDER ITEMS CREATION ERROR ===');
+      console.error('Error:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      console.error('Order ID:', order.id);
+      console.error('Items to create:', JSON.stringify(orderItemsToCreate, null, 2));
+      console.error('===================================');
       
       // Re-throw with original error
       throw error;
