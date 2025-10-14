@@ -33,6 +33,7 @@ export default function OrderSuccess() {
   // Get email from URL query parameter for public order lookup
   const urlParams = new URLSearchParams(window.location.search);
   const email = urlParams.get('email');
+  const balancePayment = urlParams.get('balancePayment') === 'true'; // Check if this is a balance payment completion
   
   // Check if user is authenticated
   const { data: currentUser } = useQuery<User>({
@@ -104,6 +105,9 @@ export default function OrderSuccess() {
   const amountPaid = parseFloat(order?.amountPaid || "0");
   const remainingBalance = parseFloat(order?.remainingBalance || "0");
   const total = parseFloat(order?.total || "0");
+  const depositAmountCents = order?.depositAmountCents || 0;
+  const depositAmount = depositAmountCents / 100;
+  const balanceAmount = amountPaid - depositAmount;
 
   // Get product details
   const getProductDetails = (productId: string) => {
@@ -234,10 +238,13 @@ export default function OrderSuccess() {
           </div>
           
           <h1 className="text-3xl md:text-4xl font-bold mb-3" data-testid="text-order-success">
-            Order Confirmed!
+            {balancePayment ? "Balance Payment Successful!" : "Order Confirmed!"}
           </h1>
           <p className="text-base md:text-lg text-muted-foreground mb-2">
-            Thank you for your order, {order.customerName}!
+            {balancePayment 
+              ? `Thank you ${order.customerName}! Your order is now fully paid.`
+              : `Thank you for your order, ${order.customerName}!`
+            }
           </p>
           <p className="text-sm text-muted-foreground">
             A confirmation email has been sent to <span className="font-medium">{order.customerEmail}</span>
@@ -384,7 +391,36 @@ export default function OrderSuccess() {
               
               {order.subtotalBeforeTax && <Separator />}
               
-              {isDepositPayment ? (
+              {balancePayment ? (
+                /* Balance Payment Complete - Show breakdown */
+                <>
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span>Order Total</span>
+                    <span data-testid="text-order-total">{formatOrderPrice(total, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Deposit Paid</span>
+                    <span>{formatOrderPrice(depositAmount, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600 dark:text-green-400 font-medium">Balance Paid</span>
+                    <span className="text-green-600 dark:text-green-400 font-semibold">
+                      {formatOrderPrice(balanceAmount, currency)}
+                    </span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total Paid</span>
+                    <span className="text-green-600 dark:text-green-400" data-testid="text-total">{formatOrderPrice(amountPaid, currency)}</span>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-3">
+                    <p className="text-sm text-green-800 dark:text-green-200">
+                      ✓ Your order is now fully paid and will be processed for shipping.
+                    </p>
+                  </div>
+                </>
+              ) : isDepositPayment ? (
+                /* Deposit Only - Show balance due */
                 <>
                   <div className="flex justify-between text-sm font-semibold">
                     <span>Order Total</span>
@@ -430,6 +466,7 @@ export default function OrderSuccess() {
                   </div>
                 </>
               ) : (
+                /* Full Payment - Show total paid */
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total Paid</span>
                   <span data-testid="text-total">{formatOrderPrice(total, currency)}</span>

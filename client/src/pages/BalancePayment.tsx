@@ -364,9 +364,9 @@ export default function BalancePayment() {
       title: "Payment Successful!",
       description: "Your balance has been paid in full",
     });
-    // Redirect to order confirmation or success page
+    // Redirect to order confirmation or success page with balancePayment flag
     setTimeout(() => {
-      setLocation(`/order-success/${orderId}`);
+      setLocation(`/order-success/${orderId}?balancePayment=true`);
     }, 1500);
   };
 

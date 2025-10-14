@@ -5,6 +5,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { NotificationService } from '../../notifications';
 import { logger } from '../../logger';
 import type { OrderService } from '../order.service';
+import { orderWebSocketService } from '../../websocket';
 
 export interface WebhookEvent {
   id: string;
@@ -218,25 +219,56 @@ export class WebhookHandler {
     if (paymentType === 'balance' && balanceRequestId && orderId) {
       logger.info(`[Webhook] Processing balance payment for order ${orderId}`);
       
-      // Get current order to check status
+      // Get current order and balance request
       const order = await this.storage.getOrder(orderId);
+      const balanceRequest = await this.storage.getBalanceRequest(balanceRequestId);
       
-      // Update order balance payment fields
+      if (!order) {
+        logger.error(`[Webhook] Order ${orderId} not found for balance payment`);
+        return;
+      }
+      
+      if (!balanceRequest) {
+        logger.error(`[Webhook] Balance request ${balanceRequestId} not found`);
+        return;
+      }
+      
+      // Use ACTUAL Stripe payment amount (not pre-computed balance request amount)
+      const balancePaidCents = amountPaidCents; // From paymentIntent.amount_received
+      const depositAmountCents = order.depositAmountCents || 0;
+      const totalPaidCents = depositAmountCents + balancePaidCents;
+      
+      // Determine decimal precision based on currency
+      let decimalPlaces = 2; // Default
+      if (zeroDecimalCurrencies.includes(currency)) {
+        decimalPlaces = 0;
+      } else if (threeDecimalCurrencies.includes(currency)) {
+        decimalPlaces = 3;
+      }
+      
+      // Convert to decimal for amountPaid field (currency-aware)
+      const totalPaidDecimal = (totalPaidCents / divisor).toFixed(decimalPlaces);
+      
+      // Update order with balance payment
       const updateData: any = {
         balancePaidAt: new Date(),
         paymentStatus: 'fully_paid',
+        amountPaid: totalPaidDecimal,
+        remainingBalance: (0).toFixed(decimalPlaces), // Currency-aware zero
       };
       
       // Only update status if not already shipped/delivered/completed
-      if (order && !['shipped', 'delivered', 'completed'].includes(order.status)) {
+      if (!['shipped', 'delivered', 'completed'].includes(order.status)) {
         updateData.status = 'processing';
       }
       
       await this.storage.updateOrder(orderId, updateData);
       
-      // Update balance request status
+      // Update balance request status with full payment details
       await this.storage.updateBalanceRequest(balanceRequestId, {
         status: 'paid',
+        balancePaidAt: new Date(),
+        paymentIntentId: paymentIntent.id,
       });
       
       // Create order event
@@ -244,16 +276,40 @@ export class WebhookHandler {
         orderId,
         eventType: 'balance_payment_received',
         payload: {
-          amountPaidCents,
+          amountPaidCents: totalPaidCents,
+          balancePaidCents,
+          depositAmountCents,
           balanceRequestId,
           paymentIntentId: paymentIntent.id,
         },
         performedBy: 'system',
       });
       
-      // TODO: Send balance payment confirmation emails
-      // await this.notificationService.sendBalancePaymentConfirmation(order, seller, buyer);
-      logger.info(`[Webhook] Balance payment confirmed for order ${orderId}, amount: ${amountPaidCents} cents`);
+      // Get seller for email notification
+      const seller = await this.storage.getUser(order.sellerId);
+      
+      if (seller) {
+        // Send balance payment confirmation email (currency-aware)
+        const balanceAmountDecimal = balancePaidCents / divisor;
+        await this.notificationService.sendBalancePaymentReceived(order, seller, balanceAmountDecimal);
+        logger.info(`[Webhook] Balance payment confirmation email sent for order ${orderId}`);
+      } else {
+        logger.warn(`[Webhook] Seller not found for order ${orderId}, skipping email`);
+      }
+      
+      // Broadcast WebSocket update to all clients
+      const updatedOrder = await this.storage.getOrder(orderId);
+      if (updatedOrder) {
+        orderWebSocketService.broadcastOrderUpdate(orderId, {
+          status: updatedOrder.status,
+          paymentStatus: updatedOrder.paymentStatus,
+          balancePaidAt: updatedOrder.balancePaidAt?.toISOString() || null,
+          amountPaid: updatedOrder.amountPaid,
+        });
+        logger.info(`[Webhook] Broadcasted balance payment update via WebSocket for order ${orderId}`);
+      }
+      
+      logger.info(`[Webhook] Balance payment confirmed for order ${orderId}, total paid: ${totalPaidCents} cents`);
       
       return; // Don't call orderService.confirmPayment for balance payments
     }
