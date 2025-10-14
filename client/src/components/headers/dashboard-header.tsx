@@ -42,11 +42,8 @@ export function DashboardHeader() {
   const handleEnvironmentToggle = (checked: boolean) => {
     const newEnv = checked ? 'b2b' : 'b2c';
     setEnvironment(newEnv);
-    if (checked) {
-      setLocation('/wholesale/dashboard');
-    } else {
-      setLocation('/seller-dashboard');
-    }
+    // No navigation needed - just toggle environment context
+    // User stays on current page but sees B2B/B2C content
   };
 
   return (
@@ -102,14 +99,6 @@ export function DashboardHeader() {
                     data-testid="mobile-link-seller-products"
                   >
                     My Products
-                  </Link>
-                  <Link
-                    href="/seller/wholesale/products"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
-                    data-testid="mobile-link-wholesale"
-                  >
-                    Wholesale
                   </Link>
                   <Link
                     href="/social-ads-setup"
