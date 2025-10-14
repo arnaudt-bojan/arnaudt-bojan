@@ -1581,7 +1581,11 @@ class NotificationServiceImpl implements NotificationService {
         </p>
       </div>
 
-      ${generateMagicLinkButton(magicLinkUrl, 'Pay Balance Now')}
+      ${(() => {
+        console.log('[DEBUG] magicLinkUrl for balance payment:', magicLinkUrl);
+        console.log('[DEBUG] magicLinkUrl type:', typeof magicLinkUrl);
+        return generateMagicLinkButton(magicLinkUrl, 'Pay Balance Now');
+      })()}
       
       <div style="margin: 30px 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
