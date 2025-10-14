@@ -64,6 +64,13 @@ export interface CreateOrderParams {
     postalCode?: string;
   };
   paymentIntentId?: string; // Stripe payment intent ID (if payment intent created before order)
+  // Payment fields from frontend (after successful payment)
+  amountPaid?: string;
+  paymentStatus?: string;
+  taxAmount?: string;
+  taxCalculationId?: string;
+  taxBreakdown?: any;
+  subtotalBeforeTax?: string;
 }
 
 export interface CreateOrderResult {
@@ -939,12 +946,27 @@ export class OrderService {
       .filter(Boolean)
       .join('\n');
 
+    // CRITICAL FIX: Use payment info from frontend (after successful payment) if provided
+    // Otherwise default to pending (for legacy flows or failed payments)
+    const finalAmountPaid = params.amountPaid || '0';
+    const finalPaymentStatus = params.paymentStatus || 'pending';
+    const finalStatus = params.paymentStatus === 'fully_paid' || params.paymentStatus === 'deposit_paid' 
+      ? 'processing' 
+      : 'pending';
+    
+    // Use tax data from frontend if provided (already calculated during checkout)
+    const finalTaxAmount = params.taxAmount || taxAmount.toString();
+    const finalTaxCalculationId = params.taxCalculationId || taxCalculationId || null;
+    const finalTaxBreakdown = params.taxBreakdown || taxBreakdown;
+    const finalSubtotalBeforeTax = params.subtotalBeforeTax || pricing.subtotal.toString();
+    
     const orderData: InsertOrder = {
       userId,
       customerName: params.customerName,
       customerEmail: params.customerEmail.toLowerCase().trim(),
       customerAddress: fullAddress,
-      taxCalculationId: taxCalculationId || null,
+      taxCalculationId: finalTaxCalculationId,
+      taxBreakdown: finalTaxBreakdown,
       items: JSON.stringify(
         validation.items.map((item: any) => ({
           productId: item.id,
@@ -958,15 +980,15 @@ export class OrderService {
         }))
       ),
       total: pricing.fullTotal.toString(),
-      amountPaid: '0',
+      amountPaid: finalAmountPaid,
       remainingBalance: pricing.payingDepositOnly
         ? pricing.remainingBalance.toString()
         : '0',
       paymentType: pricing.payingDepositOnly ? 'deposit' : 'full',
-      paymentStatus: 'pending',
-      status: 'pending',
-      subtotalBeforeTax: pricing.subtotal.toString(),
-      taxAmount: taxAmount.toString(),
+      paymentStatus: finalPaymentStatus,
+      status: finalStatus,
+      subtotalBeforeTax: finalSubtotalBeforeTax,
+      taxAmount: finalTaxAmount,
       currency,
       // Save payment intent ID if provided (from frontend payment flow)
       stripePaymentIntentId: paymentIntentId || null,
