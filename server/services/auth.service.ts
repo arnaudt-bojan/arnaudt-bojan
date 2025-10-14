@@ -251,7 +251,7 @@ export class AuthService implements IAuthService {
 
     const existingInvitations = await this.storage.getWholesaleInvitationsBySeller(sellerId);
     const pendingInvitation = existingInvitations.find(
-      inv => inv.email === email && inv.status === 'pending'
+      inv => inv.buyerEmail === email && inv.status === 'pending'
     );
 
     if (pendingInvitation) {
@@ -266,7 +266,7 @@ export class AuthService implements IAuthService {
     })();
 
     const invitation: InsertWholesaleInvitation = {
-      email,
+      buyerEmail: email,
       sellerId,
       token,
       wholesaleTerms: terms as any,
@@ -310,7 +310,7 @@ export class AuthService implements IAuthService {
       throw new Error('User not found');
     }
 
-    if (user.email !== invitation.email) {
+    if (user.email !== invitation.buyerEmail) {
       throw new Error('This invitation was sent to a different email address');
     }
 

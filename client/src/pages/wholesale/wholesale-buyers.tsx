@@ -167,7 +167,7 @@ export default function WholesaleBuyers() {
                   {invitations.map((invitation) => (
                     <TableRow key={invitation.id} data-testid={`row-invitation-${invitation.id}`}>
                       <TableCell className="font-medium" data-testid={`text-email-${invitation.id}`}>
-                        {invitation.email}
+                        {invitation.buyerEmail}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(invitation.status)}

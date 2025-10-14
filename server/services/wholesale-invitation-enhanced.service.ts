@@ -83,7 +83,7 @@ export class WholesaleInvitationEnhancedService {
       expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
       const invitationInsert: InsertWholesaleInvitation = {
-        email: buyerEmail,
+        buyerEmail,
         sellerId,
         wholesaleTerms: wholesaleTerms as any,
         status: 'pending',

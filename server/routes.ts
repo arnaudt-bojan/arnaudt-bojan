@@ -4974,6 +4974,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wholesale Buyer Routes
+  app.get("/api/wholesale/catalog", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      const { sellerId } = req.query;
+      const result = await wholesaleService.getBuyerCatalog(buyerId, sellerId);
+      
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.json(result.data);
+    } catch (error) {
+      logger.error("Error fetching buyer catalog", error);
+      res.status(500).json({ message: "Failed to fetch catalog" });
+    }
+  });
+
+  app.post("/api/wholesale/cart", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      const result = await wholesaleCheckoutService.addToCart(buyerId, req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Error adding to cart", error);
+      res.status(500).json({ message: "Failed to add item to cart" });
+    }
+  });
+
+  app.get("/api/wholesale/cart", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      const result = await wholesaleCheckoutService.getCart(buyerId);
+      
+      if (!result.success) {
+        return res.status(500).json({ message: result.error });
+      }
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Error fetching cart", error);
+      res.status(500).json({ message: "Failed to fetch cart" });
+    }
+  });
+
+  app.put("/api/wholesale/cart/item", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      const { productId, variant, quantity } = req.body;
+      
+      if (!productId || quantity === undefined) {
+        return res.status(400).json({ message: "productId and quantity are required" });
+      }
+
+      const result = await wholesaleCheckoutService.updateCartItem(buyerId, productId, variant, quantity);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Error updating cart item", error);
+      res.status(500).json({ message: "Failed to update cart item" });
+    }
+  });
+
+  app.delete("/api/wholesale/cart/item", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      const { productId, variant } = req.body;
+      
+      if (!productId) {
+        return res.status(400).json({ message: "productId is required" });
+      }
+
+      const result = await wholesaleCheckoutService.removeCartItem(buyerId, productId, variant);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+      res.json(result.cart);
+    } catch (error) {
+      logger.error("Error removing cart item", error);
+      res.status(500).json({ message: "Failed to remove cart item" });
+    }
+  });
+
+  app.post("/api/wholesale/checkout", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      
+      // Get cart
+      const cartResult = await wholesaleCheckoutService.getCart(buyerId);
+      if (!cartResult.success || !cartResult.cart) {
+        return res.status(400).json({ message: "Cart not found" });
+      }
+
+      // Validate required fields from request body
+      const { sellerId, shippingData, buyerContact, depositTerms, acceptsTerms } = req.body;
+
+      if (!sellerId) {
+        return res.status(400).json({ message: "sellerId is required" });
+      }
+
+      if (!shippingData || !shippingData.shippingType) {
+        return res.status(400).json({ message: "Shipping information is required" });
+      }
+
+      if (!buyerContact || !buyerContact.name || !buyerContact.email || !buyerContact.phone || !buyerContact.company) {
+        return res.status(400).json({ message: "Complete buyer contact information is required (name, email, phone, company)" });
+      }
+
+      if (!acceptsTerms) {
+        return res.status(400).json({ message: "You must accept the terms and conditions" });
+      }
+
+      // Build complete checkout data
+      const checkoutData = {
+        sellerId,
+        buyerId,
+        cartItems: cartResult.cart.items,
+        shippingData: {
+          shippingType: shippingData.shippingType,
+          carrierName: shippingData.carrierName,
+          carrierAccountNumber: shippingData.carrierAccountNumber,
+          pickupAddress: shippingData.pickupAddress,
+          invoicingAddress: shippingData.invoicingAddress,
+        },
+        buyerCompanyName: buyerContact.company,
+        buyerEmail: buyerContact.email,
+        buyerName: buyerContact.name,
+        buyerPhone: buyerContact.phone,
+        depositPercentage: depositTerms?.depositPercentage,
+        depositAmountCents: depositTerms?.depositAmount ? Math.round(depositTerms.depositAmount * 100) : undefined,
+        paymentTerms: req.body.paymentTerms,
+        poNumber: req.body.poNumber,
+        vatNumber: req.body.vatNumber,
+      };
+
+      const result = await wholesaleCheckoutService.processCheckout(checkoutData);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 400).json({ message: result.error });
+      }
+
+      // Clear cart after successful checkout
+      await wholesaleCheckoutService.clearCart(buyerId);
+
+      res.json({ 
+        orderId: result.orderId, 
+        orderNumber: result.orderNumber 
+      });
+    } catch (error) {
+      logger.error("Error processing checkout", error);
+      res.status(500).json({ message: "Failed to process checkout" });
+    }
+  });
+
+  app.get("/api/wholesale/orders/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const result = await wholesaleOrderService.getOrderById(id, userId);
+      
+      if (!result.success) {
+        return res.status(result.statusCode || 500).json({ message: result.error });
+      }
+      res.json(result.order);
+    } catch (error) {
+      logger.error("Error fetching wholesale order", error);
+      res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
   // Instagram OAuth Routes
   app.get("/api/instagram/connect", requireAuth, async (req: any, res) => {
     try {

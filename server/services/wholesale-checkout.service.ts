@@ -71,6 +71,7 @@ export interface CheckoutData {
   buyerCompanyName?: string;
   buyerEmail: string;
   buyerName?: string;
+  buyerPhone?: string;
 }
 
 export interface ProcessCheckoutResult {
@@ -79,6 +80,35 @@ export interface ProcessCheckoutResult {
   orderNumber?: string;
   error?: string;
   statusCode?: number;
+}
+
+export interface WholesaleCart {
+  buyerId: string;
+  items: CartItem[];
+}
+
+export interface AddToCartResult {
+  success: boolean;
+  cart?: WholesaleCart;
+  error?: string;
+}
+
+export interface GetCartResult {
+  success: boolean;
+  cart?: WholesaleCart;
+  error?: string;
+}
+
+export interface UpdateCartItemResult {
+  success: boolean;
+  cart?: WholesaleCart;
+  error?: string;
+}
+
+export interface RemoveCartItemResult {
+  success: boolean;
+  cart?: WholesaleCart;
+  error?: string;
 }
 
 // ============================================================================
@@ -90,6 +120,155 @@ export class WholesaleCheckoutService {
     private storage: IStorage,
     private wholesaleOrderService: WholesaleOrderService
   ) {}
+
+  /**
+   * Add item to wholesale cart
+   */
+  async addToCart(buyerId: string, item: CartItem): Promise<AddToCartResult> {
+    try {
+      // Get product to determine sellerId
+      const product = await this.storage.getWholesaleProduct(item.productId);
+      if (!product) {
+        return { success: false, error: 'Product not found' };
+      }
+
+      // Get existing cart or create new one
+      let cart = await this.storage.getWholesaleCart(buyerId);
+      
+      if (!cart) {
+        // Create new cart with sellerId from the product
+        cart = await this.storage.createWholesaleCart(buyerId, product.sellerId);
+      }
+
+      // Check if item already exists in cart
+      const items = (cart.items as any[]) || [];
+      const existingItemIndex = items.findIndex((i: any) => 
+        i.productId === item.productId && 
+        JSON.stringify(i.variant) === JSON.stringify(item.variant)
+      );
+
+      if (existingItemIndex >= 0) {
+        // Update quantity if item exists
+        items[existingItemIndex].quantity += item.quantity;
+      } else {
+        // Add new item
+        items.push(item);
+      }
+
+      // Update cart in storage
+      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+      
+      return { 
+        success: true, 
+        cart: { buyerId, items: items as CartItem[] }
+      };
+    } catch (error: any) {
+      logger.error('[WholesaleCheckoutService] Failed to add to cart', error);
+      return { success: false, error: error.message || 'Failed to add item to cart' };
+    }
+  }
+
+  /**
+   * Get wholesale cart for buyer
+   */
+  async getCart(buyerId: string): Promise<GetCartResult> {
+    try {
+      const cart = await this.storage.getWholesaleCart(buyerId);
+      const items = cart?.items as CartItem[] || [];
+      return { 
+        success: true, 
+        cart: { buyerId, items }
+      };
+    } catch (error: any) {
+      logger.error('[WholesaleCheckoutService] Failed to get cart', error);
+      return { success: false, error: error.message || 'Failed to get cart' };
+    }
+  }
+
+  /**
+   * Update cart item quantity
+   */
+  async updateCartItem(
+    buyerId: string, 
+    productId: string, 
+    variant: any, 
+    quantity: number
+  ): Promise<UpdateCartItemResult> {
+    try {
+      const cart = await this.storage.getWholesaleCart(buyerId);
+      
+      if (!cart) {
+        return { success: false, error: 'Cart not found' };
+      }
+
+      const items = (cart.items as any[]) || [];
+      const itemIndex = items.findIndex((i: any) => 
+        i.productId === productId && 
+        JSON.stringify(i.variant) === JSON.stringify(variant)
+      );
+
+      if (itemIndex < 0) {
+        return { success: false, error: 'Item not found in cart' };
+      }
+
+      if (quantity <= 0) {
+        // Remove item if quantity is 0 or less
+        items.splice(itemIndex, 1);
+      } else {
+        // Update quantity
+        items[itemIndex].quantity = quantity;
+      }
+
+      await this.storage.updateWholesaleCart(buyerId, items);
+
+      return { 
+        success: true, 
+        cart: { buyerId, items: items as CartItem[] }
+      };
+    } catch (error: any) {
+      logger.error('[WholesaleCheckoutService] Failed to update cart item', error);
+      return { success: false, error: error.message || 'Failed to update cart item' };
+    }
+  }
+
+  /**
+   * Remove item from cart
+   */
+  async removeCartItem(
+    buyerId: string, 
+    productId: string, 
+    variant: any
+  ): Promise<RemoveCartItemResult> {
+    try {
+      const cart = await this.storage.getWholesaleCart(buyerId);
+      
+      if (!cart) {
+        return { success: false, error: 'Cart not found' };
+      }
+
+      const items = ((cart.items as any[]) || []).filter((i: any) => 
+        !(i.productId === productId && 
+          JSON.stringify(i.variant) === JSON.stringify(variant))
+      );
+
+      await this.storage.updateWholesaleCart(buyerId, items);
+
+      return { 
+        success: true, 
+        cart: { buyerId, items: items as CartItem[] }
+      };
+    } catch (error: any) {
+      logger.error('[WholesaleCheckoutService] Failed to remove cart item', error);
+      return { success: false, error: error.message || 'Failed to remove cart item' };
+    }
+  }
+
+  /**
+   * Clear cart after successful checkout
+   */
+  async clearCart(buyerId: string): Promise<void> {
+    await this.storage.clearWholesaleCart(buyerId);
+  }
 
   /**
    * Validate cart items against MOQ requirements

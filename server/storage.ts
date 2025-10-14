@@ -104,6 +104,8 @@ import {
   type InsertWarehouseLocation,
   type BuyerProfile,
   type InsertBuyerProfile,
+  type WholesaleCart,
+  type InsertWholesaleCart,
   users,
   products,
   orders,
@@ -157,7 +159,8 @@ import {
   wholesaleShippingDetails,
   wholesaleOrderEvents,
   warehouseLocations,
-  buyerProfiles
+  buyerProfiles,
+  wholesaleCarts
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -388,6 +391,12 @@ export interface IStorage {
   getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined>;
   acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined>;
   deleteWholesaleInvitation(id: string): Promise<boolean>;
+  
+  // Wholesale Carts
+  getWholesaleCart(buyerId: string): Promise<WholesaleCart | undefined>;
+  createWholesaleCart(buyerId: string, sellerId: string): Promise<WholesaleCart>;
+  updateWholesaleCart(buyerId: string, items: any[]): Promise<WholesaleCart | undefined>;
+  clearWholesaleCart(buyerId: string): Promise<boolean>;
   
   // Wholesale B2B Orders
   createWholesaleOrder(order: InsertWholesaleOrder): Promise<WholesaleOrder>;
@@ -2120,6 +2129,43 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.select().from(nftMints).where(eq(nftMints.orderId, orderId)).limit(1);
     return result[0];
+  }
+
+  // Wholesale Cart Methods
+  async getWholesaleCart(buyerId: string): Promise<WholesaleCart | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(wholesaleCarts).where(eq(wholesaleCarts.buyerId, buyerId)).limit(1);
+    return result[0];
+  }
+
+  async createWholesaleCart(buyerId: string, sellerId: string): Promise<WholesaleCart> {
+    await this.ensureInitialized();
+    const cart: InsertWholesaleCart = {
+      buyerId,
+      sellerId,
+      items: [],
+    };
+    const result = await this.db.insert(wholesaleCarts).values(cart).returning();
+    return result[0];
+  }
+
+  async updateWholesaleCart(buyerId: string, items: any[]): Promise<WholesaleCart | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleCarts)
+      .set({ 
+        items: items as any,
+        updatedAt: new Date()
+      })
+      .where(eq(wholesaleCarts.buyerId, buyerId))
+      .returning();
+    return result[0];
+  }
+
+  async clearWholesaleCart(buyerId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(wholesaleCarts).where(eq(wholesaleCarts.buyerId, buyerId));
+    return true;
   }
 
   // Wholesale Products Methods

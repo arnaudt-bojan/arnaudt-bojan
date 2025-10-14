@@ -806,14 +806,15 @@ export type TeamInvitation = typeof teamInvitations.$inferSelect;
 // Wholesale Invitations - invitations to become a wholesale buyer
 export const wholesaleInvitations = pgTable("wholesale_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").notNull(),
   sellerId: varchar("seller_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Seller sending invite
-  wholesaleTerms: jsonb("wholesale_terms"), // Optional: { minimumOrderValue, discountPercentage, paymentTerms }
-  status: varchar("status").notNull().default("pending"), // "pending", "accepted", "expired", "cancelled"
+  buyerEmail: text("buyer_email").notNull(),
+  buyerName: text("buyer_name"),
+  status: text("status").notNull().default("pending"), // "pending", "accepted", "expired", "cancelled"
   token: varchar("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   acceptedAt: timestamp("accepted_at"),
+  wholesaleTerms: jsonb("wholesale_terms"), // Optional: { minimumOrderValue, discountPercentage, paymentTerms }
+  expiresAt: timestamp("expires_at").notNull(),
 });
 
 export const insertWholesaleInvitationSchema = createInsertSchema(wholesaleInvitations).omit({ 
@@ -1122,6 +1123,24 @@ export type WholesaleProduct = typeof wholesaleProducts.$inferSelect;
 export type SelectWholesaleProduct = typeof wholesaleProducts.$inferSelect;
 
 // ===== WHOLESALE B2B ORDER SYSTEM =====
+
+// Wholesale Carts - Cart storage for B2B buyers
+export const wholesaleCarts = pgTable("wholesale_carts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buyerId: varchar("buyer_id").notNull().unique(),
+  sellerId: varchar("seller_id").notNull(),
+  items: jsonb("items").notNull(), // WholesaleCartItem[]
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertWholesaleCartSchema = createInsertSchema(wholesaleCarts).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertWholesaleCart = z.infer<typeof insertWholesaleCartSchema>;
+export type WholesaleCart = typeof wholesaleCarts.$inferSelect;
 
 // Wholesale Orders - Main B2B order table
 export const wholesaleOrders = pgTable("wholesale_orders", {

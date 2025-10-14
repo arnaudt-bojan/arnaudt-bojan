@@ -57,6 +57,11 @@ import CreateWholesaleProductPage from "@/pages/wholesale/create-wholesale-produ
 import WholesaleOrdersPage from "@/pages/wholesale/wholesale-orders";
 import WholesaleBuyersPage from "@/pages/wholesale/wholesale-buyers";
 import WholesalePreviewPage from "@/pages/wholesale/wholesale-preview";
+import BuyerCatalog from "@/pages/wholesale/buyer-catalog";
+import WholesaleProductDetailPage from "@/pages/wholesale/product-detail";
+import WholesaleCartPage from "@/pages/wholesale/cart";
+import WholesaleCheckoutPage from "@/pages/wholesale/checkout";
+import OrderConfirmationPage from "@/pages/wholesale/order-confirmation";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -107,7 +112,35 @@ function AppContent() {
               <Route path="/wholesale/catalog">
                 {() => (
                   <ProtectedRoute>
-                    <BuyerWholesaleCatalog />
+                    <BuyerCatalog />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/catalog/:productId">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleProductDetailPage />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/cart">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleCartPage />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/checkout">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleCheckoutPage />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/orders/:orderId/confirmation">
+                {() => (
+                  <ProtectedRoute>
+                    <OrderConfirmationPage />
                   </ProtectedRoute>
                 )}
               </Route>
@@ -310,7 +343,35 @@ function AppContent() {
               <Route path="/wholesale/catalog">
                 {() => (
                   <ProtectedRoute>
-                    <BuyerWholesaleCatalog />
+                    <BuyerCatalog />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/catalog/:productId">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleProductDetailPage />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/cart">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleCartPage />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/checkout">
+                {() => (
+                  <ProtectedRoute>
+                    <WholesaleCheckoutPage />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/orders/:orderId/confirmation">
+                {() => (
+                  <ProtectedRoute>
+                    <OrderConfirmationPage />
                   </ProtectedRoute>
                 )}
               </Route>

@@ -55,6 +55,38 @@ export class WholesaleService {
     }
   }
 
+  async getBuyerCatalog(buyerId: string, sellerId?: string) {
+    try {
+      // Get all wholesale access grants for this buyer
+      const grants = await this.storage.getWholesaleAccessGrantsByBuyer(buyerId);
+      
+      if (!grants || grants.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // Filter by sellerId if provided
+      const activeGrants = grants.filter(g => 
+        g.status === 'active' && (!sellerId || g.sellerId === sellerId)
+      );
+
+      if (activeGrants.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // Get products from all sellers the buyer has access to
+      const allProducts: any[] = [];
+      for (const grant of activeGrants) {
+        const products = await this.storage.getWholesaleProductsBySellerId(grant.sellerId);
+        allProducts.push(...products);
+      }
+
+      return { success: true, data: allProducts };
+    } catch (error) {
+      logger.error("WholesaleService: Error fetching buyer catalog", error);
+      return { success: false, error: "Failed to fetch wholesale catalog" };
+    }
+  }
+
   async getProduct(productId: string) {
     try {
       const product = await this.storage.getWholesaleProduct(productId);
