@@ -65,6 +65,7 @@ import WholesaleProductDetailPage from "@/pages/wholesale/product-detail";
 import WholesaleCartPage from "@/pages/wholesale/cart";
 import WholesaleCheckoutPage from "@/pages/wholesale/checkout";
 import OrderConfirmationPage from "@/pages/wholesale/order-confirmation";
+import DashboardRedirect from "@/components/DashboardRedirect";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -104,25 +105,7 @@ function AppContent() {
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/auth/magic" component={MagicLinkVerify} />
               <Route path="/login" component={Login} />
-              <Route path="/dashboard">
-                {() => {
-                  const { data: user } = useQuery({ queryKey: ["/api/auth/user"] });
-                  
-                  if (!user) {
-                    return <Redirect to="/login" />;
-                  }
-                  
-                  if (user.userType === 'seller' || user.role === 'admin') {
-                    return <Redirect to="/seller/dashboard" />;
-                  }
-                  
-                  if (user.userType === 'buyer') {
-                    return <Redirect to="/buyer-dashboard" />;
-                  }
-                  
-                  return <Redirect to="/seller/dashboard" />;
-                }}
-              </Route>
+              <Route path="/dashboard" component={DashboardRedirect} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
               <Route path="/accept-invitation" component={AcceptInvitation} />
               
@@ -185,25 +168,7 @@ function AppContent() {
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/auth/magic" component={MagicLinkVerify} />
               <Route path="/login" component={Login} />
-              <Route path="/dashboard">
-                {() => {
-                  const { data: user } = useQuery({ queryKey: ["/api/auth/user"] });
-                  
-                  if (!user) {
-                    return <Redirect to="/login" />;
-                  }
-                  
-                  if (user.userType === 'seller' || user.role === 'admin') {
-                    return <Redirect to="/seller/dashboard" />;
-                  }
-                  
-                  if (user.userType === 'buyer') {
-                    return <Redirect to="/buyer-dashboard" />;
-                  }
-                  
-                  return <Redirect to="/seller/dashboard" />;
-                }}
-              </Route>
+              <Route path="/dashboard" component={DashboardRedirect} />
               <Route path="/s/:username" component={SellerStorefront} />
               
               {/* Nested seller routes - maintain seller context through navigation */}

@@ -1,6 +1,7 @@
 import type { IStorage } from '../storage';
 import Papa from 'papaparse';
 import { logger } from '../logger';
+import crypto from 'crypto';
 
 interface BulkUploadInput {
   userId: string;
@@ -285,9 +286,18 @@ export class WholesaleService {
 
   async createInvitation(invitationData: any, sellerId: string) {
     try {
+      // Generate secure random token for invitation URL
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set expiration to 7 days from now
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      
       const dataWithSeller = {
         ...invitationData,
         sellerId,
+        token,
+        expiresAt,
+        status: invitationData.status || 'pending',
       };
 
       const invitation = await this.storage.createWholesaleInvitation(dataWithSeller);
