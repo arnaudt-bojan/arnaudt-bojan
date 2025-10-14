@@ -1025,8 +1025,14 @@ export class OrderService {
         orderId: order.id,
         count: orderItemsToCreate.length,
       });
-    } catch (error) {
-      logger.error('[OrderService] Failed to create order items', { error });
+    } catch (error: any) {
+      logger.error('[OrderService] Failed to create order items', {
+        error: error.message,
+        stack: error.stack,
+        orderId: order.id,
+      });
+      // Re-throw to surface the error
+      throw error;
     }
   }
 
