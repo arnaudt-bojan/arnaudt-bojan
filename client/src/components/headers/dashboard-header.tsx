@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { LogOut, User, Menu, Settings, Sun, Moon } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "../theme-toggle";
 import { NotificationBell } from "../notification-bell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +34,20 @@ export function DashboardHeader() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const { currentUser } = useAuthStore();
+  const { environment, setEnvironment } = useEnvironment();
+  const [, setLocation] = useLocation();
+
+  const isSeller = currentUser?.role === 'seller' || currentUser?.role === 'admin' || currentUser?.role === 'owner';
+
+  const handleEnvironmentToggle = (checked: boolean) => {
+    const newEnv = checked ? 'b2b' : 'b2c';
+    setEnvironment(newEnv);
+    if (checked) {
+      setLocation('/wholesale/dashboard');
+    } else {
+      setLocation('/seller-dashboard');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -182,8 +199,21 @@ export function DashboardHeader() {
 
         {/* Desktop controls - right side */}
         <div className="flex items-center gap-2">
-          {/* Desktop-only: Notifications, Theme */}
+          {/* Desktop-only: Environment Toggle, Notifications, Theme */}
           <div className="hidden md:flex items-center gap-2">
+            {isSeller && (
+              <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg">
+                <Label htmlFor="environment-toggle" className="text-sm font-medium cursor-pointer">
+                  {environment === 'b2c' ? 'B2C' : 'B2B'}
+                </Label>
+                <Switch
+                  id="environment-toggle"
+                  checked={environment === 'b2b'}
+                  onCheckedChange={handleEnvironmentToggle}
+                  data-testid="toggle-environment"
+                />
+              </div>
+            )}
             <NotificationBell />
             <ThemeToggle />
           </div>

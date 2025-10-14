@@ -9,6 +9,7 @@ import { CartProvider } from "@/lib/cart-context";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { SellerProvider } from "@/contexts/seller-context";
 import { AuthStoreProvider } from "@/contexts/auth-store-context";
+import { EnvironmentProvider } from "@/contexts/EnvironmentContext";
 import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
@@ -49,6 +50,13 @@ import Help from "@/pages/help";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
+import { WholesaleLayout } from "@/layouts/WholesaleLayout";
+import WholesaleDashboard from "@/pages/wholesale/wholesale-dashboard";
+import WholesaleProductsPage from "@/pages/wholesale/wholesale-products";
+import CreateWholesaleProductPage from "@/pages/wholesale/create-wholesale-product";
+import WholesaleOrdersPage from "@/pages/wholesale/wholesale-orders";
+import WholesaleBuyersPage from "@/pages/wholesale/wholesale-buyers";
+import WholesalePreviewPage from "@/pages/wholesale/wholesale-preview";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -323,6 +331,62 @@ function AppContent() {
                 )}
               </Route>
               
+              {/* Wholesale B2B routes */}
+              <Route path="/wholesale/dashboard">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleDashboard />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/products">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleProductsPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/products/create">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <CreateWholesaleProductPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/orders">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleOrdersPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/buyers">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleBuyersPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/preview">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesalePreviewPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
               <Route>{() => <NotFound />}</Route>
           </Switch>
         )}
@@ -341,12 +405,14 @@ function App() {
         <TooltipProvider>
           <SellerProvider>
             <AuthStoreProvider>
-              <CurrencyProvider>
-                <CartProvider>
-                  <AppContent />
-                  <Toaster />
-                </CartProvider>
-              </CurrencyProvider>
+              <EnvironmentProvider>
+                <CurrencyProvider>
+                  <CartProvider>
+                    <AppContent />
+                    <Toaster />
+                  </CartProvider>
+                </CurrencyProvider>
+              </EnvironmentProvider>
             </AuthStoreProvider>
           </SellerProvider>
         </TooltipProvider>
