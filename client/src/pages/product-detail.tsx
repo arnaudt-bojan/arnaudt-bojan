@@ -69,7 +69,14 @@ export default function ProductDetail() {
   // Sellers and collaborators cannot buy from stores (prevent cart access)
   const canAddToCart = !isSeller && !isCollaborator;
 
-  const { data: product, isLoading } = useQuery<Product>({
+  const { data: product, isLoading } = useQuery<Product & { 
+    variantRequirements?: {
+      requiresVariantSelection: boolean;
+      variantType: 'none' | 'size-only' | 'color-size';
+      availableColors?: string[];
+      availableSizes?: string[];
+    }
+  }>({
     queryKey: ["/api/products", productId],
     enabled: !!productId,
   });
@@ -130,44 +137,59 @@ export default function ProductDetail() {
 
   const categoryPath = getCategoryPath();
 
-  // Detect variant format - new format has colorName and images array
+  // ARCHITECTURE 3: Use backend variant requirements as source of truth
+  const variantRequirements = product?.variantRequirements || {
+    requiresVariantSelection: false,
+    variantType: 'none' as const,
+  };
+
+  const hasVariants = variantRequirements.requiresVariantSelection;
+  const isColorSizeVariant = variantRequirements.variantType === 'color-size';
+  const isSizeOnlyVariant = variantRequirements.variantType === 'size-only';
+  
+  // Detect if using new color-based format (has colorName and images)
   const isNewVariantFormat = product?.variants && 
     Array.isArray(product.variants) && 
     product.variants.length > 0 &&
     'colorName' in product.variants[0] && 
     Array.isArray((product.variants[0] as any).images);
 
-  // Extract variant data (only for new format)
+  // Extract variant data based on format
   const colorVariants = isNewVariantFormat ? (product?.variants as ColorVariant[]) : [];
-  const hasNewVariants = colorVariants.length > 0;
   
-  // Get color options for selector
-  const colorOptions = hasNewVariants ? colorVariants.map(cv => ({
-    name: cv.colorName,
-    hex: cv.colorHex
-  })) : [];
+  // Get color options from backend requirements or parsed variants
+  const colorOptions = isColorSizeVariant 
+    ? (isNewVariantFormat 
+        ? colorVariants.map(cv => ({ name: cv.colorName, hex: cv.colorHex }))
+        : (variantRequirements.availableColors || []).map(c => ({ name: c, hex: '#000000' }))
+      )
+    : [];
   
-  // Get current color variant
-  const currentColorVariant = selectedColor 
+  // Get current color variant (new format only)
+  const currentColorVariant = selectedColor && isNewVariantFormat
     ? colorVariants.find(cv => cv.colorName === selectedColor)
     : null;
   
-  // Get size options for selected color
-  const sizeOptions = currentColorVariant 
-    ? currentColorVariant.sizes.map(s => s.size)
-    : [];
+  // Get size options from backend requirements or current color variant
+  const sizeOptions = isSizeOnlyVariant
+    ? (variantRequirements.availableSizes || [])
+    : isColorSizeVariant && currentColorVariant
+      ? currentColorVariant.sizes.map(s => s.size)
+      : isColorSizeVariant && !isNewVariantFormat
+        ? (variantRequirements.availableSizes || [])
+        : [];
   
   // Get images to display (selected color's images or product images)
   const displayImages = currentColorVariant && currentColorVariant.images && currentColorVariant.images.length > 0
     ? currentColorVariant.images
     : (product?.images && product.images.length > 0 ? product.images : [product?.image || ""]);
 
-  // Auto-select first color when product loads (only for new format)
+  // Auto-select first color when product loads (for color-size variants)
   useEffect(() => {
-    if (hasNewVariants && !selectedColor && colorVariants.length > 0) {
-      setSelectedColor(colorVariants[0].colorName);
+    if (isColorSizeVariant && !selectedColor && colorOptions.length > 0) {
+      setSelectedColor(colorOptions[0].name);
     }
-  }, [hasNewVariants, colorVariants, selectedColor]);
+  }, [isColorSizeVariant, colorOptions, selectedColor]);
 
   // Reset image index when color changes
   useEffect(() => {
@@ -183,14 +205,23 @@ export default function ProductDetail() {
   // Determine if product/variant is available
   const isProductAvailable = () => {
     // For products with variants, require variant selection and check variant stock
-    if (hasNewVariants) {
-      if (!selectedColor || !selectedSize) {
-        return false; // Variant selection required
+    if (hasVariants) {
+      // Check variant selection requirements
+      if (isColorSizeVariant && (!selectedColor || !selectedSize)) {
+        return false; // Both color and size required
       }
-      return stockData?.isAvailable ?? false;
+      if (isSizeOnlyVariant && !selectedSize) {
+        return false; // Size required
+      }
+      // Check stock for in-stock products
+      if (product?.productType === "in-stock") {
+        return stockData?.isAvailable ?? false;
+      }
+      // Pre-order, made-to-order always available if variant selected
+      return true;
     }
     
-    // For simple products, check product-level stock
+    // For simple products (no variants), check product-level stock
     if (product?.productType === "in-stock") {
       return stockData?.isAvailable ?? false;
     }
@@ -200,12 +231,21 @@ export default function ProductDetail() {
   };
 
   const getUnavailableReason = () => {
-    if (hasNewVariants && (!selectedColor || !selectedSize)) {
-      return "Please select a color and size";
+    if (hasVariants) {
+      if (isColorSizeVariant && (!selectedColor || !selectedSize)) {
+        return "Please select a color and size";
+      }
+      if (isSizeOnlyVariant && !selectedSize) {
+        return "Please select a size";
+      }
     }
     if (!stockData?.isAvailable) {
-      if (hasNewVariants && variantId) {
-        return `This variant (${selectedSize} - ${selectedColor}) is sold out. Please choose another option.`;
+      if (hasVariants && variantId) {
+        if (isColorSizeVariant) {
+          return `This variant (${selectedSize} - ${selectedColor}) is sold out. Please choose another option.`;
+        } else {
+          return `Size ${selectedSize} is sold out. Please choose another option.`;
+        }
       }
       return "This product is currently sold out";
     }
@@ -227,8 +267,8 @@ export default function ProductDetail() {
 
     // CRITICAL FIX: Include variant information when adding to cart
     // This enables proper stock validation at checkout
-    const variant = hasNewVariants && selectedColor && selectedSize
-      ? { size: selectedSize, color: selectedColor }
+    const variant = hasVariants && (selectedSize || selectedColor)
+      ? { size: selectedSize || undefined, color: selectedColor || undefined }
       : undefined;
 
     const result = await addItem(product, variant);
@@ -261,8 +301,8 @@ export default function ProductDetail() {
 
     // CRITICAL FIX: Include variant information when buying now
     // This enables proper stock validation at checkout
-    const variant = hasNewVariants && selectedColor && selectedSize
-      ? { size: selectedSize, color: selectedColor }
+    const variant = hasVariants && (selectedSize || selectedColor)
+      ? { size: selectedSize || undefined, color: selectedColor || undefined }
       : undefined;
 
     const result = await addItem(product, variant);
@@ -478,19 +518,22 @@ export default function ProductDetail() {
                 </div>
                 
                 {/* Show variant-specific out-of-stock alert */}
-                {hasNewVariants && variantId && !stockData?.isAvailable && (
+                {hasVariants && variantId && !stockData?.isAvailable && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      This variant ({selectedSize} - {selectedColor}) is sold out. Please select another option.
+                      {isColorSizeVariant 
+                        ? `This variant (${selectedSize} - ${selectedColor}) is sold out. Please select another option.`
+                        : `Size ${selectedSize} is sold out. Please select another option.`
+                      }
                     </AlertDescription>
                   </Alert>
                 )}
               </div>
             )}
 
-            {/* Variant Selectors - Only for new variant format */}
-            {hasNewVariants && (
+            {/* Variant Selectors - Display based on backend requirements */}
+            {hasVariants && (
               <div className="space-y-4 py-4 border-y">
                 {colorOptions.length > 0 && (
                   <VariantColorSelector

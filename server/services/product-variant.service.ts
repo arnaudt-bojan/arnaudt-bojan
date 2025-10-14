@@ -6,7 +6,7 @@
  */
 
 import { Product } from "@shared/schema";
-import { logger } from "@shared/logger";
+import { logger } from "../logger";
 
 // Variant type definitions
 export interface SizeVariant {
