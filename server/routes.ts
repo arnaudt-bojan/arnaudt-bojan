@@ -2021,7 +2021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: sessionResult.success,
           hasSession: !!sessionResult.session,
           balanceRequestId: sessionResult.session?.balanceRequestId,
-          sessionKeys: sessionResult.session ? Object.keys(sessionResult.session) : []
+          sessionKeys: sessionResult.session ? Object.keys(sessionResult.session).join(', ') : 'none'
         });
         
         if (sessionResult.success && sessionResult.session) {
