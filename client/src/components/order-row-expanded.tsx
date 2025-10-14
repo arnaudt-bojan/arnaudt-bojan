@@ -44,6 +44,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
 
   const { order, items, events = [], balancePayments = [] } = data;
 
+  // Calculate subtotal from items (sum of all item subtotals)
+  const calculatedSubtotal = items.reduce((sum, item) => {
+    return sum + parseFloat(item.subtotal || "0");
+  }, 0);
+
   // Get the most recent balance payment for status tracking
   const latestBalancePayment = balancePayments.length > 0 
     ? balancePayments.sort((a: any, b: any) => 
@@ -104,8 +109,8 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
               <span>{format(new Date(order.createdAt), "PPP")}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotal (before tax):</span>
-              <span>{order.currency} {parseFloat(order.subtotalBeforeTax || order.total).toFixed(2)}</span>
+              <span className="text-muted-foreground">Subtotal:</span>
+              <span>{order.currency} {calculatedSubtotal.toFixed(2)}</span>
             </div>
             {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
               <div className="flex justify-between">
