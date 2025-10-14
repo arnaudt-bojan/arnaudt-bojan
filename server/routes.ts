@@ -1029,7 +1029,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify seller/team owns products in this order
-      const orderItems = await storage.getOrderItems(orderId);
+      let orderItems = await storage.getOrderItems(orderId);
+      
+      // Fallback to legacy items jsonb column if order_items table is empty
+      if (orderItems.length === 0 && order.items && Array.isArray(order.items)) {
+        // Convert legacy items format to order_items format for response
+        orderItems = order.items.map((item: any) => ({
+          id: `legacy-${item.productId}`,
+          orderId: order.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          priceAtPurchase: item.price,
+          currency: order.currency || 'USD',
+          productName: item.name || 'Unknown Product',
+          variantName: item.variant || null,
+          imageUrl: item.image || null,
+          fulfillmentStatus: 'pending',
+          trackingNumber: null,
+          trackingCarrier: null,
+          trackingUrl: null,
+        }));
+      }
+
       if (orderItems.length === 0) {
         return res.status(404).json({ error: "Order has no items" });
       }
