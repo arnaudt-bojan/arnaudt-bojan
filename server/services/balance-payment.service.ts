@@ -191,7 +191,7 @@ export class BalancePaymentService {
       const balanceRequestData: InsertBalanceRequest = {
         orderId: order.id,
         createdBy: requestedBy,
-        status: "active",
+        status: "requested",
         sessionTokenHash,
         expiresAt,
         balanceDueCents,
@@ -272,12 +272,12 @@ export class BalancePaymentService {
 
       // Check expiration and update status if expired
       if (balanceRequest.expiresAt && new Date() > balanceRequest.expiresAt) {
-        // Update status to 'expired' if not already
-        if (balanceRequest.status !== 'expired') {
+        // Update status to 'cancelled' if not already (expired sessions are cancelled)
+        if (balanceRequest.status !== 'cancelled') {
           await this.storage.updateBalanceRequest(balanceRequest.id, {
-            status: 'expired'
+            status: 'cancelled'
           });
-          logger.info(`[BalancePayment] Marked balance request as expired`, {
+          logger.info(`[BalancePayment] Marked balance request as cancelled (expired)`, {
             balanceRequestId: balanceRequest.id,
             expiresAt: balanceRequest.expiresAt?.toISOString()
           });

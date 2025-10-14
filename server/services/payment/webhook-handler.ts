@@ -182,6 +182,8 @@ export class WebhookHandler {
   private async handlePaymentIntentSucceeded(event: WebhookEvent): Promise<void> {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     const orderId = paymentIntent.metadata?.orderId;
+    const paymentType = paymentIntent.metadata?.paymentType; // 'deposit' | 'balance' | undefined
+    const balanceRequestId = paymentIntent.metadata?.balanceRequestId;
     
     // Update payment intent status in database
     const existingIntent = await this.storage.getPaymentIntentByProviderIntentId(paymentIntent.id);
@@ -209,8 +211,54 @@ export class WebhookHandler {
     }
     
     const amountPaid = amountInMinorUnits / divisor;
+    const amountPaidCents = amountInMinorUnits; // Store amount in cents for events
     const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
 
+    // Handle BALANCE payments separately
+    if (paymentType === 'balance' && balanceRequestId && orderId) {
+      logger.info(`[Webhook] Processing balance payment for order ${orderId}`);
+      
+      // Get current order to check status
+      const order = await this.storage.getOrder(orderId);
+      
+      // Update order balance payment fields
+      const updateData: any = {
+        balancePaidAt: new Date(),
+        paymentStatus: 'fully_paid',
+      };
+      
+      // Only update status if not already shipped/delivered/completed
+      if (order && !['shipped', 'delivered', 'completed'].includes(order.status)) {
+        updateData.status = 'processing';
+      }
+      
+      await this.storage.updateOrder(orderId, updateData);
+      
+      // Update balance request status
+      await this.storage.updateBalanceRequest(balanceRequestId, {
+        status: 'paid',
+      });
+      
+      // Create order event
+      await this.storage.createOrderEvent({
+        orderId,
+        eventType: 'balance_payment_received',
+        payload: {
+          amountPaidCents,
+          balanceRequestId,
+          paymentIntentId: paymentIntent.id,
+        },
+        performedBy: 'system',
+      });
+      
+      // TODO: Send balance payment confirmation emails
+      // await this.notificationService.sendBalancePaymentConfirmation(order, seller, buyer);
+      logger.info(`[Webhook] Balance payment confirmed for order ${orderId}, amount: ${amountPaidCents} cents`);
+      
+      return; // Don't call orderService.confirmPayment for balance payments
+    }
+
+    // Handle DEPOSIT/FULL payments (existing flow)
     // Architecture 3: Delegate to OrderService for payment confirmation
     // OrderService handles: DB updates + inventory commit + event creation + notifications
     if (orderId) {

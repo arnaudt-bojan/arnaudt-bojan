@@ -474,18 +474,18 @@ export type OrderBalancePayment = typeof orderBalancePayments.$inferSelect;
 // Balance Requests - Architecture 3 balance payment sessions with token-based authentication
 export const balanceRequestStatusEnum = z.enum([
   "pending",
-  "active", 
-  "completed",
-  "expired",
+  "requested",
+  "paid",
+  "failed",
   "cancelled"
 ]);
 export type BalanceRequestStatus = z.infer<typeof balanceRequestStatusEnum>;
 
 export const balanceRequestStatusPgEnum = pgEnum("balance_request_status", [
   "pending",
-  "active",
-  "completed", 
-  "expired",
+  "requested",
+  "paid",
+  "failed",
   "cancelled"
 ]);
 

@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import crypto from 'crypto';
-import type { User, Order, Product, Notification, InsertNotification, OrderItem } from '../shared/schema';
+import type { User, Order, Product, Notification, InsertNotification, OrderItem, BalanceRequest } from '../shared/schema';
 import { PDFService } from './pdf-service';
 import { logger } from './logger';
 import { 
@@ -58,7 +58,7 @@ export interface NotificationService {
   // Seller → Buyer Email Methods (Task 5f)
   sendOrderDelivered(order: Order, seller: User, products: Product[]): Promise<void>;
   sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<void>;
-  sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void>;
+  sendBalancePaymentRequest(order: Order, seller: User, balanceRequest: BalanceRequest, sessionToken: string): Promise<void>;
   sendBalancePaymentReceived(order: Order, seller: User, balanceAmount: number): Promise<void>;
   sendWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[]): Promise<void>;
   
@@ -1296,6 +1296,120 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   /**
+   * Generate balance payment request email - SELLER → BUYER EMAIL
+   * Comprehensive email with deposit/balance breakdown, shipping costs, and magic link
+   */
+  private async generateBalancePaymentRequestEmail(
+    order: Order, 
+    seller: User, 
+    balanceRequest: BalanceRequest,
+    sessionToken: string
+  ): Promise<string> {
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+    
+    // Build magic link URL
+    const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+      : 'http://localhost:5000';
+    const magicLinkUrl = `${baseUrl}/orders/${order.id}/pay-balance?token=${sessionToken}`;
+    
+    // Format currency helper
+    const formatCurrency = (cents: number, currency: string = 'USD') => {
+      const amount = cents / 100;
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency,
+      }).format(amount);
+    };
+    
+    // Extract amounts
+    const depositAmount = order.depositAmountCents || 0;
+    const balanceDue = balanceRequest.balanceDueCents || 0;
+    const currency = balanceRequest.currency || order.currency || 'USD';
+    
+    // Extract shipping costs from shippingSnapshot if available
+    let shippingCost = 0;
+    if (balanceRequest.shippingSnapshot && typeof balanceRequest.shippingSnapshot === 'object') {
+      const snapshot = balanceRequest.shippingSnapshot as any;
+      shippingCost = snapshot.shippingCostCents || snapshot.shipping_cost_cents || 0;
+    }
+    
+    // Calculate product balance (balance due minus shipping)
+    const productBalance = balanceDue - shippingCost;
+    
+    // Format expiry date (7 days from now)
+    const expiryDate = new Date(balanceRequest.expiresAt || Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiryDateStr = expiryDate.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Complete Your Order - Balance Payment Required
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${order.customerName}, your pre-order is ready for final payment!
+      </p>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <h3 style="margin: 0 0 15px; font-size: 16px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+          Order Details
+        </h3>
+        <p style="margin: 0 0 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <strong>Order #:</strong> ${order.id.slice(0, 8)}
+        </p>
+        <p style="margin: 0 0 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <strong>Deposit Paid:</strong> ${formatCurrency(depositAmount, currency)}
+        </p>
+        <p style="margin: 0; color: #1a1a1a !important; font-weight: 600; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+          <strong>Balance Due:</strong> ${formatCurrency(balanceDue, currency)}
+        </p>
+      </div>
+
+      <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
+        <h3 style="margin: 0 0 15px; font-size: 16px; font-weight: 600; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Balance Breakdown
+        </h3>
+        <p style="margin: 0 0 8px; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Product Balance: ${formatCurrency(productBalance, currency)}
+        </p>
+        <p style="margin: 0 0 8px; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Shipping: ${formatCurrency(shippingCost, currency)}
+        </p>
+        <p style="margin: 0; padding-top: 8px; border-top: 1px solid #fbbf24; color: #92400e !important; font-weight: 600; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Total Balance Due: ${formatCurrency(balanceDue, currency)}
+        </p>
+      </div>
+
+      ${generateMagicLinkButton(magicLinkUrl, 'Pay Balance Now')}
+      
+      <div style="margin: 30px 0; padding: 20px; background-color: #eff6ff !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <p style="margin: 0 0 10px; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+          <strong>Note:</strong> You can update your shipping address before completing payment.
+        </p>
+        <p style="margin: 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+          This payment link expires on <strong>${expiryDateStr}</strong> (7 days).
+        </p>
+      </div>
+      
+      <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
+        Questions? Contact ${seller.email || 'us'} for assistance.
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Balance payment required: ${formatCurrency(balanceDue, currency)}`,
+      darkModeSafe: true,
+    });
+  }
+
+  /**
    * Generate balance payment reminder email - SELLER → BUYER EMAIL
    */
   private async generateBalancePaymentReminderEmail(order: Order, seller: User, paymentLink: string): Promise<string> {
@@ -2249,65 +2363,102 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send balance payment request (Seller → Buyer) - TASK 5f
    */
-  async sendBalancePaymentRequest(order: Order, seller: User, paymentLink: string): Promise<void> {
-    // Generate email HTML (ASYNC)
-    const emailHtml = await this.generateBalancePaymentReminderEmail(order, seller, paymentLink);
-    
-    // Get email metadata using EmailMetadataService
-    const fromName = await this.emailMetadata.getFromName(seller);
-    const replyTo = await this.emailMetadata.getReplyToEmail(seller);
-    const subject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_REQUEST, {
-      orderId: order.id
-    });
+  async sendBalancePaymentRequest(
+    order: Order, 
+    seller: User, 
+    balanceRequest: BalanceRequest,
+    sessionToken: string
+  ): Promise<void> {
+    try {
+      // Generate comprehensive email HTML with balance breakdown (ASYNC)
+      const emailHtml = await this.generateBalancePaymentRequestEmail(
+        order, 
+        seller, 
+        balanceRequest,
+        sessionToken
+      );
+      
+      // Get email metadata using EmailMetadataService
+      const fromName = await this.emailMetadata.getFromName(seller);
+      const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+      
+      // Use fixed subject as per task requirements
+      const subject = 'Complete Your Order - Balance Payment Required';
+      
+      // Build magic link for logging
+      const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      const magicLinkUrl = `${baseUrl}/orders/${order.id}/pay-balance?token=${sessionToken}`;
 
-    const result = await this.sendEmail({
-      to: order.customerEmail,
-      from: `${fromName} <noreply@upfirst.io>`,
-      replyTo: replyTo || undefined,
-      subject: subject,
-      html: emailHtml,
-    });
+      const result = await this.sendEmail({
+        to: order.customerEmail,
+        from: `${fromName} <noreply@upfirst.io>`,
+        replyTo: replyTo || undefined,
+        subject: subject,
+        html: emailHtml,
+      });
 
-    // Log email event to order_events table
-    if (result.success) {
-      try {
-        await this.storage.createOrderEvent({
-          orderId: order.id,
-          eventType: 'balance_payment_requested',
-          description: `Balance payment request sent to ${order.customerEmail}`,
-          payload: JSON.stringify({
-            emailType: 'balance_payment_request',
-            recipientEmail: order.customerEmail,
-            subject: subject,
-            remainingBalance: order.remainingBalance,
-            currency: order.currency,
-            paymentLink,
-            sellerName: seller.firstName || seller.username || 'Store',
-          }),
-          performedBy: null,
-        });
-      } catch (error) {
-        logger.error("[Notifications] Failed to log balance payment request event:", error);
+      // Log email event to order_events table
+      if (result.success) {
+        try {
+          await this.storage.createOrderEvent({
+            orderId: order.id,
+            eventType: 'balance_payment_requested',
+            description: `Balance payment request sent to ${order.customerEmail}`,
+            payload: JSON.stringify({
+              emailType: 'balance_payment_request',
+              recipientEmail: order.customerEmail,
+              subject: subject,
+              balanceRequestId: balanceRequest.id,
+              balanceDueCents: balanceRequest.balanceDueCents,
+              currency: balanceRequest.currency,
+              depositAmountCents: order.depositAmountCents,
+              magicLinkUrl,
+              expiresAt: balanceRequest.expiresAt,
+              sellerName: seller.firstName || seller.username || 'Store',
+            }),
+            performedBy: null,
+          });
+          
+          logger.info('[Notifications] Balance payment request logged to order events', {
+            orderId: order.id,
+            balanceRequestId: balanceRequest.id,
+          });
+        } catch (error) {
+          logger.error("[Notifications] Failed to log balance payment request event:", error);
+        }
       }
-    }
 
-    // Create in-app notification for buyer (if they have an account)
-    if (order.userId) {
-      const balanceSubject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_REQUEST, {
-        orderId: order.id
-      });
-      await this.createNotification({
-        userId: order.userId,
-        type: 'balance_payment_request',
-        title: balanceSubject,
-        message: `Your remaining balance of $${order.remainingBalance} is now due`,
-        emailSent: result.success ? 1 : 0,
+      // Create in-app notification for buyer (if they have an account)
+      if (order.userId) {
+        const balanceAmountFormatted = `${balanceRequest.currency} ${(balanceRequest.balanceDueCents || 0) / 100}`;
+        await this.createNotification({
+          userId: order.userId,
+          type: 'balance_payment_request',
+          title: subject,
+          message: `Your remaining balance of ${balanceAmountFormatted} is now due`,
+          emailSent: result.success ? 1 : 0,
+          emailId: result.emailId,
+          metadata: { 
+            orderId: order.id, 
+            balanceRequestId: balanceRequest.id,
+            balanceDueCents: balanceRequest.balanceDueCents,
+            currency: balanceRequest.currency,
+            magicLinkUrl 
+          },
+        });
+      }
+
+      logger.info(`[Notifications] Balance payment request email sent to ${order.customerEmail}:`, {
+        success: result.success,
         emailId: result.emailId,
-        metadata: { orderId: order.id, amount: order.remainingBalance, paymentLink },
+        balanceRequestId: balanceRequest.id,
       });
+    } catch (error) {
+      logger.error("[Notifications] Failed to send balance payment request email:", error);
+      // Don't throw - email failures shouldn't break the flow
     }
-
-    console.log(`[Notifications] Balance payment request sent to ${order.customerEmail}:`, result.success);
   }
 
   /**

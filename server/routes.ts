@@ -1763,19 +1763,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Seller not found" });
       }
 
-      // TODO: Send email with balance payment link (separate task)
-      // Build magic link URL with session token
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
-      const paymentLink = `${baseUrl}/balance-payment/${orderId}?token=${result.sessionToken}`;
-      
-      logger.info('[Balance Request] TODO: Send balance payment email', {
-        orderId,
-        customerEmail: order.customerEmail,
-        paymentLink,
-        balanceRequestId: result.balanceRequest?.id
-      });
+      // Send balance payment request email to customer
+      if (result.balanceRequest && result.sessionToken) {
+        try {
+          await notificationService.sendBalancePaymentRequest(
+            order,
+            seller,
+            result.balanceRequest,
+            result.sessionToken
+          );
+          logger.info('[Balance Request] Balance payment email sent successfully', {
+            orderId,
+            customerEmail: order.customerEmail,
+            balanceRequestId: result.balanceRequest.id
+          });
+        } catch (error) {
+          logger.error('[Balance Request] Failed to send balance payment email', {
+            orderId,
+            error
+          });
+          // Continue - email failure shouldn't block the response
+        }
+      } else {
+        logger.warn('[Balance Request] Missing balanceRequest or sessionToken - email not sent', {
+          orderId,
+          hasBalanceRequest: !!result.balanceRequest,
+          hasSessionToken: !!result.sessionToken
+        });
+      }
 
       res.json({ 
         success: true, 
