@@ -848,13 +848,13 @@ export class OrderLifecycleService {
         return;
       }
 
-      // Collect all refunded items
-      const refundedItems: OrderItem[] = Array.from(itemsToRefund.values()).map(data => data.item);
+      // Collect refund data with quantities and amounts
+      const refundedItemsData = Array.from(itemsToRefund.values());
 
-      // Send refund email notification to buyer
-      await this.notificationService.sendOrderRefunded(order, seller, totalRefundAmount, refundedItems);
+      // Send refund email notification to buyer with complete refund data
+      await this.notificationService.sendOrderRefunded(order, seller, totalRefundAmount, refundedItemsData);
 
-      logger.info(`[Notifications] Refund notification email sent for order ${orderId}, total refund: $${totalRefundAmount}, ${refundedItems.length} items`);
+      logger.info(`[Notifications] Refund notification email sent for order ${orderId}, total refund: $${totalRefundAmount}, ${refundedItemsData.length} items`);
     } catch (error) {
       logger.error("[Notifications] Failed to send refund notification:", error);
     }

@@ -57,7 +57,7 @@ export interface NotificationService {
   
   // Seller → Buyer Email Methods (Task 5f)
   sendOrderDelivered(order: Order, seller: User, products: Product[]): Promise<void>;
-  sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<void>;
+  sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItemsData: Array<{ item: OrderItem; quantity: number; amount: number }>): Promise<void>;
   sendBalancePaymentRequest(order: Order, seller: User, balanceRequest: BalanceRequest, sessionToken: string): Promise<void>;
   sendBalancePaymentReceived(order: Order, seller: User, balanceAmount: number): Promise<void>;
   sendWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[]): Promise<void>;
@@ -658,9 +658,9 @@ class NotificationServiceImpl implements NotificationService {
   /**
    * Send order refunded notification (Seller → Buyer) - TASK 5f
    */
-  async sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<void> {
+  async sendOrderRefunded(order: Order, seller: User, refundAmount: number, refundedItemsData: Array<{ item: OrderItem; quantity: number; amount: number }>): Promise<void> {
     // Generate email HTML (ASYNC)
-    const emailHtml = await this.generateOrderRefundedEmail(order, seller, refundAmount, refundedItems);
+    const emailHtml = await this.generateOrderRefundedEmail(order, seller, refundAmount, refundedItemsData);
     
     // Get email metadata using EmailMetadataService
     const fromName = await this.emailMetadata.getFromName(seller);
@@ -1362,20 +1362,96 @@ class NotificationServiceImpl implements NotificationService {
 
   /**
    * Generate order refunded email - SELLER → BUYER EMAIL
+   * Architecture 3: Uses actual refunded amounts from refund processing
    */
-  private async generateOrderRefundedEmail(order: Order, seller: User, refundAmount: number, refundedItems: OrderItem[]): Promise<string> {
+  private async generateOrderRefundedEmail(order: Order, seller: User, refundAmount: number, refundedItemsData: Array<{ item: OrderItem; quantity: number; amount: number }>): Promise<string> {
     const header = generateSellerHeader(seller);
     const footer = await generateSellerFooter(seller);
     
-    // Build refunded items list
-    const refundedItemsHtml = refundedItems.map((item: OrderItem) => 
+    const currency = order.currency || 'USD';
+    
+    // Architecture 3: Calculate refund breakdown from actual refunded amounts
+    // Sum up the ACTUAL refunded amounts (not full item subtotals)
+    const itemsSubtotal = refundedItemsData.reduce((sum, data) => sum + data.amount, 0);
+    
+    // Determine refund components by comparing refundAmount to items
+    const orderShipping = parseFloat(order.shippingCost || '0');
+    const orderTax = parseFloat(order.taxAmount || '0');
+    const orderTotal = parseFloat(order.total);
+    
+    // Calculate what portion of shipping/tax is refunded
+    // If refundAmount > itemsSubtotal, the difference is shipping+tax
+    const shippingTaxPortion = Math.max(0, refundAmount - itemsSubtotal);
+    
+    // Distribute shipping/tax portion (works for both full and partial refunds)
+    let refundedShipping = 0;
+    let refundedTax = 0;
+    
+    if (shippingTaxPortion > 0) {
+      // Detect if this is a full refund
+      const isFullRefund = refundAmount >= (orderTotal - 0.01);
+      
+      if (isFullRefund) {
+        // Full refund: use exact order shipping and tax
+        refundedShipping = orderShipping;
+        refundedTax = orderTax;
+      } else {
+        // Partial refund: distribute shippingTaxPortion proportionally
+        const totalShippingTax = orderShipping + orderTax;
+        if (totalShippingTax > 0) {
+          // Proportional distribution
+          const shippingRatio = orderShipping / totalShippingTax;
+          refundedShipping = Math.min(shippingTaxPortion * shippingRatio, orderShipping);
+          refundedTax = Math.min(shippingTaxPortion - refundedShipping, orderTax);
+        } else {
+          // No shipping/tax on order, assign all to shipping (edge case)
+          refundedShipping = shippingTaxPortion;
+        }
+      }
+    }
+    
+    // Build refunded items list with ACTUAL refunded quantities
+    const refundedItemsHtml = refundedItemsData.map(({ item, quantity }) => 
       generateProductThumbnail({
         id: item.productId,
         name: item.productName,
         image: item.productImage,
         price: item.price.toString(),
-      } as Product, item.quantity, item.variant ? { size: item.variant.size, color: item.variant.color } : null)
+      } as Product, quantity, item.variant ? { size: item.variant.size, color: item.variant.color } : null)
     ).join('');
+    
+    // Build refund breakdown - show components that sum to refundAmount
+    const breakdownHtml = `
+      <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
+        <h3 style="margin: 0 0 15px; font-size: 16px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+          Refund Breakdown
+        </h3>
+        <div style="margin: 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Items:</span>
+            <span style="color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${currency} ${itemsSubtotal.toFixed(2)}</span>
+          </div>
+          ${refundedShipping > 0 ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Shipping:</span>
+            <span style="color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${currency} ${refundedShipping.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          ${refundedTax > 0 ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Tax:</span>
+            <span style="color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${currency} ${refundedTax.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          <div style="border-top: 1px solid #e5e7eb; margin: 12px 0; padding-top: 12px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #1a1a1a !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">Total Refunded:</span>
+              <span style="color: #1a1a1a !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${currency} ${refundAmount.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
     
     const content = `
       <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
@@ -1398,6 +1474,8 @@ class NotificationServiceImpl implements NotificationService {
         Refunded Items
       </h3>
       ${refundedItemsHtml}
+      
+      ${breakdownHtml}
       
       <p style="margin: 30px 0 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;" class="dark-mode-bg-white">
         Questions about your refund? Reply to this email for assistance.
