@@ -436,6 +436,7 @@ export interface IStorage {
   getWholesaleOrderItems(wholesaleOrderId: string): Promise<WholesaleOrderItem[]>;
   getWholesaleOrderItem(id: string): Promise<WholesaleOrderItem | undefined>;
   updateWholesaleOrderItem(id: string, updates: Partial<WholesaleOrderItem>): Promise<WholesaleOrderItem | undefined>;
+  updateWholesaleOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmountCents: number): Promise<WholesaleOrderItem | undefined>;
   deleteWholesaleOrderItem(id: string): Promise<boolean>;
   
   // Wholesale Payments
@@ -2394,6 +2395,20 @@ export class DatabaseStorage implements IStorage {
       .update(wholesaleOrderItems)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(wholesaleOrderItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateWholesaleOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmountCents: number): Promise<WholesaleOrderItem | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(wholesaleOrderItems)
+      .set({
+        refundedQuantity,
+        refundedAmountCents,
+        updatedAt: new Date(),
+      })
+      .where(eq(wholesaleOrderItems.id, itemId))
       .returning();
     return result[0];
   }

@@ -161,36 +161,24 @@ export default function WholesaleOrders() {
                       <div className="flex gap-1">
                         {hasDeposit && (
                           isDepositPaid ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" title="Deposit Paid" />
+                            <CheckCircle className="h-4 w-4 text-green-600" aria-label="Deposit Paid" />
                           ) : (
-                            <AlertCircle className="h-4 w-4 text-yellow-600" title="Deposit Pending" />
+                            <AlertCircle className="h-4 w-4 text-yellow-600" aria-label="Deposit Pending" />
                           )
                         )}
                         {hasBalance && (
                           isBalancePaid ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" title="Balance Paid" />
+                            <CheckCircle className="h-4 w-4 text-green-600" aria-label="Balance Paid" />
                           ) : isBalanceOverdue ? (
-                            <AlertCircle className="h-4 w-4 text-red-600" title="Balance Overdue" />
+                            <AlertCircle className="h-4 w-4 text-red-600" aria-label="Balance Overdue" />
                           ) : (
-                            <AlertCircle className="h-4 w-4 text-orange-600" title="Balance Due" />
+                            <AlertCircle className="h-4 w-4 text-orange-600" aria-label="Balance Due" />
                           )
                         )}
                       </div>
                     </TableCell>
                     <TableCell data-testid={`shipping-type-${order.id}`}>
-                      {order.shippingType === "freight_collect" ? (
-                        <Badge variant="outline" className="gap-1">
-                          <Truck className="h-3 w-3" />
-                          Freight
-                        </Badge>
-                      ) : order.shippingType === "buyer_pickup" ? (
-                        <Badge variant="outline" className="gap-1">
-                          <MapPin className="h-3 w-3" />
-                          Pickup
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      <span className="text-muted-foreground">View Details</span>
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(order.status)}

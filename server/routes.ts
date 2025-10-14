@@ -14,6 +14,8 @@ import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
 import { PDFService } from "./pdf-service";
 import documentRoutes from "./routes/documents";
+import wholesaleRefundRoutes from "./routes/wholesale-refunds";
+import wholesaleDocumentRoutes from "./routes/wholesale-documents";
 import { DocumentGenerator } from "./services/document-generator";
 import { logger } from "./logger";
 import { generateUniqueUsername, generateOrderNumber } from "./utils";
@@ -180,7 +182,7 @@ const wholesaleShippingService = new WholesaleShippingService(storage);
 const wholesalePricingService = new WholesalePricingService(storage);
 
 // Initialize Team Management service (Architecture 3 migration)
-const teamService = new TeamManagementService(storage, notificationService);
+const teamService = new TeamManagementService(storage);
 
 // Initialize Order Lifecycle service for refund, status, and balance payment orchestration
 const orderLifecycleService = new OrderLifecycleService(
@@ -401,6 +403,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Document generation routes (invoices & packing slips)
   app.use("/api/documents", documentRoutes);
+
+  // Wholesale refund routes
+  app.use("/api/wholesale/orders", wholesaleRefundRoutes);
+
+  // Wholesale document routes
+  app.use("/api/wholesale/documents", wholesaleDocumentRoutes);
 
   // Notification routes
   app.get("/api/notifications", requireAuth, async (req: any, res) => {
@@ -1058,17 +1066,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: `legacy-${item.productId}`,
           orderId: order.id,
           productId: item.productId,
-          variantId: item.variantId,
+          variantId: item.variantId || null,
           quantity: item.quantity,
           priceAtPurchase: item.price,
           currency: order.currency || 'USD',
           productName: item.name || 'Unknown Product',
           variantName: item.variant || null,
           imageUrl: item.image || null,
-          itemStatus: 'pending', // Frontend expects itemStatus, not fulfillmentStatus
+          itemStatus: 'pending',
           trackingNumber: null,
           trackingCarrier: null,
           trackingUrl: null,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          price: item.price,
+          productType: 'physical',
+          depositAmount: null,
+          requiresDeposit: 0,
+          discountPercentage: null,
+          discountAmountCents: 0,
+          finalPriceCents: Math.round(parseFloat(item.price) * 100),
+          subtotalCents: Math.round(parseFloat(item.price) * item.quantity * 100),
+          taxAmountCents: 0,
+          shippingCostCents: 0,
+          totalCents: Math.round(parseFloat(item.price) * item.quantity * 100),
+          shippingStatus: null,
+          shippingCarrier: null,
+          shippingService: null,
+          shippingLabelUrl: null,
+          isRefunded: 0,
+          refundedAmount: null,
+          refundedAt: null,
         }));
       }
 
@@ -2592,31 +2620,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Team Management - Invite users
+  // Team Management - Legacy routes (deprecated - use new routes below)
+  // These routes are kept for backward compatibility but use new service methods
   app.post("/api/invitations", requireAuth, async (req: any, res) => {
     try {
-      // Validate owner permissions
-      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
-      if (!permCheck.isOwner) {
-        return res.status(403).json({ error: permCheck.error || "Only store owners can invite team members" });
-      }
-
+      const userId = req.user.claims.sub;
       const { email, role } = req.body;
+      
       if (!email || !role) {
         return res.status(400).json({ error: "Email and role are required" });
       }
 
-      const result = await teamService.createInvitation({
-        email,
-        role,
-        inviterId: req.user.claims.sub,
-        protocol: req.protocol,
-        host: req.get('host') || '',
+      // Use new inviteCollaborator method
+      const result = await teamService.inviteCollaborator({
+        storeOwnerId: userId,
+        inviteeEmail: email.toLowerCase().trim(),
+        invitedByUserId: userId
       });
 
       if (!result.success) {
-        const statusCode = result.statusCode || 500;
-        return res.status(statusCode).json({ error: result.error });
+        return res.status(400).json({ error: result.error });
       }
 
       res.status(201).json(result.data);
@@ -2629,16 +2652,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all invitations
   app.get("/api/invitations", requireAuth, async (req: any, res) => {
     try {
-      // Validate owner permissions
-      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
-      if (!permCheck.isOwner) {
-        return res.status(403).json({ error: permCheck.error || "Only store owners can view invitations" });
-      }
-
-      const result = await teamService.getInvitations(req.user.claims.sub);
+      const userId = req.user.claims.sub;
+      const result = await teamService.getPendingInvitations(userId);
+      
       if (!result.success) {
-        const statusCode = result.statusCode || 500;
-        return res.status(statusCode).json({ error: result.error });
+        return res.status(500).json({ error: result.error });
       }
 
       res.json(result.data);
@@ -2653,8 +2671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await teamService.acceptInvitation({ token: req.params.token });
       
       if (!result.success) {
-        const statusCode = result.statusCode || 500;
-        return res.status(statusCode).json({ error: result.error });
+        return res.status(400).json({ error: result.error });
       }
 
       res.json(result.data);
@@ -2667,11 +2684,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get team members for current seller's store
   app.get("/api/team", requireAuth, async (req: any, res) => {
     try {
-      const result = await teamService.getTeamMembers(req.user.claims.sub);
+      const userId = req.user.claims.sub;
+      const result = await teamService.listCollaborators(userId);
       
       if (!result.success) {
-        const statusCode = result.statusCode || 500;
-        return res.status(statusCode).json({ error: result.error });
+        return res.status(500).json({ error: result.error });
       }
 
       res.json(result.data);
@@ -2680,32 +2697,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update user role
+  // Update user role - deprecated, kept for backward compatibility
   app.patch("/api/team/:userId/role", requireAuth, async (req: any, res) => {
     try {
-      // Validate owner permissions
-      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
-      if (!permCheck.isOwner) {
-        return res.status(403).json({ error: permCheck.error || "Only store owners can update team member roles" });
-      }
-
       const { role } = req.body;
       if (!role) {
         return res.status(400).json({ error: "Role is required" });
       }
 
-      const result = await teamService.updateMemberRole({
-        userId: req.params.userId,
-        role,
-        currentUserId: req.user.claims.sub,
-      });
-
-      if (!result.success) {
-        const statusCode = result.statusCode || 500;
-        return res.status(statusCode).json({ error: result.error });
-      }
-
-      res.json(result.data);
+      // This functionality is deprecated - role changes should be done by recreating memberships
+      res.status(501).json({ error: "Role updates are deprecated. Please revoke and re-invite the user with the new role." });
     } catch (error) {
       res.status(500).json({ error: "Failed to update user role" });
     }
@@ -2714,23 +2715,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete team member
   app.delete("/api/team/:userId", requireAuth, async (req: any, res) => {
     try {
-      // Validate owner permissions
-      const permCheck = await teamService.validateOwnerPermissions(req.user.claims.sub);
-      if (!permCheck.isOwner) {
-        return res.status(403).json({ error: permCheck.error || "Only store owners can remove team members" });
+      const userId = req.user.claims.sub;
+      
+      // Get the membership ID for this user
+      const membership = await storage.getUserStoreMembership(req.params.userId, userId);
+      if (!membership) {
+        return res.status(404).json({ error: "Team member not found" });
       }
 
-      const result = await teamService.deleteMember({
-        userId: req.params.userId,
-        currentUserId: req.user.claims.sub,
+      const result = await teamService.revokeCollaborator({
+        membershipId: membership.id,
+        revokedByUserId: userId,
       });
 
       if (!result.success) {
-        const statusCode = result.statusCode || 500;
-        return res.status(statusCode).json({ error: result.error });
+        return res.status(400).json({ error: result.error });
       }
 
-      res.json(result.data);
+      res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete team member" });
     }
@@ -4053,11 +4055,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (sellerId) {
         const seller = await storage.getUser(sellerId);
         if (seller) {
-          // Generate payment link (for email)
-          const paymentLink = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/complete-balance-payment/${order.id}?payment_intent=${paymentIntent.id}`;
+          // Create a balance request record for email
+          const balanceRequest = await storage.createBalanceRequest({
+            orderId: order.id,
+            requestedBy: sellerId,
+            amountCents: Math.round(remainingBalance * 100),
+            status: 'pending',
+            sessionToken: paymentIntent.client_secret || '',
+          });
           
           // Send email to customer
-          await notificationService.sendBalancePaymentRequest(order, seller, paymentLink);
+          await notificationService.sendBalancePaymentRequest(order, seller, balanceRequest, paymentIntent.client_secret || '');
         }
       }
 
@@ -5407,7 +5415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/wholesale/cart", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
       const buyerId = req.user.claims.sub;
-      const result = await wholesaleCheckoutService.addToCart(buyerId, req.body);
+      const result = await wholesaleService.addToCart(buyerId, req.body);
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
@@ -5422,7 +5430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/cart", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
       const buyerId = req.user.claims.sub;
-      const result = await wholesaleCheckoutService.getCart(buyerId);
+      const result = await wholesaleService.getCart(buyerId);
       
       if (!result.success) {
         return res.status(500).json({ message: result.error });
@@ -5443,7 +5451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "productId and quantity are required" });
       }
 
-      const result = await wholesaleCheckoutService.updateCartItem(buyerId, productId, variant, quantity);
+      const result = await wholesaleService.updateCartItem(buyerId, productId, variant, quantity);
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
@@ -5464,7 +5472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "productId is required" });
       }
 
-      const result = await wholesaleCheckoutService.removeCartItem(buyerId, productId, variant);
+      const result = await wholesaleService.removeCartItem(buyerId, productId, variant);
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
@@ -5534,7 +5542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const buyerId = req.user.claims.sub;
       
       // Get cart
-      const cartResult = await wholesaleCheckoutService.getCart(buyerId);
+      const cartResult = await wholesaleService.getCart(buyerId);
       if (!cartResult.success || !cartResult.cart) {
         return res.status(400).json({ message: "Cart not found" });
       }
@@ -5582,14 +5590,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         vatNumber: req.body.vatNumber,
       };
 
-      const result = await wholesaleCheckoutService.processCheckout(checkoutData);
+      const result = await wholesaleService.processCheckout(checkoutData);
       
       if (!result.success) {
         return res.status(result.statusCode || 400).json({ message: result.error });
       }
 
       // Clear cart after successful checkout
-      await wholesaleCheckoutService.clearCart(buyerId);
+      await wholesaleService.clearCart(buyerId);
 
       res.json({ 
         orderId: result.orderId, 
@@ -5606,7 +5614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { id } = req.params;
       
-      const result = await wholesaleOrderService.getOrderById(id, userId);
+      const result = await wholesaleOrderService.getOrder(id);
       
       if (!result.success) {
         return res.status(result.statusCode || 500).json({ message: result.error });
@@ -5625,7 +5633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
 
       // Get order to verify access and get balance amount
-      const orderResult = await wholesaleOrderService.getOrderById(orderId, userId);
+      const orderResult = await wholesaleOrderService.getOrder(orderId);
       
       if (!orderResult.success || !orderResult.order) {
         return res.status(orderResult.statusCode || 404).json({ 
@@ -5671,7 +5679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
 
       // Get order to verify access
-      const orderResult = await wholesaleOrderService.getOrderById(orderId, userId);
+      const orderResult = await wholesaleOrderService.getOrder(orderId);
       
       if (!orderResult.success || !orderResult.order) {
         return res.status(orderResult.statusCode || 404).json({ 
@@ -5757,13 +5765,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const result = await wholesaleOrderService.updateStatus(orderId, newStatus, userId);
+      // Update the order status using storage layer directly
+      await storage.updateWholesaleOrderStatus(orderId, newStatus);
       
-      if (!result.success) {
-        return res.status(result.statusCode || 500).json({ message: result.error });
-      }
+      // Get updated order
+      const updatedOrder = await storage.getWholesaleOrder(orderId);
       
-      res.json({ order: result.order });
+      // Create order event for status change
+      await storage.createWholesaleOrderEvent({
+        orderId: orderId,
+        eventType: 'status_changed',
+        eventData: { newStatus, changedBy: userId },
+        createdBy: userId,
+      });
+      
+      res.json({ order: updatedOrder });
     } catch (error) {
       logger.error("Error updating wholesale order status", error);
       res.status(500).json({ message: "Failed to update order status" });

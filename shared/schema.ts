@@ -380,10 +380,10 @@ export const insertStockReservationSchema = createInsertSchema(stockReservations
 export type InsertStockReservation = z.infer<typeof insertStockReservationSchema>;
 export type StockReservation = typeof stockReservations.$inferSelect;
 
-// Refunds - track all refund transactions
+// Refunds - track all refund transactions (shared for B2C and B2B wholesale)
 export const refunds = pgTable("refunds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: varchar("order_id").notNull(), // References orders.id
+  orderId: varchar("order_id").notNull(), // References orders.id (for B2C) or wholesale_orders.id (for B2B, stored here for query compatibility)
   orderItemId: varchar("order_item_id"), // References order_items.id (null for shipping refunds)
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Refund amount
   reason: text("reason"), // Refund reason (optional)
@@ -391,6 +391,12 @@ export const refunds = pgTable("refunds", {
   stripeRefundId: varchar("stripe_refund_id"), // Stripe refund ID
   status: text("status").notNull().default("pending"), // "pending", "succeeded", "failed"
   processedBy: varchar("processed_by").notNull(), // User ID who processed the refund
+  
+  // Wholesale-specific fields (nullable for B2C compatibility)
+  wholesaleOrderId: varchar("wholesale_order_id"), // References wholesale_orders.id (null for B2C)
+  wholesalePaymentId: varchar("wholesale_payment_id"), // References wholesale_payments.id (null for B2C)
+  wholesaleOrderItemId: varchar("wholesale_order_item_id"), // References wholesale_order_items.id (null for B2C)
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -1315,6 +1321,10 @@ export const wholesaleOrderItems = pgTable("wholesale_order_items", {
   
   // Variant Information
   variant: jsonb("variant"), // {size, color, sku}
+  
+  // Refund tracking (for item-level refunds)
+  refundedQuantity: integer("refunded_quantity").default(0), // How many units have been refunded
+  refundedAmountCents: integer("refunded_amount_cents").default(0), // Total refunded amount in cents
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
