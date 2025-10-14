@@ -1032,13 +1032,16 @@ export class OrderService {
         count: orderItemsToCreate.length,
       });
     } catch (error: any) {
-      logger.error('[OrderService] Failed to create order items', {
-        error: error.message,
-        stack: error.stack,
+      const errorMessage = error?.message || String(error);
+      logger.error('[OrderService] Failed to create order items DETAILED', {
+        errorMessage,
+        errorString: String(error),
+        errorType: typeof error,
         orderId: order.id,
+        itemsToCreate: JSON.stringify(orderItemsToCreate),
       });
-      // Re-throw to surface the error
-      throw error;
+      // Re-throw with a proper error message
+      throw new Error(`Failed to create order items: ${errorMessage}`);
     }
   }
 
