@@ -1,14 +1,16 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Package, Mail, Phone, MapPin, ExternalLink } from "lucide-react";
+import { CheckCircle, Package, Mail, Phone, MapPin, ExternalLink, Loader2 } from "lucide-react";
 import type { Order, Product, User } from "@shared/schema";
 import { getSellerAwarePath } from "@/contexts/seller-context";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // Simple currency formatter using seller's currency (no conversion)
 const formatOrderPrice = (price: number, currency: string = 'USD') => {
@@ -23,6 +25,7 @@ export default function OrderSuccess() {
   const [matchSellerAware, paramsSellerAware] = useRoute("/s/:username/order-success/:orderId");
   const [matchFallback, paramsFallback] = useRoute("/order-success/:orderId");
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   // Extract orderId from whichever route matched
   const orderId = paramsSellerAware?.orderId || paramsFallback?.orderId;
@@ -106,6 +109,35 @@ export default function OrderSuccess() {
   const getProductDetails = (productId: string) => {
     return products?.find(p => p.id === productId);
   };
+
+  // Mutation to request balance payment (buyer-initiated)
+  const requestBalanceMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/request-balance`, {
+        requestedBy: currentUser?.id || order?.customerId,
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to request balance payment');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Redirect to balance payment page with token
+      const token = data.sessionToken;
+      const balancePaymentPath = getSellerAwarePath(`/orders/${orderId}/pay-balance?token=${token}`, sellerUsername);
+      setLocation(balancePaymentPath);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Request Failed",
+        description: error.message || "Failed to request balance payment",
+        variant: "destructive",
+      });
+    },
+  });
 
   if (orderLoading) {
     return (
@@ -369,10 +401,26 @@ export default function OrderSuccess() {
                     <span className="font-semibold">{formatOrderPrice(remainingBalance, currency)}</span>
                   </div>
                   <Separator />
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg space-y-3">
                     <p className="text-xs text-yellow-800 dark:text-yellow-200">
                       <strong>Note:</strong> You'll be contacted to pay the remaining balance of {formatOrderPrice(remainingBalance, currency)} before shipment.
                     </p>
+                    <Button
+                      size="sm"
+                      onClick={() => requestBalanceMutation.mutate(order.id)}
+                      disabled={requestBalanceMutation.isPending}
+                      className="w-full"
+                      data-testid="button-pay-balance"
+                    >
+                      {requestBalanceMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Pay Balance Now"
+                      )}
+                    </Button>
                   </div>
                 </>
               ) : (

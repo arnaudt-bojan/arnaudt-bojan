@@ -97,18 +97,11 @@ export class BalancePaymentService {
         };
       }
 
-      // Verify order requires balance payment
-      if (!order.depositAmountCents || !order.balanceDueCents) {
+      // Verify order has a deposit (pre-order or made-to-order)
+      if (!order.depositAmountCents || order.depositAmountCents <= 0) {
         return {
           success: false,
           error: "Order does not require balance payment"
-        };
-      }
-
-      if (order.balanceDueCents <= 0) {
-        return {
-          success: false,
-          error: "No balance due for this order"
         };
       }
 
@@ -147,6 +140,14 @@ export class BalancePaymentService {
       // Balance = Total - Deposit Already Paid
       const balanceDueCents = Math.round(pricing.remainingBalance * 100);
       const productBalanceCents = balanceDueCents - shippingCostCents;
+
+      // Verify balance is actually due after calculation
+      if (balanceDueCents <= 0) {
+        return {
+          success: false,
+          error: "No balance due for this order"
+        };
+      }
 
       // Generate secure session token
       const sessionToken = crypto.randomBytes(32).toString('hex');

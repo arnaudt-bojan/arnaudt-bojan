@@ -1926,9 +1926,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Order not found" });
       }
 
-      // Authorization: seller must own products in order OR be admin
+      // Authorization: buyer (order owner), seller (owns products), OR admin
       const isAdmin = user?.role === 'owner' || user?.role === 'admin';
-      if (!isAdmin) {
+      const isBuyer = order.customerId === userId;
+      
+      if (!isAdmin && !isBuyer) {
         try {
           const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           const allProducts = await storage.getAllProducts();
@@ -1991,6 +1993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true, 
         balanceRequest: result.balanceRequest,
+        sessionToken: result.sessionToken,
         message: "Balance payment request created successfully"
       });
     } catch (error: any) {
