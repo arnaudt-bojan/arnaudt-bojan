@@ -49,6 +49,50 @@ export const balancePaymentStatusPgEnum = pgEnum("order_balance_payment_status",
   "cancelled"
 ]);
 
+// PostgreSQL enums for Wholesale B2B System
+export const wholesaleOrderStatusPgEnum = pgEnum("wholesale_order_status", [
+  "pending",
+  "deposit_paid",
+  "awaiting_balance",
+  "balance_overdue",
+  "ready_to_release",
+  "in_production",
+  "fulfilled",
+  "cancelled"
+]);
+
+export const wholesalePaymentTypePgEnum = pgEnum("wholesale_payment_type", [
+  "deposit",
+  "balance"
+]);
+
+export const wholesalePaymentStatusPgEnum = pgEnum("wholesale_payment_status", [
+  "pending",
+  "requested",
+  "paid",
+  "failed",
+  "cancelled",
+  "overdue"
+]);
+
+export const wholesaleShippingTypePgEnum = pgEnum("wholesale_shipping_type", [
+  "freight_collect",
+  "buyer_pickup"
+]);
+
+export const wholesaleOrderEventTypePgEnum = pgEnum("wholesale_order_event_type", [
+  "order_created",
+  "status_change",
+  "deposit_payment_received",
+  "balance_payment_requested",
+  "balance_payment_received",
+  "balance_payment_overdue",
+  "email_sent",
+  "tracking_updated",
+  "order_fulfilled",
+  "order_cancelled"
+]);
+
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
 
@@ -1024,7 +1068,7 @@ export type InsertNftMint = z.infer<typeof insertNftMintSchema>;
 export type NftMint = typeof nftMints.$inferSelect;
 export type SelectNftMint = typeof nftMints.$inferSelect;
 
-// Wholesale Products
+// Wholesale Products - Extended for complete B2B functionality
 export const wholesaleProducts = pgTable("wholesale_products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sellerId: varchar("seller_id").notNull(),
@@ -1036,12 +1080,34 @@ export const wholesaleProducts = pgTable("wholesale_products", {
   category: text("category").notNull(),
   rrp: decimal("rrp", { precision: 10, scale: 2 }).notNull(), // Recommended Retail Price
   wholesalePrice: decimal("wholesale_price", { precision: 10, scale: 2 }).notNull(),
-  moq: integer("moq").notNull(), // Minimum Order Quantity
-  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
+  moq: integer("moq").notNull(), // Minimum Order Quantity (product-level)
+  
+  // Deposit/Balance Configuration (support both fixed and percentage)
+  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }), // Fixed deposit amount
+  depositPercentage: decimal("deposit_percentage", { precision: 5, scale: 2 }), // Deposit % (e.g., 30.00 for 30%)
+  balancePercentage: decimal("balance_percentage", { precision: 5, scale: 2 }), // Balance % (e.g., 70.00 for 70%)
   requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
+  
+  // Stock & Availability
   stock: integer("stock").default(0),
   readinessDays: integer("readiness_days"), // Days after order for production/delivery
-  variants: jsonb("variants"), // [{size, color, stock, image, moq}]
+  
+  // B2B Specific Dates
+  expectedShipDate: timestamp("expected_ship_date"), // When product will ship
+  balancePaymentDate: timestamp("balance_payment_date"), // When balance payment is due
+  orderDeadline: timestamp("order_deadline"), // Last day to place order
+  
+  // Shipping & Warehouse Configuration
+  shipFromAddress: jsonb("ship_from_address"), // Warehouse address for freight/pickup: {street, city, state, zip, country}
+  contactDetails: jsonb("contact_details"), // Warehouse contact: {name, phone, email}
+  
+  // Pricing & Terms
+  suggestedRetailPrice: decimal("suggested_retail_price", { precision: 10, scale: 2 }), // SRP for retailers
+  paymentTerms: varchar("payment_terms").default("Net 30"), // Net 30/60/90
+  
+  // Variants (extended to include per-variant MOQ and pricing)
+  variants: jsonb("variants"), // [{size, color, stock, image, moq, wholesalePrice, sku}]
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1054,6 +1120,284 @@ export const insertWholesaleProductSchema = createInsertSchema(wholesaleProducts
 export type InsertWholesaleProduct = z.infer<typeof insertWholesaleProductSchema>;
 export type WholesaleProduct = typeof wholesaleProducts.$inferSelect;
 export type SelectWholesaleProduct = typeof wholesaleProducts.$inferSelect;
+
+// ===== WHOLESALE B2B ORDER SYSTEM =====
+
+// Wholesale Orders - Main B2B order table
+export const wholesaleOrders = pgTable("wholesale_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: varchar("order_number").notNull().unique(), // WH-YYYYMMDD-XXXXX
+  sellerId: varchar("seller_id").notNull(),
+  buyerId: varchar("buyer_id").notNull(),
+  
+  // Order Status & Lifecycle
+  status: wholesaleOrderStatusPgEnum("status").notNull().default("pending"),
+  
+  // Pricing & Amounts (in cents for precision)
+  subtotalCents: integer("subtotal_cents").notNull(), // Subtotal in cents
+  taxAmountCents: integer("tax_amount_cents").default(0), // Tax in cents
+  totalCents: integer("total_cents").notNull(), // Total in cents
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  
+  // Deposit & Balance Configuration
+  depositAmountCents: integer("deposit_amount_cents").notNull(), // Deposit in cents
+  balanceAmountCents: integer("balance_amount_cents").notNull(), // Balance in cents
+  depositPercentage: decimal("deposit_percentage", { precision: 5, scale: 2 }), // e.g., 30.00 for 30%
+  balancePercentage: decimal("balance_percentage", { precision: 5, scale: 2 }), // e.g., 70.00 for 70%
+  
+  // Payment Terms
+  paymentTerms: varchar("payment_terms").default("Net 30"), // Net 30/60/90
+  
+  // Important Dates
+  expectedShipDate: timestamp("expected_ship_date"),
+  balancePaymentDueDate: timestamp("balance_payment_due_date"),
+  orderDeadline: timestamp("order_deadline"),
+  
+  // Business Information
+  poNumber: varchar("po_number"), // Purchase Order number
+  vatNumber: varchar("vat_number"), // VAT/Tax ID
+  incoterms: varchar("incoterms"), // FOB, CIF, DDP
+  
+  // Buyer Information (snapshot at order time)
+  buyerCompanyName: text("buyer_company_name"),
+  buyerEmail: text("buyer_email").notNull(),
+  buyerName: text("buyer_name"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: index("wholesale_orders_seller_id_idx").on(table.sellerId),
+    buyerIdIdx: index("wholesale_orders_buyer_id_idx").on(table.buyerId),
+    statusIdx: index("wholesale_orders_status_idx").on(table.status),
+    orderNumberIdx: index("wholesale_orders_order_number_idx").on(table.orderNumber),
+  };
+});
+
+export const insertWholesaleOrderSchema = createInsertSchema(wholesaleOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWholesaleOrder = z.infer<typeof insertWholesaleOrderSchema>;
+export type WholesaleOrder = typeof wholesaleOrders.$inferSelect;
+
+// Wholesale Order Items - Individual items in B2B orders
+export const wholesaleOrderItems = pgTable("wholesale_order_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  wholesaleOrderId: varchar("wholesale_order_id").notNull(),
+  productId: varchar("product_id").notNull(), // References wholesale_products.id
+  
+  // Product Snapshot (at time of order)
+  productName: text("product_name").notNull(),
+  productImage: text("product_image"),
+  productSku: varchar("product_sku"),
+  
+  // Quantity & MOQ
+  quantity: integer("quantity").notNull(),
+  moq: integer("moq").notNull(), // MOQ at time of order
+  
+  // Pricing (in cents)
+  unitPriceCents: integer("unit_price_cents").notNull(), // Wholesale price per unit in cents
+  subtotalCents: integer("subtotal_cents").notNull(), // quantity * unitPrice in cents
+  
+  // Variant Information
+  variant: jsonb("variant"), // {size, color, sku}
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    wholesaleOrderIdIdx: index("wholesale_order_items_order_id_idx").on(table.wholesaleOrderId),
+    productIdIdx: index("wholesale_order_items_product_id_idx").on(table.productId),
+  };
+});
+
+export const insertWholesaleOrderItemSchema = createInsertSchema(wholesaleOrderItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWholesaleOrderItem = z.infer<typeof insertWholesaleOrderItemSchema>;
+export type WholesaleOrderItem = typeof wholesaleOrderItems.$inferSelect;
+
+// Wholesale Payments - Track deposit and balance payments
+export const wholesalePayments = pgTable("wholesale_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  wholesaleOrderId: varchar("wholesale_order_id").notNull(),
+  
+  // Payment Type & Status
+  paymentType: wholesalePaymentTypePgEnum("payment_type").notNull(), // deposit or balance
+  status: wholesalePaymentStatusPgEnum("status").notNull().default("pending"),
+  
+  // Amount & Currency (in cents)
+  amountCents: integer("amount_cents").notNull(), // Payment amount in cents
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  
+  // Stripe Integration
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  
+  // Payment Timeline
+  dueDate: timestamp("due_date"),
+  requestedAt: timestamp("requested_at"),
+  paidAt: timestamp("paid_at"),
+  emailSentAt: timestamp("email_sent_at"),
+  lastReminderAt: timestamp("last_reminder_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    wholesaleOrderIdIdx: index("wholesale_payments_order_id_idx").on(table.wholesaleOrderId),
+    statusIdx: index("wholesale_payments_status_idx").on(table.status),
+    paymentTypeIdx: index("wholesale_payments_payment_type_idx").on(table.paymentType),
+  };
+});
+
+export const insertWholesalePaymentSchema = createInsertSchema(wholesalePayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWholesalePayment = z.infer<typeof insertWholesalePaymentSchema>;
+export type WholesalePayment = typeof wholesalePayments.$inferSelect;
+
+// Wholesale Shipping Details - Freight collect or buyer pickup logistics
+export const wholesaleShippingDetails = pgTable("wholesale_shipping_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  wholesaleOrderId: varchar("wholesale_order_id").notNull().unique(), // One shipping detail per order
+  
+  // Shipping Type
+  shippingType: wholesaleShippingTypePgEnum("shipping_type").notNull(), // freight_collect or buyer_pickup
+  
+  // Freight Collect Details
+  carrierName: varchar("carrier_name"), // e.g., FedEx, UPS, DHL
+  carrierAccountNumber: varchar("carrier_account_number"), // Buyer's carrier account
+  prepaidLabelUrls: text("prepaid_label_urls").array(), // Uploaded prepaid shipping labels
+  serviceLevel: varchar("service_level"), // e.g., Standard, Express
+  
+  // Buyer Pickup Details (seller's warehouse)
+  pickupAddress: jsonb("pickup_address"), // {street, city, state, zip, country}
+  pickupContactName: varchar("pickup_contact_name"),
+  pickupContactPhone: varchar("pickup_contact_phone"),
+  pickupContactEmail: varchar("pickup_contact_email"),
+  
+  // Invoicing Address (buyer's billing address)
+  invoicingAddress: jsonb("invoicing_address"), // {street, city, state, zip, country}
+  invoicingName: varchar("invoicing_name"),
+  invoicingEmail: varchar("invoicing_email"),
+  invoicingPhone: varchar("invoicing_phone"),
+  rememberInvoicing: integer("remember_invoicing").default(0), // 0 = false, 1 = true
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    wholesaleOrderIdIdx: index("wholesale_shipping_details_order_id_idx").on(table.wholesaleOrderId),
+  };
+});
+
+export const insertWholesaleShippingDetailSchema = createInsertSchema(wholesaleShippingDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWholesaleShippingDetail = z.infer<typeof insertWholesaleShippingDetailSchema>;
+export type WholesaleShippingDetail = typeof wholesaleShippingDetails.$inferSelect;
+
+// Wholesale Order Events - Event log for B2B order lifecycle
+export const wholesaleOrderEvents = pgTable("wholesale_order_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  wholesaleOrderId: varchar("wholesale_order_id").notNull(),
+  
+  // Event Details
+  eventType: wholesaleOrderEventTypePgEnum("event_type").notNull(),
+  payload: jsonb("payload"), // Event-specific data
+  description: text("description"), // Human-readable description
+  
+  // Event Attribution
+  performedBy: varchar("performed_by"), // User ID (null for system events)
+  
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    wholesaleOrderIdIdx: index("wholesale_order_events_order_id_idx").on(table.wholesaleOrderId),
+    occurredAtIdx: index("wholesale_order_events_occurred_at_idx").on(table.occurredAt),
+  };
+});
+
+export const insertWholesaleOrderEventSchema = createInsertSchema(wholesaleOrderEvents).omit({
+  id: true,
+  occurredAt: true
+});
+export type InsertWholesaleOrderEvent = z.infer<typeof insertWholesaleOrderEventSchema>;
+export type WholesaleOrderEvent = typeof wholesaleOrderEvents.$inferSelect;
+
+// Warehouse Locations - Seller warehouse/pickup addresses
+export const warehouseLocations = pgTable("warehouse_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(),
+  
+  // Warehouse Details
+  name: text("name").notNull(), // e.g., "Main Warehouse", "LA Distribution Center"
+  address: jsonb("address").notNull(), // {street, city, state, zip, country}
+  
+  // Contact Information
+  contactName: varchar("contact_name"),
+  contactPhone: varchar("contact_phone"),
+  contactEmail: varchar("contact_email"),
+  
+  // Settings
+  isDefault: integer("is_default").default(0), // 0 = false, 1 = true (one default per seller)
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: index("warehouse_locations_seller_id_idx").on(table.sellerId),
+  };
+});
+
+export const insertWarehouseLocationSchema = createInsertSchema(warehouseLocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertWarehouseLocation = z.infer<typeof insertWarehouseLocationSchema>;
+export type WarehouseLocation = typeof warehouseLocations.$inferSelect;
+
+// Buyer Profiles - B2B buyer company information
+export const buyerProfiles = pgTable("buyer_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(), // Links to users table
+  
+  // Company Information
+  companyName: text("company_name"),
+  vatNumber: varchar("vat_number"), // VAT/Tax ID
+  
+  // Addresses
+  billingAddress: jsonb("billing_address"), // {street, city, state, zip, country}
+  shippingAddress: jsonb("shipping_address"), // {street, city, state, zip, country}
+  
+  // Default Payment Terms
+  defaultPaymentTerms: varchar("default_payment_terms").default("Net 30"),
+  creditLimit: decimal("credit_limit", { precision: 10, scale: 2 }), // Optional credit limit
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index("buyer_profiles_user_id_idx").on(table.userId),
+  };
+});
+
+export const insertBuyerProfileSchema = createInsertSchema(buyerProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertBuyerProfile = z.infer<typeof insertBuyerProfileSchema>;
+export type BuyerProfile = typeof buyerProfiles.$inferSelect;
 
 // Wholesale Invitations - enhanced for new auth system
 export const wholesaleInvitations_legacy = pgTable("wholesale_invitations", {
