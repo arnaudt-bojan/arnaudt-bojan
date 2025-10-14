@@ -28,6 +28,9 @@ A service layer pattern is employed, abstracting business logic from thin route 
 **UI/UX Decisions:**
 The design system supports dark/light mode, uses the Inter font, and emphasizes consistent spacing, typography, and a mobile-first responsive approach. Navigation is dashboard-centric. Product displays feature multi-image support and interactive elements. Storefronts are customizable with seller branding.
 
+**B2C/B2B Environment Toggle:**
+Sellers can switch between B2C (retail) and B2B (wholesale) environments using a toggle in the dashboard header. This toggle changes context only without navigation - it allows sellers to view environment-specific content while staying on their current page. Wholesale functionality is accessed via `/seller/wholesale/*` routes when in B2B mode.
+
 **System Design Choices & Feature Specifications:**
 -   **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and comprehensive multi-method shipping.
 -   **Shipping Service**: Centralized `ShippingService` integrates Free Shipping, Flat Rate, Matrix Shipping, and real-time Shippo API rates, requiring sellers to configure a warehouse address.
