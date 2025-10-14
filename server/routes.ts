@@ -2017,6 +2017,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Token-based access (magic link)
         const sessionResult = await balancePaymentService.getBalanceSession(token);
         
+        logger.info(`[BalanceSession] Session response`, {
+          success: sessionResult.success,
+          hasSession: !!sessionResult.session,
+          balanceRequestId: sessionResult.session?.balanceRequestId,
+          sessionKeys: sessionResult.session ? Object.keys(sessionResult.session) : []
+        });
+        
         if (sessionResult.success && sessionResult.session) {
           return res.json(sessionResult.session);
         } else {
@@ -2121,6 +2128,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId } = req.params;
       const { token } = req.query;
       const { balanceRequestId } = req.body;
+
+      logger.info(`[BalancePayment] Pay balance request`, {
+        orderId,
+        hasToken: !!token,
+        requestBody: req.body,
+        balanceRequestId
+      });
 
       if (!balanceRequestId) {
         return res.status(400).json({ error: "balanceRequestId is required" });
