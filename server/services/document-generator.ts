@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
-import { objectStorageClient } from '../objectStorage';
+import { objectStorageClient, signObjectURL } from '../objectStorage';
 import type { Order, OrderItem, User, Product } from '@shared/schema';
 
 const bucketName = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
@@ -457,10 +457,13 @@ export class DocumentGenerator {
       },
     });
 
-    // Generate signed URL (valid for 7 days)
-    const [url] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    // Generate signed URL using Replit's sidecar (valid for 7 days)
+    const objectName = `${privateDir}/documents/${fileName}`;
+    const url = await signObjectURL({
+      bucketName,
+      objectName,
+      method: 'GET',
+      ttlSec: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
     return url;
