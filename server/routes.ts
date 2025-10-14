@@ -28,6 +28,7 @@ import { StripePaymentProvider } from "./services/payment/stripe-provider";
 import { WebhookHandler } from "./services/payment/webhook-handler";
 import { PaymentService } from "./services/payment/payment.service";
 import { ProductService } from "./services/product.service";
+import { productVariantService } from "./services/product-variant.service";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
 import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
@@ -745,9 +746,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const seller = await storage.getUser(product.sellerId);
       const currency = seller?.listingCurrency || 'USD';
       
+      // ARCHITECTURE 3: Get variant requirements from backend
+      const variantRequirements = productVariantService.getVariantRequirements(product);
+      
       res.json({
         ...product,
         currency, // Include seller's currency as single source of truth
+        variantRequirements, // Include variant metadata for frontend
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch product" });
