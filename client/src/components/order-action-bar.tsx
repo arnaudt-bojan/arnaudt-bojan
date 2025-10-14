@@ -141,12 +141,25 @@ export function OrderActionBar({
       });
     },
     onSuccess: (data: any) => {
+      const downloadUrl = data.downloadUrl || data.invoice?.documentUrl;
       toast({
         title: "Invoice Generated",
-        description: "Invoice has been generated successfully.",
+        description: downloadUrl ? (
+          <div className="flex flex-col gap-2">
+            <p>Invoice has been generated successfully.</p>
+            <a 
+              href={downloadUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              Download Invoice
+            </a>
+          </div>
+        ) : "Invoice has been generated successfully.",
       });
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
+      if (downloadUrl) {
+        window.open(downloadUrl, "_blank");
       }
     },
     onError: (error: any) => {
@@ -165,12 +178,25 @@ export function OrderActionBar({
       });
     },
     onSuccess: (data: any) => {
+      const downloadUrl = data.downloadUrl || data.packingSlip?.documentUrl;
       toast({
         title: "Packing Slip Generated",
-        description: "Packing slip has been generated successfully.",
+        description: downloadUrl ? (
+          <div className="flex flex-col gap-2">
+            <p>Packing slip has been generated successfully.</p>
+            <a 
+              href={downloadUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              Download Packing Slip
+            </a>
+          </div>
+        ) : "Packing slip has been generated successfully.",
       });
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
+      if (downloadUrl) {
+        window.open(downloadUrl, "_blank");
       }
     },
     onError: (error: any) => {
