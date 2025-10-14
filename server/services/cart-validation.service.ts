@@ -17,6 +17,9 @@ export interface ValidatedCartItem {
   id: string;
   name: string;
   price: string; // Server-validated price
+  originalPrice?: string; // Price before discount
+  discountPercentage?: string; // Discount % (e.g., "15.00" for 15%)
+  discountAmount?: string; // Dollar amount saved
   quantity: number;
   productType: string;
   depositAmount?: string;
@@ -78,6 +81,10 @@ export class CartValidationService {
 
       // Calculate actual price with discount (server-side calculation)
       let actualPrice = product.price;
+      let originalPrice: string | undefined;
+      let discountPercentage: string | undefined;
+      let discountAmount: string | undefined;
+      
       if (
         product.promotionActive === 1 &&
         product.discountPercentage &&
@@ -85,14 +92,22 @@ export class CartValidationService {
         new Date(product.promotionEndDate) > new Date()
       ) {
         const discount = parseFloat(product.discountPercentage);
-        const originalPrice = parseFloat(product.price);
-        actualPrice = (originalPrice * (1 - discount / 100)).toFixed(2);
+        const origPrice = parseFloat(product.price);
+        const discPrice = (origPrice * (1 - discount / 100)).toFixed(2);
+        
+        originalPrice = product.price;
+        discountPercentage = product.discountPercentage;
+        discountAmount = (origPrice - parseFloat(discPrice)).toFixed(2);
+        actualPrice = discPrice;
       }
 
       validatedItems.push({
         id: product.id,
         name: product.name,
         price: actualPrice, // Use server-calculated price
+        originalPrice,
+        discountPercentage,
+        discountAmount,
         quantity: item.quantity,
         productType: product.productType,
         depositAmount: product.depositAmount || undefined,

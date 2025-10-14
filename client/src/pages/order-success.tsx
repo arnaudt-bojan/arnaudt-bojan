@@ -293,9 +293,21 @@ export default function OrderSuccess() {
                           <p>Variant: {item.variant}</p>
                         )}
                         <p>Quantity: {item.quantity}</p>
-                        <p className="font-semibold text-foreground">
-                          {formatOrderPrice(parseFloat(item.price), currency)} each
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-foreground">
+                            {formatOrderPrice(parseFloat(item.price), currency)} each
+                          </p>
+                          {item.originalPrice && item.discountAmount && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground line-through">
+                                {formatOrderPrice(parseFloat(item.originalPrice), currency)}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                Save {formatOrderPrice(parseFloat(item.discountAmount), currency)}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="text-right">

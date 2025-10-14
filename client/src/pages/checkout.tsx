@@ -190,6 +190,9 @@ function PaymentForm({
           items: items.map((item: any) => ({
             productId: item.id,
             price: item.price,
+            originalPrice: item.originalPrice || undefined,
+            discountPercentage: item.discountPercentage || undefined,
+            discountAmount: item.discountAmount || undefined,
             quantity: item.quantity,
             productType: item.productType,
             depositAmount: item.depositAmount || undefined,
@@ -467,6 +470,9 @@ function ExpressCheckout({
           items: items.map((item: any) => ({
             productId: item.id,
             price: item.price,
+            originalPrice: item.originalPrice || undefined,
+            discountPercentage: item.discountPercentage || undefined,
+            discountAmount: item.discountAmount || undefined,
             quantity: item.quantity,
             productType: item.productType,
             depositAmount: item.depositAmount || undefined,
@@ -756,6 +762,9 @@ export default function Checkout() {
           productId: item.id,
           name: item.name,
           price: item.price,
+          originalPrice: item.originalPrice || undefined,
+          discountPercentage: item.discountPercentage || undefined,
+          discountAmount: item.discountAmount || undefined,
           quantity: item.quantity,
           productType: item.productType,
           depositAmount: item.depositAmount,
@@ -1313,9 +1322,21 @@ export default function Checkout() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
                                 <p className="font-medium text-sm leading-tight">{item.name}</p>
-                                <p className="text-sm text-muted-foreground mt-0.5">
-                                  {formatConvertedPrice(parseFloat(item.price))} × {item.quantity}
-                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatConvertedPrice(parseFloat(item.price))} × {item.quantity}
+                                  </p>
+                                  {(item as any).originalPrice && (item as any).discountAmount && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-muted-foreground line-through">
+                                        {formatConvertedPrice(parseFloat((item as any).originalPrice))}
+                                      </span>
+                                      <Badge variant="secondary" className="text-xs">
+                                        Save {formatConvertedPrice(parseFloat((item as any).discountAmount))}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <p className="font-semibold text-sm whitespace-nowrap">
                                 {formatConvertedPrice(parseFloat(item.price) * item.quantity)}

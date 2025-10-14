@@ -221,9 +221,21 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                         {formatVariant(item.variant)}
                       </p>
                     )}
-                    <p className="text-sm text-muted-foreground">
-                      Qty: {item.quantity} × {order.currency} {parseFloat(item.price).toFixed(2)}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm text-muted-foreground">
+                        Qty: {item.quantity} × {order.currency} {parseFloat(item.price).toFixed(2)}
+                      </p>
+                      {(item as any).originalPrice && (item as any).discountAmount && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground line-through">
+                            {order.currency} {parseFloat((item as any).originalPrice).toFixed(2)}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            Save {order.currency} {parseFloat((item as any).discountAmount).toFixed(2)}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="font-medium">

@@ -199,9 +199,21 @@ export default function BuyerDashboard() {
                     <h4 className="font-medium text-sm mb-2">Items:</h4>
                     <div className="space-y-1">
                       {items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between text-sm">
+                        <div key={idx} className="flex justify-between text-sm gap-2">
                           <span className="text-muted-foreground">{item.name} x{item.quantity}</span>
-                          <span className="font-medium">${parseFloat(item.price).toFixed(2)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">${parseFloat(item.price).toFixed(2)}</span>
+                            {item.originalPrice && item.discountAmount && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground line-through">
+                                  ${parseFloat(item.originalPrice).toFixed(2)}
+                                </span>
+                                <Badge variant="secondary" className="text-xs">
+                                  Save ${parseFloat(item.discountAmount).toFixed(2)}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
