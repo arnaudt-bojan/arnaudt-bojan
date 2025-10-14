@@ -44,6 +44,7 @@ import WholesaleAcceptInvitation from "@/pages/wholesale-accept-invitation";
 import BulkProductUpload from "@/pages/bulk-product-upload";
 import OrderSuccess from "@/pages/order-success";
 import CheckoutComplete from "@/pages/checkout-complete";
+import BalancePayment from "@/pages/BalancePayment";
 import SellerStorefront from "@/pages/seller-storefront";
 import AdminDashboard from "@/pages/admin-dashboard";
 import SubscriptionSuccess from "@/pages/subscription-success";
@@ -104,6 +105,7 @@ function AppContent() {
               <Route path="/login" component={Login} />
               <Route path="/dashboard" component={DashboardRedirect} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
+              <Route path="/orders/:orderId/pay-balance" component={BalancePayment} />
               <Route path="/accept-invitation" component={AcceptInvitation} />
               
               {/* Public platform pages on seller subdomain */}
@@ -179,6 +181,7 @@ function AppContent() {
               <Route path="/checkout" component={Checkout} />
               <Route path="/checkout/complete" component={CheckoutComplete} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
+              <Route path="/orders/:orderId/pay-balance" component={BalancePayment} />
               
               {/* Public platform pages */}
               <Route path="/help" component={Help} />
