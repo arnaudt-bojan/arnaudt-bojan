@@ -92,7 +92,7 @@ export class PricingCalculationService {
     const currency = seller.listingCurrency || 'USD';
     logger.info(`[PricingCalculationService] Using seller's currency: ${currency}`);
 
-    // Step 2: Fetch products and calculate subtotal
+    // Step 2: Fetch products and calculate subtotal (with discount support)
     let subtotal = 0;
     const itemDetails = [];
 
@@ -102,7 +102,18 @@ export class PricingCalculationService {
         throw new Error(`Product ${item.productId} not found`);
       }
 
-      const itemPrice = parseFloat(product.price);
+      // Calculate price with active discount (Architecture 3: respect validated prices)
+      let itemPrice = parseFloat(product.price);
+      if (
+        product.promotionActive === 1 &&
+        product.discountPercentage &&
+        product.promotionEndDate &&
+        new Date(product.promotionEndDate) > new Date()
+      ) {
+        const discount = parseFloat(product.discountPercentage);
+        itemPrice = itemPrice * (1 - discount / 100);
+      }
+
       const itemTotal = itemPrice * item.quantity;
       subtotal += itemTotal;
 

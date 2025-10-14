@@ -300,9 +300,22 @@ export class OrderService {
         committed: commitResult.committed,
       });
 
-      // NOTE: Order notifications are now sent from payment webhook after amountPaid is set
-      // This fixes the "$0.00 Amount Paid" bug in seller emails
-      // See: server/services/payment/webhook-handler.ts - handlePaymentIntentSucceeded()
+      // Send order notifications immediately if payment confirmed (webhook may not fire in test mode)
+      // NOTE: Webhooks handle this for production, but test cards don't trigger webhooks
+      if (order.paymentStatus === 'fully_paid' || order.status === 'processing') {
+        try {
+          await this.sendOrderNotifications(order);
+          logger.info('[OrderService] Order notifications sent immediately (payment confirmed)', {
+            orderId: order.id,
+          });
+        } catch (emailError) {
+          logger.error('[OrderService] Failed to send order notifications', {
+            error: emailError,
+            orderId: order.id,
+          });
+          // Don't fail order creation if email fails
+        }
+      }
 
       logger.info('[OrderService] Order created successfully', {
         orderId: order.id,
