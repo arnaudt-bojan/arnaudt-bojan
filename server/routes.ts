@@ -1184,7 +1184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/orders/:orderId/refunds", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const { orderId } = req.params;
-      const { refundItems, reason, refundType } = req.body;
+      const { refundItems, reason, refundType, customRefundAmount } = req.body;
       const userId = req.user.claims.sub;
 
       const result = await orderLifecycleService.processRefund({
@@ -1193,6 +1193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refundType,
         refundItems,
         reason,
+        customRefundAmount,
       });
 
       if (!result.success) {

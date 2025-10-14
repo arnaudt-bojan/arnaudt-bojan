@@ -47,14 +47,18 @@ export function RefundDialog({
   const [selectedItems, setSelectedItems] = useState<Map<string, RefundItemData>>(new Map());
   const [reason, setReason] = useState("");
   const [refundType, setRefundType] = useState<"full" | "item">("item");
+  const [customRefundAmount, setCustomRefundAmount] = useState<string>("");
+  const [useCustomAmount, setUseCustomAmount] = useState(false);
 
   const processRefundMutation = useMutation({
     mutationFn: async () => {
       const refundItems = Array.from(selectedItems.values());
+      const finalRefundAmount = useCustomAmount ? parseFloat(customRefundAmount) : undefined;
       const response = await apiRequest("POST", `/api/orders/${orderId}/refunds`, {
         refundItems,
         reason: reason || undefined,
         refundType,
+        customRefundAmount: finalRefundAmount,
       });
 
       if (!response.ok) {
@@ -117,7 +121,7 @@ export function RefundDialog({
 
   const calculateRefundAmount = () => {
     if (refundType === "full") {
-      return parseFloat(amountPaid);
+      return parseFloat(orderTotal);
     }
 
     let total = 0;
@@ -127,8 +131,11 @@ export function RefundDialog({
     return total;
   };
 
-  const refundAmount = calculateRefundAmount();
+  const calculatedRefundAmount = calculateRefundAmount();
+  const refundAmount = useCustomAmount ? parseFloat(customRefundAmount || "0") : calculatedRefundAmount;
+  const maxRefundable = parseFloat(orderTotal);
   const canRefund = refundType === "full" || selectedItems.size > 0;
+  const isCustomAmountValid = !useCustomAmount || (refundAmount > 0 && refundAmount <= maxRefundable);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -319,7 +326,7 @@ export function RefundDialog({
           </div>
 
           {/* Refund Summary */}
-          <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Order Total:</span>
               <span className="font-medium">${parseFloat(orderTotal).toFixed(2)}</span>
@@ -329,11 +336,64 @@ export function RefundDialog({
               <span className="font-medium">${parseFloat(amountPaid).toFixed(2)}</span>
             </div>
             <Separator />
-            <div className="flex justify-between">
-              <span className="font-semibold">Refund Amount:</span>
-              <span className="font-bold text-lg text-primary">
-                ${refundAmount.toFixed(2)}
-              </span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="font-semibold">Calculated Refund:</span>
+                <span className="font-medium">
+                  ${calculatedRefundAmount.toFixed(2)}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="custom-amount"
+                  checked={useCustomAmount}
+                  onCheckedChange={(checked) => {
+                    setUseCustomAmount(checked as boolean);
+                    if (checked) {
+                      setCustomRefundAmount(calculatedRefundAmount.toFixed(2));
+                    }
+                  }}
+                  data-testid="checkbox-custom-amount"
+                />
+                <Label htmlFor="custom-amount" className="text-sm cursor-pointer">
+                  Use custom refund amount
+                </Label>
+              </div>
+
+              {useCustomAmount && (
+                <div className="space-y-1">
+                  <Label htmlFor="custom-refund-input" className="text-xs text-muted-foreground">
+                    Custom Refund Amount
+                  </Label>
+                  <Input
+                    id="custom-refund-input"
+                    type="number"
+                    min="0"
+                    max={maxRefundable}
+                    step="0.01"
+                    value={customRefundAmount}
+                    onChange={(e) => setCustomRefundAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    className="text-lg font-bold"
+                    data-testid="input-custom-refund-amount"
+                  />
+                  {!isCustomAmountValid && (
+                    <p className="text-xs text-destructive">
+                      Amount must be between $0.01 and ${maxRefundable.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <Separator />
+              
+              <div className="flex justify-between">
+                <span className="font-semibold">Final Refund Amount:</span>
+                <span className="font-bold text-lg text-primary">
+                  ${refundAmount.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -358,7 +418,7 @@ export function RefundDialog({
           </Button>
           <Button
             onClick={() => processRefundMutation.mutate()}
-            disabled={!canRefund || refundAmount <= 0 || processRefundMutation.isPending}
+            disabled={!canRefund || refundAmount <= 0 || !isCustomAmountValid || processRefundMutation.isPending}
             data-testid="button-confirm-refund"
           >
             {processRefundMutation.isPending ? "Processing..." : `Refund $${refundAmount.toFixed(2)}`}

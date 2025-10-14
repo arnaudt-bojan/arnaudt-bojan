@@ -35,6 +35,7 @@ export interface ProcessRefundParams {
     amount?: number; // Client-supplied amount (will be validated against server calculation)
   }>;
   reason?: string;
+  customRefundAmount?: number; // Optional custom refund amount (overrides calculated amount)
 }
 
 export interface RefundResult {
@@ -108,7 +109,7 @@ export class OrderLifecycleService {
    */
   async processRefund(params: ProcessRefundParams): Promise<RefundResult> {
     try {
-      const { orderId, sellerId, refundType, refundItems, reason } = params;
+      const { orderId, sellerId, refundType, refundItems, reason, customRefundAmount } = params;
 
       // 1. Validation
       if (!refundType || !['full', 'item'].includes(refundType)) {
@@ -169,9 +170,32 @@ export class OrderLifecycleService {
           totalAlreadyRefunded += parseFloat(item.refundedAmount || '0');
         }
 
-        // Refund amount = order total - already refunded
+        // Refund amount = order total - already refunded (or custom amount if provided)
         const orderTotal = parseFloat(order.total);
-        refundAmount = orderTotal - totalAlreadyRefunded;
+        const maxRefundable = orderTotal - totalAlreadyRefunded;
+
+        // Use custom amount if provided, otherwise use calculated max refundable
+        if (customRefundAmount !== undefined) {
+          // Validate custom amount doesn't exceed max refundable
+          if (customRefundAmount > maxRefundable + 0.01) {
+            return {
+              success: false,
+              error: `Custom refund amount $${customRefundAmount.toFixed(2)} exceeds maximum refundable amount $${maxRefundable.toFixed(2)}`,
+              statusCode: 400,
+            };
+          }
+          if (customRefundAmount <= 0) {
+            return {
+              success: false,
+              error: "Custom refund amount must be greater than zero",
+              statusCode: 400,
+            };
+          }
+          refundAmount = customRefundAmount;
+          logger.info(`[Refund] Using custom refund amount: $${customRefundAmount} (max refundable: $${maxRefundable})`);
+        } else {
+          refundAmount = maxRefundable;
+        }
 
         // Distribute refund proportionally across items for tracking
         for (const item of orderItems) {
