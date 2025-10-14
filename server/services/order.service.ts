@@ -950,6 +950,14 @@ export class OrderService {
           const cartItem = params.items.find(i => i.productId === item.id);
           const variant = cartItem?.variant;
           
+          // DEBUG: Log variant details
+          console.log('=== VARIANT DEBUG ===');
+          console.log('Product:', item.id);
+          console.log('Variant raw:', variant);
+          console.log('Variant type:', typeof variant);
+          console.log('Variant stringified:', JSON.stringify(variant));
+          console.log('===================');
+          
           return {
             productId: item.id,
             name: item.name,
