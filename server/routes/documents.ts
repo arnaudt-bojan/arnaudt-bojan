@@ -69,18 +69,18 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
     }
 
     // CRITICAL: Use stored pricing data (single source of truth) - never recalculate
-    const subtotal = order.subtotalBeforeTax 
-      ? parseFloat(order.subtotalBeforeTax).toFixed(2)
-      : orderItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0).toFixed(2);
+    // Architecture 3: Always use stored pricing from orders table, never recalculate
+    if (!order.subtotalBeforeTax) {
+      return res.status(400).json({ error: 'Order missing stored subtotal - cannot generate invoice' });
+    }
     
+    const subtotal = parseFloat(order.subtotalBeforeTax).toFixed(2);
     const shipping = order.shippingCost 
       ? parseFloat(order.shippingCost).toFixed(2)
       : '0.00';
-    
     const tax = order.taxAmount 
       ? parseFloat(order.taxAmount).toFixed(2)
       : '0.00';
-    
     const total = parseFloat(order.total).toFixed(2);
 
     // Prepare invoice data

@@ -1,12 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
-import { Storage } from '@google-cloud/storage';
+import { objectStorageClient } from '../objectStorage';
 import type { Order, OrderItem, User, Product } from '@shared/schema';
-
-// Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: 'replit',
-});
 
 const bucketName = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
 const privateDir = process.env.PRIVATE_OBJECT_DIR || '.private';
@@ -446,15 +441,15 @@ export class DocumentGenerator {
   }
 
   /**
-   * Upload PDF buffer to Google Cloud Storage
+   * Upload PDF buffer to Replit Object Storage
    */
   private static async uploadToStorage(buffer: Buffer, fileName: string): Promise<string> {
     if (!bucketName) {
       throw new Error('Object storage not configured');
     }
 
-    const bucket = storage.bucket(bucketName);
-    const file = bucket.file(`${privateDir}/${fileName}`);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(`${privateDir}/documents/${fileName}`);
 
     await file.save(buffer, {
       metadata: {

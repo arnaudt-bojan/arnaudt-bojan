@@ -62,23 +62,16 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
       });
     }
 
-    // Calculate totals by aggregating across all items (ensures accuracy for multi-product orders)
-    let subtotalCents = 0;
-    let taxAmountCents = 0;
-    
-    for (const item of orderItems) {
-      // Aggregate subtotal from each item
-      subtotalCents += item.subtotalCents;
-      
-      // If items have individual tax (future support), aggregate it
-      // For now, we'll use order-level tax
+    // CRITICAL: Use stored pricing data from order (Architecture 3 compliance)
+    // Never recalculate subtotal, tax, or total - always use stored values from orders table
+    if (!order.subtotalCents || !order.totalCents) {
+      return res.status(400).json({ error: 'Order missing stored pricing data - cannot generate invoice' });
     }
     
-    // Use order-level tax if available, otherwise calculate from items
-    taxAmountCents = order.taxAmountCents || 0;
-    
-    // Calculate total
-    const totalCents = subtotalCents + taxAmountCents;
+    // Use stored pricing values from order (single source of truth)
+    const subtotalCents = order.subtotalCents;
+    const taxAmountCents = order.taxAmountCents || 0;
+    const totalCents = order.totalCents;
     
     // Convert to dollars for display
     const subtotal = (subtotalCents / 100).toFixed(2);
