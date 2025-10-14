@@ -28,8 +28,17 @@ A service layer pattern is employed, abstracting business logic from thin route 
 **UI/UX Decisions:**
 The design system supports dark/light mode, uses the Inter font, and emphasizes consistent spacing, typography, and a mobile-first responsive approach. Navigation is dashboard-centric. Product displays feature multi-image support and interactive elements. Storefronts are customizable with seller branding.
 
-**B2C/B2B Environment Toggle:**
-Sellers can switch between B2C (retail) and B2B (wholesale) environments using a toggle in the dashboard header. This toggle changes context only without navigation - it allows sellers to view environment-specific content while staying on their current page. Wholesale functionality is accessed via `/seller/wholesale/*` routes when in B2B mode.
+**B2C/B2B Environment Toggle & Wholesale Dashboard:**
+Sellers can switch between B2C (retail) and B2B (wholesale) environments using a toggle in the dashboard header. The toggle both changes environment context AND navigates:
+- **B2C → B2B**: Navigates to `/wholesale/dashboard` (separate wholesale dashboard with dedicated sidebar)
+- **B2B → B2C**: Navigates back to `/seller-dashboard` (main B2C dashboard)
+
+The wholesale dashboard uses `WholesaleLayout` providing dedicated navigation to:
+- Dashboard: `/wholesale/dashboard` (stats overview, quick actions)
+- Products: `/wholesale/products` (B2B product management)
+- Orders: `/wholesale/orders` (wholesale order management)
+- Buyers: `/wholesale/buyers` (buyer invitation & management)
+- Preview: `/wholesale/preview` (preview wholesale catalog)
 
 **System Design Choices & Feature Specifications:**
 -   **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and comprehensive multi-method shipping.
