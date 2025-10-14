@@ -979,16 +979,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         allProducts.filter(p => p.sellerId === canonicalOwnerId).map(p => p.id)
       );
       
+      // DEBUG: Log filtering details
+      logger.info(`[Seller Orders] Filtering for seller: ${canonicalOwnerId}`);
+      logger.info(`[Seller Orders] Seller has ${sellerProductIds.size} products`);
+      logger.info(`[Seller Orders] Total orders in DB: ${allOrders.length}`);
+      
       // Filter orders that contain products from this seller's store
       const sellerOrders = allOrders.filter(order => {
         try {
           const items = JSON.parse(order.items);
-          return items.some((item: any) => sellerProductIds.has(item.productId));
-        } catch {
+          const hasSellerProduct = items.some((item: any) => sellerProductIds.has(item.productId));
+          if (hasSellerProduct) {
+            logger.info(`[Seller Orders] Order ${order.id} belongs to seller`);
+          }
+          return hasSellerProduct;
+        } catch (e) {
+          logger.error(`[Seller Orders] Failed to parse items for order ${order.id}:`, e);
           return false;
         }
       });
       
+      logger.info(`[Seller Orders] Returning ${sellerOrders.length} orders`);
       res.json(sellerOrders);
     } catch (error) {
       logger.error("Error fetching seller orders", error);
