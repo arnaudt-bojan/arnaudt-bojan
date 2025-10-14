@@ -946,16 +946,21 @@ export class OrderService {
       customerAddress: fullAddress,
       taxCalculationId: taxCalculationId || null,
       items: JSON.stringify(
-        validation.items.map((item: any) => ({
-          productId: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          productType: item.productType,
-          depositAmount: item.depositAmount,
-          requiresDeposit: item.requiresDeposit,
-          variant: params.items.find(i => i.productId === item.id)?.variant || null,
-        }))
+        validation.items.map((item: any) => {
+          const cartItem = params.items.find(i => i.productId === item.id);
+          const variant = cartItem?.variant;
+          
+          return {
+            productId: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            productType: item.productType,
+            depositAmount: item.depositAmount,
+            requiresDeposit: item.requiresDeposit,
+            variant: variant && typeof variant === 'object' ? JSON.stringify(variant) : (variant || null),
+          };
+        })
       ),
       total: pricing.fullTotal.toString(),
       amountPaid: '0',
@@ -1033,15 +1038,11 @@ export class OrderService {
         count: orderItemsToCreate.length,
       });
     } catch (error: any) {
-      console.error('=== ORDER ITEMS CREATION ERROR ===');
-      console.error('Error:', error);
-      console.error('Error message:', error?.message);
-      console.error('Error stack:', error?.stack);
-      console.error('Order ID:', order.id);
-      console.error('Items to create:', JSON.stringify(orderItemsToCreate, null, 2));
-      console.error('===================================');
-      
-      // Re-throw with original error
+      logger.error('[OrderService] Failed to create order items', {
+        error: error?.message,
+        orderId: order.id,
+        itemCount: orderItemsToCreate.length,
+      });
       throw error;
     }
   }
