@@ -136,9 +136,10 @@ export function OrderActionBar({
 
   const generateInvoiceMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/documents/invoices/generate", {
+      const res = await apiRequest("POST", "/api/documents/invoices/generate", {
         orderId: order.id,
       });
+      return await res.json();
     },
     onSuccess: (data: any) => {
       console.log('Invoice response:', data);
@@ -184,9 +185,10 @@ export function OrderActionBar({
 
   const generatePackingSlipMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/documents/packing-slips/generate", {
+      const res = await apiRequest("POST", "/api/documents/packing-slips/generate", {
         orderId: order.id,
       });
+      return await res.json();
     },
     onSuccess: (data: any) => {
       console.log('Packing slip response:', data);
