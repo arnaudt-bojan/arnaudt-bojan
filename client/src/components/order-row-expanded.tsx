@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderActionBar } from "@/components/order-action-bar";
 import { OrderTimeline } from "@/components/order-timeline";
 import type { Order, OrderItem } from "@shared/schema";
+import { getPaymentStatusLabel } from "@/lib/format-status";
 
 interface OrderRowExpandedProps {
   orderId: string;
@@ -189,10 +190,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
           </Badge>
           <span className="text-muted-foreground">Status:</span>
           <Badge variant="outline">
-            {order.paymentStatus === "fully_paid" ? "Fully Paid" :
-             order.paymentStatus === "deposit_paid" ? "Deposit Paid" :
-             order.paymentStatus === "pending" ? "Pending" :
-             order.paymentStatus}
+            {getPaymentStatusLabel(order.paymentStatus || "pending")}
           </Badge>
         </div>
       </div>

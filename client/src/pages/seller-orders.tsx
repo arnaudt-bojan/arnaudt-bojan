@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Order } from "@shared/schema";
+import { getPaymentStatusLabel, getOrderStatusLabel, getProductTypeLabel } from "@/lib/format-status";
 
 export default function SellerOrdersPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -49,28 +50,13 @@ export default function SellerOrdersPage() {
       pending: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
       deposit_paid: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
       fully_paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      partially_refunded: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+      refunded: "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400",
+      failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     };
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
   };
 
-  const getPaymentStatusLabel = (status: string) => {
-    const labels = {
-      pending: "Pending",
-      deposit_paid: "Deposit Paid",
-      fully_paid: "Fully Paid",
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
-
-  const getProductTypeLabel = (productType: string) => {
-    const labels = {
-      'in-stock': 'In Stock',
-      'pre-order': 'Pre-Order',
-      'made-to-order': 'Made to Order',
-      'wholesale': 'Wholesale'
-    };
-    return labels[productType as keyof typeof labels] || productType;
-  };
 
   const getProductTypeColor = (productType: string) => {
     const colors = {
@@ -247,7 +233,7 @@ export default function SellerOrdersPage() {
                         className={getStatusColor(order.status)}
                         data-testid={`badge-status-${order.id}`}
                       >
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        {getOrderStatusLabel(order.status)}
                       </Badge>
                     </TableCell>
                   </TableRow>
