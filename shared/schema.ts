@@ -310,7 +310,10 @@ export const orderItems = pgTable("order_items", {
   productImage: text("product_image"),
   productType: text("product_type").notNull(), // "in-stock", "pre-order", "made-to-order", "wholesale"
   quantity: integer("quantity").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Price per unit at time of order
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Price per unit at time of order (discounted if applicable)
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }), // Price before discount
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }), // Discount % applied
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }), // Dollar amount saved per unit
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(), // quantity * price
   depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }),
   balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }), // FIX BUG #3: Per-item balance tracking

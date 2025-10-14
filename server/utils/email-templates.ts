@@ -625,25 +625,24 @@ export function generateCTAButton(
  */
 export function generateOrderSummary(order: Order, items?: OrderItem[]): string {
   const currency = order.currency || 'USD';
-  const subtotal = parseFloat(order.subtotalBeforeTax?.toString() || order.total.toString());
+  
+  // Calculate subtotal from order items if provided (more accurate than order.subtotalBeforeTax)
+  let subtotal = 0;
+  if (items && items.length > 0) {
+    subtotal = items.reduce((sum, item) => {
+      return sum + parseFloat(item.subtotal || '0');
+    }, 0);
+  } else {
+    subtotal = parseFloat(order.subtotalBeforeTax?.toString() || order.total.toString());
+  }
+  
   const taxAmount = parseFloat(order.taxAmount?.toString() || '0');
   const total = parseFloat(order.total.toString());
   const amountPaid = parseFloat(order.amountPaid?.toString() || '0');
   const remainingBalance = parseFloat(order.remainingBalance?.toString() || '0');
   
-  // Calculate shipping (if we have items with shipping data, otherwise estimate from totals)
-  let shippingAmount = 0;
-  if (items && items.length > 0) {
-    // If items have shipping data, sum it up
-    shippingAmount = items.reduce((sum, item) => {
-      const itemShipping = parseFloat((item as any).shippingCost?.toString() || '0');
-      return sum + itemShipping;
-    }, 0);
-  } else {
-    // Otherwise estimate: total - subtotal - tax
-    shippingAmount = total - subtotal - taxAmount;
-    if (shippingAmount < 0) shippingAmount = 0;
-  }
+  // Use order.shippingCost directly (most accurate source)
+  const shippingAmount = order.shippingCost ? parseFloat(order.shippingCost.toString()) : 0;
   
   // Determine payment type display
   const isDeposit = order.paymentType === 'deposit';

@@ -1070,21 +1070,71 @@ class NotificationServiceImpl implements NotificationService {
   private async generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string, magicLink: string): Promise<string> {
     const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     
+    // Fetch actual order items from database to get discount information
+    const orderItems = await this.storage.getOrderItems(order.id);
+    
     // Generate seller header and footer
     const header = generateSellerHeader(seller);
     const footer = await generateSellerFooter(seller);
     
-    // Build product thumbnails using helper
-    const productThumbnailsHtml = items.map((item: any) => {
-      const product: Product = products.find((p: any) => p.id === item.productId) || {
-        id: item.productId,
-        name: item.name,
-        image: item.image,
-        price: item.price,
-      } as Product;
+    // Build product thumbnails using actual order items
+    const productThumbnailsHtml = orderItems.map((orderItem: OrderItem) => {
+      const itemPrice = parseFloat(orderItem.price);
+      const originalPrice = orderItem.originalPrice ? parseFloat(orderItem.originalPrice) : null;
+      const discountAmount = orderItem.discountAmount ? parseFloat(orderItem.discountAmount) : null;
+      const subtotal = parseFloat(orderItem.subtotal);
       
-      const variant = item.variant ? { size: item.variant, color: item.color } : null;
-      return generateProductThumbnail(product, item.quantity, variant);
+      // Build product thumbnail HTML with discount info
+      const variant = orderItem.variant ? { size: (orderItem.variant as any).size, color: (orderItem.variant as any).color } : null;
+      let variantText = '';
+      if (variant) {
+        const parts = [];
+        if (variant.size) parts.push(`Size: ${variant.size}`);
+        if (variant.color) parts.push(`Color: ${variant.color}`);
+        if (parts.length > 0) {
+          variantText = `<br><span style="font-size: 13px; color: #9ca3af !important;">${parts.join(' • ')}</span>`;
+        }
+      }
+      
+      const productImage = orderItem.productImage || '';
+      const productName = orderItem.productName;
+      
+      return `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 10px 0; border-bottom: 1px solid #e5e7eb;">
+  <tr>
+    <td style="padding: 15px 0; vertical-align: top;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          ${productImage ? `
+          <td style="width: 80px; vertical-align: top;">
+            <img src="${productImage}" alt="${productName}" style="display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 0;">
+          </td>
+          ` : ''}
+          <td style="padding-left: ${productImage ? '15px' : '0'}; vertical-align: top;">
+            <p style="margin: 0 0 5px; font-weight: 600; font-size: 15px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ${productName}
+            </p>
+            <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Quantity: ${orderItem.quantity} × ${order.currency} ${itemPrice.toFixed(2)}${variantText}
+            </p>
+            ${originalPrice && discountAmount ? `
+            <p style="margin: 5px 0 0; font-size: 13px; color: #10b981 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <span style="text-decoration: line-through; color: #9ca3af !important;">${order.currency} ${originalPrice.toFixed(2)}</span> 
+              Save ${order.currency} ${(discountAmount * orderItem.quantity).toFixed(2)}
+            </p>
+            ` : ''}
+          </td>
+          <td style="text-align: right; vertical-align: top; white-space: nowrap; padding-left: 15px;">
+            <p style="margin: 0; font-weight: 600; font-size: 15px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+              ${order.currency} ${subtotal.toFixed(2)}
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+      `.trim();
     }).join('');
     
     // Build content
@@ -1101,7 +1151,7 @@ class NotificationServiceImpl implements NotificationService {
       </h3>
       ${productThumbnailsHtml}
       
-      ${generateOrderSummary(order)}
+      ${generateOrderSummary(order, orderItems)}
       
       ${generateShippingAddress(order.customerAddress)}
       
