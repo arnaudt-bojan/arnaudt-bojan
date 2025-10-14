@@ -41,6 +41,7 @@ import { PricingCalculationService } from "./services/pricing-calculation.servic
 import { WholesalePricingService } from "./services/wholesale-pricing.service";
 import { StripeWebhookService } from "./services/stripe-webhook.service";
 import { MetaIntegrationService } from "./services/meta-integration.service";
+import { BalancePaymentService } from "./services/balance-payment.service";
 import { ConfigurationError } from "./errors";
 import { PlatformAnalyticsService } from "./services/platform-analytics.service";
 import { CheckoutService } from "./services/checkout.service";
@@ -184,6 +185,14 @@ const teamService = new TeamManagementService(storage, notificationService);
 const orderLifecycleService = new OrderLifecycleService(
   storage,
   notificationService,
+  stripe || undefined
+);
+
+// Initialize Balance Payment service for wholesale deposit+balance payment flows (Architecture 3)
+const balancePaymentService = new BalancePaymentService(
+  storage,
+  pricingCalculationService,
+  shippingService,
   stripe || undefined
 );
 
@@ -1701,9 +1710,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/orders/:id/request-balance (Architecture 3)
+  // Seller/admin creates balance payment request with secure session token
   app.post("/api/orders/:id/request-balance", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const orderId = req.params.id;
       const user = await storage.getUser(userId);
       
       if (!stripe) {
@@ -1712,12 +1724,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const order = await storage.getOrder(req.params.id);
+      // Get order
+      const order = await storage.getOrder(orderId);
       if (!order) {
         return res.status(404).json({ error: "Order not found" });
       }
 
-      // Check authorization before requesting balance
+      // Authorization: seller must own products in order OR be admin
       const isAdmin = user?.role === 'owner' || user?.role === 'admin';
       if (!isAdmin) {
         try {
@@ -1737,39 +1750,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const remainingBalance = parseFloat(order.remainingBalance || "0");
-      if (remainingBalance <= 0) {
-        return res.status(400).json({ error: "No balance remaining on this order" });
+      // Request balance payment via service
+      const result = await balancePaymentService.requestBalancePayment(orderId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
       }
 
-      // Create payment intent for remaining balance
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(remainingBalance * 100),
-        currency: "usd",
-        automatic_payment_methods: {
-          enabled: true,
-          allow_redirects: 'never',
-        },
-        metadata: {
-          orderId: order.id,
-          paymentType: "balance",
-        },
+      // Get seller info for email
+      const seller = await storage.getUser(userId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // TODO: Send email with balance payment link (separate task)
+      // Build magic link URL with session token
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      const paymentLink = `${baseUrl}/balance-payment/${orderId}?token=${result.sessionToken}`;
+      
+      logger.info('[Balance Request] TODO: Send balance payment email', {
+        orderId,
+        customerEmail: order.customerEmail,
+        paymentLink,
+        balanceRequestId: result.balanceRequest?.id
       });
 
-      // Update order with balance payment intent ID
-      await storage.updateOrderBalancePaymentIntent(order.id, paymentIntent.id);
-
-      // TODO: Send email to customer with payment link
-      logger.info(`[Balance Request] Payment link sent to ${order.customerEmail} for order ${order.id}`);
-
       res.json({ 
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        message: "Balance payment request sent successfully",
+        success: true, 
+        balanceRequest: result.balanceRequest,
+        message: "Balance payment request created successfully"
       });
     } catch (error: any) {
       logger.error("Balance request error", error);
       res.status(500).json({ error: "Failed to request balance payment" });
+    }
+  });
+
+  // GET /api/orders/:orderId/balance-session (Architecture 3)
+  // Get balance payment session by token (magic link) or authenticated user
+  app.get("/api/orders/:orderId/balance-session", async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { token } = req.query;
+      
+      // Check authentication: either valid token OR authenticated user owns order
+      let isAuthorized = false;
+      let userId: string | undefined;
+
+      if (token && typeof token === 'string') {
+        // Token-based access (magic link)
+        const sessionResult = await balancePaymentService.getBalanceSession(token);
+        
+        if (sessionResult.success && sessionResult.session) {
+          return res.json(sessionResult.session);
+        } else {
+          return res.status(401).json({ error: sessionResult.error || "Invalid or expired token" });
+        }
+      } else if (req.isAuthenticated() && req.user?.claims?.sub) {
+        // Authenticated user access
+        userId = req.user.claims.sub;
+        
+        // Verify user owns the order
+        const order = await storage.getOrder(orderId);
+        if (!order) {
+          return res.status(404).json({ error: "Order not found" });
+        }
+        
+        if (order.userId === userId) {
+          isAuthorized = true;
+        }
+      }
+
+      if (!isAuthorized) {
+        return res.status(401).json({ error: "Unauthorized - token or authentication required" });
+      }
+
+      // Get session by order ID for authenticated user
+      const sessionResult = await balancePaymentService.getBalanceSession(orderId, userId);
+      
+      if (!sessionResult.success) {
+        return res.status(404).json({ error: sessionResult.error });
+      }
+
+      res.json(sessionResult.session);
+    } catch (error: any) {
+      logger.error("Get balance session error", error);
+      res.status(500).json({ error: "Failed to retrieve balance session" });
+    }
+  });
+
+  // PATCH /api/orders/:orderId/balance-session/address (Architecture 3)
+  // Recalculate balance with new shipping address
+  app.patch("/api/orders/:orderId/balance-session/address", async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { token } = req.query;
+      const { balanceRequestId, newAddress } = req.body;
+
+      if (!balanceRequestId || !newAddress) {
+        return res.status(400).json({ error: "balanceRequestId and newAddress are required" });
+      }
+
+      // Validate address fields
+      if (!newAddress.street || !newAddress.city || !newAddress.country) {
+        return res.status(400).json({ error: "Address must include street, city, and country" });
+      }
+
+      // Authorization: token OR authenticated user owns order
+      let isAuthorized = false;
+
+      if (token && typeof token === 'string') {
+        // Verify token grants access to this balance request
+        const sessionResult = await balancePaymentService.getBalanceSession(token);
+        if (sessionResult.success && sessionResult.session?.orderId === orderId) {
+          isAuthorized = true;
+        }
+      } else if (req.isAuthenticated() && req.user?.claims?.sub) {
+        const order = await storage.getOrder(orderId);
+        if (order && order.userId === req.user.claims.sub) {
+          isAuthorized = true;
+        }
+      }
+
+      if (!isAuthorized) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Recalculate balance with new address
+      const result = await balancePaymentService.recalculateBalanceWithNewAddress(
+        balanceRequestId,
+        newAddress
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({
+        success: true,
+        newBalanceCents: result.newBalanceCents,
+        newShippingCostCents: result.newShippingCostCents,
+        pricingBreakdown: result.pricingBreakdown
+      });
+    } catch (error: any) {
+      logger.error("Recalculate balance error", error);
+      res.status(500).json({ error: "Failed to recalculate balance" });
+    }
+  });
+
+  // POST /api/orders/:orderId/pay-balance (Architecture 3)
+  // Create Stripe payment intent for balance payment
+  app.post("/api/orders/:orderId/pay-balance", async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { token } = req.query;
+      const { balanceRequestId } = req.body;
+
+      if (!balanceRequestId) {
+        return res.status(400).json({ error: "balanceRequestId is required" });
+      }
+
+      // Authorization: token OR authenticated user owns order
+      let isAuthorized = false;
+
+      if (token && typeof token === 'string') {
+        // Verify token grants access to this balance request
+        const sessionResult = await balancePaymentService.getBalanceSession(token);
+        if (sessionResult.success && sessionResult.session?.orderId === orderId) {
+          isAuthorized = true;
+        }
+      } else if (req.isAuthenticated() && req.user?.claims?.sub) {
+        const order = await storage.getOrder(orderId);
+        if (order && order.userId === req.user.claims.sub) {
+          isAuthorized = true;
+        }
+      }
+
+      if (!isAuthorized) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Create payment intent
+      const result = await balancePaymentService.createBalancePaymentIntent(balanceRequestId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({
+        clientSecret: result.clientSecret,
+        paymentIntentId: result.paymentIntentId
+      });
+    } catch (error: any) {
+      logger.error("Create balance payment intent error", error);
+      res.status(500).json({ error: "Failed to create payment intent" });
     }
   });
 

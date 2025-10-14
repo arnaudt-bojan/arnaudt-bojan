@@ -60,6 +60,10 @@ import {
   type InsertOrderEvent,
   type OrderBalancePayment,
   type InsertOrderBalancePayment,
+  type BalanceRequest,
+  type InsertBalanceRequest,
+  type OrderAddressChange,
+  type InsertOrderAddressChange,
   type SavedAddress,
   type InsertSavedAddress,
   type SavedPaymentMethod,
@@ -116,6 +120,8 @@ import {
   orderItems,
   orderEvents,
   orderBalancePayments,
+  balanceRequests,
+  orderAddressChanges,
   refunds,
   stockReservations,
   invitations,
@@ -311,6 +317,17 @@ export interface IStorage {
   getBalancePayment(id: string): Promise<OrderBalancePayment | undefined>;
   createBalancePayment(payment: InsertOrderBalancePayment): Promise<OrderBalancePayment>;
   updateBalancePayment(id: string, data: Partial<OrderBalancePayment>): Promise<OrderBalancePayment | undefined>;
+  
+  // Balance Requests - Architecture 3 balance payment sessions with token-based authentication
+  getBalanceRequest(id: string): Promise<BalanceRequest | undefined>;
+  getBalanceRequestByOrderId(orderId: string): Promise<BalanceRequest | undefined>;
+  getBalanceRequestByToken(tokenHash: string): Promise<BalanceRequest | undefined>;
+  createBalanceRequest(request: InsertBalanceRequest): Promise<BalanceRequest>;
+  updateBalanceRequest(id: string, data: Partial<BalanceRequest>): Promise<BalanceRequest | undefined>;
+  
+  // Order Address Changes - audit trail for shipping address modifications
+  getOrderAddressChanges(orderId: string): Promise<OrderAddressChange[]>;
+  createOrderAddressChange(change: InsertOrderAddressChange): Promise<OrderAddressChange>;
   
   // Order Workflows - orchestration and state management for order creation
   createWorkflow(workflow: InsertOrderWorkflow): Promise<OrderWorkflow>;
@@ -1258,6 +1275,72 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(orderBalancePayments.id, id))
       .returning();
+    return result[0];
+  }
+
+  // Balance Requests methods - Architecture 3 balance payment sessions
+  async getBalanceRequest(id: string): Promise<BalanceRequest | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(balanceRequests)
+      .where(eq(balanceRequests.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getBalanceRequestByOrderId(orderId: string): Promise<BalanceRequest | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(balanceRequests)
+      .where(eq(balanceRequests.orderId, orderId))
+      .orderBy(desc(balanceRequests.createdAt))
+      .limit(1);
+    return result[0];
+  }
+
+  async getBalanceRequestByToken(tokenHash: string): Promise<BalanceRequest | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select()
+      .from(balanceRequests)
+      .where(eq(balanceRequests.sessionTokenHash, tokenHash))
+      .limit(1);
+    return result[0];
+  }
+
+  async createBalanceRequest(request: InsertBalanceRequest): Promise<BalanceRequest> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(balanceRequests).values(request).returning();
+    return result[0];
+  }
+
+  async updateBalanceRequest(id: string, data: Partial<BalanceRequest>): Promise<BalanceRequest | undefined> {
+    await this.ensureInitialized();
+    // Filter out undefined properties to prevent NULL clobbering
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
+    });
+    const result = await this.db.update(balanceRequests)
+      .set(updateData)
+      .where(eq(balanceRequests.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Order Address Changes methods - audit trail for shipping address modifications
+  async getOrderAddressChanges(orderId: string): Promise<OrderAddressChange[]> {
+    await this.ensureInitialized();
+    return await this.db.select()
+      .from(orderAddressChanges)
+      .where(eq(orderAddressChanges.orderId, orderId))
+      .orderBy(desc(orderAddressChanges.createdAt));
+  }
+
+  async createOrderAddressChange(change: InsertOrderAddressChange): Promise<OrderAddressChange> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(orderAddressChanges).values(change).returning();
     return result[0];
   }
 

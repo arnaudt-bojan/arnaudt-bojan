@@ -256,6 +256,13 @@ export const orders = pgTable("orders", {
   shippingPostalCode: varchar("shipping_postal_code"),
   shippingCountry: varchar("shipping_country"),
   
+  // Balance Payment Architecture 3 fields - for deposit-only pricing and balance payment flow
+  depositAmountCents: integer("deposit_amount_cents"), // Deposit amount in cents (for precise calculations)
+  balanceDueCents: integer("balance_due_cents"), // Balance due in cents (remaining product + shipping)
+  balancePaidAt: timestamp("balance_paid_at"), // When balance payment was received
+  shippingLocked: integer("shipping_locked").default(0), // 0 = can change address, 1 = locked (after shipping)
+  pricingVersion: integer("pricing_version").default(1), // Pricing structure version (1 = old, 2 = deposit-only)
+  
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -463,6 +470,81 @@ export const insertOrderBalancePaymentSchema = createInsertSchema(orderBalancePa
 });
 export type InsertOrderBalancePayment = z.infer<typeof insertOrderBalancePaymentSchema>;
 export type OrderBalancePayment = typeof orderBalancePayments.$inferSelect;
+
+// Balance Requests - Architecture 3 balance payment sessions with token-based authentication
+export const balanceRequestStatusEnum = z.enum([
+  "pending",
+  "active", 
+  "completed",
+  "expired",
+  "cancelled"
+]);
+export type BalanceRequestStatus = z.infer<typeof balanceRequestStatusEnum>;
+
+export const balanceRequestStatusPgEnum = pgEnum("balance_request_status", [
+  "pending",
+  "active",
+  "completed", 
+  "expired",
+  "cancelled"
+]);
+
+export const balanceRequests = pgTable("balance_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  createdBy: varchar("created_by").notNull(), // Seller/admin who created the request
+  status: balanceRequestStatusPgEnum("status").notNull().default("pending"),
+  sessionTokenHash: varchar("session_token_hash"), // HMAC hash of session token for security
+  expiresAt: timestamp("expires_at"), // Session expiration (7 days from creation)
+  pricingSnapshot: jsonb("pricing_snapshot"), // Snapshot of pricing calculation at request time
+  shippingSnapshot: jsonb("shipping_snapshot"), // Snapshot of shipping details at request time
+  paymentIntentId: varchar("payment_intent_id"), // Stripe payment intent ID for balance
+  balanceDueCents: integer("balance_due_cents"), // Balance amount due in cents
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  emailSentAt: timestamp("email_sent_at"), // When balance payment email was sent
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("balance_requests_order_id_idx").on(table.orderId),
+    statusIdx: index("balance_requests_status_idx").on(table.status),
+    tokenHashIdx: index("balance_requests_token_hash_idx").on(table.sessionTokenHash),
+  };
+});
+
+export const insertBalanceRequestSchema = createInsertSchema(balanceRequests).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertBalanceRequest = z.infer<typeof insertBalanceRequestSchema>;
+export type BalanceRequest = typeof balanceRequests.$inferSelect;
+
+// Order Address Changes - audit trail for shipping address modifications during balance payment
+export const orderAddressChanges = pgTable("order_address_changes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  balanceRequestId: varchar("balance_request_id"), // References balance_requests.id if changed during balance flow
+  changedBy: varchar("changed_by"), // User ID who made the change (null for system changes)
+  previousAddress: jsonb("previous_address").notNull(), // Previous shipping address
+  newAddress: jsonb("new_address").notNull(), // New shipping address
+  previousShippingCostCents: integer("previous_shipping_cost_cents"), // Previous shipping cost in cents
+  newShippingCostCents: integer("new_shipping_cost_cents"), // New shipping cost in cents
+  reason: text("reason"), // Reason for change (e.g., "balance_payment_update", "customer_request")
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("address_changes_order_id_idx").on(table.orderId),
+    balanceRequestIdIdx: index("address_changes_balance_request_idx").on(table.balanceRequestId),
+  };
+});
+
+export const insertOrderAddressChangeSchema = createInsertSchema(orderAddressChanges).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertOrderAddressChange = z.infer<typeof insertOrderAddressChangeSchema>;
+export type OrderAddressChange = typeof orderAddressChanges.$inferSelect;
 
 // Order Workflows - orchestration and state management for complex order creation flows
 export const workflowStateEnum = z.enum([
@@ -1428,14 +1510,14 @@ export type BuyerProfile = typeof buyerProfiles.$inferSelect;
 // Wholesale Payment Intents - Track Stripe PaymentIntents for deposits and balance
 export const wholesalePaymentIntents = pgTable("wholesale_payment_intents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: varchar("order_id").notNull(), // FK to wholesale_orders
+  orderId: varchar("orderId").notNull(), // FK to wholesale_orders (camelCase to match existing DB)
   type: wholesalePaymentTypePgEnum("type").notNull(), // deposit or balance
-  stripePaymentIntentId: varchar("stripe_payment_intent_id").notNull().unique(),
-  amountCents: integer("amount_cents").notNull(), // Amount in cents
+  stripePaymentIntentId: varchar("stripePaymentIntentId").notNull().unique(), // camelCase to match existing DB
+  amountCents: integer("amountCents").notNull(), // Amount in cents (camelCase to match existing DB)
   status: wholesalePaymentIntentStatusPgEnum("status").notNull().default("pending"),
   metadata: jsonb("metadata"), // Additional Stripe metadata
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(), // camelCase to match existing DB
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(), // camelCase to match existing DB
 }, (table) => {
   return {
     orderIdIdx: index("wholesale_payment_intents_order_id_idx").on(table.orderId),
@@ -1455,15 +1537,15 @@ export type WholesalePaymentIntent = typeof wholesalePaymentIntents.$inferSelect
 // Wholesale Shipping Metadata - Additional shipping information
 export const wholesaleShippingMetadata = pgTable("wholesale_shipping_metadata", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: varchar("order_id").notNull().unique(), // FK to wholesale_orders, one per order
-  shippingType: wholesaleShippingTypePgEnum("shipping_type").notNull(), // freight_collect or buyer_pickup
-  freightAccount: varchar("freight_account"), // For freight collect
+  orderId: varchar("orderId").notNull().unique(), // FK to wholesale_orders, one per order
+  shippingType: wholesaleShippingTypePgEnum("shippingType").notNull(), // freight_collect or buyer_pickup
+  freightAccount: varchar("freightAccount"), // For freight collect
   carrier: varchar("carrier"), // UPS, FedEx, DHL, etc.
-  trackingNumber: varchar("tracking_number"),
-  pickupAddress: jsonb("pickup_address"), // For buyer pickup: {street, city, state, zip, country}
-  pickupInstructions: text("pickup_instructions"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  trackingNumber: varchar("trackingNumber"),
+  pickupAddress: jsonb("pickupAddress"), // For buyer pickup: {street, city, state, zip, country}
+  pickupInstructions: text("pickupInstructions"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 }, (table) => {
   return {
     orderIdIdx: index("wholesale_shipping_metadata_order_id_idx").on(table.orderId),
