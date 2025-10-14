@@ -42,8 +42,15 @@ export function DashboardHeader() {
   const handleEnvironmentToggle = (checked: boolean) => {
     const newEnv = checked ? 'b2b' : 'b2c';
     setEnvironment(newEnv);
-    // No navigation needed - just toggle environment context
-    // User stays on current page but sees B2B/B2C content
+    
+    // Navigate to appropriate dashboard based on toggle
+    if (checked) {
+      // Switching to B2B - navigate to wholesale dashboard
+      setLocation('/wholesale/dashboard');
+    } else {
+      // Switching to B2C - navigate to seller dashboard
+      setLocation('/seller-dashboard');
+    }
   };
 
   return (

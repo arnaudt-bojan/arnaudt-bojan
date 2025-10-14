@@ -57,6 +57,11 @@ import WholesaleProductDetailPage from "@/pages/wholesale/product-detail";
 import WholesaleCartPage from "@/pages/wholesale/cart";
 import WholesaleCheckoutPage from "@/pages/wholesale/checkout";
 import OrderConfirmationPage from "@/pages/wholesale/order-confirmation";
+import WholesaleDashboard from "@/pages/wholesale/wholesale-dashboard";
+import WholesaleOrdersPage from "@/pages/wholesale/wholesale-orders";
+import WholesaleBuyersPage from "@/pages/wholesale/wholesale-buyers";
+import WholesalePreviewPage from "@/pages/wholesale/wholesale-preview";
+import { WholesaleLayout } from "@/layouts/WholesaleLayout";
 import DashboardRedirect from "@/components/DashboardRedirect";
 
 function AppContent() {
@@ -317,7 +322,63 @@ function AppContent() {
                 )}
               </Route>
               
-              {/* Seller-only wholesale routes */}
+              {/* Wholesale dashboard and management routes with WholesaleLayout */}
+              <Route path="/wholesale/dashboard">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleDashboard />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/products">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleProducts />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/products/create">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <CreateWholesaleProduct />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/orders">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleOrdersPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/buyers">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleBuyersPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/wholesale/preview">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesalePreviewPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Seller-only wholesale routes (legacy, redirects) */}
               <Route path="/seller/wholesale/products">
                 {() => (
                   <ProtectedRoute requireSeller>
