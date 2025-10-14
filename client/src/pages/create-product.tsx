@@ -74,7 +74,7 @@ export default function CreateProduct() {
   const [sizes, setSizes] = useState<SizeVariant[]>([]);
   const [colors, setColors] = useState<ColorVariant[]>([]);
   
-  const [madeToOrderDays, setMadeToOrderDays] = useState<number>(7);
+  const [madeToOrderDays, setMadeToOrderDays] = useState<number>(0);
   const [preOrderDate, setPreOrderDate] = useState<string>("");
   const [discountPercentage, setDiscountPercentage] = useState<string>("");
   const [promotionEndDate, setPromotionEndDate] = useState<string>("");
@@ -242,6 +242,16 @@ export default function CreateProduct() {
   });
 
   const onSubmit = (data: FrontendProduct) => {
+    // Validate made-to-order production time
+    if (data.productType === "made-to-order" && (!madeToOrderDays || madeToOrderDays <= 0)) {
+      toast({
+        title: "Validation Error",
+        description: "Estimated Production Time is required for made-to-order products",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     createMutation.mutate(data);
   };
 
