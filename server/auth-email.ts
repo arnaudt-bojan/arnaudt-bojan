@@ -367,11 +367,11 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       loginContext: loginContext || null,
     });
 
-    // Generate magic link - points to API endpoint
+    // Generate magic link - points to frontend page (SPA-style flow)
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : `http://localhost:${process.env.PORT || 5000}`;
-    const magicLink = `${baseUrl}/api/auth/email/verify-magic-link?token=${token}`;
+    const magicLink = `${baseUrl}/auth/magic?token=${token}`;
 
     // Try to send email with magic link
     let emailSent = false;
@@ -421,7 +421,7 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/email/verify-magic-link
- * Verify magic link token and create session
+ * Verify magic link token and create session (legacy redirect-based flow)
  */
 router.get('/verify-magic-link', async (req: any, res: Response) => {
   try {

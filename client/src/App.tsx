@@ -50,6 +50,7 @@ import Help from "@/pages/help";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
+import MagicLinkVerify from "@/pages/auth/magic-verify";
 import { WholesaleLayout } from "@/layouts/WholesaleLayout";
 import WholesaleDashboard from "@/pages/wholesale/wholesale-dashboard";
 import WholesaleProductsPage from "@/pages/wholesale/wholesale-products";
@@ -100,6 +101,7 @@ function AppContent() {
               <Route path="/checkout" component={Checkout} />
               <Route path="/checkout/complete" component={CheckoutComplete} />
               <Route path="/email-login" component={EmailLogin} />
+              <Route path="/auth/magic" component={MagicLinkVerify} />
               <Route path="/order-success/:orderId" component={OrderSuccess} />
               <Route path="/accept-invitation" component={AcceptInvitation} />
               
@@ -160,6 +162,7 @@ function AppContent() {
               {/* Main domain or dev routes */}
               <Route path="/" component={Home} />
               <Route path="/email-login" component={EmailLogin} />
+              <Route path="/auth/magic" component={MagicLinkVerify} />
               <Route path="/s/:username" component={SellerStorefront} />
               
               {/* Nested seller routes - maintain seller context through navigation */}

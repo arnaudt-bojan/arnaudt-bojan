@@ -271,6 +271,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email-based authentication routes
   app.use("/api/auth/email", emailAuthRoutes);
 
+  // Magic link verification endpoint (JSON-based SPA flow)
+  app.get('/api/auth/magic/verify', async (req: any, res: any) => {
+    try {
+      const { token } = req.query;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: 'Token is required', success: false });
+      }
+
+      // Find auth token
+      const authToken = await storage.getAuthTokenByToken(token);
+
+      if (!authToken) {
+        return res.status(401).json({ error: 'Invalid token', success: false });
+      }
+
+      // Check if already used
+      if (authToken.used === 1) {
+        return res.status(401).json({ error: 'Token already used', success: false });
+      }
+
+      // Check if expired
+      if (new Date() > new Date(authToken.expiresAt)) {
+        return res.status(401).json({ error: 'Token expired', success: false });
+      }
+
+      // Mark token as used
+      await storage.markAuthTokenAsUsed(authToken.id);
+
+      // Get or create user
+      const normalizedEmail = authToken.email.toLowerCase().trim();
+      let user = await storage.getUserByEmail(normalizedEmail);
+      
+      if (!user) {
+        // Create new user
+        const sellerContext = authToken.sellerContext;
+        const isMainDomain = !sellerContext;
+        const role = isMainDomain ? 'admin' : 'buyer';
+        
+        user = await storage.upsertUser({
+          email: normalizedEmail,
+          role,
+        });
+        
+        logger.auth('Created new user via magic link', {
+          role,
+          email: normalizedEmail,
+          userId: user.id
+        });
+      }
+
+      // Create session compatible with isAuthenticated middleware
+      req.session.passport = {
+        user: {
+          id: user.id,
+          access_token: 'email-auth',
+          expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+          claims: {
+            sub: user.id,
+            email: user.email,
+            aud: 'authenticated',
+          },
+        },
+      };
+
+      // CRITICAL: Save session before responding
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      logger.auth('User authenticated via magic link', {
+        email: normalizedEmail,
+        userId: user.id
+      });
+
+      // Determine redirect URL
+      let redirectUrl = authToken.returnUrl || '/';
+      
+      // Sanitize returnUrl to prevent open redirect
+      if (authToken.returnUrl && (!authToken.returnUrl.startsWith("/") || authToken.returnUrl.startsWith("//"))) {
+        redirectUrl = '/';
+      }
+      
+      if (!authToken.returnUrl) {
+        // Default redirect based on role
+        if (user.role === 'admin' || user.role === 'seller' || user.role === 'owner') {
+          redirectUrl = '/seller-dashboard';
+        } else if (user.role === 'buyer') {
+          redirectUrl = '/buyer-dashboard';
+        }
+      }
+
+      // Return JSON response
+      res.json({
+        success: true,
+        redirectUrl,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (error) {
+      logger.error('Magic link verify error', error, { module: 'auth' });
+      res.status(500).json({ 
+        error: 'Failed to verify magic link', 
+        success: false 
+      });
+    }
+  });
+
   // Document generation routes (invoices & packing slips)
   app.use("/api/documents", documentRoutes);
 
