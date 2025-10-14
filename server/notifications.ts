@@ -162,7 +162,7 @@ class NotificationServiceImpl implements NotificationService {
    */
   private async generateMagicLinkForEmail(email: string, redirectPath?: string, sellerContext?: string): Promise<string> {
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days (3 months)
 
     // Save auth token to database with seller context
     await this.storage.createAuthToken({
@@ -172,6 +172,7 @@ class NotificationServiceImpl implements NotificationService {
       expiresAt,
       used: 0,
       sellerContext: sellerContext || null, // Preserve seller context for buyer emails
+      tokenType: 'magic_link', // Mark as reusable magic link token
     });
 
     // Generate magic link URL

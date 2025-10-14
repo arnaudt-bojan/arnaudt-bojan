@@ -299,8 +299,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Invalid token', success: false });
       }
 
-      // Check if already used
-      if (authToken.used === 1) {
+      // Check if already used (magic_link tokens are reusable, everything else is single-use)
+      // Treat null/unknown tokenType as single-use for security (legacy tokens)
+      if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
         return res.status(401).json({ error: 'Token already used', success: false });
       }
 
@@ -309,8 +310,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Token expired', success: false });
       }
 
-      // Mark token as used
-      await storage.markAuthTokenAsUsed(authToken.id);
+      // Mark token as used (only magic_link tokens are reusable)
+      if (authToken.tokenType !== 'magic_link') {
+        await storage.markAuthTokenAsUsed(authToken.id);
+      }
 
       // Get or create user
       const normalizedEmail = authToken.email.toLowerCase().trim();
