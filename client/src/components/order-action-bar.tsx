@@ -139,7 +139,7 @@ export function OrderActionBar({
       const res = await fetch("/api/documents/invoices/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: order.id, notes: "regenerate" }),
         credentials: "include",
       });
       

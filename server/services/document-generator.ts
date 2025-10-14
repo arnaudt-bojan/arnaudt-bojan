@@ -279,8 +279,8 @@ export class DocumentGenerator {
       .fillColor('#ffffff')
       .fontSize(12)
       .font('Helvetica-Bold')
-      .text('TOTAL:', 370, totalY)
-      .text(`${data.currency} ${data.order.total}`, 480, totalY, { width: 60, align: 'right' });
+      .text('TOTAL:', 370, totalY, { width: 100 })
+      .text(`${data.currency} ${data.order.total}`, 470, totalY, { width: 70, align: 'right' });
 
     // Payment Status
     doc
