@@ -7,12 +7,12 @@ const bucketName = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
 const privateDir = process.env.PRIVATE_OBJECT_DIR || '.private';
 
 /**
- * Utility: Format address for display (handles newlines, commas, semicolons, and mixed formats)
+ * Utility: Format address for display (handles newlines and commas)
  * Returns array of clean address lines
  */
 export function formatAddressLines(address: string): string[] {
   return address
-    .split(/[\n,;]+/)  // Split by newlines, commas, OR semicolons
+    .split(/[\n,]+/)  // Split by newlines OR commas only
     .map(line => line.trim())
     .filter(line => line.length > 0);  // Remove empty lines
 }
