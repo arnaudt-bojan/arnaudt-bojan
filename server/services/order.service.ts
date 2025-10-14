@@ -1034,15 +1034,24 @@ export class OrderService {
       });
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
-      logger.error('[OrderService] Failed to create order items DETAILED', {
-        errorMessage,
-        errorString: String(error),
-        errorType: typeof error,
+      logger.error('[OrderService] Failed to create order items ERROR', {
+        message: errorMessage,
+        stack: error?.stack,
         orderId: order.id,
-        itemsToCreate: JSON.stringify(orderItemsToCreate),
+        itemCount: orderItemsToCreate.length,
       });
-      // Re-throw with a proper error message
-      throw new Error(`Failed to create order items: ${errorMessage}`);
+      
+      // Log each item individually for debugging
+      orderItemsToCreate.forEach((item, index) => {
+        logger.error(`[OrderService] Item ${index}:`, {
+          productId: item.productId,
+          variant: item.variant,
+          variantType: typeof item.variant,
+        });
+      });
+      
+      // Re-throw with original error
+      throw error;
     }
   }
 
