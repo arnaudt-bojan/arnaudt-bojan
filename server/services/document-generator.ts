@@ -119,12 +119,13 @@ export class DocumentGenerator {
     
     // Format seller address with line breaks
     if (data.seller.address) {
-      const sellerAddressLines = data.seller.address.split(',').map(line => line.trim());
+      const sellerAddressLines = data.seller.address
+        .split(/[\n,]+/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
       sellerAddressLines.forEach((line) => {
-        if (line) {
-          doc.text(line, 350, sellerInfoY, { align: 'right' });
-          sellerInfoY += 12;
-        }
+        doc.text(line, 350, sellerInfoY, { align: 'right' });
+        sellerInfoY += 12;
       });
     }
     
@@ -179,21 +180,22 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Bill To:', 50, billToY);
 
-    // Parse address and format with proper line breaks
-    const addressLines = data.customer.address.split(',').map(line => line.trim());
+    // Parse address - handle both commas and newlines
+    const addressLines = data.customer.address
+      .split(/[\n,]+/)  // Split by newlines OR commas
+      .map(line => line.trim())
+      .filter(line => line.length > 0);  // Remove empty lines
     
     doc
       .fontSize(10)
       .font('Helvetica')
       .text(data.customer.company || data.customer.name, 50, billToY + 20);
     
-    // Print address lines
+    // Print address lines with proper spacing
     let addressY = billToY + 35;
     addressLines.forEach((line) => {
-      if (line) {
-        doc.text(line, 50, addressY);
-        addressY += 15;
-      }
+      doc.text(line, 50, addressY);
+      addressY += 15;
     });
     
     doc.text(data.customer.email, 50, addressY);
@@ -355,12 +357,13 @@ export class DocumentGenerator {
     
     // Format seller address with line breaks
     if (data.seller.address) {
-      const psSellerAddressLines = data.seller.address.split(',').map(line => line.trim());
+      const psSellerAddressLines = data.seller.address
+        .split(/[\n,]+/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
       psSellerAddressLines.forEach((line) => {
-        if (line) {
-          doc.text(line, 350, psSellerInfoY, { align: 'right' });
-          psSellerInfoY += 12;
-        }
+        doc.text(line, 350, psSellerInfoY, { align: 'right' });
+        psSellerInfoY += 12;
       });
     }
     
@@ -394,21 +397,22 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Ship To:', 50, 260);
 
-    // Parse address and format with proper line breaks
-    const addressLines = data.customer.address.split(',').map(line => line.trim());
+    // Parse address - handle both commas and newlines  
+    const psAddressLines = data.customer.address
+      .split(/[\n,]+/)  // Split by newlines OR commas
+      .map(line => line.trim())
+      .filter(line => line.length > 0);  // Remove empty lines
     
     doc
       .fontSize(10)
       .font('Helvetica')
       .text(data.customer.name, 50, 280);
     
-    // Print address lines
+    // Print address lines with proper spacing
     let addressY = 295;
-    addressLines.forEach((line) => {
-      if (line) {
-        doc.text(line, 50, addressY);
-        addressY += 15;
-      }
+    psAddressLines.forEach((line) => {
+      doc.text(line, 50, addressY);
+      addressY += 15;
     });
     
     doc.text(data.customer.email, 50, addressY);
