@@ -328,7 +328,8 @@ export class OrderLifecycleService {
       // 8. Calculate cumulative refunds and update order payment status
       const allOrderRefunds = await this.storage.getRefundsByOrderId(orderId);
       const totalRefundedAmount = allOrderRefunds.reduce((sum, r) => sum + parseFloat(r.amount), 0);
-      const orderTotal = parseFloat(order.amountPaid || '0');
+      // ARCHITECTURE 3: Compare refunds against stored order.total, not amountPaid
+      const orderTotal = parseFloat(order.total);
 
       // Update payment status based on cumulative refunds
       const newPaymentStatus = totalRefundedAmount >= orderTotal - 0.01 ? 'refunded' : 'partially_refunded';
