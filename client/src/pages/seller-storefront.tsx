@@ -7,7 +7,6 @@ import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList } from "lucide-reac
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
-import { StorefrontHeader } from "@/components/headers/storefront-header";
 import { useCart } from "@/lib/cart-context";
 import type { User, Product } from "@shared/schema";
 
@@ -176,8 +175,6 @@ export default function SellerStorefront() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <StorefrontHeader cartItemsCount={cart?.itemsCount || 0} />
-      
       {/* Banner - Only show if uploaded */}
       {effectiveSeller.storeBanner && (
         <div className="relative w-full aspect-[21/9] md:aspect-[21/7] overflow-hidden">
