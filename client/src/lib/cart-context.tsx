@@ -144,6 +144,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
+    // Prevent mixing different product types in the same cart
+    if (cart && cart.items && cart.items.length > 0) {
+      const existingProductType = cart.items[0].productType;
+      const newProductType = product.productType;
+
+      if (existingProductType !== newProductType) {
+        const productTypeLabels: Record<string, string> = {
+          'in-stock': 'In Stock',
+          'pre-order': 'Pre-Order',
+          'made-to-order': 'Made to Order',
+          'wholesale': 'Wholesale'
+        };
+
+        const existingLabel = productTypeLabels[existingProductType] || existingProductType;
+        const newLabel = productTypeLabels[newProductType] || newProductType;
+
+        return { 
+          success: false, 
+          error: `Cannot mix ${newLabel} products with ${existingLabel} products in the same cart. Please checkout your current items first or remove them before adding this product.` 
+        };
+      }
+    }
+
     // Call backend mutation and wait for result
     try {
       await addMutation.mutateAsync({ productId: product.id, quantity: 1, variantId });
