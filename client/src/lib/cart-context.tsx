@@ -6,14 +6,16 @@ import { apiRequest, queryClient } from "./queryClient";
 interface CartItem {
   id: string;
   name: string;
-  price: string;
+  price: string; // Discounted price (if applicable)
+  originalPrice?: string; // Price before discount
+  discountPercentage?: string; // Discount percentage (e.g., "15.00" for 15%)
+  discountAmount?: string; // Dollar amount saved
   quantity: number;
   productType: string;
   depositAmount?: string;
   requiresDeposit?: number;
   sellerId: string;
   images?: string[];
-  discountPercentage?: string;
   promotionActive?: number;
   variantId?: string;
   variant?: {

@@ -250,6 +250,7 @@ export class OrderService {
         sellerCurrency,
         checkoutSessionId,
         taxCalculation.calculationId,
+        taxCalculation.breakdown || null, // Pass tax breakdown
         shipping,
         params.paymentIntentId // Pass payment intent ID from frontend
       );
@@ -928,6 +929,7 @@ export class OrderService {
     currency: string,
     checkoutSessionId: string,
     taxCalculationId?: string,
+    taxBreakdown?: any,
     shipping?: {
       cost: number;
       method: string;

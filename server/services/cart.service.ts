@@ -14,14 +14,16 @@ import { logger } from "../logger";
 export interface CartItem {
   id: string;
   name: string;
-  price: string;
+  price: string; // Discounted price (if applicable)
+  originalPrice?: string; // Price before discount
+  discountPercentage?: string; // Discount percentage (e.g., "15.00" for 15%)
+  discountAmount?: string; // Dollar amount saved
   quantity: number;
   productType: string;
   depositAmount?: string;
   requiresDeposit?: number;
   sellerId: string;
   images?: string[];
-  discountPercentage?: string;
   promotionActive?: number;
   variantId?: string;
   variant?: {
@@ -124,7 +126,10 @@ export class CartService {
         existingItem.quantity += quantity;
       } else {
         // Calculate actual price with discount
+        const originalPrice = parseFloat(product.price);
         let actualPrice = product.price;
+        let discountAmount = '0';
+        
         if (
           product.promotionActive === 1 &&
           product.discountPercentage &&
@@ -132,21 +137,24 @@ export class CartService {
           new Date(product.promotionEndDate) > new Date()
         ) {
           const discount = parseFloat(product.discountPercentage);
-          const originalPrice = parseFloat(product.price);
-          actualPrice = (originalPrice * (1 - discount / 100)).toFixed(2);
+          const discountedPrice = originalPrice * (1 - discount / 100);
+          actualPrice = discountedPrice.toFixed(2);
+          discountAmount = (originalPrice - discountedPrice).toFixed(2);
         }
 
         const cartItem: CartItem = {
           id: product.id,
           name: product.name,
           price: actualPrice,
+          originalPrice: product.price,
+          discountPercentage: product.discountPercentage || undefined,
+          discountAmount: discountAmount !== '0' ? discountAmount : undefined,
           quantity,
           productType: product.productType,
           depositAmount: product.depositAmount || undefined,
           requiresDeposit: product.requiresDeposit || undefined,
           sellerId: product.sellerId,
           images: product.images || [product.image],
-          discountPercentage: product.discountPercentage || undefined,
           promotionActive: product.promotionActive || undefined,
           variantId,
           variant,
