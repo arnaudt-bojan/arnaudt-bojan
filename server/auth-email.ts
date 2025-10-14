@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { storage } from './storage';
 import { createNotificationService } from './notifications';
-import { PDFService } from './pdf-service';
 import type { Request, Response } from 'express';
 import { logger } from './logger';
 import { generateAuthCode, generateSecureToken, normalizeEmail } from './utils';
@@ -9,19 +8,16 @@ import { CartService } from './services/cart.service';
 
 const router = Router();
 
-// Initialize services with error handling for missing env vars
-let pdfService: PDFService;
+// Initialize notification service
 let notificationService: ReturnType<typeof createNotificationService>;
 
 try {
-  pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
-  notificationService = createNotificationService(storage, pdfService);
+  notificationService = createNotificationService(storage);
   logger.info('Auth-Email services initialized successfully');
 } catch (error) {
   logger.critical('Failed to initialize Auth-Email services', error);
-  // Create stub services that will log errors
-  pdfService = new PDFService(process.env.STRIPE_SECRET_KEY || '');
-  notificationService = createNotificationService(storage, pdfService);
+  // Create stub service that will log errors
+  notificationService = createNotificationService(storage);
 }
 
 /**

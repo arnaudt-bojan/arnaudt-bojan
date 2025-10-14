@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem, BalanceRequest } from '../shared/schema';
-import { PDFService } from './pdf-service';
+import { DocumentGenerator } from './services/document-generator';
 import { logger } from './logger';
 import { 
   createEmailTemplate, 
@@ -122,7 +122,6 @@ interface SendEmailParams {
 
 class NotificationServiceImpl implements NotificationService {
   private storage: any; // Will be injected
-  private pdfService: PDFService;
   private emailConfig: EmailConfigService;
   private emailProvider: IEmailProvider;
   private messages: NotificationMessagesService;
@@ -130,14 +129,12 @@ class NotificationServiceImpl implements NotificationService {
   private emailMetadata: EmailMetadataService;
 
   constructor(
-    storage: any, 
-    pdfService: PDFService,
+    storage: any,
     emailConfig?: EmailConfigService,
     emailProvider?: IEmailProvider,
     messages?: NotificationMessagesService
   ) {
     this.storage = storage;
-    this.pdfService = pdfService;
     
     // Use injected services or create defaults (for backward compatibility)
     this.emailConfig = emailConfig || new EmailConfigService();
@@ -155,24 +152,6 @@ class NotificationServiceImpl implements NotificationService {
     this.emailMetadata = new EmailMetadataService(storage, this.stripe);
   }
 
-  /**
-   * Build Stripe business details with fallback
-   */
-  private async getStripeBusinessDetails(seller: User): Promise<any> {
-    if (seller.stripeConnectedAccountId) {
-      try {
-        return await this.pdfService.getStripeBusinessDetails(seller.stripeConnectedAccountId);
-      } catch (error) {
-        logger.error("[Notifications] Failed to fetch Stripe business details:", error);
-      }
-    }
-    
-    // Fallback if Stripe details unavailable
-    return {
-      businessName: [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || 'Store',
-      email: seller.email || undefined,
-    };
-  }
 
   /**
    * Generate magic link token for email auto-login
@@ -294,32 +273,84 @@ class NotificationServiceImpl implements NotificationService {
       orderId: order.id
     });
 
-    // Generate invoice PDF
+    // Generate invoice PDF using centralized DocumentGeneratorService
     let attachments: EmailAttachment[] = [];
     try {
       // Fetch order items
       const orderItems = await this.storage.getOrderItems(order.id);
       
-      // Get Stripe business details
-      const stripeDetails = await this.getStripeBusinessDetails(seller);
+      // Get product SKUs for items
+      const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
+        const product = await this.storage.getProduct(item.productId);
+        return {
+          name: item.productName,
+          sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
+          variant: item.variant ? JSON.stringify(item.variant) : undefined,
+          quantity: item.quantity,
+          price: parseFloat(item.price).toFixed(2),
+          subtotal: parseFloat(item.subtotal).toFixed(2),
+        };
+      }));
+
+      // Build seller address from warehouse data
+      const sellerAddressParts = [];
+      if (seller.warehouseStreet) sellerAddressParts.push(seller.warehouseStreet);
+      if (seller.warehouseCity) sellerAddressParts.push(seller.warehouseCity);
+      if (seller.warehouseState) sellerAddressParts.push(seller.warehouseState);
+      if (seller.warehousePostalCode) sellerAddressParts.push(seller.warehousePostalCode);
+      if (seller.warehouseCountry) sellerAddressParts.push(seller.warehouseCountry);
+      const sellerAddress = sellerAddressParts.join(', ');
+
+      // CRITICAL: Use stored pricing data (Architecture 3)
+      const subtotal = order.subtotalBeforeTax 
+        ? parseFloat(order.subtotalBeforeTax).toFixed(2)
+        : parseFloat(order.total).toFixed(2);
+      const shipping = order.shippingCost 
+        ? parseFloat(order.shippingCost).toFixed(2)
+        : '0.00';
+      const tax = order.taxAmount 
+        ? parseFloat(order.taxAmount).toFixed(2)
+        : '0.00';
+      const total = parseFloat(order.total).toFixed(2);
       
-      // Build invoice data
+      // Build invoice data using DocumentGenerator format
       const invoiceData = {
-        order,
-        orderItems,
-        seller,
-        buyer: {
+        invoice: {
+          number: order.id.substring(0, 8).toUpperCase(),
+          date: new Date(order.createdAt),
+        },
+        seller: {
+          businessName: seller.companyName || (seller.firstName && seller.lastName 
+            ? `${seller.firstName} ${seller.lastName}` 
+            : seller.email!),
+          email: seller.contactEmail || seller.email!,
+          phone: seller.businessPhone || undefined,
+          address: sellerAddress || undefined,
+          logo: seller.storeLogo || undefined,
+        },
+        customer: {
           name: order.customerName,
           email: order.customerEmail,
           address: order.customerAddress,
         },
-        stripeDetails,
+        order: {
+          id: order.id,
+          orderNumber: order.id.substring(0, 8).toUpperCase(),
+          date: new Date(order.createdAt),
+          total,
+          tax,
+          subtotal,
+          shipping,
+          paymentStatus: order.paymentStatus || 'pending',
+        },
+        items: itemsWithSku,
+        currency: seller.listingCurrency || 'USD',
       };
       
-      const invoiceBuffer = await this.pdfService.generateInvoice(invoiceData);
+      const { buffer } = await DocumentGenerator.generateInvoice(invoiceData);
       attachments.push({
         filename: `invoice-${order.id.slice(0, 8)}.pdf`,
-        content: invoiceBuffer,
+        content: buffer,
         contentType: 'application/pdf',
       });
       logger.info(`[Notifications] Invoice PDF generated for order ${order.id}`);
@@ -462,21 +493,58 @@ class NotificationServiceImpl implements NotificationService {
       orderId: order.id
     });
 
-    // Generate packing slip PDF for this specific item
+    // Generate packing slip PDF using centralized DocumentGenerator
     let attachments: EmailAttachment[] = [];
     try {
-      // Build packing slip data
+      // Get product for this item
+      const product = await this.storage.getProduct(item.productId);
+      
+      // Build seller address from warehouse data
+      const sellerAddressParts = [];
+      if (seller.warehouseStreet) sellerAddressParts.push(seller.warehouseStreet);
+      if (seller.warehouseCity) sellerAddressParts.push(seller.warehouseCity);
+      if (seller.warehouseState) sellerAddressParts.push(seller.warehouseState);
+      if (seller.warehousePostalCode) sellerAddressParts.push(seller.warehousePostalCode);
+      if (seller.warehouseCountry) sellerAddressParts.push(seller.warehouseCountry);
+      const sellerAddress = sellerAddressParts.join(', ');
+      
+      // Build packing slip data using DocumentGenerator format
       const packingSlipData = {
-        order,
-        orderItems: [item], // Just this item
-        seller,
-        shippingAddress: order.customerAddress,
+        packingSlip: {
+          number: `PS-${order.id.substring(0, 8).toUpperCase()}`,
+          date: new Date(),
+        },
+        seller: {
+          businessName: seller.companyName || (seller.firstName && seller.lastName 
+            ? `${seller.firstName} ${seller.lastName}` 
+            : seller.email!),
+          email: seller.contactEmail || seller.email!,
+          phone: seller.businessPhone || undefined,
+          address: sellerAddress || undefined,
+          logo: seller.storeLogo || undefined,
+        },
+        customer: {
+          name: order.customerName,
+          address: order.customerAddress,
+          email: order.customerEmail,
+        },
+        order: {
+          id: order.id,
+          orderNumber: order.id.substring(0, 8).toUpperCase(),
+          date: new Date(order.createdAt),
+        },
+        items: [{
+          name: item.productName,
+          sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
+          variant: item.variant ? JSON.stringify(item.variant) : undefined,
+          quantity: item.quantity,
+        }],
       };
       
-      const packingSlipBuffer = await this.pdfService.generatePackingSlip(packingSlipData);
+      const { buffer } = await DocumentGenerator.generatePackingSlip(packingSlipData);
       attachments.push({
         filename: `packing-slip-${order.id.slice(0, 8)}-${item.id.slice(0, 8)}.pdf`,
-        content: packingSlipBuffer,
+        content: buffer,
         contentType: 'application/pdf',
       });
       logger.info(`[Notifications] Packing slip PDF generated for item ${item.id}`);
@@ -2520,11 +2588,8 @@ class NotificationServiceImpl implements NotificationService {
       return;
     }
 
-    // Get Stripe business details for footer
-    const stripeDetails = await this.getStripeBusinessDetails(seller);
-
-    // Generate email HTML
-    const emailHtml = await this.generateSellerOrderEmail(order, seller, products, stripeDetails);
+    // Generate email HTML (no Stripe details needed for seller notifications)
+    const emailHtml = await this.generateSellerOrderEmail(order, seller, products, null);
 
     // Build subject line
     const subject = `New Order #${order.id.slice(0, 8)} - ${order.customerName}`;
@@ -4477,6 +4542,6 @@ class NotificationServiceImpl implements NotificationService {
   }
 }
 
-export const createNotificationService = (storage: any, pdfService: PDFService): NotificationService => {
-  return new NotificationServiceImpl(storage, pdfService);
+export const createNotificationService = (storage: any): NotificationService => {
+  return new NotificationServiceImpl(storage);
 };

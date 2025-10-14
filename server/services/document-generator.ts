@@ -6,6 +6,17 @@ import type { Order, OrderItem, User, Product } from '@shared/schema';
 const bucketName = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
 const privateDir = process.env.PRIVATE_OBJECT_DIR || '.private';
 
+/**
+ * Utility: Format address for display (handles newlines, commas, and mixed formats)
+ * Returns array of clean address lines
+ */
+export function formatAddressLines(address: string): string[] {
+  return address
+    .split(/[\n,]+/)  // Split by newlines OR commas
+    .map(line => line.trim())
+    .filter(line => line.length > 0);  // Remove empty lines
+}
+
 export interface InvoiceData {
   invoice: {
     number: string;
@@ -119,10 +130,7 @@ export class DocumentGenerator {
     
     // Format seller address with line breaks
     if (data.seller.address) {
-      const sellerAddressLines = data.seller.address
-        .split(/[\n,]+/)
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+      const sellerAddressLines = formatAddressLines(data.seller.address);
       sellerAddressLines.forEach((line) => {
         doc.text(line, 350, sellerInfoY, { align: 'right' });
         sellerInfoY += 12;
@@ -180,11 +188,8 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Bill To:', 50, billToY);
 
-    // Parse address - handle both commas and newlines
-    const addressLines = data.customer.address
-      .split(/[\n,]+/)  // Split by newlines OR commas
-      .map(line => line.trim())
-      .filter(line => line.length > 0);  // Remove empty lines
+    // Format customer address
+    const addressLines = formatAddressLines(data.customer.address);
     
     doc
       .fontSize(10)
@@ -258,19 +263,19 @@ export class DocumentGenerator {
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text('Subtotal:', 400, totalsY, { align: 'right' })
-      .text(`${data.currency} ${data.order.subtotal}`, 480, totalsY, { width: 60, align: 'right' });
+      .text('Subtotal:', 380, totalsY, { width: 90, align: 'right' })
+      .text(`${data.currency} ${data.order.subtotal}`, 475, totalsY, { width: 75, align: 'right' });
 
     if (data.order.shipping && parseFloat(data.order.shipping) > 0) {
       doc
-        .text('Shipping:', 400, totalsY + 20, { align: 'right' })
-        .text(`${data.currency} ${data.order.shipping}`, 480, totalsY + 20, { width: 60, align: 'right' });
+        .text('Shipping:', 380, totalsY + 20, { width: 90, align: 'right' })
+        .text(`${data.currency} ${data.order.shipping}`, 475, totalsY + 20, { width: 75, align: 'right' });
     }
 
     if (parseFloat(data.order.tax) > 0) {
       doc
-        .text('Tax:', 400, totalsY + (data.order.shipping ? 40 : 20), { align: 'right' })
-        .text(`${data.currency} ${data.order.tax}`, 480, totalsY + (data.order.shipping ? 40 : 20), { width: 60, align: 'right' });
+        .text('Tax:', 380, totalsY + (data.order.shipping ? 40 : 20), { width: 90, align: 'right' })
+        .text(`${data.currency} ${data.order.tax}`, 475, totalsY + (data.order.shipping ? 40 : 20), { width: 75, align: 'right' });
     }
 
     // Total with background
@@ -357,10 +362,7 @@ export class DocumentGenerator {
     
     // Format seller address with line breaks
     if (data.seller.address) {
-      const psSellerAddressLines = data.seller.address
-        .split(/[\n,]+/)
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+      const psSellerAddressLines = formatAddressLines(data.seller.address);
       psSellerAddressLines.forEach((line) => {
         doc.text(line, 350, psSellerInfoY, { align: 'right' });
         psSellerInfoY += 12;
@@ -397,11 +399,8 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Ship To:', 50, 260);
 
-    // Parse address - handle both commas and newlines  
-    const psAddressLines = data.customer.address
-      .split(/[\n,]+/)  // Split by newlines OR commas
-      .map(line => line.trim())
-      .filter(line => line.length > 0);  // Remove empty lines
+    // Format customer address
+    const psAddressLines = formatAddressLines(data.customer.address);
     
     doc
       .fontSize(10)

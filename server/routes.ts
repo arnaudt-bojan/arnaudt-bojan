@@ -12,7 +12,6 @@ import { getExchangeRates, getUserCurrency } from "./currencyService";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
-import { PDFService } from "./pdf-service";
 import documentRoutes from "./routes/documents";
 import wholesaleRefundRoutes from "./routes/wholesale-refunds";
 import wholesaleDocumentRoutes from "./routes/wholesale-documents";
@@ -51,11 +50,8 @@ import { CreateFlowService } from "./services/workflows/create-flow.service";
 import type { WorkflowConfig } from "./services/workflows/types";
 import crypto from "crypto";
 
-// Initialize PDF service with Stripe secret key
-const pdfService = new PDFService(process.env.STRIPE_SECRET_KEY);
-
 // Initialize notification service
-const notificationService = createNotificationService(storage, pdfService);
+const notificationService = createNotificationService(storage);
 
 // Initialize authorization service for capability checks
 const authorizationService = new AuthorizationService(storage);
