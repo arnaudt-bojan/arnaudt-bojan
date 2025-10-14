@@ -92,7 +92,8 @@ const orderService = new OrderService(
   shippingService,
   taxService,
   notificationService,
-  stripe || undefined
+  stripe || undefined,
+  pricingCalculationService // For balance payment calculations - LAST parameter to maintain backward compatibility
 );
 
 // Initialize payment provider, webhook handler, and payment service

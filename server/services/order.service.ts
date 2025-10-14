@@ -124,7 +124,8 @@ export class OrderService {
     private shippingService: ShippingService,
     private taxService: TaxService,
     private notificationService: NotificationService,
-    private stripe?: Stripe
+    private stripe?: Stripe,
+    private pricingService?: any // PricingCalculationService - avoiding circular import
   ) {}
 
   /**
@@ -738,6 +739,55 @@ export class OrderService {
           stack: notificationError.stack,
         });
         // Don't fail the payment confirmation - notifications are best-effort
+      }
+
+      // EARLY PAYMENT FEATURE: Create balance request immediately after deposit is paid
+      if (paymentStatus === 'partially_paid' && order.balanceDueCents && order.balanceDueCents > 0) {
+        try {
+          logger.info('[OrderService] Creating early balance payment request', {
+            orderId: order.id,
+            balanceDueCents: order.balanceDueCents,
+          });
+
+          // Use BalancePaymentService to create request
+          const { BalancePaymentService } = await import('./balance-payment.service');
+          const balanceService = new BalancePaymentService(
+            this.storage,
+            this.pricingService,
+            this.shippingService,
+            this.stripe
+          );
+
+          const balanceResult = await balanceService.requestBalancePayment(
+            order.id,
+            'system' // Automatically created after deposit
+          );
+
+          if (balanceResult.success && balanceResult.balanceRequest && balanceResult.sessionToken) {
+            // Send early payment email with magic link
+            await this.notificationService.sendBalancePaymentRequest(
+              order,
+              balanceResult.balanceRequest,
+              balanceResult.sessionToken
+            );
+            
+            logger.info('[OrderService] Early balance payment request created and email sent', {
+              orderId: order.id,
+              balanceRequestId: balanceResult.balanceRequest.id,
+            });
+          } else {
+            logger.warn('[OrderService] Failed to create early balance payment request', {
+              orderId: order.id,
+              error: balanceResult.error,
+            });
+          }
+        } catch (balanceError: any) {
+          logger.error('[OrderService] Error creating early balance payment request', {
+            orderId: order.id,
+            error: balanceError.message,
+          });
+          // Don't fail payment confirmation - balance request is best-effort
+        }
       }
 
       return { success: true };
