@@ -1928,7 +1928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Authorization: buyer (order owner), seller (owns products), OR admin
       const isAdmin = user?.role === 'owner' || user?.role === 'admin';
-      const isBuyer = order.customerId === userId;
+      const isBuyer = order.userId === userId;
       
       if (!isAdmin && !isBuyer) {
         try {
