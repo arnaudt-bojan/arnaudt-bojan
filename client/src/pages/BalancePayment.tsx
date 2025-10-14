@@ -81,6 +81,7 @@ function PaymentForm({
   balanceRequestId,
   orderId,
   token,
+  customerEmail,
 }: {
   onSuccess: () => void;
   balanceDueCents: number;
@@ -88,6 +89,7 @@ function PaymentForm({
   balanceRequestId: string;
   orderId: string;
   token: string;
+  customerEmail: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -119,6 +121,11 @@ function PaymentForm({
         redirect: "if_required",
         confirmParams: {
           return_url: `${window.location.origin}/orders/${orderId}/pay-balance?token=${token}`,
+          payment_method_data: {
+            billing_details: {
+              email: customerEmail,
+            },
+          },
         },
       });
 
@@ -641,6 +648,7 @@ export default function BalancePayment() {
                         balanceRequestId={balanceRequestId}
                         orderId={orderId}
                         token={token}
+                        customerEmail={session.customerEmail}
                       />
                     </Elements>
                   )}
