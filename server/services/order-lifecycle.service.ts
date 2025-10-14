@@ -581,7 +581,7 @@ export class OrderLifecycleService {
       const isAdmin = user.role === 'owner' || user.role === 'admin';
       if (!isAdmin) {
         try {
-          const items = JSON.parse(existingOrder.items);
+          const items = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
           const allProducts = await this.storage.getAllProducts();
           const orderProductIds = items.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -676,7 +676,7 @@ export class OrderLifecycleService {
       const isAdmin = user.role === 'owner' || user.role === 'admin';
       if (!isAdmin) {
         try {
-          const orderItems = JSON.parse(order.items);
+          const orderItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           const allProducts = await this.storage.getAllProducts();
           const orderProductIds = orderItems.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -794,7 +794,7 @@ export class OrderLifecycleService {
         logger.info(`[Auto-Generate] Generating invoice for order ${order.id}`);
 
         // Get seller ID from order
-        const items = JSON.parse(order.items);
+        const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
         if (items.length === 0) {
           logger.error("[Auto-Generate] Cannot generate invoice: order has no items");
           return;
@@ -833,7 +833,7 @@ export class OrderLifecycleService {
         logger.info(`[Auto-Generate] Generating packing slip for order ${order.id}`);
 
         // Get seller ID from order
-        const items = JSON.parse(order.items);
+        const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
         if (items.length === 0) {
           logger.error("[Auto-Generate] Cannot generate packing slip: order has no items");
           return;

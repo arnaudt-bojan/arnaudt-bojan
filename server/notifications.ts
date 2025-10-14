@@ -385,7 +385,7 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendOrderShipped(order: Order, seller: User): Promise<void> {
     // Get products from order items
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const productIds = items.map((item: any) => item.productId);
     const products = await this.storage.getProductsByIds(productIds);
     
@@ -1068,7 +1068,7 @@ class NotificationServiceImpl implements NotificationService {
    * DARK MODE SAFE - Works across all email clients
    */
   private async generateOrderConfirmationEmail(order: Order, seller: User, products: Product[], buyerName: string, magicLink: string): Promise<string> {
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     
     // Generate seller header and footer
     const header = generateSellerHeader(seller);
@@ -1125,7 +1125,7 @@ class NotificationServiceImpl implements NotificationService {
    * Generate order shipped email - SELLER → BUYER EMAIL
    */
   private async generateOrderShippedEmail(order: Order, seller: User, products: Product[]): Promise<string> {
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const header = generateSellerHeader(seller);
     const footer = await generateSellerFooter(seller);
     
@@ -1184,7 +1184,7 @@ class NotificationServiceImpl implements NotificationService {
    * Generate order delivered email - SELLER → BUYER EMAIL
    */
   private async generateOrderDeliveredEmail(order: Order, seller: User, products: Product[]): Promise<string> {
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const header = generateSellerHeader(seller);
     const footer = await generateSellerFooter(seller);
     
@@ -1551,7 +1551,7 @@ class NotificationServiceImpl implements NotificationService {
    * Generate welcome email for first order - SELLER → BUYER EMAIL
    */
   private async generateWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[], magicLink: string): Promise<string> {
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const header = generateSellerHeader(seller);
     const footer = await generateSellerFooter(seller);
     
@@ -3483,7 +3483,7 @@ class NotificationServiceImpl implements NotificationService {
    * Sent to seller when buyer places order
    */
   private async generateSellerOrderEmail(order: Order, seller: User, products: Product[], stripeDetails: any): string {
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const bannerUrl = seller.storeBanner || '';
     const logoUrl = seller.storeLogo || '';
     const businessName = stripeDetails?.businessName || seller.firstName || seller.username || 'Store';

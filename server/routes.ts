@@ -1335,7 +1335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isBuyer && !isAdmin) {
         // Check if user is the seller of any products in this order
         try {
-          const items = JSON.parse(order.items);
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           const allProducts = await storage.getAllProducts();
           const orderProductIds = items.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -1690,7 +1690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAdmin = user?.role === 'owner' || user?.role === 'admin';
       if (!isAdmin) {
         try {
-          const items = JSON.parse(existingOrder.items);
+          const items = typeof existingOrder.items === 'string' ? JSON.parse(existingOrder.items) : existingOrder.items;
           const allProducts = await storage.getAllProducts();
           const orderProductIds = items.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -1720,7 +1720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validationResult.data.notifyCustomer) {
         void (async () => {
           try {
-            const items = JSON.parse(order.items);
+            const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
             const productIds = items.map((item: any) => item.productId);
             const products = await storage.getProductsByIds(productIds);
             
@@ -1769,7 +1769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAdmin = user?.role === 'owner' || user?.role === 'admin';
       if (!isAdmin) {
         try {
-          const items = JSON.parse(order.items);
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           const allProducts = await storage.getAllProducts();
           const orderProductIds = items.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -2369,7 +2369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let isSeller = false;
       if (!isAdmin && !isBuyer) {
         try {
-          const items = JSON.parse(order.items);
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           const allProducts = await storage.getAllProducts();
           const orderProductIds = items.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -2460,7 +2460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAdmin = user?.role === 'owner' || user?.role === 'admin';
       if (!isAdmin) {
         try {
-          const orderItems = JSON.parse(order.items);
+          const orderItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           const allProducts = await storage.getAllProducts();
           const orderProductIds = orderItems.map((item: any) => item.productId);
           const sellerProducts = allProducts.filter(p => p.sellerId === userId);
@@ -6809,7 +6809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let amount: number;
         if (order.paymentType === 'deposit') {
           // For deposits, use seller-configured deposit amounts from order items
-          const items = JSON.parse(order.items);
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           let depositTotal = 0;
           
           for (const item of items) {

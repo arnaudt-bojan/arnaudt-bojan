@@ -186,7 +186,7 @@ export class PlatformAnalyticsService {
       if (orderDate >= thirtyDaysAgo) {
         // Parse items JSON to get product IDs
         try {
-          const items = JSON.parse(order.items);
+          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
           if (Array.isArray(items)) {
             items.forEach((item: any) => {
               const sellerId = productToSeller.get(item.productId);

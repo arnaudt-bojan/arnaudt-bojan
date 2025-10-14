@@ -61,7 +61,7 @@ export class NotificationStep implements WorkflowStep {
       }
 
       // Get product details for the order
-      const orderItems = JSON.parse(order.items || '[]');
+      const orderItems = typeof order.items === 'string' ? JSON.parse(order.items || '[]') : (order.items || []);
       const products = await Promise.all(
         orderItems.map((item: any) => this.storage.getProduct(item.productId))
       );

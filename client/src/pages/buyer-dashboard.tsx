@@ -166,7 +166,7 @@ export default function BuyerDashboard() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {orders.map((order) => {
-            const items = JSON.parse(order.items);
+            const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
             return (
               <Card 
                 key={order.id} 

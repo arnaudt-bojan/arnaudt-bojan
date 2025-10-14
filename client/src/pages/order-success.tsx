@@ -62,7 +62,7 @@ export default function OrderSuccess() {
   });
 
   // Parse order items
-  const orderItems = order?.items ? JSON.parse(order.items) : [];
+  const orderItems = order?.items ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) : [];
   
   // Get seller ID from first product in order
   const firstProductId = orderItems[0]?.productId;

@@ -946,29 +946,16 @@ export class OrderService {
       customerAddress: fullAddress,
       taxCalculationId: taxCalculationId || null,
       items: JSON.stringify(
-        validation.items.map((item: any) => {
-          const cartItem = params.items.find(i => i.productId === item.id);
-          const variant = cartItem?.variant;
-          
-          // DEBUG: Log variant details
-          console.log('=== VARIANT DEBUG ===');
-          console.log('Product:', item.id);
-          console.log('Variant raw:', variant);
-          console.log('Variant type:', typeof variant);
-          console.log('Variant stringified:', JSON.stringify(variant));
-          console.log('===================');
-          
-          return {
-            productId: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            productType: item.productType,
-            depositAmount: item.depositAmount,
-            requiresDeposit: item.requiresDeposit,
-            variant: variant && typeof variant === 'object' ? JSON.stringify(variant) : (variant || null),
-          };
-        })
+        validation.items.map((item: any) => ({
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          productType: item.productType,
+          depositAmount: item.depositAmount,
+          requiresDeposit: item.requiresDeposit,
+          variant: params.items.find(i => i.productId === item.id)?.variant || null,
+        }))
       ),
       total: pricing.fullTotal.toString(),
       amountPaid: '0',
@@ -1003,7 +990,8 @@ export class OrderService {
   private async createOrderItems(order: Order): Promise<void> {
     let orderItemsToCreate: InsertOrderItem[] = [];
     try {
-      const items = JSON.parse(order.items);
+      // FIX: Drizzle auto-parses JSON text fields, so check if already parsed
+      const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
       orderItemsToCreate = items.map((item: any) => {
         const itemPrice = parseFloat(item.price);
         const subtotal = itemPrice * item.quantity;
@@ -1079,7 +1067,7 @@ export class OrderService {
       throw new Error('Order not found');
     }
 
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const allProducts = await this.storage.getAllProducts();
     const orderProductIds = items.map((item: any) => item.productId);
     const sellerProducts = allProducts.filter(p => p.sellerId === sellerId);
