@@ -59,13 +59,16 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
       return res.status(404).json({ error: 'Seller not found' });
     }
 
-    // Check if invoice already exists
+    // Check if invoice already exists - always regenerate with new fixes
     const existingInvoices = await storage.getInvoicesByOrderId(data.orderId);
-    if (existingInvoices.length > 0 && !data.notes?.includes('regenerate')) {
-      return res.status(200).json({
-        message: 'Invoice already exists',
-        invoice: existingInvoices[0],
-      });
+    if (existingInvoices.length > 0) {
+      // Delete old invoice to regenerate with latest fixes
+      const { neon } = await import('@neondatabase/serverless');
+      const sqlClient = neon(process.env.DATABASE_URL!);
+      
+      for (const inv of existingInvoices) {
+        await sqlClient`DELETE FROM invoices WHERE id = ${inv.id}`;
+      }
     }
 
     // CRITICAL: Use stored pricing data (single source of truth) - never recalculate
