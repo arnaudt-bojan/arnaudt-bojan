@@ -136,9 +136,18 @@ export function OrderActionBar({
 
   const generateInvoiceMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/documents/invoices/generate", {
-        orderId: order.id,
+      const res = await fetch("/api/documents/invoices/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+        credentials: "include",
       });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || `${res.status}: ${res.statusText}`);
+      }
+      
       return await res.json();
     },
     onSuccess: (data: any) => {
@@ -185,9 +194,18 @@ export function OrderActionBar({
 
   const generatePackingSlipMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/documents/packing-slips/generate", {
-        orderId: order.id,
+      const res = await fetch("/api/documents/packing-slips/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+        credentials: "include",
       });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || `${res.status}: ${res.statusText}`);
+      }
+      
       return await res.json();
     },
     onSuccess: (data: any) => {
