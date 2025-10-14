@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DashboardHeader } from "@/components/headers/dashboard-header";
 import {
   Store,
   Package,
@@ -54,8 +53,6 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <DashboardHeader />
-      
       <div className="flex-1 flex">
         {/* Sidebar */}
         <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card/50">

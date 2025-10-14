@@ -188,9 +188,16 @@ export function DashboardHeader() {
           </Sheet>
           
           {/* Upfirst Logo - always show on dashboard */}
-          <Link href="/seller-dashboard" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+          <button
+            onClick={() => {
+              setEnvironment('b2c');
+              setLocation('/seller-dashboard');
+            }}
+            className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg"
+            data-testid="link-home"
+          >
             <img src={logoImage} alt="Upfirst" className="h-8 dark:invert" />
-          </Link>
+          </button>
         </div>
 
         {/* Desktop controls - right side */}
