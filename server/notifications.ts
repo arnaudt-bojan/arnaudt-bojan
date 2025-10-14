@@ -413,14 +413,15 @@ class NotificationServiceImpl implements NotificationService {
         await this.storage.createOrderEvent({
           orderId: order.id,
           eventType: 'email_sent',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          description: `Order shipped notification sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
             emailType: 'order_shipped',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             trackingNumber: order.trackingNumber,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log order shipped event:", error);
@@ -499,15 +500,17 @@ class NotificationServiceImpl implements NotificationService {
         await this.storage.createOrderEvent({
           orderId: order.id,
           eventType: 'tracking_updated',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          description: `Item tracking notification sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
+            emailType: 'item_tracking',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             itemId: item.id,
             productName: item.productName,
             trackingNumber: item.trackingNumber,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log item tracking event:", error);
@@ -566,14 +569,15 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'order_delivered',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          eventType: 'email_sent',
+          description: `Order delivered notification sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
             emailType: 'order_delivered',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log order delivered event:", error);
@@ -610,16 +614,17 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'order_refunded',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          eventType: 'refund_processed',
+          description: `Order refund notification sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
             emailType: 'order_refunded',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             refundAmount,
             refundedItems: refundedItems.length,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log order refunded event:", error);
@@ -657,15 +662,16 @@ class NotificationServiceImpl implements NotificationService {
         await this.storage.createOrderEvent({
           orderId: order.id,
           eventType: 'balance_payment_received',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          description: `Balance payment received notification sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
             emailType: 'balance_payment_received',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             balanceAmount,
             currency: order.currency,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log balance payment received event:", error);
@@ -712,15 +718,16 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'welcome_email_sent',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          eventType: 'email_sent',
+          description: `Welcome email sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
             emailType: 'welcome_email_first_order',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             sellerName: seller.firstName || seller.username || 'Store',
             productCount: products.length,
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log welcome email event:", error);
@@ -759,16 +766,17 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'item_delivered',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          eventType: 'email_sent',
+          description: `Item delivered notification sent to ${order.customerEmail} for ${item.productName}`,
+          payload: JSON.stringify({
             emailType: 'item_delivered',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             itemId: item.id,
             productName: item.productName,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log item delivered event:", error);
@@ -828,17 +836,18 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'item_cancelled',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          eventType: 'email_sent',
+          description: `Item cancelled notification sent to ${order.customerEmail} for ${item.productName}`,
+          payload: JSON.stringify({
             emailType: 'item_cancelled',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             itemId: item.id,
             productName: item.productName,
             reason: reason || null,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log item cancelled event:", error);
@@ -901,12 +910,12 @@ class NotificationServiceImpl implements NotificationService {
       try {
         await this.storage.createOrderEvent({
           orderId: order.id,
-          eventType: 'item_refunded',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          eventType: 'refund_processed',
+          description: `Item refund notification sent to ${order.customerEmail} for ${item.productName}`,
+          payload: JSON.stringify({
             emailType: 'item_refunded',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             itemId: item.id,
             productName: item.productName,
             refundAmount,
@@ -914,6 +923,7 @@ class NotificationServiceImpl implements NotificationService {
             currency,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log item refunded event:", error);
@@ -2246,7 +2256,7 @@ class NotificationServiceImpl implements NotificationService {
     // Get email metadata using EmailMetadataService
     const fromName = await this.emailMetadata.getFromName(seller);
     const replyTo = await this.emailMetadata.getReplyToEmail(seller);
-    const subject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_REMINDER, {
+    const subject = this.emailMetadata.generateSubject(EmailType.BALANCE_PAYMENT_REQUEST, {
       orderId: order.id
     });
 
@@ -2264,16 +2274,17 @@ class NotificationServiceImpl implements NotificationService {
         await this.storage.createOrderEvent({
           orderId: order.id,
           eventType: 'balance_payment_requested',
-          recipientEmail: order.customerEmail,
-          subject: subject,
-          sentAt: new Date(),
-          metadata: JSON.stringify({
+          description: `Balance payment request sent to ${order.customerEmail}`,
+          payload: JSON.stringify({
             emailType: 'balance_payment_request',
+            recipientEmail: order.customerEmail,
+            subject: subject,
             remainingBalance: order.remainingBalance,
             currency: order.currency,
             paymentLink,
             sellerName: seller.firstName || seller.username || 'Store',
           }),
+          performedBy: null,
         });
       } catch (error) {
         logger.error("[Notifications] Failed to log balance payment request event:", error);
