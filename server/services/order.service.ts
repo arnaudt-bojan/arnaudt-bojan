@@ -978,6 +978,16 @@ export class OrderService {
     // CRITICAL: Always use server-calculated subtotal (never trust frontend)
     const finalSubtotalBeforeTax = pricing.subtotal.toString();
     
+    // Calculate total deposit amount from all items (in cents)
+    let totalDepositCents: number | null = null;
+    if (pricing.payingDepositOnly) {
+      const totalDeposit = validation.items.reduce((sum: number, item: any) => {
+        const itemDeposit = item.depositAmount ? parseFloat(item.depositAmount) * item.quantity : 0;
+        return sum + itemDeposit;
+      }, 0);
+      totalDepositCents = Math.round(totalDeposit * 100);
+    }
+    
     const orderData: InsertOrder = {
       userId,
       sellerId, // CRITICAL: Required for seller orders page to filter orders
@@ -1026,6 +1036,8 @@ export class OrderService {
       shippingState: params.customerAddress.state,
       shippingPostalCode: params.customerAddress.postalCode,
       shippingCountry: params.customerAddress.country,
+      // Balance payment support - store deposit amount in cents for Architecture 3
+      depositAmountCents: totalDepositCents,
     };
 
     return await this.storage.createOrder(orderData);
