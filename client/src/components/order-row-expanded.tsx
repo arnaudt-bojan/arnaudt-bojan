@@ -107,6 +107,12 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
               <span className="text-muted-foreground">Subtotal (before tax):</span>
               <span>{order.currency} {parseFloat(order.subtotalBeforeTax || order.total).toFixed(2)}</span>
             </div>
+            {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Shipping:</span>
+                <span>{order.currency} {parseFloat(order.shippingCost).toFixed(2)}</span>
+              </div>
+            )}
             {order.taxAmount && parseFloat(order.taxAmount) > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax:</span>

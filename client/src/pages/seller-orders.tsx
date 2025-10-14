@@ -62,6 +62,46 @@ export default function SellerOrdersPage() {
     return labels[status as keyof typeof labels] || status;
   };
 
+  const getProductTypeLabel = (productType: string) => {
+    const labels = {
+      'in-stock': 'In Stock',
+      'pre-order': 'Pre-Order',
+      'made-to-order': 'Made to Order',
+      'wholesale': 'Wholesale'
+    };
+    return labels[productType as keyof typeof labels] || productType;
+  };
+
+  const getProductTypeColor = (productType: string) => {
+    const colors = {
+      'in-stock': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      'pre-order': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      'made-to-order': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+      'wholesale': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+    };
+    return colors[productType as keyof typeof colors] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+  };
+
+  const getOrderProductType = (order: Order): string | null => {
+    try {
+      // Handle both JSON string and already-parsed array
+      let items;
+      if (typeof order.items === 'string') {
+        items = JSON.parse(order.items);
+      } else {
+        items = order.items;
+      }
+      
+      if (Array.isArray(items) && items.length > 0 && items[0].productType) {
+        return items[0].productType;
+      }
+    } catch (error) {
+      // If parsing fails, return null to hide badge
+      console.error('Failed to parse order items:', error);
+    }
+    return null;
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-8 px-4" data-testid="page-seller-orders">
@@ -161,7 +201,21 @@ export default function SellerOrdersPage() {
                       className="font-medium"
                       data-testid={`text-order-id-${order.id}`}
                     >
-                      #{order.id.slice(0, 8).toUpperCase()}
+                      <div className="flex flex-col gap-1">
+                        <span>#{order.id.slice(0, 8).toUpperCase()}</span>
+                        {(() => {
+                          const productType = getOrderProductType(order);
+                          return productType && productType !== 'wholesale' ? (
+                            <Badge 
+                              variant="outline" 
+                              className={getProductTypeColor(productType)}
+                              data-testid={`badge-product-type-${order.id}`}
+                            >
+                              {getProductTypeLabel(productType)}
+                            </Badge>
+                          ) : null;
+                        })()}
+                      </div>
                     </TableCell>
                     <TableCell data-testid={`text-date-${order.id}`}>
                       {format(new Date(order.createdAt), "MMM dd, yyyy")}
