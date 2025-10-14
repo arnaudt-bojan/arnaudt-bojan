@@ -988,9 +988,10 @@ export class OrderService {
   }
 
   private async createOrderItems(order: Order): Promise<void> {
+    let orderItemsToCreate: InsertOrderItem[] = [];
     try {
       const items = JSON.parse(order.items);
-      const orderItemsToCreate: InsertOrderItem[] = items.map((item: any) => {
+      orderItemsToCreate = items.map((item: any) => {
         const itemPrice = parseFloat(item.price);
         const subtotal = itemPrice * item.quantity;
         const productType = item.productType || 'in-stock';
