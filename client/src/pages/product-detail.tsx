@@ -653,7 +653,10 @@ export default function ProductDetail() {
                       {product.productType === "made-to-order" && (
                         <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
                           <p className="text-sm font-medium">
-                            Production Time: 2-4 weeks
+                            {(product as any).madeToOrderDays 
+                              ? `Estimated Production Time: ${(product as any).madeToOrderDays} ${(product as any).madeToOrderDays === 1 ? 'day' : 'days'}`
+                              : 'Production Time: Please contact seller for details'
+                            }
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             Made-to-order items are crafted specifically for you
