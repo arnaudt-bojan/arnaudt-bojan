@@ -348,18 +348,6 @@ export default function SellerDashboard() {
               </Card>
               <Card
                 className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/seller/wholesale/products")}
-                data-testid="button-wholesale"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-green-500/10">
-                    <Store className="h-5 w-5 md:h-6 md:w-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Wholesale</span>
-                </div>
-              </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
                 onClick={() => setLocation("/social-ads-setup")}
                 data-testid="button-social-ads"
               >
