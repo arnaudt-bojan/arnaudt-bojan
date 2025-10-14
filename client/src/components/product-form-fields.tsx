@@ -737,15 +737,17 @@ export function ProductFormFields({
           {selectedType === "made-to-order" && (
             <div className="space-y-2">
               <FormLabel>
-                Production Time (Days) <span className="text-muted-foreground font-normal">(optional)</span>
+                Estimated Production Time (Days)
               </FormLabel>
               <Input
                 type="number"
-                value={madeToOrderDays}
-                onChange={(e) => setMadeToOrderDays(parseInt(e.target.value) || 7)}
-                placeholder="7"
+                value={madeToOrderDays || ''}
+                onChange={(e) => setMadeToOrderDays(parseInt(e.target.value) || 0)}
+                placeholder="Enter number of days"
                 data-testid="input-made-to-order-days"
                 className="text-base"
+                min="1"
+                required
               />
               <p className="text-sm text-muted-foreground">
                 How many days after purchase will this item be ready?
