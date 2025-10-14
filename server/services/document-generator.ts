@@ -7,12 +7,12 @@ const bucketName = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
 const privateDir = process.env.PRIVATE_OBJECT_DIR || '.private';
 
 /**
- * Utility: Format address for display (handles newlines, commas, and mixed formats)
+ * Utility: Format address for display (handles newlines, commas, semicolons, and mixed formats)
  * Returns array of clean address lines
  */
 export function formatAddressLines(address: string): string[] {
   return address
-    .split(/[\n,]+/)  // Split by newlines OR commas
+    .split(/[\n,;]+/)  // Split by newlines, commas, OR semicolons
     .map(line => line.trim())
     .filter(line => line.length > 0);  // Remove empty lines
 }
@@ -204,13 +204,15 @@ export class DocumentGenerator {
     });
     
     doc.text(data.customer.email, 50, addressY);
+    addressY += 15;
 
     if (data.customer.vatNumber) {
-      doc.text(`VAT: ${data.customer.vatNumber}`, 50, addressY + 15);
+      doc.text(`VAT: ${data.customer.vatNumber}`, 50, addressY);
+      addressY += 15;
     }
 
-    // Items Table
-    const tableTop = billToY + 100;
+    // Items Table - Dynamic position based on address height
+    const tableTop = addressY + 20;  // 20px gap after Bill To section
     const itemHeaderY = tableTop;
 
     // Table Header
@@ -413,11 +415,9 @@ export class DocumentGenerator {
       doc.text(line, 50, addressY);
       addressY += 15;
     });
-    
-    doc.text(data.customer.email, 50, addressY);
 
-    // Items Table
-    const tableTop = 360;
+    // Items Table - Dynamic position based on address height
+    const tableTop = addressY + 20;  // 20px gap after Ship To section
     const itemHeaderY = tableTop;
 
     // Table Header
