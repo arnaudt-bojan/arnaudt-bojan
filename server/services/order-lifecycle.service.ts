@@ -360,7 +360,7 @@ export class OrderLifecycleService {
       await this.storage.updateOrderPaymentStatus(orderId, newPaymentStatus);
 
       // 9. Send item-specific refund notifications (async, don't wait)
-      void this.sendRefundNotifications(orderId, sellerId, order, itemsToRefund);
+      void this.sendRefundNotifications(orderId, sellerId, order, itemsToRefund, refundAmount);
 
       return {
         success: true,
@@ -793,30 +793,29 @@ export class OrderLifecycleService {
    * @param sellerId - Seller ID
    * @param order - Order object
    * @param itemsToRefund - Map of items to refund
+   * @param totalRefundAmount - Total refund amount across all items
    */
   private async sendRefundNotifications(
     orderId: string,
     sellerId: string,
     order: Order,
-    itemsToRefund: Map<string, { item: OrderItem; quantity: number; amount: number }>
+    itemsToRefund: Map<string, { item: OrderItem; quantity: number; amount: number }>,
+    totalRefundAmount: number
   ): Promise<void> {
     try {
       const seller = await this.storage.getUser(sellerId);
-      if (!seller) return;
-
-      // Send email notification for each refunded item
-      // Note: Using basic email sending since sendItemRefunded expects order, item, seller, amount, quantity
-      for (const [itemId, refundData] of Array.from(itemsToRefund.entries())) {
-        const { item, quantity, amount } = refundData;
-        
-        // TODO: Implement sendItemRefunded in NotificationMessagesService
-        // For now, log the notification
-        logger.info(
-          `[Notifications] Refund notification for order ${orderId}, item ${item.productName}, amount: $${amount}, quantity: ${quantity}`
-        );
+      if (!seller) {
+        logger.warn(`[Notifications] Seller ${sellerId} not found for refund notification`);
+        return;
       }
 
-      logger.info(`[Notifications] Refund notification emails sent for order ${orderId}, ${itemsToRefund.size} items`);
+      // Collect all refunded items
+      const refundedItems: OrderItem[] = Array.from(itemsToRefund.values()).map(data => data.item);
+
+      // Send refund email notification to buyer
+      await this.notificationService.sendOrderRefunded(order, seller, totalRefundAmount, refundedItems);
+
+      logger.info(`[Notifications] Refund notification email sent for order ${orderId}, total refund: $${totalRefundAmount}, ${refundedItems.length} items`);
     } catch (error) {
       logger.error("[Notifications] Failed to send refund notification:", error);
     }
