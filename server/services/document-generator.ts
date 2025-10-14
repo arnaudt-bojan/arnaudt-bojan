@@ -159,15 +159,27 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Bill To:', 50, billToY);
 
+    // Parse address and format with proper line breaks
+    const addressLines = data.customer.address.split(',').map(line => line.trim());
+    
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text(data.customer.company || data.customer.name, 50, billToY + 20)
-      .text(data.customer.address, 50, billToY + 35)
-      .text(data.customer.email, 50, billToY + 50);
+      .text(data.customer.company || data.customer.name, 50, billToY + 20);
+    
+    // Print address lines
+    let addressY = billToY + 35;
+    addressLines.forEach((line) => {
+      if (line) {
+        doc.text(line, 50, addressY);
+        addressY += 15;
+      }
+    });
+    
+    doc.text(data.customer.email, 50, addressY);
 
     if (data.customer.vatNumber) {
-      doc.text(`VAT: ${data.customer.vatNumber}`, 50, billToY + 65);
+      doc.text(`VAT: ${data.customer.vatNumber}`, 50, addressY + 15);
     }
 
     // Items Table
@@ -247,7 +259,7 @@ export class DocumentGenerator {
       .fillColor('#ffffff')
       .fontSize(12)
       .font('Helvetica-Bold')
-      .text('TOTAL:', 400, totalY, { align: 'right' })
+      .text('TOTAL:', 370, totalY)
       .text(`${data.currency} ${data.order.total}`, 480, totalY, { width: 60, align: 'right' });
 
     // Payment Status
@@ -337,12 +349,24 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Ship To:', 50, 260);
 
+    // Parse address and format with proper line breaks
+    const addressLines = data.customer.address.split(',').map(line => line.trim());
+    
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text(data.customer.name, 50, 280)
-      .text(data.customer.address, 50, 295)
-      .text(data.customer.email, 50, 310);
+      .text(data.customer.name, 50, 280);
+    
+    // Print address lines
+    let addressY = 295;
+    addressLines.forEach((line) => {
+      if (line) {
+        doc.text(line, 50, addressY);
+        addressY += 15;
+      }
+    });
+    
+    doc.text(data.customer.email, 50, addressY);
 
     // Items Table
     const tableTop = 360;

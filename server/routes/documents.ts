@@ -83,6 +83,19 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
       : '0.00';
     const total = parseFloat(order.total).toFixed(2);
 
+    // Get product SKUs for items
+    const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
+      const product = await storage.getProduct(item.productId);
+      return {
+        name: item.productName,
+        sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
+        variant: item.variant ? JSON.stringify(item.variant) : undefined,
+        quantity: item.quantity,
+        price: parseFloat(item.price).toFixed(2),
+        subtotal: parseFloat(item.subtotal).toFixed(2),
+      };
+    }));
+
     // Prepare invoice data
     const invoiceNumber = DocumentGenerator.generateDocumentNumber('INV');
     
@@ -115,14 +128,7 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
         shipping,
         paymentStatus: order.paymentStatus || 'pending',
       },
-      items: orderItems.map(item => ({
-        name: item.productName,
-        sku: item.productId,
-        variant: item.variant ? JSON.stringify(item.variant) : undefined,
-        quantity: item.quantity,
-        price: parseFloat(item.price).toFixed(2),
-        subtotal: parseFloat(item.subtotal).toFixed(2),
-      })),
+      items: itemsWithSku,
       wholesale: data.orderType === 'wholesale' ? {
         poNumber: data.poNumber,
         incoterms: data.incoterms,
@@ -224,6 +230,18 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
       });
     }
 
+    // Get product SKUs for items
+    const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
+      const product = await storage.getProduct(item.productId);
+      return {
+        name: item.productName,
+        sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
+        variant: item.variant ? JSON.stringify(item.variant) : undefined,
+        quantity: item.quantity,
+        image: item.productImage || undefined,
+      };
+    }));
+
     // Prepare packing slip data
     const packingSlipNumber = DocumentGenerator.generateDocumentNumber('PS');
     
@@ -248,13 +266,7 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
         orderNumber: order.id.substring(0, 8).toUpperCase(),
         date: new Date(order.createdAt),
       },
-      items: orderItems.map(item => ({
-        name: item.productName,
-        sku: item.productId,
-        variant: item.variant ? JSON.stringify(item.variant) : undefined,
-        quantity: item.quantity,
-        image: item.productImage || undefined,
-      })),
+      items: itemsWithSku,
       warehouseNotes: data.warehouseNotes,
       giftMessage: data.giftMessage,
       includesPricing: data.includesPricing,
