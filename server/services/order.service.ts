@@ -243,6 +243,7 @@ export class OrderService {
       // Step 7: Create order with shipping data
       const order = await this.createOrderRecord(
         userId,
+        sellerId, // CRITICAL: Pass sellerId to populate order.seller_id field
         params,
         validation,
         pricing,
@@ -935,6 +936,7 @@ export class OrderService {
 
   private async createOrderRecord(
     userId: string,
+    sellerId: string, // CRITICAL: Required for seller order filtering
     params: CreateOrderParams,
     validation: any,
     pricing: any,
@@ -977,6 +979,7 @@ export class OrderService {
     
     const orderData: InsertOrder = {
       userId,
+      sellerId, // CRITICAL: Required for seller orders page to filter orders
       customerName: params.customerName,
       customerEmail: params.customerEmail.toLowerCase().trim(),
       customerAddress: fullAddress,
