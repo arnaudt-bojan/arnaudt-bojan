@@ -38,6 +38,7 @@ export interface BalanceSessionResponse {
     customerEmail: string;
     balanceDueCents: number;
     currency: string;
+    balanceRequestId: string;
     shippingAddress: ShippingAddress;
     canChangeAddress: boolean;
     pricingSnapshot?: any;
