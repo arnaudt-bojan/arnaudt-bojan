@@ -405,22 +405,28 @@ export default function OrderSuccess() {
                     <p className="text-xs text-yellow-800 dark:text-yellow-200">
                       <strong>Note:</strong> You'll be contacted to pay the remaining balance of {formatOrderPrice(remainingBalance, currency)} before shipment.
                     </p>
-                    <Button
-                      size="sm"
-                      onClick={() => requestBalanceMutation.mutate(order.id)}
-                      disabled={requestBalanceMutation.isPending}
-                      className="w-full"
-                      data-testid="button-pay-balance"
-                    >
-                      {requestBalanceMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        "Pay Balance Now"
-                      )}
-                    </Button>
+                    {isAuthenticated ? (
+                      <Button
+                        size="sm"
+                        onClick={() => requestBalanceMutation.mutate(order.id)}
+                        disabled={requestBalanceMutation.isPending}
+                        className="w-full"
+                        data-testid="button-pay-balance"
+                      >
+                        {requestBalanceMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Pay Balance Now"
+                        )}
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-yellow-800 dark:text-yellow-200 text-center">
+                        A payment link will be sent to your email when the balance is ready
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (
