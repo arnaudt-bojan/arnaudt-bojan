@@ -48,9 +48,7 @@ export default function WholesaleProducts() {
   // Delete product mutation
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
-      await apiRequest(`/api/wholesale/products/${productId}`, {
-        method: 'DELETE',
-      });
+      await apiRequest('DELETE', `/api/wholesale/products/${productId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/wholesale/products'] });
