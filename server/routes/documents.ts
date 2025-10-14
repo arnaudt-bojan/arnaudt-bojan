@@ -81,13 +81,19 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
       });
     }
 
-    // Calculate totals
-    const subtotal = orderItems.reduce((sum, item) => {
-      return sum + parseFloat(item.subtotal);
-    }, 0).toFixed(2);
-
-    const shipping = '0.00'; // TODO: Get from shipping calculations
-    const tax = '0.00'; // TODO: Calculate based on tax rules
+    // CRITICAL: Use stored pricing data (single source of truth) - never recalculate
+    const subtotal = order.subtotalBeforeTax 
+      ? parseFloat(order.subtotalBeforeTax).toFixed(2)
+      : orderItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0).toFixed(2);
+    
+    const shipping = order.shippingCost 
+      ? parseFloat(order.shippingCost).toFixed(2)
+      : '0.00';
+    
+    const tax = order.taxAmount 
+      ? parseFloat(order.taxAmount).toFixed(2)
+      : '0.00';
+    
     const total = parseFloat(order.total).toFixed(2);
 
     // Prepare invoice data

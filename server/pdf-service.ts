@@ -347,6 +347,7 @@ export class PDFService {
 
     const total = parseFloat(order.total);
     const subtotalBeforeTax = parseDecimal(order.subtotalBeforeTax);
+    const shippingCost = parseDecimal(order.shippingCost);
     const taxAmount = parseDecimal(order.taxAmount);
 
     let currentY = startY;
@@ -356,6 +357,13 @@ export class PDFService {
     if (subtotalBeforeTax !== null) {
       doc.text('Subtotal:', labelX, currentY);
       doc.text(`$${subtotalBeforeTax.toFixed(2)}`, valueX, currentY);
+      currentY += 20;
+    }
+
+    // Show shipping if available and > 0
+    if (shippingCost !== null && shippingCost > 0) {
+      doc.text('Shipping:', labelX, currentY);
+      doc.text(`$${shippingCost.toFixed(2)}`, valueX, currentY);
       currentY += 20;
     }
 
