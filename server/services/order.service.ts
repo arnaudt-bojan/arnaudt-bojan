@@ -1020,6 +1020,12 @@ export class OrderService {
         };
       });
 
+      logger.info('[OrderService] About to insert order items', {
+        orderId: order.id,
+        itemCount: orderItemsToCreate.length,
+        firstItem: orderItemsToCreate[0],
+      });
+
       await this.storage.createOrderItems(orderItemsToCreate);
       logger.info('[OrderService] Created order items', {
         orderId: order.id,
