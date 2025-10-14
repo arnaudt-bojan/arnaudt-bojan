@@ -389,7 +389,7 @@ export function OrderActionBar({
         customerEmail={order.customerEmail}
         customerName={order.customerName}
         remainingBalance={order.remainingBalance || "0"}
-        currency={order.currency}
+        currency={order.currency || "USD"}
         open={requestBalanceDialogOpen}
         onOpenChange={setRequestBalanceDialogOpen}
       />
@@ -400,7 +400,7 @@ export function OrderActionBar({
         orderNumber={order.id.slice(-8).toUpperCase()}
         customerEmail={order.customerEmail}
         remainingBalance={order.remainingBalance || "0"}
-        currency={order.currency}
+        currency={order.currency || "USD"}
         balancePaymentStatus={balancePaymentStatus}
         lastRequestedAt={balancePaymentRequestedAt}
         open={resendBalanceDialogOpen}
