@@ -557,18 +557,6 @@ export class OrderLifecycleService {
         };
       }
 
-      // Find the most recent pending balance payment
-      const balancePayments = await this.storage.getBalancePaymentsByOrderId(orderId);
-      const pendingPayment = balancePayments.find((p) => p.status === 'pending');
-
-      if (!pendingPayment) {
-        return {
-          success: false,
-          error: "No pending balance payment found",
-          statusCode: 404,
-        };
-      }
-
       // Get seller info for email
       const seller = await this.storage.getUser(sellerId);
       if (!seller) {
@@ -579,46 +567,63 @@ export class OrderLifecycleService {
         };
       }
 
-      // Retrieve payment intent to get client secret for payment link
-      if (!pendingPayment.stripePaymentIntentId) {
+      // Get the most recent balance request
+      const balanceRequest = await this.storage.getBalanceRequestByOrderId(orderId);
+      if (!balanceRequest) {
         return {
           success: false,
-          error: "No Stripe payment intent found for balance payment",
+          error: "No balance request found - please create one first",
           statusCode: 404,
         };
       }
 
-      if (!this.stripe) {
+      // Check if balance request has expired
+      if (balanceRequest.expiresAt && new Date() > balanceRequest.expiresAt) {
         return {
           success: false,
-          error: "Stripe not configured",
-          statusCode: 503,
+          error: "Balance request has expired - please create a new one",
+          statusCode: 400,
         };
       }
 
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(pendingPayment.stripePaymentIntentId);
-      if (!paymentIntent.client_secret) {
+      // Generate new session token for the existing balance request
+      const crypto = await import('crypto');
+      const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-me';
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+      const sessionTokenHash = crypto
+        .createHmac('sha256', SESSION_SECRET)
+        .update(sessionToken)
+        .digest('hex');
+
+      // Update balance request with new session token
+      await this.storage.updateBalanceRequest(balanceRequest.id, {
+        sessionTokenHash,
+        emailSentAt: new Date(),
+      });
+
+      // Get updated balance request
+      const updatedBalanceRequest = await this.storage.getBalanceRequest(balanceRequest.id);
+      if (!updatedBalanceRequest) {
         return {
           success: false,
-          error: "Payment intent client secret not available",
+          error: "Failed to update balance request",
           statusCode: 500,
         };
       }
 
-      // Build payment link for customer
-      const baseUrl = process.env.REPLIT_DOMAINS
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : `http://localhost:${process.env.PORT || 5000}`;
-      const paymentLink = `${baseUrl}/checkout-complete?payment_intent_client_secret=${paymentIntent.client_secret}&order_id=${order.id}`;
-
-      // Send balance payment request email (this also creates an order event automatically)
-      await this.notificationService.sendBalancePaymentRequest(order, seller, paymentLink);
+      // Send balance payment request email with new token
+      await this.notificationService.sendBalancePaymentRequest(
+        order,
+        seller,
+        updatedBalanceRequest,
+        sessionToken
+      );
 
       logger.info(`[Balance Payment] Resent request to ${order.customerEmail} for order ${order.id}`);
 
       return {
         success: true,
-        balancePaymentId: pendingPayment.id,
+        balancePaymentId: balanceRequest.id,
       };
     } catch (error: any) {
       logger.error("OrderLifecycleService: Error resending balance payment request", error);
