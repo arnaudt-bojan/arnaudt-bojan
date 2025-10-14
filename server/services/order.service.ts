@@ -623,8 +623,14 @@ export class OrderService {
       // Convert back to decimal with exactly 2 decimal places
       const newAmountPaid = (newAmountCents / 100).toFixed(2);
       
+      // CRITICAL FIX: Also update remainingBalance to match
+      // Clamp to 0 minimum to prevent negative balance from over-collection or duplicate webhooks
+      const newRemainingBalanceCents = Math.max(0, totalCents - newAmountCents);
+      const newRemainingBalance = (newRemainingBalanceCents / 100).toFixed(2);
+      
       await this.storage.updateOrder(order.id, { 
-        amountPaid: newAmountPaid
+        amountPaid: newAmountPaid,
+        remainingBalance: newRemainingBalance
       });
 
       // Determine correct payment status based on payment type and amount
