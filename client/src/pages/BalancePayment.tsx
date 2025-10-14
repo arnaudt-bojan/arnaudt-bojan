@@ -251,18 +251,21 @@ export default function BalancePayment() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [balanceRequestId, setBalanceRequestId] = useState<string>("");
   
-  // Fetch balance session
+  // Fetch balance session (supports both token-based magic link AND authenticated user access)
   const { data: session, isLoading: isLoadingSession, error: sessionError } = useQuery<BalanceSession>({
     queryKey: ['/api/orders', orderId, 'balance-session', token],
     queryFn: async () => {
-      const response = await fetch(`/api/orders/${orderId}/balance-session?token=${encodeURIComponent(token)}`);
+      const url = token 
+        ? `/api/orders/${orderId}/balance-session?token=${encodeURIComponent(token)}`
+        : `/api/orders/${orderId}/balance-session`;
+      const response = await fetch(url);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to load balance session');
       }
       return response.json();
     },
-    enabled: !!orderId && !!token,
+    enabled: !!orderId, // Enable for both token (magic link) and authenticated user access
   });
   
   // Store balanceRequestId from session (we'll need it for API calls)
