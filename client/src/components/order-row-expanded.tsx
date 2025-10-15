@@ -1,12 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Package, User, MapPin, CreditCard, Truck, CalendarClock } from "lucide-react";
+import { Package, User, MapPin, CreditCard, Truck, CalendarClock, Edit2, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { OrderActionBar } from "@/components/order-action-bar";
 import { OrderTimeline } from "@/components/order-timeline";
 import type { Order, OrderItem } from "@shared/schema";
 import { getPaymentStatusLabel } from "@/lib/format-status";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderRowExpandedProps {
   orderId: string;
@@ -21,8 +27,44 @@ interface OrderDetailsResponse {
 }
 
 export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [newDeliveryDate, setNewDeliveryDate] = useState<Date | undefined>(undefined);
+  const { toast } = useToast();
+
   const { data, isLoading } = useQuery<OrderDetailsResponse>({
     queryKey: [`/api/seller/orders/${orderId}`],
+  });
+
+  // Mutation to update delivery date
+  const updateDeliveryDateMutation = useMutation({
+    mutationFn: async ({ itemId, deliveryDate, notify }: { itemId: string; deliveryDate: string; notify: boolean }) => {
+      const response = await apiRequest(
+        "PUT",
+        `/api/seller/orders/${orderId}/items/${itemId}/delivery-date`,
+        { deliveryDate, notify }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update delivery date");
+      }
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${orderId}`] });
+      toast({
+        title: variables.notify ? "Delivery date updated & buyer notified" : "Delivery date updated",
+        description: variables.notify ? "The buyer has been notified of the new delivery date" : "Delivery date saved successfully",
+      });
+      setEditingItemId(null);
+      setNewDeliveryDate(undefined);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update delivery date",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -258,11 +300,104 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                       )}
                     </div>
                     
-                    {/* Delivery Date */}
-                    {(item as any).deliveryDate && (
-                      <div className="text-sm text-muted-foreground mt-1" data-testid={`text-delivery-date-${item.id}`}>
-                        <CalendarClock className="inline h-4 w-4 mr-1" />
-                        Estimated Delivery: {format(new Date((item as any).deliveryDate), 'PPP')}
+                    {/* Delivery Date with Edit Capability */}
+                    {(item.productType === "pre-order" || item.productType === "made-to-order") && (
+                      <div className="mt-2">
+                        {editingItemId === item.id ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-[200px] justify-start text-left font-normal"
+                                  data-testid={`button-select-date-${item.id}`}
+                                >
+                                  <CalendarClock className="mr-2 h-4 w-4" />
+                                  {newDeliveryDate ? format(newDeliveryDate, 'PPP') : 'Select date'}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={newDeliveryDate}
+                                  onSelect={setNewDeliveryDate}
+                                  disabled={(date) => date < new Date()}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (newDeliveryDate) {
+                                  updateDeliveryDateMutation.mutate({
+                                    itemId: item.id,
+                                    deliveryDate: newDeliveryDate.toISOString(),
+                                    notify: true
+                                  });
+                                }
+                              }}
+                              disabled={!newDeliveryDate || updateDeliveryDateMutation.isPending}
+                              data-testid={`button-save-notify-${item.id}`}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Save & Notify
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (newDeliveryDate) {
+                                  updateDeliveryDateMutation.mutate({
+                                    itemId: item.id,
+                                    deliveryDate: newDeliveryDate.toISOString(),
+                                    notify: false
+                                  });
+                                }
+                              }}
+                              disabled={!newDeliveryDate || updateDeliveryDateMutation.isPending}
+                              data-testid={`button-save-${item.id}`}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingItemId(null);
+                                setNewDeliveryDate(undefined);
+                              }}
+                              data-testid={`button-cancel-${item.id}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm text-muted-foreground" data-testid={`text-delivery-date-${item.id}`}>
+                              <CalendarClock className="inline h-4 w-4 mr-1" />
+                              {(item as any).deliveryDate 
+                                ? `Estimated Delivery: ${format(new Date((item as any).deliveryDate), 'PPP')}`
+                                : item.productType === "pre-order"
+                                  ? "Pre-order (delivery date not set)"
+                                  : `Made-to-order (${(item as any).madeToOrderLeadTime || 0} days lead time)`
+                              }
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingItemId(item.id);
+                                setNewDeliveryDate((item as any).deliveryDate ? new Date((item as any).deliveryDate) : undefined);
+                              }}
+                              data-testid={`button-edit-delivery-${item.id}`}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

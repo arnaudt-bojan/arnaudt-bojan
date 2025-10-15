@@ -298,6 +298,7 @@ export interface IStorage {
   updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined>;
   updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined>;
   updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined>;
+  updateOrderItemDeliveryDate(itemId: string, preOrderDate: Date | null, madeToOrderLeadTime: number | null): Promise<OrderItem | undefined>;
   deleteOrder(id: string): Promise<boolean>;
   deleteOrderItems(orderId: string): Promise<boolean>;
   
@@ -1244,6 +1245,28 @@ export class DatabaseStorage implements IStorage {
       updateData.refundedAt = new Date();
     }
     
+    const result = await this.db.update(orderItems)
+      .set(updateData)
+      .where(eq(orderItems.id, itemId))
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateOrderItemDeliveryDate(itemId: string, preOrderDate: Date | null, madeToOrderLeadTime: number | null): Promise<OrderItem | undefined> {
+    await this.ensureInitialized();
+    const updateData: any = {
+      updatedAt: new Date()
+    };
+
+    if (preOrderDate !== null) {
+      updateData.preOrderDate = preOrderDate;
+    }
+    
+    if (madeToOrderLeadTime !== null) {
+      updateData.madeToOrderLeadTime = madeToOrderLeadTime;
+    }
+
     const result = await this.db.update(orderItems)
       .set(updateData)
       .where(eq(orderItems.id, itemId))

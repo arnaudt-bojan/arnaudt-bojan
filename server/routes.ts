@@ -1221,6 +1221,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update delivery date for an order item
+  app.put("/api/seller/orders/:orderId/items/:itemId/delivery-date", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId, itemId } = req.params;
+      const { deliveryDate, notify } = req.body;
+
+      if (!deliveryDate) {
+        return res.status(400).json({ error: "deliveryDate is required" });
+      }
+
+      // Validate date format
+      const newDate = new Date(deliveryDate);
+      if (isNaN(newDate.getTime())) {
+        return res.status(400).json({ error: "Invalid delivery date format" });
+      }
+
+      // Validate date is in the future
+      const now = new Date();
+      if (newDate <= now) {
+        return res.status(400).json({ error: "Delivery date must be in the future" });
+      }
+
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Get order item
+      const orderItem = await storage.getOrderItemById(itemId);
+      if (!orderItem) {
+        return res.status(404).json({ error: "Order item not found" });
+      }
+      
+      if (orderItem.orderId !== orderId) {
+        return res.status(404).json({ error: "Order item not found in this order" });
+      }
+
+      // Get product for authorization check
+      const product = await storage.getProduct(orderItem.productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // CRITICAL: Verify seller owns this product BEFORE any updates
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const isTeamMember = ["admin", "editor"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalOwnerId = isTeamMember ? currentUser.sellerId : userId;
+
+      if (product.sellerId !== canonicalOwnerId) {
+        return res.status(403).json({ error: "You do not have permission to update this product's delivery date" });
+      }
+
+      // Validate product type supports delivery date updates
+      if (orderItem.productType !== "pre-order" && orderItem.productType !== "made-to-order") {
+        return res.status(400).json({ error: "Can only update delivery dates for pre-order and made-to-order items" });
+      }
+
+      // Product type-specific validation and update
+      if (orderItem.productType === "pre-order") {
+        // For pre-order, the date should be reasonable for a pre-order (in the future)
+        // Already validated above that newDate > now
+        await storage.updateOrderItemDeliveryDate(itemId, newDate, null);
+      } else if (orderItem.productType === "made-to-order") {
+        // For made-to-order, calculate lead time and ensure it's positive
+        const orderDate = new Date(order.createdAt);
+        const leadTimeDays = Math.ceil((newDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (leadTimeDays <= 0) {
+          return res.status(400).json({ error: "Delivery date must be after the order date for made-to-order items" });
+        }
+        
+        await storage.updateOrderItemDeliveryDate(itemId, null, leadTimeDays);
+      }
+
+      // Send notification email ONLY if notify === true (not undefined or other truthy values)
+      if (notify === true) {
+        await notificationService.sendDeliveryDateChangeEmail(order, orderItem, newDate);
+      }
+
+      res.json({ 
+        success: true, 
+        message: notify === true ? "Delivery date updated and buyer notified" : "Delivery date updated"
+      });
+    } catch (error) {
+      logger.error("Error updating delivery date", error);
+      res.status(500).json({ error: "Failed to update delivery date" });
+    }
+  });
+
   // Get order events (email and status history)
   app.get("/api/orders/:id/events", requireAuth, async (req: any, res) => {
     try {

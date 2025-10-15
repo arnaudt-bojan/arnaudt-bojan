@@ -97,6 +97,9 @@ export interface NotificationService {
   sendWholesaleBalanceOverdue(wholesaleOrder: any, seller: User, buyer: User, paymentLink: string): Promise<void>;
   sendWholesaleOrderShipped(wholesaleOrder: any, seller: User, trackingInfo: any): Promise<void>;
   sendWholesaleOrderFulfilled(wholesaleOrder: any, seller: User, fulfillmentType: 'shipped' | 'pickup', pickupDetails?: any): Promise<void>;
+  
+  // Delivery Date Update Email
+  sendDeliveryDateChangeEmail(order: Order, orderItem: OrderItem, newDeliveryDate: Date): Promise<void>;
 }
 
 export interface SendNewsletterParams {
@@ -4557,6 +4560,208 @@ class NotificationServiceImpl implements NotificationService {
       buyerEmail: wholesaleOrder.buyerEmail,
       success: result.success,
     });
+  }
+
+  /**
+   * Send delivery date change email (Seller → Buyer)
+   */
+  async sendDeliveryDateChangeEmail(order: Order, orderItem: OrderItem, newDeliveryDate: Date): Promise<void> {
+    try {
+      // Get seller info
+      const seller = await this.storage.getUser(await this.getOrderSellerId(order));
+      if (!seller) {
+        logger.error("[Notifications] Seller not found for delivery date change email");
+        return;
+      }
+
+      // Generate email HTML
+      const emailHtml = await this.generateDeliveryDateChangeEmail(order, orderItem, newDeliveryDate, seller);
+      
+      // Get email metadata
+      const fromName = await this.emailMetadata.getFromName(seller);
+      const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+      const subject = `Updated Delivery Date - Order #${order.id.slice(-8).toUpperCase()}`;
+
+      const result = await this.sendEmail({
+        to: order.customerEmail,
+        from: `${fromName} <noreply@upfirst.io>`,
+        replyTo: replyTo || undefined,
+        subject: subject,
+        html: emailHtml,
+      });
+
+      // Log email event
+      if (result.success) {
+        try {
+          await this.storage.createOrderEvent({
+            orderId: order.id,
+            eventType: 'email_sent',
+            description: `Delivery date change notification sent to ${order.customerEmail}`,
+            payload: JSON.stringify({
+              emailType: 'delivery_date_change',
+              recipientEmail: order.customerEmail,
+              subject: subject,
+              itemId: orderItem.id,
+              productName: orderItem.productName,
+              newDeliveryDate: newDeliveryDate.toISOString(),
+            }),
+            performedBy: seller.id,
+          });
+        } catch (error) {
+          logger.error("[Notifications] Failed to log delivery date change event:", error);
+        }
+      }
+
+      logger.info(`[Notifications] Delivery date change email sent to ${order.customerEmail}:`, result.success);
+    } catch (error) {
+      logger.error("[Notifications] Error sending delivery date change email:", error);
+    }
+  }
+
+  /**
+   * Generate delivery date change email HTML
+   */
+  private async generateDeliveryDateChangeEmail(
+    order: Order,
+    orderItem: OrderItem,
+    newDeliveryDate: Date,
+    seller: User
+  ): Promise<string> {
+    const storeName = seller.firstName || seller.username || 'Our Store';
+    const formattedNewDate = format(newDeliveryDate, 'MMMM d, yyyy');
+    
+    // Calculate previous delivery date using computeDeliveryDate
+    // Convert preOrderDate from Date to string for compatibility
+    const orderItemForCompute = {
+      ...orderItem,
+      preOrderDate: orderItem.preOrderDate instanceof Date 
+        ? orderItem.preOrderDate.toISOString() 
+        : orderItem.preOrderDate
+    };
+    const previousDeliveryDateStr = computeDeliveryDate(orderItemForCompute, order.createdAt);
+    const formattedPreviousDate = previousDeliveryDateStr 
+      ? format(new Date(previousDeliveryDateStr), 'MMMM d, yyyy')
+      : 'Not set';
+    
+    // Determine product type label for buyer context
+    const productTypeLabel = orderItem.productType === 'pre-order' 
+      ? 'Pre-Order' 
+      : orderItem.productType === 'made-to-order' 
+        ? 'Made-to-Order' 
+        : 'Standard';
+    
+    // Check if there's a balance payment pending
+    const balancePayments = await this.storage.getBalancePaymentsByOrderId(order.id);
+    const hasBalancePayment = balancePayments && balancePayments.some((bp: any) => bp.status === 'pending');
+    
+    const content = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        ${generateSellerHeader(seller)}
+        
+        <div style="padding: 32px 24px;">
+          <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 24px 0; color: #1a1a1a;">
+            Delivery Date Updated
+          </h1>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            Hi ${order.customerName},
+          </p>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            The delivery date for one of your items has been updated:
+          </p>
+          
+          <div style="background: #f7fafc; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              ${orderItem.productImage ? 
+                `<img src="${orderItem.productImage}" alt="${orderItem.productName}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" />` 
+                : ''
+              }
+              <div style="flex: 1;">
+                <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px 0; color: #1a1a1a;">
+                  ${orderItem.productName}
+                </h3>
+                ${orderItem.variant ? 
+                  `<p style="font-size: 14px; color: #718096; margin: 0 0 8px 0;">
+                    ${formatVariant(orderItem.variant)}
+                  </p>` 
+                  : ''
+                }
+                <p style="font-size: 14px; color: #718096; margin: 0 0 4px 0;">
+                  Quantity: ${orderItem.quantity}
+                </p>
+                ${orderItem.productType === 'pre-order' || orderItem.productType === 'made-to-order' ? `
+                  <p style="font-size: 12px; color: #718096; margin: 0; background: #edf2f7; display: inline-block; padding: 2px 8px; border-radius: 4px;">
+                    ${productTypeLabel} Item
+                  </p>
+                ` : ''}
+              </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <div style="margin-bottom: 12px;">
+                <p style="font-size: 14px; font-weight: 600; margin: 0 0 4px 0; color: #718096;">
+                  Previous Expected Delivery:
+                </p>
+                <p style="font-size: 16px; margin: 0; color: #a0aec0; text-decoration: line-through;">
+                  ${formattedPreviousDate}
+                </p>
+              </div>
+              <div>
+                <p style="font-size: 14px; font-weight: 600; margin: 0 0 4px 0; color: #718096;">
+                  New Expected Delivery:
+                </p>
+                <p style="font-size: 18px; font-weight: 600; margin: 0; color: #3182ce; background: #ebf8ff; display: inline-block; padding: 4px 12px; border-radius: 6px;">
+                  ${formattedNewDate}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          ${hasBalancePayment ? `
+            <div style="background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <p style="font-size: 14px; font-weight: 600; margin: 0 0 8px 0; color: #c53030;">
+                Balance Payment Required
+              </p>
+              <p style="font-size: 14px; line-height: 20px; color: #742a2a; margin: 0;">
+                This item requires a balance payment before shipping. You can either pay the balance now or wait for the ready-for-pickup notification.
+              </p>
+            </div>
+          ` : ''}
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            We appreciate your patience and will notify you when your item is ready.
+          </p>
+          
+          ${generateCTAButton(
+            `View Order #${order.id.slice(-8).toUpperCase()}`,
+            `${process.env.FRONTEND_URL || 'https://upfirst.io'}/orders/${order.id}`
+          )}
+          
+          <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
+            Questions? Reply to this email and we'll be happy to help.
+          </p>
+        </div>
+        
+        ${generateSellerFooter(seller)}
+      </div>
+    `;
+
+    return generateEmailBaseLayout(content, seller);
+  }
+
+  /**
+   * Helper to get seller ID from order
+   */
+  private async getOrderSellerId(order: Order): Promise<string> {
+    const orderItems = await this.storage.getOrderItems(order.id);
+    if (orderItems.length > 0) {
+      const product = await this.storage.getProduct(orderItems[0].productId);
+      if (product) {
+        return product.sellerId;
+      }
+    }
+    throw new Error("Could not determine seller ID from order");
   }
 }
 
