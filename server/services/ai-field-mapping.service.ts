@@ -39,6 +39,11 @@ export class AIFieldMappingService {
    * Analyze user CSV headers and map to standard fields using AI
    */
   async analyzeHeaders(userHeaders: string[]): Promise<MappingAnalysis> {
+    // Check for API key
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("Gemini API key is not configured. Please add GEMINI_API_KEY to your environment variables.");
+    }
+
     try {
       // Prepare context for Gemini
       const standardFields = CSV_TEMPLATE_FIELDS.map(f => ({
@@ -112,11 +117,12 @@ Analyze each header and provide the best mapping with confidence score and reaso
         contents: userPrompt,
       });
 
-      const rawJson = response.text;
+      // Correctly extract text from Gemini response (it's a method, not a property)
+      const rawJson = response.text();
       console.log('[AIFieldMapping] Gemini response:', rawJson);
 
       if (!rawJson) {
-        throw new Error("Empty response from Gemini");
+        throw new Error("Empty response from Gemini AI");
       }
 
       const aiResult: FieldMappingSchema = JSON.parse(rawJson);
@@ -162,8 +168,17 @@ Analyze each header and provide the best mapping with confidence score and reaso
         suggestions,
       };
     } catch (error) {
-      console.error('[AIFieldMapping] Error:', error);
-      throw new Error(`Failed to analyze headers: ${error}`);
+      console.error('[AIFieldMapping] Error analyzing headers:', error);
+      
+      // Provide user-friendly error messages
+      if (error instanceof Error) {
+        if (error.message.includes("API key")) {
+          throw error; // Re-throw API key errors as-is
+        }
+        throw new Error("Failed to analyze headers with AI. Please try again or contact support.");
+      }
+      
+      throw new Error("An unexpected error occurred during header analysis.");
     }
   }
 
