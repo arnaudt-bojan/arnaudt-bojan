@@ -801,10 +801,16 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                 <CreditCard className="h-4 w-4" />
                 <p className="text-sm font-medium">Billing Address</p>
               </div>
-              <div className="ml-6" data-testid="text-billing-address">
-                <p>{order.billingStreet}</p>
-                <p>{order.billingCity}, {order.billingState} {order.billingPostalCode}</p>
-                <p>{order.billingCountry}</p>
+              <div className="ml-6 text-muted-foreground" data-testid="text-billing-address">
+                {order.billingStreet ? (
+                  <>
+                    <p>{order.billingStreet}</p>
+                    <p>{order.billingCity}, {order.billingState} {order.billingPostalCode}</p>
+                    <p>{order.billingCountry}</p>
+                  </>
+                ) : (
+                  <p className="italic">Same as shipping address</p>
+                )}
               </div>
             </div>
           </div>
