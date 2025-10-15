@@ -70,75 +70,257 @@ export class BulkUploadService {
 
   /**
    * Parse CSV row and convert to product data
+   * After AI mapping, rowData uses database column names
    */
   private parseProductFromRow(rowData: BulkUploadRowData): ParsedProductData {
-    // Parse images - supports both consolidated "Images" column and individual "Image 1", "Image 2", etc.
+    // Parse images - extract URL strings from various formats
     const images: string[] = [];
     
-    // Try consolidated "Images" column first (comma-separated URLs)
-    if (rowData['Images']?.trim()) {
-      const imageUrls = rowData['Images'].split(',').map(url => url.trim()).filter(Boolean);
-      images.push(...imageUrls);
-    } else {
-      // Fallback to individual Image columns for backwards compatibility
-      for (let i = 1; i <= 8; i++) {
-        const imageUrl = rowData[`Image ${i}`]?.trim();
-        if (imageUrl) {
-          images.push(imageUrl);
+    const extractImageUrls = (value: any): string[] => {
+      if (!value) return [];
+      
+      const extractUrl = (item: any): string | null => {
+        if (typeof item === 'string' && item.trim()) {
+          return item.trim();
         }
+        
+        if (typeof item === 'object' && item) {
+          // Handle nested url.href structure
+          if (typeof item.url === 'string') {
+            return item.url.trim();
+          }
+          if (typeof item.url === 'object' && typeof item.url.href === 'string') {
+            return item.url.href.trim();
+          }
+          // Handle direct href
+          if (typeof item.href === 'string') {
+            return item.href.trim();
+          }
+        }
+        
+        return null;
+      };
+      
+      // String URL
+      if (typeof value === 'string') {
+        const url = extractUrl(value);
+        return url ? [url] : [];
+      }
+      
+      // Object with url property
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        const url = extractUrl(value);
+        return url ? [url] : [];
+      }
+      
+      // Array of URLs or objects
+      if (Array.isArray(value)) {
+        return value.map(extractUrl).filter(Boolean) as string[];
+      }
+      
+      return [];
+    };
+    
+    if (rowData['images']) {
+      if (typeof rowData['images'] === 'string') {
+        const trimmed = rowData['images'].trim();
+        
+        // Try JSON parse (handles leading/trailing whitespace)
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            images.push(...extractImageUrls(parsed));
+          } catch {
+            // Fall through to comma-separated parsing
+          }
+        }
+        
+        // If not JSON or parsing failed, try comma-separated
+        if (images.length === 0 && trimmed) {
+          const imageUrls = trimmed.split(',').map((url: string) => url.trim()).filter(Boolean);
+          images.push(...imageUrls);
+        }
+      } else {
+        // Array or object
+        images.push(...extractImageUrls(rowData['images']));
       }
     }
     
-    // Parse variants
-    const hasColors = this.parseBoolean(rowData['Has Colors']);
-    let variants: any[] | undefined;
-    
-    if (hasColors) {
-      // Parse color variants
-      variants = this.parseColorVariants(rowData['Color Variants'] || '');
-    } else if (rowData['Size Variants']) {
-      // Parse size-only variants
-      variants = this.parseSizeVariants(rowData['Size Variants']);
+    // Fallback to single "image" column
+    if (images.length === 0 && rowData['image']) {
+      const imageUrls = extractImageUrls(rowData['image']);
+      if (imageUrls.length > 0) {
+        images.push(...imageUrls);
+      }
     }
     
-    // Parse dates
-    const preOrderDate = rowData['Pre-Order Date']?.trim() 
-      ? new Date(rowData['Pre-Order Date'].trim()) 
-      : undefined;
+    // Parse variants - supports objects, JSON strings (with whitespace), arrays, and delimited strings
+    let variants: any[] | undefined;
     
-    const promotionEndDate = rowData['Promotion End Date']?.trim()
-      ? new Date(rowData['Promotion End Date'].trim())
-      : undefined;
+    if (rowData['variants']) {
+      let rawVariants: any[] | undefined;
+      
+      // Extract raw variants first
+      if (Array.isArray(rowData['variants'])) {
+        rawVariants = rowData['variants'];
+      } else if (typeof rowData['variants'] === 'string') {
+        const trimmed = rowData['variants'].trim();
+        
+        // Try JSON parse first (handles leading/trailing whitespace and multiline)
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+              rawVariants = parsed;
+            } else if (parsed && typeof parsed === 'object') {
+              rawVariants = [parsed]; // Single object variant
+            }
+          } catch {
+            // Fall through to delimited parsing
+          }
+        }
+        
+        // If not JSON or parsing failed, try delimited format
+        if (!rawVariants && trimmed) {
+          rawVariants = this.parseVariantsString(trimmed);
+        }
+      } else if (rowData['variants'] && typeof rowData['variants'] === 'object') {
+        // Single object variant
+        rawVariants = [rowData['variants']];
+      }
+      
+      // Normalize AI-provided variants to expected schema
+      if (rawVariants && rawVariants.length > 0) {
+        const normalizedList: any[] = [];
+        
+        for (const v of rawVariants) {
+          if (!v || typeof v !== 'object') continue;
+          
+          // Check if this is a color variant with nested sizes
+          const hasColorInfo = v.color !== undefined || v.colorName !== undefined;
+          const hasSizesArray = Array.isArray(v.sizes) && v.sizes.length > 0;
+          
+          if (hasColorInfo && hasSizesArray) {
+            // Flatten color variant with sizes array
+            const colorName = (v.colorName || v.color)?.toString().trim();
+            const colorHex = (v.colorHex || v.hex)?.toString().trim();
+            const colorImages = extractImageUrls(v.images || v.image);
+            
+            for (const sizeItem of v.sizes) {
+              if (!sizeItem || typeof sizeItem !== 'object') continue;
+              
+              const stock = this.parseStock(sizeItem.stock);
+              if (stock === undefined) continue; // Reject invalid stock
+              
+              normalizedList.push({
+                colorName,
+                colorHex,
+                size: sizeItem.size?.toString().trim(),
+                stock,
+                sku: sizeItem.sku?.toString().trim() || undefined,
+                image: colorImages[0] || undefined,
+              });
+            }
+          } else {
+            // Simple size variant or flat color variant
+            const normalized: any = {};
+            
+            // Size (required for size variants)
+            if (v.size !== undefined) {
+              normalized.size = v.size.toString().trim();
+            }
+            
+            // Color info (for color variants)
+            if (hasColorInfo) {
+              normalized.colorName = (v.colorName || v.color)?.toString().trim();
+              if (v.colorHex !== undefined || v.hex !== undefined) {
+                normalized.colorHex = (v.colorHex || v.hex)?.toString().trim();
+              }
+            }
+            
+            // Stock (must be non-negative integer)
+            if (v.stock !== undefined) {
+              const stock = this.parseStock(v.stock);
+              if (stock === undefined) continue; // Reject invalid stock
+              normalized.stock = stock;
+            } else {
+              normalized.stock = 0; // Default for variants without stock specified
+            }
+            
+            // SKU (optional)
+            if (v.sku !== undefined) {
+              normalized.sku = v.sku.toString().trim();
+            }
+            
+            // Image (optional)
+            if (v.image !== undefined) {
+              const urls = extractImageUrls(v.image);
+              if (urls.length > 0) {
+                normalized.image = urls[0];
+              }
+            }
+            
+            // Must have at least size or colorName
+            if (!normalized.size && !normalized.colorName) {
+              continue;
+            }
+            
+            normalizedList.push(normalized);
+          }
+        }
+        
+        variants = normalizedList.length > 0 ? normalizedList : undefined;
+      }
+    }
     
-    // Build product data
+    // Detect hasColors from variant structure (check for colorName or color property)
+    const hasColors = variants && variants.some(v => v.colorName || v.color) ? 1 : 0;
+    
+    // Build product data using database column names
     const productData: ParsedProductData = {
-      name: rowData['Product Name']?.trim() || '',
-      description: rowData['Description']?.trim() || '',
-      price: rowData['Price']?.trim() || '0',
-      sku: rowData['SKU']?.trim() || undefined,
-      productType: rowData['Product Type']?.trim() || 'in-stock',
-      category: rowData['Category']?.trim() || '',
+      name: rowData['name']?.toString().trim() || '',
+      description: rowData['description']?.toString().trim() || '',
+      price: rowData['price']?.toString().trim() || '0',
+      sku: rowData['sku']?.toString().trim() || undefined,
+      productType: 'in-stock', // ALL bulk uploads are in-stock items only
+      category: rowData['category']?.toString().trim() || '',
       image: images[0] || '',
       images,
-      hasColors: hasColors ? 1 : 0,
+      hasColors,
       variants,
-      stock: variants ? undefined : parseInt(rowData['Stock'] || '0') || undefined,
-      preOrderDate,
-      madeToOrderDays: parseInt(rowData['Made To Order Days'] || '') || undefined,
-      depositAmount: rowData['Deposit Amount']?.trim() || undefined,
-      discountPercentage: rowData['Discount Percentage']?.trim() || undefined,
-      promotionEndDate,
-      promotionActive: rowData['Discount Percentage']?.trim() ? 1 : 0,
-      shippingType: rowData['Shipping Type']?.trim() || 'flat',
-      flatShippingRate: rowData['Flat Shipping Rate']?.trim() || undefined,
-      shippoWeight: rowData['Shippo Weight (lbs)']?.trim() || undefined,
-      shippoLength: rowData['Shippo Length (in)']?.trim() || undefined,
-      shippoWidth: rowData['Shippo Width (in)']?.trim() || undefined,
-      shippoHeight: rowData['Shippo Height (in)']?.trim() || undefined,
-      status: rowData['Status']?.trim() || 'active',
+      stock: variants ? undefined : this.parseStock(rowData['stock']),
+      // Shipping fields - leave undefined when not mapped (let business logic apply defaults)
+      shippingType: rowData['shippingType']?.toString().trim() || undefined,
+      flatShippingRate: rowData['flatShippingRate']?.toString().trim() || undefined,
+      shippoWeight: rowData['shippoWeight']?.toString().trim() || undefined,
+      shippoLength: rowData['shippoLength']?.toString().trim() || undefined,
+      shippoWidth: rowData['shippoWidth']?.toString().trim() || undefined,
+      shippoHeight: rowData['shippoHeight']?.toString().trim() || undefined,
+      // Promotion fields
+      discountPercentage: rowData['discountPercentage']?.toString().trim() || undefined,
+      promotionActive: this.parseBoolean(rowData['promotionActive']?.toString()) ? 1 : 0,
+      // Status
+      status: rowData['status']?.toString().trim() || 'active',
     };
     
     return productData;
+  }
+  
+  /**
+   * Parse variants string in various formats
+   * Supports: SIZE:STOCK:SKU|SIZE:STOCK:SKU or COLOR@@HEX@@IMAGE@@SIZE:STOCK:SKU;;...
+   */
+  private parseVariantsString(variantString: string): any[] {
+    if (!variantString?.trim()) return [];
+    
+    // Detect format - color variants use ;; separator
+    if (variantString.includes(';;')) {
+      return this.parseColorVariants(variantString);
+    } else if (variantString.includes('|')) {
+      return this.parseSizeVariants(variantString);
+    }
+    
+    return [];
   }
 
   /**
@@ -148,6 +330,26 @@ export class BulkUploadService {
     if (!value) return false;
     const normalized = value.trim().toLowerCase();
     return normalized === 'yes' || normalized === 'true' || normalized === '1';
+  }
+
+  /**
+   * Parse stock quantity - distinguishes between "not provided" and actual 0
+   * Rejects negative numbers and non-integers
+   */
+  private parseStock(value: any): number | undefined {
+    if (value === null || value === undefined || value === '') {
+      return undefined; // Not provided
+    }
+    
+    const str = value.toString().trim();
+    const num = Number(str);
+    
+    // Reject if: NaN, not an integer, or negative
+    if (isNaN(num) || !Number.isInteger(num) || num < 0) {
+      return undefined;
+    }
+    
+    return num; // Can be 0 or positive integer
   }
 
   /**
@@ -162,13 +364,16 @@ export class BulkUploadService {
     
     for (const part of parts) {
       const [size, stock, sku] = part.split(':').map(s => s.trim());
-      if (size) {
-        variants.push({
-          size,
-          stock: parseInt(stock) || 0,
-          sku: sku || undefined,
-        });
-      }
+      if (!size) continue;
+      
+      const validStock = this.parseStock(stock);
+      if (validStock === undefined) continue; // Skip variants with invalid stock
+      
+      variants.push({
+        size,
+        stock: validStock,
+        sku: sku || undefined,
+      });
     }
     
     return variants;
@@ -202,13 +407,16 @@ export class BulkUploadService {
       for (const sizePart of sizeParts) {
         const [size, stock, sku] = sizePart.split(':').map(s => s.trim());
         
-        if (size) {
-          sizes.push({
-            size,
-            stock: parseInt(stock) || 0,
-            sku: sku || undefined,
-          });
-        }
+        if (!size) continue;
+        
+        const validStock = this.parseStock(stock);
+        if (validStock === undefined) continue; // Skip variants with invalid stock
+        
+        sizes.push({
+          size,
+          stock: validStock,
+          sku: sku || undefined,
+        });
       }
       
       if (colorName && sizes.length > 0) {
