@@ -452,7 +452,10 @@ export function OrderActionBar({
 
       {/* Enhanced Refund Dialog */}
       <RefundDialog
-        order={order}
+        orderId={order.id}
+        shippingCost={order.shippingCost || "0"}
+        taxAmount={order.taxAmount || "0"}
+        currency={order.currency || "USD"}
         open={refundDialogOpen}
         onOpenChange={setRefundDialogOpen}
       />

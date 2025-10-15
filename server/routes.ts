@@ -145,9 +145,15 @@ if (stripe && process.env.STRIPE_WEBHOOK_SECRET) {
 }
 
 // Initialize Refund service for itemized refund processing
+// RefundService only needs Stripe API access, not webhook handling
 let refundService: RefundService | null = null;
-if (stripeProvider) {
-  refundService = new RefundService(storage, stripeProvider, notificationService);
+if (process.env.STRIPE_SECRET_KEY) {
+  // Create a minimal stripe provider for refunds if full one isn't available
+  const refundStripeProvider = stripeProvider || new StripePaymentProvider(
+    process.env.STRIPE_SECRET_KEY,
+    '' // Webhook secret not needed for refunds
+  );
+  refundService = new RefundService(storage, refundStripeProvider, notificationService);
 }
 
 // Initialize product service (Architecture 3 migration)

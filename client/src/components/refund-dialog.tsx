@@ -33,7 +33,7 @@ interface RefundDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string;
-  orderItems: OrderItem[];
+  orderItems?: OrderItem[]; // Made optional, will fetch if not provided
   shippingCost: string;
   taxAmount: string;
   currency?: string;
@@ -63,7 +63,7 @@ export function RefundDialog({
   open,
   onOpenChange,
   orderId,
-  orderItems,
+  orderItems: providedOrderItems,
   shippingCost,
   taxAmount,
   currency = "USD",
@@ -76,6 +76,15 @@ export function RefundDialog({
   const [useCustomAmount, setUseCustomAmount] = useState(false);
   const [customRefundAmount, setCustomRefundAmount] = useState<string>("");
   const [showHistory, setShowHistory] = useState(false);
+
+  // Fetch order items if not provided
+  const { data: fetchedOrderData } = useQuery<{ orderItems: OrderItem[] }>({
+    queryKey: ["/api/seller/orders", orderId],
+    enabled: open && !providedOrderItems,
+  });
+
+  // Use provided orderItems or fetch them
+  const orderItems = providedOrderItems || fetchedOrderData?.orderItems || [];
 
   // Fetch refundable amounts
   const { data: refundableData, isLoading: isLoadingRefundable } = useQuery<RefundableData>({
