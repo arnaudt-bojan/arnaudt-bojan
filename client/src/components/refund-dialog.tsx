@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Dialog,
@@ -16,14 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, AlertTriangle, Minus, Plus } from "lucide-react";
+import { DollarSign, AlertTriangle, Minus, Plus, Package, Truck, Receipt, History } from "lucide-react";
 import type { OrderItem } from "@shared/schema";
 
-interface RefundItemData {
-  itemId: string;
-  quantity: number;
-  amount: number;
+interface RefundLineItem {
+  type: 'product' | 'shipping' | 'tax' | 'adjustment';
+  orderItemId?: string;
+  quantity?: number;
+  amount: string;
+  description?: string;
 }
 
 interface RefundDialogProps {
@@ -31,8 +34,29 @@ interface RefundDialogProps {
   onOpenChange: (open: boolean) => void;
   orderId: string;
   orderItems: OrderItem[];
-  orderTotal: string;
-  amountPaid: string;
+  shippingCost: string;
+  taxAmount: string;
+  currency?: string;
+}
+
+interface RefundableData {
+  totalRefundable: string;
+  refundedSoFar: string;
+  itemRefundables: Record<string, { maxRefundable: string; refundedAlready: string }>;
+}
+
+interface RefundHistoryItem {
+  id: string;
+  totalAmount: string;
+  reason: string | null;
+  status: string;
+  createdAt: string;
+  lineItems: Array<{
+    type: string;
+    amount: string;
+    quantity: number | null;
+    description: string | null;
+  }>;
 }
 
 export function RefundDialog({
@@ -40,26 +64,81 @@ export function RefundDialog({
   onOpenChange,
   orderId,
   orderItems,
-  orderTotal,
-  amountPaid,
+  shippingCost,
+  taxAmount,
+  currency = "USD",
 }: RefundDialogProps) {
   const { toast } = useToast();
-  const [selectedItems, setSelectedItems] = useState<Map<string, RefundItemData>>(new Map());
+  const [selectedItems, setSelectedItems] = useState<Map<string, { quantity: number; amount: number }>>(new Map());
+  const [refundShipping, setRefundShipping] = useState(false);
+  const [refundTax, setRefundTax] = useState(false);
   const [reason, setReason] = useState("");
-  const [refundType, setRefundType] = useState<"full" | "item">("item");
-  const [customRefundAmount, setCustomRefundAmount] = useState<string>("");
   const [useCustomAmount, setUseCustomAmount] = useState(false);
+  const [customRefundAmount, setCustomRefundAmount] = useState<string>("");
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Fetch refundable amounts
+  const { data: refundableData, isLoading: isLoadingRefundable } = useQuery<RefundableData>({
+    queryKey: ["/api/seller/orders", orderId, "refundable"],
+    enabled: open,
+  });
+
+  // Fetch refund history
+  const { data: refundHistory, isLoading: isLoadingHistory } = useQuery<RefundHistoryItem[]>({
+    queryKey: ["/api/seller/orders", orderId, "refunds"],
+    enabled: open && showHistory,
+  });
 
   const processRefundMutation = useMutation({
     mutationFn: async () => {
-      const refundItems = Array.from(selectedItems.values());
-      const finalRefundAmount = useCustomAmount ? parseFloat(customRefundAmount) : undefined;
-      const response = await apiRequest("POST", `/api/orders/${orderId}/refunds`, {
-        refundItems,
+      const lineItems: RefundLineItem[] = [];
+
+      // Add selected product items
+      for (const [itemId, data] of Array.from(selectedItems.entries())) {
+        const orderItem = orderItems.find(i => i.id === itemId);
+        if (orderItem) {
+          lineItems.push({
+            type: 'product',
+            orderItemId: itemId,
+            quantity: data.quantity,
+            amount: data.amount.toFixed(2),
+            description: orderItem.productName,
+          });
+        }
+      }
+
+      // Add shipping if selected
+      if (refundShipping) {
+        lineItems.push({
+          type: 'shipping',
+          amount: parseFloat(shippingCost).toFixed(2),
+          description: 'Shipping refund',
+        });
+      }
+
+      // Add tax if selected
+      if (refundTax) {
+        lineItems.push({
+          type: 'tax',
+          amount: parseFloat(taxAmount).toFixed(2),
+          description: 'Tax refund',
+        });
+      }
+
+      const payload: any = {
+        lineItems,
         reason: reason || undefined,
-        refundType,
-        customRefundAmount: finalRefundAmount,
-      });
+      };
+
+      // Add manual override if used
+      if (useCustomAmount) {
+        payload.manualOverride = {
+          totalAmount: customRefundAmount,
+          reason: reason || "Manual refund amount adjustment",
+        };
+      }
+
+      const response = await apiRequest("POST", `/api/seller/orders/${orderId}/refunds`, payload);
 
       if (!response.ok) {
         const error = await response.json();
@@ -71,13 +150,14 @@ export function RefundDialog({
     onSuccess: (data) => {
       toast({
         title: "Refund processed",
-        description: `Successfully refunded $${data.refundAmount.toFixed(2)}`,
+        description: `Successfully refunded ${getCurrencySymbol(currency)}${data.totalAmount}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders", orderId, "refundable"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders", orderId, "refunds"] });
       onOpenChange(false);
-      setSelectedItems(new Map());
-      setReason("");
+      resetForm();
     },
     onError: (error: Error) => {
       toast({
@@ -88,6 +168,16 @@ export function RefundDialog({
     },
   });
 
+  const resetForm = () => {
+    setSelectedItems(new Map());
+    setRefundShipping(false);
+    setRefundTax(false);
+    setReason("");
+    setUseCustomAmount(false);
+    setCustomRefundAmount("");
+    setShowHistory(false);
+  };
+
   const handleItemToggle = (item: OrderItem) => {
     const newSelected = new Map(selectedItems);
     if (newSelected.has(item.id)) {
@@ -96,7 +186,6 @@ export function RefundDialog({
       const refundableQty = item.quantity - (item.refundedQuantity || 0);
       const pricePerUnit = parseFloat(item.price);
       newSelected.set(item.id, {
-        itemId: item.id,
         quantity: refundableQty,
         amount: pricePerUnit * refundableQty,
       });
@@ -112,7 +201,6 @@ export function RefundDialog({
     const clampedQty = Math.max(1, Math.min(newQty, refundableQty));
     
     newSelected.set(itemId, {
-      itemId,
       quantity: clampedQty,
       amount: pricePerUnit * clampedQty,
     });
@@ -120,84 +208,128 @@ export function RefundDialog({
   };
 
   const calculateRefundAmount = () => {
-    if (refundType === "full") {
-      return parseFloat(orderTotal);
-    }
-
     let total = 0;
-    for (const refundData of Array.from(selectedItems.values())) {
-      total += refundData.amount;
+    
+    // Add product items
+    for (const data of Array.from(selectedItems.values())) {
+      total += data.amount;
     }
+    
+    // Add shipping if selected
+    if (refundShipping) {
+      total += parseFloat(shippingCost || "0");
+    }
+    
+    // Add tax if selected
+    if (refundTax) {
+      total += parseFloat(taxAmount || "0");
+    }
+    
     return total;
+  };
+
+  const getCurrencySymbol = (curr: string) => {
+    const symbols: Record<string, string> = {
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+    };
+    return symbols[curr] || curr;
   };
 
   const calculatedRefundAmount = calculateRefundAmount();
   const refundAmount = useCustomAmount ? parseFloat(customRefundAmount || "0") : calculatedRefundAmount;
-  const maxRefundable = parseFloat(orderTotal);
-  const canRefund = refundType === "full" || selectedItems.size > 0;
+  const maxRefundable = parseFloat(refundableData?.totalRefundable || "0");
+  const canRefund = selectedItems.size > 0 || refundShipping || refundTax;
   const isCustomAmountValid = !useCustomAmount || (refundAmount > 0 && refundAmount <= maxRefundable);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-refund">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-refund">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
             Process Refund
           </DialogTitle>
           <DialogDescription>
-            Select items and quantities to refund or refund the entire order
+            Select items, shipping, or tax to refund
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Refund Type Selection */}
-          <div className="flex gap-2">
+          {/* History Toggle */}
+          <div className="flex justify-end">
             <Button
-              variant={refundType === "item" ? "default" : "outline"}
-              onClick={() => setRefundType("item")}
-              className="flex-1"
-              data-testid="button-refund-type-item"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+              data-testid="button-toggle-history"
             >
-              Refund Selected Items
-            </Button>
-            <Button
-              variant={refundType === "full" ? "default" : "outline"}
-              onClick={() => {
-                setRefundType("full");
-                const fullRefund = new Map<string, RefundItemData>();
-                orderItems.forEach(item => {
-                  const refundableQty = item.quantity - (item.refundedQuantity || 0);
-                  if (refundableQty > 0) {
-                    fullRefund.set(item.id, {
-                      itemId: item.id,
-                      quantity: refundableQty,
-                      amount: parseFloat(item.price) * refundableQty,
-                    });
-                  }
-                });
-                setSelectedItems(fullRefund);
-              }}
-              className="flex-1"
-              data-testid="button-refund-type-full"
-            >
-              Refund Full Order
+              <History className="h-4 w-4 mr-2" />
+              {showHistory ? "Hide History" : "Show Refund History"}
             </Button>
           </div>
+
+          {/* Refund History */}
+          {showHistory && (
+            <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+              <h3 className="font-semibold flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Refund History
+              </h3>
+              {isLoadingHistory ? (
+                <Skeleton className="h-20 w-full" />
+              ) : refundHistory && refundHistory.length > 0 ? (
+                <div className="space-y-2">
+                  {refundHistory.map((refund) => (
+                    <div key={refund.id} className="p-3 bg-background rounded border">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <Badge variant="outline" className="text-xs">
+                            {refund.status}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(refund.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="font-semibold">{getCurrencySymbol(currency)}{refund.totalAmount}</p>
+                      </div>
+                      {refund.reason && (
+                        <p className="text-sm text-muted-foreground">{refund.reason}</p>
+                      )}
+                      <div className="mt-2 space-y-1">
+                        {refund.lineItems.map((item, idx) => (
+                          <p key={idx} className="text-xs text-muted-foreground flex items-center gap-2">
+                            {item.type === 'product' && <Package className="h-3 w-3" />}
+                            {item.type === 'shipping' && <Truck className="h-3 w-3" />}
+                            {item.type === 'tax' && <Receipt className="h-3 w-3" />}
+                            {item.description || item.type}: {getCurrencySymbol(currency)}{item.amount}
+                            {item.quantity && ` (qty: ${item.quantity})`}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No refunds yet</p>
+              )}
+            </div>
+          )}
 
           <Separator />
 
           {/* Order Items Selection */}
           <div className="space-y-3">
-            <Label>Select items and quantities to refund</Label>
+            <Label className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Product Items
+            </Label>
             {orderItems.map((item) => {
-              const alreadyRefunded = parseFloat(item.refundedAmount || "0");
               const refundedQty = item.refundedQuantity || 0;
               const refundableQty = item.quantity - refundedQty;
               const isSelected = selectedItems.has(item.id);
               const selectedData = selectedItems.get(item.id);
-              const isRefunded = item.itemStatus === "refunded";
-              const isReturned = item.itemStatus === "returned";
               const pricePerUnit = parseFloat(item.price);
 
               return (
@@ -221,25 +353,11 @@ export function RefundDialog({
                         <div>
                           <p className="font-medium">{item.productName}</p>
                           <p className="text-sm text-muted-foreground">
-                            ${pricePerUnit.toFixed(2)} per unit • {item.quantity} total
+                            {getCurrencySymbol(currency)}{pricePerUnit.toFixed(2)} per unit • {item.quantity} total
                             {refundedQty > 0 && ` • ${refundedQty} refunded`}
                           </p>
-                          {item.variant && typeof item.variant === 'object' ? (
-                            <p className="text-xs text-muted-foreground">
-                              {(item.variant as any).size ? `Size: ${(item.variant as any).size}` : null}
-                              {(item.variant as any).size && (item.variant as any).color ? " • " : null}
-                              {(item.variant as any).color ? `Color: ${(item.variant as any).color}` : null}
-                            </p>
-                          ) : null}
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold">${parseFloat(item.subtotal).toFixed(2)}</p>
-                          {alreadyRefunded > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              ${alreadyRefunded.toFixed(2)} refunded
-                            </p>
-                          )}
-                        </div>
+                        <p className="font-semibold">{getCurrencySymbol(currency)}{parseFloat(item.subtotal).toFixed(2)}</p>
                       </div>
 
                       {/* Quantity Selector */}
@@ -286,28 +404,57 @@ export function RefundDialog({
                         </div>
                       )}
 
-                      <div className="flex gap-2">
-                        {isRefunded && (
-                          <Badge variant="outline" className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                            Refunded
-                          </Badge>
-                        )}
-                        {isReturned && (
-                          <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
-                            Returned
-                          </Badge>
-                        )}
-                        {isSelected && selectedData && (
-                          <Badge variant="outline" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                            Refunding ${selectedData.amount.toFixed(2)}
-                          </Badge>
-                        )}
-                      </div>
+                      {isSelected && selectedData && (
+                        <Badge variant="outline" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                          Refunding {getCurrencySymbol(currency)}{selectedData.amount.toFixed(2)}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          <Separator />
+
+          {/* Shipping & Tax Toggles */}
+          <div className="space-y-3">
+            <Label>Additional Refunds</Label>
+            
+            {parseFloat(shippingCost) > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg border">
+                <Checkbox
+                  id="refund-shipping"
+                  checked={refundShipping}
+                  onCheckedChange={(checked) => setRefundShipping(checked as boolean)}
+                  disabled={processRefundMutation.isPending}
+                  data-testid="checkbox-refund-shipping"
+                />
+                <Label htmlFor="refund-shipping" className="flex-1 cursor-pointer flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  Refund Shipping
+                </Label>
+                <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(shippingCost).toFixed(2)}</span>
+              </div>
+            )}
+
+            {parseFloat(taxAmount) > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg border">
+                <Checkbox
+                  id="refund-tax"
+                  checked={refundTax}
+                  onCheckedChange={(checked) => setRefundTax(checked as boolean)}
+                  disabled={processRefundMutation.isPending}
+                  data-testid="checkbox-refund-tax"
+                />
+                <Label htmlFor="refund-tax" className="flex-1 cursor-pointer flex items-center gap-2">
+                  <Receipt className="h-4 w-4" />
+                  Refund Tax
+                </Label>
+                <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(taxAmount).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -327,20 +474,27 @@ export function RefundDialog({
 
           {/* Refund Summary */}
           <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Order Total:</span>
-              <span className="font-medium">${parseFloat(orderTotal).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Amount Paid:</span>
-              <span className="font-medium">${parseFloat(amountPaid).toFixed(2)}</span>
-            </div>
-            <Separator />
+            {isLoadingRefundable ? (
+              <Skeleton className="h-20 w-full" />
+            ) : refundableData && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Refundable:</span>
+                  <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(refundableData.totalRefundable).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Already Refunded:</span>
+                  <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(refundableData.refundedSoFar).toFixed(2)}</span>
+                </div>
+                <Separator />
+              </>
+            )}
+            
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="font-semibold">Calculated Refund:</span>
                 <span className="font-medium">
-                  ${calculatedRefundAmount.toFixed(2)}
+                  {getCurrencySymbol(currency)}{calculatedRefundAmount.toFixed(2)}
                 </span>
               </div>
               
@@ -364,7 +518,7 @@ export function RefundDialog({
               {useCustomAmount && (
                 <div className="space-y-1">
                   <Label htmlFor="custom-refund-input" className="text-xs text-muted-foreground">
-                    Custom Refund Amount
+                    Custom Refund Amount (max: {getCurrencySymbol(currency)}{maxRefundable.toFixed(2)})
                   </Label>
                   <Input
                     id="custom-refund-input"
@@ -380,7 +534,7 @@ export function RefundDialog({
                   />
                   {!isCustomAmountValid && (
                     <p className="text-xs text-destructive">
-                      Amount must be between $0.01 and ${maxRefundable.toFixed(2)}
+                      Amount must be between {getCurrencySymbol(currency)}0.01 and {getCurrencySymbol(currency)}{maxRefundable.toFixed(2)}
                     </p>
                   )}
                 </div>
@@ -391,7 +545,7 @@ export function RefundDialog({
               <div className="flex justify-between">
                 <span className="font-semibold">Final Refund Amount:</span>
                 <span className="font-bold text-lg text-primary">
-                  ${refundAmount.toFixed(2)}
+                  {getCurrencySymbol(currency)}{refundAmount.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -410,7 +564,10 @@ export function RefundDialog({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              onOpenChange(false);
+              resetForm();
+            }}
             disabled={processRefundMutation.isPending}
             data-testid="button-cancel-refund"
           >
@@ -421,7 +578,7 @@ export function RefundDialog({
             disabled={!canRefund || refundAmount <= 0 || !isCustomAmountValid || processRefundMutation.isPending}
             data-testid="button-confirm-refund"
           >
-            {processRefundMutation.isPending ? "Processing..." : `Refund $${refundAmount.toFixed(2)}`}
+            {processRefundMutation.isPending ? "Processing..." : `Refund ${getCurrencySymbol(currency)}${refundAmount.toFixed(2)}`}
           </Button>
         </DialogFooter>
       </DialogContent>
