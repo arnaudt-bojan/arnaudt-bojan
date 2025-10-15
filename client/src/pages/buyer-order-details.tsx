@@ -255,7 +255,19 @@ export default function BuyerOrderDetails() {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">${parseFloat(item.price).toFixed(2)}</p>
+                    <p className="font-medium" data-testid={`text-item-price-${idx}`}>
+                      ${parseFloat(item.price).toFixed(2)}
+                    </p>
+                    {(item as any).originalPrice && (item as any).discountAmount && (
+                      <div className="flex items-center gap-1 justify-end mt-1">
+                        <span className="text-xs text-muted-foreground line-through" data-testid={`text-original-price-${idx}`}>
+                          ${parseFloat((item as any).originalPrice).toFixed(2)}
+                        </span>
+                        <Badge variant="secondary" className="text-xs" data-testid={`text-discount-badge-${idx}`}>
+                          Save ${parseFloat((item as any).discountAmount).toFixed(2)}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

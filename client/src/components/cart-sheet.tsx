@@ -158,9 +158,27 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
-                      <span className="font-bold" data-testid={`text-item-total-${item.id}`}>
-                        {formatPrice(parseFloat(item.price) * item.quantity, currency)}
-                      </span>
+                      <div className="text-right">
+                        {(item as any).originalPrice && (item as any).discountPercentage ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-red-600 dark:text-red-400" data-testid={`text-item-total-${item.id}`}>
+                                {formatPrice(parseFloat(item.price) * item.quantity, currency)}
+                              </span>
+                              <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded" data-testid={`text-discount-badge-${item.id}`}>
+                                -{(item as any).discountPercentage}%
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                              {formatPrice(parseFloat((item as any).originalPrice) * item.quantity, currency)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-bold" data-testid={`text-item-total-${item.id}`}>
+                            {formatPrice(parseFloat(item.price) * item.quantity, currency)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
