@@ -203,8 +203,7 @@ export class CartService {
         if (
           product.promotionActive === 1 &&
           product.discountPercentage &&
-          product.promotionEndDate &&
-          new Date(product.promotionEndDate) > new Date()
+          (!product.promotionEndDate || new Date(product.promotionEndDate) > new Date())
         ) {
           const discount = parseFloat(product.discountPercentage);
           const discountedPrice = originalPrice * (1 - discount / 100);
