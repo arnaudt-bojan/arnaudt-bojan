@@ -49,6 +49,9 @@ import { PlatformAnalyticsService } from "./services/platform-analytics.service"
 import { CheckoutService } from "./services/checkout.service";
 import { CreateFlowService } from "./services/workflows/create-flow.service";
 import type { WorkflowConfig } from "./services/workflows/types";
+import { QuotationService } from "./services/quotation.service";
+import { QuotationEmailService } from "./services/quotation-email.service";
+import { QuotationPaymentService } from "./services/quotation-payment.service";
 import crypto from "crypto";
 
 // Initialize notification service
@@ -207,6 +210,21 @@ const metaIntegrationService = new MetaIntegrationService(
 
 // Initialize Platform Analytics service (Architecture 3)
 const platformAnalyticsService = new PlatformAnalyticsService(storage);
+
+// Initialize Trade Quotation services (Architecture 3)
+const quotationService = new QuotationService();
+const quotationEmailService = new QuotationEmailService(
+  storage,
+  notificationService,
+  quotationService
+);
+const quotationPaymentService = new QuotationPaymentService(
+  storage,
+  quotationService,
+  quotationEmailService,
+  stripeConnectService,
+  stripe || undefined
+);
 
 // Initialize CreateFlowService workflow orchestrator (Architecture 3)
 // Requires: storage, config, and all workflow step dependencies
@@ -7043,6 +7061,445 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to retrieve platform analytics" });
     }
   });
+
+  // ============================================================================
+  // Trade Quotation Routes (Architecture 3)
+  // ============================================================================
+
+  // Validation schemas for quotation requests
+  const createQuotationSchema = z.object({
+    buyerEmail: z.string().email(),
+    buyerId: z.string().optional(),
+    currency: z.string().default("USD"),
+    depositPercentage: z.number().min(0).max(100).default(50),
+    validUntil: z.string().datetime().optional(),
+    metadata: z.any().optional(),
+    items: z.array(z.object({
+      description: z.string().min(1),
+      productId: z.string().optional(),
+      unitPrice: z.number().positive(),
+      quantity: z.number().int().positive(),
+      taxRate: z.number().min(0).max(100).optional(),
+      shippingCost: z.number().min(0).optional(),
+    })).min(1),
+  });
+
+  const updateQuotationSchema = z.object({
+    buyerEmail: z.string().email().optional(),
+    buyerId: z.string().optional(),
+    depositPercentage: z.number().min(0).max(100).optional(),
+    validUntil: z.string().datetime().optional(),
+    metadata: z.any().optional(),
+    items: z.array(z.object({
+      description: z.string().min(1),
+      productId: z.string().optional(),
+      unitPrice: z.number().positive(),
+      quantity: z.number().int().positive(),
+      taxRate: z.number().min(0).max(100).optional(),
+      shippingCost: z.number().min(0).optional(),
+    })).min(1).optional(),
+  });
+
+  // ============================================================================
+  // Seller Routes (require seller authentication)
+  // ============================================================================
+
+  // POST /api/trade/quotations - Create draft quotation
+  app.post("/api/trade/quotations", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request body
+      const validation = createQuotationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Invalid request data",
+          details: fromZodError(validation.error).toString()
+        });
+      }
+
+      const data = validation.data;
+      
+      // Create quotation
+      const quotation = await quotationService.createQuotation(userId, {
+        ...data,
+        validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
+      });
+
+      logger.info("[Trade] Quotation created", { quotationId: quotation.id, sellerId: userId });
+      res.status(201).json(quotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to create quotation", error);
+      res.status(500).json({ error: error.message || "Failed to create quotation" });
+    }
+  });
+
+  // GET /api/trade/quotations - List seller's quotations
+  app.get("/api/trade/quotations", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { status, buyerEmail, limit, offset } = req.query;
+
+      const quotations = await quotationService.listQuotations(userId, {
+        status: status as any,
+        buyerEmail: buyerEmail as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+        offset: offset ? parseInt(offset as string) : undefined,
+      });
+
+      res.json(quotations);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to list quotations", error);
+      res.status(500).json({ error: error.message || "Failed to list quotations" });
+    }
+  });
+
+  // GET /api/trade/quotations/:id - Get single quotation
+  app.get("/api/trade/quotations/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      const quotation = await quotationService.getQuotation(id);
+      
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+
+      // Verify seller owns this quotation
+      if (quotation.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json(quotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to get quotation", error);
+      res.status(500).json({ error: error.message || "Failed to get quotation" });
+    }
+  });
+
+  // PATCH /api/trade/quotations/:id - Update draft quotation
+  app.patch("/api/trade/quotations/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Validate request body
+      const validation = updateQuotationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Invalid request data",
+          details: fromZodError(validation.error).toString()
+        });
+      }
+
+      const data = validation.data;
+
+      // Verify ownership and update
+      const quotation = await quotationService.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+      if (quotation.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const updated = await quotationService.updateQuotation(id, userId, {
+        ...data,
+        validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
+      });
+
+      logger.info("[Trade] Quotation updated", { quotationId: id, sellerId: userId });
+      res.json(updated);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to update quotation", error);
+      res.status(500).json({ error: error.message || "Failed to update quotation" });
+    }
+  });
+
+  // DELETE /api/trade/quotations/:id - Delete draft quotation
+  app.delete("/api/trade/quotations/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Verify ownership
+      const quotation = await quotationService.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+      if (quotation.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await quotationService.deleteQuotation(id, userId);
+
+      logger.info("[Trade] Quotation deleted", { quotationId: id, sellerId: userId });
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error("[Trade] Failed to delete quotation", error);
+      res.status(500).json({ error: error.message || "Failed to delete quotation" });
+    }
+  });
+
+  // POST /api/trade/quotations/:id/send - Send quotation to buyer
+  app.post("/api/trade/quotations/:id/send", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Verify ownership
+      const quotation = await quotationService.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+      if (quotation.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Send quotation (updates status to 'sent')
+      const updatedQuotation = await quotationService.sendQuotation(id, userId);
+
+      // Send email to buyer
+      const emailResult = await quotationEmailService.sendQuotationEmail(id);
+      if (!emailResult.success) {
+        logger.warn("[Trade] Failed to send quotation email", { quotationId: id, error: emailResult.error });
+      }
+
+      logger.info("[Trade] Quotation sent", { quotationId: id, sellerId: userId });
+      res.json(updatedQuotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to send quotation", error);
+      res.status(500).json({ error: error.message || "Failed to send quotation" });
+    }
+  });
+
+  // POST /api/trade/quotations/:id/cancel - Cancel quotation
+  app.post("/api/trade/quotations/:id/cancel", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      // Verify ownership
+      const quotation = await quotationService.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+      if (quotation.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const cancelledQuotation = await quotationService.cancelQuotation(id, userId, reason);
+
+      logger.info("[Trade] Quotation cancelled", { quotationId: id, sellerId: userId });
+      res.json(cancelledQuotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to cancel quotation", error);
+      res.status(500).json({ error: error.message || "Failed to cancel quotation" });
+    }
+  });
+
+  // POST /api/trade/quotations/:id/request-balance - Request balance payment
+  app.post("/api/trade/quotations/:id/request-balance", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Verify ownership
+      const quotation = await quotationService.getQuotation(id);
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+      if (quotation.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Mark quotation as balance_due
+      const updatedQuotation = await quotationService.markBalanceDue(id, userId);
+
+      // Send balance payment request email
+      const emailResult = await quotationEmailService.sendBalanceRequestEmail(id);
+      if (!emailResult.success) {
+        logger.warn("[Trade] Failed to send balance request email", { quotationId: id, error: emailResult.error });
+      }
+
+      logger.info("[Trade] Balance payment requested", { quotationId: id, sellerId: userId });
+      res.json(updatedQuotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to request balance payment", error);
+      res.status(500).json({ error: error.message || "Failed to request balance payment" });
+    }
+  });
+
+  // ============================================================================
+  // Buyer Routes (token-based authentication)
+  // ============================================================================
+
+  // GET /api/trade/quotations/view/:token - View quotation (public with token)
+  app.get("/api/trade/quotations/view/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      // Verify token
+      const tokenPayload = await quotationEmailService.verifyAccessToken(token);
+      if (!tokenPayload) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Get quotation
+      const quotation = await quotationService.getQuotation(tokenPayload.quotationId);
+      if (!quotation) {
+        return res.status(404).json({ error: "Quotation not found" });
+      }
+
+      // Mark as viewed if not already
+      if (quotation.status === 'sent') {
+        const viewedQuotation = await quotationService.markViewed(quotation.id, tokenPayload.buyerEmail);
+        return res.json(viewedQuotation);
+      }
+
+      res.json(quotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to view quotation", error);
+      res.status(500).json({ error: error.message || "Failed to view quotation" });
+    }
+  });
+
+  // POST /api/trade/quotations/view/:token/accept - Accept quotation
+  app.post("/api/trade/quotations/view/:token/accept", async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      // Verify token
+      const tokenPayload = await quotationEmailService.verifyAccessToken(token);
+      if (!tokenPayload) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Accept quotation
+      const acceptedQuotation = await quotationService.acceptQuotation(tokenPayload.quotationId, tokenPayload.buyerEmail);
+
+      logger.info("[Trade] Quotation accepted", { quotationId: tokenPayload.quotationId });
+      res.json(acceptedQuotation);
+    } catch (error: any) {
+      logger.error("[Trade] Failed to accept quotation", error);
+      res.status(500).json({ error: error.message || "Failed to accept quotation" });
+    }
+  });
+
+  // POST /api/trade/quotations/view/:token/payment-intent - Create payment intent
+  app.post("/api/trade/quotations/view/:token/payment-intent", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { paymentType } = req.body;
+
+      // Validate payment type
+      if (!paymentType || !['deposit', 'balance'].includes(paymentType)) {
+        return res.status(400).json({ error: "Invalid payment type. Must be 'deposit' or 'balance'" });
+      }
+
+      // Verify token
+      const tokenPayload = await quotationEmailService.verifyAccessToken(token);
+      if (!tokenPayload) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Create payment intent
+      let result;
+      if (paymentType === 'deposit') {
+        result = await quotationPaymentService.createDepositPaymentIntent(tokenPayload.quotationId);
+      } else {
+        result = await quotationPaymentService.createBalancePaymentIntent(tokenPayload.quotationId);
+      }
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      logger.info("[Trade] Payment intent created", { 
+        quotationId: tokenPayload.quotationId, 
+        paymentType,
+        paymentIntentId: result.paymentIntentId 
+      });
+      
+      res.json({
+        clientSecret: result.clientSecret,
+        paymentIntentId: result.paymentIntentId,
+      });
+    } catch (error: any) {
+      logger.error("[Trade] Failed to create payment intent", error);
+      res.status(500).json({ error: error.message || "Failed to create payment intent" });
+    }
+  });
+
+  // ============================================================================
+  // Payment Webhook Routes
+  // ============================================================================
+
+  // POST /api/trade/webhooks/stripe - Handle Stripe webhooks for deposit/balance payments
+  app.post("/api/trade/webhooks/stripe", async (req, res) => {
+    try {
+      const sig = req.headers['stripe-signature'] as string;
+      
+      if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+        logger.error("[Trade Webhook] Stripe not configured");
+        return res.status(500).json({ error: "Stripe not configured" });
+      }
+
+      // Construct event from raw body
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          sig,
+          process.env.STRIPE_WEBHOOK_SECRET
+        );
+      } catch (err: any) {
+        logger.error("[Trade Webhook] Signature verification failed", { error: err.message });
+        return res.status(400).json({ error: `Webhook signature verification failed: ${err.message}` });
+      }
+
+      // Handle payment_intent.succeeded event
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        // Check if this is a trade quotation payment
+        if (paymentIntent.metadata?.quotationId) {
+          const paymentType = paymentIntent.metadata.paymentType;
+          
+          let result;
+          if (paymentType === 'deposit') {
+            result = await quotationPaymentService.handleDepositPaidWebhook(paymentIntent.id);
+          } else if (paymentType === 'balance') {
+            result = await quotationPaymentService.handleBalancePaidWebhook(paymentIntent.id);
+          }
+
+          if (result && !result.success) {
+            logger.error("[Trade Webhook] Payment processing failed", { 
+              error: result.error,
+              paymentIntentId: paymentIntent.id 
+            });
+          } else {
+            logger.info("[Trade Webhook] Payment processed successfully", { 
+              paymentIntentId: paymentIntent.id,
+              quotationId: paymentIntent.metadata.quotationId,
+              paymentType
+            });
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error: any) {
+      logger.error("[Trade Webhook] Webhook processing failed", error);
+      res.status(500).json({ error: error.message || "Webhook processing failed" });
+    }
+  });
+
+  // ============================================================================
+  // End Trade Quotation Routes
+  // ============================================================================
 
   // DEVELOPMENT ONLY: Manual payment confirmation for testing webhooks
   if (process.env.NODE_ENV === 'development') {
