@@ -36,8 +36,8 @@ interface Cart {
 interface CartContextType {
   items: CartItem[];
   addItem: (product: Product, variant?: { size?: string; color?: string }) => Promise<{ success: boolean; error?: string }>;
-  removeItem: (productId: string, variant?: { size?: string; color?: string }) => void;
-  updateQuantity: (productId: string, quantity: number, variant?: { size?: string; color?: string }) => void;
+  removeItem: (productId: string, variantIdOrVariant?: string | { size?: string; color?: string }) => void;
+  updateQuantity: (productId: string, quantity: number, variantIdOrVariant?: string | { size?: string; color?: string }) => void;
   clearCart: () => void;
   total: number;
   itemsCount: number;
@@ -184,25 +184,47 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const removeItem = (productId: string, variant?: { size?: string; color?: string }) => {
+  const removeItem = (productId: string, variantIdOrVariant?: string | { size?: string; color?: string }) => {
+    // Handle both variantId string and variant object
+    const variant = typeof variantIdOrVariant === 'string' ? undefined : variantIdOrVariant;
+    const directVariantId = typeof variantIdOrVariant === 'string' ? variantIdOrVariant : undefined;
+    
+    // If we have direct variantId, construct itemId immediately
+    if (directVariantId) {
+      const itemId = `${productId}-${directVariantId}`;
+      removeMutation.mutate({ itemId });
+      return;
+    }
+    
+    // Otherwise use findCartItem with variant object
     const cartItem = findCartItem(productId, variant);
     if (!cartItem) return;
 
-    // Construct itemId: "productId-variantId" for variants, "productId" for non-variants
     const itemId = cartItem.variantId ? `${cartItem.id}-${cartItem.variantId}` : cartItem.id;
     removeMutation.mutate({ itemId });
   };
 
-  const updateQuantity = (productId: string, quantity: number, variant?: { size?: string; color?: string }) => {
+  const updateQuantity = (productId: string, quantity: number, variantIdOrVariant?: string | { size?: string; color?: string }) => {
     if (quantity <= 0) {
-      removeItem(productId, variant);
+      removeItem(productId, variantIdOrVariant);
       return;
     }
 
+    // Handle both variantId string and variant object
+    const variant = typeof variantIdOrVariant === 'string' ? undefined : variantIdOrVariant;
+    const directVariantId = typeof variantIdOrVariant === 'string' ? variantIdOrVariant : undefined;
+    
+    // If we have direct variantId, construct itemId immediately
+    if (directVariantId) {
+      const itemId = `${productId}-${directVariantId}`;
+      updateMutation.mutate({ itemId, quantity });
+      return;
+    }
+    
+    // Otherwise use findCartItem with variant object
     const cartItem = findCartItem(productId, variant);
     if (!cartItem) return;
 
-    // Construct itemId: "productId-variantId" for variants, "productId" for non-variants
     const itemId = cartItem.variantId ? `${cartItem.id}-${cartItem.variantId}` : cartItem.id;
     updateMutation.mutate({ itemId, quantity });
   };

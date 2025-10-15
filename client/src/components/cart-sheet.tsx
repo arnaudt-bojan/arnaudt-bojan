@@ -114,7 +114,10 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 flex-shrink-0"
-                        onClick={() => removeItem(item.id, (item as any).variant)}
+                        onClick={() => {
+                          // CRITICAL FIX: Pass variantId directly (works for all variants including hyphenated colors)
+                          removeItem(item.id, (item as any).variantId || (item as any).variant);
+                        }}
                         data-testid={`button-remove-${item.id}`}
                       >
                         <X className="h-4 w-4" />
@@ -126,7 +129,10 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1, (item as any).variant)}
+                          onClick={() => {
+                            // CRITICAL FIX: Pass variantId directly (works for all variants including hyphenated colors)
+                            updateQuantity(item.id, item.quantity - 1, (item as any).variantId || (item as any).variant);
+                          }}
                           data-testid={`button-decrease-${item.id}`}
                         >
                           <Minus className="h-3 w-3" />
@@ -138,7 +144,10 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1, (item as any).variant)}
+                          onClick={() => {
+                            // CRITICAL FIX: Pass variantId directly (works for all variants including hyphenated colors)
+                            updateQuantity(item.id, item.quantity + 1, (item as any).variantId || (item as any).variant);
+                          }}
                           data-testid={`button-increase-${item.id}`}
                         >
                           <Plus className="h-3 w-3" />
