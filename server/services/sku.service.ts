@@ -137,9 +137,9 @@ export class SKUService {
   }
 
   /**
-   * Check if SKU already exists in database
+   * Check if SKU already exists in database (public for validation)
    */
-  private async skuExists(sku: string): Promise<boolean> {
+  async skuExists(sku: string): Promise<boolean> {
     try {
       // Check product-level SKUs
       const allProducts = await this.storage.getAllProducts();

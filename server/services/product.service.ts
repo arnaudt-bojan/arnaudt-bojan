@@ -1,10 +1,10 @@
 import type { IStorage } from '../storage';
 import type { Product, InsertProduct, User } from '@shared/schema';
 import type { NotificationService } from '../notifications';
+import type { SKUService } from './sku.service';
 import { logger } from '../logger';
 import { insertProductSchema } from '@shared/schema';
 import { fromZodError } from 'zod-validation-error';
-import { generateProductSKU, generateVariantSKU } from '@shared/sku-generator';
 import { syncProductStockFromVariants } from '../utils/calculate-stock';
 import type Stripe from 'stripe';
 
@@ -46,6 +46,7 @@ export class ProductService {
   constructor(
     private storage: IStorage,
     private notificationService: NotificationService,
+    private skuService: SKUService,
     private stripe?: Stripe
   ) {}
 
@@ -83,8 +84,8 @@ export class ProductService {
         return { success: false, error: error.message };
       }
 
-      // Step 3: Generate SKUs
-      const productDataWithSKU = this.generateSKUs(validationResult.data);
+      // Step 3: Generate SKUs using SKU service
+      const productDataWithSKU = await this.generateSKUs(validationResult.data, sellerId);
 
       // Step 4: Sync stock from variants
       const syncedProductData = syncProductStockFromVariants(productDataWithSKU);
@@ -318,26 +319,32 @@ export class ProductService {
   }
 
   /**
-   * Generate SKUs for product and variants
+   * Generate SKUs for product and variants using SKU service
    */
-  private generateSKUs(productData: any): any {
-    // Generate product SKU if not provided
+  private async generateSKUs(productData: any, sellerId: string): Promise<any> {
+    // Auto-generate product SKU if not provided (custom SKU supported)
     if (!productData.sku) {
-      productData.sku = generateProductSKU();
+      productData.sku = await this.skuService.generateProductSKU(sellerId, undefined);
+    } else {
+      // Validate custom product SKU
+      const exists = await this.skuService.skuExists(productData.sku);
+      if (exists) {
+        throw new Error(`Product SKU "${productData.sku}" already exists. Please choose a unique SKU.`);
+      }
     }
 
     // Generate variant SKUs if product has variants
     if (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0) {
-      productData.variants = productData.variants.map((variant: any) => {
-        if (!variant.sku) {
-          variant.sku = generateVariantSKU(productData.sku!, {
-            color: variant.color,
-            size: variant.size,
-          });
-        }
-        return variant;
-      });
+      productData.variants = await this.skuService.generateVariantSKUs(
+        productData.sku,
+        productData.variants
+      );
     }
+
+    logger.info('[ProductService] SKUs generated', { 
+      productSKU: productData.sku, 
+      variantCount: productData.variants?.length || 0 
+    });
 
     return productData;
   }

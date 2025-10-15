@@ -53,6 +53,7 @@ import { QuotationService } from "./services/quotation.service";
 import { QuotationEmailService } from "./services/quotation-email.service";
 import { QuotationPaymentService } from "./services/quotation-payment.service";
 import { CartReservationService } from "./services/cart-reservation.service";
+import { SKUService } from "./services/sku.service";
 import crypto from "crypto";
 
 // Initialize notification service
@@ -66,6 +67,9 @@ const inventoryService = new InventoryService(storage);
 
 // Initialize cart reservation service (Architecture 3)
 const cartReservationService = new CartReservationService(storage, inventoryService);
+
+// Initialize SKU service for product SKU generation
+const skuService = new SKUService(storage);
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -142,6 +146,7 @@ if (stripe && process.env.STRIPE_WEBHOOK_SECRET) {
 const productService = new ProductService(
   storage,
   notificationService,
+  skuService,
   stripe || undefined
 );
 
