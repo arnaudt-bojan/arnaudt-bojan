@@ -1021,6 +1021,8 @@ export class OrderService {
           productType: item.productType,
           depositAmount: item.depositAmount,
           requiresDeposit: item.requiresDeposit,
+          productSku: item.sku || item.productSku || null, // Product-level SKU
+          variantSku: item.variantSku || null, // Variant-specific SKU
           variant: (() => {
             const matchedItem = params.items.find(i => i.productId === item.id);
             if (matchedItem?.variant) {
@@ -1104,6 +1106,8 @@ export class OrderService {
           balanceAmount,
           requiresDeposit: item.requiresDeposit ? 1 : 0,
           variant: item.variant || null,
+          productSku: item.productSku || null, // Product-level SKU
+          variantSku: item.variantSku || null, // Variant-specific SKU
           itemStatus: 'pending' as const,
         };
       });

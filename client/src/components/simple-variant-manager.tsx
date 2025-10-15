@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 export interface SizeVariant {
   size: string;
   stock: number;
+  sku?: string;
 }
 
 export interface ColorVariant {
@@ -59,17 +60,19 @@ export function SimpleVariantManager({
   // Size-only mode handlers
   const addSize = () => {
     if (onSizesChange) {
-      onSizesChange([...sizes, { size: "", stock: 0 }]);
+      onSizesChange([...sizes, { size: "", stock: 0, sku: "" }]);
     }
   };
 
-  const updateSize = (index: number, field: "size" | "stock", value: string | number) => {
+  const updateSize = (index: number, field: "size" | "stock" | "sku", value: string | number) => {
     if (onSizesChange) {
       const updated = [...sizes];
       if (field === "size") {
         updated[index].size = value as string;
-      } else {
+      } else if (field === "stock") {
         updated[index].stock = value as number;
+      } else if (field === "sku") {
+        updated[index].sku = value as string;
       }
       onSizesChange(updated);
     }
@@ -136,7 +139,7 @@ export function SimpleVariantManager({
   const addSizeToColor = (colorIndex: number) => {
     if (onColorsChange) {
       const updated = [...colors];
-      updated[colorIndex].sizes.push({ size: "", stock: 0 });
+      updated[colorIndex].sizes.push({ size: "", stock: 0, sku: "" });
       onColorsChange(updated);
     }
   };
@@ -144,15 +147,17 @@ export function SimpleVariantManager({
   const updateColorSize = (
     colorIndex: number,
     sizeIndex: number,
-    field: "size" | "stock",
+    field: "size" | "stock" | "sku",
     value: string | number
   ) => {
     if (onColorsChange) {
       const updated = [...colors];
       if (field === "size") {
         updated[colorIndex].sizes[sizeIndex].size = value as string;
-      } else {
+      } else if (field === "stock") {
         updated[colorIndex].sizes[sizeIndex].stock = value as number;
+      } else if (field === "sku") {
+        updated[colorIndex].sizes[sizeIndex].sku = value as string;
       }
       onColorsChange(updated);
     }
@@ -213,7 +218,7 @@ export function SimpleVariantManager({
               {sizes.map((sizeVariant, index) => (
                 <Card key={index} className="p-4">
                   <div className="flex gap-3 items-start">
-                    <div className="flex-1 grid grid-cols-2 gap-3">
+                    <div className="flex-1 grid grid-cols-3 gap-3">
                       <div>
                         <Label className="text-xs">Size</Label>
                         <Input
@@ -232,6 +237,15 @@ export function SimpleVariantManager({
                           value={sizeVariant.stock || ""}
                           onChange={(e) => updateSize(index, "stock", parseInt(e.target.value) || 0)}
                           data-testid={`input-stock-${index}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">SKU (Optional)</Label>
+                        <Input
+                          placeholder="Leave blank to auto-generate"
+                          value={sizeVariant.sku || ""}
+                          onChange={(e) => updateSize(index, "sku", e.target.value)}
+                          data-testid={`input-sku-${index}`}
                         />
                       </div>
                     </div>
@@ -363,7 +377,7 @@ export function SimpleVariantManager({
                       <div className="space-y-2">
                         {color.sizes.map((sizeVariant, sizeIndex) => (
                           <div key={sizeIndex} className="flex gap-3 items-center">
-                            <div className="flex-1 grid grid-cols-2 gap-3">
+                            <div className="flex-1 grid grid-cols-3 gap-3">
                               <Input
                                 placeholder="Size (e.g., S, M, L)"
                                 value={sizeVariant.size}
@@ -381,6 +395,14 @@ export function SimpleVariantManager({
                                   updateColorSize(colorIndex, sizeIndex, "stock", parseInt(e.target.value) || 0)
                                 }
                                 data-testid={`input-color-stock-${colorIndex}-${sizeIndex}`}
+                              />
+                              <Input
+                                placeholder="SKU (Optional)"
+                                value={sizeVariant.sku || ""}
+                                onChange={(e) =>
+                                  updateColorSize(colorIndex, sizeIndex, "sku", e.target.value)
+                                }
+                                data-testid={`input-color-sku-${colorIndex}-${sizeIndex}`}
                               />
                             </div>
                             <Button

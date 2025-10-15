@@ -402,6 +402,8 @@ export const orderItems = pgTable("order_items", {
   balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }), // FIX BUG #3: Per-item balance tracking
   requiresDeposit: integer("requires_deposit").default(0),
   variant: jsonb("variant"), // {size, color} if applicable
+  productSku: varchar("product_sku"), // Product-level SKU
+  variantSku: varchar("variant_sku"), // Variant-specific SKU (if applicable)
   itemStatus: text("item_status").notNull().default("pending"), // "pending", "processing", "ready_to_ship", "shipped", "delivered", "cancelled", "returned", "refunded"
   trackingNumber: varchar("tracking_number"),
   trackingCarrier: varchar("tracking_carrier"), // e.g., UPS, FedEx, USPS

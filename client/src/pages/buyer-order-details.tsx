@@ -222,6 +222,11 @@ export default function BuyerOrderDetails() {
                         {formatVariant(item.variant)}
                       </p>
                     )}
+                    {((item as any).variantSku || (item as any).productSku) && (
+                      <p className="text-sm text-muted-foreground" data-testid={`text-order-detail-item-sku-${idx}`}>
+                        SKU: {(item as any).variantSku || (item as any).productSku}
+                      </p>
+                    )}
                     <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                     {item.trackingNumber && (
                       <div className="mt-2 flex items-center gap-2">

@@ -109,6 +109,11 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                             {formatVariant((item as any).variant)}
                           </p>
                         )}
+                        {((item as any).variantSku || (item as any).productSku) && (
+                          <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-cart-item-sku-${item.id}`}>
+                            SKU: {(item as any).variantSku || (item as any).productSku}
+                          </p>
+                        )}
                       </Link>
                       <Button
                         variant="ghost"

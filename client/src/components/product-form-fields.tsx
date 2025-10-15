@@ -429,6 +429,29 @@ export function ProductFormFields({
 
           <FormField
             control={form.control}
+            name="sku"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>SKU (Optional)</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Leave blank to auto-generate (Format: UPF-XXX-###)" 
+                    {...field} 
+                    value={field.value || ""}
+                    data-testid="input-product-sku" 
+                    className="text-base" 
+                  />
+                </FormControl>
+                <FormDescription>
+                  Leave blank to auto-generate (Format: UPF-XXX-###)
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="description"
             render={({ field }) => (
               <FormItem>

@@ -224,6 +224,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                         {formatVariant(item.variant)}
                       </p>
                     )}
+                    {((item as any).variantSku || (item as any).productSku) && (
+                      <p className="text-sm text-muted-foreground" data-testid={`text-order-item-sku-${order.id}-${item.id}`}>
+                        SKU: {(item as any).variantSku || (item as any).productSku}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-muted-foreground">
                         Qty: {item.quantity} × {order.currency} {parseFloat(item.price).toFixed(2)}

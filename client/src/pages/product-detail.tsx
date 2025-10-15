@@ -497,6 +497,50 @@ export default function ProductDetail() {
               </div>
             )}
 
+            {/* SKU Display */}
+            {(() => {
+              // Helper function to get variant SKU from product variants
+              const getVariantSku = () => {
+                if (!product.variants || !selectedSize) return null;
+                
+                const variants = Array.isArray(product.variants) ? product.variants : [];
+                
+                // Handle color-size structure: [{colorName, sizes: [{size, sku}]}]
+                if (selectedColor && isColorSizeVariant) {
+                  const colorVariant = variants.find((v: any) => 
+                    v.colorName?.toLowerCase() === selectedColor.toLowerCase()
+                  );
+                  if (colorVariant?.sizes) {
+                    const sizeVariant = colorVariant.sizes.find((s: any) => 
+                      s.size?.toLowerCase() === selectedSize.toLowerCase()
+                    );
+                    return sizeVariant?.sku || null;
+                  }
+                }
+                
+                // Handle size-only structure: [{size, sku}]
+                if (selectedSize && isSizeOnlyVariant) {
+                  const sizeVariant = variants.find((v: any) => 
+                    v.size?.toLowerCase() === selectedSize.toLowerCase()
+                  );
+                  return sizeVariant?.sku || null;
+                }
+                
+                return null;
+              };
+              
+              const variantSku = getVariantSku();
+              const displaySku = variantSku || product.sku;
+              
+              if (!displaySku) return null;
+              
+              return (
+                <div className="text-sm text-muted-foreground" data-testid={variantSku ? "text-variant-sku" : "text-sku"}>
+                  SKU: {displaySku}
+                </div>
+              );
+            })()}
+
             {/* Currency Disclaimer - show when seller currency differs from buyer currency */}
             {sellerInfo?.listingCurrency && (
               <CurrencyDisclaimer 

@@ -1365,6 +1365,11 @@ export default function Checkout() {
                                     {formatVariant((item as any).variant)}
                                   </p>
                                 )}
+                                {((item as any).variantSku || (item as any).productSku) && (
+                                  <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-checkout-item-sku-${item.id}`}>
+                                    SKU: {(item as any).variantSku || (item as any).productSku}
+                                  </p>
+                                )}
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <p className="text-sm text-muted-foreground">
                                     {formatConvertedPrice(parseFloat(item.price))} × {item.quantity}

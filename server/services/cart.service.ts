@@ -30,6 +30,8 @@ export interface CartItem {
     size?: string;
     color?: string;
   };
+  productSku?: string; // Product-level SKU
+  variantSku?: string; // Variant-specific SKU (if applicable)
 }
 
 export interface Cart {
@@ -128,17 +130,19 @@ export class CartService {
         };
       }
 
-      // Find variant if applicable
-      // CRITICAL FIX: Handle nested variant structure [{colorName, sizes: [{size, stock}]}]
+      // Find variant and extract SKU if applicable
+      // CRITICAL FIX: Handle nested variant structure [{colorName, sizes: [{size, stock, sku}]}]
       // Match the EXACT frontend logic: `${size}-${color}`.toLowerCase()
       let variant: { size?: string; color?: string } | undefined;
+      let variantSku: string | undefined;
+      
       if (variantId && product.variants) {
         const variants = product.variants as any[];
         
         // Search through nested structure
         for (const colorGroup of variants) {
           if (colorGroup.colorName || colorGroup.sizes) {
-            // Nested structure: {colorName, sizes: [{size, stock}]}
+            // Nested structure: {colorName, sizes: [{size, stock, sku}]}
             const colorName = colorGroup.colorName || '';
             
             if (colorGroup.sizes && Array.isArray(colorGroup.sizes)) {
@@ -151,19 +155,30 @@ export class CartService {
                     size: sizeItem.size,
                     color: colorName || undefined,
                   };
+                  variantSku = sizeItem.sku; // Extract variant SKU
                   break;
                 }
               }
             }
             if (variant) break;
           } else if (colorGroup.size || colorGroup.color) {
-            // Flat structure: {size, color} (legacy)
+            // Flat structure: {size, color, sku} (legacy)
             const constructedId = `${colorGroup.size}-${colorGroup.color}`.toLowerCase();
             if (constructedId === variantId) {
               variant = {
                 size: colorGroup.size,
                 color: colorGroup.color,
               };
+              variantSku = colorGroup.sku; // Extract variant SKU
+              break;
+            }
+          } else if (colorGroup.size && !colorGroup.color) {
+            // Size-only structure: {size, sku}
+            if (colorGroup.size?.toLowerCase() === variantId.toLowerCase()) {
+              variant = {
+                size: colorGroup.size,
+              };
+              variantSku = colorGroup.sku; // Extract variant SKU
               break;
             }
           }
@@ -213,6 +228,8 @@ export class CartService {
           promotionActive: product.promotionActive || undefined,
           variantId,
           variant,
+          productSku: product.sku || undefined, // Product-level SKU
+          variantSku: variantSku || undefined, // Variant-specific SKU
         };
 
         currentCart.items.push(cartItem);

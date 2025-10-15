@@ -24,6 +24,8 @@ interface CartItem {
   };
   currency?: string;
   image?: string;
+  productSku?: string; // Product-level SKU
+  variantSku?: string; // Variant-specific SKU (if applicable)
 }
 
 interface Cart {
