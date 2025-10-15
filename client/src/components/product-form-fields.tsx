@@ -731,7 +731,7 @@ export function ProductFormFields({
           {selectedType === "pre-order" && (
             <div className="space-y-2">
               <FormLabel>
-                Expected Delivery Date <span className="text-muted-foreground font-normal">(optional)</span>
+                Expected Delivery Date <span className="text-destructive">*</span>
               </FormLabel>
               <Input
                 type="date"
@@ -739,6 +739,7 @@ export function ProductFormFields({
                 onChange={(e) => setPreOrderDate(e.target.value)}
                 data-testid="input-preorder-date"
                 className="text-base"
+                required
               />
               <p className="text-sm text-muted-foreground">
                 When will this product be available?
@@ -749,7 +750,7 @@ export function ProductFormFields({
           {selectedType === "made-to-order" && (
             <div className="space-y-2">
               <FormLabel>
-                Estimated Production Time (Days)
+                Estimated Production Time (Days) <span className="text-destructive">*</span>
               </FormLabel>
               <Input
                 type="number"
