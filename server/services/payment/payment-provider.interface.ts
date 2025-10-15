@@ -23,7 +23,7 @@ export interface IPaymentProvider {
   
   cancelPayment(intentId: string): Promise<void>;
   
-  createRefund(params: RefundParams): Promise<Refund>;
+  createRefund(params: RefundParams, idempotencyKey?: string): Promise<Refund>;
   
   createConnectedAccount(params: AccountParams): Promise<ConnectedAccount>;
   

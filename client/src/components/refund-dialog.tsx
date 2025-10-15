@@ -198,7 +198,15 @@ export function RefundDialog({
     const pricePerUnit = parseFloat(item.price);
     const refundableQty = item.quantity - (item.refundedQuantity || 0);
     
-    const clampedQty = Math.max(1, Math.min(newQty, refundableQty));
+    // CRITICAL: Validate against API refundable data if available
+    let maxAllowedQty = refundableQty;
+    if (refundableData?.itemRefundables?.[itemId]) {
+      const apiMaxRefundable = parseFloat(refundableData.itemRefundables[itemId].maxRefundable || "0");
+      const apiMaxQty = Math.floor(apiMaxRefundable / pricePerUnit);
+      maxAllowedQty = Math.min(refundableQty, apiMaxQty);
+    }
+    
+    const clampedQty = Math.max(1, Math.min(newQty, maxAllowedQty));
     
     newSelected.set(itemId, {
       quantity: clampedQty,
@@ -215,14 +223,19 @@ export function RefundDialog({
       total += data.amount;
     }
     
-    // Add shipping if selected
-    if (refundShipping) {
-      total += parseFloat(shippingCost || "0");
+    // CRITICAL: Safe parsing with null/undefined checks
+    if (refundShipping && shippingCost) {
+      const shipping = parseFloat(shippingCost);
+      if (!isNaN(shipping)) {
+        total += shipping;
+      }
     }
     
-    // Add tax if selected
-    if (refundTax) {
-      total += parseFloat(taxAmount || "0");
+    if (refundTax && taxAmount) {
+      const tax = parseFloat(taxAmount);
+      if (!isNaN(tax)) {
+        total += tax;
+      }
     }
     
     return total;
@@ -239,7 +252,9 @@ export function RefundDialog({
 
   const calculatedRefundAmount = calculateRefundAmount();
   const refundAmount = useCustomAmount ? parseFloat(customRefundAmount || "0") : calculatedRefundAmount;
-  const maxRefundable = parseFloat(refundableData?.totalRefundable || "0");
+  
+  // CRITICAL: Safe parsing with fallback to 0
+  const maxRefundable = refundableData?.totalRefundable ? parseFloat(refundableData.totalRefundable) : 0;
   const canRefund = selectedItems.size > 0 || refundShipping || refundTax;
   const isCustomAmountValid = !useCustomAmount || (refundAmount > 0 && refundAmount <= maxRefundable);
 
@@ -422,35 +437,37 @@ export function RefundDialog({
           <div className="space-y-3">
             <Label>Additional Refunds</Label>
             
-            {parseFloat(shippingCost) > 0 && (
+            {shippingCost && parseFloat(shippingCost) > 0 && (
               <div className="flex items-center gap-3 p-3 rounded-lg border">
                 <Checkbox
                   id="refund-shipping"
                   checked={refundShipping}
                   onCheckedChange={(checked) => setRefundShipping(checked as boolean)}
-                  disabled={processRefundMutation.isPending}
+                  disabled={processRefundMutation.isPending || useCustomAmount}
                   data-testid="checkbox-refund-shipping"
                 />
                 <Label htmlFor="refund-shipping" className="flex-1 cursor-pointer flex items-center gap-2">
                   <Truck className="h-4 w-4" />
                   Refund Shipping
+                  {useCustomAmount && <span className="text-xs text-muted-foreground">(disabled during manual override)</span>}
                 </Label>
                 <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(shippingCost).toFixed(2)}</span>
               </div>
             )}
 
-            {parseFloat(taxAmount) > 0 && (
+            {taxAmount && parseFloat(taxAmount) > 0 && (
               <div className="flex items-center gap-3 p-3 rounded-lg border">
                 <Checkbox
                   id="refund-tax"
                   checked={refundTax}
                   onCheckedChange={(checked) => setRefundTax(checked as boolean)}
-                  disabled={processRefundMutation.isPending}
+                  disabled={processRefundMutation.isPending || useCustomAmount}
                   data-testid="checkbox-refund-tax"
                 />
                 <Label htmlFor="refund-tax" className="flex-1 cursor-pointer flex items-center gap-2">
                   <Receipt className="h-4 w-4" />
                   Refund Tax
+                  {useCustomAmount && <span className="text-xs text-muted-foreground">(disabled during manual override)</span>}
                 </Label>
                 <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(taxAmount).toFixed(2)}</span>
               </div>

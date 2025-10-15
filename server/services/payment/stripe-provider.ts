@@ -107,17 +107,26 @@ export class StripePaymentProvider implements IPaymentProvider {
     await this.stripe.paymentIntents.cancel(intentId);
   }
 
-  async createRefund(params: RefundParams): Promise<Refund> {
+  async createRefund(params: RefundParams, idempotencyKey?: string): Promise<Refund> {
     // Get the payment intent to determine the currency
     const paymentIntent = await this.stripe.paymentIntents.retrieve(params.paymentIntentId);
     const currency = paymentIntent.currency;
 
-    const refund = await this.stripe.refunds.create({
+    // Build refund create params
+    const refundParams: any = {
       payment_intent: params.paymentIntentId,
       amount: params.amount ? this.toMinorUnits(params.amount, currency) : undefined,
       reason: params.reason,
       metadata: params.metadata,
-    });
+    };
+
+    // Add idempotency key if provided (prevents duplicate refunds)
+    const requestOptions: any = {};
+    if (idempotencyKey) {
+      requestOptions.idempotencyKey = idempotencyKey;
+    }
+
+    const refund = await this.stripe.refunds.create(refundParams, requestOptions);
 
     return {
       id: refund.id,

@@ -1451,6 +1451,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isTeamMember = ["admin", "editor"].includes(currentUser.role) && currentUser.sellerId;
       const canonicalSellerId = isTeamMember ? currentUser.sellerId : userId;
 
+      // CRITICAL: Verify order ownership BEFORE processing refund
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify seller owns the order by checking product ownership
+      const orderItems = await storage.getOrderItems(orderId);
+      if (!orderItems || orderItems.length === 0) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const product = await storage.getProduct(orderItems[0].productId);
+      if (!product || product.sellerId !== canonicalSellerId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       // Create refund via service
       const result = await refundService.createRefund({
         orderId,
@@ -1652,9 +1669,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { refundItems, reason, refundType, customRefundAmount } = req.body;
       const userId = req.user.claims.sub;
 
+      // CRITICAL: Verify order ownership BEFORE processing refund
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isTeamMember = ["admin", "editor"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalSellerId = isTeamMember ? currentUser.sellerId : userId;
+
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify seller owns the order
+      const orderItems = await storage.getOrderItems(orderId);
+      if (!orderItems || orderItems.length === 0) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const product = await storage.getProduct(orderItems[0].productId);
+      if (!product || product.sellerId !== canonicalSellerId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       const result = await orderLifecycleService.processRefund({
         orderId,
-        sellerId: userId,
+        sellerId: canonicalSellerId,
         refundType,
         refundItems,
         reason,
@@ -3239,10 +3281,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!item) {
         return res.status(404).json({ error: "Order item not found" });
       }
+
+      // CRITICAL: Verify order ownership BEFORE processing refund
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isTeamMember = ["admin", "editor"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalSellerId = isTeamMember ? currentUser.sellerId : userId;
+
+      const order = await storage.getOrder(item.orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Verify seller owns the product
+      const product = await storage.getProduct(item.productId);
+      if (!product || product.sellerId !== canonicalSellerId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       
       const result = await orderLifecycleService.processRefund({
         orderId: item.orderId,
-        sellerId: userId,
+        sellerId: canonicalSellerId,
         refundType: 'item',
         refundItems: [{
           itemId: req.params.id,

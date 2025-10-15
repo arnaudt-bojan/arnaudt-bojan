@@ -55,6 +55,7 @@ export interface RefundParams {
   amount?: number;
   reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer';
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export interface Refund {
