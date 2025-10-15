@@ -117,7 +117,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const findCartItem = (productId: string, variant?: { size?: string; color?: string }) => {
     if (!cart?.items) return null;
     
-    const variantKey = variant ? `${variant.size || ''}-${variant.color || ''}`.trim().replace(/^-|-$/g, '') : null;
+    // CRITICAL FIX: Must lowercase to match stored variantId format
+    const variantKey = variant 
+      ? `${variant.size || ''}-${variant.color || ''}`.toLowerCase().trim().replace(/^-|-$/g, '') 
+      : null;
     
     return cart.items.find((item) => {
       if (item.id !== productId) return false;
