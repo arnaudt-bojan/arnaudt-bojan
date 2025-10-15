@@ -28,11 +28,18 @@ A service layer pattern is employed, abstracting business logic from thin route 
 **UI/UX Decisions:**
 The design system supports dark/light mode, uses the Inter font, and emphasizes consistent spacing, typography, and a mobile-first responsive approach. Navigation is dashboard-centric. Product displays feature multi-image support and interactive elements. Storefronts are customizable with seller branding.
 
-**B2C/B2B Environment Toggle & Wholesale Access:**
-Sellers can switch between B2C (retail) and B2B (wholesale) environments using a toggle in the dashboard header. The toggle changes environment context ONLY (no automatic navigation):
-- **B2C → B2B**: Environment switches to wholesale mode (stay on current page)
-- **B2B → B2C**: Environment switches to retail mode (stay on current page)
+**Business Mode Toggle (B2C / B2B / Trade):**
+Sellers can switch between three business modes using a toggle in the dashboard header. The toggle changes environment context ONLY (no automatic navigation):
+- **B2C (Retail)**: Standard e-commerce storefront with products, orders, analytics
+- **B2B (Wholesale)**: Invitation-based wholesale with MOQ, freight collect/pickup shipping
+- **Trade (Professional)**: Custom quotation system for bespoke B2B offers
 
+**B2C Routes:**
+- Products: `/seller/products` (product catalog management)
+- Orders: `/seller/orders` (retail order management)
+- Analytics: `/seller/analytics` (sales analytics)
+
+**B2B Wholesale Routes:**
 Wholesale features are accessed via `/seller/wholesale/*` routes when in B2B mode:
 - Products: `/seller/wholesale/products` (B2B product management)
 - Invitations: `/seller/wholesale/invitations` (buyer invitation & management)
@@ -44,6 +51,11 @@ Buyer wholesale access uses separate routes:
 - Checkout: `/wholesale/checkout` (freight collect/buyer pickup)
 - Orders: `/wholesale/orders` (buyer order history)
 
+**Trade Quotation Routes:**
+- Quotations: `/seller/trade/quotations` (quotation list and management)
+- Create: `/seller/trade/quotations/new` (excel-like quotation builder)
+- Buyer View: `/trade/view/:token` (public token-based quotation access)
+
 **System Design Choices & Feature Specifications:**
 -   **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and comprehensive multi-method shipping.
 -   **Shipping Service**: Centralized `ShippingService` integrates Free Shipping, Flat Rate, Matrix Shipping, and real-time Shippo API rates, requiring sellers to configure a warehouse address.
@@ -54,6 +66,7 @@ Buyer wholesale access uses separate routes:
 -   **Subscription System**: Monthly/annual seller subscriptions managed via Stripe, including a 30-day trial.
 -   **Multi-Currency Support**: IP-based detection with user-selectable currency and real-time exchange rates.
 -   **Wholesale B2B System**: Comprehensive B2B platform with invitation-based access, MOQ enforcement (variant-level), deposit/balance payment split via Stripe, freight collect/buyer pickup shipping (NO traditional shipping methods), enhanced buyer invitation system with 7-day expiry, separate wholesale order management with status tracking (pending_deposit → deposit_paid → in_production → ready_to_release → fulfilled → delivered/completed), Stripe payment integration with webhook automation, automated email notifications (6 templates: order confirmation, deposit received, balance reminder, balance overdue, order shipped, order fulfilled), balance payment reminder job (runs daily), payment link generation, and complete order lifecycle management.
+-   **Trade Quotation System**: Professional B2B quotation platform (third business mode) for sellers to create and send custom quotes to buyers. Features include: excel-like quotation builder with line-by-line item input, server-side pricing validation, deposit/balance payment flow (default 50% deposit), secure token-based buyer access (24h bearer tokens), email-based quotation delivery, comprehensive status tracking (draft → sent → viewed → accepted → deposit_paid → balance_due → fully_paid → completed), Stripe payment integration with webhook automation, quotation-to-order conversion via TradeWorkflowOrchestrator, idempotent order creation (prevents duplicates), unique payment schedules (quotationId + paymentType constraint), professional invoice-style buyer view (PDF-friendly), 5 email templates (quotation sent, deposit paid, balance request, balance paid, expired), validUntil expiry dates, metadata JSONB for custom fields, and comprehensive audit trail via quotation events table. All business logic server-side (Architecture 3). Database schema: trade_quotations, trade_quotation_items, trade_quotation_events, trade_payment_schedules with proper indexes and foreign keys.
 -   **Social Ads System**: Multi-platform (Meta, TikTok, X) social advertising with AI optimization.
 -   **Item-Level Order Tracking**: Per-item fulfillment system with independent status, tracking, and automated buyer notifications.
 -   **Document Generation System**: Professional PDF invoice and packing slip generation.

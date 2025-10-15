@@ -2685,6 +2685,7 @@ export const tradeQuotations = pgTable("trade_quotations", {
   depositPercentage: integer("deposit_percentage").notNull().default(50),
   balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }).notNull(),
   status: tradeQuotationStatusPgEnum("status").notNull().default("draft"),
+  orderId: varchar("order_id"), // Links to orders.id when converted - prevents duplicate order creation
   validUntil: timestamp("valid_until"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -2700,6 +2701,7 @@ export const tradeQuotations = pgTable("trade_quotations", {
 
 export const insertTradeQuotationSchema = createInsertSchema(tradeQuotations).omit({ 
   id: true, 
+  orderId: true, // System-generated when converted to order
   createdAt: true, 
   updatedAt: true 
 });
@@ -2771,6 +2773,8 @@ export const tradePaymentSchedules = pgTable("trade_payment_schedules", {
   return {
     quotationIdx: index("trade_payment_schedules_quotation_idx").on(table.quotationId),
     statusIdx: index("trade_payment_schedules_status_idx").on(table.status),
+    uniqueQuotationPaymentType: uniqueIndex("unique_quotation_payment_type")
+      .on(table.quotationId, table.paymentType),
   };
 });
 

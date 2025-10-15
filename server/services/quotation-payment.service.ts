@@ -57,7 +57,40 @@ export class QuotationPaymentService {
         return { success: false, error: 'Stripe is not configured' };
       }
 
-      // 1. Get quotation
+      const db = storage.db;
+
+      // 1. Check for existing pending deposit schedule
+      const [existingSchedule] = await db
+        .select()
+        .from(tradePaymentSchedules)
+        .where(
+          and(
+            eq(tradePaymentSchedules.quotationId, quotationId),
+            eq(tradePaymentSchedules.paymentType, 'deposit')
+          )
+        )
+        .limit(1);
+
+      if (existingSchedule && existingSchedule.status === 'pending' && existingSchedule.stripePaymentIntentId) {
+        // Return existing payment intent
+        const existingIntent = await this.stripe.paymentIntents.retrieve(
+          existingSchedule.stripePaymentIntentId
+        );
+
+        logger.info('[QuotationPaymentService] Returning existing deposit PaymentIntent', {
+          quotationId,
+          paymentIntentId: existingIntent.id,
+          amount: existingSchedule.amount,
+        });
+
+        return {
+          success: true,
+          clientSecret: existingIntent.client_secret || undefined,
+          paymentIntentId: existingIntent.id,
+        };
+      }
+
+      // 2. Get quotation
       const quotation = await this.quotationService.getQuotation(quotationId);
       if (!quotation) {
         return { success: false, error: 'Quotation not found' };
@@ -71,16 +104,16 @@ export class QuotationPaymentService {
         };
       }
 
-      // 2. Get seller's Stripe account
+      // 3. Get seller's Stripe account
       const seller = await this.storage.getUser(quotation.sellerId);
       if (!seller || !seller.stripeConnectedAccountId) {
         return { success: false, error: 'Seller Stripe account not found' };
       }
 
-      // 3. Calculate amount in cents
+      // 4. Calculate amount in cents
       const amountCents = Math.round(parseFloat(quotation.depositAmount) * 100);
 
-      // 4. Create Stripe PaymentIntent
+      // 5. Create Stripe PaymentIntent
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: amountCents,
         currency: quotation.currency.toLowerCase(),
@@ -96,16 +129,28 @@ export class QuotationPaymentService {
         },
       });
 
-      // 5. Create payment schedule record
-      const db = storage.db;
-      await db.insert(tradePaymentSchedules).values({
-        quotationId: quotation.id,
-        paymentType: 'deposit',
-        amount: quotation.depositAmount,
-        dueDate: new Date(),
-        status: 'pending',
-        stripePaymentIntentId: paymentIntent.id,
-      });
+      // 6. Create payment schedule record (or update if exists)
+      if (existingSchedule) {
+        await db
+          .update(tradePaymentSchedules)
+          .set({
+            stripePaymentIntentId: paymentIntent.id,
+            amount: quotation.depositAmount,
+            dueDate: new Date(),
+            status: 'pending',
+            updatedAt: new Date(),
+          })
+          .where(eq(tradePaymentSchedules.id, existingSchedule.id));
+      } else {
+        await db.insert(tradePaymentSchedules).values({
+          quotationId: quotation.id,
+          paymentType: 'deposit',
+          amount: quotation.depositAmount,
+          dueDate: new Date(),
+          status: 'pending',
+          stripePaymentIntentId: paymentIntent.id,
+        });
+      }
 
       logger.info('[QuotationPaymentService] Deposit PaymentIntent created', {
         quotationId,
@@ -136,7 +181,40 @@ export class QuotationPaymentService {
         return { success: false, error: 'Stripe is not configured' };
       }
 
-      // 1. Get quotation
+      const db = storage.db;
+
+      // 1. Check for existing pending balance schedule
+      const [existingSchedule] = await db
+        .select()
+        .from(tradePaymentSchedules)
+        .where(
+          and(
+            eq(tradePaymentSchedules.quotationId, quotationId),
+            eq(tradePaymentSchedules.paymentType, 'balance')
+          )
+        )
+        .limit(1);
+
+      if (existingSchedule && existingSchedule.status === 'pending' && existingSchedule.stripePaymentIntentId) {
+        // Return existing payment intent
+        const existingIntent = await this.stripe.paymentIntents.retrieve(
+          existingSchedule.stripePaymentIntentId
+        );
+
+        logger.info('[QuotationPaymentService] Returning existing balance PaymentIntent', {
+          quotationId,
+          paymentIntentId: existingIntent.id,
+          amount: existingSchedule.amount,
+        });
+
+        return {
+          success: true,
+          clientSecret: existingIntent.client_secret || undefined,
+          paymentIntentId: existingIntent.id,
+        };
+      }
+
+      // 2. Get quotation
       const quotation = await this.quotationService.getQuotation(quotationId);
       if (!quotation) {
         return { success: false, error: 'Quotation not found' };
@@ -150,16 +228,16 @@ export class QuotationPaymentService {
         };
       }
 
-      // 2. Get seller's Stripe account
+      // 3. Get seller's Stripe account
       const seller = await this.storage.getUser(quotation.sellerId);
       if (!seller || !seller.stripeConnectedAccountId) {
         return { success: false, error: 'Seller Stripe account not found' };
       }
 
-      // 3. Calculate amount in cents
+      // 4. Calculate amount in cents
       const amountCents = Math.round(parseFloat(quotation.balanceAmount) * 100);
 
-      // 4. Create Stripe PaymentIntent
+      // 5. Create Stripe PaymentIntent
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: amountCents,
         currency: quotation.currency.toLowerCase(),
@@ -175,16 +253,28 @@ export class QuotationPaymentService {
         },
       });
 
-      // 5. Create payment schedule record
-      const db = storage.db;
-      await db.insert(tradePaymentSchedules).values({
-        quotationId: quotation.id,
-        paymentType: 'balance',
-        amount: quotation.balanceAmount,
-        dueDate: new Date(),
-        status: 'pending',
-        stripePaymentIntentId: paymentIntent.id,
-      });
+      // 6. Create payment schedule record (or update if exists)
+      if (existingSchedule) {
+        await db
+          .update(tradePaymentSchedules)
+          .set({
+            stripePaymentIntentId: paymentIntent.id,
+            amount: quotation.balanceAmount,
+            dueDate: new Date(),
+            status: 'pending',
+            updatedAt: new Date(),
+          })
+          .where(eq(tradePaymentSchedules.id, existingSchedule.id));
+      } else {
+        await db.insert(tradePaymentSchedules).values({
+          quotationId: quotation.id,
+          paymentType: 'balance',
+          amount: quotation.balanceAmount,
+          dueDate: new Date(),
+          status: 'pending',
+          stripePaymentIntentId: paymentIntent.id,
+        });
+      }
 
       logger.info('[QuotationPaymentService] Balance PaymentIntent created', {
         quotationId,

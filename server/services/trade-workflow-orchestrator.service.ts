@@ -82,6 +82,16 @@ export class TradeWorkflowOrchestrator {
         throw new Error(`Quotation ${quotationId} not found`);
       }
 
+      // IDEMPOTENCY CHECK: If quotation already converted, return existing order
+      if (quotation.orderId) {
+        logger.warn(`[TradeWorkflowOrchestrator] Quotation ${quotationId} already converted to order ${quotation.orderId}`, {
+          quotationId,
+          orderId: quotation.orderId,
+          quotationNumber: quotation.quotationNumber,
+        });
+        return await this.storage.getOrder(quotation.orderId);
+      }
+
       // Step 2: Validate quotation status
       if (quotation.status !== 'fully_paid' && quotation.status !== 'completed') {
         throw new Error(
@@ -268,11 +278,12 @@ export class TradeWorkflowOrchestrator {
           performedBy: 'system',
         });
 
-        // Step 9: Update quotation status to "completed"
+        // Step 9: Update quotation status to "completed" and store orderId (idempotency)
         await tx
           .update(tradeQuotations)
           .set({
             status: 'completed',
+            orderId: newOrder.id, // Store orderId to prevent duplicate conversions
             updatedAt: new Date(),
           })
           .where(eq(tradeQuotations.id, quotationId));
