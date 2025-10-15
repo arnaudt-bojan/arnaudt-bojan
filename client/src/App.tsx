@@ -67,6 +67,7 @@ import { WholesaleLayout } from "@/layouts/WholesaleLayout";
 import DashboardRedirect from "@/components/DashboardRedirect";
 import TradeQuotationsList from "@/pages/trade-quotations-list";
 import TradeQuotationBuilder from "@/pages/trade-quotation-builder";
+import TradeQuotationView from "@/pages/trade-quotation-view";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -115,6 +116,9 @@ function AppContent() {
               <Route path="/help" component={Help} />
               <Route path="/privacy" component={Privacy} />
               <Route path="/terms" component={Terms} />
+              
+              {/* Public trade quotation view (token-based auth) */}
+              <Route path="/trade/view/:token" component={TradeQuotationView} />
               
               {/* Protected wholesale routes on seller subdomain */}
               <Route path="/wholesale/accept/:token" component={WholesaleAcceptInvitation} />
@@ -190,6 +194,9 @@ function AppContent() {
               <Route path="/help" component={Help} />
               <Route path="/privacy" component={Privacy} />
               <Route path="/terms" component={Terms} />
+              
+              {/* Public trade quotation view (token-based auth) */}
+              <Route path="/trade/view/:token" component={TradeQuotationView} />
               
               {/* Protected buyer routes */}
               <Route path="/buyer-dashboard">
