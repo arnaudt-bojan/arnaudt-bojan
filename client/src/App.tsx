@@ -9,7 +9,7 @@ import { CartProvider } from "@/lib/cart-context";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { SellerProvider } from "@/contexts/seller-context";
 import { AuthStoreProvider } from "@/contexts/auth-store-context";
-import { EnvironmentProvider } from "@/contexts/EnvironmentContext";
+import { BusinessModeProvider } from "@/contexts/business-mode-context";
 import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
@@ -65,6 +65,8 @@ import WholesaleBuyersPage from "@/pages/wholesale/wholesale-buyers";
 import WholesalePreviewPage from "@/pages/wholesale/wholesale-preview";
 import { WholesaleLayout } from "@/layouts/WholesaleLayout";
 import DashboardRedirect from "@/components/DashboardRedirect";
+import TradeQuotationsList from "@/pages/trade-quotations-list";
+import TradeQuotationBuilder from "@/pages/trade-quotation-builder";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -389,6 +391,35 @@ function AppContent() {
                 )}
               </Route>
               
+              {/* Trade Quotation Routes */}
+              <Route path="/seller/trade/quotations">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <TradeQuotationsList />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/trade/quotations/new">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <TradeQuotationBuilder />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/trade/quotations/:id/edit">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <TradeQuotationBuilder />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
               {/* Seller-only wholesale routes (legacy, redirects) */}
               <Route path="/seller/wholesale/products">
                 {() => (
@@ -484,14 +515,14 @@ function App() {
         <TooltipProvider>
           <SellerProvider>
             <AuthStoreProvider>
-              <EnvironmentProvider>
+              <BusinessModeProvider>
                 <CurrencyProvider>
                   <CartProvider>
                     <AppContent />
                     <Toaster />
                   </CartProvider>
                 </CurrencyProvider>
-              </EnvironmentProvider>
+              </BusinessModeProvider>
             </AuthStoreProvider>
           </SellerProvider>
         </TooltipProvider>

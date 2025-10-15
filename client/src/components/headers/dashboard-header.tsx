@@ -1,16 +1,21 @@
 import { useState } from "react";
-import { LogOut, User, Menu, Settings, Sun, Moon } from "lucide-react";
+import { LogOut, User, Menu, Settings, Sun, Moon, Store, Building2, ClipboardList } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ThemeToggle } from "../theme-toggle";
 import { NotificationBell } from "../notification-bell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
-import { useEnvironment } from "@/contexts/EnvironmentContext";
+import { useBusinessMode } from "@/contexts/business-mode-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,22 +39,21 @@ export function DashboardHeader() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const { currentUser } = useAuthStore();
-  const { environment, setEnvironment } = useEnvironment();
+  const { mode, setMode } = useBusinessMode();
   const [, setLocation] = useLocation();
 
   const isSeller = currentUser?.role === 'seller' || currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
-  const handleEnvironmentToggle = (checked: boolean) => {
-    const newEnv = checked ? 'b2b' : 'b2c';
-    setEnvironment(newEnv);
-    
-    // Navigate to appropriate dashboard based on toggle
-    if (checked) {
-      // Switching to B2B - navigate to wholesale dashboard
-      setLocation('/wholesale/dashboard');
-    } else {
-      // Switching to B2C - navigate to seller dashboard
-      setLocation('/seller-dashboard');
+  const getModeLabel = (mode: string) => {
+    switch (mode) {
+      case 'b2c':
+        return '🏪 Retail (B2C)';
+      case 'b2b':
+        return '🏢 Wholesale (B2B)';
+      case 'trade':
+        return '📋 Trade (Professional)';
+      default:
+        return mode;
     }
   };
 
@@ -190,7 +194,7 @@ export function DashboardHeader() {
           {/* Upfirst Logo - always show on dashboard */}
           <button
             onClick={() => {
-              setEnvironment('b2c');
+              setMode('b2c');
               setLocation('/seller-dashboard');
             }}
             className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg"
@@ -202,20 +206,19 @@ export function DashboardHeader() {
 
         {/* Desktop controls - right side */}
         <div className="flex items-center gap-2">
-          {/* Desktop-only: Environment Toggle, Notifications, Theme */}
+          {/* Desktop-only: Business Mode Selector, Notifications, Theme */}
           <div className="hidden md:flex items-center gap-2">
             {isSeller && (
-              <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg">
-                <Label htmlFor="environment-toggle" className="text-sm font-medium cursor-pointer">
-                  {environment === 'b2c' ? 'B2C' : 'B2B'}
-                </Label>
-                <Switch
-                  id="environment-toggle"
-                  checked={environment === 'b2b'}
-                  onCheckedChange={handleEnvironmentToggle}
-                  data-testid="toggle-environment"
-                />
-              </div>
+              <Select value={mode} onValueChange={(value: any) => setMode(value)} data-testid="select-business-mode">
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue>{getModeLabel(mode)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="b2c">🏪 Retail (B2C)</SelectItem>
+                  <SelectItem value="b2b">🏢 Wholesale (B2B)</SelectItem>
+                  <SelectItem value="trade">📋 Trade (Professional)</SelectItem>
+                </SelectContent>
+              </Select>
             )}
             <NotificationBell />
             <ThemeToggle />

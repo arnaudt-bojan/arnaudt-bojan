@@ -8,8 +8,13 @@ import {
   Users,
   Eye,
   ShoppingCart,
-  LayoutDashboard
+  LayoutDashboard,
+  FileText,
+  Send,
+  Settings,
+  BarChart3
 } from "lucide-react";
+import { useBusinessMode } from "@/contexts/business-mode-context";
 
 interface WholesaleLayoutProps {
   children: React.ReactNode;
@@ -17,8 +22,44 @@ interface WholesaleLayoutProps {
 
 export function WholesaleLayout({ children }: WholesaleLayoutProps) {
   const [location] = useLocation();
+  const { mode } = useBusinessMode();
 
-  const navigation = [
+  // B2C Navigation Items
+  const b2cNavigation = [
+    {
+      name: "Dashboard",
+      href: "/seller-dashboard",
+      icon: LayoutDashboard,
+      testId: "link-seller-dashboard",
+    },
+    {
+      name: "Products",
+      href: "/seller/products",
+      icon: Package,
+      testId: "link-seller-products",
+    },
+    {
+      name: "Orders",
+      href: "/seller/orders",
+      icon: ShoppingCart,
+      testId: "link-seller-orders",
+    },
+    {
+      name: "Analytics",
+      href: "/seller/analytics",
+      icon: BarChart3,
+      testId: "link-seller-analytics",
+    },
+    {
+      name: "Settings",
+      href: "/settings",
+      icon: Settings,
+      testId: "link-seller-settings",
+    },
+  ];
+
+  // B2B Navigation Items
+  const b2bNavigation = [
     {
       name: "Dashboard",
       href: "/wholesale/dashboard",
@@ -51,6 +92,51 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
     },
   ];
 
+  // Trade Navigation Items
+  const tradeNavigation = [
+    {
+      name: "Dashboard",
+      href: "/seller/trade/dashboard",
+      icon: LayoutDashboard,
+      testId: "link-trade-dashboard",
+    },
+    {
+      name: "Quotations",
+      href: "/seller/trade/quotations",
+      icon: FileText,
+      testId: "link-trade-quotations",
+    },
+    {
+      name: "Send Quotation",
+      href: "/seller/trade/send-quotation",
+      icon: Send,
+      testId: "link-trade-send-quotation",
+    },
+    {
+      name: "Trade Orders",
+      href: "/seller/trade/orders",
+      icon: ShoppingCart,
+      testId: "link-trade-orders",
+    },
+  ];
+
+  // Select navigation based on current mode
+  const navigation = mode === 'b2c' ? b2cNavigation : mode === 'b2b' ? b2bNavigation : tradeNavigation;
+
+  // Get mode label for sidebar header
+  const getModeLabel = () => {
+    switch (mode) {
+      case 'b2c':
+        return 'Retail (B2C)';
+      case 'b2b':
+        return 'Wholesale (B2B)';
+      case 'trade':
+        return 'Trade (Professional)';
+      default:
+        return 'Dashboard';
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <div className="flex-1 flex">
@@ -59,7 +145,7 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
           <div className="flex-1 flex flex-col gap-1 p-4">
             <div className="mb-2 px-3">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Wholesale (B2B)
+                {getModeLabel()}
               </h2>
             </div>
             <nav className="space-y-1">
