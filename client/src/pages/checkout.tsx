@@ -1656,12 +1656,12 @@ export default function Checkout() {
                                     SKU: {(item as any).variantSku || (item as any).productSku}
                                   </p>
                                 )}
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <div className="space-y-1 mt-0.5">
                                   <p className="text-sm text-muted-foreground">
                                     {formatConvertedPrice(parseFloat(item.price))} × {item.quantity}
                                   </p>
                                   {(item as any).originalPrice && (item as any).discountAmount && (
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
                                       <span className="text-xs text-muted-foreground line-through">
                                         {formatConvertedPrice(parseFloat((item as any).originalPrice))}
                                       </span>
