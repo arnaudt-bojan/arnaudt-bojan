@@ -42,7 +42,25 @@ interface RefundDialogProps {
 interface RefundableData {
   totalRefundable: string;
   refundedSoFar: string;
-  itemRefundables: Record<string, { maxRefundable: string; refundedAlready: string }>;
+  items: Array<{
+    itemId: string;
+    productName: string;
+    quantity: number;
+    refundedQuantity: number;
+    price: string;
+    refundableQuantity: number;
+    refundableAmount: string;
+  }>;
+  shipping: {
+    total: string;
+    refunded: string;
+    refundable: string;
+  };
+  tax: {
+    total: string;
+    refunded: string;
+    refundable: string;
+  };
 }
 
 interface RefundHistoryItem {
@@ -117,19 +135,19 @@ export function RefundDialog({
       }
 
       // Add shipping if selected
-      if (refundShipping) {
+      if (refundShipping && refundableData?.shipping) {
         lineItems.push({
           type: 'shipping',
-          amount: parseFloat(shippingCost).toFixed(2),
+          amount: parseFloat(refundableData.shipping.refundable).toFixed(2),
           description: 'Shipping refund',
         });
       }
 
       // Add tax if selected
-      if (refundTax) {
+      if (refundTax && refundableData?.tax) {
         lineItems.push({
           type: 'tax',
-          amount: parseFloat(taxAmount).toFixed(2),
+          amount: parseFloat(refundableData.tax.refundable).toFixed(2),
           description: 'Tax refund',
         });
       }
@@ -193,14 +211,10 @@ export function RefundDialog({
       newSelected.delete(item.id);
     } else {
       const refundableQty = item.quantity - (item.refundedQuantity || 0);
-      const pricePerUnit = parseFloat(item.price);
       
       // CRITICAL: Use actual refundable amount from API (respects deposit vs full payment)
-      let refundAmount = pricePerUnit * refundableQty;
-      if (refundableData?.itemRefundables?.[item.id]) {
-        const apiMaxRefundable = parseFloat(refundableData.itemRefundables[item.id].maxRefundable || "0");
-        refundAmount = Math.min(refundAmount, apiMaxRefundable);
-      }
+      const apiItem = refundableData?.items?.find(i => i.itemId === item.id);
+      const refundAmount = apiItem ? parseFloat(apiItem.refundableAmount) : 0;
       
       newSelected.set(item.id, {
         quantity: refundableQty,
@@ -215,25 +229,20 @@ export function RefundDialog({
     const pricePerUnit = parseFloat(item.price);
     const refundableQty = item.quantity - (item.refundedQuantity || 0);
     
-    // CRITICAL: Validate against API refundable data if available
-    let maxAllowedQty = refundableQty;
-    let apiMaxRefundable = pricePerUnit * refundableQty; // Default to full price
+    // CRITICAL: Get actual refundable amount from API
+    const apiItem = refundableData?.items?.find(i => i.itemId === itemId);
+    const apiMaxRefundable = apiItem ? parseFloat(apiItem.refundableAmount) : pricePerUnit * refundableQty;
+    const apiMaxQty = apiItem ? apiItem.refundableQuantity : refundableQty;
     
-    if (refundableData?.itemRefundables?.[itemId]) {
-      apiMaxRefundable = parseFloat(refundableData.itemRefundables[itemId].maxRefundable || "0");
-      const apiMaxQty = Math.floor(apiMaxRefundable / pricePerUnit);
-      maxAllowedQty = Math.min(refundableQty, apiMaxQty);
-    }
+    const clampedQty = Math.max(1, Math.min(newQty, apiMaxQty));
     
-    const clampedQty = Math.max(1, Math.min(newQty, maxAllowedQty));
-    
-    // CRITICAL: Cap amount at API max refundable (respects deposit vs full payment)
-    const calculatedAmount = pricePerUnit * clampedQty;
-    const finalAmount = Math.min(calculatedAmount, apiMaxRefundable);
+    // CRITICAL: Calculate proportional refund amount based on quantity
+    // If requesting fewer items, reduce the refund proportionally
+    const proportionalAmount = (apiMaxRefundable / apiMaxQty) * clampedQty;
     
     newSelected.set(itemId, {
       quantity: clampedQty,
-      amount: finalAmount,
+      amount: proportionalAmount,
     });
     setSelectedItems(newSelected);
   };
@@ -246,16 +255,16 @@ export function RefundDialog({
       total += data.amount;
     }
     
-    // CRITICAL: Safe parsing with null/undefined checks
-    if (refundShipping && shippingCost) {
-      const shipping = parseFloat(shippingCost);
+    // CRITICAL: Use refundable amounts from API (not total amounts)
+    if (refundShipping && refundableData?.shipping) {
+      const shipping = parseFloat(refundableData.shipping.refundable);
       if (!isNaN(shipping)) {
         total += shipping;
       }
     }
     
-    if (refundTax && taxAmount) {
-      const tax = parseFloat(taxAmount);
+    if (refundTax && refundableData?.tax) {
+      const tax = parseFloat(refundableData.tax.refundable);
       if (!isNaN(tax)) {
         total += tax;
       }
@@ -484,7 +493,7 @@ export function RefundDialog({
           <div className="space-y-3">
             <Label>Additional Refunds</Label>
             
-            {shippingCost && parseFloat(shippingCost) > 0 && (
+            {refundableData?.shipping && parseFloat(refundableData.shipping.refundable) > 0 && (
               <div className="flex items-center gap-3 p-3 rounded-lg border">
                 <Checkbox
                   id="refund-shipping"
@@ -498,11 +507,11 @@ export function RefundDialog({
                   Refund Shipping
                   {useCustomAmount && <span className="text-xs text-muted-foreground">(disabled during manual override)</span>}
                 </Label>
-                <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(shippingCost).toFixed(2)}</span>
+                <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(refundableData.shipping.refundable).toFixed(2)}</span>
               </div>
             )}
 
-            {taxAmount && parseFloat(taxAmount) > 0 && (
+            {refundableData?.tax && parseFloat(refundableData.tax.refundable) > 0 && (
               <div className="flex items-center gap-3 p-3 rounded-lg border">
                 <Checkbox
                   id="refund-tax"
@@ -516,7 +525,7 @@ export function RefundDialog({
                   Refund Tax
                   {useCustomAmount && <span className="text-xs text-muted-foreground">(disabled during manual override)</span>}
                 </Label>
-                <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(taxAmount).toFixed(2)}</span>
+                <span className="font-medium">{getCurrencySymbol(currency)}{parseFloat(refundableData.tax.refundable).toFixed(2)}</span>
               </div>
             )}
           </div>
