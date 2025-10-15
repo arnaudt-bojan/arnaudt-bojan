@@ -275,7 +275,31 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
   categoryLevel3Id: z.string().optional().nullable(),
   // Status
   status: z.string().optional().nullable(),
-});
+}).refine(
+  (data) => {
+    // Pre-order products must have a pre-order date
+    if (data.productType === "pre-order" && !data.preOrderDate) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Pre-order date is required for pre-order products",
+    path: ["preOrderDate"],
+  }
+).refine(
+  (data) => {
+    // Made-to-order products must have lead time days
+    if (data.productType === "made-to-order" && (!data.madeToOrderDays || data.madeToOrderDays <= 0)) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Lead time (days) is required for made-to-order products and must be greater than 0",
+    path: ["madeToOrderDays"],
+  }
+);
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
