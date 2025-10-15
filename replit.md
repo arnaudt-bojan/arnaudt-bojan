@@ -19,7 +19,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 **Technical Implementations:**
 -   **Backend:** Employs a service layer pattern with dependency injection for business logic abstraction (e.g., `ProductService`, `StripeConnectService`, `WholesaleService`).
 -   **Business Mode Toggle:** Sellers can switch between B2C (Retail), B2B (Wholesale), and Trade (Professional) modes within the dashboard, altering context and available routes.
--   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import.
+-   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and best-in-class bulk CSV import with job tracking and validation.
 -   **Shipping:** Centralized `ShippingService` integrates various methods including Free Shipping, Flat Rate, Matrix Shipping, and real-time Shippo API rates.
 -   **Shopping & Checkout:** Features slide-over cart, guest checkout, server-side shipping cost calculation, single-seller per cart constraint, and optimized cart performance.
 -   **Authentication & Authorization:** Email-based authentication with a dual-token system and capability-based authorization for seller, buyer, and collaborator roles.
@@ -41,6 +41,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Order Management System:** Comprehensive order lifecycle management with status tracking, refunds, and balance payments.
 -   **Real-Time Order Updates:** WebSocket-based live order synchronization with automatic frontend cache invalidation.
 -   **Delivery Date Display:** Pre-order and made-to-order products display delivery dates on checkout and order confirmation pages. Pre-order items show customer-selected dates while made-to-order items calculate delivery dates from order date plus lead time. Delivery dates are persisted in order snapshots (order.items JSON and order_items table) to ensure accuracy even if products are modified or deleted.
+-   **Bulk Product Upload System:** Shopify-class bulk upload with comprehensive CSV import, job tracking, validation, and rollback. Features include: URL-safe delimiters (@@ and ;;) for color variants preserving HTTPS URLs, real-time validation with row-level error reporting, batch processing with progress tracking, persistent job history, one-click rollback to undo imports, and Architecture 3 compliance with server-side calculations. Utilizes `BulkUploadService` with papaparse CSV parsing and Zod validation.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
@@ -55,5 +56,6 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Routing**: Wouter
 -   **Forms**: React Hook Form
 -   **Validation**: Zod
+-   **CSV Parsing**: PapaParse
 -   **Currency Exchange**: Fawazahmed0 Currency API
 -   **PDF Generation**: PDFKit
