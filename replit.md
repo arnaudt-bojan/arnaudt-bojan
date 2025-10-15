@@ -40,6 +40,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Cart Reservation System:** Implements a "soft hold" pattern with reservations created at checkout, a 30-minute expiry, and automatic release/commit mechanisms.
 -   **Order Management System:** Comprehensive order lifecycle management with status tracking, refunds, and balance payments.
 -   **Real-Time Order Updates:** WebSocket-based live order synchronization with automatic frontend cache invalidation.
+-   **Delivery Date Display:** Pre-order and made-to-order products display delivery dates on checkout and order confirmation pages. Pre-order items show customer-selected dates while made-to-order items calculate delivery dates from order date plus lead time. Delivery dates are persisted in order snapshots (order.items JSON and order_items table) to ensure accuracy even if products are modified or deleted.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
