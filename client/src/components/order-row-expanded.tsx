@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -90,6 +90,25 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
       billingCountry: "",
     },
   });
+
+  // Populate form with order data when it loads
+  useEffect(() => {
+    if (data?.order) {
+      customerDetailsForm.reset({
+        customerName: data.order.customerName,
+        shippingStreet: data.order.shippingStreet || "",
+        shippingCity: data.order.shippingCity || "",
+        shippingState: data.order.shippingState || "",
+        shippingPostalCode: data.order.shippingPostalCode || "",
+        shippingCountry: data.order.shippingCountry || "",
+        billingStreet: data.order.billingStreet || "",
+        billingCity: data.order.billingCity || "",
+        billingState: data.order.billingState || "",
+        billingPostalCode: data.order.billingPostalCode || "",
+        billingCountry: data.order.billingCountry || "",
+      });
+    }
+  }, [data?.order, customerDetailsForm]);
 
   // Mutation to update customer details
   const updateCustomerDetailsMutation = useMutation({
