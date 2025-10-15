@@ -187,8 +187,7 @@ export class RefundService {
             refundId: createdRefund.id,
             sellerId: request.sellerId,
           },
-          idempotencyKey,
-        });
+        }, idempotencyKey);
 
         stripeRefundId = stripeRefund.id;
         logger.info(`[Refund] Stripe refund ${stripeRefundId} created for refund ${createdRefund.id}`);
