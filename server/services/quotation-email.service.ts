@@ -531,260 +531,208 @@ export class QuotationEmailService {
     });
   }
 
-  private buildDepositPaidEmailTemplate(quotation: TradeQuotation, seller: User): string {
+  /**
+   * Build deposit paid email template (Upfirst → Seller)
+   * Uses Upfirst header and footer for platform communications
+   */
+  private async buildDepositPaidEmailTemplate(quotation: TradeQuotation, seller: User): Promise<string> {
     const currency = quotation.currency || 'USD';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0; background-color: #f9fafb;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 20px;">
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #059669 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        ✅ Deposit Received
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Great news! The deposit payment for quotation <strong>${quotation.quotationNumber}</strong> has been received.
+      </p>
+
+      <div style="background-color: #d1fae5 !important; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td align="center">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                
-                <tr>
-                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">✅ Deposit Received</h1>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 40px 30px;">
-                    <p style="margin: 0 0 24px; font-size: 16px;">
-                      Great news! The deposit payment for quotation <strong>${quotation.quotationNumber}</strong> has been received.
-                    </p>
-
-                    <div style="background-color: #d1fae5; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="padding: 8px 0;"><span style="color: #065f46;">Deposit Amount:</span></td>
-                          <td style="padding: 8px 0; text-align: right;"><strong style="font-size: 20px; color: #047857;">${this.formatCurrency(parseFloat(quotation.depositAmount), currency)}</strong></td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0;"><span style="color: #065f46;">Balance Remaining:</span></td>
-                          <td style="padding: 8px 0; text-align: right;"><strong style="font-size: 18px; color: #047857;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</strong></td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <p style="margin: 24px 0 0; font-size: 14px; color: #6b7280;">
-                      Buyer email: ${quotation.buyerEmail}
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">This is an automated notification</p>
-                  </td>
-                </tr>
-
-              </table>
+            <td style="padding: 8px 0;">
+              <span style="color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Deposit Amount:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <strong style="font-size: 20px; color: #047857 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.depositAmount), currency)}</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;">
+              <span style="color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Remaining:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <strong style="font-size: 18px; color: #047857 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</strong>
             </td>
           </tr>
         </table>
-      </body>
-      </html>
+      </div>
+
+      <p style="margin: 24px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <strong>Buyer email:</strong> ${quotation.buyerEmail}
+      </p>
+
+      <p style="margin: 16px 0 0; font-size: 14px; color: #9ca3af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        This is an automated notification from Upfirst.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Deposit received for quotation ${quotation.quotationNumber}`,
+      darkModeSafe: true,
+    });
   }
 
-  private buildBalanceRequestEmailTemplate(
+  /**
+   * Build balance payment request email template (Seller → Buyer)
+   * Uses seller header and footer with Stripe business information
+   */
+  private async buildBalanceRequestEmailTemplate(
     quotation: TradeQuotation,
     seller: User,
     paymentLink: string
-  ): string {
+  ): Promise<string> {
     const sellerName = seller.companyName || 'Seller';
     const currency = quotation.currency || 'USD';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0; background-color: #f9fafb;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 20px;">
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #3b82f6 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Balance Payment Due
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        The balance payment for quotation <strong>${quotation.quotationNumber}</strong> from ${sellerName} is now due.
+      </p>
+
+      <div style="background-color: #dbeafe !important; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td align="center">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                
-                <tr>
-                  <td style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Balance Payment Due</h1>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 40px 30px;">
-                    <p style="margin: 0 0 24px; font-size: 16px;">
-                      The balance payment for quotation <strong>${quotation.quotationNumber}</strong> from ${sellerName} is now due.
-                    </p>
-
-                    <div style="background-color: #dbeafe; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="padding: 8px 0;"><span style="color: #1e40af;">Balance Amount:</span></td>
-                          <td style="padding: 8px 0; text-align: right;"><strong style="font-size: 24px; color: #1e3a8a;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</strong></td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td align="center">
-                          <a href="${paymentLink}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">
-                            Pay Balance Now
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
-
-                    <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280; text-align: center;">
-                      This payment link will expire in 24 hours.
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                      ${sellerName} | Questions? Reply to this email
-                    </p>
-                  </td>
-                </tr>
-
-              </table>
+            <td style="padding: 8px 0;">
+              <span style="color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Amount:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <strong style="font-size: 24px; color: #1e3a8a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</strong>
             </td>
           </tr>
         </table>
-      </body>
-      </html>
+      </div>
+
+      ${generateCTAButton('Pay Balance Now', paymentLink)}
+
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        This payment link will expire in 24 hours.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Balance payment due for quotation ${quotation.quotationNumber}`,
+      darkModeSafe: true,
+    });
   }
 
-  private buildBalancePaidEmailTemplate(quotation: TradeQuotation, seller: User): string {
+  /**
+   * Build balance paid email template (Upfirst → Seller)
+   * Uses Upfirst header and footer for platform communications
+   */
+  private async buildBalancePaidEmailTemplate(quotation: TradeQuotation, seller: User): Promise<string> {
     const currency = quotation.currency || 'USD';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0; background-color: #f9fafb;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 20px;">
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #059669 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        🎉 Balance Payment Received
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Excellent! The balance payment for quotation <strong>${quotation.quotationNumber}</strong> has been received. The quotation is now fully paid.
+      </p>
+
+      <div style="background-color: #d1fae5 !important; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td align="center">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                
-                <tr>
-                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">🎉 Balance Payment Received</h1>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 40px 30px;">
-                    <p style="margin: 0 0 24px; font-size: 16px;">
-                      Excellent! The balance payment for quotation <strong>${quotation.quotationNumber}</strong> has been received. The quotation is now fully paid.
-                    </p>
-
-                    <div style="background-color: #d1fae5; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="padding: 8px 0;"><span style="color: #065f46;">Balance Paid:</span></td>
-                          <td style="padding: 8px 0; text-align: right;"><strong style="font-size: 20px; color: #047857;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</strong></td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0;"><span style="color: #065f46;">Total Paid:</span></td>
-                          <td style="padding: 8px 0; text-align: right;"><strong style="font-size: 20px; color: #047857;">${this.formatCurrency(parseFloat(quotation.total), currency)}</strong></td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <p style="margin: 24px 0 0; font-size: 14px; color: #6b7280;">
-                      Buyer email: ${quotation.buyerEmail}
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">This is an automated notification</p>
-                  </td>
-                </tr>
-
-              </table>
+            <td style="padding: 8px 0;">
+              <span style="color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Paid:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <strong style="font-size: 20px; color: #047857 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;">
+              <span style="color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total Paid:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <strong style="font-size: 20px; color: #047857 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.total), currency)}</strong>
             </td>
           </tr>
         </table>
-      </body>
-      </html>
+      </div>
+
+      <p style="margin: 24px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <strong>Buyer email:</strong> ${quotation.buyerEmail}
+      </p>
+
+      <p style="margin: 16px 0 0; font-size: 14px; color: #9ca3af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        This is an automated notification from Upfirst.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Balance payment received for quotation ${quotation.quotationNumber}`,
+      darkModeSafe: true,
+    });
   }
 
-  private buildExpiredEmailTemplate(quotation: TradeQuotation, seller: User): string {
+  /**
+   * Build quotation expired email template (Seller → Buyer)
+   * Uses seller header and footer with Stripe business information
+   */
+  private async buildExpiredEmailTemplate(quotation: TradeQuotation, seller: User): Promise<string> {
     const sellerName = seller.companyName || 'Seller';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0; background-color: #f9fafb;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 20px;">
-          <tr>
-            <td align="center">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                
-                <tr>
-                  <td style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Quotation Expired</h1>
-                  </td>
-                </tr>
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
 
-                <tr>
-                  <td style="padding: 40px 30px;">
-                    <p style="margin: 0 0 24px; font-size: 16px;">
-                      Unfortunately, quotation <strong>${quotation.quotationNumber}</strong> from ${sellerName} has expired.
-                    </p>
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #ef4444 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Quotation Expired
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Unfortunately, quotation <strong>${quotation.quotationNumber}</strong> from ${sellerName} has expired.
+      </p>
 
-                    <div style="background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 4px; margin-bottom: 24px;">
-                      <p style="margin: 0; color: #991b1b; font-size: 14px;">
-                        This quotation is no longer valid. Please contact the seller for a new quotation if you're still interested.
-                      </p>
-                    </div>
+      <div style="background-color: #fee2e2 !important; border-left: 4px solid #ef4444; padding: 16px; border-radius: 4px; margin-bottom: 24px;">
+        <p style="margin: 0; color: #991b1b !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          This quotation is no longer valid. Please contact the seller for a new quotation if you're still interested.
+        </p>
+      </div>
 
-                    <p style="margin: 24px 0 0; font-size: 14px; color: #6b7280;">
-                      Contact ${sellerName} for assistance.
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                      ${sellerName}
-                    </p>
-                  </td>
-                </tr>
-
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
+      <p style="margin: 24px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Contact <strong>${sellerName}</strong> for assistance.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Quotation ${quotation.quotationNumber} has expired`,
+      darkModeSafe: true,
+    });
   }
 
   private formatCurrency(amount: number, currency: string): string {
