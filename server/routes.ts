@@ -52,6 +52,7 @@ import type { WorkflowConfig } from "./services/workflows/types";
 import { QuotationService } from "./services/quotation.service";
 import { QuotationEmailService } from "./services/quotation-email.service";
 import { QuotationPaymentService } from "./services/quotation-payment.service";
+import { CartReservationService } from "./services/cart-reservation.service";
 import crypto from "crypto";
 
 // Initialize notification service
@@ -62,6 +63,9 @@ const authorizationService = new AuthorizationService(storage);
 
 // Initialize inventory service for stock management
 const inventoryService = new InventoryService(storage);
+
+// Initialize cart reservation service (Architecture 3)
+const cartReservationService = new CartReservationService(storage, inventoryService);
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -6656,6 +6660,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logger.error("Shipping calculate error", error);
       res.status(500).json({ error: "Failed to calculate shipping" });
+    }
+  });
+
+  // Cart Reservation API - Lifecycle management
+  // NOTE: No auth required for cart reservations - these are session-based (guest checkout support)
+  // However, sessionId must match req.sessionID to prevent unauthorized access
+
+  // Extend reservation time (call when user is actively filling checkout form)
+  app.post("/api/cart/reservations/extend", async (req: any, res) => {
+    try {
+      // Validate request body with Zod
+      const schema = z.object({
+        sessionId: z.string().min(1, "Session ID is required"),
+        additionalMinutes: z.number().int().positive().optional().default(15),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ 
+          error: "Invalid request", 
+          details: fromZodError(parsed.error).message 
+        });
+      }
+
+      const { sessionId, additionalMinutes } = parsed.data;
+
+      // SECURITY: Verify sessionId matches current session (prevent cross-session manipulation)
+      if (sessionId !== req.sessionID) {
+        return res.status(403).json({ error: "Session mismatch - cannot extend other sessions" });
+      }
+
+      const result = await cartReservationService.extendReservation(sessionId, additionalMinutes);
+      
+      if (!result.success) {
+        return res.status(404).json({ error: result.error });
+      }
+
+      res.json({ success: true, expiresAt: result.newExpiresAt });
+    } catch (error: any) {
+      logger.error("Extend reservation error", error);
+      res.status(500).json({ error: "Failed to extend reservation" });
+    }
+  });
+
+  // Release (cancel) session reservations
+  app.delete("/api/cart/reservations/:sessionId", async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+
+      // SECURITY: Verify sessionId matches current session (prevent cross-session manipulation)
+      if (sessionId !== req.sessionID) {
+        return res.status(403).json({ error: "Session mismatch - cannot release other sessions" });
+      }
+
+      const result = await cartReservationService.releaseSessionReservations(sessionId);
+      
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.json({ success: true, released: result.released });
+    } catch (error: any) {
+      logger.error("Release reservations error", error);
+      res.status(500).json({ error: "Failed to release reservations" });
+    }
+  });
+
+  // Get active reservations for session (for debugging/status check)
+  app.get("/api/cart/reservations/:sessionId", async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+
+      // SECURITY: Verify sessionId matches current session (prevent cross-session snooping)
+      if (sessionId !== req.sessionID) {
+        return res.status(403).json({ error: "Session mismatch - cannot view other sessions" });
+      }
+
+      const result = await cartReservationService.getSessionReservations(sessionId);
+      
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.json({ reservations: result.reservations });
+    } catch (error: any) {
+      logger.error("Get reservations error", error);
+      res.status(500).json({ error: "Failed to get reservations" });
     }
   });
 

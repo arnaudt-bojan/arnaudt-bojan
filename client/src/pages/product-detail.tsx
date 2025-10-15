@@ -179,6 +179,15 @@ export default function ProductDetail() {
         ? (variantRequirements.availableSizes || [])
         : [];
   
+  // Build stock info map for size selector (only for in-stock products)
+  const sizeStockInfo: Record<string, number> | undefined = 
+    product?.productType === "in-stock" && currentColorVariant?.sizes
+      ? currentColorVariant.sizes.reduce((acc, sizeItem) => {
+          acc[sizeItem.size] = sizeItem.stock || 0;
+          return acc;
+        }, {} as Record<string, number>)
+      : undefined;
+  
   // Get images to display (selected color's images or product images)
   const displayImages = currentColorVariant && currentColorVariant.images && currentColorVariant.images.length > 0
     ? currentColorVariant.images
@@ -547,6 +556,7 @@ export default function ProductDetail() {
                     sizes={sizeOptions}
                     selectedSize={selectedSize}
                     onSelectSize={setSelectedSize}
+                    stockInfo={sizeStockInfo}
                   />
                 )}
               </div>

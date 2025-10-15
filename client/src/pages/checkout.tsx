@@ -862,13 +862,18 @@ export default function Checkout() {
     // Invalidate stock queries to refresh availability after purchase
     // This ensures product pages show updated stock counts
     items.forEach(item => {
-      // Invalidate stock availability for this specific product/variant
+      // CRITICAL FIX: Match query key format used in product-detail.tsx
+      // Product detail uses ["/api/products", productId] format (array with two elements)
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/products/${item.id}/stock-availability`] 
+        queryKey: ["/api/products", item.id] 
       });
-      // Invalidate product query to update stock display
+      
+      // Invalidate stock availability - use prefix to catch all variant combinations
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/products/${item.id}`] 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith(`/api/products/${item.id}/stock-availability`);
+        }
       });
     });
     
