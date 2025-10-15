@@ -16,6 +16,14 @@ import type { QuotationService } from './quotation.service';
 import type { TradeQuotation, TradeQuotationItem, User } from '@shared/schema';
 import { tradeQuotationEvents } from '@shared/schema';
 import { logger } from '../logger';
+import {
+  generateEmailBaseLayout,
+  generateSellerHeader,
+  generateSellerFooter,
+  generateUpfirstHeader,
+  generateUpfirstFooter,
+  generateCTAButton,
+} from '../utils/email-templates';
 
 // ============================================================================
 // Interfaces
@@ -138,7 +146,7 @@ export class QuotationEmailService {
       const quotationLink = `${baseUrl}/trade/view/${accessToken}`;
 
       // 5. Build email content
-      const emailHtml = this.buildQuotationEmailTemplate(
+      const emailHtml = await this.buildQuotationEmailTemplate(
         quotation,
         quotation.items,
         seller,
@@ -200,7 +208,7 @@ export class QuotationEmailService {
         return { success: false, error: 'Seller not found or has no email' };
       }
 
-      const emailHtml = this.buildDepositPaidEmailTemplate(quotation, seller);
+      const emailHtml = await this.buildDepositPaidEmailTemplate(quotation, seller);
 
       const emailResult = await this.notificationService.sendEmail({
         to: seller.email,
@@ -261,7 +269,7 @@ export class QuotationEmailService {
         : `http://localhost:${process.env.PORT || 5000}`;
       const paymentLink = `${baseUrl}/trade/view/${accessToken}`;
 
-      const emailHtml = this.buildBalanceRequestEmailTemplate(quotation, seller, paymentLink);
+      const emailHtml = await this.buildBalanceRequestEmailTemplate(quotation, seller, paymentLink);
 
       const emailResult = await this.notificationService.sendEmail({
         to: quotation.buyerEmail,
@@ -315,7 +323,7 @@ export class QuotationEmailService {
         return { success: false, error: 'Seller not found or has no email' };
       }
 
-      const emailHtml = this.buildBalancePaidEmailTemplate(quotation, seller);
+      const emailHtml = await this.buildBalancePaidEmailTemplate(quotation, seller);
 
       const emailResult = await this.notificationService.sendEmail({
         to: seller.email,
@@ -369,7 +377,7 @@ export class QuotationEmailService {
         return { success: false, error: 'Seller not found' };
       }
 
-      const emailHtml = this.buildExpiredEmailTemplate(quotation, seller);
+      const emailHtml = await this.buildExpiredEmailTemplate(quotation, seller);
 
       const emailResult = await this.notificationService.sendEmail({
         to: quotation.buyerEmail,
@@ -412,12 +420,16 @@ export class QuotationEmailService {
   // Email Template Builders
   // ==========================================================================
 
-  private buildQuotationEmailTemplate(
+  /**
+   * Build quotation email template (Seller → Buyer)
+   * Uses seller header and footer with Stripe business information
+   */
+  private async buildQuotationEmailTemplate(
     quotation: TradeQuotation,
     items: TradeQuotationItem[],
     seller: User,
     quotationLink: string
-  ): string {
+  ): Promise<string> {
     const sellerName = seller.companyName || 'Seller';
     const currency = quotation.currency || 'USD';
     const validUntilText = quotation.validUntil
@@ -428,139 +440,95 @@ export class QuotationEmailService {
       .map(
         (item) => `
         <tr>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.description}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${this.formatCurrency(parseFloat(item.unitPrice), currency)}</td>
-          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600;">${this.formatCurrency(parseFloat(item.lineTotal), currency)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.description}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.quantity}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${this.formatCurrency(parseFloat(item.unitPrice), currency)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${this.formatCurrency(parseFloat(item.lineTotal), currency)}</td>
         </tr>
       `
       )
       .join('');
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Quotation ${quotation.quotationNumber}</title>
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0; background-color: #f9fafb;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 20px;">
+    const header = generateSellerHeader(seller);
+    const footer = await generateSellerFooter(seller);
+
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
+        Quotation ${quotation.quotationNumber}
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        You have received a quotation from <strong>${sellerName}</strong>.
+      </p>
+
+      <!-- Summary Box -->
+      <div style="background-color: #f3f4f6 !important; border-radius: 8px; padding: 20px; margin-bottom: 30px;" class="dark-mode-bg-white">
+        <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td align="center">
-              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                
-                <!-- Header -->
-                <tr>
-                  <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Quotation</h1>
-                    <p style="margin: 8px 0 0; color: #e0e7ff; font-size: 18px;">${quotation.quotationNumber}</p>
-                  </td>
-                </tr>
-
-                <!-- Content -->
-                <tr>
-                  <td style="padding: 40px 30px;">
-                    
-                    <!-- Introduction -->
-                    <p style="margin: 0 0 24px; font-size: 16px; color: #374151;">
-                      You have received a quotation from <strong>${sellerName}</strong>.
-                    </p>
-
-                    <!-- Summary Box -->
-                    <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="padding: 8px 0;">
-                            <span style="color: #6b7280; font-size: 14px;">Total Amount:</span>
-                          </td>
-                          <td style="padding: 8px 0; text-align: right;">
-                            <span style="font-size: 24px; font-weight: 700; color: #111827;">${this.formatCurrency(parseFloat(quotation.total), currency)}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0;">
-                            <span style="color: #6b7280; font-size: 14px;">Deposit Amount (${quotation.depositPercentage}%):</span>
-                          </td>
-                          <td style="padding: 8px 0; text-align: right;">
-                            <span style="font-size: 18px; font-weight: 600; color: #059669;">${this.formatCurrency(parseFloat(quotation.depositAmount), currency)}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 8px 0;">
-                            <span style="color: #6b7280; font-size: 14px;">Balance Amount:</span>
-                          </td>
-                          <td style="padding: 8px 0; text-align: right;">
-                            <span style="font-size: 18px; font-weight: 600; color: #3b82f6;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td colspan="2" style="padding-top: 12px;">
-                            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-top: 8px;">
-                              <p style="margin: 0; color: #92400e; font-size: 13px;">
-                                <strong>⏰ ${validUntilText}</strong>
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <!-- Items Table -->
-                    <h2 style="margin: 0 0 16px; font-size: 20px; color: #111827; font-weight: 600;">Items</h2>
-                    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 30px;">
-                      <thead>
-                        <tr style="background-color: #f9fafb;">
-                          <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                          <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Qty</th>
-                          <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Unit Price</th>
-                          <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${itemsHtml}
-                      </tbody>
-                    </table>
-
-                    <!-- CTA Button -->
-                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 30px;">
-                      <tr>
-                        <td align="center">
-                          <a href="${quotationLink}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
-                            View & Accept Quotation
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
-
-                    <!-- Footer Note -->
-                    <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280; text-align: center;">
-                      This link will expire in 24 hours. Please view the quotation and proceed with payment if you accept the terms.
-                    </p>
-
-                  </td>
-                </tr>
-
-                <!-- Footer -->
-                <tr>
-                  <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; font-size: 14px; color: #6b7280;">
-                      ${sellerName}
-                    </p>
-                    <p style="margin: 8px 0 0; font-size: 12px; color: #9ca3af;">
-                      Questions? Reply to this email.
-                    </p>
-                  </td>
-                </tr>
-
-              </table>
+            <td style="padding: 8px 0;">
+              <span style="color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total Amount:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <span style="font-size: 24px; font-weight: 700; color: #111827 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${this.formatCurrency(parseFloat(quotation.total), currency)}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;">
+              <span style="color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Deposit Amount (${quotation.depositPercentage}%):</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <span style="font-size: 18px; font-weight: 600; color: #059669 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.depositAmount), currency)}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;">
+              <span style="color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Amount:</span>
+            </td>
+            <td style="padding: 8px 0; text-align: right;">
+              <span style="font-size: 18px; font-weight: 600; color: #3b82f6 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${this.formatCurrency(parseFloat(quotation.balanceAmount), currency)}</span>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding-top: 12px;">
+              <div style="background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-top: 8px;">
+                <p style="margin: 0; color: #92400e !important; font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                  <strong>⏰ ${validUntilText}</strong>
+                </p>
+              </div>
             </td>
           </tr>
         </table>
-      </body>
-      </html>
+      </div>
+
+      <!-- Items Table -->
+      <h2 style="margin: 0 0 16px; font-size: 20px; color: #111827 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">Items</h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 30px;">
+        <thead>
+          <tr style="background-color: #f9fafb !important;" class="dark-mode-bg-white">
+            <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #6b7280 !important; text-transform: uppercase; letter-spacing: 0.05em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Description</th>
+            <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: #6b7280 !important; text-transform: uppercase; letter-spacing: 0.05em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Qty</th>
+            <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #6b7280 !important; text-transform: uppercase; letter-spacing: 0.05em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Unit Price</th>
+            <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #6b7280 !important; text-transform: uppercase; letter-spacing: 0.05em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      ${generateCTAButton('View & Accept Quotation', quotationLink)}
+
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        This link will expire in 24 hours. Please view the quotation and proceed with payment if you accept the terms.
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Quotation ${quotation.quotationNumber} from ${sellerName}`,
+      darkModeSafe: true,
+    });
   }
 
   private buildDepositPaidEmailTemplate(quotation: TradeQuotation, seller: User): string {

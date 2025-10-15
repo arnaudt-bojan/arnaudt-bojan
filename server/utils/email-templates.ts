@@ -301,7 +301,7 @@ export function generateSellerHeader(seller: User): string {
 
 /**
  * Generate Upfirst platform footer (Upfirst → Seller emails)
- * Includes company name, legal address, social links, and copyright
+ * Includes company name, legal address, contact info, social links, and copyright
  * 
  * @returns HTML footer string
  */
@@ -319,11 +319,23 @@ export function generateUpfirstFooter(): string {
       </p>
       
       <!-- Legal Address -->
-      <p style="margin: 0 0 20px; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6;">
+      <p style="margin: 0 0 15px; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6;">
         UPPFIRST SG PTE LTD<br>
         6001 BEACH ROAD, #22-01 GOLDEN MILE TOWER<br>
         SINGAPORE (199589)
       </p>
+      
+      <!-- Contact Information -->
+      <div style="margin: 20px 0;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <a href="mailto:support@upfirst.io" style="color: #6366f1 !important; text-decoration: underline;">
+            support@upfirst.io
+          </a>
+        </p>
+        <p style="margin: 0 0 8px; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Phone: +65 6001 2345
+        </p>
+      </div>
       
       <!-- Social Links -->
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 20px;">
