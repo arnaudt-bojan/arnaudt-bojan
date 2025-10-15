@@ -42,6 +42,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Real-Time Order Updates:** WebSocket-based live order synchronization with automatic frontend cache invalidation.
 -   **Delivery Date Display:** Pre-order and made-to-order products display delivery dates on checkout and order confirmation pages. Pre-order items show customer-selected dates while made-to-order items calculate delivery dates from order date plus lead time. Delivery dates are persisted in order snapshots (order.items JSON and order_items table) to ensure accuracy even if products are modified or deleted.
 -   **Bulk Product Upload System:** Shopify-class bulk upload with comprehensive CSV import, job tracking, validation, and rollback. Features include: URL-safe delimiters (@@ and ;;) for color variants preserving HTTPS URLs, real-time validation with row-level error reporting, batch processing with progress tracking, persistent job history, one-click rollback to undo imports, and Architecture 3 compliance with server-side calculations. Utilizes `BulkUploadService` with papaparse CSV parsing and Zod validation.
+-   **AI-Powered Field Mapping:** Gemini AI integration for intelligent CSV column mapping. Users can upload CSVs in any format, and the AI automatically maps custom headers to standard fields with confidence scores. Features include: high-confidence auto-mapping (>80%), medium-confidence review flags (50-80%), manual mapping for low confidence (<50%), visual confidence indicators, field mapping validation, and seamless transformation of user data to standard format. Enables universal CSV import compatibility without requiring specific column names.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
@@ -50,12 +51,13 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Payment Gateway**: Stripe SDK
 -   **Shipping Service**: Shippo API
 -   **Social Media APIs**: Meta Graph API, TikTok Business API, X (Twitter) Ads API, Instagram Basic Display API
+-   **AI Services**: Google Gemini API (field mapping, content analysis)
 -   **UI Components**: Shadcn UI
 -   **Styling**: Tailwind CSS
 -   **State Management**: TanStack Query
 -   **Routing**: Wouter
 -   **Forms**: React Hook Form
 -   **Validation**: Zod
--   **CSV Parsing**: PapaParse
+-   **CSV Parsing**: PapaParse, XLSX
 -   **Currency Exchange**: Fawazahmed0 Currency API
 -   **PDF Generation**: PDFKit
