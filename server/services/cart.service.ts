@@ -129,19 +129,44 @@ export class CartService {
       }
 
       // Find variant if applicable
+      // CRITICAL FIX: Handle nested variant structure [{colorName, sizes: [{size, stock}]}]
+      // Match the EXACT frontend logic: `${size}-${color}`.toLowerCase()
       let variant: { size?: string; color?: string } | undefined;
       if (variantId && product.variants) {
         const variants = product.variants as any[];
-        const foundVariant = variants.find((v: any) => {
-          const vId = `${v.size || ''}-${v.color || ''}`.trim().replace(/^-|-$/g, '');
-          return vId === variantId;
-        });
         
-        if (foundVariant) {
-          variant = {
-            size: foundVariant.size,
-            color: foundVariant.color,
-          };
+        // Search through nested structure
+        for (const colorGroup of variants) {
+          if (colorGroup.colorName || colorGroup.sizes) {
+            // Nested structure: {colorName, sizes: [{size, stock}]}
+            const colorName = colorGroup.colorName || '';
+            
+            if (colorGroup.sizes && Array.isArray(colorGroup.sizes)) {
+              for (const sizeItem of colorGroup.sizes) {
+                // Construct variantId the SAME way frontend does: `${size}-${color}`.toLowerCase()
+                const constructedId = `${sizeItem.size}-${colorName}`.toLowerCase();
+                
+                if (constructedId === variantId) {
+                  variant = {
+                    size: sizeItem.size,
+                    color: colorName || undefined,
+                  };
+                  break;
+                }
+              }
+            }
+            if (variant) break;
+          } else if (colorGroup.size || colorGroup.color) {
+            // Flat structure: {size, color} (legacy)
+            const constructedId = `${colorGroup.size}-${colorGroup.color}`.toLowerCase();
+            if (constructedId === variantId) {
+              variant = {
+                size: colorGroup.size,
+                color: colorGroup.color,
+              };
+              break;
+            }
+          }
         }
       }
 
