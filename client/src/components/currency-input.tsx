@@ -8,11 +8,8 @@ interface CurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
 }
 
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ currency, className, value, ...props }, ref) => {
+  ({ currency, className, ...props }, ref) => {
     const symbol = getCurrencySymbol(currency);
-    
-    // Ensure value is handled correctly - convert empty string to undefined for number inputs
-    const inputValue = value === "" ? undefined : value;
     
     return (
       <div className="relative">
@@ -21,11 +18,11 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         </span>
         <Input
           ref={ref}
-          type="number"
-          step="0.01"
+          type="text"
+          inputMode="decimal"
+          pattern="[0-9]*\.?[0-9]*"
           placeholder="0.00"
           className={cn("pl-8", className)}
-          value={inputValue}
           {...props}
         />
       </div>

@@ -97,15 +97,15 @@ export default function CreateProduct() {
     defaultValues: {
       name: "",
       description: "",
-      price: undefined as any,
+      price: "",
       image: "",
       category: "",
       productType: "in-stock",
       stock: undefined,
-      depositAmount: undefined,
+      depositAmount: "",
       requiresDeposit: 0,
       status: "active",
-      flatShippingRate: undefined,
+      flatShippingRate: "",
     },
   });
 
