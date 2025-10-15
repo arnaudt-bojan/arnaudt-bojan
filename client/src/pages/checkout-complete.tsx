@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 export default function CheckoutComplete() {
@@ -65,6 +65,20 @@ export default function CheckoutComplete() {
               setOrderId(orderIdFromMetadata);
               setCustomerEmail(emailFromMetadata);
               setStatus("success");
+              
+              // Invalidate stock queries to refresh availability after purchase
+              // Note: We don't have specific product IDs here (express checkout flow),
+              // so we invalidate all product/stock queries to ensure UI is up-to-date
+              queryClient.invalidateQueries({ 
+                queryKey: ['/api/products'] 
+              });
+              queryClient.invalidateQueries({ 
+                predicate: (query) => {
+                  const key = query.queryKey[0];
+                  return typeof key === 'string' && 
+                         (key.includes('/stock-availability') || key.startsWith('/api/products/'));
+                }
+              });
               
               // Redirect to order success after 1 second
               setTimeout(() => {

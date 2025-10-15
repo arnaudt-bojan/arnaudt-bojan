@@ -858,33 +858,83 @@ export class DatabaseStorage implements IStorage {
 
           const variantId = reservation.variantId;
           if (variantId && product[0].variants) {
-            // Decrement variant stock in JSONB array
+            // FIXED: Handle nested variant structure properly
+            // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}] for color-size
+            //       OR: [{size, stock, sku}] for size-only
             const variants = Array.isArray(product[0].variants) ? product[0].variants : [];
-            const updatedVariants = variants.map((v: any) => {
-              const currentVariantId = v.color 
-                ? `${v.size?.toLowerCase() || ''}-${v.color.toLowerCase()}`.replace(/\s+/g, '-')
-                : v.size?.toLowerCase() || '';
-              
-              if (currentVariantId === variantId) {
+            let stockUpdated = false;
+            
+            const updatedVariants = variants.map((colorOrSizeVariant: any) => {
+              // Handle nested color→sizes structure (check for sizes array directly)
+              if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
+                const updatedSizes = colorOrSizeVariant.sizes.map((sizeVariant: any) => {
+                  // Match variantId in multiple formats:
+                  // 1. Full format: "size-color" (e.g., "s-orange")
+                  // 2. Size-only format: "s" (fallback for legacy/simple reservations)
+                  const fullVariantId = `${sizeVariant.size}-${colorOrSizeVariant.colorName}`.toLowerCase();
+                  const sizeOnlyId = sizeVariant.size?.toLowerCase();
+                  const normalizedVariantId = variantId.toLowerCase();
+                  
+                  if (fullVariantId === normalizedVariantId || sizeOnlyId === normalizedVariantId) {
+                    stockUpdated = true;
+                    return {
+                      ...sizeVariant,
+                      stock: Math.max(0, (sizeVariant.stock || 0) - reservation.quantity),
+                    };
+                  }
+                  return sizeVariant;
+                });
+                
                 return {
-                  ...v,
-                  stock: Math.max(0, (v.stock || 0) - reservation.quantity),
+                  ...colorOrSizeVariant,
+                  sizes: updatedSizes,
                 };
               }
-              return v;
+              // Handle simple size-only structure
+              else {
+                const currentVariantId = colorOrSizeVariant.size?.toLowerCase() || '';
+                
+                if (currentVariantId === variantId.toLowerCase()) {
+                  stockUpdated = true;
+                  return {
+                    ...colorOrSizeVariant,
+                    stock: Math.max(0, (colorOrSizeVariant.stock || 0) - reservation.quantity),
+                  };
+                }
+                return colorOrSizeVariant;
+              }
             });
 
-            // CRITICAL FIX: Also decrement master product.stock when variant is sold
-            // This keeps product.stock in sync with sum of all variant stocks
-            const newMasterStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
+            // Calculate new product.stock as sum of all variant stocks (Architecture 3)
+            let totalVariantStock = 0;
+            for (const variant of updatedVariants) {
+              if (variant.sizes && Array.isArray(variant.sizes)) {
+                // Color-size structure: sum all sizes
+                for (const size of variant.sizes) {
+                  totalVariantStock += size.stock || 0;
+                }
+              } else {
+                // Size-only structure: direct stock
+                totalVariantStock += variant.stock || 0;
+              }
+            }
 
             await tx
               .update(products)
               .set({ 
                 variants: updatedVariants,
-                stock: newMasterStock  // Update BOTH variant stock AND master stock
+                stock: totalVariantStock  // Auto-sync: product.stock = sum of variant stocks
               })
               .where(eq(products.id, reservation.productId));
+            
+            logger.info('[Storage] Variant stock decremented in transaction', {
+              orderId,
+              productId: reservation.productId,
+              variantId,
+              quantity: reservation.quantity,
+              stockUpdated,
+              newTotalStock: totalVariantStock,
+            });
           } else {
             // No variants - just update master stock
             const newStock = Math.max(0, (product[0].stock || 0) - reservation.quantity);
@@ -892,6 +942,13 @@ export class DatabaseStorage implements IStorage {
               .update(products)
               .set({ stock: newStock })
               .where(eq(products.id, reservation.productId));
+            
+            logger.info('[Storage] Product stock decremented in transaction', {
+              orderId,
+              productId: reservation.productId,
+              quantity: reservation.quantity,
+              newStock,
+            });
           }
         }
       });

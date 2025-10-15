@@ -374,20 +374,24 @@ export class InventoryService {
     }
 
     if (variantId && product.variants) {
-      // CRITICAL FIX: Handle nested variant structure
-      // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}]
+      // CRITICAL FIX: Handle nested variant structure (same logic as decrementStock)
+      // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}] for color-size
+      //       OR: [{size, stock, sku}] for size-only
       const variants = Array.isArray(product.variants) ? product.variants : [];
       let stockUpdated = false;
       
-      const updatedVariants = variants.map((colorVariant: any) => {
-        if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
-          const updatedSizes = colorVariant.sizes.map((sizeVariant: any) => {
-            // Match variantId format: "size-color" or just "size"
-            const matches = 
-              `${sizeVariant.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
-              sizeVariant.size === variantId;
+      const updatedVariants = variants.map((colorOrSizeVariant: any) => {
+        // Handle nested color→sizes structure (check for sizes array directly)
+        if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
+          const updatedSizes = colorOrSizeVariant.sizes.map((sizeVariant: any) => {
+            // Match variantId in multiple formats:
+            // 1. Full format: "size-color" (e.g., "s-orange")
+            // 2. Size-only format: "s" (fallback for legacy/simple reservations)
+            const fullVariantId = `${sizeVariant.size}-${colorOrSizeVariant.colorName}`.toLowerCase();
+            const sizeOnlyId = sizeVariant.size?.toLowerCase();
+            const normalizedVariantId = variantId.toLowerCase();
             
-            if (matches) {
+            if (fullVariantId === normalizedVariantId || sizeOnlyId === normalizedVariantId) {
               stockUpdated = true;
               return {
                 ...sizeVariant,
@@ -398,15 +402,42 @@ export class InventoryService {
           });
           
           return {
-            ...colorVariant,
+            ...colorOrSizeVariant,
             sizes: updatedSizes,
           };
         }
-        return colorVariant;
+        // Handle simple size-only structure
+        else {
+          const currentVariantId = colorOrSizeVariant.size?.toLowerCase() || '';
+          
+          if (currentVariantId === variantId.toLowerCase()) {
+            stockUpdated = true;
+            return {
+              ...colorOrSizeVariant,
+              stock: (colorOrSizeVariant.stock || 0) + quantity,
+            };
+          }
+          return colorOrSizeVariant;
+        }
       });
+
+      // Calculate new product.stock as sum of all variant stocks (Architecture 3)
+      let totalVariantStock = 0;
+      for (const variant of updatedVariants) {
+        if (variant.sizes && Array.isArray(variant.sizes)) {
+          // Color-size structure: sum all sizes
+          for (const size of variant.sizes) {
+            totalVariantStock += size.stock || 0;
+          }
+        } else {
+          // Size-only structure: direct stock
+          totalVariantStock += variant.stock || 0;
+        }
+      }
 
       await this.storage.updateProduct(productId, {
         variants: updatedVariants,
+        stock: totalVariantStock,  // Auto-sync: product.stock = sum of variant stocks
       });
 
       logger.info('[InventoryService] Variant stock incremented', {
@@ -414,6 +445,7 @@ export class InventoryService {
         variantId,
         quantity,
         stockUpdated,
+        newTotalStock: totalVariantStock,
       });
     } else {
       const newStock = (product.stock || 0) + quantity;
@@ -498,19 +530,23 @@ export class InventoryService {
 
     if (variantId && product.variants) {
       // CRITICAL FIX: Handle nested variant structure
-      // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}]
+      // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}] for color-size
+      //       OR: [{size, stock, sku}] for size-only
       const variants = Array.isArray(product.variants) ? product.variants : [];
       let stockUpdated = false;
       
-      const updatedVariants = variants.map((colorVariant: any) => {
-        if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
-          const updatedSizes = colorVariant.sizes.map((sizeVariant: any) => {
-            // Match variantId format: "size-color" or just "size"
-            const matches = 
-              `${sizeVariant.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
-              sizeVariant.size === variantId;
+      const updatedVariants = variants.map((colorOrSizeVariant: any) => {
+        // Handle nested color→sizes structure (check for sizes array directly)
+        if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
+          const updatedSizes = colorOrSizeVariant.sizes.map((sizeVariant: any) => {
+            // Match variantId in multiple formats:
+            // 1. Full format: "size-color" (e.g., "s-orange")
+            // 2. Size-only format: "s" (fallback for legacy/simple reservations)
+            const fullVariantId = `${sizeVariant.size}-${colorOrSizeVariant.colorName}`.toLowerCase();
+            const sizeOnlyId = sizeVariant.size?.toLowerCase();
+            const normalizedVariantId = variantId.toLowerCase();
             
-            if (matches) {
+            if (fullVariantId === normalizedVariantId || sizeOnlyId === normalizedVariantId) {
               stockUpdated = true;
               return {
                 ...sizeVariant,
@@ -521,15 +557,42 @@ export class InventoryService {
           });
           
           return {
-            ...colorVariant,
+            ...colorOrSizeVariant,
             sizes: updatedSizes,
           };
         }
-        return colorVariant;
+        // Handle simple size-only structure
+        else {
+          const currentVariantId = colorOrSizeVariant.size?.toLowerCase() || '';
+          
+          if (currentVariantId === variantId.toLowerCase()) {
+            stockUpdated = true;
+            return {
+              ...colorOrSizeVariant,
+              stock: Math.max(0, (colorOrSizeVariant.stock || 0) - quantity),
+            };
+          }
+          return colorOrSizeVariant;
+        }
       });
+
+      // Calculate new product.stock as sum of all variant stocks (Architecture 3)
+      let totalVariantStock = 0;
+      for (const variant of updatedVariants) {
+        if (variant.sizes && Array.isArray(variant.sizes)) {
+          // Color-size structure: sum all sizes
+          for (const size of variant.sizes) {
+            totalVariantStock += size.stock || 0;
+          }
+        } else {
+          // Size-only structure: direct stock
+          totalVariantStock += variant.stock || 0;
+        }
+      }
 
       await this.storage.updateProduct(productId, {
         variants: updatedVariants,
+        stock: totalVariantStock,  // Auto-sync: product.stock = sum of variant stocks
       });
 
       logger.info('[InventoryService] Variant stock decremented', {
@@ -537,6 +600,7 @@ export class InventoryService {
         variantId,
         quantity,
         stockUpdated,
+        newTotalStock: totalVariantStock,
       });
     } else {
       const newStock = Math.max(0, (product.stock || 0) - quantity);

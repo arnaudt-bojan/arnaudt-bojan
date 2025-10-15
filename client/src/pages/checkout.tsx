@@ -858,6 +858,23 @@ export default function Checkout() {
 
   const handlePaymentSuccess = (orderId: string) => {
     clearCart();
+    
+    // Invalidate stock queries to refresh availability after purchase
+    // This ensures product pages show updated stock counts
+    items.forEach(item => {
+      // Invalidate stock availability for this specific product/variant
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/products/${item.id}/stock-availability`] 
+      });
+      // Invalidate product query to update stock display
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/products/${item.id}`] 
+      });
+    });
+    
+    // Also invalidate general products list
+    queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+    
     // Pass email for public order lookup (guest checkout users)
     const email = encodeURIComponent(billingDetails?.customerEmail || '');
     const orderSuccessPath = getSellerAwarePath(`/order-success/${orderId}?email=${email}`, effectiveSellerUsername);
