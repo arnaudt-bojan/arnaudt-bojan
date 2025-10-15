@@ -78,13 +78,13 @@ export function RefundDialog({
   const [showHistory, setShowHistory] = useState(false);
 
   // Fetch order items if not provided
-  const { data: fetchedOrderData } = useQuery<{ orderItems: OrderItem[] }>({
+  const { data: fetchedOrderData, isLoading: isLoadingOrder, error: orderError } = useQuery<{ items: OrderItem[] }>({
     queryKey: ["/api/seller/orders", orderId],
     enabled: open && !providedOrderItems,
   });
 
   // Use provided orderItems or fetch them
-  const orderItems = providedOrderItems || fetchedOrderData?.orderItems || [];
+  const orderItems = providedOrderItems || fetchedOrderData?.items || [];
 
   // Fetch refundable amounts
   const { data: refundableData, isLoading: isLoadingRefundable } = useQuery<RefundableData>({
@@ -349,7 +349,24 @@ export function RefundDialog({
               <Package className="h-4 w-4" />
               Product Items
             </Label>
-            {orderItems.map((item) => {
+            {isLoadingOrder ? (
+              <div className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : orderError ? (
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive font-medium">Failed to load order items</p>
+                <p className="text-xs text-destructive/80 mt-1">
+                  {orderError instanceof Error ? orderError.message : 'Please make sure you are logged in as a seller'}
+                </p>
+              </div>
+            ) : orderItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground p-4 text-center border rounded-lg">
+                No items found for this order
+              </p>
+            ) : (
+              orderItems.map((item) => {
               const refundedQty = item.refundedQuantity || 0;
               const refundableQty = item.quantity - refundedQty;
               const isSelected = selectedItems.has(item.id);
@@ -437,7 +454,8 @@ export function RefundDialog({
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
 
           <Separator />

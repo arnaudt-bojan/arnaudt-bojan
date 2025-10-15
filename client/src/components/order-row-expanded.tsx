@@ -207,6 +207,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
       <div className="flex justify-end">
         <OrderActionBar 
           order={order}
+          orderItems={items}
           balancePaymentStatus={latestBalancePayment?.status}
           balancePaymentRequestedAt={latestBalancePayment?.requestedAt}
         />
@@ -545,16 +546,16 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                 // Reset form with current order values
                 customerDetailsForm.reset({
                   customerName: order.customerName,
-                  shippingStreet: order.shippingStreet,
-                  shippingCity: order.shippingCity,
-                  shippingState: order.shippingState,
-                  shippingPostalCode: order.shippingPostalCode,
-                  shippingCountry: order.shippingCountry,
-                  billingStreet: order.billingStreet,
-                  billingCity: order.billingCity,
-                  billingState: order.billingState,
-                  billingPostalCode: order.billingPostalCode,
-                  billingCountry: order.billingCountry,
+                  shippingStreet: order.shippingStreet ?? "",
+                  shippingCity: order.shippingCity ?? "",
+                  shippingState: order.shippingState ?? "",
+                  shippingPostalCode: order.shippingPostalCode ?? "",
+                  shippingCountry: order.shippingCountry ?? "",
+                  billingStreet: order.billingStreet ?? "",
+                  billingCity: order.billingCity ?? "",
+                  billingState: order.billingState ?? "",
+                  billingPostalCode: order.billingPostalCode ?? "",
+                  billingCountry: order.billingCountry ?? "",
                 });
               }}
               data-testid="button-edit-customer-details"

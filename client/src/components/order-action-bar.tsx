@@ -29,19 +29,21 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Order } from "@shared/schema";
+import type { Order, OrderItem } from "@shared/schema";
 import { RequestBalanceDialog } from "./request-balance-dialog";
 import { ResendBalanceDialog } from "./resend-balance-dialog";
 import { RefundDialog } from "./refund-dialog";
 
 interface OrderActionBarProps {
   order: Order;
+  orderItems?: OrderItem[];
   balancePaymentStatus?: string;
   balancePaymentRequestedAt?: string;
 }
 
 export function OrderActionBar({ 
   order, 
+  orderItems,
   balancePaymentStatus,
   balancePaymentRequestedAt 
 }: OrderActionBarProps) {
@@ -453,6 +455,7 @@ export function OrderActionBar({
       {/* Enhanced Refund Dialog */}
       <RefundDialog
         orderId={order.id}
+        orderItems={orderItems}
         shippingCost={order.shippingCost || "0"}
         taxAmount={order.taxAmount || "0"}
         currency={order.currency || "USD"}
