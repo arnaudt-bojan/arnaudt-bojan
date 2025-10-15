@@ -4630,6 +4630,11 @@ class NotificationServiceImpl implements NotificationService {
     const storeName = seller.firstName || seller.username || 'Our Store';
     const formattedNewDate = format(newDeliveryDate, 'MMMM d, yyyy');
     
+    // Get base URL using the same pattern as other emails
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    
     // Calculate previous delivery date using computeDeliveryDate
     // Convert preOrderDate from Date to string for compatibility
     const orderItemForCompute = {
@@ -4732,7 +4737,7 @@ class NotificationServiceImpl implements NotificationService {
           
           ${generateCTAButton(
             `View Order #${order.id.slice(-8).toUpperCase()}`,
-            `${process.env.FRONTEND_URL || 'https://upfirst.io'}/orders/${order.id}`
+            `${baseUrl}/orders/${order.id}`
           )}
           
           <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
@@ -4744,7 +4749,7 @@ class NotificationServiceImpl implements NotificationService {
     return generateEmailBaseLayout({
       header: generateSellerHeader(seller),
       content,
-      footer: generateSellerFooter(seller),
+      footer: await generateSellerFooter(seller),
       darkModeSafe: true
     });
   }
