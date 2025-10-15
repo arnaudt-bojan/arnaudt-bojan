@@ -57,6 +57,7 @@ export interface CreateOrderParams {
       size?: string;
       color?: string;
     };
+    variantId?: string;
   }>;
   destination: {
     country: string;
@@ -1008,7 +1009,21 @@ export class OrderService {
           productType: item.productType,
           depositAmount: item.depositAmount,
           requiresDeposit: item.requiresDeposit,
-          variant: params.items.find(i => i.productId === item.id)?.variant || null,
+          variant: (() => {
+            const matchedItem = params.items.find(i => i.productId === item.id);
+            if (matchedItem?.variant) {
+              return matchedItem.variant;
+            }
+            if (matchedItem?.variantId) {
+              const parts = matchedItem.variantId.split('-');
+              if (parts.length >= 2) {
+                return { size: parts[0], color: parts[1] };
+              } else if (parts.length === 1) {
+                return { size: parts[0] };
+              }
+            }
+            return null;
+          })(),
         }))
       ),
       total: pricing.fullTotal.toString(),
