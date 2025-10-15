@@ -7,6 +7,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { CSV_TEMPLATE_FIELDS, type CSVTemplateField } from "../../shared/bulk-upload-template";
+import { logger } from "../logger";
 
 // Initialize Gemini AI
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -117,9 +118,9 @@ Analyze each header and provide the best mapping with confidence score and reaso
         contents: userPrompt,
       });
 
-      // Correctly extract text from Gemini response (it's a method, not a property)
-      const rawJson = response.text();
-      console.log('[AIFieldMapping] Gemini response:', rawJson);
+      // Extract text from Gemini response (text is a property, not a method)
+      const rawJson = response.text;
+      logger.info('[AIFieldMapping] Gemini response received', { responseLength: rawJson?.length || 0 });
 
       if (!rawJson) {
         throw new Error("Empty response from Gemini AI");
@@ -168,7 +169,7 @@ Analyze each header and provide the best mapping with confidence score and reaso
         suggestions,
       };
     } catch (error) {
-      console.error('[AIFieldMapping] Error analyzing headers:', error);
+      logger.error('[AIFieldMapping] Error analyzing headers', error);
       
       // Provide user-friendly error messages
       if (error instanceof Error) {
