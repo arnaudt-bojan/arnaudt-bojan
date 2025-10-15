@@ -55,6 +55,7 @@ import { QuotationEmailService } from "./services/quotation-email.service";
 import { QuotationPaymentService } from "./services/quotation-payment.service";
 import { CartReservationService } from "./services/cart-reservation.service";
 import { SKUService } from "./services/sku.service";
+import { RefundService } from "./services/refund.service";
 import crypto from "crypto";
 
 // Initialize notification service
@@ -141,6 +142,12 @@ if (stripe && process.env.STRIPE_WEBHOOK_SECRET) {
     inventoryService,
     webhookHandler
   );
+}
+
+// Initialize Refund service for itemized refund processing
+let refundService: RefundService | null = null;
+if (stripeProvider) {
+  refundService = new RefundService(storage, stripeProvider);
 }
 
 // Initialize product service (Architecture 3 migration)
@@ -1398,6 +1405,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error updating customer details", error);
       res.status(500).json({ error: "Failed to update customer details" });
+    }
+  });
+
+  // Create refund for an order (seller only)
+  app.post("/api/seller/orders/:orderId/refunds", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!refundService) {
+        return res.status(503).json({ error: "Refund service not available. Please configure Stripe." });
+      }
+
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      
+      // Validate request body
+      const refundRequestSchema = z.object({
+        reason: z.string().optional(),
+        lineItems: z.array(z.object({
+          type: z.enum(['product', 'shipping', 'tax', 'adjustment']),
+          orderItemId: z.string().optional(),
+          quantity: z.number().optional(),
+          amount: z.string(),
+          description: z.string().optional(),
+        })).min(1, "At least one line item is required"),
+        manualOverride: z.object({
+          totalAmount: z.string(),
+          reason: z.string(),
+        }).optional(),
+      });
+
+      const parseResult = refundRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const error = fromZodError(parseResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+
+      const refundData = parseResult.data;
+
+      // Get current user and canonical seller ID
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isTeamMember = ["admin", "editor"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalSellerId = isTeamMember ? currentUser.sellerId : userId;
+
+      // Create refund via service
+      const result = await refundService.createRefund({
+        orderId,
+        sellerId: canonicalSellerId!,
+        reason: refundData.reason,
+        lineItems: refundData.lineItems,
+        manualOverride: refundData.manualOverride,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || "Failed to process refund" });
+      }
+
+      res.json({
+        success: true,
+        refundId: result.refundId,
+        totalAmount: result.totalAmount,
+        stripeRefundId: result.stripeRefundId,
+      });
+    } catch (error) {
+      logger.error("Error creating refund:", error);
+      res.status(500).json({ error: "Failed to create refund" });
+    }
+  });
+
+  // Get refund history for an order (seller only)
+  app.get("/api/seller/orders/:orderId/refunds", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!refundService) {
+        return res.status(503).json({ error: "Refund service not available" });
+      }
+
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+
+      // Get order to verify seller ownership
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Get current user and canonical seller ID
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalSellerId = isTeamMember ? currentUser.sellerId : userId;
+
+      // Verify seller ownership via order items
+      const orderItems = await storage.getOrderItems(orderId);
+      if (!orderItems || orderItems.length === 0) {
+        return res.status(404).json({ error: "Order items not found" });
+      }
+
+      const product = await storage.getProduct(orderItems[0].productId);
+      if (!product || product.sellerId !== canonicalSellerId) {
+        return res.status(403).json({ error: "You do not have permission to view refunds for this order" });
+      }
+
+      const refundHistory = await refundService.getRefundHistory(orderId);
+      res.json(refundHistory);
+    } catch (error) {
+      logger.error("Error fetching refund history:", error);
+      res.status(500).json({ error: "Failed to fetch refund history" });
+    }
+  });
+
+  // Get refundable amounts for an order (seller only)
+  app.get("/api/seller/orders/:orderId/refundable", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!refundService) {
+        return res.status(503).json({ error: "Refund service not available" });
+      }
+
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+
+      // Get order to verify seller ownership
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Get current user and canonical seller ID
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isTeamMember = ["admin", "editor", "viewer"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalSellerId = isTeamMember ? currentUser.sellerId : userId;
+
+      // Verify seller ownership via order items
+      const orderItems = await storage.getOrderItems(orderId);
+      if (!orderItems || orderItems.length === 0) {
+        return res.status(404).json({ error: "Order items not found" });
+      }
+
+      const product = await storage.getProduct(orderItems[0].productId);
+      if (!product || product.sellerId !== canonicalSellerId) {
+        return res.status(403).json({ error: "You do not have permission to view refundable amounts for this order" });
+      }
+
+      const refundableData = await refundService.getRefundableAmount(orderId);
+      res.json(refundableData);
+    } catch (error) {
+      logger.error("Error fetching refundable amounts:", error);
+      res.status(500).json({ error: "Failed to fetch refundable amounts" });
     }
   });
 
