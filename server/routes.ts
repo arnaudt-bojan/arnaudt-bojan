@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema } from "@shared/schema";
+import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema, updateCustomerDetailsSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { computeDeliveryDate } from "@shared/order-utils";
@@ -1313,6 +1313,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error updating delivery date", error);
       res.status(500).json({ error: "Failed to update delivery date" });
+    }
+  });
+
+  // Update customer details for an order
+  app.put("/api/seller/orders/:orderId/customer-details", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      
+      // Parse and validate request body
+      const parseResult = updateCustomerDetailsSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const error = fromZodError(parseResult.error);
+        return res.status(400).json({ error: error.message });
+      }
+      
+      const { notify, ...details } = parseResult.data;
+      
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Get at least one order item to verify seller ownership
+      const orderItems = await storage.getOrderItems(orderId);
+      if (!orderItems || orderItems.length === 0) {
+        return res.status(404).json({ error: "Order items not found" });
+      }
+      
+      // Get product for authorization check (use first item)
+      const product = await storage.getProduct(orderItems[0].productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
+      // CRITICAL: Verify seller owns this product BEFORE any updates
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const isTeamMember = ["admin", "editor"].includes(currentUser.role) && currentUser.sellerId;
+      const canonicalOwnerId = isTeamMember ? currentUser.sellerId : userId;
+      
+      if (product.sellerId !== canonicalOwnerId) {
+        return res.status(403).json({ error: "You do not have permission to update this order's customer details" });
+      }
+      
+      // Calculate diff of what changed for email
+      const previousDetails = {
+        customerName: order.customerName,
+        shippingStreet: order.shippingStreet,
+        shippingCity: order.shippingCity,
+        shippingState: order.shippingState,
+        shippingPostalCode: order.shippingPostalCode,
+        shippingCountry: order.shippingCountry,
+        billingStreet: order.billingStreet,
+        billingCity: order.billingCity,
+        billingState: order.billingState,
+        billingPostalCode: order.billingPostalCode,
+        billingCountry: order.billingCountry,
+      };
+      
+      // Update order in database
+      const updatedOrder = await storage.updateOrderCustomerDetails(orderId, details);
+      if (!updatedOrder) {
+        return res.status(500).json({ error: "Failed to update customer details" });
+      }
+      
+      // Send notification email ONLY if notify === true
+      if (notify === true) {
+        const seller = await storage.getUser(canonicalOwnerId);
+        if (seller) {
+          await notificationService.sendOrderCustomerDetailsUpdated(updatedOrder, seller, previousDetails, details);
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        message: notify === true ? "Customer details updated and buyer notified" : "Customer details updated"
+      });
+    } catch (error) {
+      logger.error("Error updating customer details", error);
+      res.status(500).json({ error: "Failed to update customer details" });
     }
   });
 

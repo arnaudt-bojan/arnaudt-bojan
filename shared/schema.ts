@@ -364,6 +364,23 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 export type SelectOrder = typeof orders.$inferSelect;
 
+// Customer details update schema - for updating customer information on orders
+export const updateCustomerDetailsSchema = z.object({
+  customerName: z.string().min(1, "Customer name is required"),
+  shippingStreet: z.string().min(1, "Street address is required"),
+  shippingCity: z.string().min(1, "City is required"),
+  shippingState: z.string().min(1, "State is required"),
+  shippingPostalCode: z.string().min(1, "Postal code is required"),
+  shippingCountry: z.string().min(1, "Country is required"),
+  billingStreet: z.string().min(1, "Street address is required"),
+  billingCity: z.string().min(1, "City is required"),
+  billingState: z.string().min(1, "State is required"),
+  billingPostalCode: z.string().min(1, "Postal code is required"),
+  billingCountry: z.string().min(1, "Country is required"),
+  notify: z.boolean().optional()
+});
+export type UpdateCustomerDetails = z.infer<typeof updateCustomerDetailsSchema>;
+
 // Checkout validation schemas - for /api/checkout/initiate endpoint
 export const checkoutItemSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),

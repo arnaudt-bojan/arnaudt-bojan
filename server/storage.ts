@@ -299,6 +299,7 @@ export interface IStorage {
   updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined>;
   updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined>;
   updateOrderItemDeliveryDate(itemId: string, preOrderDate: Date | null, madeToOrderLeadTime: number | null): Promise<OrderItem | undefined>;
+  updateOrderCustomerDetails(orderId: string, details: { customerName: string; shippingStreet: string; shippingCity: string; shippingState: string; shippingPostalCode: string; shippingCountry: string; billingStreet: string; billingCity: string; billingState: string; billingPostalCode: string; billingCountry: string }): Promise<Order | undefined>;
   deleteOrder(id: string): Promise<boolean>;
   deleteOrderItems(orderId: string): Promise<boolean>;
   
@@ -1270,6 +1271,28 @@ export class DatabaseStorage implements IStorage {
     const result = await this.db.update(orderItems)
       .set(updateData)
       .where(eq(orderItems.id, itemId))
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateOrderCustomerDetails(orderId: string, details: { customerName: string; shippingStreet: string; shippingCity: string; shippingState: string; shippingPostalCode: string; shippingCountry: string; billingStreet: string; billingCity: string; billingState: string; billingPostalCode: string; billingCountry: string }): Promise<Order | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.update(orders)
+      .set({
+        customerName: details.customerName,
+        shippingStreet: details.shippingStreet,
+        shippingCity: details.shippingCity,
+        shippingState: details.shippingState,
+        shippingPostalCode: details.shippingPostalCode,
+        shippingCountry: details.shippingCountry,
+        billingStreet: details.billingStreet,
+        billingCity: details.billingCity,
+        billingState: details.billingState,
+        billingPostalCode: details.billingPostalCode,
+        billingCountry: details.billingCountry,
+      })
+      .where(eq(orders.id, orderId))
       .returning();
     
     return result[0];

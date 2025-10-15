@@ -100,6 +100,9 @@ export interface NotificationService {
   
   // Delivery Date Update Email
   sendDeliveryDateChangeEmail(order: Order, orderItem: OrderItem, newDeliveryDate: Date): Promise<void>;
+  
+  // Customer Details Update Email
+  sendOrderCustomerDetailsUpdated(order: Order, seller: User, previousDetails: any, newDetails: any): Promise<void>;
 }
 
 export interface SendNewsletterParams {
@@ -4616,6 +4619,208 @@ class NotificationServiceImpl implements NotificationService {
     } catch (error) {
       logger.error("[Notifications] Error sending delivery date change email:", error);
     }
+  }
+
+  /**
+   * Send customer details updated notification email
+   */
+  async sendOrderCustomerDetailsUpdated(order: Order, seller: User, previousDetails: any, newDetails: any): Promise<void> {
+    try {
+      // Generate email HTML
+      const emailHtml = await this.generateCustomerDetailsUpdatedEmail(order, seller, previousDetails, newDetails);
+      
+      // Get email metadata
+      const fromName = await this.emailMetadata.getFromName(seller);
+      const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+      const subject = `Updated Order Details - Order #${order.id.slice(-8).toUpperCase()}`;
+
+      const result = await this.sendEmail({
+        to: order.customerEmail,
+        from: `${fromName} <noreply@upfirst.io>`,
+        replyTo: replyTo || undefined,
+        subject: subject,
+        html: emailHtml,
+      });
+
+      // Log email event
+      if (result.success) {
+        try {
+          await this.storage.createOrderEvent({
+            orderId: order.id,
+            eventType: 'email_sent',
+            description: `Customer details update notification sent to ${order.customerEmail}`,
+            payload: JSON.stringify({
+              emailType: 'customer_details_update',
+              recipientEmail: order.customerEmail,
+              subject: subject,
+              changedFields: this.calculateChangedFields(previousDetails, newDetails),
+            }),
+            performedBy: seller.id,
+          });
+        } catch (error) {
+          logger.error("[Notifications] Failed to log customer details update event:", error);
+        }
+      }
+
+      logger.info(`[Notifications] Customer details update email sent to ${order.customerEmail}:`, result.success);
+    } catch (error) {
+      logger.error("[Notifications] Error sending customer details update email:", error);
+    }
+  }
+
+  /**
+   * Generate customer details updated email HTML
+   */
+  private async generateCustomerDetailsUpdatedEmail(
+    order: Order,
+    seller: User,
+    previousDetails: any,
+    newDetails: any
+  ): Promise<string> {
+    const storeName = seller.firstName || seller.username || 'Our Store';
+    
+    // Get base URL using the same pattern as other emails
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : `http://localhost:${process.env.PORT || 5000}`;
+    
+    // Calculate what changed
+    const changes = this.calculateChangedFields(previousDetails, newDetails);
+    
+    const content = `
+        <div style="padding: 32px 24px;">
+          <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 24px 0; color: #1a1a1a;">
+            Order Details Updated
+          </h1>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            Hi ${order.customerName},
+          </p>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            The following details for your order have been updated:
+          </p>
+          
+          ${changes.length > 0 ? `
+            <div style="background: #f7fafc; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 16px 0; color: #1a1a1a;">
+                What Changed
+              </h3>
+              ${changes.map(change => `
+                <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+                  <p style="font-size: 14px; font-weight: 600; margin: 0 0 8px 0; color: #1a1a1a;">
+                    ${change.label}
+                  </p>
+                  <div style="display: flex; gap: 16px; align-items: center;">
+                    <div style="flex: 1;">
+                      <p style="font-size: 12px; margin: 0 0 4px 0; color: #718096;">Previous:</p>
+                      <p style="font-size: 14px; margin: 0; color: #a0aec0; text-decoration: line-through;">
+                        ${change.oldValue}
+                      </p>
+                    </div>
+                    <div style="flex: 1;">
+                      <p style="font-size: 12px; margin: 0 0 4px 0; color: #718096;">New:</p>
+                      <p style="font-size: 14px; font-weight: 600; margin: 0; color: #3182ce;">
+                        ${change.newValue}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <div style="background: #edf2f7; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 16px 0; color: #1a1a1a;">
+              Current Order Details
+            </h3>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="font-size: 14px; font-weight: 600; margin: 0 0 8px 0; color: #1a1a1a;">
+                Customer Name
+              </p>
+              <p style="font-size: 14px; margin: 0; color: #4a5568;">
+                ${order.customerName}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="font-size: 14px; font-weight: 600; margin: 0 0 8px 0; color: #1a1a1a;">
+                Shipping Address
+              </p>
+              <p style="font-size: 14px; margin: 0; color: #4a5568; white-space: pre-line;">
+                ${order.shippingStreet}
+${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}
+${order.shippingCountry}
+              </p>
+            </div>
+            
+            <div>
+              <p style="font-size: 14px; font-weight: 600; margin: 0 0 8px 0; color: #1a1a1a;">
+                Billing Address
+              </p>
+              <p style="font-size: 14px; margin: 0; color: #4a5568; white-space: pre-line;">
+                ${order.billingStreet}
+${order.billingCity}, ${order.billingState} ${order.billingPostalCode}
+${order.billingCountry}
+              </p>
+            </div>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            If you have any questions about these changes, please don't hesitate to reach out.
+          </p>
+          
+          ${generateCTAButton(
+            `View Order #${order.id.slice(-8).toUpperCase()}`,
+            `${baseUrl}/orders/${order.id}`
+          )}
+          
+          <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
+            Questions? Reply to this email and we'll be happy to help.
+          </p>
+        </div>
+    `;
+
+    return generateEmailBaseLayout({
+      header: generateSellerHeader(seller),
+      content,
+      footer: await generateSellerFooter(seller),
+      darkModeSafe: true
+    });
+  }
+
+  /**
+   * Calculate which fields changed for customer details update
+   */
+  private calculateChangedFields(previousDetails: any, newDetails: any): Array<{ label: string; oldValue: string; newValue: string }> {
+    const changes: Array<{ label: string; oldValue: string; newValue: string }> = [];
+    
+    const fieldLabels: Record<string, string> = {
+      customerName: 'Customer Name',
+      shippingStreet: 'Shipping Street',
+      shippingCity: 'Shipping City',
+      shippingState: 'Shipping State',
+      shippingPostalCode: 'Shipping Postal Code',
+      shippingCountry: 'Shipping Country',
+      billingStreet: 'Billing Street',
+      billingCity: 'Billing City',
+      billingState: 'Billing State',
+      billingPostalCode: 'Billing Postal Code',
+      billingCountry: 'Billing Country',
+    };
+    
+    for (const [field, label] of Object.entries(fieldLabels)) {
+      if (previousDetails[field] !== newDetails[field]) {
+        changes.push({
+          label,
+          oldValue: previousDetails[field] || 'Not set',
+          newValue: newDetails[field] || 'Not set',
+        });
+      }
+    }
+    
+    return changes;
   }
 
   /**
