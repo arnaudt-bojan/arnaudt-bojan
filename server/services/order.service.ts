@@ -1077,10 +1077,26 @@ export class OrderService {
     try {
       // FIX: Drizzle auto-parses JSON text fields, so check if already parsed
       const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+      
+      // Fetch all products at once for efficiency
+      const productIds = items.map((item: any) => item.productId || item.id);
+      const products = await Promise.all(
+        productIds.map((id: string) => this.storage.getProduct(id))
+      );
+      const productMap = new Map<string, any>();
+      products.forEach(p => {
+        if (p) {
+          productMap.set(p.id, p);
+        }
+      });
+      
       orderItemsToCreate = items.map((item: any) => {
         const itemPrice = parseFloat(item.price);
         const subtotal = itemPrice * item.quantity;
         const productType = item.productType || 'in-stock';
+        
+        // Get product data for delivery date fields
+        const product = productMap.get(item.productId || item.id);
         
         // FIX BUG #3: Calculate per-item balance amount
         let balanceAmount: string | null = null;
@@ -1109,6 +1125,9 @@ export class OrderService {
           productSku: item.productSku || null, // Product-level SKU
           variantSku: item.variantSku || null, // Variant-specific SKU
           itemStatus: 'pending' as const,
+          // Delivery date fields - copy from product to order item (for pre-order and made-to-order)
+          preOrderDate: product?.preOrderDate || null,
+          madeToOrderLeadTime: product?.madeToOrderDays || null,
         };
       });
 
