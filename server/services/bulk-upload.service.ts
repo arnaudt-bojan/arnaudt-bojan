@@ -72,12 +72,20 @@ export class BulkUploadService {
    * Parse CSV row and convert to product data
    */
   private parseProductFromRow(rowData: BulkUploadRowData): ParsedProductData {
-    // Parse images
+    // Parse images - supports both consolidated "Images" column and individual "Image 1", "Image 2", etc.
     const images: string[] = [];
-    for (let i = 1; i <= 8; i++) {
-      const imageUrl = rowData[`Image ${i}`]?.trim();
-      if (imageUrl) {
-        images.push(imageUrl);
+    
+    // Try consolidated "Images" column first (comma-separated URLs)
+    if (rowData['Images']?.trim()) {
+      const imageUrls = rowData['Images'].split(',').map(url => url.trim()).filter(Boolean);
+      images.push(...imageUrls);
+    } else {
+      // Fallback to individual Image columns for backwards compatibility
+      for (let i = 1; i <= 8; i++) {
+        const imageUrl = rowData[`Image ${i}`]?.trim();
+        if (imageUrl) {
+          images.push(imageUrl);
+        }
       }
     }
     

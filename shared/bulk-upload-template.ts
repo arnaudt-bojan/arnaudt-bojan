@@ -76,54 +76,12 @@ export const CSV_TEMPLATE_FIELDS: CSVTemplateField[] = [
     example: "10.00"
   },
   
-  // Images (up to 8 images)
+  // Images (consolidated into one column)
   { 
-    name: "Image 1", 
+    name: "Images", 
     required: true, 
-    description: "Primary product image URL", 
-    example: "https://example.com/image1.jpg"
-  },
-  { 
-    name: "Image 2", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: "https://example.com/image2.jpg"
-  },
-  { 
-    name: "Image 3", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: ""
-  },
-  { 
-    name: "Image 4", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: ""
-  },
-  { 
-    name: "Image 5", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: ""
-  },
-  { 
-    name: "Image 6", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: ""
-  },
-  { 
-    name: "Image 7", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: ""
-  },
-  { 
-    name: "Image 8", 
-    required: false, 
-    description: "Additional product image URL", 
-    example: ""
+    description: "Product image URLs separated by commas (up to 8 images)", 
+    example: "https://example.com/img1.jpg,https://example.com/img2.jpg"
   },
   
   // Category
@@ -239,14 +197,7 @@ export const EXAMPLE_ROWS = [
     "Pre-Order Date": "",
     "Made To Order Days": "",
     "Deposit Amount": "",
-    "Image 1": "https://example.com/white-tshirt.jpg",
-    "Image 2": "",
-    "Image 3": "",
-    "Image 4": "",
-    "Image 5": "",
-    "Image 6": "",
-    "Image 7": "",
-    "Image 8": "",
+    "Images": "https://example.com/white-tshirt.jpg",
     "Category": "Clothing",
     "Has Colors": "no",
     "Size Variants": "S:10:WHT-TSHIRT-S|M:25:WHT-TSHIRT-M|L:15:WHT-TSHIRT-L|XL:8:WHT-TSHIRT-XL",
@@ -271,14 +222,7 @@ export const EXAMPLE_ROWS = [
     "Pre-Order Date": "",
     "Made To Order Days": "",
     "Deposit Amount": "",
-    "Image 1": "https://example.com/hoodie.jpg",
-    "Image 2": "https://example.com/hoodie2.jpg",
-    "Image 3": "",
-    "Image 4": "",
-    "Image 5": "",
-    "Image 6": "",
-    "Image 7": "",
-    "Image 8": "",
+    "Images": "https://example.com/hoodie.jpg,https://example.com/hoodie2.jpg",
     "Category": "Clothing",
     "Has Colors": "yes",
     "Size Variants": "",
@@ -303,14 +247,7 @@ export const EXAMPLE_ROWS = [
     "Pre-Order Date": "",
     "Made To Order Days": "7",
     "Deposit Amount": "50.00",
-    "Image 1": "https://example.com/artwork.jpg",
-    "Image 2": "",
-    "Image 3": "",
-    "Image 4": "",
-    "Image 5": "",
-    "Image 6": "",
-    "Image 7": "",
-    "Image 8": "",
+    "Images": "https://example.com/artwork.jpg",
     "Category": "Art",
     "Has Colors": "no",
     "Size Variants": "",
