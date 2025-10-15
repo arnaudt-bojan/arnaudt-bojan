@@ -4655,9 +4655,6 @@ class NotificationServiceImpl implements NotificationService {
     const hasBalancePayment = balancePayments && balancePayments.some((bp: any) => bp.status === 'pending');
     
     const content = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        ${generateSellerHeader(seller)}
-        
         <div style="padding: 32px 24px;">
           <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 24px 0; color: #1a1a1a;">
             Delivery Date Updated
@@ -4742,12 +4739,14 @@ class NotificationServiceImpl implements NotificationService {
             Questions? Reply to this email and we'll be happy to help.
           </p>
         </div>
-        
-        ${generateSellerFooter(seller)}
-      </div>
     `;
 
-    return generateEmailBaseLayout(content, seller);
+    return generateEmailBaseLayout({
+      header: generateSellerHeader(seller),
+      content,
+      footer: generateSellerFooter(seller),
+      darkModeSafe: true
+    });
   }
 
   /**
