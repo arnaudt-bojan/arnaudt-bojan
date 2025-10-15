@@ -48,13 +48,6 @@ const productTypes = [
     icon: Hammer,
     color: "text-purple-600 dark:text-purple-400",
   },
-  {
-    value: "wholesale",
-    label: "Trade",
-    description: "Bulk orders for businesses",
-    icon: Building2,
-    color: "text-orange-600 dark:text-orange-400",
-  },
 ];
 
 interface Category {

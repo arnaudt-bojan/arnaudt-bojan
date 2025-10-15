@@ -116,17 +116,6 @@ const productTypes = [
     activeBg: "bg-purple-500/10",
     ringColor: "ring-purple-500/40",
   },
-  {
-    value: "wholesale",
-    label: "Trade",
-    description: "Bulk orders for businesses",
-    icon: Building2,
-    gradient: "from-orange-500/10 to-amber-500/10",
-    iconColor: "text-orange-600 dark:text-orange-400",
-    borderColor: "border-orange-500/20",
-    activeBg: "bg-orange-500/10",
-    ringColor: "ring-orange-500/40",
-  },
 ];
 
 export function ProductFormFields({
