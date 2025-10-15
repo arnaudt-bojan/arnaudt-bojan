@@ -104,6 +104,16 @@ export class PricingCalculationService {
 
       // Calculate price with active discount (Architecture 3: respect validated prices)
       let itemPrice = parseFloat(product.price);
+      
+      // DEBUG: Log discount fields
+      logger.info(`[PricingCalculationService] Discount check for product ${product.id}`, {
+        promotionActive: product.promotionActive ?? 'null',
+        discountPercentage: product.discountPercentage ?? 'null',
+        promotionEndDate: product.promotionEndDate?.toString() ?? 'null',
+        hasEndDate: !!product.promotionEndDate,
+        endDateFuture: product.promotionEndDate ? new Date(product.promotionEndDate) > new Date() : 'N/A'
+      });
+      
       if (
         product.promotionActive === 1 &&
         product.discountPercentage &&
@@ -111,6 +121,7 @@ export class PricingCalculationService {
       ) {
         const discount = parseFloat(product.discountPercentage);
         itemPrice = itemPrice * (1 - discount / 100);
+        logger.info(`[PricingCalculationService] Discount applied: ${discount}% off, new price: ${itemPrice}`);
       }
 
       const itemTotal = itemPrice * item.quantity;
