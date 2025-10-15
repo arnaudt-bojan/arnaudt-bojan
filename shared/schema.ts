@@ -100,11 +100,91 @@ export const wholesalePaymentIntentStatusPgEnum = pgEnum("wholesale_payment_inte
   "canceled"
 ]);
 
+// PostgreSQL enums for Trade Quotation System
+export const tradeQuotationStatusPgEnum = pgEnum("trade_quotation_status", [
+  "draft",
+  "sent", 
+  "viewed",
+  "accepted",
+  "deposit_paid",
+  "balance_due",
+  "fully_paid",
+  "completed",
+  "cancelled",
+  "expired"
+]);
+
+export const tradeQuotationEventTypePgEnum = pgEnum("trade_quotation_event_type", [
+  "created",
+  "sent",
+  "viewed",
+  "accepted",
+  "deposit_paid",
+  "balance_paid",
+  "expired",
+  "cancelled",
+  "email_sent"
+]);
+
+export const tradePaymentTypePgEnum = pgEnum("trade_payment_type", [
+  "deposit",
+  "balance"
+]);
+
+export const tradePaymentStatusPgEnum = pgEnum("trade_payment_status", [
+  "pending",
+  "paid",
+  "overdue",
+  "cancelled"
+]);
+
 export const invitationStatusEnum = z.enum(["pending", "accepted", "expired"]);
 export type InvitationStatus = z.infer<typeof invitationStatusEnum>;
 
 export const productStatusEnum = z.enum(["active", "draft", "coming-soon", "paused", "out-of-stock", "archived"]);
 export type ProductStatus = z.infer<typeof productStatusEnum>;
+
+// Zod enums for Trade Quotation System
+export const tradeQuotationStatusEnum = z.enum([
+  "draft",
+  "sent", 
+  "viewed",
+  "accepted",
+  "deposit_paid",
+  "balance_due",
+  "fully_paid",
+  "completed",
+  "cancelled",
+  "expired"
+]);
+export type TradeQuotationStatus = z.infer<typeof tradeQuotationStatusEnum>;
+
+export const tradeQuotationEventTypeEnum = z.enum([
+  "created",
+  "sent",
+  "viewed",
+  "accepted",
+  "deposit_paid",
+  "balance_paid",
+  "expired",
+  "cancelled",
+  "email_sent"
+]);
+export type TradeQuotationEventType = z.infer<typeof tradeQuotationEventTypeEnum>;
+
+export const tradePaymentTypeEnum = z.enum([
+  "deposit",
+  "balance"
+]);
+export type TradePaymentType = z.infer<typeof tradePaymentTypeEnum>;
+
+export const tradePaymentStatusEnum = z.enum([
+  "pending",
+  "paid",
+  "overdue",
+  "cancelled"
+]);
+export type TradePaymentStatus = z.infer<typeof tradePaymentStatusEnum>;
 
 // Categories table with hierarchical structure (3 levels max)
 export const categories = pgTable("categories", {
@@ -2588,3 +2668,116 @@ export type Cart = typeof carts.$inferSelect;
 export const insertCartSessionSchema = createInsertSchema(cartSessions);
 export type InsertCartSession = z.infer<typeof insertCartSessionSchema>;
 export type CartSession = typeof cartSessions.$inferSelect;
+
+// Trade Quotations - main quotation records
+export const tradeQuotations = pgTable("trade_quotations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(),
+  buyerEmail: text("buyer_email").notNull(),
+  buyerId: varchar("buyer_id"),
+  quotationNumber: varchar("quotation_number").notNull().unique(),
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  shippingAmount: decimal("shipping_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }).notNull(),
+  depositPercentage: integer("deposit_percentage").notNull().default(50),
+  balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }).notNull(),
+  status: tradeQuotationStatusPgEnum("status").notNull().default("draft"),
+  validUntil: timestamp("valid_until"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdx: index("trade_quotations_seller_idx").on(table.sellerId),
+    buyerEmailIdx: index("trade_quotations_buyer_email_idx").on(table.buyerEmail),
+    statusIdx: index("trade_quotations_status_idx").on(table.status),
+    quotationNumberIdx: uniqueIndex("trade_quotations_quotation_number_idx").on(table.quotationNumber),
+  };
+});
+
+export const insertTradeQuotationSchema = createInsertSchema(tradeQuotations).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertTradeQuotation = z.infer<typeof insertTradeQuotationSchema>;
+export type TradeQuotation = typeof tradeQuotations.$inferSelect;
+
+// Trade Quotation Items - line items
+export const tradeQuotationItems = pgTable("trade_quotation_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationId: varchar("quotation_id").notNull(),
+  lineNumber: integer("line_number").notNull(),
+  description: text("description").notNull(),
+  productId: varchar("product_id"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }),
+  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    quotationIdx: index("trade_quotation_items_quotation_idx").on(table.quotationId),
+  };
+});
+
+export const insertTradeQuotationItemSchema = createInsertSchema(tradeQuotationItems).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertTradeQuotationItem = z.infer<typeof insertTradeQuotationItemSchema>;
+export type TradeQuotationItem = typeof tradeQuotationItems.$inferSelect;
+
+// Trade Quotation Events - audit trail
+export const tradeQuotationEvents = pgTable("trade_quotation_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationId: varchar("quotation_id").notNull(),
+  eventType: tradeQuotationEventTypePgEnum("event_type").notNull(),
+  performedBy: varchar("performed_by").notNull(),
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    quotationIdx: index("trade_quotation_events_quotation_idx").on(table.quotationId),
+  };
+});
+
+export const insertTradeQuotationEventSchema = createInsertSchema(tradeQuotationEvents).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertTradeQuotationEvent = z.infer<typeof insertTradeQuotationEventSchema>;
+export type TradeQuotationEvent = typeof tradeQuotationEvents.$inferSelect;
+
+// Trade Payment Schedules - deposit/balance tracking
+export const tradePaymentSchedules = pgTable("trade_payment_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationId: varchar("quotation_id").notNull(),
+  paymentType: tradePaymentTypePgEnum("payment_type").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  dueDate: timestamp("due_date"),
+  status: tradePaymentStatusPgEnum("status").notNull().default("pending"),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    quotationIdx: index("trade_payment_schedules_quotation_idx").on(table.quotationId),
+    statusIdx: index("trade_payment_schedules_status_idx").on(table.status),
+  };
+});
+
+export const insertTradePaymentScheduleSchema = createInsertSchema(tradePaymentSchedules).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertTradePaymentSchedule = z.infer<typeof insertTradePaymentScheduleSchema>;
+export type TradePaymentSchedule = typeof tradePaymentSchedules.$inferSelect;
