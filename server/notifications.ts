@@ -3595,15 +3595,12 @@ class NotificationServiceImpl implements NotificationService {
 
 
   /**
-   * Generate seller order notification email - DARK MODE SAFE
-   * Sent to seller when buyer places order
+   * Generate seller order notification email - MIGRATED
+   * Upfirst → Seller notification when buyer places order
+   * Uses generateUpfirstHeader/Footer + generateEmailBaseLayout
    */
-  private async generateSellerOrderEmail(order: Order, seller: User, products: Product[], stripeDetails: any): string {
+  private generateSellerOrderEmail(order: Order, seller: User, products: Product[], stripeDetails: any): string {
     const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
-    const bannerUrl = seller.storeBanner || '';
-    const logoUrl = seller.storeLogo || '';
-    const businessName = stripeDetails?.businessName || seller.firstName || seller.username || 'Store';
-    const businessAddress = stripeDetails?.address?.line1 ? `${stripeDetails.address.line1}, ${stripeDetails.address.city}, ${stripeDetails.address.state} ${stripeDetails.address.postal_code}` : '';
 
     // Get base URL for dashboard link
     const baseUrl = process.env.REPLIT_DOMAINS 
@@ -3651,177 +3648,127 @@ class NotificationServiceImpl implements NotificationService {
     const deposit = order.paymentType === 'deposit' ? parseFloat(order.amountPaid || '0') : 0;
     const balance = order.paymentType === 'deposit' ? parseFloat(order.remainingBalance || '0') : 0;
 
-    const content = `
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-        <!-- Header Banner/Logo -->
-        ${bannerUrl ? `
-          <tr>
-            <td style="padding: 0;">
-              <img src="${bannerUrl}" alt="${businessName}" style="display: block; width: 100%; height: 200px; object-fit: cover; border: 0;">
-            </td>
-          </tr>
-        ` : ''}
-        
-        <!-- Logo and Title -->
-        <tr>
-          <td style="padding: 30px; text-align: center; background-color: #ffffff !important;">
-            ${logoUrl ? `<img src="${logoUrl}" alt="${businessName} Logo" style="display: block; width: 120px; height: auto; margin: 0 auto 20px; border: 0;">` : ''}
-            <h1 style="margin: 0 0 10px; font-size: 32px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              New Order Received!
-            </h1>
-            <p style="margin: 0; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              You have a new order from ${order.customerName}
-            </p>
-          </td>
-        </tr>
+    // Generate Upfirst header and footer (this is Upfirst → Seller)
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
 
-        <!-- Main Content -->
-        <tr>
-          <td style="padding: 0 30px 30px; background-color: #ffffff !important;">
-            
-            <!-- Order Summary Box -->
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #f0fdf4 !important; border-radius: 8px; border: 2px solid #22c55e;">
-              <tr>
-                <td style="padding: 20px;">
-                  <h3 style="margin: 0 0 15px; font-size: 18px; font-weight: 600; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    Order #${order.id.slice(0, 8)}
-                  </h3>
-                  <p style="margin: 0 0 8px; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                  <p style="margin: 0 0 8px; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <strong>Payment Status:</strong> <span style="background-color: #bbf7d0; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${order.paymentStatus.toUpperCase()}</span>
-                  </p>
-                  ${order.paymentType === 'deposit' ? `
-                    <p style="margin: 0; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                      <strong>Payment Type:</strong> Deposit ($${deposit.toFixed(2)} paid, $${balance.toFixed(2)} balance due)
-                    </p>
-                  ` : ''}
-                </td>
-              </tr>
-            </table>
+    const bodyContent = `
+      <h1 style="margin: 0 0 10px; font-size: 32px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        New Order Received!
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        You have a new order from ${order.customerName}
+      </p>
 
-            <!-- Customer Information -->
-            <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              Customer Information
+      <!-- Order Summary Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #f0fdf4 !important; border-radius: 8px; border: 2px solid #22c55e;">
+        <tr>
+          <td style="padding: 20px;">
+            <h3 style="margin: 0 0 15px; font-size: 18px; font-weight: 600; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Order #${order.id.slice(0, 8)}
             </h3>
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f9fafb !important; border-radius: 8px;">
-              <tr>
-                <td style="padding: 20px;">
-                  <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <strong>Name:</strong> ${order.customerName}
-                  </p>
-                  <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <strong>Email:</strong> <a href="mailto:${order.customerEmail}" style="color: #2563eb !important; text-decoration: none;">${order.customerEmail}</a>
-                  </p>
-                  <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <strong>Shipping Address:</strong><br>
-                    <span style="white-space: pre-line; color: #6b7280 !important;">${order.customerAddress}</span>
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Order Items -->
-            <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              Order Items
-            </h3>
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-              ${productItemsHtml}
-            </table>
-
-            <!-- Financial Summary -->
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #f9fafb !important; border-radius: 8px;">
-              <tr>
-                <td style="padding: 20px;">
-                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                    <tr>
-                      <td style="padding: 8px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Subtotal:</td>
-                      <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${subtotal.toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Tax:</td>
-                      <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${taxAmount.toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total:</td>
-                      <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; text-align: right; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${total.toFixed(2)}</td>
-                    </tr>
-                    ${deposit > 0 ? `
-                      <tr>
-                        <td style="padding: 8px 0; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Deposit Received:</td>
-                        <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${deposit.toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Due:</td>
-                        <td style="padding: 8px 0; text-align: right; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${balance.toFixed(2)}</td>
-                      </tr>
-                    ` : ''}
-                  </table>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Action Buttons -->
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0;">
-              <tr>
-                <td style="text-align: center;">
-                  ${createEmailButton('View Order Details', `${baseUrl}/seller/orders/${order.id}`, '#1a1a1a')}
-                  <p style="margin: 20px 0 0; font-size: 14px;">
-                    <a href="${baseUrl}/seller" style="color: #2563eb !important; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Go to Dashboard →</a>
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Important Note -->
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #fef3c7 !important; border-radius: 8px; border-left: 4px solid #f59e0b;">
-              <tr>
-                <td style="padding: 20px;">
-                  <p style="margin: 0; font-weight: 600; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    ⚡ Action Required
-                  </p>
-                  <p style="margin: 10px 0 0; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
-                    ${order.paymentStatus === 'succeeded' ? 'Please prepare this order for fulfillment and update the tracking information when shipped.' : 'Payment is being processed. You\'ll be notified when payment is confirmed.'}
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-          </td>
-        </tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding: 30px; background-color: #f9fafb !important; text-align: center; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              ${businessName}
-              ${businessAddress ? `<br>${businessAddress}` : ''}
-              ${seller.email ? `<br><a href="mailto:${seller.email}" style="color: #2563eb !important; text-decoration: none;">${seller.email}</a>` : ''}
+            <p style="margin: 0 0 8px; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
-            ${seller.instagram || seller.facebook || seller.twitter || seller.tiktok ? `
-              <p style="margin: 15px 0 0; font-size: 14px;">
-                ${seller.instagram ? `<a href="${seller.instagram}" style="color: #6b7280 !important; text-decoration: none; margin: 0 8px;">Instagram</a>` : ''}
-                ${seller.facebook ? `<a href="${seller.facebook}" style="color: #6b7280 !important; text-decoration: none; margin: 0 8px;">Facebook</a>` : ''}
-                ${seller.twitter ? `<a href="${seller.twitter}" style="color: #6b7280 !important; text-decoration: none; margin: 0 8px;">Twitter</a>` : ''}
-                ${seller.tiktok ? `<a href="${seller.tiktok}" style="color: #6b7280 !important; text-decoration: none; margin: 0 8px;">TikTok</a>` : ''}
+            <p style="margin: 0 0 8px; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Payment Status:</strong> <span style="background-color: #bbf7d0; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${order.paymentStatus ? order.paymentStatus.toUpperCase() : 'PENDING'}</span>
+            </p>
+            ${order.paymentType === 'deposit' ? `
+              <p style="margin: 0; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <strong>Payment Type:</strong> Deposit ($${deposit.toFixed(2)} paid, $${balance.toFixed(2)} balance due)
               </p>
             ` : ''}
-            <p style="margin: 20px 0 0; font-size: 12px; color: #9ca3af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              Powered by <a href="https://upfirst.com" style="color: #2563eb !important; text-decoration: none;">Upfirst</a>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Customer Information -->
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Customer Information
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f9fafb !important; border-radius: 8px;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Name:</strong> ${order.customerName}
             </p>
-            <p style="margin: 10px 0 0; font-size: 12px; color: #9ca3af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              © ${new Date().getFullYear()} ${businessName}. All rights reserved.
+            <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Email:</strong> <a href="mailto:${order.customerEmail}" style="color: #2563eb !important; text-decoration: none;">${order.customerEmail}</a>
+            </p>
+            <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Shipping Address:</strong><br>
+              <span style="white-space: pre-line; color: #6b7280 !important;">${order.customerAddress}</span>
+            </p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Order Items -->
+      <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Order Items
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        ${productItemsHtml}
+      </table>
+
+      <!-- Financial Summary -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #f9fafb !important; border-radius: 8px;">
+        <tr>
+          <td style="padding: 20px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Subtotal:</td>
+                <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${subtotal.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Tax:</td>
+                <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${taxAmount.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total:</td>
+                <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; text-align: right; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${total.toFixed(2)}</td>
+              </tr>
+              ${deposit > 0 ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Deposit Received:</td>
+                  <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${deposit.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Due:</td>
+                  <td style="padding: 8px 0; text-align: right; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${balance.toFixed(2)}</td>
+                </tr>
+              ` : ''}
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Action Buttons -->
+      ${generateCTAButton('View Order Details', `${baseUrl}/seller/orders/${order.id}`)}
+      <p style="margin: 20px 0 0; text-align: center; font-size: 14px;">
+        <a href="${baseUrl}/seller" style="color: #2563eb !important; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Go to Dashboard →</a>
+      </p>
+
+      <!-- Important Note -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #fef3c7 !important; border-radius: 8px; border-left: 4px solid #f59e0b;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0; font-weight: 600; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              ⚡ Action Required
+            </p>
+            <p style="margin: 10px 0 0; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+              ${order.paymentStatus === 'succeeded' ? 'Please prepare this order for fulfillment and update the tracking information when shipped.' : 'Payment is being processed. You\'ll be notified when payment is confirmed.'}
             </p>
           </td>
         </tr>
       </table>
     `;
 
-    return createEmailTemplate({
+    return generateEmailBaseLayout({
+      header,
+      bodyContent,
+      footer,
       preheader: `New order #${order.id.slice(0, 8)} from ${order.customerName} - $${total.toFixed(2)}`,
-      content,
-      footerText: '', // Footer is included in content
     });
   }
 
