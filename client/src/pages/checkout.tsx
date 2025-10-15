@@ -197,6 +197,8 @@ function PaymentForm({
             productType: item.productType,
             depositAmount: item.depositAmount || undefined,
             requiresDeposit: item.requiresDeposit,
+            variant: item.variant || undefined,
+            variantId: item.variantId || undefined,
           })),
           destination: {
             country: billingDetails.country,
@@ -477,6 +479,8 @@ function ExpressCheckout({
             productType: item.productType,
             depositAmount: item.depositAmount || undefined,
             requiresDeposit: item.requiresDeposit,
+            variant: item.variant || undefined,
+            variantId: item.variantId || undefined,
           })),
           destination: {
             line1: walletData.customerAddress.line1,
@@ -778,6 +782,8 @@ export default function Checkout() {
           productType: item.productType,
           depositAmount: item.depositAmount,
           requiresDeposit: item.requiresDeposit,
+          variant: item.variant || undefined,
+          variantId: item.variantId || undefined,
         }))),
         total: fullTotal.toString(),
         amountPaid: "0",
