@@ -450,7 +450,7 @@ export interface IStorage {
   createPaymentIntent(data: InsertWholesalePaymentIntent): Promise<WholesalePaymentIntent>;
   getPaymentIntentsByOrderId(orderId: string): Promise<WholesalePaymentIntent[]>;
   getPaymentIntentByStripeId(stripePaymentIntentId: string): Promise<WholesalePaymentIntent | undefined>;
-  updatePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined>;
+  updateWholesalePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined>;
   
   // Wholesale Shipping Metadata
   createShippingMetadata(data: InsertWholesaleShippingMetadata): Promise<WholesaleShippingMetadata>;
@@ -959,14 +959,31 @@ export class DatabaseStorage implements IStorage {
       
       if (variantId && prod.variants) {
         const variants = Array.isArray(prod.variants) ? prod.variants : [];
-        const variant = variants.find((v: any) => {
-          const parts = [];
-          if (v.size) parts.push(v.size);
-          if (v.color) parts.push(v.color);
-          const vId = parts.join('-').toLowerCase();
-          return vId === variantId;
-        });
-        currentStock = variant?.stock || 0;
+        const hasColors = prod.hasColors === 1;
+        
+        if (hasColors) {
+          // ColorVariant structure: parse "size-color" format (e.g., "l-black")
+          const [size, color] = variantId.split('-');
+          
+          if (size && color) {
+            const colorVariant = variants.find((cv: any) => 
+              cv.colorName?.toLowerCase() === color.toLowerCase()
+            );
+            
+            if (colorVariant?.sizes) {
+              const sizeVariant = colorVariant.sizes.find((s: any) => 
+                s.size?.toLowerCase() === size.toLowerCase()
+              );
+              currentStock = sizeVariant?.stock || 0;
+            }
+          }
+        } else {
+          // SizeVariant structure: direct size lookup
+          const sizeVariant = variants.find((v: any) => 
+            v.size?.toLowerCase() === variantId.toLowerCase()
+          );
+          currentStock = sizeVariant?.stock || 0;
+        }
       } else {
         currentStock = prod.stock || 0;
       }
@@ -2479,7 +2496,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updatePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined> {
+  async updateWholesalePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined> {
     await this.ensureInitialized();
     const result = await this.db
       .update(wholesalePaymentIntents)

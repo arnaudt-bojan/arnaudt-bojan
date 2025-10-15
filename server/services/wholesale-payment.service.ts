@@ -572,7 +572,7 @@ export class WholesalePaymentService {
       }
 
       // Update payment intent status
-      await this.storage.updatePaymentIntentStatus(paymentIntent.id, 'succeeded');
+      await this.storage.updateWholesalePaymentIntentStatus(paymentIntent.id, 'succeeded');
 
       // Update order status based on payment type
       const order = await this.storage.getWholesaleOrder(paymentIntent.orderId);
@@ -653,7 +653,7 @@ export class WholesalePaymentService {
           const failedPaymentIntent = await this.storage.getPaymentIntentByStripeId(failedIntent.id);
           
           if (failedPaymentIntent) {
-            await this.storage.updatePaymentIntentStatus(failedPaymentIntent.id, 'failed');
+            await this.storage.updateWholesalePaymentIntentStatus(failedPaymentIntent.id, 'failed');
             logger.warn('[WholesalePaymentService] Payment failed', {
               stripePaymentIntentId: failedIntent.id,
               orderId: failedPaymentIntent.orderId,
@@ -708,7 +708,7 @@ export class WholesalePaymentService {
       });
 
       // Update payment intent status
-      await this.storage.updatePaymentIntentStatus(paymentIntent.id, 'canceled');
+      await this.storage.updateWholesalePaymentIntentStatus(paymentIntent.id, 'canceled');
 
       logger.info('[WholesalePaymentService] Payment refunded', {
         stripePaymentIntentId,

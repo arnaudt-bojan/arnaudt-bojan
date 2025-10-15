@@ -816,15 +816,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (variantId && product.variants && Array.isArray(product.variants)) {
         const variants = product.variants as any[];
         const variantIdStr = String(variantId).toLowerCase();
+        const hasColors = product.hasColors === 1;
         
-        // Simplified variant structure: [{size, color, stock, ...}]
-        const variantFound = variants.some((v: any) => {
-          // Match by exact variantId (e.g., "Small" or "Small-Blue") - case insensitive
-          const vId = v.color 
-            ? `${v.size}-${v.color}`.trim().replace(/^-|-$/g, '').toLowerCase()
-            : (v.size || '').toLowerCase();
-          return vId === variantIdStr || (v.size || '').toLowerCase() === variantIdStr;
-        });
+        let variantFound = false;
+        
+        if (hasColors) {
+          // ColorVariant structure: [{colorName, colorHex, images, sizes: [{size, stock, sku}]}]
+          const [size, color] = variantIdStr.split('-');
+          
+          if (size && color) {
+            const colorVariant = variants.find((cv: any) => 
+              cv.colorName?.toLowerCase() === color.toLowerCase()
+            );
+            
+            if (colorVariant?.sizes) {
+              variantFound = colorVariant.sizes.some((s: any) => 
+                s.size?.toLowerCase() === size.toLowerCase()
+              );
+            }
+          }
+        } else {
+          // SizeVariant structure: [{size, stock, sku}]
+          variantFound = variants.some((v: any) => 
+            v.size?.toLowerCase() === variantIdStr.toLowerCase()
+          );
+        }
 
         if (!variantFound) {
           return res.status(404).json({ error: "Variant not found" });
