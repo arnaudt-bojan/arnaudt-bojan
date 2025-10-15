@@ -1197,7 +1197,7 @@ export class QuotationService {
     const [lastQuotation] = await db
       .select()
       .from(tradeQuotations)
-      .where(sql`${tradeQuotations.quotationNumber} LIKE ${prefix}%`)
+      .where(sql`${tradeQuotations.quotationNumber} LIKE ${prefix + '%'}`)
       .orderBy(desc(tradeQuotations.quotationNumber))
       .limit(1);
 
