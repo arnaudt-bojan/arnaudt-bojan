@@ -47,7 +47,7 @@ Buyer wholesale access uses separate routes:
 **System Design Choices & Feature Specifications:**
 -   **Product Management**: Supports diverse product types, multi-image uploads, bulk CSV import, simplified size-first variants, and comprehensive multi-method shipping.
 -   **Shipping Service**: Centralized `ShippingService` integrates Free Shipping, Flat Rate, Matrix Shipping, and real-time Shippo API rates, requiring sellers to configure a warehouse address.
--   **Shopping & Checkout**: Includes slide-over/persistent cart, guest checkout, server-side shipping cost calculation, and a single-seller constraint per cart.
+-   **Shopping & Checkout**: Includes slide-over/persistent cart, guest checkout, server-side shipping cost calculation, and a single-seller constraint per cart. Cart system features optimized performance with serialized query keys (preventing excessive pricing recalculations), automatic deleted product filtering (prevents 404 errors), and reactive badge updates.
 -   **Authentication & Authorization**: Email-based authentication with a dual-token system and capability-based authorization for seller, buyer, and collaborator roles.
 -   **Notification System**: Comprehensive email and in-app notification infrastructure with shared templates, email metadata services, and mobile-responsive designs, powered by Resend.
 -   **Payment Processing**: Integrated with Stripe Connect for multi-seller payments, supporting various methods, PCI-DSS compliant saved details, and automated subscription payment method sync.

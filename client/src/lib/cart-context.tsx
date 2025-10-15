@@ -182,25 +182,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (productId: string, variant?: { size?: string; color?: string }) => {
+    console.log("[CartContext] removeItem called", { productId, variant, cartItems: cart?.items });
     const cartItem = findCartItem(productId, variant);
-    if (!cartItem) return;
+    console.log("[CartContext] Found cart item:", cartItem);
+    if (!cartItem) {
+      console.warn("[CartContext] Cart item not found, returning early");
+      return;
+    }
 
     // Construct itemId: "productId-variantId" for variants, "productId" for non-variants
     const itemId = cartItem.variantId ? `${cartItem.id}-${cartItem.variantId}` : cartItem.id;
+    console.log("[CartContext] Calling removeMutation with itemId:", itemId);
     removeMutation.mutate({ itemId });
   };
 
   const updateQuantity = (productId: string, quantity: number, variant?: { size?: string; color?: string }) => {
+    console.log("[CartContext] updateQuantity called", { productId, quantity, variant, cartItems: cart?.items });
     if (quantity <= 0) {
       removeItem(productId, variant);
       return;
     }
 
     const cartItem = findCartItem(productId, variant);
-    if (!cartItem) return;
+    console.log("[CartContext] Found cart item for update:", cartItem);
+    if (!cartItem) {
+      console.warn("[CartContext] Cart item not found for update, returning early");
+      return;
+    }
 
     // Construct itemId: "productId-variantId" for variants, "productId" for non-variants
     const itemId = cartItem.variantId ? `${cartItem.id}-${cartItem.variantId}` : cartItem.id;
+    console.log("[CartContext] Calling updateMutation with itemId:", itemId, "quantity:", quantity);
     updateMutation.mutate({ itemId, quantity });
   };
 
