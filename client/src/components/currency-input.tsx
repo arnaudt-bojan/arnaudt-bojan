@@ -8,21 +8,26 @@ interface CurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
 }
 
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ currency, className, ...props }, ref) => {
+  ({ currency, className, value, onChange, ...props }, ref) => {
     const symbol = getCurrencySymbol(currency);
+    
+    // Calculate dynamic padding based on symbol length
+    const symbolLength = symbol.length;
+    const paddingClass = symbolLength > 1 ? "pl-12" : "pl-8";
     
     return (
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none select-none z-10 font-medium">
           {symbol}
         </span>
         <Input
           ref={ref}
           type="text"
           inputMode="decimal"
-          pattern="[0-9]*\.?[0-9]*"
-          placeholder="0.00"
-          className={cn("pl-8", className)}
+          value={value || ""}
+          onChange={onChange}
+          placeholder=""
+          className={cn(paddingClass, className)}
           {...props}
         />
       </div>
