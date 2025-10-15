@@ -6,7 +6,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
-import { CSV_TEMPLATE_FIELDS, type CSVTemplateField } from "../../shared/bulk-upload-template";
+import { ALL_SCHEMA_FIELDS, REQUIRED_FIELDS, type SchemaField } from "../../shared/bulk-upload-schema";
 import { logger } from "../logger";
 
 // Initialize Gemini AI
@@ -46,24 +46,27 @@ export class AIFieldMappingService {
     }
 
     try {
-      // Prepare context for Gemini
-      const standardFields = CSV_TEMPLATE_FIELDS.map(f => ({
+      // Prepare context for Gemini - use actual database schema fields
+      const standardFields = ALL_SCHEMA_FIELDS.map((f: SchemaField) => ({
         name: f.name,
+        dbColumn: f.dbColumn,
+        type: f.type,
         required: f.required,
         description: f.description,
         example: f.example,
         acceptedValues: f.acceptedValues,
+        validation: f.validation,
       }));
 
       const systemPrompt = `You are an expert data mapping assistant for an e-commerce platform.
 
-Your task is to map user's CSV column headers to our standard product template fields.
+Your task is to map user's CSV column headers to our database schema fields. All products will be imported as IN-STOCK items.
 
-STANDARD TEMPLATE FIELDS:
+DATABASE SCHEMA FIELDS:
 ${JSON.stringify(standardFields, null, 2)}
 
 MAPPING RULES:
-1. Match user headers to the most appropriate standard field
+1. Match user headers to the most appropriate database field (use the "name" from schema)
 2. Provide a confidence score (0-100) for each mapping
 3. Consider synonyms, abbreviations, and common variations
 4. A confidence of 80+ means high confidence auto-map
@@ -71,15 +74,20 @@ MAPPING RULES:
 6. A confidence below 50 means manual mapping required
 7. If no good match exists, set standardField to null
 8. Provide brief reasoning for your mapping choice
+9. ALL PRODUCTS ARE IN-STOCK ITEMS - ignore pre-order or made-to-order fields
+10. VARIANT SKU is supported - map variant SKU columns to "Variant SKU" field
 
 EXAMPLES OF GOOD MAPPINGS:
-- "product_name" → "Product Name" (confidence: 95)
-- "img_url" → "Images" (confidence: 85)
-- "retail_price" → "Price" (confidence: 90)
-- "item_description" → "Description" (confidence: 92)
-- "category_name" → "Category" (confidence: 95)
-- "stock_qty" → "Stock" (confidence: 88)
-- "sku_code" → "SKU" (confidence: 95)
+- "product_name" / "title" / "name" → "Product Name" (confidence: 95)
+- "img_url" / "image_url" / "picture" → "Image" (confidence: 90)
+- "images" / "additional_images" → "Images" (confidence: 85)
+- "retail_price" / "price" / "cost" → "Price" (confidence: 95)
+- "item_description" / "desc" → "Description" (confidence: 92)
+- "category_name" / "category" → "Category" (confidence: 95)
+- "stock_qty" / "quantity" / "inventory" → "Stock" (confidence: 88)
+- "sku_code" / "sku" / "product_sku" → "SKU" (confidence: 95)
+- "variant_sku" / "size_sku" / "color_sku" → "Variant SKU" (confidence: 90)
+- "variants" / "options" / "sizes" → "Variants" (confidence: 85)
 
 Respond with a JSON array of mappings.`;
 
@@ -142,9 +150,9 @@ Analyze each header and provide the best mapping with confidence score and reaso
 
       // Find missing required fields
       const mappedStandardFields = new Set(mappings.filter(m => m.standardField !== null).map(m => m.standardField));
-      const missingRequiredFields = CSV_TEMPLATE_FIELDS
-        .filter(f => f.required && !mappedStandardFields.has(f.name))
-        .map(f => f.name);
+      const missingRequiredFields = ALL_SCHEMA_FIELDS
+        .filter((f: SchemaField) => f.required && !mappedStandardFields.has(f.name))
+        .map((f: SchemaField) => f.name);
 
       // Generate suggestions
       const suggestions: string[] = [];
@@ -210,7 +218,7 @@ Analyze each header and provide the best mapping with confidence score and reaso
       mappings.filter(m => m.standardField !== null).map(m => m.standardField)
     );
 
-    const requiredFields = CSV_TEMPLATE_FIELDS.filter(f => f.required);
+    const requiredFields = ALL_SCHEMA_FIELDS.filter((f: SchemaField) => f.required);
     for (const field of requiredFields) {
       if (!mappedStandardFields.has(field.name)) {
         errors.push(`Required field "${field.name}" is not mapped`);
