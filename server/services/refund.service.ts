@@ -21,13 +21,14 @@ export interface CreateRefundRequest {
   orderId: string;
   sellerId: string;
   reason?: string;
-  lineItems: Array<{
-    type: 'product' | 'shipping' | 'tax' | 'adjustment';
-    orderItemId?: string;
-    quantity?: number;
-    amount: string;
-    description?: string;
+  // ARCHITECTURE 3: Frontend sends ONLY IDs and quantities - NO amounts!
+  // Backend calculates all amounts from its own data
+  items?: Array<{
+    orderItemId: string;
+    quantity: number;
   }>;
+  refundShipping?: boolean;
+  refundTax?: boolean;
   manualOverride?: {
     totalAmount: string;
     reason: string;
@@ -78,49 +79,80 @@ export class RefundService {
         throw new Error('Unauthorized: Order does not belong to this seller');
       }
 
-      // Step 2: Get refundable amounts for validation
+      // Step 2: Get refundable amounts - backend is source of truth
       const refundableData = await this.storage.getRefundableAmountForOrder(request.orderId);
       const maxRefundable = parseFloat(refundableData.totalRefundable);
 
-      // Step 3: Calculate total refund amount from line items
+      // Step 3: ARCHITECTURE 3 - Backend calculates ALL amounts from its own data
       let totalRefundAmount = 0;
-      for (const lineItem of request.lineItems) {
-        totalRefundAmount += parseFloat(lineItem.amount);
-      }
+      const calculatedLineItems: Array<{
+        type: 'product' | 'shipping' | 'tax' | 'adjustment';
+        orderItemId?: string;
+        quantity?: number;
+        amount: string;
+        description: string;
+      }> = [];
 
-      // Step 3a: Per-item validation - ensure each item's refund doesn't exceed its refundable amount
-      for (const lineItem of request.lineItems) {
-        if (lineItem.type === 'product' && lineItem.orderItemId) {
-          const itemRefundable = refundableData.items.find(i => i.itemId === lineItem.orderItemId);
+      // Step 3a: Calculate product item amounts
+      if (request.items) {
+        for (const item of request.items) {
+          const itemRefundable = refundableData.items.find(i => i.itemId === item.orderItemId);
           if (!itemRefundable) {
-            throw new Error(`Order item ${lineItem.orderItemId} not found or invalid`);
+            throw new Error(`Order item ${item.orderItemId} not found or invalid`);
           }
 
-          const requestedQuantity = lineItem.quantity || 0;
-          const requestedAmount = parseFloat(lineItem.amount);
-
-          // Validate quantity doesn't exceed refundable quantity
-          if (requestedQuantity > itemRefundable.refundableQuantity) {
+          // Validate quantity
+          if (item.quantity > itemRefundable.refundableQuantity) {
             throw new Error(
-              `Cannot refund ${requestedQuantity} units of ${itemRefundable.productName}. Only ${itemRefundable.refundableQuantity} units are refundable.`
+              `Cannot refund ${item.quantity} units of ${itemRefundable.productName}. Only ${itemRefundable.refundableQuantity} units are refundable.`
             );
           }
 
-          // Validate amount doesn't exceed refundable amount for this item
+          // Calculate proportional amount based on refundable amount
           const itemMaxRefundable = parseFloat(itemRefundable.refundableAmount);
-          if (requestedAmount > itemMaxRefundable + 0.01) { // Allow 1 cent tolerance for rounding
-            throw new Error(
-              `Refund amount ${requestedAmount.toFixed(2)} for ${itemRefundable.productName} exceeds refundable amount ${itemMaxRefundable.toFixed(2)}`
-            );
-          }
+          const proportionalAmount = (itemMaxRefundable / itemRefundable.refundableQuantity) * item.quantity;
+          
+          calculatedLineItems.push({
+            type: 'product',
+            orderItemId: item.orderItemId,
+            quantity: item.quantity,
+            amount: proportionalAmount.toFixed(2),
+            description: itemRefundable.productName,
+          });
+
+          totalRefundAmount += proportionalAmount;
         }
       }
 
-      // Step 3b: Apply manual override if provided (must still be <= max refundable)
+      // Step 3b: Calculate shipping amount
+      if (request.refundShipping && refundableData.shipping) {
+        const shippingRefundable = parseFloat(refundableData.shipping.refundable);
+        if (shippingRefundable > 0) {
+          calculatedLineItems.push({
+            type: 'shipping',
+            amount: shippingRefundable.toFixed(2),
+            description: 'Shipping refund',
+          });
+          totalRefundAmount += shippingRefundable;
+        }
+      }
+
+      // Step 3c: Calculate tax amount
+      if (request.refundTax && refundableData.tax) {
+        const taxRefundable = parseFloat(refundableData.tax.refundable);
+        if (taxRefundable > 0) {
+          calculatedLineItems.push({
+            type: 'tax',
+            amount: taxRefundable.toFixed(2),
+            description: 'Tax refund',
+          });
+          totalRefundAmount += taxRefundable;
+        }
+      }
+
+      // Step 3d: Apply manual override if provided (must still be <= max refundable)
       if (request.manualOverride) {
         totalRefundAmount = parseFloat(request.manualOverride.totalAmount);
-        // Manual override still validates against total refundable amount
-        // but allows seller to adjust breakdown (e.g., for partial item refunds with custom amounts)
       }
 
       // Step 4: Validate refund amount doesn't exceed refundable amount
@@ -147,8 +179,8 @@ export class RefundService {
       const createdRefund = await this.storage.createRefund(refundData);
       logger.info(`[Refund] Created refund ${createdRefund.id} for order ${request.orderId}`);
 
-      // Step 6: Create refund line items
-      const lineItemsData: InsertRefundLineItem[] = request.lineItems.map(item => ({
+      // Step 6: Create refund line items (using backend-calculated amounts)
+      const lineItemsData: InsertRefundLineItem[] = calculatedLineItems.map(item => ({
         refundId: createdRefund.id,
         orderItemId: item.orderItemId || null,
         type: item.type,
@@ -203,7 +235,7 @@ export class RefundService {
         await this.updateOrderPaymentStatus(request.orderId);
 
         // Step 10: Update order items refunded amounts
-        for (const lineItem of request.lineItems) {
+        for (const lineItem of calculatedLineItems) {
           if (lineItem.type === 'product' && lineItem.orderItemId && lineItem.quantity) {
             const orderItem = await this.storage.getOrderItemById(lineItem.orderItemId);
             if (orderItem) {
@@ -226,10 +258,10 @@ export class RefundService {
         try {
           const seller = await this.storage.getUser(order.sellerId);
           if (seller) {
-            // Build line items with descriptions for email
-            const emailLineItems = request.lineItems.map(item => ({
+            // Build line items with descriptions for email (using backend-calculated amounts)
+            const emailLineItems = calculatedLineItems.map(item => ({
               type: item.type,
-              description: item.description || this.getLineItemDescription(item),
+              description: item.description,
               amount: item.amount,
               quantity: item.quantity,
             }));
@@ -293,23 +325,6 @@ export class RefundService {
     return await this.storage.getRefundableAmountForOrder(orderId);
   }
 
-  /**
-   * Generate description for line item based on type
-   */
-  private getLineItemDescription(item: CreateRefundRequest['lineItems'][0]): string {
-    switch (item.type) {
-      case 'product':
-        return item.description || 'Product refund';
-      case 'shipping':
-        return 'Shipping refund';
-      case 'tax':
-        return 'Tax refund';
-      case 'adjustment':
-        return item.description || 'Refund adjustment';
-      default:
-        return 'Refund';
-    }
-  }
 
   /**
    * Update order payment status based on refund totals

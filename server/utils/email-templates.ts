@@ -987,16 +987,15 @@ export async function generateRefundConfirmationEmail(data: RefundEmailData): Pr
   const { order, seller, refundAmount, currency, reason, lineItems, orderAccessToken } = data;
   
   // Get seller name for display
-  const sellerName = seller.storeName || seller.username || "the seller";
+  const sellerName = seller.companyName || seller.username || "the seller";
   
-  // Generate order access link with magic token
+  // CRITICAL: orderAccessToken is already a FULL magic link URL from generateMagicLinkForEmail
+  // Don't reconstruct it - just use it directly
   const baseUrl = process.env.REPLIT_DOMAINS
     ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
     : `http://localhost:${process.env.PORT || 5000}`;
   
-  const orderLink = orderAccessToken
-    ? `${baseUrl}/orders/${order.id}?token=${orderAccessToken}`
-    : `${baseUrl}/orders/${order.id}`;
+  const orderLink = orderAccessToken || `${baseUrl}/orders/${order.id}`;
   
   // CRITICAL: Safe parsing with proper field names from order schema
   const totalPaid = parseFloat(order.amountPaid || '0');

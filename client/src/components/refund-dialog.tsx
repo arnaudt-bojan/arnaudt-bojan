@@ -118,42 +118,22 @@ export function RefundDialog({
 
   const processRefundMutation = useMutation({
     mutationFn: async () => {
-      const lineItems: RefundLineItem[] = [];
+      // ARCHITECTURE 3: Frontend sends ONLY IDs and quantities - NO amounts!
+      // Backend calculates all amounts from its own data
+      const items: Array<{ orderItemId: string; quantity: number }> = [];
 
-      // Add selected product items
+      // Add selected product items (ID + quantity only)
       for (const [itemId, data] of Array.from(selectedItems.entries())) {
-        const orderItem = orderItems.find(i => i.id === itemId);
-        if (orderItem) {
-          lineItems.push({
-            type: 'product',
-            orderItemId: itemId,
-            quantity: data.quantity,
-            amount: data.amount.toFixed(2),
-            description: orderItem.productName,
-          });
-        }
-      }
-
-      // Add shipping if selected
-      if (refundShipping && refundableData?.shipping) {
-        lineItems.push({
-          type: 'shipping',
-          amount: parseFloat(refundableData.shipping.refundable).toFixed(2),
-          description: 'Shipping refund',
-        });
-      }
-
-      // Add tax if selected
-      if (refundTax && refundableData?.tax) {
-        lineItems.push({
-          type: 'tax',
-          amount: parseFloat(refundableData.tax.refundable).toFixed(2),
-          description: 'Tax refund',
+        items.push({
+          orderItemId: itemId,
+          quantity: data.quantity,
         });
       }
 
       const payload: any = {
-        lineItems,
+        items,
+        refundShipping: refundShipping || undefined,
+        refundTax: refundTax || undefined,
         reason: reason || undefined,
       };
 
