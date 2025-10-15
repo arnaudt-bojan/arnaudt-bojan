@@ -213,6 +213,12 @@ export default function ProductDetail() {
 
   // Determine if product/variant is available
   const isProductAvailable = () => {
+    // CRITICAL FIX: While stock is loading, consider product available to prevent "not available" flash
+    // The button will still be disabled via isLoadingStock check
+    if (isLoadingStock) {
+      return true;
+    }
+    
     // For products with variants, require variant selection and check variant stock
     if (hasVariants) {
       // Check variant selection requirements
@@ -526,8 +532,8 @@ export default function ProductDetail() {
                   )}
                 </div>
                 
-                {/* Show variant-specific out-of-stock alert */}
-                {hasVariants && variantId && !stockData?.isAvailable && (
+                {/* Show variant-specific out-of-stock alert - only when loading is complete */}
+                {hasVariants && variantId && !isLoadingStock && !stockData?.isAvailable && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
@@ -576,7 +582,11 @@ export default function ProductDetail() {
                       data-testid="button-add-to-cart"
                     >
                       <ShoppingCart className="h-5 w-5" />
-                      {!isProductAvailable() && product?.productType === "in-stock" ? "Sold Out" : "Add to Cart"}
+                      {isLoadingStock 
+                        ? "Checking..." 
+                        : !isProductAvailable() && product?.productType === "in-stock" 
+                          ? "Sold Out" 
+                          : "Add to Cart"}
                     </Button>
                   </TooltipTrigger>
                   {isCartLoading && (
@@ -594,7 +604,11 @@ export default function ProductDetail() {
                       disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
                       data-testid="button-buy-now"
                     >
-                      {!isProductAvailable() && product?.productType === "in-stock" ? "Unavailable" : "Buy Now"}
+                      {isLoadingStock 
+                        ? "Checking..." 
+                        : !isProductAvailable() && product?.productType === "in-stock" 
+                          ? "Unavailable" 
+                          : "Buy Now"}
                     </Button>
                   </TooltipTrigger>
                   {isCartLoading && (
