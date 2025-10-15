@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Order, OrderItem } from "@shared/schema";
 import { getPaymentStatusLabel, getOrderStatusLabel } from "@/lib/format-status";
+import { formatVariant } from "@shared/variant-formatter";
 
 interface OrderDetailsResponse {
   order: Order;
@@ -216,6 +217,11 @@ export default function BuyerOrderDetails() {
                   )}
                   <div className="flex-1">
                     <h4 className="font-medium">{item.productName}</h4>
+                    {formatVariant(item.variant) && (
+                      <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-variant-${idx}`}>
+                        {formatVariant(item.variant)}
+                      </p>
+                    )}
                     <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                     {item.trackingNumber && (
                       <div className="mt-2 flex items-center gap-2">

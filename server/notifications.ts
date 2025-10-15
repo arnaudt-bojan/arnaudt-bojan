@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem, BalanceRequest } from '../shared/schema';
 import { DocumentGenerator } from './services/document-generator';
 import { logger } from './logger';
+import { formatVariant } from '../shared/variant-formatter';
 import { 
   createEmailTemplate, 
   createEmailButton, 
@@ -283,10 +284,11 @@ class NotificationServiceImpl implements NotificationService {
       // Get product SKUs for items
       const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
         const product = await this.storage.getProduct(item.productId);
+        
         return {
           name: item.productName,
           sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
-          variant: item.variant ? JSON.stringify(item.variant) : undefined,
+          variant: formatVariant(item.variant) || undefined,
           quantity: item.quantity,
           price: parseFloat(item.price).toFixed(2),
           subtotal: parseFloat(item.subtotal).toFixed(2),
@@ -537,7 +539,7 @@ class NotificationServiceImpl implements NotificationService {
         items: [{
           name: item.productName,
           sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
-          variant: item.variant ? JSON.stringify(item.variant) : undefined,
+          variant: formatVariant(item.variant) || undefined,
           quantity: item.quantity,
         }],
       };
@@ -1154,16 +1156,10 @@ class NotificationServiceImpl implements NotificationService {
       const subtotal = parseFloat(orderItem.subtotal);
       
       // Build product thumbnail HTML with discount info
-      const variant = orderItem.variant ? { size: (orderItem.variant as any).size, color: (orderItem.variant as any).color } : null;
-      let variantText = '';
-      if (variant) {
-        const parts = [];
-        if (variant.size) parts.push(`Size: ${variant.size}`);
-        if (variant.color) parts.push(`Color: ${variant.color}`);
-        if (parts.length > 0) {
-          variantText = `<br><span style="font-size: 13px; color: #9ca3af !important;">${parts.join(' • ')}</span>`;
-        }
-      }
+      const formattedVariant = formatVariant(orderItem.variant);
+      const variantText = formattedVariant 
+        ? `<br><span style="font-size: 13px; color: #9ca3af !important;">${formattedVariant}</span>` 
+        : '';
       
       const productImage = orderItem.productImage || '';
       const productName = orderItem.productName;
@@ -1257,8 +1253,7 @@ class NotificationServiceImpl implements NotificationService {
         price: item.price,
       } as Product;
       
-      const variant = item.variant ? { size: item.variant, color: item.color } : null;
-      return generateProductThumbnail(product, item.quantity, variant);
+      return generateProductThumbnail(product, item.quantity, formatVariant(item.variant));
     }).join('');
     
     // Generate tracking info if available
@@ -1316,8 +1311,7 @@ class NotificationServiceImpl implements NotificationService {
         price: item.price,
       } as Product;
       
-      const variant = item.variant ? { size: item.variant, color: item.color } : null;
-      return generateProductThumbnail(product, item.quantity, variant);
+      return generateProductThumbnail(product, item.quantity, formatVariant(item.variant));
     }).join('');
     
     const deliveredDate = order.deliveredAt ? new Date(order.deliveredAt).toLocaleDateString('en-US', { 
@@ -1418,7 +1412,7 @@ class NotificationServiceImpl implements NotificationService {
         name: item.productName,
         image: item.productImage,
         price: item.price.toString(),
-      } as Product, quantity, item.variant ? { size: item.variant.size, color: item.variant.color } : null)
+      } as Product, quantity, formatVariant(item.variant))
     ).join('');
     
     // Build refund breakdown - show components that sum to refundAmount
@@ -1765,8 +1759,7 @@ class NotificationServiceImpl implements NotificationService {
         price: item.price,
       } as Product;
       
-      const variant = item.variant ? { size: item.variant, color: item.color } : null;
-      return generateProductThumbnail(product, item.quantity, variant);
+      return generateProductThumbnail(product, item.quantity, formatVariant(item.variant));
     }).join('');
     
     const storeName = seller.firstName || seller.username || 'our store';
@@ -1825,8 +1818,7 @@ class NotificationServiceImpl implements NotificationService {
       price: item.price.toString(),
     } as Product;
     
-    const variant = item.variant ? { size: item.variant.size, color: item.variant.color } : null;
-    const productThumbnailHtml = generateProductThumbnail(product, item.quantity, variant);
+    const productThumbnailHtml = generateProductThumbnail(product, item.quantity, formatVariant(item.variant));
     
     // Generate tracking info if available
     const trackingHtml = item.trackingNumber 

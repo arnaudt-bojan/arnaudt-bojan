@@ -45,6 +45,7 @@ import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { requiresState, isValidState } from "@shared/shipping-validation";
 import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
+import { formatVariant } from "@shared/variant-formatter";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -1337,6 +1338,11 @@ export default function Checkout() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
                                 <p className="font-medium text-sm leading-tight">{item.name}</p>
+                                {formatVariant((item as any).variant) && (
+                                  <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-variant-${item.id}`}>
+                                    {formatVariant((item as any).variant)}
+                                  </p>
+                                )}
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <p className="text-sm text-muted-foreground">
                                     {formatConvertedPrice(parseFloat(item.price))} × {item.quantity}

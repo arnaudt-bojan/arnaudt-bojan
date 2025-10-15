@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { CurrencyDisclaimer } from "./currency-disclaimer";
 import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
+import { formatVariant } from "@shared/variant-formatter";
 
 interface CartSheetProps {
   open: boolean;
@@ -103,6 +104,11 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                         <h4 className="font-semibold text-sm line-clamp-2 cursor-pointer hover:underline">
                           {item.name}
                         </h4>
+                        {formatVariant((item as any).variant) && (
+                          <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-variant-${item.id}`}>
+                            {formatVariant((item as any).variant)}
+                          </p>
+                        )}
                       </Link>
                       <Button
                         variant="ghost"

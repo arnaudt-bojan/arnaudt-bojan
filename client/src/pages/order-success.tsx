@@ -11,6 +11,7 @@ import type { Order, Product, User } from "@shared/schema";
 import { getSellerAwarePath } from "@/contexts/seller-context";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { formatVariant } from "@shared/variant-formatter";
 
 // Simple currency formatter using seller's currency (no conversion)
 const formatOrderPrice = (price: number, currency: string = 'USD') => {
@@ -328,8 +329,10 @@ export default function OrderSuccess() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold mb-1 truncate">{item.name || product?.name}</h3>
                       <div className="space-y-1 text-sm text-muted-foreground">
-                        {item.variant && (
-                          <p>Variant: {item.variant}</p>
+                        {formatVariant(item.variant) && (
+                          <p data-testid={`text-variant-${index}`}>
+                            {formatVariant(item.variant)}
+                          </p>
                         )}
                         <p>Quantity: {item.quantity}</p>
                         <div className="flex items-center gap-2 flex-wrap">
