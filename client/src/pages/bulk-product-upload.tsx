@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDistanceToNow } from "date-fns";
+import { AIFieldMapping } from "@/components/ai-field-mapping";
 
 type BulkUploadJob = {
   id: string;
@@ -44,6 +45,7 @@ export default function BulkProductUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("upload");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
 
   // Fetch job history
   const { data: jobHistory, isLoading: loadingHistory } = useQuery<BulkUploadJob[]>({
@@ -132,11 +134,13 @@ export default function BulkProductUpload() {
     },
     onSuccess: (data) => {
       setCurrentJobId(data.job.id);
-      setActiveTab("validate");
+      setCsvHeaders(data.headers || []);
+      // Go to mapping tab first, then validation
+      setActiveTab(data.headers && data.headers.length > 0 ? "map" : "validate");
       queryClient.invalidateQueries({ queryKey: ["/api/bulk-upload/jobs"] });
       toast({
         title: "Upload successful",
-        description: `Uploaded ${data.totalRows} rows. Proceed to validation.`,
+        description: `Uploaded ${data.totalRows} rows. ${data.headers ? 'Review field mappings next.' : 'Proceed to validation.'}`,
       });
     },
     onError: (error: Error) => {
@@ -292,8 +296,11 @@ export default function BulkProductUpload() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="upload" data-testid="tab-upload">Upload CSV</TabsTrigger>
+          <TabsTrigger value="map" disabled={!currentJobId || csvHeaders.length === 0} data-testid="tab-map">
+            Map Fields
+          </TabsTrigger>
           <TabsTrigger value="validate" disabled={!currentJobId} data-testid="tab-validate">
             Validate
           </TabsTrigger>
@@ -385,6 +392,32 @@ export default function BulkProductUpload() {
                   Use @@ and ;; delimiters for color variants to support HTTPS image URLs
                 </AlertDescription>
               </Alert>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="map" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Field Mapping</CardTitle>
+              <CardDescription>
+                Review and adjust how your CSV columns map to our standard product fields
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {csvHeaders.length > 0 && currentJobId && (
+                <AIFieldMapping
+                  userHeaders={csvHeaders}
+                  jobId={currentJobId}
+                  onMappingComplete={(mappings) => {
+                    toast({
+                      title: "Mappings saved",
+                      description: "Your data has been transformed. Proceeding to validation.",
+                    });
+                    setActiveTab("validate");
+                  }}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -2243,9 +2243,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createBulkUploadItems(items);
 
+      // Extract headers from CSV for AI field mapping
+      const headers = parseResult.meta?.fields || [];
+
       res.json({ 
         job,
         totalRows: rows.length,
+        headers, // Include headers for AI mapping
         message: `Uploaded ${rows.length} rows successfully`
       });
     } catch (error) {

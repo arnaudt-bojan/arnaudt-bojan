@@ -91,6 +91,37 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
     }
   };
 
+  // Apply mappings mutation  
+  const applyMappingsMutation = useMutation({
+    mutationFn: async (mappings: FieldMapping[]) => {
+      // First, update the job with mappings
+      if (jobId) {
+        await apiRequest("POST", `/api/bulk-upload/update-mappings/${jobId}`, { mappings });
+        // Then apply the transformation
+        const response = await apiRequest("POST", `/api/bulk-upload/apply-mappings/${jobId}`);
+        if (!response.ok) {
+          throw new Error("Failed to apply mappings");
+        }
+        return await response.json();
+      }
+      return null;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mappings Applied",
+        description: "CSV data has been transformed successfully",
+      });
+      onMappingComplete(mappings);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Apply Mappings",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Validate and apply mappings
   const handleApplyMappings = () => {
     const missingRequired = CSV_TEMPLATE_FIELDS
@@ -107,7 +138,12 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
       return;
     }
 
-    onMappingComplete(mappings);
+    if (jobId) {
+      applyMappingsMutation.mutate(mappings);
+    } else {
+      // No job ID, just return mappings (preview mode)
+      onMappingComplete(mappings);
+    }
   };
 
   if (analyzeMutation.isPending) {
