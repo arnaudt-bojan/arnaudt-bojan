@@ -194,9 +194,17 @@ export function RefundDialog({
     } else {
       const refundableQty = item.quantity - (item.refundedQuantity || 0);
       const pricePerUnit = parseFloat(item.price);
+      
+      // CRITICAL: Use actual refundable amount from API (respects deposit vs full payment)
+      let refundAmount = pricePerUnit * refundableQty;
+      if (refundableData?.itemRefundables?.[item.id]) {
+        const apiMaxRefundable = parseFloat(refundableData.itemRefundables[item.id].maxRefundable || "0");
+        refundAmount = Math.min(refundAmount, apiMaxRefundable);
+      }
+      
       newSelected.set(item.id, {
         quantity: refundableQty,
-        amount: pricePerUnit * refundableQty,
+        amount: refundAmount,
       });
     }
     setSelectedItems(newSelected);
@@ -209,17 +217,23 @@ export function RefundDialog({
     
     // CRITICAL: Validate against API refundable data if available
     let maxAllowedQty = refundableQty;
+    let apiMaxRefundable = pricePerUnit * refundableQty; // Default to full price
+    
     if (refundableData?.itemRefundables?.[itemId]) {
-      const apiMaxRefundable = parseFloat(refundableData.itemRefundables[itemId].maxRefundable || "0");
+      apiMaxRefundable = parseFloat(refundableData.itemRefundables[itemId].maxRefundable || "0");
       const apiMaxQty = Math.floor(apiMaxRefundable / pricePerUnit);
       maxAllowedQty = Math.min(refundableQty, apiMaxQty);
     }
     
     const clampedQty = Math.max(1, Math.min(newQty, maxAllowedQty));
     
+    // CRITICAL: Cap amount at API max refundable (respects deposit vs full payment)
+    const calculatedAmount = pricePerUnit * clampedQty;
+    const finalAmount = Math.min(calculatedAmount, apiMaxRefundable);
+    
     newSelected.set(itemId, {
       quantity: clampedQty,
-      amount: pricePerUnit * clampedQty,
+      amount: finalAmount,
     });
     setSelectedItems(newSelected);
   };
