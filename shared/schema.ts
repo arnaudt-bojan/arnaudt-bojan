@@ -49,6 +49,17 @@ export const balancePaymentStatusPgEnum = pgEnum("order_balance_payment_status",
   "cancelled"
 ]);
 
+// Refund system enums
+export const refundLineItemTypeEnum = z.enum(["product", "shipping", "tax", "adjustment"]);
+export type RefundLineItemType = z.infer<typeof refundLineItemTypeEnum>;
+
+export const refundLineItemTypePgEnum = pgEnum("refund_line_item_type", [
+  "product",
+  "shipping",
+  "tax",
+  "adjustment"
+]);
+
 // PostgreSQL enums for Wholesale B2B System
 export const wholesaleOrderStatusPgEnum = pgEnum("wholesale_order_status", [
   "pending",
@@ -568,10 +579,9 @@ export type StockReservation = typeof stockReservations.$inferSelect;
 export const refunds = pgTable("refunds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull(), // References orders.id (for B2C) or wholesale_orders.id (for B2B, stored here for query compatibility)
-  orderItemId: varchar("order_item_id"), // References order_items.id (null for shipping refunds)
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Refund amount
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(), // Total refund amount across all line items
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"), // ISO 4217 currency code
   reason: text("reason"), // Refund reason (optional)
-  refundType: text("refund_type").notNull(), // "full", "partial", "item", "shipping"
   stripeRefundId: varchar("stripe_refund_id"), // Stripe refund ID
   status: text("status").notNull().default("pending"), // "pending", "succeeded", "failed"
   processedBy: varchar("processed_by").notNull(), // User ID who processed the refund
@@ -579,9 +589,13 @@ export const refunds = pgTable("refunds", {
   // Wholesale-specific fields (nullable for B2C compatibility)
   wholesaleOrderId: varchar("wholesale_order_id"), // References wholesale_orders.id (null for B2C)
   wholesalePaymentId: varchar("wholesale_payment_id"), // References wholesale_payments.id (null for B2C)
-  wholesaleOrderItemId: varchar("wholesale_order_item_id"), // References wholesale_order_items.id (null for B2C)
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("refunds_order_id_idx").on(table.orderId),
+    statusIdx: index("refunds_status_idx").on(table.status),
+  };
 });
 
 export const insertRefundSchema = createInsertSchema(refunds).omit({ 
@@ -590,6 +604,30 @@ export const insertRefundSchema = createInsertSchema(refunds).omit({
 });
 export type InsertRefund = z.infer<typeof insertRefundSchema>;
 export type Refund = typeof refunds.$inferSelect;
+
+// Refund Line Items - track individual items/components of a refund (products, shipping, tax, adjustments)
+export const refundLineItems = pgTable("refund_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  refundId: varchar("refund_id").notNull(), // References refunds.id
+  orderItemId: varchar("order_item_id"), // References order_items.id (null for shipping/tax/adjustment)
+  type: refundLineItemTypePgEnum("type").notNull(), // "product", "shipping", "tax", "adjustment"
+  quantity: integer("quantity"), // Quantity being refunded (for product type)
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Amount for this line item
+  description: text("description"), // Optional description (e.g., "Shipping refund", "Partial product refund")
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    refundIdIdx: index("refund_line_items_refund_id_idx").on(table.refundId),
+    orderItemIdIdx: index("refund_line_items_order_item_id_idx").on(table.orderItemId),
+  };
+});
+
+export const insertRefundLineItemSchema = createInsertSchema(refundLineItems).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertRefundLineItem = z.infer<typeof insertRefundLineItemSchema>;
+export type RefundLineItem = typeof refundLineItems.$inferSelect;
 
 // Order Events - track all order-related events (status changes, emails sent, etc.)
 export const orderEventTypeEnum = z.enum([
