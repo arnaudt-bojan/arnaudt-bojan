@@ -142,8 +142,15 @@ export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps
           <Button
             size="icon"
             onClick={(e) => {
+              console.log('[ProductCard] Button clicked!', { product: product.name, disabled, onAddToCart: !!onAddToCart });
               e.preventDefault();
-              onAddToCart?.(product);
+              e.stopPropagation();
+              if (!disabled && onAddToCart) {
+                console.log('[ProductCard] Calling onAddToCart');
+                onAddToCart(product);
+              } else {
+                console.warn('[ProductCard] Button disabled or no handler', { disabled, hasHandler: !!onAddToCart });
+              }
             }}
             disabled={disabled}
             data-testid={`button-add-to-cart-${product.id}`}
