@@ -332,7 +332,7 @@ export default function BuyerOrderDetails() {
                   {refunds.map((refund: any, idx: number) => (
                     <div key={idx} className="flex justify-between text-red-600 dark:text-red-400">
                       <span>Refund ({format(new Date(refund.createdAt), "MMM d, yyyy")})</span>
-                      <span>-${parseFloat(refund.amount).toFixed(2)}</span>
+                      <span>-${parseFloat(refund.totalAmount).toFixed(2)}</span>
                     </div>
                   ))}
                 </>

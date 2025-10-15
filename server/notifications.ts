@@ -803,7 +803,7 @@ class NotificationServiceImpl implements NotificationService {
         try {
           await this.storage.createOrderEvent({
             orderId: order.id,
-            eventType: 'refund_confirmation_sent',
+            eventType: 'email_sent',
             description: `Refund confirmation email sent to ${buyerEmail}`,
             payload: JSON.stringify({
               emailType: 'refund_confirmation',
