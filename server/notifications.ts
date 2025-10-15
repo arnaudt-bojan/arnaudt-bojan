@@ -29,7 +29,9 @@ import {
   generateShippingAddress,
   generateBillingAddress,
   generateTrackingInfo,
-  generateMagicLinkButton
+  generateMagicLinkButton,
+  generateRefundConfirmationEmail,
+  type RefundEmailData
 } from './utils/email-templates';
 import { EmailType, EmailMetadataService } from './services/email-metadata.service';
 import Stripe from 'stripe';
@@ -65,6 +67,23 @@ export interface NotificationService {
   sendBalancePaymentRequest(order: Order, seller: User, balanceRequest: BalanceRequest, sessionToken: string): Promise<void>;
   sendBalancePaymentReceived(order: Order, seller: User, balanceAmount: number): Promise<void>;
   sendWelcomeEmailFirstOrder(order: Order, seller: User, products: Product[]): Promise<void>;
+  
+  // Refund Confirmation Email (Task 8)
+  sendRefundConfirmation(
+    order: Order, 
+    seller: User, 
+    refundData: {
+      amount: string;
+      currency: string;
+      reason?: string;
+      lineItems: Array<{
+        type: 'product' | 'shipping' | 'tax' | 'adjustment';
+        description: string;
+        amount: string;
+        quantity?: number;
+      }>;
+    }
+  ): Promise<void>;
   
   // Seller Order Notification (when buyer places order)
   sendSellerOrderNotification(order: Order, seller: User, products: Product[]): Promise<void>;
@@ -714,6 +733,102 @@ class NotificationServiceImpl implements NotificationService {
     }
 
     console.log(`[Notifications] Order refunded notification sent:`, result.success);
+  }
+
+  /**
+   * Send refund confirmation email (Seller → Buyer) - TASK 8
+   * Sends itemized refund confirmation with magic link for buyer auto-login
+   */
+  async sendRefundConfirmation(
+    order: Order, 
+    seller: User, 
+    refundData: {
+      amount: string;
+      currency: string;
+      reason?: string;
+      lineItems: Array<{
+        type: 'product' | 'shipping' | 'tax' | 'adjustment';
+        description: string;
+        amount: string;
+        quantity?: number;
+      }>;
+    }
+  ): Promise<void> {
+    try {
+      const buyerEmail = order.customerEmail;
+      
+      // Generate magic link for auto-login with seller context (buyer email from seller's shop)
+      // Use seller.username with fallback to seller.id to ensure sellerContext is never null for buyer emails
+      const sellerContext = seller.username || seller.id;
+      if (!sellerContext) {
+        logger.error("[Notifications] Cannot generate buyer magic link - seller has no username or ID");
+        throw new Error('Seller must have username or ID to send buyer emails');
+      }
+      
+      const magicLink = await this.generateMagicLinkForEmail(buyerEmail, `/orders/${order.id}`, sellerContext);
+      
+      // Prepare refund email data for template
+      const refundEmailData: RefundEmailData = {
+        order,
+        seller,
+        refundAmount: refundData.amount,
+        currency: refundData.currency,
+        reason: refundData.reason,
+        lineItems: refundData.lineItems,
+        orderAccessToken: magicLink,
+      };
+      
+      // Generate branded email HTML with magic link (ASYNC)
+      const emailHtml = await generateRefundConfirmationEmail(refundEmailData);
+      
+      // Get email metadata using EmailMetadataService
+      const fromName = await this.emailMetadata.getFromName(seller);
+      const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+      const subject = this.emailMetadata.generateSubject(EmailType.ORDER_REFUNDED, {
+        orderId: order.id,
+        amount: parseFloat(refundData.amount),
+        currency: refundData.currency,
+      });
+
+      const result = await this.sendEmail({
+        to: buyerEmail,
+        from: `${fromName} <noreply@upfirst.io>`,
+        replyTo: replyTo || undefined,
+        subject: subject,
+        html: emailHtml,
+      });
+
+      // Log email event to order_events table
+      if (result.success) {
+        try {
+          await this.storage.createOrderEvent({
+            orderId: order.id,
+            eventType: 'refund_confirmation_sent',
+            description: `Refund confirmation email sent to ${buyerEmail}`,
+            payload: JSON.stringify({
+              emailType: 'refund_confirmation',
+              recipientEmail: buyerEmail,
+              subject: subject,
+              refundAmount: refundData.amount,
+              currency: refundData.currency,
+              reason: refundData.reason,
+              lineItemsCount: refundData.lineItems.length,
+              sellerName: seller.firstName || seller.username || 'Store',
+            }),
+            performedBy: null,
+          });
+        } catch (error) {
+          logger.error("[Notifications] Failed to log refund confirmation event:", error);
+        }
+      }
+
+      logger.info(`[Notifications] Refund confirmation email sent: ${result.success}`);
+    } catch (error: any) {
+      // Handle errors gracefully - log but don't throw (refund already processed)
+      logger.error(`[Notifications] Failed to send refund confirmation email for order ${order.id}:`, error);
+      logger.error(`[Notifications] Error details:`, error.message);
+      // Don't throw - email failure should not roll back the refund
+    }
   }
 
   /**

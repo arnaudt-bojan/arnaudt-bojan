@@ -147,7 +147,7 @@ if (stripe && process.env.STRIPE_WEBHOOK_SECRET) {
 // Initialize Refund service for itemized refund processing
 let refundService: RefundService | null = null;
 if (stripeProvider) {
-  refundService = new RefundService(storage, stripeProvider);
+  refundService = new RefundService(storage, stripeProvider, notificationService);
 }
 
 // Initialize product service (Architecture 3 migration)

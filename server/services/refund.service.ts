@@ -14,6 +14,7 @@
 import type { IStorage } from '../storage';
 import type { IPaymentProvider } from './payment/payment-provider.interface';
 import type { InsertRefund, InsertRefundLineItem } from '@shared/schema';
+import type { NotificationService } from '../notifications';
 import { logger } from '../logger';
 
 export interface CreateRefundRequest {
@@ -44,7 +45,8 @@ export interface RefundResult {
 export class RefundService {
   constructor(
     private storage: IStorage,
-    private paymentProvider: IPaymentProvider
+    private paymentProvider: IPaymentProvider,
+    private notificationService: NotificationService
   ) {}
 
   /**
@@ -221,6 +223,34 @@ export class RefundService {
           }
         }
 
+        // Step 11: Send refund confirmation email to buyer
+        try {
+          const seller = await this.storage.getUser(order.sellerId);
+          if (seller) {
+            // Build line items with descriptions for email
+            const emailLineItems = request.lineItems.map(item => ({
+              type: item.type,
+              description: item.description || this.getLineItemDescription(item),
+              amount: item.amount,
+              quantity: item.quantity,
+            }));
+            
+            await this.notificationService.sendRefundConfirmation(order, seller, {
+              amount: totalRefundAmount.toFixed(2),
+              currency: order.currency || 'USD',
+              reason: request.reason || request.manualOverride?.reason,
+              lineItems: emailLineItems,
+            });
+            
+            logger.info(`[Refund] Refund confirmation email sent for order ${order.id}`);
+          } else {
+            logger.error(`[Refund] Seller not found for order ${order.id}, email not sent`);
+          }
+        } catch (emailError: any) {
+          // Log error but don't fail the refund - email is not critical
+          logger.error(`[Refund] Failed to send refund confirmation email for order ${order.id}:`, emailError);
+        }
+
         return {
           success: true,
           refundId: createdRefund.id,
@@ -262,6 +292,24 @@ export class RefundService {
    */
   async getRefundableAmount(orderId: string) {
     return await this.storage.getRefundableAmountForOrder(orderId);
+  }
+
+  /**
+   * Generate description for line item based on type
+   */
+  private getLineItemDescription(item: CreateRefundRequest['lineItems'][0]): string {
+    switch (item.type) {
+      case 'product':
+        return item.description || 'Product refund';
+      case 'shipping':
+        return 'Shipping refund';
+      case 'tax':
+        return 'Tax refund';
+      case 'adjustment':
+        return item.description || 'Refund adjustment';
+      default:
+        return 'Refund';
+    }
   }
 
   /**
