@@ -259,11 +259,13 @@ export function RefundDialog({
     return symbols[curr] || curr;
   };
 
-  const calculatedRefundAmount = calculateRefundAmount();
-  const refundAmount = useCustomAmount ? parseFloat(customRefundAmount || "0") : calculatedRefundAmount;
-  
   // CRITICAL: Safe parsing with fallback to 0
   const maxRefundable = refundableData?.totalRefundable ? parseFloat(refundableData.totalRefundable) : 0;
+  
+  // Cap calculated refund at maxRefundable (important for deposit orders)
+  const rawCalculatedAmount = calculateRefundAmount();
+  const calculatedRefundAmount = Math.min(rawCalculatedAmount, maxRefundable);
+  const refundAmount = useCustomAmount ? parseFloat(customRefundAmount || "0") : calculatedRefundAmount;
   const canRefund = selectedItems.size > 0 || refundShipping || refundTax;
   const isCustomAmountValid = !useCustomAmount || (refundAmount > 0 && refundAmount <= maxRefundable);
 
