@@ -31,6 +31,7 @@ import { PaymentService } from "./services/payment/payment.service";
 import { ProductService } from "./services/product.service";
 import { productVariantService } from "./services/product-variant.service";
 import { BulkUploadService } from "./services/bulk-upload.service";
+import { AIFieldMappingService } from "./services/ai-field-mapping.service";
 import Papa from "papaparse";
 import { generateCSVTemplate, generateInstructionsText, CSV_TEMPLATE_FIELDS } from "@shared/bulk-upload-template";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
@@ -169,6 +170,9 @@ const productService = new ProductService(
 
 // Initialize bulk upload service for CSV imports
 const bulkUploadService = new BulkUploadService(storage, productService);
+
+// Initialize AI field mapping service for intelligent CSV column mapping
+const aiFieldMappingService = new AIFieldMappingService();
 
 // Initialize legacy Stripe checkout service (Architecture 3 migration)
 const legacyCheckoutService = new LegacyStripeCheckoutService(
@@ -2393,6 +2397,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error fetching job details", error);
       res.status(500).json({ error: "Failed to fetch job details" });
+    }
+  });
+
+  // ===== AI FIELD MAPPING ROUTES =====
+
+  // Analyze CSV headers using AI and suggest field mappings
+  app.post("/api/bulk-upload/analyze-headers", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const { headers } = req.body;
+
+      if (!headers || !Array.isArray(headers)) {
+        return res.status(400).json({ error: "Headers array is required" });
+      }
+
+      logger.info('[AIFieldMapping] Analyzing headers', { headers });
+
+      const analysis = await aiFieldMappingService.analyzeHeaders(headers);
+
+      logger.info('[AIFieldMapping] Analysis complete', { 
+        mappingsCount: analysis.mappings.length,
+        unmappedCount: analysis.unmappedUserFields.length,
+        missingRequiredCount: analysis.missingRequiredFields.length
+      });
+
+      res.json(analysis);
+    } catch (error) {
+      logger.error("[AIFieldMapping] Error analyzing headers", error);
+      res.status(500).json({ error: "Failed to analyze headers" });
+    }
+  });
+
+  // Update field mappings for a job
+  app.post("/api/bulk-upload/update-mappings/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+      const { mappings } = req.body;
+
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Validate mappings
+      const validation = aiFieldMappingService.validateMapping(mappings);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Invalid mapping", 
+          details: validation.errors 
+        });
+      }
+
+      // Update job with mappings
+      await storage.updateBulkUploadJob(jobId, { 
+        mappings: mappings as any 
+      });
+
+      logger.info('[AIFieldMapping] Mappings updated', { jobId, mappingsCount: mappings.length });
+
+      res.json({ success: true, mappings });
+    } catch (error) {
+      logger.error("[AIFieldMapping] Error updating mappings", error);
+      res.status(500).json({ error: "Failed to update mappings" });
+    }
+  });
+
+  // Apply mappings and transform CSV data
+  app.post("/api/bulk-upload/apply-mappings/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      if (!job.mappings) {
+        return res.status(400).json({ error: "No mappings configured for this job" });
+      }
+
+      // Get items and apply mappings to transform data
+      const items = await storage.getBulkUploadItemsByJob(jobId);
+      const mappings = job.mappings as any[];
+
+      let transformedCount = 0;
+      for (const item of items) {
+        const userRow = item.rowData as Record<string, any>;
+        const transformedRow = aiFieldMappingService.applyMapping(userRow, mappings);
+        
+        // Update item with transformed data
+        await storage.updateBulkUploadItem(item.id, {
+          rowData: transformedRow as any
+        });
+        transformedCount++;
+      }
+
+      logger.info('[AIFieldMapping] Data transformed', { 
+        jobId, 
+        itemCount: transformedCount 
+      });
+
+      res.json({ 
+        success: true, 
+        transformedCount,
+        message: "Data transformed successfully using AI mappings" 
+      });
+    } catch (error) {
+      logger.error("[AIFieldMapping] Error applying mappings", error);
+      res.status(500).json({ error: "Failed to apply mappings" });
     }
   });
 
