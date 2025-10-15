@@ -118,7 +118,7 @@ export default function OrderSuccess() {
   const requestBalanceMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const response = await apiRequest("POST", `/api/orders/${orderId}/request-balance`, {
-        requestedBy: currentUser?.id || order?.customerId,
+        requestedBy: currentUser?.id || order?.userId,
       });
       
       if (!response.ok) {
@@ -441,28 +441,25 @@ export default function OrderSuccess() {
                     <p className="text-xs text-yellow-800 dark:text-yellow-200">
                       <strong>Note:</strong> You'll be contacted to pay the remaining balance of {formatOrderPrice(remainingBalance, currency)} before shipment.
                     </p>
-                    {isAuthenticated ? (
-                      <Button
-                        size="sm"
-                        onClick={() => requestBalanceMutation.mutate(order.id)}
-                        disabled={requestBalanceMutation.isPending}
-                        className="w-full"
-                        data-testid="button-pay-balance"
-                      >
-                        {requestBalanceMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          "Pay Balance Now"
-                        )}
-                      </Button>
-                    ) : (
-                      <p className="text-xs text-yellow-800 dark:text-yellow-200 text-center">
-                        A payment link will be sent to your email when the balance is ready
-                      </p>
-                    )}
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      Want to pay now? Click the button below to pay your balance early.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => requestBalanceMutation.mutate(order.id)}
+                      disabled={requestBalanceMutation.isPending}
+                      className="w-full"
+                      data-testid="button-pay-balance"
+                    >
+                      {requestBalanceMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Pay Balance Now"
+                      )}
+                    </Button>
                   </div>
                 </>
               ) : (
