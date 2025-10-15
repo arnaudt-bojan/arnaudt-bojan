@@ -244,6 +244,7 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
   name: z.string().min(1, "Product name is required").max(200, "Name must be 200 characters or less"),
   description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
   price: z.string().min(1, "Price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+  sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional SKU - auto-generated if not provided
   image: z.string().min(1, "At least one product image is required"),
   category: z.string().min(1, "Category is required"),
   productType: z.string().min(1, "Product type is required"),
@@ -252,7 +253,7 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
   promotionEndDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
   promotionActive: z.number().optional().nullable().transform(val => val ?? undefined),
   // CRITICAL: Include variants and other optional fields that were missing
-  variants: z.any().optional().nullable(), // JSON array of variant objects
+  variants: z.any().optional().nullable(), // JSON array of variant objects [{size, color, stock, image, sku}]
   hasColors: z.number().optional().nullable(), // 0 = size-only, 1 = color mode
   images: z.array(z.string()).optional().nullable(), // Array of image URLs
   stock: z.number().optional().nullable(),
@@ -280,6 +281,7 @@ export type Product = typeof products.$inferSelect;
 
 // Frontend product schema (without sellerId - added by backend)
 export const frontendProductSchema = insertProductSchema.omit({ sellerId: true }).extend({
+  sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional product SKU
   shippingType: z.enum(["flat", "matrix", "shippo", "free"]),
 });
 export type FrontendProduct = z.infer<typeof frontendProductSchema>;
