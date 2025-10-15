@@ -815,15 +815,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate: Check variant exists if variantId provided (route responsibility)
       if (variantId && product.variants && Array.isArray(product.variants)) {
         const variants = product.variants as any[];
-        const variantIdStr = String(variantId);
+        const variantIdStr = String(variantId).toLowerCase();
         
         // Simplified variant structure: [{size, color, stock, ...}]
         const variantFound = variants.some((v: any) => {
-          // Match by exact variantId (e.g., "Small" or "Small-Blue")
+          // Match by exact variantId (e.g., "Small" or "Small-Blue") - case insensitive
           const vId = v.color 
-            ? `${v.size}-${v.color}`.trim().replace(/^-|-$/g, '')
-            : v.size;
-          return vId === variantIdStr || v.size === variantIdStr;
+            ? `${v.size}-${v.color}`.trim().replace(/^-|-$/g, '').toLowerCase()
+            : (v.size || '').toLowerCase();
+          return vId === variantIdStr || (v.size || '').toLowerCase() === variantIdStr;
         });
 
         if (!variantFound) {
