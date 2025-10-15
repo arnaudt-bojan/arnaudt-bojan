@@ -1,9 +1,11 @@
 import { Resend } from 'resend';
 import crypto from 'crypto';
+import { format } from 'date-fns';
 import type { User, Order, Product, Notification, InsertNotification, OrderItem, BalanceRequest } from '../shared/schema';
 import { DocumentGenerator } from './services/document-generator';
 import { logger } from './logger';
 import { formatVariant } from '../shared/variant-formatter';
+import { computeDeliveryDate } from '../shared/order-utils';
 import { 
   createEmailTemplate, 
   createEmailButton, 
@@ -282,8 +284,8 @@ class NotificationServiceImpl implements NotificationService {
       // Fetch order items
       const orderItems = await this.storage.getOrderItems(order.id);
       
-      // Get product SKUs for items
-      const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
+      // Get product SKUs for items and compute delivery dates
+      const itemsWithSku = await Promise.all(orderItems.map(async (item: OrderItem) => {
         const product = await this.storage.getProduct(item.productId);
         
         return {
@@ -293,6 +295,7 @@ class NotificationServiceImpl implements NotificationService {
           quantity: item.quantity,
           price: parseFloat(item.price).toFixed(2),
           subtotal: parseFloat(item.subtotal).toFixed(2),
+          deliveryDate: computeDeliveryDate(item, order.createdAt),
         };
       }));
 
@@ -542,6 +545,7 @@ class NotificationServiceImpl implements NotificationService {
           sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
           variant: formatVariant(item.variant) || undefined,
           quantity: item.quantity,
+          deliveryDate: computeDeliveryDate(item, order.createdAt),
         }],
       };
       
@@ -1143,7 +1147,13 @@ class NotificationServiceImpl implements NotificationService {
     const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     
     // Fetch actual order items from database to get discount information
-    const orderItems = await this.storage.getOrderItems(order.id);
+    const dbOrderItems = await this.storage.getOrderItems(order.id);
+    
+    // Compute delivery dates for each item
+    const orderItems = dbOrderItems.map((dbItem: OrderItem) => ({
+      ...dbItem,
+      deliveryDate: computeDeliveryDate(dbItem, order.createdAt)
+    }));
     
     // Generate seller header and footer
     const header = generateSellerHeader(seller);
@@ -1165,6 +1175,16 @@ class NotificationServiceImpl implements NotificationService {
       const productImage = orderItem.productImage || '';
       const productName = orderItem.productName;
       
+      // Format delivery date if available
+      let deliveryDateHtml = '';
+      if (orderItem.deliveryDate) {
+        const formattedDate = format(new Date(orderItem.deliveryDate), 'MMMM d, yyyy');
+        deliveryDateHtml = `
+            <p style="margin: 4px 0 0; font-size: 13px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <strong>Estimated Delivery:</strong> ${formattedDate}
+            </p>`;
+      }
+      
       return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 10px 0; border-bottom: 1px solid #e5e7eb;">
   <tr>
@@ -1183,6 +1203,7 @@ class NotificationServiceImpl implements NotificationService {
             <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
               Quantity: ${orderItem.quantity} × ${order.currency} ${itemPrice.toFixed(2)}${variantText}
             </p>
+            ${deliveryDateHtml}
             ${originalPrice && discountAmount ? `
             <p style="margin: 5px 0 0; font-size: 13px; color: #10b981 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
               <span style="text-decoration: line-through; color: #9ca3af !important;">${order.currency} ${originalPrice.toFixed(2)}</span> 
@@ -2682,7 +2703,7 @@ class NotificationServiceImpl implements NotificationService {
     }
 
     // Generate email HTML (no Stripe details needed for seller notifications)
-    const emailHtml = await this.generateSellerOrderEmail(order, seller, products, null);
+    const emailHtml = this.generateSellerOrderEmail(order, seller, products, null);
 
     // Build subject line
     const subject = `New Order #${order.id.slice(0, 8)} - ${order.customerName}`;
@@ -3619,16 +3640,33 @@ class NotificationServiceImpl implements NotificationService {
    */
   private generateSellerOrderEmail(order: Order, seller: User, products: Product[], stripeDetails: any): string {
     const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+    
+    // Compute delivery dates for each item from order.items JSONB field
+    const orderItems = items.map((item: any) => ({
+      ...item,
+      deliveryDate: computeDeliveryDate(item, order.createdAt)
+    }));
 
     // Get base URL for dashboard link
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : `http://localhost:${process.env.PORT || 5000}`;
 
-    // Build product items HTML with thumbnails
-    const productItemsHtml = items.map((item: any) => {
-      const product = products.find(p => p.id === item.productId);
-      const productImage = product?.image || item.image;
+    // Build product items HTML with thumbnails using orderItems for delivery dates
+    const productItemsHtml = orderItems.map((orderItem: OrderItem) => {
+      const product = products.find(p => p.id === orderItem.productId);
+      const productImage = product?.image || orderItem.productImage;
+      
+      // Format delivery date if available
+      let deliveryDateHtml = '';
+      if (orderItem.deliveryDate) {
+        const formattedDate = format(new Date(orderItem.deliveryDate), 'MMMM d, yyyy');
+        deliveryDateHtml = `<br><strong>Estimated Delivery:</strong> ${formattedDate}`;
+      }
+      
+      // Format variant
+      const formattedVariant = formatVariant(orderItem.variant);
+      const variantHtml = formattedVariant ? `<br>Variant: ${formattedVariant}` : '';
       
       return `
         <tr>
@@ -3636,20 +3674,19 @@ class NotificationServiceImpl implements NotificationService {
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
               <tr>
                 <td style="width: 80px; vertical-align: top;">
-                  ${productImage ? `<img src="${productImage}" alt="${item.name}" style="display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 0;">` : '<div style="width: 80px; height: 80px; background-color: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #9ca3af;">No image</div>'}
+                  ${productImage ? `<img src="${productImage}" alt="${orderItem.productName}" style="display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 0;">` : '<div style="width: 80px; height: 80px; background-color: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #9ca3af;">No image</div>'}
                 </td>
                 <td style="padding-left: 15px; vertical-align: top;">
                   <p style="margin: 0 0 5px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    ${item.name}
+                    ${orderItem.productName}
                   </p>
                   <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    Qty: ${item.quantity} × $${item.price}
-                    ${item.variant ? `<br>Variant: ${JSON.stringify(item.variant)}` : ''}
+                    Qty: ${orderItem.quantity} × $${orderItem.price}${variantHtml}${deliveryDateHtml}
                   </p>
                 </td>
                 <td style="text-align: right; vertical-align: top; white-space: nowrap;">
                   <p style="margin: 0; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    $${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                    $${parseFloat(orderItem.subtotal).toFixed(2)}
                   </p>
                 </td>
               </tr>

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Package, User, MapPin, CreditCard, Truck } from "lucide-react";
+import { Package, User, MapPin, CreditCard, Truck, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderActionBar } from "@/components/order-action-bar";
@@ -257,6 +257,14 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Delivery Date */}
+                    {(item as any).deliveryDate && (
+                      <div className="text-sm text-muted-foreground mt-1" data-testid={`text-delivery-date-${item.id}`}>
+                        <CalendarClock className="inline h-4 w-4 mr-1" />
+                        Estimated Delivery: {format(new Date((item as any).deliveryDate), 'PPP')}
+                      </div>
+                    )}
                   </div>
                   <div className="text-right">
                     <div className="font-medium">

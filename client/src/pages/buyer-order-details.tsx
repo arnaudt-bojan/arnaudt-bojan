@@ -1,7 +1,7 @@
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Package, MapPin, CreditCard, Truck, ExternalLink, Mail } from "lucide-react";
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, ExternalLink, Mail, CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -228,6 +228,12 @@ export default function BuyerOrderDetails() {
                       </p>
                     )}
                     <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                    {(item as any).deliveryDate && (
+                      <div className="text-sm text-muted-foreground mt-1" data-testid={`text-delivery-date-${item.id}`}>
+                        <CalendarClock className="inline h-4 w-4 mr-1" />
+                        Estimated Delivery: {format(new Date((item as any).deliveryDate), 'PPP')}
+                      </div>
+                    )}
                     {item.trackingNumber && (
                       <div className="mt-2 flex items-center gap-2">
                         <Badge variant="outline" className="gap-1">

@@ -453,8 +453,12 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
   updatedAt: true 
 });
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
-export type OrderItem = typeof orderItems.$inferSelect;
-export type SelectOrderItem = typeof orderItems.$inferSelect;
+export type OrderItem = typeof orderItems.$inferSelect & {
+  deliveryDate?: string | null;
+};
+export type SelectOrderItem = typeof orderItems.$inferSelect & {
+  deliveryDate?: string | null;
+};
 
 // Stock Reservations - prevent overselling with temporary stock holds
 export const reservationStatusEnum = z.enum(["active", "committed", "released", "expired"]);

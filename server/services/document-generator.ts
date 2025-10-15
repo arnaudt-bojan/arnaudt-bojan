@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
+import { format } from 'date-fns';
 import { objectStorageClient, signObjectURL } from '../objectStorage';
 import type { Order, OrderItem, User, Product } from '@shared/schema';
 
@@ -67,6 +68,7 @@ export interface InvoiceData {
     quantity: number;
     price: string;
     subtotal: string;
+    deliveryDate?: string | null;
   }>;
   wholesale?: {
     poNumber?: string;
@@ -116,6 +118,7 @@ export interface PackingSlipData {
     variant?: string;
     quantity: number;
     image?: string;
+    deliveryDate?: string | null;
   }>;
   warehouseNotes?: string;
   giftMessage?: string;
@@ -286,7 +289,16 @@ export class DocumentGenerator {
 
     data.items.forEach((item, index) => {
       const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
-      doc.rect(50, itemY - 5, 500, 25).fill(bgColor);
+      
+      // Calculate additional lines for dynamic row height
+      let additionalLines = 0;
+      if (item.sku) additionalLines++;
+      if (item.deliveryDate) additionalLines++;
+      
+      const baseHeight = 25;
+      const rowHeight = baseHeight + (additionalLines * 12);
+      
+      doc.rect(50, itemY - 5, 500, rowHeight).fill(bgColor);
 
       doc
         .fillColor('#000000')
@@ -295,8 +307,16 @@ export class DocumentGenerator {
           width: 240,
         });
 
+      let detailY = itemY + 12;
+      
       if (item.sku) {
-        doc.fillColor('#666666').fontSize(8).text(`SKU: ${item.sku}`, 60, itemY + 12);
+        doc.fillColor('#666666').fontSize(8).text(`SKU: ${item.sku}`, 60, detailY);
+        detailY += 12;
+      }
+
+      if (item.deliveryDate) {
+        const deliveryDateStr = format(new Date(item.deliveryDate), 'MMM d, yyyy');
+        doc.fillColor('#666666').fontSize(8).text(`Delivery: ${deliveryDateStr}`, 60, detailY);
       }
 
       doc
@@ -306,7 +326,7 @@ export class DocumentGenerator {
         .text(`${data.currency} ${item.price}`, 390, itemY, { width: 70, align: 'right' })
         .text(`${data.currency} ${item.subtotal}`, 480, itemY, { width: 60, align: 'right' });
 
-      itemY += 30;
+      itemY += 30 + (additionalLines * 12);
     });
 
     // Totals Section
@@ -519,7 +539,15 @@ export class DocumentGenerator {
 
     data.items.forEach((item, index) => {
       const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
-      doc.rect(50, itemY - 5, 500, 30).fill(bgColor);
+      
+      // Calculate additional lines for dynamic row height
+      let additionalLines = 0;
+      if (item.deliveryDate) additionalLines++;
+      
+      const baseHeight = 30;
+      const rowHeight = baseHeight + (additionalLines * 12);
+      
+      doc.rect(50, itemY - 5, 500, rowHeight).fill(bgColor);
 
       doc
         .fillColor('#000000')
@@ -529,7 +557,12 @@ export class DocumentGenerator {
         .text(item.variant || '-', 370, itemY)
         .text(item.quantity.toString(), 490, itemY, { width: 50, align: 'center' });
 
-      itemY += 35;
+      if (item.deliveryDate) {
+        const deliveryDateStr = format(new Date(item.deliveryDate), 'MMM d, yyyy');
+        doc.fillColor('#666666').fontSize(8).text(`Delivery: ${deliveryDateStr}`, 60, itemY + 12);
+      }
+
+      itemY += 35 + (additionalLines * 12);
     });
 
     // Gift Message

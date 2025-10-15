@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
+import { computeDeliveryDate } from "@shared/order-utils";
 import { setupAuth } from "./replitAuth";
 import { requireAuth, requireUserType, requireCapability, requireStoreAccess, requireProductAccess, requireOrderAccess, requireCanPurchase } from "./middleware/auth";
 import { AuthorizationService } from "./services/authorization.service";
@@ -1111,7 +1112,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       logger.info(`[Seller Orders] Returning ${sellerOrders.length} orders`);
-      res.json(sellerOrders);
+      
+      // Inject deliveryDate into order items
+      const ordersWithDeliveryDates = sellerOrders.map(order => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      }));
+      
+      res.json(ordersWithDeliveryDates);
     } catch (error) {
       logger.error("Error fetching seller orders", error);
       res.status(500).json({ error: "Failed to fetch orders" });
@@ -1191,9 +1202,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const balancePayments = await storage.getBalancePaymentsByOrderId(orderId);
       const refunds = await storage.getRefundsByOrderId(orderId);
 
+      // Inject deliveryDate into order items
+      const itemsWithDeliveryDates = orderItems.map((item: any) => ({
+        ...item,
+        deliveryDate: computeDeliveryDate(item, order.createdAt)
+      }));
+
       res.json({
         order,
-        items: orderItems,
+        items: itemsWithDeliveryDates,
         events,
         balancePayments,
         refunds,
@@ -1369,7 +1386,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const orders = await storage.getAllOrders();
-      res.json(orders);
+      
+      // Inject deliveryDate into order items
+      const ordersWithDeliveryDates = orders.map(order => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      }));
+      
+      res.json(ordersWithDeliveryDates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch orders" });
     }
@@ -1379,7 +1406,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const orders = await storage.getOrdersByUserId(userId);
-      res.json(orders);
+      
+      // Inject deliveryDate into order items
+      const ordersWithDeliveryDates = orders.map(order => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      }));
+      
+      res.json(ordersWithDeliveryDates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user orders" });
     }
@@ -1390,7 +1427,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const orders = await storage.getOrdersByUserId(userId);
-      res.json(orders);
+      
+      // Inject deliveryDate into order items
+      const ordersWithDeliveryDates = orders.map(order => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      }));
+      
+      res.json(ordersWithDeliveryDates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch orders" });
     }
@@ -1409,7 +1456,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const orders = await storage.getAllOrders();
-      res.json(orders);
+      
+      // Inject deliveryDate into order items
+      const ordersWithDeliveryDates = orders.map(order => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      }));
+      
+      res.json(ordersWithDeliveryDates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch orders" });
     }
@@ -1436,7 +1493,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Invalid email for this order" });
       }
       
-      res.json(order);
+      // Inject deliveryDate into order items
+      const orderWithDeliveryDates = {
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      };
+      
+      res.json(orderWithDeliveryDates);
     } catch (error) {
       logger.error("Order lookup error", error);
       res.status(500).json({ error: "Failed to fetch order" });
@@ -1477,8 +1543,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Inject deliveryDate into order items
+      const orderWithDeliveryDates = {
+        ...order,
+        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+          ...item,
+          deliveryDate: computeDeliveryDate(item, order.createdAt)
+        })) : order.items
+      };
+      
       // Return just the order object for backward compatibility
-      res.json(order);
+      res.json(orderWithDeliveryDates);
     } catch (error) {
       logger.error("Error fetching order", error);
       res.status(500).json({ error: "Failed to fetch order" });
@@ -1588,9 +1663,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const balancePayments = await storage.getBalancePaymentsByOrderId(orderId);
       const refunds = await storage.getRefundsByOrderId(orderId);
       
+      // Inject deliveryDate into order items
+      const itemsWithDeliveryDates = orderItems.map((item: any) => ({
+        ...item,
+        deliveryDate: computeDeliveryDate(item, order.createdAt)
+      }));
+      
       res.json({
         order,
-        items: orderItems,
+        items: itemsWithDeliveryDates,
         events,
         balancePayments,
         refunds,
