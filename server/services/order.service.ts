@@ -888,12 +888,24 @@ export class OrderService {
       const requestedItem = requestedItems[i];
       const validatedItem = validatedItems[i];
 
-      const variantId = requestedItem.variant
-        ? this.inventoryService.getVariantId(
-            requestedItem.variant.size,
-            requestedItem.variant.color
-          )
-        : undefined;
+      // CRITICAL FIX: Use variantId if provided directly, otherwise construct from variant
+      const variantId = requestedItem.variantId || 
+        (requestedItem.variant
+          ? this.inventoryService.getVariantId(
+              requestedItem.variant.size,
+              requestedItem.variant.color
+            )
+          : undefined);
+
+      logger.info('[OrderService] Reserving stock with variant', {
+        productId: requestedItem.productId,
+        directVariantId: requestedItem.variantId,
+        constructedVariantId: requestedItem.variant ? this.inventoryService.getVariantId(
+          requestedItem.variant.size,
+          requestedItem.variant.color
+        ) : null,
+        finalVariantId: variantId,
+      });
 
       const reservationResult = await this.inventoryService.reserveStock(
         requestedItem.productId,
