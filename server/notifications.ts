@@ -4577,8 +4577,16 @@ class NotificationServiceImpl implements NotificationService {
         return;
       }
 
-      // Generate email HTML
-      const emailHtml = await this.generateDeliveryDateChangeEmail(order, orderItem, newDeliveryDate, seller);
+      // Generate magic link for buyer auto-login
+      const sellerContext = seller.username || seller.id;
+      if (!sellerContext) {
+        logger.error("[Notifications] Cannot generate buyer magic link - seller has no username or ID");
+        throw new Error('Seller must have username or ID to send buyer emails');
+      }
+      const magicLink = await this.generateMagicLinkForEmail(order.customerEmail, `/orders/${order.id}`, sellerContext);
+
+      // Generate email HTML with magic link
+      const emailHtml = await this.generateDeliveryDateChangeEmail(order, orderItem, newDeliveryDate, seller, magicLink);
       
       // Get email metadata
       const fromName = await this.emailMetadata.getFromName(seller);
@@ -4830,15 +4838,11 @@ ${order.billingCountry}
     order: Order,
     orderItem: OrderItem,
     newDeliveryDate: Date,
-    seller: User
+    seller: User,
+    magicLink: string
   ): Promise<string> {
     const storeName = seller.firstName || seller.username || 'Our Store';
     const formattedNewDate = format(newDeliveryDate, 'MMMM d, yyyy');
-    
-    // Get base URL using the same pattern as other emails
-    const baseUrl = process.env.REPLIT_DOMAINS 
-      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
-      : `http://localhost:${process.env.PORT || 5000}`;
     
     // Calculate previous delivery date using computeDeliveryDate
     // Convert preOrderDate from Date to string for compatibility
@@ -4940,10 +4944,7 @@ ${order.billingCountry}
             We appreciate your patience and will notify you when your item is ready.
           </p>
           
-          ${generateCTAButton(
-            `View Order #${order.id.slice(-8).toUpperCase()}`,
-            `${baseUrl}/orders/${order.id}`
-          )}
+          ${generateMagicLinkButton(magicLink, `View Order #${order.id.slice(-8).toUpperCase()}`)}
           
           <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
             Questions? Reply to this email and we'll be happy to help.
