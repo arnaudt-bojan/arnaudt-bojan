@@ -56,6 +56,8 @@ import {
   type InsertPackingSlip,
   type Refund,
   type InsertRefund,
+  type RefundLineItem,
+  type InsertRefundLineItem,
   type OrderEvent,
   type InsertOrderEvent,
   type OrderBalancePayment,
@@ -123,6 +125,7 @@ import {
   balanceRequests,
   orderAddressChanges,
   refunds,
+  refundLineItems,
   stockReservations,
   invitations,
   metaSettings,
@@ -309,6 +312,37 @@ export interface IStorage {
   getRefundsByOrderId(orderId: string): Promise<Refund[]>;
   updateRefundStatus(id: string, status: string, stripeRefundId?: string): Promise<Refund | undefined>;
   updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<Order | undefined>;
+  
+  // Refund Line Items
+  createRefundLineItem(lineItem: InsertRefundLineItem): Promise<RefundLineItem>;
+  createRefundLineItems(lineItems: InsertRefundLineItem[]): Promise<RefundLineItem[]>;
+  getRefundLineItems(refundId: string): Promise<RefundLineItem[]>;
+  
+  // Refund Calculations & Validation
+  getRefundableAmountForOrder(orderId: string): Promise<{ 
+    totalRefundable: string; 
+    refundedSoFar: string; 
+    items: Array<{
+      itemId: string;
+      productName: string;
+      quantity: number;
+      refundedQuantity: number;
+      price: string;
+      refundableQuantity: number;
+      refundableAmount: string;
+    }>;
+    shipping: { 
+      total: string; 
+      refunded: string; 
+      refundable: string; 
+    };
+    tax: { 
+      total: string; 
+      refunded: string; 
+      refundable: string; 
+    };
+  }>;
+  getRefundHistoryWithLineItems(orderId: string): Promise<Array<Refund & { lineItems: RefundLineItem[] }>>;
   
   // Order Events - track email and status history
   getOrderEvents(orderId: string): Promise<OrderEvent[]>;
@@ -1342,6 +1376,145 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.update(orders).set({ paymentStatus }).where(eq(orders.id, orderId)).returning();
     return result[0];
+  }
+
+  // Refund Line Items methods
+  async createRefundLineItem(lineItem: InsertRefundLineItem): Promise<RefundLineItem> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(refundLineItems).values(lineItem).returning();
+    return result[0];
+  }
+
+  async createRefundLineItems(lineItems: InsertRefundLineItem[]): Promise<RefundLineItem[]> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(refundLineItems).values(lineItems).returning();
+    return result;
+  }
+
+  async getRefundLineItems(refundId: string): Promise<RefundLineItem[]> {
+    await this.ensureInitialized();
+    return await this.db.select()
+      .from(refundLineItems)
+      .where(eq(refundLineItems.refundId, refundId))
+      .orderBy(desc(refundLineItems.createdAt));
+  }
+
+  // Refund Calculations & Validation methods
+  async getRefundableAmountForOrder(orderId: string): Promise<{ 
+    totalRefundable: string; 
+    refundedSoFar: string; 
+    items: Array<{
+      itemId: string;
+      productName: string;
+      quantity: number;
+      refundedQuantity: number;
+      price: string;
+      refundableQuantity: number;
+      refundableAmount: string;
+    }>;
+    shipping: { total: string; refunded: string; refundable: string; };
+    tax: { total: string; refunded: string; refundable: string; };
+  }> {
+    await this.ensureInitialized();
+    
+    // Get order details
+    const order = await this.getOrder(orderId);
+    if (!order) {
+      throw new Error(`Order ${orderId} not found`);
+    }
+    
+    // Get all order items
+    const items = await this.getOrderItems(orderId);
+    
+    // Get all refunds for this order to calculate what's been refunded
+    const allRefunds = await this.getRefundsByOrderId(orderId);
+    const successfulRefunds = allRefunds.filter(r => r.status === 'succeeded');
+    
+    // Get all refund line items for successful refunds
+    const refundLineItemsPromises = successfulRefunds.map(r => this.getRefundLineItems(r.id));
+    const allRefundLineItems = (await Promise.all(refundLineItemsPromises)).flat();
+    
+    // Calculate refunded amounts per item
+    const itemRefundMap = new Map<string, { quantity: number; amount: number }>();
+    let shippingRefunded = 0;
+    let taxRefunded = 0;
+    
+    for (const lineItem of allRefundLineItems) {
+      if (lineItem.type === 'product' && lineItem.orderItemId) {
+        const existing = itemRefundMap.get(lineItem.orderItemId) || { quantity: 0, amount: 0 };
+        itemRefundMap.set(lineItem.orderItemId, {
+          quantity: existing.quantity + (lineItem.quantity || 0),
+          amount: existing.amount + parseFloat(lineItem.amount)
+        });
+      } else if (lineItem.type === 'shipping') {
+        shippingRefunded += parseFloat(lineItem.amount);
+      } else if (lineItem.type === 'tax') {
+        taxRefunded += parseFloat(lineItem.amount);
+      }
+    }
+    
+    // Build item refund details
+    const itemDetails = items.map(item => {
+      const refunded = itemRefundMap.get(item.id) || { quantity: 0, amount: 0 };
+      const refundableQuantity = item.quantity - refunded.quantity;
+      const pricePerUnit = parseFloat(item.price);
+      const refundableAmount = refundableQuantity * pricePerUnit;
+      
+      return {
+        itemId: item.id,
+        productName: item.productName,
+        quantity: item.quantity,
+        refundedQuantity: refunded.quantity,
+        price: item.price,
+        refundableQuantity,
+        refundableAmount: refundableAmount.toFixed(2)
+      };
+    });
+    
+    // Calculate shipping refundable
+    const shippingTotal = parseFloat(order.shippingCost || "0");
+    const shippingRefundable = Math.max(0, shippingTotal - shippingRefunded);
+    
+    // Calculate tax refundable
+    const taxTotal = parseFloat(order.taxAmount || "0");
+    const taxRefundable = Math.max(0, taxTotal - taxRefunded);
+    
+    // Calculate total refundable
+    const itemsRefundable = itemDetails.reduce((sum, item) => sum + parseFloat(item.refundableAmount), 0);
+    const totalRefundable = itemsRefundable + shippingRefundable + taxRefundable;
+    
+    // Calculate total refunded
+    const totalRefunded = successfulRefunds.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+    
+    return {
+      totalRefundable: totalRefundable.toFixed(2),
+      refundedSoFar: totalRefunded.toFixed(2),
+      items: itemDetails,
+      shipping: {
+        total: shippingTotal.toFixed(2),
+        refunded: shippingRefunded.toFixed(2),
+        refundable: shippingRefundable.toFixed(2)
+      },
+      tax: {
+        total: taxTotal.toFixed(2),
+        refunded: taxRefunded.toFixed(2),
+        refundable: taxRefundable.toFixed(2)
+      }
+    };
+  }
+
+  async getRefundHistoryWithLineItems(orderId: string): Promise<Array<Refund & { lineItems: RefundLineItem[] }>> {
+    await this.ensureInitialized();
+    
+    const refundsList = await this.getRefundsByOrderId(orderId);
+    const refundsWithLineItems = await Promise.all(
+      refundsList.map(async (refund) => {
+        const lineItems = await this.getRefundLineItems(refund.id);
+        return { ...refund, lineItems };
+      })
+    );
+    
+    return refundsWithLineItems;
   }
 
   // Order Events methods - track email and status history
