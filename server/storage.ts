@@ -1479,12 +1479,17 @@ export class DatabaseStorage implements IStorage {
     const taxTotal = parseFloat(order.taxAmount || "0");
     const taxRefundable = Math.max(0, taxTotal - taxRefunded);
     
-    // Calculate total refundable
+    // Calculate total refundable based on items
     const itemsRefundable = itemDetails.reduce((sum, item) => sum + parseFloat(item.refundableAmount), 0);
-    const totalRefundable = itemsRefundable + shippingRefundable + taxRefundable;
+    let totalRefundable = itemsRefundable + shippingRefundable + taxRefundable;
     
-    // Calculate total refunded
+    // For deposit orders: cap refundable at amount actually paid
+    const amountPaid = parseFloat(order.amountPaid || order.total || "0");
     const totalRefunded = successfulRefunds.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+    const maxRefundableBasedOnPayment = Math.max(0, amountPaid - totalRefunded);
+    
+    // Use the lesser of calculated refundable or amount paid minus refunds
+    totalRefundable = Math.min(totalRefundable, maxRefundableBasedOnPayment);
     
     return {
       totalRefundable: totalRefundable.toFixed(2),
