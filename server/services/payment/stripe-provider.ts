@@ -120,13 +120,12 @@ export class StripePaymentProvider implements IPaymentProvider {
       metadata: params.metadata,
     };
 
-    // Add idempotency key if provided (prevents duplicate refunds)
-    const requestOptions: any = {};
-    if (idempotencyKey) {
-      requestOptions.idempotencyKey = idempotencyKey;
-    }
-
-    const refund = await this.stripe.refunds.create(refundParams, requestOptions);
+    // Create refund with optional idempotency key
+    const refund = idempotencyKey
+      ? await this.stripe.refunds.create(refundParams, {
+          idempotencyKey: idempotencyKey,
+        })
+      : await this.stripe.refunds.create(refundParams);
 
     return {
       id: refund.id,
