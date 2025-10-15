@@ -239,6 +239,8 @@ export class CartService {
       if (cart.items.length === 0) {
         cart.sellerId = null;
         await this.storage.clearCartBySession(sessionId);
+        // CRITICAL FIX: Recalculate to set total=0 and itemsCount=0
+        this.recalculateCart(cart);
       } else {
         this.recalculateCart(cart);
         await this.storage.saveCart(
