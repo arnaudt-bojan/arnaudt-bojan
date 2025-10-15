@@ -374,15 +374,35 @@ export class InventoryService {
     }
 
     if (variantId && product.variants) {
+      // CRITICAL FIX: Handle nested variant structure
+      // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}]
       const variants = Array.isArray(product.variants) ? product.variants : [];
-      const updatedVariants = variants.map((v: any) => {
-        if (this.getVariantId(v.size, v.color) === variantId) {
+      let stockUpdated = false;
+      
+      const updatedVariants = variants.map((colorVariant: any) => {
+        if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
+          const updatedSizes = colorVariant.sizes.map((sizeVariant: any) => {
+            // Match variantId format: "size-color" or just "size"
+            const matches = 
+              `${sizeVariant.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
+              sizeVariant.size === variantId;
+            
+            if (matches) {
+              stockUpdated = true;
+              return {
+                ...sizeVariant,
+                stock: (sizeVariant.stock || 0) + quantity,
+              };
+            }
+            return sizeVariant;
+          });
+          
           return {
-            ...v,
-            stock: (v.stock || 0) + quantity,
+            ...colorVariant,
+            sizes: updatedSizes,
           };
         }
-        return v;
+        return colorVariant;
       });
 
       await this.storage.updateProduct(productId, {
@@ -393,6 +413,7 @@ export class InventoryService {
         productId,
         variantId,
         quantity,
+        stockUpdated,
       });
     } else {
       const newStock = (product.stock || 0) + quantity;
@@ -476,15 +497,35 @@ export class InventoryService {
     }
 
     if (variantId && product.variants) {
+      // CRITICAL FIX: Handle nested variant structure
+      // Structure: [{colorName, colorHex, sizes: [{size, stock, sku}]}]
       const variants = Array.isArray(product.variants) ? product.variants : [];
-      const updatedVariants = variants.map((v: any) => {
-        if (this.getVariantId(v.size, v.color) === variantId) {
+      let stockUpdated = false;
+      
+      const updatedVariants = variants.map((colorVariant: any) => {
+        if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
+          const updatedSizes = colorVariant.sizes.map((sizeVariant: any) => {
+            // Match variantId format: "size-color" or just "size"
+            const matches = 
+              `${sizeVariant.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
+              sizeVariant.size === variantId;
+            
+            if (matches) {
+              stockUpdated = true;
+              return {
+                ...sizeVariant,
+                stock: Math.max(0, (sizeVariant.stock || 0) - quantity),
+              };
+            }
+            return sizeVariant;
+          });
+          
           return {
-            ...v,
-            stock: Math.max(0, (v.stock || 0) - quantity),
+            ...colorVariant,
+            sizes: updatedSizes,
           };
         }
-        return v;
+        return colorVariant;
       });
 
       await this.storage.updateProduct(productId, {
@@ -495,6 +536,7 @@ export class InventoryService {
         productId,
         variantId,
         quantity,
+        stockUpdated,
       });
     } else {
       const newStock = Math.max(0, (product.stock || 0) - quantity);

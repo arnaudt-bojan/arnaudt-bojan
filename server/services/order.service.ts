@@ -609,7 +609,7 @@ export class OrderService {
           const reservations = await this.storage.getStockReservationsBySession(checkoutSessionId);
           
           for (const reservation of reservations) {
-            await this.inventoryService.commitReservation(reservation.id);
+            await this.inventoryService.commitReservation(reservation.id, order.id);
             logger.info('[OrderService] Committed inventory reservation', {
               reservationId: reservation.id,
               productId: reservation.productId,
