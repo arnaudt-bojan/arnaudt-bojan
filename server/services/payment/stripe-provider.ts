@@ -108,14 +108,11 @@ export class StripePaymentProvider implements IPaymentProvider {
   }
 
   async createRefund(params: RefundParams, idempotencyKey?: string): Promise<Refund> {
-    // Get the payment intent to determine the currency
-    const paymentIntent = await this.stripe.paymentIntents.retrieve(params.paymentIntentId);
-    const currency = paymentIntent.currency;
-
     // Build refund create params
+    // Note: Amount is already in smallest currency unit (cents) from RefundService
     const refundParams: any = {
       payment_intent: params.paymentIntentId,
-      amount: params.amount ? this.toMinorUnits(params.amount, currency) : undefined,
+      amount: params.amount,
       reason: params.reason,
       metadata: params.metadata,
     };
