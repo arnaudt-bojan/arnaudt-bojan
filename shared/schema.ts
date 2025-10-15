@@ -240,7 +240,7 @@ export const products = pgTable("products", {
   status: text("status").default("draft"), // "active", "draft", "coming-soon", "paused", "out-of-stock", "archived"
 });
 
-export const insertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
+const baseInsertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
   name: z.string().min(1, "Product name is required").max(200, "Name must be 200 characters or less"),
   description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
   price: z.string().min(1, "Price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
@@ -275,7 +275,9 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
   categoryLevel3Id: z.string().optional().nullable(),
   // Status
   status: z.string().optional().nullable(),
-}).refine(
+});
+
+export const insertProductSchema = baseInsertProductSchema.refine(
   (data) => {
     // Pre-order products must have a pre-order date
     if (data.productType === "pre-order" && !data.preOrderDate) {
@@ -304,10 +306,34 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
 // Frontend product schema (without sellerId - added by backend)
-export const frontendProductSchema = insertProductSchema.omit({ sellerId: true }).extend({
+export const frontendProductSchema = baseInsertProductSchema.omit({ sellerId: true }).extend({
   sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional product SKU
   shippingType: z.enum(["flat", "matrix", "shippo", "free"]),
-});
+}).refine(
+  (data) => {
+    // Pre-order products must have a pre-order date
+    if (data.productType === "pre-order" && !data.preOrderDate) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Pre-order date is required for pre-order products",
+    path: ["preOrderDate"],
+  }
+).refine(
+  (data) => {
+    // Made-to-order products must have lead time days
+    if (data.productType === "made-to-order" && (!data.madeToOrderDays || data.madeToOrderDays <= 0)) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Lead time (days) is required for made-to-order products and must be greater than 0",
+    path: ["madeToOrderDays"],
+  }
+);
 export type FrontendProduct = z.infer<typeof frontendProductSchema>;
 
 export const cartItems = pgTable("cart_items", {

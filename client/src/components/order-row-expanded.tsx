@@ -94,6 +94,13 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
   // Populate form with order data when it loads
   useEffect(() => {
     if (data?.order) {
+      // If billing fields are empty, use shipping data (same as shipping pattern)
+      const billingStreet = data.order.billingStreet || data.order.shippingStreet || "";
+      const billingCity = data.order.billingCity || data.order.shippingCity || "";
+      const billingState = data.order.billingState || data.order.shippingState || "";
+      const billingPostalCode = data.order.billingPostalCode || data.order.shippingPostalCode || "";
+      const billingCountry = data.order.billingCountry || data.order.shippingCountry || "";
+      
       customerDetailsForm.reset({
         customerName: data.order.customerName,
         shippingStreet: data.order.shippingStreet || "",
@@ -101,11 +108,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
         shippingState: data.order.shippingState || "",
         shippingPostalCode: data.order.shippingPostalCode || "",
         shippingCountry: data.order.shippingCountry || "",
-        billingStreet: data.order.billingStreet || "",
-        billingCity: data.order.billingCity || "",
-        billingState: data.order.billingState || "",
-        billingPostalCode: data.order.billingPostalCode || "",
-        billingCountry: data.order.billingCountry || "",
+        billingStreet,
+        billingCity,
+        billingState,
+        billingPostalCode,
+        billingCountry,
       });
     }
   }, [data?.order, customerDetailsForm]);

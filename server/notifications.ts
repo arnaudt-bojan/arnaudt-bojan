@@ -4634,8 +4634,16 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendOrderCustomerDetailsUpdated(order: Order, seller: User, previousDetails: any, newDetails: any): Promise<void> {
     try {
-      // Generate email HTML
-      const emailHtml = await this.generateCustomerDetailsUpdatedEmail(order, seller, previousDetails, newDetails);
+      // Generate magic link for buyer auto-login
+      const sellerContext = seller.username || seller.id;
+      if (!sellerContext) {
+        logger.error("[Notifications] Cannot generate buyer magic link - seller has no username or ID");
+        throw new Error('Seller must have username or ID to send buyer emails');
+      }
+      const magicLink = await this.generateMagicLinkForEmail(order.customerEmail, `/orders/${order.id}`, sellerContext);
+
+      // Generate email HTML with magic link
+      const emailHtml = await this.generateCustomerDetailsUpdatedEmail(order, seller, previousDetails, newDetails, magicLink);
       
       // Get email metadata
       const fromName = await this.emailMetadata.getFromName(seller);
@@ -4683,17 +4691,13 @@ class NotificationServiceImpl implements NotificationService {
     order: Order,
     seller: User,
     previousDetails: any,
-    newDetails: any
+    newDetails: any,
+    magicLink: string
   ): Promise<string> {
     const storeName = seller.firstName || seller.username || 'Our Store';
     
-    // Get base URL using the same pattern as other emails
-    const baseUrl = process.env.REPLIT_DOMAINS 
-      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
-      : `http://localhost:${process.env.PORT || 5000}`;
-    
     // Calculate what changed
-    const changes = this.calculateChangedFields(previousDetails, newDetails);
+    const changes = this.calculateChangedFields(previousDetails, newDetails, order);
     
     const content = `
         <div style="padding: 32px 24px;">
@@ -4779,10 +4783,7 @@ ${order.billingCountry}
             If you have any questions about these changes, please don't hesitate to reach out.
           </p>
           
-          ${generateCTAButton(
-            `View Order #${order.id.slice(-8).toUpperCase()}`,
-            `${baseUrl}/orders/${order.id}`
-          )}
+          ${generateMagicLinkButton(magicLink, `View Order #${order.id.slice(-8).toUpperCase()}`)}
           
           <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
             Questions? Reply to this email and we'll be happy to help.
@@ -4801,7 +4802,7 @@ ${order.billingCountry}
   /**
    * Calculate which fields changed for customer details update
    */
-  private calculateChangedFields(previousDetails: any, newDetails: any): Array<{ label: string; oldValue: string; newValue: string }> {
+  private calculateChangedFields(previousDetails: any, newDetails: any, order: Order): Array<{ label: string; oldValue: string; newValue: string }> {
     const changes: Array<{ label: string; oldValue: string; newValue: string }> = [];
     
     const fieldLabels: Record<string, string> = {
@@ -4818,12 +4819,29 @@ ${order.billingCountry}
       billingCountry: 'Billing Country',
     };
     
+    // Check if billing was originally same as shipping
+    const billingWasSameAsShipping = !previousDetails.billingStreet || previousDetails.billingStreet === previousDetails.shippingStreet;
+    
     for (const [field, label] of Object.entries(fieldLabels)) {
       if (previousDetails[field] !== newDetails[field]) {
+        let oldValue = previousDetails[field];
+        let newValue = newDetails[field];
+        
+        // For billing fields, if previous value was empty, show "Same as shipping address"
+        if (field.startsWith('billing') && !oldValue && billingWasSameAsShipping) {
+          oldValue = 'Same as shipping address';
+        } else if (!oldValue) {
+          oldValue = 'Not set';
+        }
+        
+        if (!newValue) {
+          newValue = 'Not set';
+        }
+        
         changes.push({
           label,
-          oldValue: previousDetails[field] || 'Not set',
-          newValue: newDetails[field] || 'Not set',
+          oldValue,
+          newValue,
         });
       }
     }
