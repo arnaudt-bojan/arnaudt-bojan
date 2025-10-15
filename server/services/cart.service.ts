@@ -55,14 +55,44 @@ export class CartService {
 
       // Convert storage cart to service cart format
       const items = (storageCart.items as CartItem[]) || [];
+      
+      // CRITICAL FIX: Filter out deleted products to prevent 404 errors
+      const validItems: CartItem[] = [];
+      let hasInvalidItems = false;
+      
+      for (const item of items) {
+        const product = await this.storage.getProduct(item.id);
+        if (product) {
+          validItems.push(item);
+        } else {
+          hasInvalidItems = true;
+          logger.warn("[CartService] Removed deleted product from cart", { 
+            productId: item.id, 
+            productName: item.name,
+            sessionId 
+          });
+        }
+      }
+      
       const cart: Cart = {
-        items,
-        sellerId: storageCart.sellerId,
+        items: validItems,
+        sellerId: validItems.length > 0 ? storageCart.sellerId : null,
         total: 0,
         itemsCount: 0,
       };
 
       this.recalculateCart(cart);
+      
+      // Update storage if we removed invalid items
+      if (hasInvalidItems && validItems.length >= 0) {
+        await this.storage.saveCart(
+          sessionId,
+          cart.sellerId || '',
+          cart.items,
+          undefined
+        );
+      }
+      
       return cart;
     } catch (error: any) {
       logger.error("[CartService] Error getting cart", error, { sessionId });

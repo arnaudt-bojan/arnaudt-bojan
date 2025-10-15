@@ -632,21 +632,30 @@ export default function Checkout() {
   // Get sellerId from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : undefined;
 
-  // Build destination object from watched form values
-  const destination = watchedCountry ? {
-    country: watchedCountry,
-    city: watchedCity,
-    state: watchedState,
-    postalCode: watchedPostalCode,
-  } : undefined;
+  // CRITICAL FIX: Memoize destination to prevent unnecessary re-renders and pricing calculations
+  const destination = useMemo(() => 
+    watchedCountry ? {
+      country: watchedCountry,
+      city: watchedCity,
+      state: watchedState,
+      postalCode: watchedPostalCode,
+    } : undefined,
+    [watchedCountry, watchedCity, watchedState, watchedPostalCode]
+  );
+
+  // CRITICAL FIX: Memoize pricing items to prevent unnecessary re-renders
+  const pricingItems = useMemo(() => 
+    items.map(item => ({
+      productId: item.id,
+      quantity: item.quantity,
+    })),
+    [items]
+  );
 
   // Use backend pricing API for all calculations (includes shipping, tax, deposit/balance)
   const { data: pricingData, isLoading: isPricingLoading, error: pricingError } = usePricing({
     sellerId,
-    items: items.map(item => ({
-      productId: item.id,
-      quantity: item.quantity,
-    })),
+    items: pricingItems,
     destination,
     enabled: items.length > 0 && !!sellerId,
   });

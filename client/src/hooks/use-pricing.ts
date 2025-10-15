@@ -65,8 +65,13 @@ interface UsePricingParams {
  * @returns Pricing breakdown from server
  */
 export function usePricing({ sellerId, items, destination, enabled = true }: UsePricingParams) {
+  // CRITICAL FIX: Serialize items and destination to create stable query keys
+  // This prevents excessive re-renders when objects are recreated
+  const itemsKey = JSON.stringify(items);
+  const destinationKey = destination ? JSON.stringify(destination) : null;
+  
   return useQuery<PricingBreakdown>({
-    queryKey: ['/api/pricing/calculate', sellerId, items, destination],
+    queryKey: ['/api/pricing/calculate', sellerId, itemsKey, destinationKey],
     queryFn: async () => {
       if (!sellerId || !items || items.length === 0) {
         throw new Error('Seller ID and items are required for pricing calculation');
