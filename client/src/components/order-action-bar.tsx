@@ -32,6 +32,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Order } from "@shared/schema";
 import { RequestBalanceDialog } from "./request-balance-dialog";
 import { ResendBalanceDialog } from "./resend-balance-dialog";
+import { RefundDialog } from "./refund-dialog";
 
 interface OrderActionBarProps {
   order: Order;
@@ -54,7 +55,6 @@ export function OrderActionBar({
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingLink, setTrackingLink] = useState("");
   const [notifyCustomer, setNotifyCustomer] = useState(true);
-  const [refundReason, setRefundReason] = useState("");
 
   const { toast } = useToast();
 
@@ -108,31 +108,6 @@ export function OrderActionBar({
     },
   });
 
-  const processRefundMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", `/api/orders/${order.id}/refunds`, {
-        refundType: "full",
-        reason: refundReason || "requested_by_customer",
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Refund Processed",
-        description: "Full refund has been processed successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/orders"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${order.id}`] });
-      setRefundDialogOpen(false);
-      setRefundReason("");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process refund",
-        variant: "destructive",
-      });
-    },
-  });
 
   const generateInvoiceMutation = useMutation({
     mutationFn: async () => {
@@ -475,58 +450,12 @@ export function OrderActionBar({
         onOpenChange={setResendBalanceDialogOpen}
       />
 
-      {/* Process Refund Dialog */}
-      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
-        <DialogContent data-testid={`dialog-process-refund-${order.id}`}>
-          <DialogHeader>
-            <DialogTitle>Process Full Refund</DialogTitle>
-            <DialogDescription>
-              Process a full refund for this order. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="refundReason">Reason (optional)</Label>
-              <Input
-                id="refundReason"
-                value={refundReason}
-                onChange={(e) => setRefundReason(e.target.value)}
-                placeholder="Customer request, damaged item, etc."
-                data-testid="input-refund-reason"
-              />
-            </div>
-            <div className="rounded-lg border p-3 bg-muted/50">
-              <p className="text-sm font-medium">Refund Amount</p>
-              <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {order.currency} {parseFloat(order.amountPaid || "0").toFixed(2)}
-              </p>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              This will refund the full amount paid by the customer.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRefundDialogOpen(false);
-                setRefundReason("");
-              }}
-              data-testid="button-cancel-refund"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => processRefundMutation.mutate()}
-              disabled={processRefundMutation.isPending}
-              data-testid="button-confirm-refund"
-            >
-              {processRefundMutation.isPending ? "Processing..." : "Process Refund"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Enhanced Refund Dialog */}
+      <RefundDialog
+        order={order}
+        open={refundDialogOpen}
+        onOpenChange={setRefundDialogOpen}
+      />
     </>
   );
 }
