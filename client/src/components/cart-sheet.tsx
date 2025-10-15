@@ -82,7 +82,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                   data-testid={`cart-item-${item.id}`}
                 >
                   <Link 
-                    href={`/product/${item.id}`}
+                    href={getSellerAwarePath(`/products/${item.id}`, effectiveSellerUsername)}
                     onClick={onClose}
                     className="flex-shrink-0"
                     data-testid={`link-product-${item.id}`}
@@ -96,7 +96,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                   <div className="flex-1 space-y-2">
                     <div className="flex justify-between gap-2">
                       <Link 
-                        href={`/product/${item.id}`}
+                        href={getSellerAwarePath(`/products/${item.id}`, effectiveSellerUsername)}
                         onClick={onClose}
                         className="flex-1"
                         data-testid={`link-product-name-${item.id}`}
