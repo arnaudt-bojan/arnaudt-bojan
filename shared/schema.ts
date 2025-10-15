@@ -443,6 +443,10 @@ export const orderItems = pgTable("order_items", {
   returnedAt: timestamp("returned_at"), // When item was marked as returned
   refundedAt: timestamp("refunded_at"), // When refund was processed
   
+  // Delivery date fields - for pre-order and made-to-order products
+  preOrderDate: timestamp("pre_order_date"), // Customer-selected delivery date for pre-order items
+  madeToOrderLeadTime: integer("made_to_order_lead_time"), // Lead time in days for made-to-order items
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
