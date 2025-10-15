@@ -164,10 +164,23 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
             <div>
               <span className="text-muted-foreground flex items-start gap-1">
                 <MapPin className="h-4 w-4 mt-0.5" />
+                Billing Address:
+              </span>
+              <div className="font-medium whitespace-pre-line ml-5 text-muted-foreground" data-testid="text-billing-address">
+                {order.billingStreet 
+                  ? `${order.billingName}\n${order.billingStreet}\n${order.billingCity}, ${order.billingState} ${order.billingPostalCode}\n${order.billingCountry}`
+                  : order.customerAddress}
+              </div>
+            </div>
+            <div>
+              <span className="text-muted-foreground flex items-start gap-1">
+                <MapPin className="h-4 w-4 mt-0.5" />
                 Shipping Address:
               </span>
-              <div className="font-medium whitespace-pre-line ml-5">
-                {order.customerAddress}
+              <div className="font-medium whitespace-pre-line ml-5 text-muted-foreground" data-testid="text-shipping-address">
+                {order.shippingStreet
+                  ? `${order.shippingStreet}\n${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}\n${order.shippingCountry}`
+                  : order.customerAddress}
               </div>
             </div>
           </div>

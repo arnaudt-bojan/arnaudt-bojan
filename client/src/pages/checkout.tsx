@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -59,14 +60,35 @@ const checkoutSchema = z.object({
   postalCode: z.string().min(3, "ZIP/Postal code required"),
   country: z.string().min(2, "Country required"),
   phone: z.string().min(10, "Phone number required"),
+  billingSameAsShipping: z.boolean().default(true),
+  billingName: z.string().min(2, "Name required"),
+  billingEmail: z.string().email("Valid email required"),
+  billingPhone: z.string().min(10, "Phone required"),
+  billingAddressLine1: z.string().min(5, "Address required"),
+  billingAddressLine2: z.string().optional(),
+  billingCity: z.string().min(2, "City required"),
+  billingState: z.string().optional(),
+  billingPostalCode: z.string().min(3, "Postal code required"),
+  billingCountry: z.string().min(2, "Country required"),
 }).superRefine((data, ctx) => {
-  // Require state for countries that need it
+  // Require state for countries that need it (shipping)
   if (requiresState(data.country)) {
     if (!isValidState(data.state)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "State/Province is required for this country",
         path: ["state"],
+      });
+    }
+  }
+  
+  // Require state for countries that need it (billing) - only if billing is different from shipping
+  if (!data.billingSameAsShipping && requiresState(data.billingCountry)) {
+    if (!isValidState(data.billingState)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "State/Province is required for this country",
+        path: ["billingState"],
       });
     }
   }
@@ -625,6 +647,16 @@ export default function Checkout() {
       postalCode: "",
       country: "United States",
       phone: "",
+      billingSameAsShipping: true,
+      billingName: "",
+      billingEmail: "",
+      billingPhone: "",
+      billingAddressLine1: "",
+      billingAddressLine2: "",
+      billingCity: "",
+      billingState: "",
+      billingPostalCode: "",
+      billingCountry: "United States",
     },
   });
 
@@ -633,6 +665,47 @@ export default function Checkout() {
   const watchedCity = form.watch("city");
   const watchedState = form.watch("state");
   const watchedPostalCode = form.watch("postalCode");
+  
+  // Watch checkbox for billing address sync
+  const billingSameAsShipping = form.watch("billingSameAsShipping");
+  
+  // Watch all shipping fields for auto-sync to billing
+  const shippingName = form.watch("customerName");
+  const shippingEmail = form.watch("customerEmail");
+  const shippingPhone = form.watch("phone");
+  const shippingAddressLine1 = form.watch("addressLine1");
+  const shippingAddressLine2 = form.watch("addressLine2");
+  const shippingCity = form.watch("city");
+  const shippingState = form.watch("state");
+  const shippingPostalCode = form.watch("postalCode");
+  const shippingCountry = form.watch("country");
+  
+  // Sync billing address to shipping address when checkbox is checked
+  useEffect(() => {
+    if (billingSameAsShipping) {
+      form.setValue("billingName", shippingName || "");
+      form.setValue("billingEmail", shippingEmail || "");
+      form.setValue("billingPhone", shippingPhone || "");
+      form.setValue("billingAddressLine1", shippingAddressLine1 || "");
+      form.setValue("billingAddressLine2", shippingAddressLine2 || "");
+      form.setValue("billingCity", shippingCity || "");
+      form.setValue("billingState", shippingState || "");
+      form.setValue("billingPostalCode", shippingPostalCode || "");
+      form.setValue("billingCountry", shippingCountry || "");
+    }
+  }, [
+    billingSameAsShipping,
+    shippingName,
+    shippingEmail,
+    shippingPhone,
+    shippingAddressLine1,
+    shippingAddressLine2,
+    shippingCity,
+    shippingState,
+    shippingPostalCode,
+    shippingCountry,
+    form
+  ]);
 
   // Get sellerId from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : undefined;
@@ -1247,6 +1320,213 @@ export default function Checkout() {
                           </FormItem>
                         )}
                       />
+                    </div>
+
+                    <Separator />
+
+                    {/* Billing Address Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <FormField
+                          control={form.control}
+                          name="billingSameAsShipping"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="checkbox-billing-same-as-shipping"
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="text-sm font-medium">
+                                  Billing address same as shipping
+                                </FormLabel>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Collapsible open={!billingSameAsShipping}>
+                        <CollapsibleContent className="space-y-4">
+                          <h3 className="font-medium text-sm text-muted-foreground">Billing Address</h3>
+                          
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="billingName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Full Name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="John Doe"
+                                      {...field}
+                                      data-testid="input-billing-name"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="billingEmail"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Email</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="email"
+                                      placeholder="john@example.com"
+                                      {...field}
+                                      data-testid="input-billing-email"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="billingPhone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone Number</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="tel"
+                                    placeholder="(555) 123-4567"
+                                    {...field}
+                                    data-testid="input-billing-phone"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="billingAddressLine1"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Street Address</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="123 Main Street"
+                                    {...field}
+                                    data-testid="input-billing-addressline1"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="billingAddressLine2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Apartment, suite, etc. (optional)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Apt 4B"
+                                    {...field}
+                                    data-testid="input-billing-addressline2"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="grid md:grid-cols-3 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="billingCity"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>City</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="New York"
+                                      {...field}
+                                      data-testid="input-billing-city"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="billingState"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>State/Province</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="NY"
+                                      {...field}
+                                      data-testid="input-billing-state"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="billingPostalCode"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>ZIP / Postal Code</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="10001"
+                                      {...field}
+                                      data-testid="input-billing-postalcode"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="billingCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Country</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="United States"
+                                    {...field}
+                                    onChange={(e) => {
+                                      field.onChange(e);
+                                      // Trigger re-validation of billing state when country changes
+                                      form.trigger('billingState');
+                                    }}
+                                    data-testid="input-billing-country"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </CollapsibleContent>
+                      </Collapsible>
                     </div>
 
                     {!clientSecret && (

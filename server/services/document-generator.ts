@@ -48,6 +48,17 @@ export interface InvoiceData {
     subtotal: string;
     shipping?: string;
     paymentStatus: string;
+    billingName?: string;
+    billingStreet?: string;
+    billingCity?: string;
+    billingState?: string;
+    billingPostalCode?: string;
+    billingCountry?: string;
+    shippingStreet?: string;
+    shippingCity?: string;
+    shippingState?: string;
+    shippingPostalCode?: string;
+    shippingCountry?: string;
   };
   items: Array<{
     name: string;
@@ -87,6 +98,17 @@ export interface PackingSlipData {
     id: string;
     orderNumber: string;
     date: Date;
+    billingName?: string;
+    billingStreet?: string;
+    billingCity?: string;
+    billingState?: string;
+    billingPostalCode?: string;
+    billingCountry?: string;
+    shippingStreet?: string;
+    shippingCity?: string;
+    shippingState?: string;
+    shippingPostalCode?: string;
+    shippingCountry?: string;
   };
   items: Array<{
     name: string;
@@ -188,31 +210,59 @@ export class DocumentGenerator {
       .font('Helvetica-Bold')
       .text('Bill To:', 50, billToY);
 
-    // Format customer address
-    const addressLines = formatAddressLines(data.customer.address);
+    // Format billing address (use billing fields if available, otherwise fallback to customer address)
+    const billingAddress = data.order.billingStreet 
+      ? `${data.order.billingStreet}\n${data.order.billingCity}, ${data.order.billingState} ${data.order.billingPostalCode}\n${data.order.billingCountry}`
+      : data.customer.address;
+    const billingAddressLines = formatAddressLines(billingAddress);
     
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text(data.customer.company || data.customer.name, 50, billToY + 20);
+      .text(data.order.billingName || data.customer.company || data.customer.name, 50, billToY + 20);
     
-    // Print address lines with proper spacing
-    let addressY = billToY + 35;
-    addressLines.forEach((line) => {
-      doc.text(line, 50, addressY);
-      addressY += 15;
+    // Print billing address lines with proper spacing
+    let billToAddressY = billToY + 35;
+    billingAddressLines.forEach((line) => {
+      doc.text(line, 50, billToAddressY);
+      billToAddressY += 15;
     });
     
-    doc.text(data.customer.email, 50, addressY);
-    addressY += 15;
+    doc.text(data.customer.email, 50, billToAddressY);
+    billToAddressY += 15;
 
     if (data.customer.vatNumber) {
-      doc.text(`VAT: ${data.customer.vatNumber}`, 50, addressY);
-      addressY += 15;
+      doc.text(`VAT: ${data.customer.vatNumber}`, 50, billToAddressY);
+      billToAddressY += 15;
     }
 
-    // Items Table - Dynamic position based on address height
-    const tableTop = addressY + 20;  // 20px gap after Bill To section
+    // Ship To Section (add below Bill To)
+    const shipToY = billToAddressY + 20;
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Ship To:', 50, shipToY);
+
+    // Format shipping address (use shipping fields if available, otherwise fallback to customer address)
+    const shippingAddress = data.order.shippingStreet
+      ? `${data.order.shippingStreet}\n${data.order.shippingCity}, ${data.order.shippingState} ${data.order.shippingPostalCode}\n${data.order.shippingCountry}`
+      : data.customer.address;
+    const shippingAddressLines = formatAddressLines(shippingAddress);
+    
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .text(data.customer.company || data.customer.name, 50, shipToY + 20);
+    
+    // Print shipping address lines with proper spacing
+    let shipToAddressY = shipToY + 35;
+    shippingAddressLines.forEach((line) => {
+      doc.text(line, 50, shipToAddressY);
+      shipToAddressY += 15;
+    });
+
+    // Items Table - Dynamic position based on both address sections
+    const tableTop = shipToAddressY + 20;  // 20px gap after Ship To section
     const itemHeaderY = tableTop;
 
     // Table Header
@@ -395,29 +445,57 @@ export class DocumentGenerator {
       .text(`Date: ${data.packingSlip.date.toLocaleDateString()}`, 50, 205)
       .text(`Order #: ${data.order.orderNumber}`, 50, 220);
 
-    // Ship To Section
+    // Bill To Section
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
-      .text('Ship To:', 50, 260);
+      .text('Bill To:', 50, 260);
 
-    // Format customer address
-    const psAddressLines = formatAddressLines(data.customer.address);
+    // Format billing address (use billing fields if available, otherwise fallback to customer address)
+    const psBillingAddress = data.order.billingStreet 
+      ? `${data.order.billingStreet}\n${data.order.billingCity}, ${data.order.billingState} ${data.order.billingPostalCode}\n${data.order.billingCountry}`
+      : data.customer.address;
+    const psBillingAddressLines = formatAddressLines(psBillingAddress);
     
     doc
       .fontSize(10)
       .font('Helvetica')
-      .text(data.customer.name, 50, 280);
+      .text(data.order.billingName || data.customer.name, 50, 280);
     
-    // Print address lines with proper spacing
-    let addressY = 295;
-    psAddressLines.forEach((line) => {
-      doc.text(line, 50, addressY);
-      addressY += 15;
+    // Print billing address lines with proper spacing
+    let psBillToAddressY = 295;
+    psBillingAddressLines.forEach((line) => {
+      doc.text(line, 50, psBillToAddressY);
+      psBillToAddressY += 15;
     });
 
-    // Items Table - Dynamic position based on address height
-    const tableTop = addressY + 20;  // 20px gap after Ship To section
+    // Ship To Section (add below Bill To)
+    const psShipToY = psBillToAddressY + 20;
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Ship To:', 50, psShipToY);
+
+    // Format shipping address (use shipping fields if available, otherwise fallback to customer address)
+    const psShippingAddress = data.order.shippingStreet
+      ? `${data.order.shippingStreet}\n${data.order.shippingCity}, ${data.order.shippingState} ${data.order.shippingPostalCode}\n${data.order.shippingCountry}`
+      : data.customer.address;
+    const psShippingAddressLines = formatAddressLines(psShippingAddress);
+    
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .text(data.customer.name, 50, psShipToY + 20);
+    
+    // Print shipping address lines with proper spacing
+    let psShipToAddressY = psShipToY + 35;
+    psShippingAddressLines.forEach((line) => {
+      doc.text(line, 50, psShipToAddressY);
+      psShipToAddressY += 15;
+    });
+
+    // Items Table - Dynamic position based on both address sections
+    const tableTop = psShipToAddressY + 20;  // 20px gap after Ship To section
     const itemHeaderY = tableTop;
 
     // Table Header

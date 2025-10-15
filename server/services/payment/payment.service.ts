@@ -42,6 +42,16 @@ export interface CreatePaymentIntentRequest {
     postal_code: string;
     country: string;
   };
+  billingAddress?: {
+    name: string;
+    email: string;
+    phone: string;
+    line1: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
 }
 
 export interface PaymentIntentResult {
@@ -171,6 +181,29 @@ export class PaymentService {
         applicationFeeAmount: platformFeeAmount,
         captureMethod: 'automatic',
         idempotencyKey,
+        billingDetails: request.billingAddress ? {
+          name: request.billingAddress.name,
+          email: request.billingAddress.email,
+          phone: request.billingAddress.phone,
+          address: {
+            line1: request.billingAddress.line1,
+            city: request.billingAddress.city,
+            state: request.billingAddress.state,
+            postal_code: request.billingAddress.postal_code,
+            country: request.billingAddress.country,
+          },
+        } : undefined,
+        shipping: request.shippingAddress ? {
+          name: request.shippingAddress.name,
+          address: {
+            line1: request.shippingAddress.line1,
+            line2: request.shippingAddress.line2,
+            city: request.shippingAddress.city,
+            state: request.shippingAddress.state,
+            postal_code: request.shippingAddress.postal_code,
+            country: request.shippingAddress.country,
+          },
+        } : undefined,
       };
 
       const paymentIntent = await this.provider.createPaymentIntent(intentParams);

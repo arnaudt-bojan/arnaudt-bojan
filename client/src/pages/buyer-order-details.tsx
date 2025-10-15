@@ -257,8 +257,26 @@ export default function BuyerOrderDetails() {
           </CardContent>
         </Card>
 
-        {/* Shipping Information */}
-        {order.shippingStreet && (
+        {/* Billing and Shipping Information */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Billing Address */}
+          <Card data-testid="card-billing-info">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Billing Address
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-line" data-testid="text-billing-address">
+                {order.billingStreet 
+                  ? `${order.billingName}\n${order.billingStreet}\n${order.billingCity}, ${order.billingState} ${order.billingPostalCode}\n${order.billingCountry}`
+                  : order.customerAddress}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Shipping Address */}
           <Card data-testid="card-shipping-info">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -267,16 +285,14 @@ export default function BuyerOrderDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-medium">{order.customerName}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {order.shippingStreet}
-                {order.shippingCity && `, ${order.shippingCity}`}
-                {order.shippingState && `, ${order.shippingState}`}
-                {order.shippingPostalCode && ` ${order.shippingPostalCode}`}
+              <p className="text-sm text-muted-foreground whitespace-pre-line" data-testid="text-shipping-address">
+                {order.shippingStreet
+                  ? `${order.shippingStreet}\n${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}\n${order.shippingCountry}`
+                  : order.customerAddress}
               </p>
             </CardContent>
           </Card>
-        )}
+        </div>
 
         {/* Payment Summary */}
         <Card data-testid="card-payment-summary">

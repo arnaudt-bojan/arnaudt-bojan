@@ -25,6 +25,7 @@ import {
   generateProductThumbnail,
   generateOrderSummary,
   generateShippingAddress,
+  generateBillingAddress,
   generateTrackingInfo,
   generateMagicLinkButton
 } from './utils/email-templates';
@@ -1218,7 +1219,24 @@ class NotificationServiceImpl implements NotificationService {
       
       ${generateOrderSummary(order, orderItems)}
       
-      ${generateShippingAddress(order.customerAddress)}
+      ${(() => {
+        // Build billing address from individual fields
+        const hasBilling = order.billingStreet;
+        const billingAddr = hasBilling
+          ? `${order.billingName}\n${order.billingStreet}\n${order.billingCity}, ${order.billingState} ${order.billingPostalCode}\n${order.billingCountry}`
+          : order.customerAddress;
+        
+        // Build shipping address from individual fields  
+        const hasShipping = order.shippingStreet;
+        const shippingAddr = hasShipping
+          ? `${order.shippingStreet}\n${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}\n${order.shippingCountry}`
+          : order.customerAddress;
+        
+        const billingHtml = generateBillingAddress(billingAddr);
+        const shippingHtml = generateShippingAddress(shippingAddr);
+        
+        return billingHtml + '\n      ' + shippingHtml;
+      })()}
       
       ${generateMagicLinkButton(magicLink, 'View Order')}
       
@@ -3695,13 +3713,28 @@ class NotificationServiceImpl implements NotificationService {
             <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
               <strong>Email:</strong> <a href="mailto:${order.customerEmail}" style="color: #2563eb !important; text-decoration: none;">${order.customerEmail}</a>
             </p>
-            <p style="margin: 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              <strong>Shipping Address:</strong><br>
-              <span style="white-space: pre-line; color: #6b7280 !important;">${order.customerAddress}</span>
-            </p>
           </td>
         </tr>
       </table>
+      
+      ${(() => {
+        // Build billing address from individual fields
+        const hasSellerBilling = order.billingStreet;
+        const sellerBillingAddr = hasSellerBilling
+          ? `${order.billingName}\n${order.billingStreet}\n${order.billingCity}, ${order.billingState} ${order.billingPostalCode}\n${order.billingCountry}`
+          : order.customerAddress;
+        
+        // Build shipping address from individual fields
+        const hasSellerShipping = order.shippingStreet;
+        const sellerShippingAddr = hasSellerShipping
+          ? `${order.shippingStreet}\n${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}\n${order.shippingCountry}`
+          : order.customerAddress;
+        
+        const sellerBillingHtml = generateBillingAddress(sellerBillingAddr);
+        const sellerShippingHtml = generateShippingAddress(sellerShippingAddr);
+        
+        return sellerBillingHtml + '\n      ' + sellerShippingHtml;
+      })()}
 
       <!-- Order Items -->
       <h3 style="margin: 30px 0 15px; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">

@@ -783,6 +783,46 @@ export function generateShippingAddress(address: string | object): string {
 }
 
 /**
+ * Generate billing address block
+ * Formatted for email display with proper spacing
+ * 
+ * @param address - Address string or object
+ * @returns HTML address block string
+ */
+export function generateBillingAddress(address: string | object): string {
+  let addressHtml = '';
+  
+  if (typeof address === 'string') {
+    addressHtml = address.replace(/,/g, '<br>').replace(/\n/g, '<br>');
+  } else if (typeof address === 'object' && address !== null) {
+    const addr = address as any;
+    const parts = [
+      addr.line1,
+      addr.line2,
+      [addr.city, addr.state].filter(Boolean).join(', '),
+      addr.postal_code || addr.zip,
+      addr.country
+    ].filter(Boolean);
+    addressHtml = parts.join('<br>');
+  }
+  
+  return `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0;">
+  <tr>
+    <td style="padding: 15px; background-color: #f9fafb !important; border-radius: 8px; border: 1px solid #e5e7eb;" class="dark-mode-bg-white">
+      <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; text-transform: uppercase; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: 0.5px;">
+        Billing Address
+      </p>
+      <p style="margin: 0; font-size: 15px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6;" class="dark-mode-text-dark">
+        ${addressHtml}
+      </p>
+    </td>
+  </tr>
+</table>
+  `.trim();
+}
+
+/**
  * Generate tracking info block
  * Shows carrier, tracking number, and link
  * 

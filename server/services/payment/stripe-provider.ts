@@ -38,6 +38,34 @@ export class StripePaymentProvider implements IPaymentProvider {
       } : undefined,
       application_fee_amount: params.applicationFeeAmount ? this.toMinorUnits(params.applicationFeeAmount, params.currency) : undefined,
       capture_method: params.captureMethod || 'automatic',
+      ...(params.billingDetails && {
+        billing_details: {
+          name: params.billingDetails.name,
+          email: params.billingDetails.email,
+          phone: params.billingDetails.phone,
+          address: {
+            line1: params.billingDetails.address.line1,
+            line2: params.billingDetails.address.line2,
+            city: params.billingDetails.address.city,
+            state: params.billingDetails.address.state,
+            postal_code: params.billingDetails.address.postal_code,
+            country: params.billingDetails.address.country,
+          },
+        },
+      }),
+      ...(params.shipping && {
+        shipping: {
+          name: params.shipping.name,
+          address: {
+            line1: params.shipping.address.line1,
+            line2: params.shipping.address.line2,
+            city: params.shipping.address.city,
+            state: params.shipping.address.state,
+            postal_code: params.shipping.address.postal_code,
+            country: params.shipping.address.country,
+          },
+        },
+      }),
     }, {
       idempotencyKey: params.idempotencyKey,
     });

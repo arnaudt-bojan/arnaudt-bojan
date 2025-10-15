@@ -43,6 +43,18 @@ export interface WorkflowContext {
     country: string;
   };
   
+  // Billing address (separate from shipping)
+  billingAddress?: {
+    name: string;
+    email: string;
+    phone: string;
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  
   // Shipping and pricing
   shippingOptionId?: string;
   shippingCost?: number;

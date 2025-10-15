@@ -22,6 +22,16 @@ export interface CheckoutInitiateParams {
     postalCode: string;
     country: string;
   };
+  billingAddress?: {
+    name: string;
+    email: string;
+    phone: string;
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
   customerEmail: string;
   customerName: string;
   checkoutSessionId?: string;
@@ -194,6 +204,7 @@ export class CheckoutService {
             : undefined,
         })),
         shippingAddress: params.shippingAddress,
+        billingAddress: params.billingAddress,
         customerEmail: params.customerEmail,
         customerName: params.customerName,
       };

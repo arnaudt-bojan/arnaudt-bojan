@@ -2451,7 +2451,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw error;
       }
 
-      const { items, shippingAddress, customerEmail, customerName, checkoutSessionId } = validatedData;
+      const { items, shippingAddress, billingAddress, billingSameAsShipping, customerEmail, customerName, checkoutSessionId } = validatedData;
+
+      // Use billing address if provided, otherwise fall back to shipping address
+      const finalBillingAddress = billingSameAsShipping || !billingAddress 
+        ? {
+            name: customerName,
+            email: customerEmail,
+            phone: billingAddress?.phone || '',
+            street: shippingAddress.street,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            postalCode: shippingAddress.postalCode,
+            country: shippingAddress.country,
+          }
+        : billingAddress;
 
       // Delegate to CheckoutService workflow orchestrator
       const result = await checkoutService.initiateCheckout({
@@ -2463,6 +2477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           postalCode: shippingAddress.postalCode,
           country: shippingAddress.country,
         },
+        billingAddress: finalBillingAddress,
         customerEmail,
         customerName,
         checkoutSessionId,

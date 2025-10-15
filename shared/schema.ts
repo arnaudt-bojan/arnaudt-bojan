@@ -339,6 +339,16 @@ export const orders = pgTable("orders", {
   shippingPostalCode: varchar("shipping_postal_code"),
   shippingCountry: varchar("shipping_country"),
   
+  // Billing address (separate fields for billing information)
+  billingName: text("billing_name"),
+  billingEmail: text("billing_email"),
+  billingPhone: varchar("billing_phone"),
+  billingStreet: text("billing_street"),
+  billingCity: text("billing_city"),
+  billingState: text("billing_state"),
+  billingPostalCode: varchar("billing_postal_code"),
+  billingCountry: varchar("billing_country"),
+  
   // Balance Payment Architecture 3 fields - for deposit-only pricing and balance payment flow
   depositAmountCents: integer("deposit_amount_cents"), // Deposit amount in cents (for precise calculations)
   balanceDueCents: integer("balance_due_cents"), // Balance due in cents (remaining product + shipping)
@@ -372,9 +382,24 @@ export const shippingAddressSchema = z.object({
   country: z.string().min(1, "Country is required"),
 });
 
+export const billingAddressSchema = z.object({
+  name: z.string().min(1, "Billing name is required"),
+  email: z.string().email("Valid email required"),
+  phone: z.string().min(10, "Phone number required"),
+  street: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  postalCode: z.string().min(1, "Postal code is required"),
+  country: z.string().min(1, "Country is required"),
+});
+
+export type BillingAddress = z.infer<typeof billingAddressSchema>;
+
 export const checkoutInitiateRequestSchema = z.object({
   items: z.array(checkoutItemSchema).min(1, "At least one item is required"),
   shippingAddress: shippingAddressSchema,
+  billingAddress: billingAddressSchema,
+  billingSameAsShipping: z.boolean().default(true),
   customerEmail: z.string().email("Valid email is required"),
   customerName: z.string().min(1, "Customer name is required"),
   checkoutSessionId: z.string().optional(),

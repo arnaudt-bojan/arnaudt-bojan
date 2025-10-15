@@ -6,6 +6,30 @@ export interface CreateIntentParams {
   applicationFeeAmount?: number;
   captureMethod?: 'automatic' | 'manual';
   idempotencyKey: string;
+  billingDetails?: {
+    name: string;
+    email: string;
+    phone?: string;
+    address: {
+      line1: string;
+      line2?: string;
+      city: string;
+      state?: string;
+      postal_code: string;
+      country: string;
+    };
+  };
+  shipping?: {
+    name: string;
+    address: {
+      line1: string;
+      line2?: string;
+      city: string;
+      state?: string;
+      postal_code: string;
+      country: string;
+    };
+  };
 }
 
 export interface PaymentIntent {
