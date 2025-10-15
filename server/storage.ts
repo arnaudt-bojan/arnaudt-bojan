@@ -175,7 +175,13 @@ import {
   buyerProfiles,
   wholesaleCarts,
   wholesalePaymentIntents,
-  wholesaleShippingMetadata
+  wholesaleShippingMetadata,
+  bulkUploadJobs,
+  bulkUploadItems,
+  InsertBulkUploadJob,
+  BulkUploadJob,
+  InsertBulkUploadItem,
+  BulkUploadItem
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -624,6 +630,18 @@ export interface IStorage {
   getCartByUserId(userId: string): Promise<Cart | undefined>;
   saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart>;
   clearCartBySession(sessionId: string): Promise<void>;
+  
+  // Bulk Product Upload
+  createBulkUploadJob(job: InsertBulkUploadJob): Promise<BulkUploadJob>;
+  getBulkUploadJob(id: string): Promise<BulkUploadJob | undefined>;
+  getBulkUploadJobsBySeller(sellerId: string): Promise<BulkUploadJob[]>;
+  updateBulkUploadJob(id: string, updates: Partial<BulkUploadJob>): Promise<BulkUploadJob | undefined>;
+  
+  createBulkUploadItem(item: InsertBulkUploadItem): Promise<BulkUploadItem>;
+  createBulkUploadItems(items: InsertBulkUploadItem[]): Promise<BulkUploadItem[]>;
+  getBulkUploadItemsByJob(jobId: string): Promise<BulkUploadItem[]>;
+  updateBulkUploadItem(id: string, updates: Partial<BulkUploadItem>): Promise<BulkUploadItem | undefined>;
+  deleteBulkUploadItemsByJob(jobId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3718,6 +3736,80 @@ export class DatabaseStorage implements IStorage {
     await this.db
       .delete(cartSessions)
       .where(eq(cartSessions.sessionId, sessionId));
+  }
+
+  // ===== BULK PRODUCT UPLOAD METHODS =====
+  
+  async createBulkUploadJob(job: InsertBulkUploadJob): Promise<BulkUploadJob> {
+    await this.ensureInitialized();
+    const [result] = await this.db.insert(bulkUploadJobs).values(job).returning();
+    return result;
+  }
+
+  async getBulkUploadJob(id: string): Promise<BulkUploadJob | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(bulkUploadJobs)
+      .where(eq(bulkUploadJobs.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getBulkUploadJobsBySeller(sellerId: string): Promise<BulkUploadJob[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(bulkUploadJobs)
+      .where(eq(bulkUploadJobs.sellerId, sellerId))
+      .orderBy(desc(bulkUploadJobs.createdAt));
+  }
+
+  async updateBulkUploadJob(id: string, updates: Partial<BulkUploadJob>): Promise<BulkUploadJob | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .update(bulkUploadJobs)
+      .set(updates)
+      .where(eq(bulkUploadJobs.id, id))
+      .returning();
+    return result;
+  }
+
+  async createBulkUploadItem(item: InsertBulkUploadItem): Promise<BulkUploadItem> {
+    await this.ensureInitialized();
+    const [result] = await this.db.insert(bulkUploadItems).values(item).returning();
+    return result;
+  }
+
+  async createBulkUploadItems(items: InsertBulkUploadItem[]): Promise<BulkUploadItem[]> {
+    await this.ensureInitialized();
+    if (items.length === 0) return [];
+    return await this.db.insert(bulkUploadItems).values(items).returning();
+  }
+
+  async getBulkUploadItemsByJob(jobId: string): Promise<BulkUploadItem[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(bulkUploadItems)
+      .where(eq(bulkUploadItems.jobId, jobId))
+      .orderBy(asc(bulkUploadItems.rowNumber));
+  }
+
+  async updateBulkUploadItem(id: string, updates: Partial<BulkUploadItem>): Promise<BulkUploadItem | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .update(bulkUploadItems)
+      .set(updates)
+      .where(eq(bulkUploadItems.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteBulkUploadItemsByJob(jobId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(bulkUploadItems).where(eq(bulkUploadItems.jobId, jobId));
+    return true;
   }
 }
 

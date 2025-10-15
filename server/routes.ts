@@ -30,6 +30,9 @@ import { WebhookHandler } from "./services/payment/webhook-handler";
 import { PaymentService } from "./services/payment/payment.service";
 import { ProductService } from "./services/product.service";
 import { productVariantService } from "./services/product-variant.service";
+import { BulkUploadService } from "./services/bulk-upload.service";
+import Papa from "papaparse";
+import { generateCSVTemplate, generateInstructionsText, CSV_TEMPLATE_FIELDS } from "@shared/bulk-upload-template";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
 import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
@@ -163,6 +166,9 @@ const productService = new ProductService(
   skuService,
   stripe || undefined
 );
+
+// Initialize bulk upload service for CSV imports
+const bulkUploadService = new BulkUploadService(storage, productService);
 
 // Initialize legacy Stripe checkout service (Architecture 3 migration)
 const legacyCheckoutService = new LegacyStripeCheckoutService(
@@ -2133,6 +2139,260 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete product" });
+    }
+  });
+
+  // ===== BULK PRODUCT UPLOAD ROUTES =====
+  
+  // Download CSV template
+  app.get("/api/bulk-upload/template", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const csv = generateCSVTemplate();
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="upfirst-product-template.csv"');
+      res.send(csv);
+    } catch (error) {
+      logger.error("Error generating CSV template", error);
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  // Download instructions
+  app.get("/api/bulk-upload/instructions", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const instructions = generateInstructionsText();
+      
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="bulk-upload-instructions.txt"');
+      res.send(instructions);
+    } catch (error) {
+      logger.error("Error generating instructions", error);
+      res.status(500).json({ error: "Failed to generate instructions" });
+    }
+  });
+
+  // Upload CSV file and create job
+  app.post("/api/bulk-upload/upload", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    let jobId: string | null = null;
+    
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!req.files || !req.files.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const uploadedFile: any = req.files.file;
+      const fileContent = uploadedFile.data.toString('utf-8');
+      
+      // Parse CSV
+      const parseResult = Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+      });
+
+      if (parseResult.errors.length > 0) {
+        return res.status(400).json({ 
+          error: "CSV parsing error",
+          details: parseResult.errors 
+        });
+      }
+
+      const rows = parseResult.data;
+      
+      if (rows.length === 0) {
+        return res.status(400).json({ error: "CSV file is empty" });
+      }
+
+      // Parse mappings - handle both JSON string and object
+      let mappings = {};
+      if (req.body.mappings) {
+        try {
+          mappings = typeof req.body.mappings === 'string' 
+            ? JSON.parse(req.body.mappings) 
+            : req.body.mappings;
+        } catch (err) {
+          logger.error("Error parsing mappings", err);
+          // Continue with empty mappings rather than failing
+        }
+      }
+
+      // Create bulk upload job
+      const job = await storage.createBulkUploadJob({
+        sellerId: userId,
+        fileName: uploadedFile.name,
+        status: 'pending' as any,
+        totalRows: rows.length,
+        mappings: mappings,
+      });
+      
+      jobId = job.id;
+
+      // Create bulk upload items
+      const items = rows.map((row: any, index: number) => ({
+        jobId: job.id,
+        rowNumber: index + 1,
+        rowData: row,
+        validationStatus: 'pending' as any,
+      }));
+
+      await storage.createBulkUploadItems(items);
+
+      res.json({ 
+        job,
+        totalRows: rows.length,
+        message: `Uploaded ${rows.length} rows successfully`
+      });
+    } catch (error) {
+      logger.error("Error uploading CSV", error);
+      
+      // Cleanup on failure - delete job and items if created
+      if (jobId) {
+        try {
+          await storage.deleteBulkUploadItemsByJob(jobId);
+          await storage.updateBulkUploadJob(jobId, { 
+            status: 'failed' as any, 
+            errorMessage: error instanceof Error ? error.message : 'Upload failed'
+          });
+        } catch (cleanupError) {
+          logger.error("Error cleaning up failed upload", cleanupError);
+        }
+      }
+      
+      res.status(500).json({ error: "Failed to upload CSV" });
+    }
+  });
+
+  // Validate bulk upload job
+  app.post("/api/bulk-upload/validate/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      // Verify job belongs to user
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Update job status to validating
+      await storage.updateBulkUploadJob(jobId, {
+        status: 'validating' as any,
+      });
+
+      // Validate all rows
+      const result = await bulkUploadService.validateBulkUpload(jobId, userId);
+
+      res.json({
+        message: "Validation complete",
+        ...result,
+      });
+    } catch (error) {
+      logger.error("Error validating bulk upload", error);
+      res.status(500).json({ error: "Failed to validate upload" });
+    }
+  });
+
+  // Import products from validated job
+  app.post("/api/bulk-upload/import/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      // Verify job belongs to user
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Check job is validated
+      if (job.status !== 'validated') {
+        return res.status(400).json({ error: "Job must be validated before import" });
+      }
+
+      // Import products
+      const result = await bulkUploadService.importProducts(jobId, userId);
+
+      res.json({
+        message: "Import complete",
+        ...result,
+      });
+    } catch (error) {
+      logger.error("Error importing products", error);
+      res.status(500).json({ error: "Failed to import products" });
+    }
+  });
+
+  // Rollback bulk import
+  app.post("/api/bulk-upload/rollback/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      // Verify job belongs to user
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Rollback import
+      const result = await bulkUploadService.rollbackBulkUpload(jobId);
+
+      res.json({
+        message: `Rolled back ${result.deletedCount} products`,
+        ...result,
+      });
+    } catch (error) {
+      logger.error("Error rolling back import", error);
+      res.status(500).json({ error: "Failed to rollback import" });
+    }
+  });
+
+  // Get all bulk upload jobs for seller
+  app.get("/api/bulk-upload/jobs", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobs = await storage.getBulkUploadJobsBySeller(userId);
+      res.json(jobs);
+    } catch (error) {
+      logger.error("Error fetching bulk upload jobs", error);
+      res.status(500).json({ error: "Failed to fetch jobs" });
+    }
+  });
+
+  // Get specific job details with items
+  app.get("/api/bulk-upload/job/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const items = await storage.getBulkUploadItemsByJob(jobId);
+
+      res.json({
+        ...job,
+        items,
+      });
+    } catch (error) {
+      logger.error("Error fetching job details", error);
+      res.status(500).json({ error: "Failed to fetch job details" });
     }
   });
 

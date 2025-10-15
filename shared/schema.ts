@@ -2927,3 +2927,99 @@ export const insertTradePaymentScheduleSchema = createInsertSchema(tradePaymentS
 });
 export type InsertTradePaymentSchedule = z.infer<typeof insertTradePaymentScheduleSchema>;
 export type TradePaymentSchedule = typeof tradePaymentSchedules.$inferSelect;
+
+// ===== BULK PRODUCT UPLOAD SYSTEM =====
+
+// PostgreSQL enums for bulk upload
+export const bulkUploadStatusPgEnum = pgEnum("bulk_upload_status", [
+  "pending",          // File uploaded, waiting to start
+  "validating",       // Validating rows
+  "validated",        // Validation complete, ready to import
+  "importing",        // Creating products
+  "completed",        // Successfully completed
+  "completed_with_errors", // Completed but some rows failed
+  "failed",           // Failed entirely
+  "rolled_back"       // Import was rolled back
+]);
+
+export const bulkUploadItemStatusPgEnum = pgEnum("bulk_upload_item_status", [
+  "pending",          // Not yet validated
+  "valid",            // Validation passed
+  "warning",          // Validation passed with warnings
+  "error",            // Validation failed
+  "imported",         // Successfully created product
+  "failed"            // Failed to create product
+]);
+
+// Bulk Upload Jobs - tracks overall upload sessions
+export const bulkUploadJobs = pgTable("bulk_upload_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(),
+  fileName: text("file_name").notNull(),
+  status: bulkUploadStatusPgEnum("status").notNull().default("pending"),
+  totalRows: integer("total_rows").notNull().default(0),
+  successCount: integer("success_count").notNull().default(0),
+  errorCount: integer("error_count").notNull().default(0),
+  warningCount: integer("warning_count").notNull().default(0),
+  
+  // Field mappings - stores user's column mapping choices
+  // Example: { "Product Name": "name", "Price": "price", "Image 1": "image1" }
+  mappings: jsonb("mappings"),
+  
+  // Error message if job failed
+  errorMessage: text("error_message"),
+  
+  // Progress tracking
+  processedRows: integer("processed_rows").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => {
+  return {
+    sellerIdx: index("bulk_upload_jobs_seller_idx").on(table.sellerId),
+    statusIdx: index("bulk_upload_jobs_status_idx").on(table.status),
+  };
+});
+
+export const insertBulkUploadJobSchema = createInsertSchema(bulkUploadJobs).omit({ 
+  id: true, 
+  createdAt: true,
+  completedAt: true
+});
+export type InsertBulkUploadJob = z.infer<typeof insertBulkUploadJobSchema>;
+export type BulkUploadJob = typeof bulkUploadJobs.$inferSelect;
+
+// Bulk Upload Items - individual rows from CSV
+export const bulkUploadItems = pgTable("bulk_upload_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull(),
+  rowNumber: integer("row_number").notNull(),
+  
+  // Original CSV row data (mapped to expected fields)
+  rowData: jsonb("row_data").notNull(),
+  
+  // Validation status
+  validationStatus: bulkUploadItemStatusPgEnum("validation_status").notNull().default("pending"),
+  
+  // Validation errors and warnings
+  // Example: [{field: "price", message: "Price must be greater than 0", severity: "error"}]
+  validationMessages: jsonb("validation_messages"),
+  
+  // Reference to created product (if successful)
+  productId: varchar("product_id"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    jobIdx: index("bulk_upload_items_job_idx").on(table.jobId),
+    statusIdx: index("bulk_upload_items_status_idx").on(table.validationStatus),
+    productIdx: index("bulk_upload_items_product_idx").on(table.productId),
+  };
+});
+
+export const insertBulkUploadItemSchema = createInsertSchema(bulkUploadItems).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertBulkUploadItem = z.infer<typeof insertBulkUploadItemSchema>;
+export type BulkUploadItem = typeof bulkUploadItems.$inferSelect;
