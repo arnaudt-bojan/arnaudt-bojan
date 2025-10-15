@@ -1023,6 +1023,16 @@ export class OrderService {
           requiresDeposit: item.requiresDeposit,
           productSku: item.sku || item.productSku || null, // Product-level SKU
           variantSku: item.variantSku || null, // Variant-specific SKU
+          // Delivery date fields for pre-order and made-to-order
+          // Use customer-submitted values from params.items (what was in cart)
+          preOrderDate: (() => {
+            const matchedItem = params.items.find((i: any) => i.productId === item.id);
+            return matchedItem?.preOrderDate || item.preOrderDate || null;
+          })(),
+          madeToOrderDays: (() => {
+            const matchedItem = params.items.find((i: any) => i.productId === item.id);
+            return matchedItem?.madeToOrderDays || item.madeToOrderDays || null;
+          })(),
           variant: (() => {
             const matchedItem = params.items.find(i => i.productId === item.id);
             if (matchedItem?.variant) {

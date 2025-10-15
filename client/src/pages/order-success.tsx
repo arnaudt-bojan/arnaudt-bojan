@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Package, Mail, Phone, MapPin, ExternalLink, Loader2 } from "lucide-react";
-import type { Order, Product, User } from "@shared/schema";
+import { CheckCircle, Package, Mail, Phone, MapPin, ExternalLink, Loader2, Clock, CalendarClock } from "lucide-react";
+import type { Order, Product, User, OrderItem } from "@shared/schema";
 import { getSellerAwarePath } from "@/contexts/seller-context";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatVariant } from "@shared/variant-formatter";
+import { format } from "date-fns";
 
 // Simple currency formatter using seller's currency (no conversion)
 const formatOrderPrice = (price: number, currency: string = 'USD') => {
@@ -351,6 +352,31 @@ export default function OrderSuccess() {
                           )}
                         </div>
                       </div>
+                      
+                      {/* Delivery Date for pre-order and made-to-order - use order item data */}
+                      {item.productType === "pre-order" && (item as any).preOrderDate && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                            Pre-Order
+                          </Badge>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`success-delivery-date-${index}`}>
+                            <CalendarClock className="h-3 w-3" />
+                            Delivery: {format(new Date((item as any).preOrderDate), 'PPP')}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {item.productType === "made-to-order" && (item as any).madeToOrderDays && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+                            Made to Order
+                          </Badge>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`success-delivery-date-${index}`}>
+                            <Clock className="h-3 w-3" />
+                            Ships in {(item as any).madeToOrderDays} days
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="font-semibold">

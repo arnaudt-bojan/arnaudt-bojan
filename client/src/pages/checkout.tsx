@@ -222,6 +222,9 @@ function PaymentForm({
             requiresDeposit: item.requiresDeposit,
             variant: item.variant || undefined,
             variantId: item.variantId || undefined,
+            // Delivery date fields for pre-order and made-to-order
+            preOrderDate: item.preOrderDate || undefined,
+            madeToOrderDays: item.madeToOrderDays || undefined,
           })),
           destination: {
             country: billingDetails.country,
@@ -504,6 +507,9 @@ function ExpressCheckout({
             requiresDeposit: item.requiresDeposit,
             variant: item.variant || undefined,
             variantId: item.variantId || undefined,
+            // Delivery date fields for pre-order and made-to-order
+            preOrderDate: item.preOrderDate || undefined,
+            madeToOrderDays: item.madeToOrderDays || undefined,
           })),
           destination: {
             line1: walletData.customerAddress.line1,
@@ -1677,9 +1683,23 @@ export default function Checkout() {
                                   Pre-Order
                                 </Badge>
                                 {(item as any).preOrderDate && (
-                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`checkout-delivery-date-${item.id}`}>
                                     <Clock className="h-3 w-3" />
-                                    {new Date((item as any).preOrderDate).toLocaleDateString()}
+                                    Delivery: {new Date((item as any).preOrderDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            
+                            {item.productType === "made-to-order" && (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+                                  Made to Order
+                                </Badge>
+                                {(item as any).madeToOrderDays && (
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`checkout-delivery-date-${item.id}`}>
+                                    <Clock className="h-3 w-3" />
+                                    Ships in {(item as any).madeToOrderDays} days
                                   </span>
                                 )}
                               </div>
@@ -1687,6 +1707,12 @@ export default function Checkout() {
                             
                             {item.productType === "pre-order" && item.requiresDeposit && item.depositAmount && (
                               <p className="text-xs text-blue-600 dark:text-blue-400">
+                                Deposit: {formatConvertedPrice(parseFloat(item.depositAmount))} each
+                              </p>
+                            )}
+                            
+                            {item.productType === "made-to-order" && item.requiresDeposit && item.depositAmount && (
+                              <p className="text-xs text-purple-600 dark:text-purple-400">
                                 Deposit: {formatConvertedPrice(parseFloat(item.depositAmount))} each
                               </p>
                             )}
