@@ -1424,16 +1424,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { orderId } = req.params;
       
-      // Validate request body
+      // ARCHITECTURE 3: Validate request body - Frontend sends ONLY IDs and booleans
       const refundRequestSchema = z.object({
         reason: z.string().optional(),
-        lineItems: z.array(z.object({
-          type: z.enum(['product', 'shipping', 'tax', 'adjustment']),
-          orderItemId: z.string().optional(),
-          quantity: z.number().optional(),
-          amount: z.string(),
-          description: z.string().optional(),
-        })).min(1, "At least one line item is required"),
+        items: z.array(z.object({
+          orderItemId: z.string(),
+          quantity: z.number().positive(),
+        })).optional(),
+        refundShipping: z.boolean().optional(),
+        refundTax: z.boolean().optional(),
         manualOverride: z.object({
           totalAmount: z.string(),
           reason: z.string(),
@@ -1474,12 +1473,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      // Create refund via service
+      // Create refund via service (ARCHITECTURE 3: Pass only IDs and booleans)
       const result = await refundService.createRefund({
         orderId,
         sellerId: canonicalSellerId!,
         reason: refundData.reason,
-        lineItems: refundData.lineItems,
+        items: refundData.items,
+        refundShipping: refundData.refundShipping,
+        refundTax: refundData.refundTax,
         manualOverride: refundData.manualOverride,
       });
 

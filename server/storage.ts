@@ -1453,12 +1453,43 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // Build item refund details
+    // Calculate how much was actually paid and can be refunded
+    const amountPaid = parseFloat(order.amountPaid || order.total || "0");
+    const totalRefunded = successfulRefunds.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+    const totalRefundablePool = Math.max(0, amountPaid - totalRefunded);
+    
+    // Calculate total catalog value of all refundable items, shipping, and tax
+    const catalogItemsTotal = items.reduce((sum, item) => {
+      const refunded = itemRefundMap.get(item.id) || { quantity: 0, amount: 0 };
+      const refundableQuantity = item.quantity - refunded.quantity;
+      const pricePerUnit = parseFloat(item.price);
+      return sum + (refundableQuantity * pricePerUnit);
+    }, 0);
+    
+    const catalogShippingTotal = parseFloat(order.shippingCost || "0");
+    const catalogTaxTotal = parseFloat(order.taxAmount || "0");
+    const catalogGrandTotal = catalogItemsTotal + catalogShippingTotal + catalogTaxTotal;
+    
+    // Calculate proportional refundable amounts
+    // For each component (items, shipping, tax), distribute the refundable pool proportionally
+    const itemsProportion = catalogGrandTotal > 0 ? catalogItemsTotal / catalogGrandTotal : 0;
+    const shippingProportion = catalogGrandTotal > 0 ? catalogShippingTotal / catalogGrandTotal : 0;
+    const taxProportion = catalogGrandTotal > 0 ? catalogTaxTotal / catalogGrandTotal : 0;
+    
+    const itemsRefundablePool = totalRefundablePool * itemsProportion;
+    const shippingRefundablePool = totalRefundablePool * shippingProportion;
+    const taxRefundablePool = totalRefundablePool * taxProportion;
+    
+    // Build item refund details with proportional amounts
     const itemDetails = items.map(item => {
       const refunded = itemRefundMap.get(item.id) || { quantity: 0, amount: 0 };
       const refundableQuantity = item.quantity - refunded.quantity;
       const pricePerUnit = parseFloat(item.price);
-      const refundableAmount = refundableQuantity * pricePerUnit;
+      const catalogValue = refundableQuantity * pricePerUnit;
+      
+      // Calculate this item's share of the refundable pool
+      const itemProportion = catalogItemsTotal > 0 ? catalogValue / catalogItemsTotal : 0;
+      const refundableAmount = itemsRefundablePool * itemProportion;
       
       return {
         itemId: item.id,
@@ -1471,25 +1502,16 @@ export class DatabaseStorage implements IStorage {
       };
     });
     
-    // Calculate shipping refundable
+    // Calculate shipping refundable (from proportional pool, minus already refunded)
     const shippingTotal = parseFloat(order.shippingCost || "0");
-    const shippingRefundable = Math.max(0, shippingTotal - shippingRefunded);
+    const shippingRefundable = Math.max(0, Math.min(shippingRefundablePool, shippingTotal - shippingRefunded));
     
-    // Calculate tax refundable
+    // Calculate tax refundable (from proportional pool, minus already refunded)
     const taxTotal = parseFloat(order.taxAmount || "0");
-    const taxRefundable = Math.max(0, taxTotal - taxRefunded);
+    const taxRefundable = Math.max(0, Math.min(taxRefundablePool, taxTotal - taxRefunded));
     
-    // Calculate total refundable based on items
-    const itemsRefundable = itemDetails.reduce((sum, item) => sum + parseFloat(item.refundableAmount), 0);
-    let totalRefundable = itemsRefundable + shippingRefundable + taxRefundable;
-    
-    // For deposit orders: cap refundable at amount actually paid
-    const amountPaid = parseFloat(order.amountPaid || order.total || "0");
-    const totalRefunded = successfulRefunds.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
-    const maxRefundableBasedOnPayment = Math.max(0, amountPaid - totalRefunded);
-    
-    // Use the lesser of calculated refundable or amount paid minus refunds
-    totalRefundable = Math.min(totalRefundable, maxRefundableBasedOnPayment);
+    // Total refundable is simply the pool (amountPaid - totalRefunded)
+    const totalRefundable = totalRefundablePool;
     
     return {
       totalRefundable: totalRefundable.toFixed(2),
