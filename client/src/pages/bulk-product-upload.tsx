@@ -744,7 +744,7 @@ export default function BulkProductUpload() {
                   )}
                 </Card>
 
-                {currentJob.status === 'validated' && validationResults && validationResults.length > 0 && (
+                {(currentJob.status === 'validated' || currentJob.status === 'completed') && validationResults && validationResults.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Validation Results</CardTitle>
@@ -860,7 +860,7 @@ export default function BulkProductUpload() {
                           <p className="font-medium mb-2">Import completed but 0 products were imported</p>
                           <p className="text-sm">
                             All {currentJob.errorCount} products had validation errors. 
-                            Click "View" below to see specific error messages for each product.
+                            See validation results below for specific error messages.
                           </p>
                         </AlertDescription>
                       </Alert>
