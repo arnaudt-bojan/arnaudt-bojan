@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema, updateCustomerDetailsSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
@@ -630,6 +631,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to verify magic link', 
         success: false 
       });
+    }
+  });
+
+  // Order Magic Link Authentication (for delivery reminders)
+  app.get('/magic-link/order', async (req: any, res: any) => {
+    try {
+      const { token } = req.query;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).send('<h1>Invalid Link</h1><p>The magic link is missing or invalid.</p>');
+      }
+
+      // Verify and decode token
+      const secret = process.env.SESSION_SECRET || "upfirst-secret-key";
+      let decoded: string;
+      
+      try {
+        decoded = Buffer.from(token, 'base64url').toString('utf-8');
+      } catch (e) {
+        return res.status(400).send('<h1>Invalid Link</h1><p>The magic link format is invalid.</p>');
+      }
+
+      const parts = decoded.split(':');
+      if (parts.length !== 4) {
+        return res.status(400).send('<h1>Invalid Link</h1><p>The magic link format is invalid.</p>');
+      }
+
+      const [sellerId, orderId, timestamp, signature] = parts;
+
+      // Verify signature
+      const payload = `${sellerId}:${orderId}:${timestamp}`;
+      const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+      
+      if (signature !== expectedSignature) {
+        return res.status(401).send('<h1>Invalid Link</h1><p>The magic link signature is invalid.</p>');
+      }
+
+      // Check if token is expired (7 days)
+      const tokenAge = Date.now() - parseInt(timestamp);
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (tokenAge > sevenDays) {
+        return res.status(401).send('<h1>Link Expired</h1><p>This magic link has expired. Please request a new one.</p>');
+      }
+
+      // Get seller
+      const seller = await storage.getUser(sellerId);
+      if (!seller) {
+        return res.status(404).send('<h1>Seller Not Found</h1><p>The seller account does not exist.</p>');
+      }
+
+      // Verify order belongs to seller
+      const order = await storage.getOrderById(orderId);
+      if (!order || order.sellerId !== sellerId) {
+        return res.status(403).send('<h1>Unauthorized</h1><p>This order does not belong to your account.</p>');
+      }
+
+      // Create session for seller
+      req.session.passport = {
+        user: {
+          id: seller.id,
+          access_token: 'magic-link-order',
+          expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
+          claims: {
+            sub: seller.id,
+            email: seller.email,
+            aud: 'authenticated',
+          },
+        },
+      };
+
+      // Save session before redirecting
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      logger.info(`[MagicLink] Seller authenticated for order ${orderId}`, { sellerId });
+
+      // Redirect to order page
+      res.redirect(`/seller-dashboard/orders/${orderId}`);
+    } catch (error) {
+      logger.error('[MagicLink] Order authentication error', error);
+      res.status(500).send('<h1>Error</h1><p>An error occurred while processing the magic link.</p>');
     }
   });
 
@@ -9463,6 +9549,223 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================================
   // End Trade Quotation Routes
   // ============================================================================
+
+  // DEVELOPMENT ONLY: Test delivery reminder email
+  if (process.env.NODE_ENV === 'development') {
+    app.post("/api/dev/test-delivery-reminder", async (req, res) => {
+      try {
+        const { testEmail } = req.body;
+        
+        if (!testEmail) {
+          return res.status(400).json({ error: "testEmail is required" });
+        }
+
+        // Create a mock order and seller for testing
+        const mockSeller = {
+          id: "test-seller-id",
+          email: testEmail,
+          storeName: "Test Store",
+          firstName: "Test",
+          username: "teststore",
+        };
+
+        const mockOrder = {
+          id: "test-order-123",
+          sellerId: mockSeller.id,
+          total: "149.99",
+          depositPaid: "50.00",
+          customerEmail: "customer@example.com",
+          shippingName: "John Doe",
+          status: "pending",
+          createdAt: new Date(),
+        };
+
+        const mockItem = {
+          productName: "Premium T-Shirt",
+          productType: "pre-order",
+          quantity: 2,
+          preOrderDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+          madeToOrderLeadTime: null,
+        };
+
+        // Calculate delivery date (7 days from now for testing)
+        const deliveryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        // Generate magic link
+        const secret = process.env.SESSION_SECRET || "upfirst-secret-key";
+        const payload = `${mockSeller.id}:${mockOrder.id}:${Date.now()}`;
+        const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+        const magicToken = Buffer.from(`${payload}:${signature}`).toString("base64url");
+        const magicLink = `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'http://localhost:5000'}/magic-link/order?token=${magicToken}`;
+
+        const formattedDeliveryDate = deliveryDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        const daysRemaining = 7;
+        const orderTotal = parseFloat(mockOrder.total);
+        const depositPaid = parseFloat(mockOrder.depositPaid);
+        const balanceDue = orderTotal - depositPaid;
+
+        // Build email HTML
+        const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0;">
+    <tr>
+      <td style="padding: 20px 0;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px;" align="center">
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">Delivery Reminder: ${daysRemaining} Days Remaining</h1>
+              
+              <p style="margin: 0 0 15px 0; font-size: 16px; color: #333333;">Hi ${mockSeller.storeName},</p>
+              
+              <p style="margin: 0 0 15px 0; font-size: 16px; color: #333333;">The delivery date you indicated to your buyer for order <strong>#${mockOrder.id.substring(0, 8).toUpperCase()}</strong> is approaching in <strong>${daysRemaining} days</strong>.</p>
+              
+              <div style="margin: 25px 0; padding: 20px; background-color: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;"><strong>Expected Delivery Date:</strong></p>
+                <p style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">${formattedDeliveryDate}</p>
+              </div>
+              
+              <h2 style="margin: 30px 0 15px 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">Order Details</h2>
+              
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 20px;">
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Product</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; color: #1a1a1a; font-weight: 500;">${mockItem.productName} (Pre-Order)</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Quantity</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; color: #1a1a1a;">${mockItem.quantity}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Order Total</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; color: #1a1a1a;">$${orderTotal.toFixed(2)}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Deposit Paid</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; color: #10b981;">$${depositPaid.toFixed(2)}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Balance Due</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; font-weight: 600; color: #dc2626;">$${balanceDue.toFixed(2)}</span>
+                  </td>
+                </tr>
+              </table>
+              
+              <h2 style="margin: 30px 0 15px 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">Customer Information</h2>
+              
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 20px;">
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Name</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; color: #1a1a1a;">${mockOrder.shippingName}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-size: 14px; color: #666;">Email</span>
+                  </td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="font-size: 14px; color: #1a1a1a;">${mockOrder.customerEmail}</span>
+                  </td>
+                </tr>
+              </table>
+              
+              <div style="margin: 30px 0; padding: 15px; background-color: #fef3c7; border: 1px solid #fbbf24; border-radius: 4px;">
+                <p style="margin: 0; font-size: 14px; color: #92400e;">
+                  <strong>⚠️ Action Required:</strong> This order has an outstanding balance of $${balanceDue.toFixed(2)}. Please send a balance payment request before the delivery date.
+                </p>
+              </div>
+              
+              <div style="margin: 30px 0; text-align: center;">
+                <a href="${magicLink}" style="display: inline-block; padding: 14px 28px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">View Order & Take Action</a>
+              </div>
+              
+              <p style="margin: 25px 0 0 0; font-size: 14px; color: #666;">From your order page, you can:</p>
+              <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 14px; color: #666;">
+                <li style="margin-bottom: 8px;">Send a balance payment request (if not yet paid)</li>
+                <li style="margin-bottom: 8px;">Update the delivery date if needed</li>
+                <li style="margin-bottom: 8px;">Update order status and tracking</li>
+                <li>Contact your customer</li>
+              </ul>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px; background-color: #f8f9fa; border-top: 1px solid #e5e7eb; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">Upfirst</p>
+                    <p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">Sell the moment. Not weeks later.</p>
+                    <p style="margin: 0; font-size: 12px; color: #999;">
+                      This is an automated reminder from Upfirst. You're receiving this because you have an upcoming delivery.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+        // Send test email using email provider
+        await emailProvider.sendEmail({
+          to: testEmail,
+          from: `Upfirst <${process.env.RESEND_FROM_EMAIL}>`,
+          replyTo: "support@upfirst.io",
+          subject: `⏰ Delivery Reminder: ${daysRemaining} Days Until Pre-Order Delivery`,
+          html: htmlContent,
+        });
+
+        logger.info(`[DEV] Sent test delivery reminder to ${testEmail}`);
+        
+        res.json({ 
+          success: true, 
+          message: `Test delivery reminder sent to ${testEmail}`,
+          magicLink
+        });
+      } catch (error: any) {
+        logger.error("[DEV] Test delivery reminder failed", error);
+        res.status(500).json({ error: error.message || "Failed to send test email" });
+      }
+    });
+  }
 
   // DEVELOPMENT ONLY: Manual payment confirmation for testing webhooks
   if (process.env.NODE_ENV === 'development') {
