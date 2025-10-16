@@ -149,16 +149,29 @@ export default function SellerNewsletterPage() {
       if (editingCampaignId) {
         console.log("[Campaign] Updating campaign", editingCampaignId, "with data:", data);
         const response = await apiRequest("PUT", `/api/campaigns/${editingCampaignId}`, data);
-        return response;
+        return { campaign: response, shouldSend: data._shouldSend };
       } else {
         console.log("[Campaign] Creating campaign with data:", data);
         const response = await apiRequest("POST", "/api/campaigns", data);
-        return response;
+        return { campaign: response, shouldSend: data._shouldSend };
       }
     },
-    onSuccess: () => {
+    onSuccess: async (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      toast({ title: editingCampaignId ? "Campaign updated successfully" : "Campaign created successfully" });
+      
+      // If "Send Now" was selected, send the campaign immediately
+      if (result.shouldSend && result.campaign?.id) {
+        try {
+          await apiRequest("POST", `/api/campaigns/${result.campaign.id}/send`, {});
+          toast({ title: "Campaign sent successfully!" });
+        } catch (error) {
+          console.error("[Campaign] Send error:", error);
+          toast({ title: "Campaign created but failed to send", variant: "destructive" });
+        }
+      } else {
+        toast({ title: editingCampaignId ? "Campaign updated successfully" : "Campaign saved successfully" });
+      }
+      
       resetDrawer();
     },
     onError: (error: any) => {
@@ -318,6 +331,7 @@ export default function SellerNewsletterPage() {
       htmlContent: content,
       preheader: preheader || undefined,
       fromName: fromName || undefined,
+      _shouldSend: sendNow, // Internal flag to trigger sending
     };
 
     // Handle recipient selection - NO SEGMENTS
