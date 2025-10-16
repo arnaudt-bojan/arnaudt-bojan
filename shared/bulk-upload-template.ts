@@ -48,8 +48,8 @@ export const CSV_TEMPLATE_FIELDS: CSVTemplateField[] = [
   // Product Type
   { 
     name: "Product Type", 
-    required: true, 
-    description: "Type of product", 
+    required: false, 
+    description: "Type of product (defaults to 'in-stock' for bulk uploads)", 
     example: "in-stock",
     acceptedValues: "in-stock, pre-order, made-to-order, wholesale"
   },
