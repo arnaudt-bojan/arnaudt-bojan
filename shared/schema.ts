@@ -1387,6 +1387,187 @@ export const insertNewsletterEventSchema = createInsertSchema(newsletterEvents).
 export type InsertNewsletterEvent = z.infer<typeof insertNewsletterEventSchema>;
 export type NewsletterEvent = typeof newsletterEvents.$inferSelect;
 
+// Newsletter Segments - Dynamic audience targeting
+export const newsletterSegments = pgTable("newsletter_segments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  rules: jsonb("rules").notNull(), // Structured segment criteria
+  subscriberCount: integer("subscriber_count").default(0),
+  lastEvaluatedAt: timestamp("last_evaluated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("newsletter_segments_user_idx").on(table.userId),
+  nameIdx: index("newsletter_segments_name_idx").on(table.name),
+}));
+
+export const insertNewsletterSegmentSchema = createInsertSchema(newsletterSegments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertNewsletterSegment = z.infer<typeof insertNewsletterSegmentSchema>;
+export type NewsletterSegment = typeof newsletterSegments.$inferSelect;
+
+// Newsletter A/B Tests
+export const newsletterABTests = pgTable("newsletter_ab_tests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  variantASubject: text("variant_a_subject").notNull(),
+  variantAContent: text("variant_a_content").notNull(),
+  variantBSubject: text("variant_b_subject").notNull(),
+  variantBContent: text("variant_b_content").notNull(),
+  splitPercentage: integer("split_percentage").default(50),
+  winnerMetric: text("winner_metric").notNull(), // "open_rate" | "click_rate"
+  status: text("status").notNull().default("running"), // "running" | "completed"
+  winnerId: text("winner_id"), // "A" | "B"
+  // Structured metrics for queryability
+  variantASent: integer("variant_a_sent").default(0),
+  variantAOpened: integer("variant_a_opened").default(0),
+  variantAClicked: integer("variant_a_clicked").default(0),
+  variantBSent: integer("variant_b_sent").default(0),
+  variantBOpened: integer("variant_b_opened").default(0),
+  variantBClicked: integer("variant_b_clicked").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  campaignIdx: index("newsletter_ab_tests_campaign_idx").on(table.campaignId),
+  statusIdx: index("newsletter_ab_tests_status_idx").on(table.status),
+}));
+
+export const insertNewsletterABTestSchema = createInsertSchema(newsletterABTests).omit({ id: true, createdAt: true });
+export type InsertNewsletterABTest = z.infer<typeof insertNewsletterABTestSchema>;
+export type NewsletterABTest = typeof newsletterABTests.$inferSelect;
+
+// Newsletter Workflows - Automation
+export const newsletterWorkflows = pgTable("newsletter_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // "welcome" | "abandoned_cart" | "re_engagement" | "custom"
+  trigger: jsonb("trigger").notNull(), // Trigger conditions
+  actions: jsonb("actions").notNull(), // Array of workflow actions
+  status: text("status").notNull().default("draft"), // "draft" | "active" | "paused"
+  executionCount: integer("execution_count").default(0),
+  lastExecutedAt: timestamp("last_executed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("newsletter_workflows_user_idx").on(table.userId),
+  typeIdx: index("newsletter_workflows_type_idx").on(table.type),
+  statusIdx: index("newsletter_workflows_status_idx").on(table.status),
+}));
+
+export const insertNewsletterWorkflowSchema = createInsertSchema(newsletterWorkflows).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertNewsletterWorkflow = z.infer<typeof insertNewsletterWorkflowSchema>;
+export type NewsletterWorkflow = typeof newsletterWorkflows.$inferSelect;
+
+// Newsletter Schedule - Scheduled campaigns
+export const newsletterSchedule = pgTable("newsletter_schedule", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  timezone: text("timezone").notNull().default("UTC"),
+  recurrence: text("recurrence"), // "daily" | "weekly" | "monthly" | null for one-time
+  status: text("status").notNull().default("pending"), // "pending" | "sent" | "cancelled" | "failed"
+  lockedAt: timestamp("locked_at"), // For preventing duplicate sends
+  lockedBy: text("locked_by"), // Worker/process ID that locked this job
+  sentAt: timestamp("sent_at"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  campaignIdx: index("newsletter_schedule_campaign_idx").on(table.campaignId),
+  scheduledIdx: index("newsletter_schedule_scheduled_idx").on(table.scheduledAt),
+  statusIdx: index("newsletter_schedule_status_idx").on(table.status),
+}));
+
+export const insertNewsletterScheduleSchema = createInsertSchema(newsletterSchedule).omit({ id: true, createdAt: true });
+export type InsertNewsletterSchedule = z.infer<typeof insertNewsletterScheduleSchema>;
+export type NewsletterSchedule = typeof newsletterSchedule.$inferSelect;
+
+// Subscriber Engagement Scores
+export const subscriberEngagement = pgTable("subscriber_engagement", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberId: varchar("subscriber_id").notNull().references(() => subscribers.id, { onDelete: "cascade" }),
+  engagementScore: integer("engagement_score").default(0), // 0-100
+  lastOpenedAt: timestamp("last_opened_at"),
+  lastClickedAt: timestamp("last_clicked_at"),
+  totalOpens: integer("total_opens").default(0),
+  totalClicks: integer("total_clicks").default(0),
+  totalSent: integer("total_sent").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  subscriberIdx: uniqueIndex("subscriber_engagement_subscriber_idx").on(table.subscriberId),
+  scoreIdx: index("subscriber_engagement_score_idx").on(table.engagementScore),
+}));
+
+export const insertSubscriberEngagementSchema = createInsertSchema(subscriberEngagement).omit({ id: true });
+export type InsertSubscriberEngagement = z.infer<typeof insertSubscriberEngagementSchema>;
+export type SubscriberEngagement = typeof subscriberEngagement.$inferSelect;
+
+// Newsletter Conversions - Track campaign ROI
+export const newsletterConversions = pgTable("newsletter_conversions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  subscriberEmail: text("subscriber_email").notNull(),
+  conversionType: text("conversion_type").notNull(), // "purchase" | "signup" | "download" | "custom"
+  conversionValue: decimal("conversion_value", { precision: 10, scale: 2 }),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  campaignIdx: index("newsletter_conversions_campaign_idx").on(table.campaignId),
+  emailIdx: index("newsletter_conversions_email_idx").on(table.subscriberEmail),
+  typeIdx: index("newsletter_conversions_type_idx").on(table.conversionType),
+}));
+
+export const insertNewsletterConversionSchema = createInsertSchema(newsletterConversions).omit({ id: true, createdAt: true });
+export type InsertNewsletterConversion = z.infer<typeof insertNewsletterConversionSchema>;
+export type NewsletterConversion = typeof newsletterConversions.$inferSelect;
+
+// Automation Execution History - Audit trail
+export const automationExecutions = pgTable("automation_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").notNull().references(() => newsletterWorkflows.id, { onDelete: "cascade" }),
+  subscriberId: varchar("subscriber_id").references(() => subscribers.id, { onDelete: "cascade" }),
+  subscriberEmail: text("subscriber_email"), // Fallback if subscriber deleted
+  triggerData: jsonb("trigger_data"), // What triggered this execution
+  status: text("status").notNull(), // "success" | "failed" | "skipped"
+  actionsTaken: jsonb("actions_taken"), // What actions were performed
+  error: text("error"),
+  executedAt: timestamp("executed_at").defaultNow(),
+}, (table) => ({
+  workflowIdx: index("automation_executions_workflow_idx").on(table.workflowId),
+  subscriberIdx: index("automation_executions_subscriber_idx").on(table.subscriberId),
+  statusIdx: index("automation_executions_status_idx").on(table.status),
+  executedIdx: index("automation_executions_executed_idx").on(table.executedAt),
+}));
+
+export const insertAutomationExecutionSchema = createInsertSchema(automationExecutions).omit({ id: true, executedAt: true });
+export type InsertAutomationExecution = z.infer<typeof insertAutomationExecutionSchema>;
+export type AutomationExecution = typeof automationExecutions.$inferSelect;
+
+// Newsletter Jobs - Persistent job queue
+export const newsletterJobs = pgTable("newsletter_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // "send_campaign" | "send_scheduled_campaign" | etc
+  data: jsonb("data").notNull(),
+  priority: integer("priority").default(0),
+  scheduledFor: timestamp("scheduled_for"),
+  maxRetries: integer("max_retries").default(3),
+  retryCount: integer("retry_count").default(0),
+  status: text("status").notNull().default("queued"), // "queued" | "running" | "completed" | "failed" | "cancelled"
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  statusIdx: index("newsletter_jobs_status_idx").on(table.status),
+  scheduledIdx: index("newsletter_jobs_scheduled_idx").on(table.scheduledFor),
+  typeIdx: index("newsletter_jobs_type_idx").on(table.type),
+}));
+
+export const insertNewsletterJobSchema = createInsertSchema(newsletterJobs).omit({ id: true, createdAt: true });
+export type InsertNewsletterJob = z.infer<typeof insertNewsletterJobSchema>;
+export type NewsletterJob = typeof newsletterJobs.$inferSelect;
+
 export const nftMints = pgTable("nft_mints", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull(),
