@@ -173,9 +173,9 @@ export function DashboardHeader() {
                         if (value === 'b2c') {
                           setLocation('/seller-dashboard');
                         } else if (value === 'b2b') {
-                          setLocation('/wholesale-dashboard');
+                          setLocation('/wholesale/dashboard');
                         } else if (value === 'trade') {
-                          setLocation('/trade-quotations');
+                          setLocation('/seller/trade/quotations');
                         }
                       }} data-testid="mobile-select-business-mode">
                         <SelectTrigger className="w-full">
@@ -242,9 +242,9 @@ export function DashboardHeader() {
                 if (value === 'b2c') {
                   setLocation('/seller-dashboard');
                 } else if (value === 'b2b') {
-                  setLocation('/wholesale-dashboard');
+                  setLocation('/wholesale/dashboard');
                 } else if (value === 'trade') {
-                  setLocation('/trade-quotations');
+                  setLocation('/seller/trade/quotations');
                 }
               }} data-testid="select-business-mode">
                 <SelectTrigger className="w-[180px]">
