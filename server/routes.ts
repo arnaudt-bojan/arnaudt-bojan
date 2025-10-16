@@ -315,6 +315,10 @@ newsletterJobQueue.registerProcessor('send_campaign', async (job, signal) => {
         subject,
         html: personalizedHtml,
         tags: [{ name: 'campaignId', value: campaignId }],
+        tracking: {
+          open: true,
+          click: true,
+        },
       });
       logger.info(`[NewsletterProcessor] Email sent to ${recipient.email}`);
     } catch (error) {

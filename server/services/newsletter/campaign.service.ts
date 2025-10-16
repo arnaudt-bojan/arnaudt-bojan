@@ -134,14 +134,23 @@ export class CampaignService {
         '<p style="$1; margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;"'
       );
       
-      // Add inline styles to <img> tags for responsive images
+      // Add inline styles and width attribute to <img> tags for responsive images and mobile compatibility
       html = html.replace(
         /<img\s+([^>]*)>/gi,
         (match, attrs) => {
+          // Extract src to ensure it's absolute
+          let modifiedAttrs = attrs;
+          
+          // Add width="600" if not present (for mobile email clients)
+          if (!attrs.includes('width=')) {
+            modifiedAttrs += ' width="600"';
+          }
+          
+          // Add or enhance styles
           if (attrs.includes('style=')) {
-            return match.replace(/style="([^"]*)"/, 'style="$1; max-width: 100%; height: auto; display: block; margin: 10px 0;"');
+            return match.replace(/style="([^"]*)"/, 'style="$1; max-width: 100%; height: auto; display: block; margin: 10px auto; border: 0;"').replace(attrs, modifiedAttrs);
           } else {
-            return `<img ${attrs} style="max-width: 100%; height: auto; display: block; margin: 10px 0;">`;
+            return `<img ${modifiedAttrs} style="max-width: 100%; height: auto; display: block; margin: 10px auto; border: 0;">`;
           }
         }
       );

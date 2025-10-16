@@ -22,6 +22,10 @@ export interface SendEmailParams {
   html: string;
   attachments?: EmailAttachment[];
   tags?: Array<{ name: string; value: string }>;
+  tracking?: {
+    open?: boolean;
+    click?: boolean;
+  };
 }
 
 export interface EmailSendResult {
@@ -59,7 +63,7 @@ export class ResendEmailProvider implements IEmailProvider {
   }
 
   async sendEmail(params: SendEmailParams): Promise<EmailSendResult> {
-    const { to, from, replyTo, subject, html, attachments, tags } = params;
+    const { to, from, replyTo, subject, html, attachments, tags, tracking } = params;
 
     // If Resend is not configured, log the email instead of sending
     if (!this.isConfigured) {
@@ -80,9 +84,11 @@ export class ResendEmailProvider implements IEmailProvider {
         from,
         to: Array.isArray(to) ? to.join(', ') : to,
         subject,
+        tracking: tracking || { open: false, click: false },
       });
 
-      const response = await this.client.emails.send({
+      // Build email options with tracking enabled by default for campaigns
+      const emailOptions: any = {
         from,
         to: Array.isArray(to) ? to : [to],
         replyTo: replyTo,
@@ -94,7 +100,19 @@ export class ResendEmailProvider implements IEmailProvider {
           content: att.content,
           content_type: att.contentType,
         })),
-      });
+      };
+
+      // Enable tracking if specified (default to true for both if tracking object is provided)
+      if (tracking) {
+        if (tracking.open !== false) {
+          emailOptions.trackOpens = true;
+        }
+        if (tracking.click !== false) {
+          emailOptions.trackClicks = true;
+        }
+      }
+
+      const response = await this.client.emails.send(emailOptions);
 
       // CRITICAL: Check if Resend returned an error in the response
       if (response.error) {
