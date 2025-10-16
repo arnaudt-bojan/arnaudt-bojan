@@ -2335,7 +2335,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           validationStatus: 'pending' as any,
         }));
 
-        await storage.createBulkUploadItems(newItems);
+        console.log('[Preprocess] About to save items. Count:', newItems.length);
+        console.log('[Preprocess] First item to save - keys:', Object.keys(newItems[0].rowData));
+        console.log('[Preprocess] First item has variants?', newItems[0].rowData.variants !== undefined);
+        console.log('[Preprocess] First item variants (first 200 chars):', JSON.stringify(newItems[0].rowData.variants || '').substring(0, 200));
+
+        const savedItems = await storage.createBulkUploadItems(newItems);
+        
+        console.log('[Preprocess] Items saved. Retrieving them back...');
+        const retrievedItems = await storage.getBulkUploadItemsByJob(jobId);
+        console.log('[Preprocess] Retrieved items count:', retrievedItems.length);
+        console.log('[Preprocess] First retrieved item - keys:', Object.keys(retrievedItems[0].rowData || {}));
+        console.log('[Preprocess] First retrieved item has variants?', retrievedItems[0]?.rowData?.variants !== undefined);
       }
 
       // Extract new headers for AI mapping
