@@ -593,7 +593,7 @@ export class BulkUploadService {
     logger.info('[BulkUploadService] Import starting', { 
       jobId, 
       totalItems: items.length,
-      statuses: items.map(i => i.validationStatus)
+      statuses: JSON.stringify(items.map(i => i.validationStatus))
     });
     
     const validItems = items.filter(item => 
@@ -601,8 +601,7 @@ export class BulkUploadService {
     );
     
     logger.info('[BulkUploadService] Valid items filtered', { 
-      validCount: validItems.length,
-      firstItemData: validItems[0]?.rowData 
+      validCount: validItems.length
     });
     
     let successCount = 0;
