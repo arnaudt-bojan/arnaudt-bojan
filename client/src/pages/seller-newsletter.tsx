@@ -284,6 +284,7 @@ export default function SellerNewsletterPage() {
         try {
           const sendResult = await apiRequest("POST", `/api/campaigns/${result.campaign.id}/send`, {});
           console.log("[Campaign] Send result:", sendResult);
+          queryClient.invalidateQueries({ queryKey: ["/api/newsletter-analytics"] });
           toast({ title: "Campaign sent successfully!" });
         } catch (error: any) {
           console.error("[Campaign] Send error:", error);
@@ -321,6 +322,7 @@ export default function SellerNewsletterPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter-analytics"] });
       toast({ title: "Campaign sent successfully" });
     },
     onError: () => {
