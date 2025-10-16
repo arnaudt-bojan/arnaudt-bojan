@@ -215,6 +215,9 @@ export class CampaignService {
     // Send test emails
     const testSubject = `[TEST] ${campaign.subject}`;
     
+    // DEBUG: Log the HTML to see what's actually being sent
+    logger.info(`[CampaignService] Test email HTML (first 500 chars): ${htmlPayload.substring(0, 500)}`);
+    
     for (const email of testEmails) {
       await this.emailProvider.sendEmail({
         to: email,
@@ -222,6 +225,7 @@ export class CampaignService {
         subject: testSubject,
         html: htmlPayload,
       });
+      logger.info(`[CampaignService] Test email sent successfully to ${email}`);
     }
 
     logger.info(`[CampaignService] Test email sent successfully to ${testEmails.length} recipient(s)`);
