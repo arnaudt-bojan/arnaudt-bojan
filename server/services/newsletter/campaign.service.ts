@@ -120,28 +120,79 @@ export class CampaignService {
     // Build "from" name - use campaign's custom fromName, or fall back to seller's store/name
     const fromName = campaign.fromName || seller.storeName || seller.firstName || seller.username || 'Store';
     
+    // Helper function to add inline styles to email content for universal email client compatibility
+    const normalizeEmailHtml = (html: string): string => {
+      // Add inline styles to <p> tags (for paragraph spacing)
+      html = html.replace(
+        /<p>/gi,
+        '<p style="margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;">'
+      );
+      
+      // Add inline styles to <p> tags that already have styles
+      html = html.replace(
+        /<p\s+style="([^"]*)"/gi,
+        '<p style="$1; margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;"'
+      );
+      
+      // Add inline styles to <img> tags for responsive images
+      html = html.replace(
+        /<img\s+([^>]*)>/gi,
+        (match, attrs) => {
+          if (attrs.includes('style=')) {
+            return match.replace(/style="([^"]*)"/, 'style="$1; max-width: 100%; height: auto; display: block; margin: 10px 0;"');
+          } else {
+            return `<img ${attrs} style="max-width: 100%; height: auto; display: block; margin: 10px 0;">`;
+          }
+        }
+      );
+      
+      // Add inline styles to <a> tags
+      html = html.replace(
+        /<a\s+([^>]*)>/gi,
+        (match, attrs) => {
+          if (attrs.includes('style=')) {
+            return match.replace(/style="([^"]*)"/, 'style="$1; color: #0066cc; text-decoration: underline;"');
+          } else {
+            return `<a ${attrs} style="color: #0066cc; text-decoration: underline;">`;
+          }
+        }
+      );
+      
+      return html;
+    };
+
     // Generate valid HTML payload for ESP with preheader support
     let htmlPayload: string;
     if (campaign.htmlContent) {
-      // Wrap Quill HTML in proper document structure
+      // Wrap Quill HTML in proper document structure with inline styles only
       const preheaderHtml = campaign.preheader 
         ? `<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaign.preheader}</span>`
         : '';
       
+      // Normalize HTML content with inline styles
+      const normalizedContent = normalizeEmailHtml(campaign.htmlContent);
+      
       htmlPayload = `<!DOCTYPE html>
 <html>
 <head>
-  <style>
-    p { margin: 0 0 10px 0; }
-    p:last-child { margin-bottom: 0; }
-    img { max-width: 100%; height: auto; display: block; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
   ${preheaderHtml}
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-    ${campaign.htmlContent}
-  </div>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0;">
+    <tr>
+      <td style="padding: 20px 0;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px;" align="center">
+          <tr>
+            <td style="padding: 30px;">
+              ${normalizedContent}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
     } else if (campaign.content) {
@@ -153,34 +204,49 @@ export class CampaignService {
       htmlPayload = `<!DOCTYPE html>
 <html>
 <head>
-  <style>
-    p { margin: 0 0 10px 0; }
-    p:last-child { margin-bottom: 0; }
-    img { max-width: 100%; height: auto; display: block; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
   ${preheaderHtml}
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-    ${campaign.content.replace(/\n/g, '<br>')}
-  </div>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0;">
+    <tr>
+      <td style="padding: 20px 0;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px;" align="center">
+          <tr>
+            <td style="padding: 30px;">
+              ${campaign.content.replace(/\n/g, '<br style="line-height: 1.6;">')}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
     } else {
       throw new Error("Campaign must have content");
     }
 
-    // Inject GDPR-compliant unsubscribe footer with placeholders
+    // Inject GDPR-compliant unsubscribe footer with placeholders (using table for email compatibility)
     const unsubscribeFooter = `
-<div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e5e5;text-align:center;font-size:13px;color:#737373;font-family:Arial,sans-serif;">
-  <p style="margin:0 0 8px 0;color:#737373;">You're receiving this because you subscribed to {storeName}.</p>
-  <p style="margin:0;"><a href="{unsubscribeUrl}" style="color:#737373;text-decoration:underline;">Unsubscribe</a></p>
-</div>`;
+          <tr>
+            <td style="padding: 20px 30px; border-top: 1px solid #e5e5e5;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center; font-size: 13px; line-height: 1.6; color: #737373; font-family: Arial, sans-serif;">
+                    <p style="margin: 0 0 8px 0; color: #737373; font-size: 13px;">You're receiving this because you subscribed to {storeName}.</p>
+                    <p style="margin: 0;"><a href="{unsubscribeUrl}" style="color: #737373; text-decoration: underline; font-size: 13px;">Unsubscribe</a></p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
 
-    // Inject footer before closing body tag
+    // Inject footer before closing table tag (before </table></td></tr></table>)
     htmlPayload = htmlPayload.replace(
-      /<\/body>/i,
-      `${unsubscribeFooter}</body>`
+      /(<\/tr>\s*<\/table>\s*<\/td>\s*<\/tr>\s*<\/table>\s*<\/body>)/i,
+      `${unsubscribeFooter}$1`
     );
 
     // Enqueue send job for background processing (with error handling)
