@@ -289,8 +289,8 @@ export class BulkUploadService {
       hasColors,
       variants,
       stock: variants ? undefined : this.parseStock(rowData['stock']),
-      // Shipping fields - leave undefined when not mapped (let business logic apply defaults)
-      shippingType: rowData['shippingType']?.toString().trim() || undefined,
+      // Shipping fields - default to 'free' for bulk uploads when not specified
+      shippingType: (rowData['shippingType']?.toString().trim() as any) || 'free',
       flatShippingRate: rowData['flatShippingRate']?.toString().trim() || undefined,
       shippoWeight: rowData['shippoWeight']?.toString().trim() || undefined,
       shippoLength: rowData['shippoLength']?.toString().trim() || undefined,
@@ -441,12 +441,29 @@ export class BulkUploadService {
   ): Promise<{ valid: boolean; messages: BulkUploadValidationMessage[] }> {
     const messages: BulkUploadValidationMessage[] = [];
     
+    // DEBUG: Log parsed product data
+    logger.info('[BulkUploadService] Validating product data', {
+      name: productData.name,
+      price: productData.price,
+      category: productData.category,
+      hasVariants: !!productData.variants,
+      variantCount: productData.variants?.length || 0
+    });
+    
     // Validate using Zod schema
     const validationResult = frontendProductSchema.safeParse(productData);
     
     if (!validationResult.success) {
       const error = fromZodError(validationResult.error);
       const errorLines = error.message.split('\n');
+      
+      // DEBUG: Log Zod validation errors with full details
+      logger.error('[BulkUploadService] Zod validation failed', {
+        product: productData.name,
+        zodIssues: validationResult.error.issues,
+        errorMessage: error.message,
+        productData: JSON.stringify(productData, null, 2)
+      });
       
       for (const line of errorLines) {
         // Extract field name and message
