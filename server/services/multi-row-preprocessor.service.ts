@@ -139,6 +139,7 @@ export class MultiRowProductPreprocessor {
    * Groups variable/variation rows into single products
    */
   private preprocessWooCommerce(rows: Record<string, any>[], headers: string[]): PreprocessingResult {
+    console.log('[WooCommerce] Starting preprocessing with', rows.length, 'rows');
     const warnings: string[] = [];
     const diagnostics = {
       orphanedVariations: 0,
@@ -212,6 +213,14 @@ export class MultiRowProductPreprocessor {
       Object.keys(row).forEach(key => headerSet.add(key));
     });
     const flattenedHeaders = Array.from(headerSet);
+    
+    console.log('[WooCommerce] Preprocessing complete:', {
+      parentsCount: parents.size,
+      variationsCount: Array.from(variations.values()).reduce((sum, v) => sum + v.length, 0),
+      simpleProductsCount: simpleProducts.length,
+      flattenedCount: flattenedRows.length,
+      firstFlattened: flattenedRows[0],
+    });
     
     return {
       format: 'woocommerce',
