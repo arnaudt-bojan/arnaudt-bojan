@@ -143,6 +143,7 @@ export class SubscriberService {
 
   /**
    * Ensure "Unsubscribed" system group exists and add subscriber to it
+   * Handles race conditions when multiple unsubscribes happen concurrently
    */
   private async ensureUnsubscribedGroup(userId: string, subscriberId: string): Promise<void> {
     const groupName = "Unsubscribed";
@@ -150,26 +151,40 @@ export class SubscriberService {
     // Check if group exists
     let unsubscribedGroup = await this.storage.getSubscriberGroupByName(userId, groupName);
     
-    // Create group if it doesn't exist
+    // Create group if it doesn't exist (with race condition handling)
     if (!unsubscribedGroup) {
       logger.info(`[SubscriberService] Creating Unsubscribed system group for user ${userId}`);
-      unsubscribedGroup = await this.storage.createSubscriberGroup({
-        userId,
-        name: groupName,
-        description: "Automatically managed group for unsubscribed users",
-      });
+      try {
+        unsubscribedGroup = await this.storage.createSubscriberGroup({
+          userId,
+          name: groupName,
+          description: "Automatically managed group for unsubscribed users",
+        });
+      } catch (error: any) {
+        // Handle race condition: another request may have created the group
+        if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
+          logger.info(`[SubscriberService] Unsubscribed group created by concurrent request, reloading`);
+          unsubscribedGroup = await this.storage.getSubscriberGroupByName(userId, groupName);
+          if (!unsubscribedGroup) {
+            throw new Error("Failed to create or retrieve Unsubscribed group");
+          }
+        } else {
+          throw error;
+        }
+      }
     }
     
-    // Add subscriber to group (will fail silently if already in group)
+    // Add subscriber to group (with idempotent error handling)
     try {
       await this.storage.addSubscriberToGroup(subscriberId, unsubscribedGroup.id);
       logger.info(`[SubscriberService] Added subscriber to Unsubscribed group`, { subscriberId });
     } catch (error: any) {
       // Subscriber might already be in the group (unique constraint violation)
-      if (!error.message?.includes("duplicate") && !error.message?.includes("unique")) {
+      if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
+        logger.info(`[SubscriberService] Subscriber already in Unsubscribed group`, { subscriberId });
+      } else {
         throw error;
       }
-      logger.info(`[SubscriberService] Subscriber already in Unsubscribed group`, { subscriberId });
     }
   }
 
