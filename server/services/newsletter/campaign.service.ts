@@ -130,9 +130,16 @@ export class CampaignService {
       
       htmlPayload = `<!DOCTYPE html>
 <html>
+<head>
+  <style>
+    p { margin: 0 0 10px 0; }
+    p:last-child { margin-bottom: 0; }
+    img { max-width: 100%; height: auto; display: block; }
+  </style>
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
   ${preheaderHtml}
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
     ${campaign.htmlContent}
   </div>
 </body>
@@ -145,9 +152,16 @@ export class CampaignService {
       
       htmlPayload = `<!DOCTYPE html>
 <html>
+<head>
+  <style>
+    p { margin: 0 0 10px 0; }
+    p:last-child { margin-bottom: 0; }
+    img { max-width: 100%; height: auto; display: block; }
+  </style>
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
   ${preheaderHtml}
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
     ${campaign.content.replace(/\n/g, '<br>')}
   </div>
 </body>

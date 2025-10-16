@@ -102,6 +102,7 @@ export default function SellerNewsletterPage() {
   const [sendNow, setSendNow] = useState(true);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  const [sendMode, setSendMode] = useState<"now" | "later" | "draft">("now");
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   
   // Subscriber management state
@@ -200,7 +201,7 @@ export default function SellerNewsletterPage() {
     };
   }, [toast]);
 
-  // Quill modules configuration with custom image handler
+  // Quill modules configuration with custom image and link handlers
   const modules = useMemo(() => ({
     toolbar: {
       container: [
@@ -211,7 +212,22 @@ export default function SellerNewsletterPage() {
         ['clean']
       ],
       handlers: {
-        image: imageHandler
+        image: imageHandler,
+        link: function(value: any) {
+          if (value) {
+            const href = prompt('Enter link URL:');
+            if (href) {
+              const formattedHref = href.match(/^https?:\/\//) ? href : `https://${href}`;
+              const quill = (this as any).quill;
+              const range = quill.getSelection();
+              if (range) {
+                quill.format('link', formattedHref);
+              }
+            }
+          } else {
+            (this as any).quill.format('link', false);
+          }
+        }
       }
     },
   }), [imageHandler]);
@@ -399,6 +415,7 @@ export default function SellerNewsletterPage() {
     setSendNow(true);
     setScheduledDate("");
     setScheduledTime("");
+    setSendMode("now");
   };
 
   const openEditDrawer = (campaign: Campaign) => {
@@ -413,10 +430,16 @@ export default function SellerNewsletterPage() {
     // Check if campaign is scheduled
     if (campaign.status === 'scheduled') {
       setSendNow(false);
+      setSendMode('later');
       // Note: We'd need scheduledAt from the backend to populate the date/time
-      // For now, set sendNow to false so it shows as draft
+    } else if (campaign.status === 'draft') {
+      setSendNow(false);
+      setSendMode('draft');
+      setScheduledDate("");
+      setScheduledTime("");
     } else {
-      setSendNow(campaign.status === 'draft' ? false : true);
+      setSendNow(true);
+      setSendMode('now');
       setScheduledDate("");
       setScheduledTime("");
     }
@@ -447,7 +470,7 @@ export default function SellerNewsletterPage() {
       campaignData.groupIds = selectedGroupIds;
     }
 
-    if (!sendNow && scheduledDate && scheduledTime) {
+    if (sendMode === 'later' && scheduledDate && scheduledTime) {
       campaignData.scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
     }
 
@@ -540,7 +563,7 @@ export default function SellerNewsletterPage() {
     if (step === 2) return !!content;
     if (step === 3) {
       if (recipientType === 'groups') return selectedGroupIds.length > 0;
-      if (!sendNow) return !!scheduledDate && !!scheduledTime;
+      if (sendMode === 'later') return !!scheduledDate && !!scheduledTime;
       return true;
     }
     return false;
@@ -1230,8 +1253,9 @@ export default function SellerNewsletterPage() {
                 <div>
                   <Label className="mb-3 block">What would you like to do?</Label>
                   <RadioGroup 
-                    value={sendNow ? "now" : (scheduledDate && scheduledTime ? "later" : "draft")} 
-                    onValueChange={(v) => {
+                    value={sendMode} 
+                    onValueChange={(v: "now" | "later" | "draft") => {
+                      setSendMode(v);
                       if (v === "now") {
                         setSendNow(true);
                         setScheduledDate("");
@@ -1240,7 +1264,7 @@ export default function SellerNewsletterPage() {
                         setSendNow(false);
                         setScheduledDate("");
                         setScheduledTime("");
-                      } else {
+                      } else if (v === "later") {
                         setSendNow(false);
                       }
                     }}
@@ -1283,32 +1307,7 @@ export default function SellerNewsletterPage() {
                     </div>
                   </RadioGroup>
 
-                  {!sendNow && scheduledDate === "" && scheduledTime === "" && (
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="scheduledDate">Date (Optional)</Label>
-                        <Input
-                          id="scheduledDate"
-                          type="date"
-                          value={scheduledDate}
-                          onChange={(e) => setScheduledDate(e.target.value)}
-                          data-testid="input-scheduled-date"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="scheduledTime">Time (Optional)</Label>
-                        <Input
-                          id="scheduledTime"
-                          type="time"
-                          value={scheduledTime}
-                          onChange={(e) => setScheduledTime(e.target.value)}
-                          data-testid="input-scheduled-time"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {!sendNow && (scheduledDate || scheduledTime) && (
+                  {sendMode === "later" && (
                     <div className="mt-4 grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="scheduledDate">Date *</Label>
@@ -1401,14 +1400,14 @@ export default function SellerNewsletterPage() {
                   {createCampaignMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {sendNow ? 'Sending...' : 'Saving...'}
+                      {sendMode === 'now' ? 'Sending...' : 'Saving...'}
                     </>
-                  ) : sendNow ? (
+                  ) : sendMode === 'now' ? (
                     <>
                       <Send className="mr-2 h-4 w-4" />
                       Create & Send
                     </>
-                  ) : (scheduledDate && scheduledTime) ? (
+                  ) : sendMode === 'later' ? (
                     <>
                       <Calendar className="mr-2 h-4 w-4" />
                       Schedule Campaign
