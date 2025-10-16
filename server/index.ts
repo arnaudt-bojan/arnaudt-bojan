@@ -19,6 +19,11 @@ import { ResendEmailProvider } from "./services/email-provider.service";
 import { storage } from "./storage";
 import { ConfigurationError } from "./errors";
 import { createNotificationService } from "./notifications";
+import { MetaJobScheduler } from "./services/meta/job-scheduler.service";
+import { AnalyticsService } from "./services/meta/analytics.service";
+import { BudgetService } from "./services/meta/budget.service";
+import { MetaOAuthService } from "./services/meta/meta-oauth.service";
+import Stripe from "stripe";
 
 const app = express();
 
@@ -122,6 +127,7 @@ app.use((req, res, next) => {
   let cleanupJob: ReservationCleanupJob | null = null;
   let balanceReminderJob: WholesaleBalanceReminderJob | null = null;
   let deliveryReminderJob: DeliveryReminderService | null = null;
+  let metaJobScheduler: MetaJobScheduler | null = null;
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -132,7 +138,7 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
     
     // Register platform adapters
@@ -177,6 +183,37 @@ app.use((req, res, next) => {
     const emailProvider = new ResendEmailProvider();
     deliveryReminderJob = new DeliveryReminderService(storage, emailProvider);
     deliveryReminderJob.start();
+    
+    // Start Meta Ads background jobs (insights polling and budget monitoring)
+    // Only initialize if Meta credentials are configured
+    if (process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { 
+          apiVersion: '2024-12-18.acacia' 
+        });
+        
+        const metaRedirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta/oauth/callback`;
+        const metaOAuthService = new MetaOAuthService(storage, {
+          appId: process.env.META_APP_ID,
+          appSecret: process.env.META_APP_SECRET,
+          redirectUri: metaRedirectUri
+        });
+        const analyticsService = new AnalyticsService(storage, metaOAuthService);
+        const budgetService = new BudgetService(storage, stripe);
+        
+        metaJobScheduler = new MetaJobScheduler(storage, {
+          analyticsService,
+          budgetService,
+        });
+        
+        await metaJobScheduler.startJobs();
+        log('[Server] Meta Ads background jobs started successfully');
+      } catch (error) {
+        log('[Server] Failed to start Meta Ads jobs: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      }
+    } else {
+      log('[Server] Meta Ads background jobs skipped (META_APP_ID, META_APP_SECRET, or STRIPE_SECRET_KEY not configured)');
+    }
   });
   
   // Graceful shutdown
@@ -192,6 +229,9 @@ app.use((req, res, next) => {
     }
     if (deliveryReminderJob) {
       deliveryReminderJob.stop();
+    }
+    if (metaJobScheduler) {
+      metaJobScheduler.stopJobs();
     }
     
     // Wait a bit for jobs to cleanup

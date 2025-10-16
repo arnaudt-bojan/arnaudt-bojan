@@ -190,7 +190,22 @@ import {
   InsertBulkUploadJob,
   BulkUploadJob,
   InsertBulkUploadItem,
-  BulkUploadItem
+  BulkUploadItem,
+  MetaAdAccount,
+  InsertMetaAdAccount,
+  MetaCampaign,
+  InsertMetaCampaign,
+  MetaCampaignFinance,
+  InsertMetaCampaignFinance,
+  MetaCampaignMetricsDaily,
+  InsertMetaCampaignMetricsDaily,
+  BackgroundJobRun,
+  InsertBackgroundJobRun,
+  metaAdAccounts,
+  metaCampaigns,
+  metaCampaignFinance,
+  metaCampaignMetricsDaily,
+  backgroundJobRuns
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -671,6 +686,38 @@ export interface IStorage {
   getBulkUploadItemsByJob(jobId: string): Promise<BulkUploadItem[]>;
   updateBulkUploadItem(id: string, updates: Partial<BulkUploadItem>): Promise<BulkUploadItem | undefined>;
   deleteBulkUploadItemsByJob(jobId: string): Promise<boolean>;
+  
+  // Meta Ad Accounts
+  getMetaAdAccount(id: string): Promise<MetaAdAccount | undefined>;
+  getMetaAdAccountBySeller(sellerId: string): Promise<MetaAdAccount | undefined>;
+  getMetaAdAccountByMetaAccountId(metaAdAccountId: string): Promise<MetaAdAccount | undefined>;
+  createMetaAdAccount(account: InsertMetaAdAccount): Promise<string>;
+  updateMetaAdAccount(id: string, updates: Partial<MetaAdAccount>): Promise<MetaAdAccount | undefined>;
+  
+  // Meta Campaigns
+  getMetaCampaign(id: string): Promise<MetaCampaign | undefined>;
+  getMetaCampaignsBySeller(sellerId: string): Promise<MetaCampaign[]>;
+  getMetaCampaignsByAdAccount(adAccountId: string): Promise<MetaCampaign[]>;
+  createMetaCampaign(campaign: InsertMetaCampaign): Promise<string>;
+  updateMetaCampaign(id: string, updates: Partial<MetaCampaign>): Promise<MetaCampaign | undefined>;
+  
+  // Meta Campaign Finance
+  getMetaCampaignFinance(id: string): Promise<MetaCampaignFinance | undefined>;
+  getMetaCampaignFinanceBySeller(sellerId: string): Promise<MetaCampaignFinance[]>;
+  getMetaCampaignFinanceByCampaign(campaignId: string): Promise<MetaCampaignFinance[]>;
+  createMetaCampaignFinanceRecord(record: InsertMetaCampaignFinance): Promise<string>;
+  
+  // Meta Campaign Metrics
+  getMetaCampaignMetrics(campaignId: string, startDate?: Date, endDate?: Date): Promise<MetaCampaignMetricsDaily[]>;
+  getMetaCampaignMetricsForDate(campaignId: string, date: Date): Promise<MetaCampaignMetricsDaily | undefined>;
+  upsertMetaCampaignMetrics(metrics: InsertMetaCampaignMetricsDaily): Promise<string>;
+  
+  // Background Jobs
+  getBackgroundJobRun(id: string): Promise<BackgroundJobRun | undefined>;
+  getBackgroundJobRunsByName(jobName: string): Promise<BackgroundJobRun[]>;
+  getRecentBackgroundJobRuns(jobName: string, limit: number): Promise<BackgroundJobRun[]>;
+  createBackgroundJobRun(job: InsertBackgroundJobRun): Promise<string>;
+  updateBackgroundJobRun(id: string, updates: Partial<BackgroundJobRun>): Promise<BackgroundJobRun | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3896,6 +3943,251 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(bulkUploadItems).where(eq(bulkUploadItems.jobId, jobId));
     return true;
+  }
+
+  // ===== META AD ACCOUNTS METHODS =====
+  
+  async getMetaAdAccount(id: string): Promise<MetaAdAccount | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaAdAccounts)
+      .where(eq(metaAdAccounts.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getMetaAdAccountBySeller(sellerId: string): Promise<MetaAdAccount | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaAdAccounts)
+      .where(eq(metaAdAccounts.sellerId, sellerId))
+      .limit(1);
+    return result;
+  }
+
+  async getMetaAdAccountByMetaAccountId(metaAdAccountId: string): Promise<MetaAdAccount | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaAdAccounts)
+      .where(eq(metaAdAccounts.metaAdAccountId, metaAdAccountId))
+      .limit(1);
+    return result;
+  }
+
+  async createMetaAdAccount(account: InsertMetaAdAccount): Promise<string> {
+    await this.ensureInitialized();
+    const [result] = await this.db.insert(metaAdAccounts).values(account).returning();
+    return result.id;
+  }
+
+  async updateMetaAdAccount(id: string, updates: Partial<MetaAdAccount>): Promise<MetaAdAccount | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .update(metaAdAccounts)
+      .set(updates)
+      .where(eq(metaAdAccounts.id, id))
+      .returning();
+    return result;
+  }
+
+  // ===== META CAMPAIGNS METHODS =====
+  
+  async getMetaCampaign(id: string): Promise<MetaCampaign | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaCampaigns)
+      .where(eq(metaCampaigns.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getMetaCampaignsBySeller(sellerId: string): Promise<MetaCampaign[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(metaCampaigns)
+      .where(eq(metaCampaigns.sellerId, sellerId))
+      .orderBy(desc(metaCampaigns.createdAt));
+  }
+
+  async getMetaCampaignsByAdAccount(adAccountId: string): Promise<MetaCampaign[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(metaCampaigns)
+      .where(eq(metaCampaigns.adAccountId, adAccountId))
+      .orderBy(desc(metaCampaigns.createdAt));
+  }
+
+  async createMetaCampaign(campaign: InsertMetaCampaign): Promise<string> {
+    await this.ensureInitialized();
+    const [result] = await this.db.insert(metaCampaigns).values(campaign).returning();
+    return result.id;
+  }
+
+  async updateMetaCampaign(id: string, updates: Partial<MetaCampaign>): Promise<MetaCampaign | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .update(metaCampaigns)
+      .set(updates)
+      .where(eq(metaCampaigns.id, id))
+      .returning();
+    return result;
+  }
+
+  // ===== META CAMPAIGN FINANCE METHODS =====
+  
+  async getMetaCampaignFinance(id: string): Promise<MetaCampaignFinance | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaCampaignFinance)
+      .where(eq(metaCampaignFinance.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getMetaCampaignFinanceBySeller(sellerId: string): Promise<MetaCampaignFinance[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(metaCampaignFinance)
+      .where(eq(metaCampaignFinance.sellerId, sellerId))
+      .orderBy(desc(metaCampaignFinance.createdAt));
+  }
+
+  async getMetaCampaignFinanceByCampaign(campaignId: string): Promise<MetaCampaignFinance[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(metaCampaignFinance)
+      .where(eq(metaCampaignFinance.campaignId, campaignId))
+      .orderBy(desc(metaCampaignFinance.createdAt));
+  }
+
+  async createMetaCampaignFinanceRecord(record: InsertMetaCampaignFinance): Promise<string> {
+    await this.ensureInitialized();
+    const [result] = await this.db.insert(metaCampaignFinance).values(record).returning();
+    return result.id;
+  }
+
+  // ===== META CAMPAIGN METRICS METHODS =====
+  
+  async getMetaCampaignMetrics(campaignId: string, startDate?: Date, endDate?: Date): Promise<MetaCampaignMetricsDaily[]> {
+    await this.ensureInitialized();
+    
+    const conditions = [eq(metaCampaignMetricsDaily.campaignId, campaignId)];
+    
+    if (startDate) {
+      conditions.push(sql`${metaCampaignMetricsDaily.date} >= ${startDate}`);
+    }
+    
+    if (endDate) {
+      conditions.push(sql`${metaCampaignMetricsDaily.date} <= ${endDate}`);
+    }
+    
+    return await this.db
+      .select()
+      .from(metaCampaignMetricsDaily)
+      .where(and(...conditions))
+      .orderBy(desc(metaCampaignMetricsDaily.date));
+  }
+
+  async getMetaCampaignMetricsForDate(campaignId: string, date: Date): Promise<MetaCampaignMetricsDaily | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaCampaignMetricsDaily)
+      .where(
+        and(
+          eq(metaCampaignMetricsDaily.campaignId, campaignId),
+          sql`DATE(${metaCampaignMetricsDaily.date}) = DATE(${date})`
+        )
+      )
+      .limit(1);
+    return result;
+  }
+
+  async upsertMetaCampaignMetrics(metrics: InsertMetaCampaignMetricsDaily): Promise<string> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .insert(metaCampaignMetricsDaily)
+      .values(metrics)
+      .onConflictDoUpdate({
+        target: [metaCampaignMetricsDaily.campaignId, metaCampaignMetricsDaily.date],
+        set: {
+          impressions: metrics.impressions,
+          clicks: metrics.clicks,
+          reach: metrics.reach,
+          frequency: metrics.frequency,
+          likes: metrics.likes,
+          comments: metrics.comments,
+          shares: metrics.shares,
+          saves: metrics.saves,
+          linkClicks: metrics.linkClicks,
+          websiteVisits: metrics.websiteVisits,
+          purchases: metrics.purchases,
+          revenue: metrics.revenue,
+          spend: metrics.spend,
+          cpm: metrics.cpm,
+          cpc: metrics.cpc,
+          ctr: metrics.ctr,
+          roas: metrics.roas,
+        }
+      })
+      .returning();
+    return result.id;
+  }
+
+  // ===== BACKGROUND JOB RUNS METHODS =====
+  
+  async getBackgroundJobRun(id: string): Promise<BackgroundJobRun | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(backgroundJobRuns)
+      .where(eq(backgroundJobRuns.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getBackgroundJobRunsByName(jobName: string): Promise<BackgroundJobRun[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(backgroundJobRuns)
+      .where(eq(backgroundJobRuns.jobName, jobName))
+      .orderBy(desc(backgroundJobRuns.createdAt));
+  }
+
+  async getRecentBackgroundJobRuns(jobName: string, limit: number): Promise<BackgroundJobRun[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(backgroundJobRuns)
+      .where(eq(backgroundJobRuns.jobName, jobName))
+      .orderBy(desc(backgroundJobRuns.createdAt))
+      .limit(limit);
+  }
+
+  async createBackgroundJobRun(job: InsertBackgroundJobRun): Promise<string> {
+    await this.ensureInitialized();
+    const [result] = await this.db.insert(backgroundJobRuns).values(job).returning();
+    return result.id;
+  }
+
+  async updateBackgroundJobRun(id: string, updates: Partial<BackgroundJobRun>): Promise<BackgroundJobRun | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .update(backgroundJobRuns)
+      .set(updates)
+      .where(eq(backgroundJobRuns.id, id))
+      .returning();
+    return result;
   }
 }
 

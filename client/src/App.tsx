@@ -34,6 +34,9 @@ import SocialAdsSetup from "@/pages/social-ads-setup";
 import CreateAdCampaign from "@/pages/create-ad-campaign";
 import PromoteProduct from "@/pages/promote-product";
 import CreateMetaCampaign from "@/pages/create-meta-campaign";
+import MetaAdsDashboard from "@/pages/meta-ads/dashboard";
+import CreateAdWizard from "@/pages/meta-ads/create";
+import MetaAdsAnalytics from "@/pages/meta-ads/analytics";
 import SellerOrdersPage from "@/pages/seller-orders";
 import Newsletter from "@/pages/newsletter";
 import Campaigns from "@/pages/campaigns";
@@ -317,6 +320,27 @@ function AppContent() {
                 {() => (
                   <ProtectedRoute requireSeller>
                     <CreateMetaCampaign />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/meta-ads/dashboard">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <MetaAdsDashboard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/meta-ads/create">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <CreateAdWizard />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/meta-ads/analytics">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <MetaAdsAnalytics />
                   </ProtectedRoute>
                 )}
               </Route>

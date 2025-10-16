@@ -63,7 +63,6 @@ import { QuotationPaymentService } from "./services/quotation-payment.service";
 import { CartReservationService } from "./services/cart-reservation.service";
 import { SKUService } from "./services/sku.service";
 import { RefundService } from "./services/refund.service";
-import crypto from "crypto";
 
 // Import Newsletter Services (Architecture 3)
 import { CampaignService } from "./services/newsletter/campaign.service";
@@ -74,6 +73,13 @@ import { ComplianceService } from "./services/newsletter/compliance.service";
 import { SegmentationService } from "./services/newsletter/segmentation.service";
 import { emailProvider } from "./services/email-provider.service";
 import { newsletterJobQueue } from "./services/newsletter/job-queue.service";
+
+// Import Meta Ads Services (Architecture 3)
+import { MetaOAuthService } from "./services/meta/meta-oauth.service";
+import { MetaCampaignService } from "./services/meta/meta-campaign.service";
+import { BudgetService } from "./services/meta/budget.service";
+import { AnalyticsService as MetaAnalyticsService } from "./services/meta/analytics.service";
+import { GeminiAdIntelligenceService } from "./services/meta/gemini-ad-intelligence.service";
 
 // Initialize notification service
 const notificationService = createNotificationService(storage);
@@ -284,6 +290,37 @@ const quotationPaymentService = new QuotationPaymentService(
 // Initialize additional Newsletter Services (Architecture 3)
 const subscriberService = new SubscriberService(storage);
 const complianceService = new ComplianceService(storage, subscriberService, analyticsService);
+
+// Initialize Meta Ads Services (Architecture 3)
+// OAuth service requires Meta app credentials from environment
+const metaRedirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta/oauth/callback`;
+let metaOAuthService: MetaOAuthService | null = null;
+let metaCampaignService: MetaCampaignService | null = null;
+let metaBudgetService: BudgetService | null = null;
+let metaAnalyticsService: MetaAnalyticsService | null = null;
+let geminiAdIntelligenceService: GeminiAdIntelligenceService | null = null;
+
+if (process.env.META_APP_ID && process.env.META_APP_SECRET) {
+  metaOAuthService = new MetaOAuthService(storage, {
+    appId: process.env.META_APP_ID,
+    appSecret: process.env.META_APP_SECRET,
+    redirectUri: metaRedirectUri
+  });
+  
+  metaCampaignService = new MetaCampaignService(storage, metaOAuthService);
+  
+  // Only create BudgetService when Stripe is configured (required for payments)
+  if (stripe) {
+    metaBudgetService = new BudgetService(storage, stripe);
+  }
+  
+  metaAnalyticsService = new MetaAnalyticsService(storage, metaOAuthService);
+  
+  // Initialize Gemini service if API key is available
+  if (process.env.GEMINI_API_KEY) {
+    geminiAdIntelligenceService = new GeminiAdIntelligenceService(process.env.GEMINI_API_KEY);
+  }
+}
 
 // Start the newsletter job queue
 newsletterJobQueue.start();
@@ -6639,6 +6676,663 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Get newsletter analytics error", error);
       res.status(500).json({ error: "Failed to get newsletter analytics" });
+    }
+  });
+
+  // ============================================================================
+  // Meta Ads API Routes (Architecture 3)
+  // ============================================================================
+
+  // OAuth Routes
+  
+  // Start Meta OAuth flow
+  app.get("/api/meta/oauth/start", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaOAuthService) {
+        return res.status(503).json({ error: 'Meta OAuth not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const result = await metaOAuthService.startOAuthFlow(sellerId);
+
+      logger.info('[Meta OAuth] Started OAuth flow', { sellerId });
+      res.json(result);
+    } catch (error: any) {
+      logger.error('[Meta OAuth] Start flow error', { error });
+      res.status(500).json({ error: error.message || 'Failed to start OAuth flow' });
+    }
+  });
+
+  // Handle Meta OAuth callback
+  app.get("/api/meta/oauth/callback", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaOAuthService) {
+        return res.status(503).json({ error: 'Meta OAuth not configured' });
+      }
+
+      const { code, state } = req.query;
+      
+      if (!code || !state) {
+        return res.status(400).json({ error: 'Missing code or state parameter' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const result = await metaOAuthService.handleOAuthCallback(
+        code as string,
+        state as string,
+        sellerId
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'OAuth failed' });
+      }
+
+      logger.info('[Meta OAuth] OAuth completed', { sellerId, accountId: result.account?.id });
+      res.json(result);
+    } catch (error: any) {
+      logger.error('[Meta OAuth] Callback error', { error });
+      res.status(500).json({ error: error.message || 'Failed to complete OAuth' });
+    }
+  });
+
+  // Get connected ad account
+  app.get("/api/meta/accounts/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const accountId = req.params.id;
+
+      const account = await storage.getMetaAdAccount(accountId);
+      
+      if (!account || account.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Ad account not found' });
+      }
+
+      logger.info('[Meta Account] Retrieved account', { sellerId, accountId });
+      res.json(account);
+    } catch (error: any) {
+      logger.error('[Meta Account] Get error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get ad account' });
+    }
+  });
+
+  // Disconnect ad account
+  app.delete("/api/meta/accounts/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaOAuthService) {
+        return res.status(503).json({ error: 'Meta OAuth not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const accountId = req.params.id;
+
+      const account = await storage.getMetaAdAccount(accountId);
+      
+      if (!account || account.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Ad account not found' });
+      }
+
+      await metaOAuthService.disconnectAccount(accountId);
+
+      logger.info('[Meta Account] Disconnected', { sellerId, accountId });
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[Meta Account] Disconnect error', { error });
+      res.status(500).json({ error: error.message || 'Failed to disconnect ad account' });
+    }
+  });
+
+  // Campaign Routes
+  
+  // List seller's campaigns
+  app.get("/api/meta/campaigns", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const campaigns = await storage.getMetaCampaignsBySeller(sellerId);
+
+      logger.info('[Meta Campaign] Listed campaigns', { sellerId, count: campaigns.length });
+      res.json(campaigns);
+    } catch (error: any) {
+      logger.error('[Meta Campaign] List error', { error });
+      res.status(500).json({ error: error.message || 'Failed to list campaigns' });
+    }
+  });
+
+  // Create new campaign with AI copy generation
+  app.post("/api/meta/campaigns", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaCampaignService) {
+        return res.status(503).json({ error: 'Meta Campaign service not configured' });
+      }
+
+      const createCampaignSchema = z.object({
+        adAccountId: z.string().min(1, 'Ad account ID is required'),
+        productId: z.string().min(1, 'Product ID is required'),
+        name: z.string().min(1, 'Campaign name is required'),
+        objective: z.enum(['OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT', 'OUTCOME_LEADS', 'OUTCOME_SALES']),
+        primaryText: z.string().min(1, 'Primary text is required'),
+        headline: z.string().min(1, 'Headline is required'),
+        description: z.string().optional(),
+        callToAction: z.string().optional(),
+        destinationUrl: z.string().url('Valid destination URL is required'),
+        dailyBudget: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Invalid daily budget format'),
+        lifetimeBudget: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Invalid lifetime budget format'),
+        startDate: z.string().transform(val => new Date(val)),
+        endDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
+        targeting: z.any().default({}),
+        alertEmail: z.string().email('Valid alert email is required'),
+        productImageUrl: z.string().url().optional(),
+        useAdvantagePlus: z.boolean().optional(),
+        advantagePlusConfig: z.any().optional(),
+      });
+
+      const sellerId = req.user.claims.sub;
+      const validated = createCampaignSchema.parse(req.body);
+
+      const result = await metaCampaignService.createCampaign({
+        ...validated,
+        sellerId,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: result.error || 'Failed to create campaign',
+          metaErrors: result.metaErrors 
+        });
+      }
+
+      logger.info('[Meta Campaign] Created', { sellerId, campaignId: result.campaignId });
+      res.status(201).json(result.campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error('[Meta Campaign] Create error', { error });
+      res.status(500).json({ error: error.message || 'Failed to create campaign' });
+    }
+  });
+
+  // Get campaign details
+  app.get("/api/meta/campaigns/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.id;
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      logger.info('[Meta Campaign] Retrieved', { sellerId, campaignId });
+      res.json(campaign);
+    } catch (error: any) {
+      logger.error('[Meta Campaign] Get error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get campaign' });
+    }
+  });
+
+  // Update campaign
+  app.patch("/api/meta/campaigns/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaCampaignService) {
+        return res.status(503).json({ error: 'Meta Campaign service not configured' });
+      }
+
+      const updateCampaignSchema = z.object({
+        name: z.string().optional(),
+        primaryText: z.string().optional(),
+        headline: z.string().optional(),
+        description: z.string().optional(),
+        callToAction: z.string().optional(),
+        dailyBudget: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+        lifetimeBudget: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+        targeting: z.any().optional(),
+        alertEmail: z.string().email().optional(),
+      });
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.id;
+      const validated = updateCampaignSchema.parse(req.body);
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      const result = await metaCampaignService.updateCampaign(campaignId, validated);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to update campaign' });
+      }
+
+      logger.info('[Meta Campaign] Updated', { sellerId, campaignId });
+      res.json(result.campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error('[Meta Campaign] Update error', { error });
+      res.status(500).json({ error: error.message || 'Failed to update campaign' });
+    }
+  });
+
+  // Activate campaign
+  app.post("/api/meta/campaigns/:id/activate", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaCampaignService) {
+        return res.status(503).json({ error: 'Meta Campaign service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.id;
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      const result = await metaCampaignService.activateCampaign(campaignId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to activate campaign' });
+      }
+
+      logger.info('[Meta Campaign] Activated', { sellerId, campaignId });
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[Meta Campaign] Activate error', { error });
+      res.status(500).json({ error: error.message || 'Failed to activate campaign' });
+    }
+  });
+
+  // Pause campaign
+  app.post("/api/meta/campaigns/:id/pause", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaCampaignService) {
+        return res.status(503).json({ error: 'Meta Campaign service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.id;
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      const result = await metaCampaignService.pauseCampaign(campaignId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to pause campaign' });
+      }
+
+      logger.info('[Meta Campaign] Paused', { sellerId, campaignId });
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[Meta Campaign] Pause error', { error });
+      res.status(500).json({ error: error.message || 'Failed to pause campaign' });
+    }
+  });
+
+  // Complete campaign
+  app.post("/api/meta/campaigns/:id/complete", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaCampaignService) {
+        return res.status(503).json({ error: 'Meta Campaign service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.id;
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      const result = await metaCampaignService.completeCampaign(campaignId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to complete campaign' });
+      }
+
+      logger.info('[Meta Campaign] Completed', { sellerId, campaignId });
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[Meta Campaign] Complete error', { error });
+      res.status(500).json({ error: error.message || 'Failed to complete campaign' });
+    }
+  });
+
+  // Budget Routes
+  
+  // Purchase ad credit
+  app.post("/api/meta/budget/purchase", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaBudgetService) {
+        return res.status(503).json({ error: 'Stripe not configured. Payment processing is unavailable.' });
+      }
+
+      const purchaseSchema = z.object({
+        amount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Invalid amount format'),
+        currency: z.string().length(3).optional(),
+        campaignId: z.string().optional(),
+        description: z.string().optional(),
+      });
+
+      const sellerId = req.user.claims.sub;
+      const validated = purchaseSchema.parse(req.body);
+
+      const result = await metaBudgetService.purchaseCredit({
+        ...validated,
+        sellerId,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to purchase credit' });
+      }
+
+      logger.info('[Meta Budget] Credit purchased', { sellerId, amount: validated.amount });
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error('[Meta Budget] Purchase error', { error });
+      res.status(500).json({ error: error.message || 'Failed to purchase credit' });
+    }
+  });
+
+  // Get credit balance
+  app.get("/api/meta/budget/balance", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaBudgetService) {
+        return res.status(503).json({ error: 'Meta Budget service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.query.campaignId as string | undefined;
+
+      const balance = await metaBudgetService.getCreditBalance(sellerId, campaignId);
+
+      logger.info('[Meta Budget] Retrieved balance', { sellerId, campaignId });
+      res.json(balance);
+    } catch (error: any) {
+      logger.error('[Meta Budget] Balance error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get credit balance' });
+    }
+  });
+
+  // Get credit ledger
+  app.get("/api/meta/budget/ledger", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaBudgetService) {
+        return res.status(503).json({ error: 'Meta Budget service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.query.campaignId as string | undefined;
+
+      const ledger = await metaBudgetService.getCreditLedger(sellerId, campaignId);
+
+      logger.info('[Meta Budget] Retrieved ledger', { sellerId, campaignId, entries: ledger.length });
+      res.json(ledger);
+    } catch (error: any) {
+      logger.error('[Meta Budget] Ledger error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get credit ledger' });
+    }
+  });
+
+  // Get campaigns with low balance
+  app.get("/api/meta/budget/low-balance", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaBudgetService) {
+        return res.status(503).json({ error: 'Meta Budget service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const thresholdPercent = parseInt(req.query.threshold as string) || 20;
+
+      const campaigns = await metaBudgetService.getLowBalanceCampaigns(sellerId, thresholdPercent);
+
+      logger.info('[Meta Budget] Retrieved low balance campaigns', { sellerId, count: campaigns.length });
+      res.json(campaigns);
+    } catch (error: any) {
+      logger.error('[Meta Budget] Low balance error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get low balance campaigns' });
+    }
+  });
+
+  // Analytics Routes
+  
+  // Get campaign performance
+  app.get("/api/meta/analytics/campaigns/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaAnalyticsService) {
+        return res.status(503).json({ error: 'Meta Analytics service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.id;
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      const dateRange = req.query.startDate && req.query.endDate 
+        ? {
+            startDate: new Date(req.query.startDate as string),
+            endDate: new Date(req.query.endDate as string),
+          }
+        : undefined;
+
+      const performance = await metaAnalyticsService.getCampaignPerformance(campaignId, dateRange);
+
+      logger.info('[Meta Analytics] Retrieved campaign performance', { sellerId, campaignId });
+      res.json(performance);
+    } catch (error: any) {
+      logger.error('[Meta Analytics] Campaign performance error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get campaign performance' });
+    }
+  });
+
+  // Get seller metrics summary
+  app.get("/api/meta/analytics/summary", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaAnalyticsService) {
+        return res.status(503).json({ error: 'Meta Analytics service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+
+      const dateRange = req.query.startDate && req.query.endDate 
+        ? {
+            startDate: new Date(req.query.startDate as string),
+            endDate: new Date(req.query.endDate as string),
+          }
+        : undefined;
+
+      const summary = await metaAnalyticsService.getMetricsSummary(sellerId, dateRange);
+
+      logger.info('[Meta Analytics] Retrieved seller summary', { sellerId });
+      res.json(summary);
+    } catch (error: any) {
+      logger.error('[Meta Analytics] Summary error', { error });
+      res.status(500).json({ error: error.message || 'Failed to get metrics summary' });
+    }
+  });
+
+  // Manual sync campaign metrics
+  app.post("/api/meta/analytics/sync/:campaignId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!metaAnalyticsService) {
+        return res.status(503).json({ error: 'Meta Analytics service not configured' });
+      }
+
+      const sellerId = req.user.claims.sub;
+      const campaignId = req.params.campaignId;
+
+      const campaign = await storage.getMetaCampaign(campaignId);
+      
+      if (!campaign || campaign.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      const date = req.body.date ? new Date(req.body.date) : new Date();
+      const result = await metaAnalyticsService.syncDailyMetrics(campaignId, date);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to sync metrics' });
+      }
+
+      logger.info('[Meta Analytics] Synced metrics', { sellerId, campaignId, date });
+      res.json(result);
+    } catch (error: any) {
+      logger.error('[Meta Analytics] Sync error', { error });
+      res.status(500).json({ error: error.message || 'Failed to sync metrics' });
+    }
+  });
+
+  // AI Routes
+  
+  // Generate ad copy with Gemini
+  app.post("/api/meta/ai/generate-copy", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!geminiAdIntelligenceService) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const generateCopySchema = z.object({
+        product: z.object({
+          name: z.string().min(1),
+          description: z.string().min(1),
+          price: z.string().min(1),
+          category: z.string().min(1),
+          uniqueSellingPoints: z.array(z.string()).optional(),
+          image: z.string().optional(),
+        }),
+        targetAudience: z.object({
+          ageRange: z.string().optional(),
+          gender: z.string().optional(),
+          interests: z.array(z.string()).optional(),
+          location: z.string().optional(),
+        }),
+        tone: z.string().min(1, 'Tone is required'),
+      });
+
+      const validated = generateCopySchema.parse(req.body);
+
+      const result = await geminiAdIntelligenceService.generateAdCopy(
+        validated.product,
+        validated.targetAudience,
+        validated.tone
+      );
+
+      logger.info('[Meta AI] Generated ad copy', { productName: validated.product.name });
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error('[Meta AI] Generate copy error', { error });
+      res.status(500).json({ error: error.message || 'Failed to generate ad copy' });
+    }
+  });
+
+  // Get targeting suggestions
+  app.post("/api/meta/ai/targeting-suggestions", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!geminiAdIntelligenceService) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const targetingSchema = z.object({
+        product: z.object({
+          name: z.string().min(1),
+          description: z.string().min(1),
+          price: z.string().min(1),
+          category: z.string().min(1),
+          uniqueSellingPoints: z.array(z.string()).optional(),
+          image: z.string().optional(),
+        }),
+        businessInfo: z.object({
+          name: z.string().min(1),
+          industry: z.string().min(1),
+          description: z.string().optional(),
+          targetMarket: z.string().optional(),
+        }),
+      });
+
+      const validated = targetingSchema.parse(req.body);
+
+      const result = await geminiAdIntelligenceService.generateTargetingSuggestions(
+        validated.product,
+        validated.businessInfo
+      );
+
+      logger.info('[Meta AI] Generated targeting suggestions', { 
+        productName: validated.product.name,
+        businessName: validated.businessInfo.name 
+      });
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error('[Meta AI] Targeting suggestions error', { error });
+      res.status(500).json({ error: error.message || 'Failed to generate targeting suggestions' });
+    }
+  });
+
+  // Webhook Route
+  
+  // Handle Meta webhook events
+  app.post("/api/meta/webhooks", async (req, res) => {
+    try {
+      if (!metaAnalyticsService) {
+        return res.status(503).json({ error: 'Meta Analytics service not configured' });
+      }
+
+      const webhookSchema = z.object({
+        campaignId: z.string().min(1),
+        eventType: z.enum(['status_change', 'spend_update', 'performance_alert']),
+        data: z.any().default({}),
+      });
+
+      const validated = webhookSchema.parse(req.body);
+
+      const result = await metaAnalyticsService.handleWebhookEvent({
+        campaignId: validated.campaignId,
+        eventType: validated.eventType,
+        data: validated.data
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Failed to process webhook' });
+      }
+
+      logger.info('[Meta Webhook] Processed event', { 
+        campaignId: validated.campaignId,
+        eventType: validated.eventType 
+      });
+      res.json({ received: true });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error('[Meta Webhook] Processing error', { error });
+      res.status(500).json({ error: error.message || 'Failed to process webhook' });
     }
   });
 
