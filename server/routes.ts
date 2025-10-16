@@ -6252,10 +6252,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Webhook endpoint for Resend events (public endpoint - validates signature)
   app.post("/api/newsletter/webhooks/resend", async (req, res) => {
     try {
-      // TODO: Validate Resend webhook signature for security
-      const signature = req.headers['resend-signature'] || req.headers['x-resend-signature'];
+      const secret = process.env.RESEND_WEBHOOK_SECRET;
       
-      // For now, accept the webhook (signature validation can be added later)
+      if (!secret) {
+        logger.error('[ResendWebhook] RESEND_WEBHOOK_SECRET not configured');
+        return res.status(500).json({ error: 'Webhook secret not configured' });
+      }
+
+      // Validate webhook signature (Resend uses Svix)
+      const signature = req.headers['svix-signature'] as string;
+      const timestamp = req.headers['svix-timestamp'] as string;
+      const svixId = req.headers['svix-id'] as string;
+      
+      if (!signature || !timestamp || !svixId) {
+        logger.warn('[ResendWebhook] Missing signature headers');
+        return res.status(401).json({ error: 'Missing signature headers' });
+      }
+
+      // Construct the signed content (Svix format)
+      const signedContent = `${svixId}.${timestamp}.${JSON.stringify(req.body)}`;
+      
+      // Verify signature
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(signedContent)
+        .digest('base64');
+      
+      // Svix sends multiple signature versions separated by spaces
+      const signatures = signature.split(' ');
+      const isValid = signatures.some(sig => {
+        const [version, sigValue] = sig.split(',');
+        return version === 'v1' && sigValue === expectedSignature;
+      });
+
+      if (!isValid) {
+        logger.warn('[ResendWebhook] Invalid signature');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+
       const event = req.body;
 
       logger.info('[Newsletter Webhook] Received Resend webhook:', { 
