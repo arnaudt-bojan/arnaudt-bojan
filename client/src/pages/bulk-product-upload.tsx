@@ -644,7 +644,7 @@ export default function BulkProductUpload() {
                         {currentJob.totalRows} rows • {getStatusBadge(currentJob.status)}
                       </CardDescription>
                     </div>
-                    {currentJob.status === 'pending' && (
+                    {(currentJob.status === 'pending' || currentJob.status === 'preprocessed') && (
                       <Button onClick={handleValidate} disabled={validateMutation.isPending} data-testid="button-validate">
                         {validateMutation.isPending ? (
                           <>

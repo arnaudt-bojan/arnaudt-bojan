@@ -45,6 +45,13 @@ export class AIFieldMappingService {
       throw new Error("Gemini API key is not configured. Please add GEMINI_API_KEY to your environment variables.");
     }
 
+    // DEBUG: Log headers received
+    logger.info('[AIFieldMapping] Headers received for mapping:', { 
+      headers: userHeaders, 
+      count: userHeaders.length,
+      hasVariants: userHeaders.includes('variants') 
+    });
+
     try {
       // Prepare context for Gemini - use actual database schema fields
       const standardFields = ALL_SCHEMA_FIELDS.map((f: SchemaField) => ({
@@ -60,24 +67,25 @@ export class AIFieldMappingService {
 
       const systemPrompt = `You are an expert data mapping assistant for an e-commerce platform.
 
-Your task is to map user's CSV column headers to our standard display field names. All products will be imported as IN-STOCK items.
+Your task is to map user's CSV column headers to our standard database column names. All products will be imported as IN-STOCK items.
 
-IMPORTANT: You MUST map to the display "name" field, NOT the "dbColumn". The name is the user-friendly field name that will be used for validation and display.
+CRITICAL: You MUST map to the "dbColumn" field (database column name), NOT the display "name". The dbColumn is the actual field name used in our database and validation system.
 
 DATABASE SCHEMA FIELDS:
 ${JSON.stringify(standardFields, null, 2)}
 
 WOOCOMMERCE/SHOPIFY AUTHORITATIVE MAPPING DICTIONARY:
-Use these EXACT mappings with 95%+ confidence for WooCommerce/Shopify CSVs (map to display name):
-- "Regular price" → "Price" (confidence: 98)
-- "Name" → "Product Name" (confidence: 98)
-- "Description" / "Short description" → "Description" (confidence: 98)
-- "SKU" → "SKU" (confidence: 98)
-- "Stock" / "Stock quantity" → "Stock" (confidence: 98)
-- "Images" → "Images" (confidence: 98)
-- "Categories" → "Category" (confidence: 98)
+Use these EXACT mappings with 95%+ confidence for WooCommerce/Shopify CSVs (map to dbColumn):
+- "Regular price" → "price" (confidence: 98)
+- "Name" → "name" (confidence: 98)
+- "Description" / "Short description" → "description" (confidence: 98)
+- "SKU" → "sku" (confidence: 98)
+- "Stock" / "Stock quantity" → "stock" (confidence: 98)
+- "Images" → "images" (confidence: 98)
+- "Categories" → "category" (confidence: 98)
+- "variants" → "variants" (confidence: 99 - CRITICAL: preprocessed variant data, must preserve!)
 - "Weight (kg)" / "Weight" → null (confidence: 95 - we don't support weight)
-- "Shipping class" → "Shipping Type" (confidence: 70)
+- "Shipping class" → "shippingType" (confidence: 70)
 
 EXPLICIT IGNORE LIST - MUST MAP TO NULL:
 These WooCommerce/Shopify fields are NOT supported and MUST be set to null with appropriate reasoning:
@@ -94,12 +102,12 @@ These WooCommerce/Shopify fields are NOT supported and MUST be set to null with 
 - "Download limit" / "Download expiry days" → null (reasoning: "Downloadable product features are not supported")
 - "Position" / "Menu order" → null (reasoning: "Product ordering is managed in our dashboard")
 - "Width (cm)" / "Height (cm)" / "Length (cm)" → null (reasoning: "Product dimensions are not captured in our schema")
-- "Attribute 1 name" / "Attribute 2 name" / "Attribute 3 name" → null (reasoning: "WooCommerce attributes must be preprocessed into our variant format")
+- "Attribute 1 name" / "Attribute 1 value(s)" / "Attribute 2 name" / "Attribute 2 value(s)" → null (reasoning: "WooCommerce attribute columns are intermediate data - preprocessing transforms them into the 'variants' column")
 - "Purchase note" → null (reasoning: "Purchase notes are not supported")
 
 CONFIDENCE SCORING RULES:
 1. EXACT matches from WooCommerce dictionary → 95-98% confidence
-2. Clear synonyms (e.g., "title"→"Product Name", "qty"→"Stock") → 85-94% confidence
+2. Clear synonyms (e.g., "title"→"name", "qty"→"stock") → 85-94% confidence
 3. Probable matches with minor ambiguity → 70-84% confidence
 4. Uncertain matches → 50-69% confidence
 5. No good match OR on ignore list → map to null (no confidence needed)
@@ -108,21 +116,23 @@ CRITICAL RULES:
 1. For WooCommerce CSVs, use the AUTHORITATIVE MAPPING DICTIONARY - don't guess
 2. Fields on IGNORE LIST must ALWAYS map to null with the provided reasoning
 3. Use 95%+ confidence for exact/canonical matches - be decisive!
-4. "Images" (plural) is preferred over "Image" (singular) - both are supported
+4. "images" (plural) is preferred over "image" (singular) - both are supported
 5. Product Type defaults to "in-stock" automatically - no mapping needed
-6. Map "Regular price" to "Price" (98%) - ignore "Sale price"
-7. Never map unrelated fields (e.g., "Tags" to "Category") - use null instead
+6. Map "Regular price" to "price" (98%) - ignore "Sale price"
+7. Never map unrelated fields (e.g., "Tags" to "category") - use null instead
+8. ALWAYS use lowercase dbColumn values (e.g., "name", "price", "category", NOT "Name", "Price", "Category")
 
 EXAMPLES OF CORRECT MAPPINGS:
-✅ "Regular price" → "Price" (confidence: 98, reasoning: "Direct match for regular/base price")
-✅ "Name" → "Product Name" (confidence: 98, reasoning: "Standard product name field")
+✅ "Regular price" → "price" (confidence: 98, reasoning: "Direct match for regular/base price")
+✅ "Name" → "name" (confidence: 98, reasoning: "Standard product name field")
 ✅ "Tags" → null (confidence: 30, reasoning: "Product tags are not captured in our schema")
 ✅ "Sale price" → null (confidence: 30, reasoning: "Sale prices are managed through our pricing system")
 ✅ "Type" → null (confidence: 30, reasoning: "WooCommerce product type is not needed")
 
-❌ WRONG: "Tags" → "Category" (confidence: 60) - Tags are NOT categories
-❌ WRONG: "Type" → "Category" (confidence: 55) - Product type is NOT category
-❌ WRONG: "Sale price" → "Price" (confidence: 70) - We only import regular price
+❌ WRONG: "Tags" → "category" (confidence: 60) - Tags are NOT categories
+❌ WRONG: "Type" → "category" (confidence: 55) - Product type is NOT category
+❌ WRONG: "Sale price" → "price" (confidence: 70) - We only import regular price
+❌ WRONG: "Name" → "Product Name" - Must use dbColumn "name", not display name "Product Name"
 
 Respond with a JSON array of mappings.`;
 
@@ -270,7 +280,7 @@ Analyze each header and provide the best mapping with confidence score and reaso
 
   /**
    * Validate that all required fields are mapped
-   * Checks display names (Architecture 3)
+   * Checks database column names (dbColumn)
    */
   validateMapping(mappings: FieldMapping[]): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
@@ -280,7 +290,7 @@ Analyze each header and provide the best mapping with confidence score and reaso
 
     const requiredFields = ALL_SCHEMA_FIELDS.filter((f: SchemaField) => f.required);
     for (const field of requiredFields) {
-      if (!mappedStandardFields.has(field.name)) {
+      if (!mappedStandardFields.has(field.dbColumn)) {
         errors.push(`Required field "${field.name}" is not mapped`);
       }
     }

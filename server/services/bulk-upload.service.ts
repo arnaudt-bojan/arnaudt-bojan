@@ -571,9 +571,22 @@ export class BulkUploadService {
     sellerId: string
   ): Promise<{ successCount: number; errorCount: number; errors: string[] }> {
     const items = await this.storage.getBulkUploadItemsByJob(jobId);
+    
+    // DEBUG: Log validation statuses
+    logger.info('[BulkUploadService] Import starting', { 
+      jobId, 
+      totalItems: items.length,
+      statuses: items.map(i => i.validationStatus)
+    });
+    
     const validItems = items.filter(item => 
       item.validationStatus === 'valid' || item.validationStatus === 'warning'
     );
+    
+    logger.info('[BulkUploadService] Valid items filtered', { 
+      validCount: validItems.length,
+      firstItemData: validItems[0]?.rowData 
+    });
     
     let successCount = 0;
     let errorCount = 0;
@@ -589,10 +602,21 @@ export class BulkUploadService {
         const rowData = item.rowData as BulkUploadRowData;
         const productData = this.parseProductFromRow(rowData);
         
+        logger.info('[BulkUploadService] Parsed product data', { 
+          name: productData.name,
+          hasVariants: !!productData.variants,
+          variantsLength: productData.variants?.length 
+        });
+        
         // Create product using ProductService (handles SKU generation, stock sync, etc.)
         const result = await this.productService.createProduct({
           productData: productData as any,
           sellerId,
+        });
+        
+        logger.info('[BulkUploadService] Product creation result', { 
+          success: result.success,
+          error: result.error 
         });
         
         if (result.success && result.product) {

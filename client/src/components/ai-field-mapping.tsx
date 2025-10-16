@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Sparkles, CheckCircle, AlertTriangle, Info, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CSV_TEMPLATE_FIELDS } from "@shared/bulk-upload-template";
+import { ALL_SCHEMA_FIELDS } from "@shared/bulk-upload-schema";
 
 interface FieldMapping {
   userField: string;
@@ -129,9 +130,9 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
 
   // Validate and apply mappings
   const handleApplyMappings = () => {
-    const missingRequired = CSV_TEMPLATE_FIELDS
+    const missingRequired = ALL_SCHEMA_FIELDS
       .filter(f => f.required)
-      .filter(f => !mappings.some(m => m.standardField === f.name))
+      .filter(f => !mappings.some(m => m.standardField === f.dbColumn))
       .map(f => f.name);
 
     if (missingRequired.length > 0) {
