@@ -86,9 +86,13 @@ export class MultiRowProductPreprocessor {
   private detectFormat(headers: string[], rows: Record<string, any>[]): CSVFormat {
     const headerSet = new Set(headers.map(h => h.toLowerCase()));
 
+    console.log('[MultiRowPreprocessor] Detecting format with headers:', headers.slice(0, 10));
+
     // WooCommerce detection: Has "Type" and "Parent" columns
     const hasType = headerSet.has('type');
     const hasParent = headerSet.has('parent');
+    
+    console.log('[MultiRowPreprocessor] WooCommerce check:', { hasType, hasParent });
     
     if (hasType && hasParent) {
       // Verify with data: check if any rows have Type=variation
@@ -96,7 +100,9 @@ export class MultiRowProductPreprocessor {
         row.Type?.toLowerCase() === 'variation' || 
         row.type?.toLowerCase() === 'variation'
       );
+      console.log('[MultiRowPreprocessor] Has variations:', hasVariations);
       if (hasVariations) {
+        console.log('[MultiRowPreprocessor] ✅ Detected WooCommerce format');
         return 'woocommerce';
       }
     }
@@ -117,11 +123,13 @@ export class MultiRowProductPreprocessor {
       // If any handle appears more than once, it's Shopify format
       const hasRepeatedHandles = Array.from(handleCounts.values()).some(count => count > 1);
       if (hasRepeatedHandles) {
+        console.log('[MultiRowPreprocessor] ✅ Detected Shopify format');
         return 'shopify';
       }
     }
 
     // Default to generic (single-row products)
+    console.log('[MultiRowPreprocessor] ⚠️ Defaulting to generic format');
     return 'generic';
   }
 
