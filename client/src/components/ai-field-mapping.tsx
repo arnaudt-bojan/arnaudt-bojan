@@ -248,9 +248,8 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mappings
-                .slice()
-                .sort((a, b) => {
+              {(() => {
+                const sortedMappings = mappings.slice().sort((a, b) => {
                   // Priority 1: Fields needing review (50-79% confidence with mapping)
                   const aNeedsReview = a.standardField !== null && a.confidence >= 50 && a.confidence < 80;
                   const bNeedsReview = b.standardField !== null && b.confidence >= 50 && b.confidence < 80;
@@ -268,47 +267,172 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
                   
                   // Within same priority, sort by confidence descending
                   return b.confidence - a.confidence;
-                })
-                .map((mapping) => {
-                  const confidenceBadge = getConfidenceBadge(mapping.confidence, mapping.standardField);
-                  return (
-                    <TableRow key={mapping.userField}>
-                      <TableCell className="font-medium">
-                        {mapping.userField}
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={mapping.standardField || "none"}
-                          onValueChange={(value) => 
-                            updateMapping(mapping.userField, value === "none" ? null : value)
-                          }
-                          data-testid={`select-mapping-${mapping.userField}`}
-                        >
-                          <SelectTrigger className="w-[250px]">
-                            <SelectValue placeholder="Select field..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">— Don't map —</SelectItem>
-                            {CSV_TEMPLATE_FIELDS.map((field) => (
-                              <SelectItem key={field.name} value={field.name}>
-                                {field.name} {field.required && <span className="text-destructive">*</span>}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={confidenceBadge.variant} className="gap-1">
-                          {confidenceBadge.icon}
-                          {confidenceBadge.label} ({mapping.confidence}%)
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {mapping.reasoning || "—"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                });
+
+                const needsReview = sortedMappings.filter(m => m.standardField !== null && m.confidence >= 50 && m.confidence < 80);
+                const highConfidence = sortedMappings.filter(m => m.standardField !== null && m.confidence >= 80);
+                const unmapped = sortedMappings.filter(m => m.standardField === null);
+
+                return (
+                  <>
+                    {/* Need Review Section */}
+                    {needsReview.length > 0 && (
+                      <>
+                        <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                          <TableCell colSpan={4} className="font-semibold text-sm py-2">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                              Need Review ({needsReview.length})
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {needsReview.map((mapping) => {
+                          const confidenceBadge = getConfidenceBadge(mapping.confidence, mapping.standardField);
+                          return (
+                            <TableRow key={mapping.userField}>
+                              <TableCell className="font-medium">{mapping.userField}</TableCell>
+                              <TableCell>
+                                <Select
+                                  value={mapping.standardField || "none"}
+                                  onValueChange={(value) => 
+                                    updateMapping(mapping.userField, value === "none" ? null : value)
+                                  }
+                                  data-testid={`select-mapping-${mapping.userField}`}
+                                >
+                                  <SelectTrigger className="w-[250px]">
+                                    <SelectValue placeholder="Select field..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">— Don't map —</SelectItem>
+                                    {CSV_TEMPLATE_FIELDS.map((field) => (
+                                      <SelectItem key={field.name} value={field.name}>
+                                        {field.name} {field.required && <span className="text-destructive">*</span>}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={confidenceBadge.variant} className="gap-1">
+                                  {confidenceBadge.icon}
+                                  {confidenceBadge.label} ({mapping.confidence}%)
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {mapping.reasoning || "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* High Confidence Section */}
+                    {highConfidence.length > 0 && (
+                      <>
+                        <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                          <TableCell colSpan={4} className="font-semibold text-sm py-2">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
+                              High Confidence - Auto-mapped ({highConfidence.length})
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {highConfidence.map((mapping) => {
+                          const confidenceBadge = getConfidenceBadge(mapping.confidence, mapping.standardField);
+                          return (
+                            <TableRow key={mapping.userField}>
+                              <TableCell className="font-medium">{mapping.userField}</TableCell>
+                              <TableCell>
+                                <Select
+                                  value={mapping.standardField || "none"}
+                                  onValueChange={(value) => 
+                                    updateMapping(mapping.userField, value === "none" ? null : value)
+                                  }
+                                  data-testid={`select-mapping-${mapping.userField}`}
+                                >
+                                  <SelectTrigger className="w-[250px]">
+                                    <SelectValue placeholder="Select field..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">— Don't map —</SelectItem>
+                                    {CSV_TEMPLATE_FIELDS.map((field) => (
+                                      <SelectItem key={field.name} value={field.name}>
+                                        {field.name} {field.required && <span className="text-destructive">*</span>}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={confidenceBadge.variant} className="gap-1">
+                                  {confidenceBadge.icon}
+                                  {confidenceBadge.label} ({mapping.confidence}%)
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {mapping.reasoning || "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Unmapped Section */}
+                    {unmapped.length > 0 && (
+                      <>
+                        <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                          <TableCell colSpan={4} className="font-semibold text-sm py-2">
+                            <div className="flex items-center gap-2">
+                              <Info className="h-4 w-4 text-muted-foreground" />
+                              Unmapped - Will be ignored ({unmapped.length})
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {unmapped.map((mapping) => {
+                          const confidenceBadge = getConfidenceBadge(mapping.confidence, mapping.standardField);
+                          return (
+                            <TableRow key={mapping.userField} className="opacity-60">
+                              <TableCell className="font-medium">{mapping.userField}</TableCell>
+                              <TableCell>
+                                <Select
+                                  value={mapping.standardField || "none"}
+                                  onValueChange={(value) => 
+                                    updateMapping(mapping.userField, value === "none" ? null : value)
+                                  }
+                                  data-testid={`select-mapping-${mapping.userField}`}
+                                >
+                                  <SelectTrigger className="w-[250px]">
+                                    <SelectValue placeholder="Select field..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">— Don't map —</SelectItem>
+                                    {CSV_TEMPLATE_FIELDS.map((field) => (
+                                      <SelectItem key={field.name} value={field.name}>
+                                        {field.name} {field.required && <span className="text-destructive">*</span>}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={confidenceBadge.variant} className="gap-1">
+                                  {confidenceBadge.icon}
+                                  {confidenceBadge.label} ({mapping.confidence}%)
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {mapping.reasoning || "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </TableBody>
           </Table>
         </CardContent>
