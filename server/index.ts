@@ -14,6 +14,8 @@ import {
 } from "./security";
 import { ReservationCleanupJob } from "./jobs/cleanup-reservations";
 import { WholesaleBalanceReminderJob } from "./jobs/wholesale-balance-reminder.job";
+import { DeliveryReminderService } from "./services/delivery-reminder.service";
+import { ResendEmailProvider } from "./services/email-provider.service";
 import { storage } from "./storage";
 import { ConfigurationError } from "./errors";
 import { createNotificationService } from "./notifications";
@@ -119,6 +121,7 @@ app.use((req, res, next) => {
   // Background jobs
   let cleanupJob: ReservationCleanupJob | null = null;
   let balanceReminderJob: WholesaleBalanceReminderJob | null = null;
+  let deliveryReminderJob: DeliveryReminderService | null = null;
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -169,6 +172,11 @@ app.use((req, res, next) => {
     const notificationService = createNotificationService(storage);
     balanceReminderJob = new WholesaleBalanceReminderJob(storage, notificationService);
     balanceReminderJob.start();
+    
+    // Start delivery reminder job (pre-order/made-to-order 7-day reminders)
+    const emailProvider = new ResendEmailProvider();
+    deliveryReminderJob = new DeliveryReminderService(storage, emailProvider);
+    deliveryReminderJob.start();
   });
   
   // Graceful shutdown
@@ -181,6 +189,9 @@ app.use((req, res, next) => {
     }
     if (balanceReminderJob) {
       balanceReminderJob.stop();
+    }
+    if (deliveryReminderJob) {
+      deliveryReminderJob.stop();
     }
     
     // Wait a bit for jobs to cleanup

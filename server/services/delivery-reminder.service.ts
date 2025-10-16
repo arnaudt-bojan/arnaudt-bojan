@@ -88,17 +88,17 @@ export class DeliveryReminderService {
           continue;
         }
 
-        // Skip if reminder already sent (prevent duplicate emails)
-        if (order.deliveryReminderSentAt) {
-          continue;
-        }
-
         // Get order items
         const orderItems = await this.storage.getOrderItems(order.id);
 
         for (const item of orderItems) {
           // Only check pre-order and made-to-order items
           if (item.productType !== "pre-order" && item.productType !== "made-to-order") {
+            continue;
+          }
+
+          // Skip if reminder already sent for this item (per-item tracking)
+          if (item.deliveryReminderSentAt) {
             continue;
           }
 
@@ -128,16 +128,13 @@ export class DeliveryReminderService {
             // Send reminder email
             await this.sendReminderEmail(seller, order, item, deliveryDate);
 
-            // Mark reminder as sent (prevents duplicate sends)
-            await this.storage.updateOrder(order.id, {
+            // Mark reminder as sent for this item (per-item tracking prevents duplicates)
+            await this.storage.updateOrderItem(item.id, {
               deliveryReminderSentAt: new Date(),
             });
 
             emailsSent++;
-            logger.info(`[DeliveryReminder] Sent reminder to ${seller.email} for order ${order.id}`);
-            
-            // Only send one reminder per order (break after first matching item)
-            break;
+            logger.info(`[DeliveryReminder] Sent reminder to ${seller.email} for order ${order.id}, item ${item.id}`);
           }
         }
       }

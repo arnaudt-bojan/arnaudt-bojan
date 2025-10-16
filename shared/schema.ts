@@ -419,9 +419,6 @@ export const orders = pgTable("orders", {
   billingCity: text("billing_city"),
   billingState: text("billing_state"),
   billingPostalCode: varchar("billing_postal_code"),
-  
-  // Delivery reminder tracking (for pre-order/made-to-order products)
-  deliveryReminderSentAt: timestamp("delivery_reminder_sent_at"), // Track when 7-day reminder was sent
   billingCountry: varchar("billing_country"),
   
   // Balance Payment Architecture 3 fields - for deposit-only pricing and balance payment flow
@@ -538,6 +535,9 @@ export const orderItems = pgTable("order_items", {
   // Delivery date fields - for pre-order and made-to-order products
   preOrderDate: timestamp("pre_order_date"), // Customer-selected delivery date for pre-order items
   madeToOrderLeadTime: integer("made_to_order_lead_time"), // Lead time in days for made-to-order items
+  
+  // Delivery reminder tracking (per-item to support multiple items with different dates)
+  deliveryReminderSentAt: timestamp("delivery_reminder_sent_at"), // Track when 7-day reminder was sent for this item
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
