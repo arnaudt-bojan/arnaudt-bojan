@@ -31,7 +31,7 @@ type BulkUploadJob = {
   id: string;
   sellerId: string;
   fileName: string;
-  status: 'pending' | 'preprocessed' | 'validating' | 'validated' | 'importing' | 'completed' | 'failed';
+  status: 'pending' | 'preprocessed' | 'validating' | 'validated' | 'importing' | 'completed' | 'completed_with_errors' | 'failed';
   totalRows: number;
   processedRows: number;
   successCount: number;
@@ -287,17 +287,18 @@ export default function BulkProductUpload() {
   };
 
   const getStatusBadge = (status: BulkUploadJob['status']) => {
-    const statusConfig = {
+    const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive", label: string }> = {
       pending: { variant: "secondary" as const, label: "Pending" },
       preprocessed: { variant: "secondary" as const, label: "Preprocessed" },
       validating: { variant: "secondary" as const, label: "Validating" },
       validated: { variant: "default" as const, label: "Validated" },
       importing: { variant: "secondary" as const, label: "Importing" },
       completed: { variant: "default" as const, label: "Completed" },
+      completed_with_errors: { variant: "default" as const, label: "Completed" },
       failed: { variant: "destructive" as const, label: "Failed" },
     };
 
-    const config = statusConfig[status];
+    const config = statusConfig[status] || { variant: "secondary" as const, label: status };
     return <Badge variant={config.variant} data-testid={`badge-status-${status}`}>{config.label}</Badge>;
   };
 
@@ -744,7 +745,7 @@ export default function BulkProductUpload() {
                   )}
                 </Card>
 
-                {(currentJob.status === 'validated' || currentJob.status === 'completed') && validationResults && validationResults.length > 0 && (
+                {(currentJob.status === 'validated' || currentJob.status === 'completed' || currentJob.status === 'completed_with_errors') && validationResults && validationResults.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Validation Results</CardTitle>
@@ -839,7 +840,7 @@ export default function BulkProductUpload() {
                   </Card>
                 )}
 
-                {currentJob.status === 'completed' && (
+                {(currentJob.status === 'completed' || currentJob.status === 'completed_with_errors') && (
                   <>
                     {currentJob.successCount > 0 ? (
                       <Card className="border-green-600 dark:border-green-400">
@@ -850,6 +851,7 @@ export default function BulkProductUpload() {
                           </div>
                           <CardDescription>
                             Successfully imported {currentJob.successCount} products
+                            {currentJob.errorCount > 0 && ` (${currentJob.errorCount} items had errors)`}
                           </CardDescription>
                         </CardHeader>
                       </Card>

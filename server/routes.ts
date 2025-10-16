@@ -2528,6 +2528,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get items for a specific job (for validation results table)
+  app.get("/api/bulk-upload/job/:jobId/items", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const items = await storage.getBulkUploadItemsByJob(jobId);
+      res.json(items);
+    } catch (error) {
+      logger.error("Error fetching job items", error);
+      res.status(500).json({ error: "Failed to fetch job items" });
+    }
+  });
+
   // ===== AI FIELD MAPPING ROUTES =====
 
   // Analyze CSV headers using AI and suggest field mappings
