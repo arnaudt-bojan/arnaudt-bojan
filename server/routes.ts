@@ -6626,6 +6626,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send test email
+  app.post("/api/campaigns/:id/send-test", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const testEmailSchema = z.object({
+        emails: z.array(z.string().email("Invalid email address")).min(1, "At least one email address is required").max(5, "Maximum 5 test emails allowed"),
+      });
+
+      const validated = testEmailSchema.parse(req.body);
+      await campaignService.sendTestEmail(req.params.id, validated.emails);
+      res.json({ success: true, message: `Test email sent to ${validated.emails.length} recipient(s)` });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Send test email error", error);
+      res.status(500).json({ error: error.message || "Failed to send test email" });
+    }
+  });
+
   // Send campaign immediately
   app.post("/api/campaigns/:id/send", requireAuth, requireUserType("seller"), async (req: any, res) => {
     try {

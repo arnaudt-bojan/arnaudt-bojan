@@ -89,6 +89,141 @@ export class CampaignService {
   }
 
   /**
+   * Send a test email - allows testing campaign content before sending to all subscribers
+   */
+  async sendTestEmail(campaignId: string, testEmails: string[]): Promise<void> {
+    logger.info(`[CampaignService] Sending test email for campaign ${campaignId} to ${testEmails.join(', ')}`);
+
+    // Fetch campaign
+    const campaign = await this.storage.getNewsletter(campaignId);
+    if (!campaign) {
+      throw new Error("Campaign not found");
+    }
+
+    // Get user/seller info for "from" field
+    const seller = await this.storage.getUser(campaign.userId);
+    if (!seller) {
+      throw new Error("Seller not found");
+    }
+
+    // Build "from" name - use campaign's custom fromName, or fall back to seller's store/name
+    const fromName = campaign.fromName || seller.storeName || seller.firstName || seller.username || 'Store';
+    
+    // Helper function to add inline styles to email content for universal email client compatibility
+    const normalizeEmailHtml = (html: string): string => {
+      // Add inline styles to <p> tags (for paragraph spacing)
+      html = html.replace(
+        /<p>/gi,
+        '<p style="margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;">'
+      );
+      
+      // Add inline styles to <p> tags that already have styles
+      html = html.replace(
+        /<p\s+style="([^"]*)"/gi,
+        '<p style="$1; margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;"'
+      );
+      
+      // APPLE MAIL MOBILE FIX: Absolute simplest approach (like Mailchimp)
+      html = html.replace(
+        /<img\s+([^>]*)>/gi,
+        (match, attrs) => {
+          const srcMatch = attrs.match(/src=["']([^"']+)["']/);
+          const src = srcMatch ? srcMatch[1] : '';
+          const altMatch = attrs.match(/alt=["']([^"']+)["']/);
+          const alt = altMatch ? altMatch[1] : '';
+          return `<img src="${src}" alt="${alt}" style="max-width:100%; display:block; height:auto;">`;
+        }
+      );
+      
+      // Add inline styles to <a> tags
+      html = html.replace(
+        /<a\s+([^>]*)>/gi,
+        (match, attrs) => {
+          if (attrs.includes('style=')) {
+            return match.replace(/style="([^"]*)"/, 'style="$1; color: #0066cc; text-decoration: underline;"');
+          } else {
+            return `<a ${attrs} style="color: #0066cc; text-decoration: underline;">`;
+          }
+        }
+      );
+      
+      return html;
+    };
+
+    // Generate HTML payload
+    let htmlPayload: string;
+    if (campaign.htmlContent) {
+      const preheaderHtml = campaign.preheader 
+        ? `<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaign.preheader}</span>`
+        : '';
+      
+      const normalizedContent = normalizeEmailHtml(campaign.htmlContent);
+      
+      htmlPayload = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
+  ${preheaderHtml}
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0;">
+    <tr>
+      <td style="padding: 20px 0;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px;" align="center">
+          <tr>
+            <td style="padding: 30px;">
+              ${normalizedContent}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+    } else {
+      const textContent = campaign.content.replace(/\n/g, '<br>');
+      htmlPayload = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0;">
+    <tr>
+      <td style="padding: 20px 0;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px;" align="center">
+          <tr>
+            <td style="padding: 30px;">
+              ${textContent}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+    }
+
+    // Send test emails
+    const testSubject = `[TEST] ${campaign.subject}`;
+    
+    for (const email of testEmails) {
+      await this.emailProvider.sendEmail({
+        to: email,
+        from: `${fromName} <${process.env.RESEND_FROM_EMAIL}>`,
+        subject: testSubject,
+        html: htmlPayload,
+      });
+    }
+
+    logger.info(`[CampaignService] Test email sent successfully to ${testEmails.length} recipient(s)`);
+  }
+
+  /**
    * Send a campaign immediately
    */
   async sendCampaign(campaignId: string): Promise<SendCampaignResult> {

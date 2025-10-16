@@ -109,6 +109,8 @@ export default function SellerNewsletterPage() {
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [isSubscriberDialogOpen, setIsSubscriberDialogOpen] = useState(false);
   const [isCsvUploadDialogOpen, setIsCsvUploadDialogOpen] = useState(false);
+  const [isTestEmailDialogOpen, setIsTestEmailDialogOpen] = useState(false);
+  const [testEmails, setTestEmails] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
@@ -332,6 +334,21 @@ export default function SellerNewsletterPage() {
     },
   });
 
+  const sendTestEmailMutation = useMutation({
+    mutationFn: async ({ campaignId, emails }: { campaignId: string; emails: string[] }) => {
+      const response = await apiRequest("POST", `/api/campaigns/${campaignId}/send-test`, { emails });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Test email sent!", description: data.message });
+      setIsTestEmailDialogOpen(false);
+      setTestEmails("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to send test email", description: error.message, variant: "destructive" });
+    },
+  });
+
   const createGroupMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
       return await apiRequest("POST", "/api/subscriber-groups", data);
@@ -479,6 +496,52 @@ export default function SellerNewsletterPage() {
     }
 
     createCampaignMutation.mutate(campaignData);
+  };
+
+  const handleSendTestEmail = async () => {
+    // First, create/update the campaign as draft
+    if (!subject || !content) {
+      toast({ title: "Please fill in all required fields", variant: "destructive" });
+      return;
+    }
+
+    const campaignData: any = {
+      subject,
+      content,
+      htmlContent: content,
+      preheader: preheader || undefined,
+      fromName: fromName || undefined,
+      sendToAll: true, // Required for creating campaign
+    };
+
+    try {
+      let campaignId = editingCampaignId;
+      
+      if (!campaignId) {
+        // Create draft campaign first
+        const response = await apiRequest("POST", "/api/campaigns", campaignData);
+        const campaign = await response.json();
+        campaignId = campaign.id;
+        setEditingCampaignId(campaignId);
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      }
+
+      // Parse test emails (comma or space separated)
+      const emailArray = testEmails
+        .split(/[,\s]+/)
+        .map(e => e.trim())
+        .filter(e => e.length > 0);
+
+      if (emailArray.length === 0) {
+        toast({ title: "Please enter at least one email address", variant: "destructive" });
+        return;
+      }
+
+      // Send test email
+      sendTestEmailMutation.mutate({ campaignId: campaignId!, emails: emailArray });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1385,6 +1448,19 @@ export default function SellerNewsletterPage() {
                     </div>
                   </AlertDescription>
                 </Alert>
+
+                {/* Send Test Email */}
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsTestEmailDialogOpen(true)}
+                    disabled={!subject || !content}
+                    data-testid="button-send-test-email"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send Test Email
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -1635,6 +1711,64 @@ export default function SellerNewsletterPage() {
             >
               {bulkImportMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Import {csvPreview.length} Subscribers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Email Dialog */}
+      <Dialog open={isTestEmailDialogOpen} onOpenChange={setIsTestEmailDialogOpen}>
+        <DialogContent data-testid="dialog-send-test-email">
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+            <DialogDescription>
+              Send a test version of your campaign to verify how it looks before sending to subscribers.
+              Subject will be prefixed with [TEST].
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="testEmails">Email Address(es) *</Label>
+              <Input
+                id="testEmails"
+                type="text"
+                value={testEmails}
+                onChange={(e) => setTestEmails(e.target.value)}
+                placeholder="test@example.com, another@example.com"
+                data-testid="input-test-emails"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Separate multiple emails with commas or spaces (max 5)
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsTestEmailDialogOpen(false);
+                setTestEmails("");
+              }}
+              data-testid="button-cancel-test-email"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendTestEmail}
+              disabled={sendTestEmailMutation.isPending || !testEmails.trim()}
+              data-testid="button-submit-test-email"
+            >
+              {sendTestEmailMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Test
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
