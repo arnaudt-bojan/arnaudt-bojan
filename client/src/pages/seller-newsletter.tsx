@@ -1077,7 +1077,7 @@ export default function SellerNewsletterPage() {
                   <div>
                     <Label className="mb-2 block">Email Content *</Label>
                     <Editor
-                      tinymceScriptSrc="/tinymce/tinymce.min.js"
+                      apiKey="no-api-key"
                       onInit={(evt, editor) => editorRef.current = editor}
                       value={content}
                       onEditorChange={(newContent) => setContent(newContent)}
