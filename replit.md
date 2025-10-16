@@ -13,12 +13,36 @@ Upfirst is a D2C e-commerce platform empowering creators and brands with individ
 ## System Architecture
 Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend, with an Express.js Node.js backend, PostgreSQL (Neon), and Drizzle ORM.
 
+### **Core Architectural Principle: Three Parallel Platforms**
+**CRITICAL:** Upfirst is architected as **three distinct, parallel platforms**, not a single unified system:
+
+1. **B2C Platform** (Retail/Direct-to-Consumer)
+   - Individual storefronts at `username.upfirst.io`
+   - Shopping cart, checkout, order management
+   - Dashboard: `/seller-dashboard`
+
+2. **B2B Platform** (Wholesale)
+   - Invitation-based buyer access
+   - MOQ enforcement, deposit/balance payments
+   - Dashboard: `/wholesale/dashboard`
+
+3. **Trade Platform** (Professional Quotations)
+   - Excel-like quotation builder
+   - Token-based buyer access, status tracking
+   - Dashboard: `/seller/trade/quotations`
+
+**Key Principles:**
+- Each platform is **separate** with its own routes, pages, and workflows
+- Services can be **shared** but must be **modified** for each platform's specific needs
+- All business logic follows **Architecture 3** (server-side only)
+- When referencing "B2C", "B2B", or "Trade", we're discussing **specific platform implementations**
+
 **UI/UX Decisions:**
 The design system supports dark/light mode, uses the Inter font, and emphasizes consistent spacing, typography, and a mobile-first responsive approach. Navigation is dashboard-centric, and storefronts are customizable with seller branding. Product displays feature multi-image support and interactive elements.
 
 **Technical Implementations:**
--   **Backend:** Employs a service layer pattern with dependency injection for business logic abstraction (e.g., `ProductService`, `StripeConnectService`, `WholesaleService`).
--   **Business Mode Toggle:** Sellers can switch between B2C (Retail), B2B (Wholesale), and Trade (Professional) modes within the dashboard, altering context and available routes.
+-   **Backend:** Employs a service layer pattern with dependency injection for business logic abstraction (e.g., `ProductService`, `StripeConnectService`, `WholesaleService`, `TradeQuotationService`).
+-   **Business Mode Selector:** Sellers can switch between B2C, B2B, and Trade platforms within the dashboard header, with automatic navigation to the appropriate platform dashboard.
 -   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and best-in-class bulk CSV import with job tracking and validation.
 -   **Shipping:** Centralized `ShippingService` integrates various methods including Free Shipping, Flat Rate, Matrix Shipping, and real-time Shippo API rates.
 -   **Shopping & Checkout:** Features slide-over cart, guest checkout, server-side shipping cost calculation, single-seller per cart constraint, and optimized cart performance.
