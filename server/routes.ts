@@ -32,6 +32,7 @@ import { ProductService } from "./services/product.service";
 import { productVariantService } from "./services/product-variant.service";
 import { BulkUploadService } from "./services/bulk-upload.service";
 import { AIFieldMappingService } from "./services/ai-field-mapping.service";
+import { MultiRowProductPreprocessor } from "./services/multi-row-preprocessor.service";
 import Papa from "papaparse";
 import { generateCSVTemplate, generateInstructionsText, CSV_TEMPLATE_FIELDS } from "@shared/bulk-upload-template";
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
@@ -170,6 +171,9 @@ const productService = new ProductService(
 
 // Initialize bulk upload service for CSV imports
 const bulkUploadService = new BulkUploadService(storage, productService);
+
+// Initialize multi-row product preprocessor for WooCommerce/Shopify CSVs
+const multiRowPreprocessor = new MultiRowProductPreprocessor(storage);
 
 // Initialize AI field mapping service for intelligent CSV column mapping
 const aiFieldMappingService = new AIFieldMappingService();
@@ -2269,6 +2273,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(500).json({ error: "Failed to upload CSV" });
+    }
+  });
+
+  // Preprocess CSV for multi-row formats (WooCommerce, Shopify)
+  app.post("/api/bulk-upload/preprocess/:jobId", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId } = req.params;
+
+      // Verify job belongs to user
+      const job = await storage.getBulkUploadJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.sellerId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Get all job items
+      const items = await storage.getBulkUploadItemsByJob(jobId);
+      
+      // Reconstruct CSV from items
+      const rows = items.map(item => item.rowData);
+      const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+      
+      // Convert back to CSV string for preprocessing
+      const csvData = Papa.unparse({
+        fields: headers,
+        data: rows,
+      });
+
+      // Preprocess the CSV
+      const result = await multiRowPreprocessor.preprocess(csvData);
+
+      // Update job with preprocessing results
+      await storage.updateBulkUploadJob(jobId, {
+        status: 'preprocessed' as any,
+        totalRows: result.productCount, // Update with flattened product count
+        metadata: {
+          preprocessing: {
+            format: result.format,
+            originalRowCount: result.originalRowCount,
+            productCount: result.productCount,
+            warnings: result.warnings,
+            diagnostics: result.diagnostics,
+          }
+        } as any,
+      });
+
+      // Replace job items with flattened rows
+      if (result.format !== 'generic') {
+        // Delete old items
+        await storage.deleteBulkUploadItemsByJob(jobId);
+
+        // Create new items from flattened rows
+        const newItems = result.flattenedRows.map((row: any, index: number) => ({
+          jobId,
+          rowNumber: index + 1,
+          rowData: row,
+          validationStatus: 'pending' as any,
+        }));
+
+        await storage.createBulkUploadItems(newItems);
+      }
+
+      // Extract new headers for AI mapping
+      const newHeaders = result.flattenedRows.length > 0 
+        ? Object.keys(result.flattenedRows[0]) 
+        : headers;
+
+      res.json({
+        format: result.format,
+        originalRowCount: result.originalRowCount,
+        productCount: result.productCount,
+        warnings: result.warnings,
+        diagnostics: result.diagnostics,
+        headers: newHeaders,
+        message: result.format === 'generic' 
+          ? 'CSV format is already single-row, no preprocessing needed'
+          : `Preprocessed ${result.format} format: ${result.originalRowCount} rows → ${result.productCount} products`,
+      });
+    } catch (error) {
+      logger.error("Error preprocessing CSV", error);
+      res.status(500).json({ error: "Failed to preprocess CSV" });
     }
   });
 
