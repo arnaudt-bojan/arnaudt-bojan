@@ -63,6 +63,16 @@ import { SKUService } from "./services/sku.service";
 import { RefundService } from "./services/refund.service";
 import crypto from "crypto";
 
+// Import Newsletter Services (Architecture 3)
+import { CampaignService } from "./services/newsletter/campaign.service";
+import { SubscriberService } from "./services/newsletter/subscriber.service";
+import { AnalyticsService } from "./services/newsletter/analytics.service";
+import { TemplateService } from "./services/newsletter/template.service";
+import { ComplianceService } from "./services/newsletter/compliance.service";
+import { SegmentationService } from "./services/newsletter/segmentation.service";
+import { emailProvider } from "./services/email-provider.service";
+import { newsletterJobQueue } from "./services/newsletter/job-queue.service";
+
 // Initialize notification service
 const notificationService = createNotificationService(storage);
 
@@ -262,6 +272,21 @@ const quotationPaymentService = new QuotationPaymentService(
   stripeConnectService,
   stripe || undefined
 );
+
+// Initialize Newsletter Services (Architecture 3)
+const subscriberService = new SubscriberService(storage);
+const complianceService = new ComplianceService(storage);
+const segmentationService = new SegmentationService(storage);
+const templateService = new TemplateService(storage);
+const analyticsService = new AnalyticsService(storage);
+const campaignService = new CampaignService(
+  storage,
+  emailProvider, // Use singleton from email-provider.service
+  newsletterJobQueue
+);
+
+// Start the newsletter job queue
+newsletterJobQueue.start();
 
 // Initialize CreateFlowService workflow orchestrator (Architecture 3)
 // Requires: storage, config, and all workflow step dependencies
@@ -5639,7 +5664,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Newsletter routes
+  // ========================================
+  // Newsletter Routes (Architecture 3 - Service Layer)
+  // ========================================
+  
   app.get("/api/newsletters", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -5653,89 +5681,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/newsletters", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { subject, content, recipients } = req.body;
+      const { subject, content, htmlContent, recipients, groupIds, segmentIds, scheduledAt } = req.body;
       
-      console.log('[Newsletter] Create request body:', { subject, content, recipients: recipients?.length || 'undefined' });
-
-      if (!subject || !content || !recipients || recipients.length === 0) {
-        console.log('[Newsletter] Validation failed:', { subject: !!subject, content: !!content, recipients: recipients?.length });
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      const newsletter = await storage.createNewsletter({
-        userId,
-        subject,
-        content,
-        recipients,
-        status: "draft",
+      logger.info('[Newsletter] Create request', { 
+        subject, 
+        hasContent: !!content,
+        hasHtml: !!htmlContent,
+        recipientCount: recipients?.length || 0,
+        groupCount: groupIds?.length || 0,
+        segmentCount: segmentIds?.length || 0,
+        scheduledAt 
       });
 
-      res.status(201).json(newsletter);
-    } catch (error) {
+      if (!subject || (!content && !htmlContent)) {
+        return res.status(400).json({ error: "Subject and content are required" });
+      }
+
+      // Use CampaignService to create campaign
+      const campaign = await campaignService.createCampaign(userId, {
+        subject,
+        content,
+        htmlContent: htmlContent || null,
+        recipients: recipients || [],
+        groupIds: groupIds || [],
+        segmentIds: segmentIds || [],
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+      });
+
+      res.status(201).json(campaign);
+    } catch (error: any) {
       logger.error("Newsletter creation error", error);
-      res.status(500).json({ error: "Failed to create newsletter" });
+      res.status(500).json({ error: error.message || "Failed to create newsletter" });
     }
   });
 
   app.post("/api/newsletters/:id/send", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const newsletterId = req.params.id;
+      const campaignId = req.params.id;
 
-      // Fetch newsletter
-      const newsletter = await storage.getNewsletter(newsletterId);
-      if (!newsletter || newsletter.userId !== userId) {
-        return res.status(404).json({ error: "Newsletter not found" });
+      // Verify ownership
+      const campaign = await storage.getNewsletter(campaignId);
+      if (!campaign || campaign.userId !== userId) {
+        return res.status(404).json({ error: "Campaign not found" });
       }
 
-      if (newsletter.status === "sent") {
-        return res.status(400).json({ error: "Newsletter has already been sent" });
-      }
-
-      // Fetch user/seller information for "from" field
-      const seller = await storage.getUser(userId);
-      if (!seller) {
-        return res.status(404).json({ error: "Seller not found" });
-      }
-
-      // Build recipients list from newsletter.recipients (array of email strings)
-      const recipients = Array.isArray(newsletter.recipients) 
-        ? newsletter.recipients.map((email: any) => ({ email: String(email) }))
-        : [];
-
-      if (recipients.length === 0) {
-        return res.status(400).json({ error: "No recipients found" });
-      }
-
-      // Send newsletter via Resend - use verified upfirst.io domain
-      const result = await notificationService.sendNewsletter({
-        userId,
-        newsletterId,
-        recipients,
-        from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
-        replyTo: seller.email || undefined,
-        subject: newsletter.subject,
-        htmlContent: newsletter.content,
-      });
-
-      if (!result.success) {
-        return res.status(500).json({ error: result.error || "Failed to send newsletter" });
-      }
-
-      // Update newsletter status
-      await storage.updateNewsletter(newsletterId, {
-        status: "sent",
-        sentAt: new Date(),
-      });
+      // Use CampaignService to send
+      const result = await campaignService.sendCampaign(campaignId);
 
       res.json({ 
-        success: true, 
-        message: `Newsletter sent to ${recipients.length} recipients`,
-        batchId: result.batchId 
+        success: result.success, 
+        message: `Campaign queued for sending to ${result.recipientCount} recipients`,
+        campaignId: result.campaignId
       });
-    } catch (error) {
-      logger.error("Newsletter send error", error);
-      res.status(500).json({ error: "Failed to send newsletter" });
+    } catch (error: any) {
+      logger.error("Campaign send error", error);
+      res.status(500).json({ error: error.message || "Failed to send campaign" });
     }
   });
 
@@ -5760,64 +5761,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/newsletters/:id/test", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const newsletterId = req.params.id;
+      const campaignId = req.params.id;
       const { testEmail } = req.body;
 
       if (!testEmail?.trim()) {
         return res.status(400).json({ error: "Test email address is required" });
       }
 
-      const newsletter = await storage.getNewsletter(newsletterId);
-      if (!newsletter || newsletter.userId !== userId) {
-        return res.status(404).json({ error: "Newsletter not found" });
+      // Verify ownership
+      const campaign = await storage.getNewsletter(campaignId);
+      if (!campaign || campaign.userId !== userId) {
+        return res.status(404).json({ error: "Campaign not found" });
       }
 
-      const seller = await storage.getUser(userId);
-      if (!seller) {
-        return res.status(404).json({ error: "Seller not found" });
-      }
-
-      // Send test email using notification service
-      const result = await notificationService.sendNewsletter({
-        userId,
-        newsletterId,
-        recipients: [{ email: testEmail.trim() }],
-        from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
-        replyTo: seller.email || undefined,
-        subject: `[TEST] ${newsletter.subject}`,
-        htmlContent: newsletter.content,
-      });
-
-      if (!result.success) {
-        return res.status(500).json({ error: result.error || "Failed to send test email" });
-      }
+      // Use CampaignService to send test email
+      await campaignService.sendTestEmail(campaignId, testEmail.trim());
 
       res.json({ 
         success: true, 
         message: `Test email sent to ${testEmail}` 
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error("Test email send error", error);
-      res.status(500).json({ error: "Failed to send test email" });
+      res.status(500).json({ error: error.message || "Failed to send test email" });
     }
   });
 
   // Track newsletter open (public endpoint - no auth required)
   app.get("/api/newsletters/track/:id/open", async (req, res) => {
     try {
-      const newsletterId = req.params.id;
+      const campaignId = req.params.id;
       const recipientEmail = req.query.email as string;
 
       if (!recipientEmail) {
         return res.status(400).send("Email required");
       }
 
-      // Track the open event
-      await notificationService.trackNewsletterEvent(
-        newsletterId,
-        recipientEmail,
-        'open'
-      );
+      // Use AnalyticsService to track open event
+      await analyticsService.trackOpen(campaignId, recipientEmail);
 
       // Return a 1x1 transparent pixel
       const pixel = Buffer.from(
@@ -5850,23 +5831,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/newsletters/unsubscribe", async (req, res) => {
     try {
       const email = req.query.email as string;
+      const userId = req.query.userId as string;
 
-      if (!email) {
-        return res.status(400).send("Email required");
+      if (!email || !userId) {
+        return res.status(400).send("Email and user ID required");
       }
 
-      // Track unsubscribe event (if we have a newsletterId, otherwise just update subscriber)
-      const newsletterId = req.query.newsletterId as string;
-      if (newsletterId) {
-        await notificationService.trackNewsletterEvent(
-          newsletterId,
-          email,
-          'unsubscribe'
-        );
-      }
+      // Use SubscriberService to unsubscribe
+      await subscriberService.unsubscribe(userId, email, 'user_request');
 
-      // TODO: Implement subscriber management when newsletter subscriber table is added
-      // For now, the tracking above is sufficient
+      // Track unsubscribe event if campaign ID provided
+      const campaignId = req.query.campaignId as string;
+      if (campaignId) {
+        await analyticsService.trackUnsubscribe(campaignId, email);
+      }
 
       // HTML escape function to prevent XSS
       const escapeHtml = (unsafe: string) => {

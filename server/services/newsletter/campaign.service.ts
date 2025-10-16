@@ -29,10 +29,30 @@ export class CampaignService {
   async createCampaign(userId: string, data: CreateCampaignDTO): Promise<Newsletter> {
     logger.info(`[CampaignService] Creating campaign for user ${userId}`);
 
-    // Build recipients list from segments and groups
-    const recipients = await this.resolveRecipients(userId, data.segmentIds, data.groupIds);
+    // Collect recipients from multiple sources
+    const recipientEmails = new Set<string>();
 
-    if (recipients.length === 0) {
+    // 1. Add direct recipients from the request
+    if (data.recipients && data.recipients.length > 0) {
+      data.recipients.forEach(email => recipientEmails.add(email));
+      logger.info(`[CampaignService] Added ${data.recipients.length} direct recipients`);
+    }
+
+    // 2. Add recipients from segments and groups
+    const subscribersFromSegmentsAndGroups = await this.resolveRecipients(
+      userId, 
+      data.segmentIds, 
+      data.groupIds
+    );
+    subscribersFromSegmentsAndGroups.forEach(sub => recipientEmails.add(sub.email));
+
+    if (subscribersFromSegmentsAndGroups.length > 0) {
+      logger.info(`[CampaignService] Added ${subscribersFromSegmentsAndGroups.length} recipients from segments/groups`);
+    }
+
+    // Validate we have at least one recipient
+    const finalRecipients = Array.from(recipientEmails);
+    if (finalRecipients.length === 0) {
       throw new Error("No recipients found for this campaign");
     }
 
@@ -41,12 +61,12 @@ export class CampaignService {
       subject: data.subject,
       content: data.content,
       htmlContent: data.htmlContent || null,
-      recipients: recipients.map(r => r.email),
+      recipients: finalRecipients,
       groupIds: data.groupIds || null,
       status: data.scheduledAt ? "draft" : "draft",
     });
 
-    logger.info(`[CampaignService] Campaign created: ${campaign.id} with ${recipients.length} recipients`);
+    logger.info(`[CampaignService] Campaign created: ${campaign.id} with ${finalRecipients.length} total recipients`);
 
     // If scheduled, create schedule entry
     if (data.scheduledAt) {

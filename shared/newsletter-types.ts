@@ -10,7 +10,8 @@
 export interface CreateCampaignDTO {
   subject: string;
   content: string;
-  htmlContent?: string;
+  htmlContent?: string | null;
+  recipients?: string[]; // Direct email addresses
   templateId?: string;
   segmentIds?: string[];
   groupIds?: string[];
