@@ -130,6 +130,13 @@ export class SubscriberService {
     if (updated) {
       logger.info(`[SubscriberService] Subscriber unsubscribed`, { email, reason: reason || "no reason" });
       
+      // Remove from all existing groups (except Unsubscribed which we'll add them to)
+      try {
+        await this.removeFromAllGroups(userId, subscriber.id);
+      } catch (error: any) {
+        logger.error(`[SubscriberService] Failed to remove subscriber from groups:`, error);
+      }
+      
       // Automatically add to "Unsubscribed" system group
       try {
         await this.ensureUnsubscribedGroup(userId, subscriber.id);
@@ -139,6 +146,25 @@ export class SubscriberService {
     }
 
     return updated;
+  }
+
+  /**
+   * Remove subscriber from all groups
+   */
+  private async removeFromAllGroups(userId: string, subscriberId: string): Promise<void> {
+    logger.info(`[SubscriberService] Removing subscriber from all groups`, { subscriberId });
+    
+    const groups = await this.storage.getSubscriberGroupsByUserId(userId);
+    
+    for (const group of groups) {
+      const members = group.subscriberIds || [];
+      if (members.includes(subscriberId)) {
+        await this.storage.updateSubscriberGroup(group.id, {
+          subscriberIds: members.filter(id => id !== subscriberId)
+        });
+        logger.info(`[SubscriberService] Removed subscriber from group`, { subscriberId, groupId: group.id, groupName: group.name });
+      }
+    }
   }
 
   /**
