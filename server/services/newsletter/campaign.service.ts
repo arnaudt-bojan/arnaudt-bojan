@@ -66,6 +66,8 @@ export class CampaignService {
     const campaign = await this.storage.createNewsletter({
       userId,
       subject: data.subject,
+      preheader: data.preheader || null,
+      fromName: data.fromName || null,
       content: data.content,
       htmlContent: data.htmlContent || null,
       recipients: finalRecipients,
@@ -115,16 +117,32 @@ export class CampaignService {
       throw new Error("No recipients found");
     }
 
-    // Generate valid HTML payload for ESP
+    // Build "from" name - use campaign's custom fromName, or fall back to seller's store/name
+    const fromName = campaign.fromName || seller.storeName || seller.firstName || seller.username || 'Store';
+    
+    // Generate valid HTML payload for ESP with preheader support
     let htmlPayload: string;
     if (campaign.htmlContent) {
-      // Use HTML version if available
-      htmlPayload = campaign.htmlContent;
+      // Use HTML version if available, add preheader if exists
+      if (campaign.preheader) {
+        // Inject preheader at the start of HTML body
+        htmlPayload = campaign.htmlContent.replace(
+          /<body[^>]*>/i,
+          `$&<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaign.preheader}</span>`
+        );
+      } else {
+        htmlPayload = campaign.htmlContent;
+      }
     } else if (campaign.content) {
       // Transform plain text to HTML if only text version exists
+      const preheaderHtml = campaign.preheader 
+        ? `<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaign.preheader}</span>`
+        : '';
+      
       htmlPayload = `<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  ${preheaderHtml}
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     ${campaign.content.replace(/\n/g, '<br>')}
   </div>
@@ -141,10 +159,10 @@ export class CampaignService {
         data: {
           campaignId,
           recipients,
-          from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
+          from: `${fromName} <hello@upfirst.io>`,
           replyTo: seller.email || undefined,
           subject: campaign.subject,
-          htmlContent: htmlPayload, // Guaranteed valid HTML
+          htmlContent: htmlPayload, // Guaranteed valid HTML with preheader
         },
         priority: 5,
       });

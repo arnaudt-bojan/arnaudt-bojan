@@ -1310,10 +1310,13 @@ export const newsletters = pgTable("newsletters", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   subject: text("subject").notNull(),
+  preheader: text("preheader"), // Optional preheader text for email preview
+  fromName: text("from_name"), // Optional custom sender name (e.g., "John's Store")
   content: text("content").notNull(), // Plain text content
   htmlContent: text("html_content"), // HTML content for email
   recipients: jsonb("recipients").notNull(), // Array of recipient email addresses
   groupIds: text("group_ids").array(), // Array of subscriber group IDs
+  segmentIds: text("segment_ids").array(), // Array of segment IDs for targeting
   images: jsonb("images"), // Array of {id, url, productId?, link, alt}
   status: text("status").notNull().default("draft"), // "draft", "sent", "failed"
   sentAt: timestamp("sent_at"),
