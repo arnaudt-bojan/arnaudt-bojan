@@ -6179,6 +6179,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update campaign
+  app.put("/api/campaigns/:id", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const campaignId = req.params.id;
+      
+      // Verify ownership
+      const existing = await storage.getNewsletter(campaignId);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      
+      // Only allow editing draft and scheduled campaigns
+      if (existing.status !== 'draft' && existing.status !== 'scheduled') {
+        return res.status(400).json({ error: "Cannot edit campaigns that have been sent" });
+      }
+      
+      // Validate request body
+      const updateSchema = z.object({
+        subject: z.string().min(1, "Subject is required").optional(),
+        content: z.string().min(1, "Content is required").optional(),
+        htmlContent: z.string().optional().nullable(),
+        preheader: z.string().optional().nullable(),
+        fromName: z.string().optional().nullable(),
+        recipients: z.array(z.string().email()).optional(),
+        sendToAll: z.boolean().optional(),
+        groupIds: z.array(z.string()).optional(),
+        scheduledAt: z.string().datetime().optional(),
+        timezone: z.string().optional(),
+      });
+
+      const validatedData = updateSchema.parse(req.body);
+      
+      // Convert scheduledAt string to Date if present
+      const updateData: any = {
+        ...validatedData,
+        scheduledAt: validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : undefined,
+      };
+      
+      // Update campaign
+      const updated = await storage.updateNewsletter(campaignId, updateData);
+      res.json(updated);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Update campaign error", error);
+      res.status(500).json({ error: error.message || "Failed to update campaign" });
+    }
+  });
+
   // Send campaign immediately
   app.post("/api/campaigns/:id/send", requireAuth, requireUserType("seller"), async (req: any, res) => {
     try {

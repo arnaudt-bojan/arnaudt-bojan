@@ -58,6 +58,8 @@ interface Campaign {
   subject: string;
   content: string;
   htmlContent: string | null;
+  preheader?: string | null;
+  fromName?: string | null;
   groupIds: string[] | null;
   status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
   sentAt: string | null;
@@ -88,6 +90,7 @@ export default function SellerNewsletterPage() {
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerStep, setDrawerStep] = useState(1);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   
   // Campaign state
   const [subject, setSubject] = useState("");
@@ -143,18 +146,24 @@ export default function SellerNewsletterPage() {
   // Mutations
   const createCampaignMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log("[Campaign] Creating campaign with data:", data);
-      const response = await apiRequest("POST", "/api/campaigns", data);
-      return response;
+      if (editingCampaignId) {
+        console.log("[Campaign] Updating campaign", editingCampaignId, "with data:", data);
+        const response = await apiRequest("PUT", `/api/campaigns/${editingCampaignId}`, data);
+        return response;
+      } else {
+        console.log("[Campaign] Creating campaign with data:", data);
+        const response = await apiRequest("POST", "/api/campaigns", data);
+        return response;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      toast({ title: "Campaign created successfully" });
+      toast({ title: editingCampaignId ? "Campaign updated successfully" : "Campaign created successfully" });
       resetDrawer();
     },
     onError: (error: any) => {
-      console.error("[Campaign] Creation error:", error);
-      toast({ title: "Failed to create campaign", variant: "destructive" });
+      console.error("[Campaign] Error:", error);
+      toast({ title: editingCampaignId ? "Failed to update campaign" : "Failed to create campaign", variant: "destructive" });
     },
   });
 
@@ -261,6 +270,7 @@ export default function SellerNewsletterPage() {
   const resetDrawer = () => {
     setIsDrawerOpen(false);
     setDrawerStep(1);
+    setEditingCampaignId(null);
     setSubject("");
     setPreheader("");
     setFromName("");
@@ -270,6 +280,30 @@ export default function SellerNewsletterPage() {
     setSendNow(true);
     setScheduledDate("");
     setScheduledTime("");
+  };
+
+  const openEditDrawer = (campaign: Campaign) => {
+    setEditingCampaignId(campaign.id);
+    setSubject(campaign.subject);
+    setPreheader(campaign.preheader || "");
+    setFromName(campaign.fromName || "");
+    setContent(campaign.content);
+    setRecipientType(campaign.groupIds && campaign.groupIds.length > 0 ? "groups" : "all");
+    setSelectedGroupIds(campaign.groupIds || []);
+    
+    // Check if campaign is scheduled
+    if (campaign.status === 'scheduled') {
+      setSendNow(false);
+      // Note: We'd need scheduledAt from the backend to populate the date/time
+      // For now, set sendNow to false so it shows as draft
+    } else {
+      setSendNow(campaign.status === 'draft' ? false : true);
+      setScheduledDate("");
+      setScheduledTime("");
+    }
+    
+    setDrawerStep(1);
+    setIsDrawerOpen(true);
   };
 
   const handleCreateCampaign = () => {
@@ -551,9 +585,7 @@ export default function SellerNewsletterPage() {
                                       Send Now
                                     </DropdownMenuItem>
                                     <DropdownMenuItem 
-                                      onClick={() => {
-                                        toast({ title: "Edit feature coming soon", description: "Edit functionality will be available in the next update" });
-                                      }}
+                                      onClick={() => openEditDrawer(campaign)}
                                       data-testid={`action-edit-${campaign.id}`}
                                     >
                                       <Edit className="mr-2 h-4 w-4" />
@@ -565,9 +597,7 @@ export default function SellerNewsletterPage() {
                                 {campaign.status === 'scheduled' && (
                                   <>
                                     <DropdownMenuItem 
-                                      onClick={() => {
-                                        toast({ title: "Edit Schedule feature coming soon" });
-                                      }}
+                                      onClick={() => openEditDrawer(campaign)}
                                       data-testid={`action-edit-schedule-${campaign.id}`}
                                     >
                                       <Calendar className="mr-2 h-4 w-4" />
@@ -862,7 +892,7 @@ export default function SellerNewsletterPage() {
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Create Email Campaign</SheetTitle>
+            <SheetTitle>{editingCampaignId ? 'Edit Email Campaign' : 'Create Email Campaign'}</SheetTitle>
           </SheetHeader>
 
           <div className="mt-6">
