@@ -129,10 +129,11 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
 
   // Validate and apply mappings
   const handleApplyMappings = () => {
-    const missingRequired = CSV_TEMPLATE_FIELDS
-      .filter(f => f.required)
-      .filter(f => !mappings.some(m => m.standardField === f.name))
-      .map(f => f.name);
+    // Check against database column names (not display names)
+    const requiredDbColumns = ['name', 'description', 'price', 'category'];
+    const mappedDbColumns = new Set(mappings.filter(m => m.standardField).map(m => m.standardField));
+    
+    const missingRequired = requiredDbColumns.filter(col => !mappedDbColumns.has(col));
 
     if (missingRequired.length > 0) {
       toast({
