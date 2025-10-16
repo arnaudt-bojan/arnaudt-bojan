@@ -149,14 +149,13 @@ export class CampaignService {
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
           const alt = altMatch ? altMatch[1] : '';
           
-          // Build mobile-friendly image wrapper (Mailchimp/SendGrid standard)
-          // Key for mobile: Fixed width attribute + responsive CSS max-width
-          // CRITICAL: Don't use height="auto" - Apple Mail mobile doesn't support it, image won't display
-          return `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 10px 0; min-width: 100%;">
+          // APPLE MAIL MOBILE FIX: Remove ALL HTML attributes (width, height, border)
+          // Use ONLY inline CSS styles for maximum compatibility
+          return `<table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 10px 0;">
   <tbody>
     <tr>
-      <td align="center" valign="top" style="padding: 0;">
-        <img src="${src}" alt="${alt}" width="600" border="0" style="border: 0; outline: none; text-decoration: none; display: block; max-width: 100%; height: auto; -ms-interpolation-mode: bicubic;">
+      <td align="center" style="padding: 0;">
+        <img src="${src}" alt="${alt}" style="display: block; width: 100%; max-width: 600px; height: auto; border: none; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;">
       </td>
     </tr>
   </tbody>
