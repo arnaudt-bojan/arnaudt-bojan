@@ -234,12 +234,21 @@ Analyze each header and provide the best mapping with confidence score and reaso
   /**
    * Apply field mappings to transform user data to standard format
    * Translates display names to database columns (Architecture 3)
+   * Preserves preprocessing-generated fields (variants, etc.)
    */
   applyMapping(
     userRow: Record<string, any>,
     mappings: FieldMapping[]
   ): Record<string, any> {
     const transformedRow: Record<string, any> = {};
+
+    // Preserve preprocessing-generated fields (variants from WooCommerce/Shopify)
+    const preprocessingFields = ['variants'];
+    for (const field of preprocessingFields) {
+      if (userRow[field] !== undefined) {
+        transformedRow[field] = userRow[field];
+      }
+    }
 
     for (const mapping of mappings) {
       if (mapping.standardField && userRow[mapping.userField] !== undefined) {
