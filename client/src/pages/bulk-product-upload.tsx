@@ -20,8 +20,9 @@ type PreprocessingResult = {
   productCount: number;
   warnings: string[];
   diagnostics: {
-    orphanedVariations: number;
-    missingParents: number;
+    orphanedVariations?: number;
+    missingParents?: number;
+    duplicateHandles?: number;
   };
   headers: string[];
 };

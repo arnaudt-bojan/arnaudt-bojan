@@ -14,6 +14,7 @@ export interface PreprocessingResult {
   originalRowCount: number;
   productCount: number;
   flattenedRows: Record<string, any>[];
+  headers: string[];
   warnings: string[];
   diagnostics: {
     orphanedVariations?: number;
@@ -70,6 +71,7 @@ export class MultiRowProductPreprocessor {
           originalRowCount: rows.length,
           productCount: rows.length,
           flattenedRows: rows,
+          headers: headers,
           warnings: [],
           diagnostics: {},
         };
@@ -195,11 +197,19 @@ export class MultiRowProductPreprocessor {
       }
     });
 
+    // Extract headers from all flattened rows (union of all keys)
+    const headerSet = new Set<string>();
+    flattenedRows.forEach(row => {
+      Object.keys(row).forEach(key => headerSet.add(key));
+    });
+    const flattenedHeaders = Array.from(headerSet);
+    
     return {
       format: 'woocommerce',
       originalRowCount: rows.length,
       productCount: flattenedRows.length,
       flattenedRows,
+      headers: flattenedHeaders.length > 0 ? flattenedHeaders : headers,
       warnings,
       diagnostics,
     };
@@ -325,11 +335,19 @@ export class MultiRowProductPreprocessor {
       flattenedRows.push(flattened);
     });
 
+    // Extract headers from all flattened rows (union of all keys)
+    const headerSet = new Set<string>();
+    flattenedRows.forEach(row => {
+      Object.keys(row).forEach(key => headerSet.add(key));
+    });
+    const flattenedHeaders = Array.from(headerSet);
+    
     return {
       format: 'shopify',
       originalRowCount: rows.length,
       productCount: flattenedRows.length,
       flattenedRows,
+      headers: flattenedHeaders.length > 0 ? flattenedHeaders : headers,
       warnings,
       diagnostics,
     };
