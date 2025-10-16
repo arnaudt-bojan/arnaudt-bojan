@@ -1,6 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from "react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import { useState, useRef } from "react";
+import { Editor } from "@tinymce/tinymce-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,118 +120,8 @@ export default function SellerNewsletterPage() {
   const [csvPreview, setCsvPreview] = useState<{ email: string; name?: string }[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Quill ref for custom image handler
-  const quillRef = useRef<any>(null);
-
-  // Custom image handler for React Quill
-  const imageHandler = useCallback(() => {
-    const input = document.createElement('input');
-    input.setAttribute('type', 'file');
-    input.setAttribute('accept', 'image/*');
-    input.click();
-
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please select an image file",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Image must be less than 5MB",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Show loading state
-      const quill = quillRef.current?.getEditor();
-      if (!quill) return;
-      
-      const range = quill.getSelection(true);
-      
-      try {
-        quill.insertText(range.index, 'Uploading image...');
-
-        // Upload image
-        const formData = new FormData();
-        formData.append('image', file);
-
-        const response = await fetch('/api/newsletter/upload-image', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Upload failed');
-        }
-
-        const data = await response.json();
-        
-        // Remove "Uploading..." text and insert image
-        quill.deleteText(range.index, 'Uploading image...'.length);
-        quill.insertEmbed(range.index, 'image', data.url, 'user');
-        quill.setSelection(range.index + 1);
-
-        toast({
-          title: "Image uploaded",
-          description: "Image added to your email",
-        });
-      } catch (error) {
-        console.error('Image upload error:', error);
-        toast({
-          title: "Upload failed",
-          description: "Could not upload image. Please try again.",
-          variant: "destructive",
-        });
-        
-        // Remove "Uploading..." text using the original range
-        quill.deleteText(range.index, 'Uploading image...'.length);
-      }
-    };
-  }, [toast]);
-
-  // Quill modules configuration with custom image and link handlers
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ 'header': [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline'],
-        ['link', 'image'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        ['clean']
-      ],
-      handlers: {
-        image: imageHandler,
-        link: function(value: any) {
-          if (value) {
-            const href = prompt('Enter link URL:');
-            if (href) {
-              const formattedHref = href.match(/^https?:\/\//) ? href : `https://${href}`;
-              const quill = (this as any).quill;
-              const range = quill.getSelection();
-              if (range) {
-                quill.format('link', formattedHref);
-              }
-            }
-          } else {
-            (this as any).quill.format('link', false);
-          }
-        }
-      }
-    },
-  }), [imageHandler]);
+  // TinyMCE editor ref
+  const editorRef = useRef<any>(null);
 
   // Queries
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery<Campaign[]>({
@@ -1186,13 +1075,73 @@ export default function SellerNewsletterPage() {
                   {/* Editor */}
                   <div>
                     <Label className="mb-2 block">Email Content *</Label>
-                    <ReactQuill
-                      ref={quillRef}
-                      theme="snow"
+                    <Editor
+                      tinymceScriptSrc="/tinymce/tinymce.min.js"
+                      onInit={(evt, editor) => editorRef.current = editor}
                       value={content}
-                      onChange={setContent}
-                      className="h-[500px] [&_.ql-editor]:break-words [&_.ql-editor]:overflow-wrap-anywhere"
-                      modules={modules}
+                      onEditorChange={(newContent) => setContent(newContent)}
+                      init={{
+                        height: 500,
+                        menubar: false,
+                        plugins: [
+                          'lists', 'link', 'image', 'table', 'code', 'fullscreen',
+                          'insertdatetime', 'media', 'wordcount', 'anchor', 'searchreplace',
+                          'visualblocks', 'visualchars', 'charmap', 'nonbreaking',
+                          'emoticons', 'help'
+                        ],
+                        toolbar: 'undo redo | blocks | fontfamily fontsize | ' +
+                                'forecolor backcolor | bold italic underline strikethrough | ' +
+                                'alignleft aligncenter alignright alignjustify | ' +
+                                'bullist numlist outdent indent | link image media table | ' +
+                                'removeformat code fullscreen',
+                        font_family_formats: 'Arial=arial,helvetica,sans-serif; ' +
+                                            'Arial Black=arial black,avant garde; ' +
+                                            'Book Antiqua=book antiqua,palatino; ' +
+                                            'Comic Sans MS=comic sans ms,sans-serif; ' +
+                                            'Courier New=courier new,courier; ' +
+                                            'Georgia=georgia,palatino; ' +
+                                            'Helvetica=helvetica; ' +
+                                            'Impact=impact,chicago; ' +
+                                            'Tahoma=tahoma,arial,helvetica,sans-serif; ' +
+                                            'Times New Roman=times new roman,times; ' +
+                                            'Trebuchet MS=trebuchet ms,geneva; ' +
+                                            'Verdana=verdana,geneva',
+                        font_size_formats: '8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
+                        content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+                        branding: false,
+                        promotion: false,
+                        images_upload_handler: async (blobInfo: any) => {
+                          const formData = new FormData();
+                          formData.append('image', blobInfo.blob(), blobInfo.filename());
+                          
+                          try {
+                            const response = await fetch('/api/newsletter/upload-image', {
+                              method: 'POST',
+                              body: formData,
+                              credentials: 'include',
+                            });
+                            
+                            if (!response.ok) {
+                              throw new Error('Upload failed');
+                            }
+                            
+                            const data = await response.json();
+                            toast({
+                              title: "Image uploaded",
+                              description: "Image added to your email",
+                            });
+                            return data.url;
+                          } catch (error) {
+                            console.error('Image upload error:', error);
+                            toast({
+                              title: "Upload failed",
+                              description: "Could not upload image. Please try again.",
+                              variant: "destructive",
+                            });
+                            throw error;
+                          }
+                        },
+                      }}
                     />
                   </div>
 
