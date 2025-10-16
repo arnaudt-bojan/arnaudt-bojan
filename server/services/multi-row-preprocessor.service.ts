@@ -295,8 +295,29 @@ export class MultiRowProductPreprocessor {
     // Use parent name
     flattened.name = parent.Name || parent.name || '';
     
-    // Use parent price as base price
-    flattened.price = parent['Regular price'] || parent['regular price'] || parent.Price || parent.price || '';
+    // Use parent price as base price, fall back to minimum variation price
+    let basePrice = parent['Regular price'] || parent['regular price'] || parent.Price || parent.price || '';
+    if (!basePrice && variantsArray.length > 0) {
+      // Use minimum variation price if parent price is empty
+      const variantPrices = variantsArray
+        .map(v => parseFloat(v.price))
+        .filter(p => !isNaN(p) && p > 0);
+      if (variantPrices.length > 0) {
+        basePrice = Math.min(...variantPrices).toString();
+      }
+    }
+    flattened.price = basePrice;
+    
+    // Use parent stock, fall back to sum of variation stock
+    let baseStock = parent.Stock || parent.stock || '';
+    if (!baseStock && variantsArray.length > 0) {
+      // Sum variation stock if parent stock is empty
+      const totalStock = variantsArray.reduce((sum, v) => sum + (v.stock || 0), 0);
+      if (totalStock > 0) {
+        baseStock = totalStock.toString();
+      }
+    }
+    flattened.stock = baseStock;
 
     return flattened;
   }
