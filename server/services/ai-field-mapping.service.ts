@@ -246,6 +246,13 @@ Analyze each header and provide the best mapping with confidence score and reaso
         // Find the schema field to get the database column name
         const schemaField = ALL_SCHEMA_FIELDS.find((f: SchemaField) => f.name === mapping.standardField);
         
+        logger.info('[applyMapping] Processing mapping', {
+          userField: mapping.userField,
+          standardField: mapping.standardField,
+          schemaFieldFound: schemaField ? schemaField.dbColumn : 'NOT_FOUND',
+          userValue: userRow[mapping.userField],
+        });
+        
         if (schemaField) {
           // Use database column name, not display name
           transformedRow[schemaField.dbColumn] = userRow[mapping.userField];
@@ -256,6 +263,7 @@ Analyze each header and provide the best mapping with confidence score and reaso
       }
     }
 
+    logger.info('[applyMapping] Final transformed row', { transformedRow });
     return transformedRow;
   }
 
