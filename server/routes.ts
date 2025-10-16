@@ -76,6 +76,12 @@ import { newsletterJobQueue } from "./services/newsletter/job-queue.service";
 // Initialize notification service
 const notificationService = createNotificationService(storage);
 
+// Initialize Newsletter Architecture 3 Services
+const campaignService = new CampaignService(storage, emailProvider, newsletterJobQueue);
+const segmentationService = new SegmentationService(storage);
+const templateService = new TemplateService(storage);
+const analyticsService = new AnalyticsService(storage);
+
 // Initialize authorization service for capability checks
 const authorizationService = new AuthorizationService(storage);
 
@@ -273,17 +279,9 @@ const quotationPaymentService = new QuotationPaymentService(
   stripe || undefined
 );
 
-// Initialize Newsletter Services (Architecture 3)
+// Initialize additional Newsletter Services (Architecture 3)
 const subscriberService = new SubscriberService(storage);
 const complianceService = new ComplianceService(storage);
-const segmentationService = new SegmentationService(storage);
-const templateService = new TemplateService(storage);
-const analyticsService = new AnalyticsService(storage);
-const campaignService = new CampaignService(
-  storage,
-  emailProvider, // Use singleton from email-provider.service
-  newsletterJobQueue
-);
 
 // Start the newsletter job queue
 newsletterJobQueue.start();
@@ -5692,35 +5690,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/newsletters", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { subject, content, htmlContent, recipients, groupIds, segmentIds, scheduledAt } = req.body;
       
-      logger.info('[Newsletter] Create request', { 
-        subject, 
-        hasContent: !!content,
-        hasHtml: !!htmlContent,
-        recipientCount: recipients?.length || 0,
-        groupCount: groupIds?.length || 0,
-        segmentCount: segmentIds?.length || 0,
-        scheduledAt 
+      const newsletterSchema = z.object({
+        subject: z.string().min(1, "Subject is required"),
+        content: z.string().optional(),
+        htmlContent: z.string().optional(),
+        recipients: z.array(z.string().email()).optional(),
+        groupIds: z.array(z.string()).optional(),
+        segmentIds: z.array(z.string()).optional(),
+        scheduledAt: z.string().optional(),
+      }).refine(data => data.content || data.htmlContent, {
+        message: "Either content or htmlContent is required",
       });
 
-      if (!subject || (!content && !htmlContent)) {
-        return res.status(400).json({ error: "Subject and content are required" });
-      }
+      const validated = newsletterSchema.parse(req.body);
+      
+      logger.info('[Newsletter] Create request', { 
+        subject: validated.subject, 
+        hasContent: !!validated.content,
+        hasHtml: !!validated.htmlContent,
+        recipientCount: validated.recipients?.length || 0,
+        groupCount: validated.groupIds?.length || 0,
+        segmentCount: validated.segmentIds?.length || 0,
+        scheduledAt: validated.scheduledAt 
+      });
 
       // Use CampaignService to create campaign
       const campaign = await campaignService.createCampaign(userId, {
-        subject,
-        content,
-        htmlContent: htmlContent || null,
-        recipients: recipients || [],
-        groupIds: groupIds || [],
-        segmentIds: segmentIds || [],
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        subject: validated.subject,
+        content: validated.content,
+        htmlContent: validated.htmlContent || null,
+        recipients: validated.recipients || [],
+        groupIds: validated.groupIds || [],
+        segmentIds: validated.segmentIds || [],
+        scheduledAt: validated.scheduledAt ? new Date(validated.scheduledAt) : undefined,
       });
 
       res.status(201).json(campaign);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
       logger.error("Newsletter creation error", error);
       res.status(500).json({ error: error.message || "Failed to create newsletter" });
     }
@@ -5773,11 +5784,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const campaignId = req.params.id;
-      const { testEmail } = req.body;
+      
+      const testEmailSchema = z.object({
+        testEmail: z.string().email("Valid email address is required"),
+      });
 
-      if (!testEmail?.trim()) {
-        return res.status(400).json({ error: "Test email address is required" });
-      }
+      const validated = testEmailSchema.parse(req.body);
 
       // Verify ownership
       const campaign = await storage.getNewsletter(campaignId);
@@ -5786,13 +5798,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use CampaignService to send test email
-      await campaignService.sendTestEmail(campaignId, testEmail.trim());
+      await campaignService.sendTestEmail(campaignId, validated.testEmail.trim());
 
       res.json({ 
         success: true, 
-        message: `Test email sent to ${testEmail}` 
+        message: `Test email sent to ${validated.testEmail}` 
       });
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
       logger.error("Test email send error", error);
       res.status(500).json({ error: error.message || "Failed to send test email" });
     }
@@ -5932,27 +5948,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/newsletter-templates", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, subject, content, htmlContent, images } = req.body;
+      
+      const templateSchema = z.object({
+        name: z.string().min(1, "Template name is required"),
+        subject: z.string().min(1, "Subject is required"),
+        content: z.string().default(''),
+        htmlContent: z.string().optional(),
+        images: z.any().optional(),
+        variables: z.array(z.string()).optional(),
+      });
 
-      if (!name?.trim()) {
-        return res.status(400).json({ error: "Template name is required" });
-      }
-
-      if (!subject?.trim()) {
-        return res.status(400).json({ error: "Subject is required" });
-      }
+      const validated = templateSchema.parse(req.body);
 
       const template = await storage.createNewsletterTemplate({
         userId,
-        name: name.trim(),
-        subject: subject.trim(),
-        content: content || '',
-        htmlContent: htmlContent || null,
-        images: images || null,
+        name: validated.name.trim(),
+        subject: validated.subject.trim(),
+        content: validated.content,
+        htmlContent: validated.htmlContent || null,
+        images: validated.images || null,
       });
 
       res.json(template);
-    } catch (error) {
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
       logger.error("Create newsletter template error", error);
       res.status(500).json({ error: "Failed to create newsletter template" });
     }
@@ -6050,6 +6072,300 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // Architecture 3 Campaign Routes - Using Services
+  // ============================================================================
+
+  // Create a new campaign
+  app.post("/api/campaigns", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request body
+      const campaignSchema = z.object({
+        subject: z.string().min(1, "Subject is required"),
+        content: z.string().min(1, "Content is required"),
+        htmlContent: z.string().optional().nullable(),
+        recipients: z.array(z.string().email()).optional(),
+        sendToAll: z.boolean().optional(),
+        templateId: z.string().optional(),
+        segmentIds: z.array(z.string()).optional(),
+        groupIds: z.array(z.string()).optional(),
+        scheduledAt: z.string().datetime().optional(),
+        timezone: z.string().optional(),
+      });
+
+      const validatedData = campaignSchema.parse(req.body);
+      
+      // Convert scheduledAt string to Date if present
+      const campaignData = {
+        ...validatedData,
+        scheduledAt: validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : undefined,
+      };
+      
+      const campaign = await campaignService.createCampaign(userId, campaignData);
+      res.json(campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Create campaign error", error);
+      res.status(500).json({ error: error.message || "Failed to create campaign" });
+    }
+  });
+
+  // Get campaigns with optional filters
+  app.get("/api/campaigns", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { status } = req.query;
+      
+      let campaigns = await storage.getNewslettersByUserId(userId);
+      
+      if (status) {
+        campaigns = campaigns.filter(c => c.status === status);
+      }
+      
+      res.json(campaigns);
+    } catch (error) {
+      logger.error("Get campaigns error", error);
+      res.status(500).json({ error: "Failed to get campaigns" });
+    }
+  });
+
+  // Send campaign immediately
+  app.post("/api/campaigns/:id/send", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const result = await campaignService.sendCampaign(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      logger.error("Send campaign error", error);
+      res.status(500).json({ error: error.message || "Failed to send campaign" });
+    }
+  });
+
+  // Schedule campaign for later
+  app.post("/api/campaigns/:id/schedule", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      // Validate schedule data
+      const scheduleSchema = z.object({
+        scheduledAt: z.string().datetime("Invalid date format. Use ISO 8601 format (e.g., 2024-10-20T15:30:00Z)"),
+        timezone: z.string().optional().default('UTC'),
+      });
+
+      const validated = scheduleSchema.parse(req.body);
+      
+      // Validate that scheduledAt is in the future
+      const scheduledDate = new Date(validated.scheduledAt);
+      if (scheduledDate <= new Date()) {
+        return res.status(400).json({ error: "Scheduled time must be in the future" });
+      }
+      
+      const schedule = await campaignService.scheduleCampaign(
+        req.params.id,
+        scheduledDate,
+        validated.timezone
+      );
+      res.json(schedule);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Schedule campaign error", error);
+      res.status(500).json({ error: error.message || "Failed to schedule campaign" });
+    }
+  });
+
+  // Pause scheduled campaign
+  app.post("/api/campaigns/:id/pause", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const result = await campaignService.pauseCampaign(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      logger.error("Pause campaign error", error);
+      res.status(500).json({ error: error.message || "Failed to pause campaign" });
+    }
+  });
+
+  // Resume paused campaign
+  app.post("/api/campaigns/:id/resume", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const result = await campaignService.resumeCampaign(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      logger.error("Resume campaign error", error);
+      res.status(500).json({ error: error.message || "Failed to resume campaign" });
+    }
+  });
+
+  // ============================================================================
+  // Segmentation Routes - Using SegmentationService
+  // ============================================================================
+
+  // Create a new segment
+  app.post("/api/segments", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate segment data
+      const segmentSchema = z.object({
+        name: z.string().min(1, "Segment name is required"),
+        description: z.string().optional(),
+        rules: z.object({
+          conditions: z.array(z.object({
+            field: z.string(),
+            operator: z.string(),
+            value: z.union([z.string(), z.number(), z.boolean()]),
+          })).min(1, "At least one condition is required"),
+          operator: z.enum(['AND', 'OR']),
+        }),
+      });
+
+      const validated = segmentSchema.parse(req.body);
+      const segment = await segmentationService.createSegment(userId, validated);
+      res.json(segment);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Create segment error", error);
+      res.status(500).json({ error: error.message || "Failed to create segment" });
+    }
+  });
+
+  // Get segments
+  app.get("/api/segments", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const segments = await storage.getNewsletterSegmentsByUserId(userId);
+      res.json(segments);
+    } catch (error) {
+      logger.error("Get segments error", error);
+      res.status(500).json({ error: "Failed to get segments" });
+    }
+  });
+
+  // Preview segment subscriber count
+  app.post("/api/segments/preview", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate request body
+      const previewSchema = z.object({
+        rules: z.object({
+          conditions: z.array(z.object({
+            field: z.string(),
+            operator: z.string(),
+            value: z.union([z.string(), z.number(), z.boolean()]),
+          })).min(1, "At least one condition is required"),
+          operator: z.enum(['AND', 'OR']),
+        }),
+      });
+
+      const validated = previewSchema.parse(req.body);
+      const count = await segmentationService.previewSegment(userId, validated.rules);
+      res.json({ subscriberCount: count });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Preview segment error", error);
+      res.status(500).json({ error: error.message || "Failed to preview segment" });
+    }
+  });
+
+  // Get subscribers matching a segment
+  app.get("/api/segments/:id/subscribers", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const segment = await storage.getNewsletterSegment(req.params.id);
+      
+      if (!segment || segment.userId !== userId) {
+        return res.status(404).json({ error: "Segment not found" });
+      }
+      
+      const subscribers = await segmentationService.getSegmentSubscribers(userId, segment.rules);
+      res.json(subscribers);
+    } catch (error: any) {
+      logger.error("Get segment subscribers error", error);
+      res.status(500).json({ error: error.message || "Failed to get segment subscribers" });
+    }
+  });
+
+  // ============================================================================
+  // A/B Testing Routes
+  // ============================================================================
+
+  // Create A/B test for campaign
+  app.post("/api/campaigns/:id/ab-test", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      // Validate request body
+      const abTestSchema = z.object({
+        variantA: z.object({
+          subject: z.string().min(1, "Variant A subject is required"),
+          content: z.string().min(1, "Variant A content is required"),
+          htmlContent: z.string().optional(),
+        }),
+        variantB: z.object({
+          subject: z.string().min(1, "Variant B subject is required"),
+          content: z.string().min(1, "Variant B content is required"),
+          htmlContent: z.string().optional(),
+        }),
+        splitPercentage: z.number().min(1).max(99).optional(),
+        winnerMetric: z.enum(['open_rate', 'click_rate', 'conversion_rate']),
+        testDuration: z.number().positive().optional(),
+      });
+
+      const validated = abTestSchema.parse(req.body);
+      const abTest = await campaignService.createABTest(req.params.id, validated);
+      res.json(abTest);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Create A/B test error", error);
+      res.status(500).json({ error: error.message || "Failed to create A/B test" });
+    }
+  });
+
+  // Get A/B test results
+  app.get("/api/campaigns/:id/ab-test/results", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const results = await campaignService.getABTestResults(req.params.id);
+      res.json(results);
+    } catch (error: any) {
+      logger.error("Get A/B test results error", error);
+      res.status(500).json({ error: error.message || "Failed to get A/B test results" });
+    }
+  });
+
+  // Select winning variant
+  app.post("/api/campaigns/:id/ab-test/select-winner", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const winnerSchema = z.object({
+        winningVariant: z.enum(['A', 'B'], { 
+          errorMap: () => ({ message: "Winner ID must be either 'A' or 'B'" }) 
+        }),
+      });
+
+      const validated = winnerSchema.parse(req.body);
+      const result = await campaignService.selectWinner(req.params.id, validated.winningVariant);
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
+      logger.error("Select A/B test winner error", error);
+      res.status(500).json({ error: error.message || "Failed to select winner" });
+    }
+  });
+
   // Subscribers
   app.get("/api/subscribers", requireAuth, async (req: any, res) => {
     try {
@@ -6076,33 +6392,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/subscribers/bulk", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { subscribers } = req.body; // Array of { email, name }
+      
+      const bulkSubscriberSchema = z.object({
+        subscribers: z.array(
+          z.object({
+            email: z.string().email("Invalid email format"),
+            name: z.string().optional(),
+          })
+        ).min(1, "Subscribers array must contain at least one subscriber"),
+      });
 
-      if (!Array.isArray(subscribers) || subscribers.length === 0) {
-        return res.status(400).json({ error: "Subscribers array is required" });
-      }
+      const validated = bulkSubscriberSchema.parse(req.body);
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const results = {
         success: [] as string[],
         skipped: [] as { email: string; reason: string }[],
         errors: [] as { email: string; reason: string }[],
       };
 
-      for (const item of subscribers) {
-        const email = item.email?.trim().toLowerCase();
+      for (const item of validated.subscribers) {
+        const email = item.email.trim().toLowerCase();
         const name = item.name?.trim() || null;
-
-        // Validate email
-        if (!email) {
-          results.skipped.push({ email: item.email || 'unknown', reason: 'Empty email' });
-          continue;
-        }
-
-        if (!emailRegex.test(email)) {
-          results.skipped.push({ email, reason: 'Invalid email format' });
-          continue;
-        }
 
         try {
           // Check if subscriber already exists
@@ -6126,11 +6436,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
-        total: subscribers.length,
+        total: validated.subscribers.length,
         ...results,
         message: `Imported ${results.success.length} subscribers. ${results.skipped.length} skipped, ${results.errors.length} errors.`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
       logger.error("Bulk import subscribers error", error);
       res.status(500).json({ error: "Failed to import subscribers" });
     }
@@ -6139,32 +6453,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/subscribers", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { email, name, groupIds } = req.body;
+      
+      const subscriberSchema = z.object({
+        email: z.string().email("Valid email address is required"),
+        name: z.string().optional(),
+        groupIds: z.array(z.string()).optional(),
+      });
 
-      if (!email?.trim()) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        return res.status(400).json({ error: "Invalid email address" });
-      }
+      const validated = subscriberSchema.parse(req.body);
 
       const subscriber = await storage.createSubscriber({
         userId,
-        email: email.trim().toLowerCase(),
-        name: name?.trim() || null,
+        email: validated.email.trim().toLowerCase(),
+        name: validated.name?.trim() || null,
       });
 
       // Add to groups if specified
-      if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
-        for (const groupId of groupIds) {
+      if (validated.groupIds && validated.groupIds.length > 0) {
+        for (const groupId of validated.groupIds) {
           await storage.addSubscriberToGroup(subscriber.id, groupId);
         }
       }
 
       res.json(subscriber);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const friendlyError = fromZodError(error);
+        return res.status(400).json({ error: friendlyError.message });
+      }
       logger.error("Create subscriber error", error);
       if (error.message?.includes('unique constraint')) {
         return res.status(400).json({ error: "Subscriber with this email already exists" });

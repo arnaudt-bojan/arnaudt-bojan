@@ -26,6 +26,12 @@ import {
   type InsertNewsletterAnalytics,
   type NewsletterEvent,
   type InsertNewsletterEvent,
+  type NewsletterSegment,
+  type InsertNewsletterSegment,
+  type NewsletterSchedule,
+  type InsertNewsletterSchedule,
+  type NewsletterABTest,
+  type InsertNewsletterABTest,
   type NftMint,
   type InsertNftMint,
   type WholesaleProduct,
@@ -138,6 +144,9 @@ import {
   newsletterTemplates,
   newsletterAnalytics,
   newsletterEvents,
+  newsletterSegments,
+  newsletterSchedule,
+  newsletterABTests,
   nftMints,
   wholesaleProducts,
   wholesaleInvitations,
@@ -425,6 +434,20 @@ export interface IStorage {
   createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter>;
   updateNewsletter(id: string, data: Partial<Newsletter>): Promise<Newsletter | undefined>;
   deleteNewsletter(id: string): Promise<boolean>;
+  
+  // Newsletter Segments
+  createNewsletterSegment(segment: InsertNewsletterSegment): Promise<NewsletterSegment>;
+  getNewsletterSegment(id: string): Promise<NewsletterSegment | undefined>;
+  getNewsletterSegmentsByUserId(userId: string): Promise<NewsletterSegment[]>;
+  
+  // Newsletter Schedules
+  createNewsletterSchedule(schedule: InsertNewsletterSchedule): Promise<NewsletterSchedule>;
+  getNewsletterSchedule(id: string): Promise<NewsletterSchedule | undefined>;
+  getScheduledCampaigns(): Promise<NewsletterSchedule[]>;
+  
+  // Newsletter A/B Tests
+  createNewsletterABTest(test: InsertNewsletterABTest): Promise<NewsletterABTest>;
+  getNewsletterABTest(id: string): Promise<NewsletterABTest | undefined>;
   
   // Newsletter Templates
   getNewsletterTemplatesByUserId(userId: string): Promise<NewsletterTemplate[]>;
@@ -2468,6 +2491,55 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(newsletterTemplates).where(eq(newsletterTemplates.id, id));
     return true;
+  }
+
+  // Newsletter Segments
+  async createNewsletterSegment(segment: InsertNewsletterSegment): Promise<NewsletterSegment> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(newsletterSegments).values(segment).returning();
+    return result[0];
+  }
+
+  async getNewsletterSegment(id: string): Promise<NewsletterSegment | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletterSegments).where(eq(newsletterSegments.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getNewsletterSegmentsByUserId(userId: string): Promise<NewsletterSegment[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(newsletterSegments).where(eq(newsletterSegments.userId, userId)).orderBy(desc(newsletterSegments.createdAt));
+  }
+
+  // Newsletter Schedules
+  async createNewsletterSchedule(schedule: InsertNewsletterSchedule): Promise<NewsletterSchedule> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(newsletterSchedule).values(schedule).returning();
+    return result[0];
+  }
+
+  async getNewsletterSchedule(id: string): Promise<NewsletterSchedule | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletterSchedule).where(eq(newsletterSchedule.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getScheduledCampaigns(): Promise<NewsletterSchedule[]> {
+    await this.ensureInitialized();
+    return await this.db.select().from(newsletterSchedule).where(eq(newsletterSchedule.status, 'scheduled')).orderBy(asc(newsletterSchedule.scheduledAt));
+  }
+
+  // Newsletter A/B Tests
+  async createNewsletterABTest(test: InsertNewsletterABTest): Promise<NewsletterABTest> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(newsletterABTests).values(test).returning();
+    return result[0];
+  }
+
+  async getNewsletterABTest(id: string): Promise<NewsletterABTest | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(newsletterABTests).where(eq(newsletterABTests.id, id)).limit(1);
+    return result[0];
   }
 
   // Newsletter Analytics

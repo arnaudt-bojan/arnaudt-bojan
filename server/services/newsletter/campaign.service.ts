@@ -32,13 +32,20 @@ export class CampaignService {
     // Collect recipients from multiple sources
     const recipientEmails = new Set<string>();
 
-    // 1. Add direct recipients from the request
+    // 1. If sendToAll is true, get all subscribers for this user
+    if ((data as any).sendToAll) {
+      const allSubscribers = await this.storage.getSubscribersByUserId(userId);
+      allSubscribers.forEach(sub => recipientEmails.add(sub.email));
+      logger.info(`[CampaignService] Send to all: Added ${allSubscribers.length} subscribers`);
+    }
+
+    // 2. Add direct recipients from the request
     if (data.recipients && data.recipients.length > 0) {
       data.recipients.forEach(email => recipientEmails.add(email));
       logger.info(`[CampaignService] Added ${data.recipients.length} direct recipients`);
     }
 
-    // 2. Add recipients from segments and groups
+    // 3. Add recipients from segments and groups
     const subscribersFromSegmentsAndGroups = await this.resolveRecipients(
       userId, 
       data.segmentIds, 
@@ -63,6 +70,7 @@ export class CampaignService {
       htmlContent: data.htmlContent || null,
       recipients: finalRecipients,
       groupIds: data.groupIds || null,
+      segmentIds: data.segmentIds || null,
       status: data.scheduledAt ? "draft" : "draft",
     });
 
