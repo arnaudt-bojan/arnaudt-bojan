@@ -2597,9 +2597,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending'
       });
 
-      logger.info('[AIFieldMapping] Data transformed', { 
+      logger.info('[AIFieldMapping] Data transformed and status updated', { 
         jobId, 
-        itemCount: transformedCount 
+        itemCount: transformedCount,
+        newStatus: 'pending'
       });
 
       res.json({ 
