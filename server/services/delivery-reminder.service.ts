@@ -61,6 +61,12 @@ export class DeliveryReminderService {
     logger.debug("[DeliveryReminder] Starting reminder cycle");
 
     try {
+      // Validate SESSION_SECRET is configured
+      if (!process.env.SESSION_SECRET) {
+        logger.error("[DeliveryReminder] SESSION_SECRET is not configured - cannot send reminders with magic links");
+        throw new Error("SESSION_SECRET is required for delivery reminders");
+      }
+
       // Calculate target date (7 days from now)
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + 7);
@@ -74,12 +80,16 @@ export class DeliveryReminderService {
       // Get all orders
       const allOrders = await this.storage.getAllOrders();
 
-      // Track sellers we've already emailed (to avoid duplicate emails)
-      const emailedSellers = new Set<string>();
+      let emailsSent = 0;
 
       for (const order of allOrders) {
         // Skip if order is cancelled/refunded
         if (order.status === "cancelled" || order.status === "refunded") {
+          continue;
+        }
+
+        // Skip if reminder already sent (prevent duplicate emails)
+        if (order.deliveryReminderSentAt) {
           continue;
         }
 
@@ -115,22 +125,24 @@ export class DeliveryReminderService {
               continue;
             }
 
-            // Skip if we already emailed this seller about this order
-            const emailKey = `${seller.id}-${order.id}`;
-            if (emailedSellers.has(emailKey)) {
-              continue;
-            }
-
             // Send reminder email
             await this.sendReminderEmail(seller, order, item, deliveryDate);
-            emailedSellers.add(emailKey);
 
+            // Mark reminder as sent (prevents duplicate sends)
+            await this.storage.updateOrder(order.id, {
+              deliveryReminderSentAt: new Date(),
+            });
+
+            emailsSent++;
             logger.info(`[DeliveryReminder] Sent reminder to ${seller.email} for order ${order.id}`);
+            
+            // Only send one reminder per order (break after first matching item)
+            break;
           }
         }
       }
 
-      logger.debug(`[DeliveryReminder] Reminder cycle complete. Sent ${emailedSellers.size} emails`);
+      logger.debug(`[DeliveryReminder] Reminder cycle complete. Sent ${emailsSent} emails`);
     } catch (error) {
       logger.error("[DeliveryReminder] Error during reminder cycle:", error);
     }
@@ -138,9 +150,11 @@ export class DeliveryReminderService {
 
   /**
    * Generate a secure magic link token for seller authentication
+   * Token includes timestamp for expiry validation (7-day lifetime)
    */
   private generateMagicToken(sellerId: string, orderId: string): string {
-    const secret = process.env.SESSION_SECRET || "upfirst-secret-key";
+    // SESSION_SECRET is validated at the start of checkAndSendReminders
+    const secret = process.env.SESSION_SECRET!;
     const payload = `${sellerId}:${orderId}:${Date.now()}`;
     const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
     const token = Buffer.from(`${payload}:${signature}`).toString("base64url");

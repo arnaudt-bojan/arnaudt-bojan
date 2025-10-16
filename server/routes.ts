@@ -644,7 +644,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify and decode token
-      const secret = process.env.SESSION_SECRET || "upfirst-secret-key";
+      // Enforce mandatory SESSION_SECRET (fail fast if not configured)
+      const secret = process.env.SESSION_SECRET;
+      if (!secret) {
+        logger.error('[MagicLink] SESSION_SECRET not configured');
+        return res.status(500).send('<h1>Configuration Error</h1><p>Server is not properly configured.</p>');
+      }
+      
       let decoded: string;
       
       try {

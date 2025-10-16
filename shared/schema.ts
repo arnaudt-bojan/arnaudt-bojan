@@ -419,6 +419,9 @@ export const orders = pgTable("orders", {
   billingCity: text("billing_city"),
   billingState: text("billing_state"),
   billingPostalCode: varchar("billing_postal_code"),
+  
+  // Delivery reminder tracking (for pre-order/made-to-order products)
+  deliveryReminderSentAt: timestamp("delivery_reminder_sent_at"), // Track when 7-day reminder was sent
   billingCountry: varchar("billing_country"),
   
   // Balance Payment Architecture 3 fields - for deposit-only pricing and balance payment flow
