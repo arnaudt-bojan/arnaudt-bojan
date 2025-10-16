@@ -6,6 +6,7 @@
 import crypto from "crypto";
 import type { IStorage } from "../../storage";
 import type { Subscriber } from "@shared/schema";
+import type { AnalyticsService } from "./analytics.service";
 import { logger } from "../../logger";
 
 export interface ConsentRecord {
@@ -43,7 +44,10 @@ export interface GDPRExportData {
 }
 
 export class ComplianceService {
-  constructor(private storage: IStorage) {}
+  constructor(
+    private storage: IStorage,
+    private analyticsService?: AnalyticsService
+  ) {}
 
   /**
    * Track consent for a subscriber
@@ -307,14 +311,26 @@ export class ComplianceService {
         status: 'unsubscribed',
       });
 
-      // Track the unsubscribe event
-      await this.storage.createNewsletterEvent({
-        newsletterId: campaignId,
-        recipientEmail: email,
-        eventType: 'unsubscribe',
-        eventData: { timestamp: new Date().toISOString() },
-        webhookEventId: null,
-      });
+      // Track unsubscribe event in analytics
+      if (this.analyticsService) {
+        await this.analyticsService.ingestEvent({
+          campaignId,
+          recipientEmail: email,
+          eventType: 'unsubscribe',
+          eventData: { timestamp: new Date().toISOString() },
+        });
+      }
+
+      // Remove from all groups
+      const groups = await this.storage.getSubscriberGroupsByUserId(campaign.userId);
+      for (const group of groups) {
+        const members = group.subscriberIds || [];
+        if (members.includes(subscriber.id)) {
+          await this.storage.updateSubscriberGroup(group.id, {
+            subscriberIds: members.filter(id => id !== subscriber.id)
+          });
+        }
+      }
 
       logger.info(`[ComplianceService] Unsubscribe successful`, { email });
       return { success: true, email };

@@ -281,7 +281,7 @@ const quotationPaymentService = new QuotationPaymentService(
 
 // Initialize additional Newsletter Services (Architecture 3)
 const subscriberService = new SubscriberService(storage);
-const complianceService = new ComplianceService(storage);
+const complianceService = new ComplianceService(storage, analyticsService);
 
 // Start the newsletter job queue
 newsletterJobQueue.start();

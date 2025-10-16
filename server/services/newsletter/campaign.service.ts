@@ -123,16 +123,20 @@ export class CampaignService {
     // Generate valid HTML payload for ESP with preheader support
     let htmlPayload: string;
     if (campaign.htmlContent) {
-      // Use HTML version if available, add preheader if exists
-      if (campaign.preheader) {
-        // Inject preheader at the start of HTML body
-        htmlPayload = campaign.htmlContent.replace(
-          /<body[^>]*>/i,
-          `$&<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaign.preheader}</span>`
-        );
-      } else {
-        htmlPayload = campaign.htmlContent;
-      }
+      // Wrap Quill HTML in proper document structure
+      const preheaderHtml = campaign.preheader 
+        ? `<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaign.preheader}</span>`
+        : '';
+      
+      htmlPayload = `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  ${preheaderHtml}
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    ${campaign.htmlContent}
+  </div>
+</body>
+</html>`;
     } else if (campaign.content) {
       // Transform plain text to HTML if only text version exists
       const preheaderHtml = campaign.preheader 
@@ -154,9 +158,9 @@ export class CampaignService {
 
     // Inject GDPR-compliant unsubscribe footer with placeholders
     const unsubscribeFooter = `
-<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;font-size:12px;color:#999;">
-  <p>You're receiving this because you subscribed to {storeName}.</p>
-  <p><a href="{unsubscribeUrl}" style="color:#999;text-decoration:underline;">Unsubscribe</a></p>
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e5e5;text-align:center;font-size:13px;color:#737373;font-family:Arial,sans-serif;background-color:#ffffff;">
+  <p style="margin:0 0 8px 0;color:#737373;">You're receiving this because you subscribed to {storeName}.</p>
+  <p style="margin:0;"><a href="{unsubscribeUrl}" style="color:#737373;text-decoration:underline;">Unsubscribe</a></p>
 </div>`;
 
     // Inject footer before closing body tag
