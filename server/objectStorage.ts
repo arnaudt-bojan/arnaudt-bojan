@@ -104,9 +104,10 @@ export class ObjectStorageService {
       // Get the ACL policy for the object.
       const aclPolicy = await getObjectAclPolicy(file);
       const isPublic = aclPolicy?.visibility === "public";
-      // Set appropriate headers
+      // Set appropriate headers (CRITICAL: Apple Mail iOS requires Content-Disposition: inline)
       res.set({
         "Content-Type": metadata.contentType || "application/octet-stream",
+        "Content-Disposition": metadata.contentDisposition || "inline",
         "Content-Length": metadata.size,
         "Cache-Control": `${
           isPublic ? "public" : "private"
