@@ -600,12 +600,18 @@ export class BulkUploadService {
       item.validationStatus === 'valid' || item.validationStatus === 'warning'
     );
     
+    // Count items that were skipped due to validation errors
+    const validationErrorCount = items.filter(item => 
+      item.validationStatus === 'error'
+    ).length;
+    
     logger.info('[BulkUploadService] Valid items filtered', { 
-      validCount: validItems.length
+      validCount: validItems.length,
+      validationErrorCount
     });
     
     let successCount = 0;
-    let errorCount = 0;
+    let errorCount = validationErrorCount; // Start with validation errors
     const errors: string[] = [];
     
     // Update job status

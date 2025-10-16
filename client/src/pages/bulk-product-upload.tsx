@@ -840,17 +840,32 @@ export default function BulkProductUpload() {
                 )}
 
                 {currentJob.status === 'completed' && (
-                  <Card className="border-green-600 dark:border-green-400">
-                    <CardHeader>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-                        <CardTitle className="text-green-600 dark:text-green-400">Import Complete!</CardTitle>
-                      </div>
-                      <CardDescription>
-                        Successfully imported {currentJob.successCount} products
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <>
+                    {currentJob.successCount > 0 ? (
+                      <Card className="border-green-600 dark:border-green-400">
+                        <CardHeader>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                            <CardTitle className="text-green-600 dark:text-green-400">Import Complete!</CardTitle>
+                          </div>
+                          <CardDescription>
+                            Successfully imported {currentJob.successCount} products
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    ) : (
+                      <Alert variant="destructive">
+                        <XCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <p className="font-medium mb-2">Import completed but 0 products were imported</p>
+                          <p className="text-sm">
+                            All {currentJob.errorCount} products had validation errors. 
+                            Click "View" below to see specific error messages for each product.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </>
                 )}
 
                 {currentJob.status === 'failed' && (
@@ -896,7 +911,14 @@ export default function BulkProductUpload() {
                             <TableCell>{getStatusBadge(job.status)}</TableCell>
                             <TableCell>
                               {job.status === 'completed' ? (
-                                <span data-testid={`text-success-count-${job.id}`}>{job.successCount} imported</span>
+                                <div className="flex items-center gap-2">
+                                  <span data-testid={`text-success-count-${job.id}`}>{job.successCount} imported</span>
+                                  {job.successCount === 0 && job.errorCount > 0 && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {job.errorCount} errors
+                                    </Badge>
+                                  )}
+                                </div>
                               ) : (
                                 <span>{job.totalRows} rows</span>
                               )}
