@@ -14,7 +14,7 @@ import {
   Users, Plus, Trash2, Mail, Upload, Download, Send, 
   Monitor, Smartphone, BarChart3, TrendingUp, Clock, 
   CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft,
-  Eye, Loader2, MoreVertical, Edit, Copy, Calendar
+  Eye, Loader2, MoreVertical, Edit, Copy, Calendar, FileText
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -919,38 +919,15 @@ export default function SellerNewsletterPage() {
             {/* Step 2: Content & Preview */}
             {drawerStep === 2 && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Email Content *</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={previewMode === 'desktop' ? 'default' : 'outline'}
-                      onClick={() => setPreviewMode('desktop')}
-                      data-testid="button-preview-desktop"
-                    >
-                      <Monitor className="h-4 w-4 mr-1.5" />
-                      Desktop
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={previewMode === 'mobile' ? 'default' : 'outline'}
-                      onClick={() => setPreviewMode('mobile')}
-                      data-testid="button-preview-mobile"
-                    >
-                      <Smartphone className="h-4 w-4 mr-1.5" />
-                      Mobile
-                    </Button>
-                  </div>
-                </div>
-                
                 <div className="grid grid-cols-2 gap-4">
                   {/* Editor */}
                   <div>
+                    <Label className="mb-2 block">Email Content *</Label>
                     <ReactQuill
                       theme="snow"
                       value={content}
                       onChange={setContent}
-                      className="h-96 [&_.ql-editor]:break-words [&_.ql-editor]:overflow-wrap-anywhere"
+                      className="h-[500px] [&_.ql-editor]:break-words [&_.ql-editor]:overflow-wrap-anywhere"
                       modules={{
                         toolbar: [
                           [{ 'header': [1, 2, 3, false] }],
@@ -963,10 +940,13 @@ export default function SellerNewsletterPage() {
                     />
                   </div>
 
-                  {/* Preview Pane */}
-                  <div className="flex items-center justify-center min-h-[500px]">
-                    {previewMode === 'mobile' ? (
-                      /* Mobile Device Frame */
+                  {/* Mobile Preview */}
+                  <div>
+                    <Label className="mb-2 block flex items-center gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      Mobile Preview
+                    </Label>
+                    <div className="flex items-center justify-center">
                       <div className="relative">
                         {/* iPhone Frame */}
                         <div className="w-[390px] h-[844px] bg-black rounded-[3rem] p-3 shadow-2xl">
@@ -1044,83 +1024,7 @@ export default function SellerNewsletterPage() {
                         {/* Home Indicator */}
                         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-32 h-1 bg-white rounded-full"></div>
                       </div>
-                    ) : (
-                      /* Desktop Email Client */
-                      <div className="w-full max-w-4xl">
-                        <div className="border rounded-lg shadow-lg overflow-hidden bg-white dark:bg-gray-900">
-                          {/* Email Client Header */}
-                          <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 border-b flex items-center gap-2">
-                            <div className="flex gap-1.5">
-                              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            </div>
-                            <div className="flex-1 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
-                              Email Preview
-                            </div>
-                          </div>
-                          
-                          {/* Email Toolbar */}
-                          <div className="bg-gray-50 dark:bg-gray-800 px-6 py-3 border-b flex items-center gap-4">
-                            <button className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M19 12H5M12 19l-7-7 7-7"/>
-                              </svg>
-                            </button>
-                            <div className="flex-1"></div>
-                            <button className="text-gray-600 dark:text-gray-400">
-                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 6h18M3 12h18M3 18h18"/>
-                              </svg>
-                            </button>
-                          </div>
-                          
-                          {/* Email Content */}
-                          <div className="bg-white dark:bg-gray-900 p-8">
-                            {/* Sender Info */}
-                            <div className="mb-6 pb-6 border-b">
-                              <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-lg">
-                                  {(fromName || 'U').charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-baseline gap-2 flex-wrap">
-                                    <span className="font-semibold text-foreground">
-                                      {fromName || 'Your Brand'}
-                                    </span>
-                                    <span className="text-sm text-muted-foreground break-words">
-                                      &lt;hello@upfirst.io&gt;
-                                    </span>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground mt-1">
-                                    to recipients
-                                  </div>
-                                  <h1 className="text-2xl font-bold mt-4 text-foreground break-words">
-                                    {subject || 'Email Subject'}
-                                  </h1>
-                                  {preheader && (
-                                    <p className="text-muted-foreground mt-2 break-words">
-                                      {preheader}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="text-sm text-muted-foreground whitespace-nowrap">
-                                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Email Body */}
-                            <div 
-                              className="prose dark:prose-invert max-w-none break-words [&_*]:break-words"
-                              dangerouslySetInnerHTML={{ 
-                                __html: content || '<p class="text-muted-foreground">Your email content will appear here...</p>' 
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1181,22 +1085,65 @@ export default function SellerNewsletterPage() {
                 <Separator />
 
                 <div>
-                  <Label className="mb-3 block">Schedule</Label>
-                  <RadioGroup value={sendNow ? "now" : "later"} onValueChange={(v) => setSendNow(v === "now")}>
-                    <div className="flex items-center space-x-2">
+                  <Label className="mb-3 block">What would you like to do?</Label>
+                  <RadioGroup 
+                    value={sendNow ? "now" : (scheduledDate && scheduledTime ? "later" : "draft")} 
+                    onValueChange={(v) => {
+                      if (v === "now") {
+                        setSendNow(true);
+                        setScheduledDate("");
+                        setScheduledTime("");
+                      } else if (v === "draft") {
+                        setSendNow(false);
+                        setScheduledDate("");
+                        setScheduledTime("");
+                      } else {
+                        setSendNow(false);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center space-x-2 p-3 border rounded-md hover-elevate">
                       <RadioGroupItem value="now" id="now" data-testid="radio-send-now" />
-                      <Label htmlFor="now">Send Now</Label>
+                      <Label htmlFor="now" className="flex-1 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Send className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Send Now</div>
+                            <div className="text-sm text-muted-foreground">Send immediately to all recipients</div>
+                          </div>
+                        </div>
+                      </Label>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 p-3 border rounded-md hover-elevate">
                       <RadioGroupItem value="later" id="later" data-testid="radio-send-later" />
-                      <Label htmlFor="later">Schedule for Later</Label>
+                      <Label htmlFor="later" className="flex-1 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Schedule for Later</div>
+                            <div className="text-sm text-muted-foreground">Pick a date and time to send</div>
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 p-3 border rounded-md hover-elevate">
+                      <RadioGroupItem value="draft" id="draft" data-testid="radio-save-draft" />
+                      <Label htmlFor="draft" className="flex-1 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Save as Draft</div>
+                            <div className="text-sm text-muted-foreground">Save and send later manually</div>
+                          </div>
+                        </div>
+                      </Label>
                     </div>
                   </RadioGroup>
 
-                  {!sendNow && (
+                  {!sendNow && scheduledDate === "" && scheduledTime === "" && (
                     <div className="mt-4 grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="scheduledDate">Date</Label>
+                        <Label htmlFor="scheduledDate">Date (Optional)</Label>
                         <Input
                           id="scheduledDate"
                           type="date"
@@ -1206,7 +1153,32 @@ export default function SellerNewsletterPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="scheduledTime">Time</Label>
+                        <Label htmlFor="scheduledTime">Time (Optional)</Label>
+                        <Input
+                          id="scheduledTime"
+                          type="time"
+                          value={scheduledTime}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                          data-testid="input-scheduled-time"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!sendNow && (scheduledDate || scheduledTime) && (
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="scheduledDate">Date *</Label>
+                        <Input
+                          id="scheduledDate"
+                          type="date"
+                          value={scheduledDate}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                          data-testid="input-scheduled-date"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="scheduledTime">Time *</Label>
                         <Input
                           id="scheduledTime"
                           type="time"
@@ -1286,12 +1258,22 @@ export default function SellerNewsletterPage() {
                   {createCampaignMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      {sendNow ? 'Sending...' : 'Saving...'}
+                    </>
+                  ) : sendNow ? (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Create & Send
+                    </>
+                  ) : (scheduledDate && scheduledTime) ? (
+                    <>
+                      <Calendar className="mr-2 h-4 w-4" />
+                      Schedule Campaign
                     </>
                   ) : (
                     <>
-                      <Send className="mr-2 h-4 w-4" />
-                      {sendNow ? 'Create & Send' : 'Create Campaign'}
+                      <FileText className="mr-2 h-4 w-4" />
+                      Save as Draft
                     </>
                   )}
                 </Button>
