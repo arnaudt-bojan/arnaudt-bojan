@@ -6869,8 +6869,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get subscribers for specific group
         subscribers = await storage.getSubscribersByGroupId(userId, groupId as string);
       } else {
-        // Get all subscribers
-        subscribers = await storage.getSubscribersByUserId(userId);
+        // Get all subscribers, but EXCLUDE unsubscribed ones
+        // Only show active subscribers in "All Subscribers" view
+        const allSubscribers = await storage.getSubscribersByUserId(userId);
+        subscribers = allSubscribers.filter(sub => sub.status === 'active');
       }
       
       res.json(subscribers);

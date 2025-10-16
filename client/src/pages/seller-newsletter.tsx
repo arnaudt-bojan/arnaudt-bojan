@@ -537,6 +537,8 @@ export default function SellerNewsletterPage() {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )[0];
 
+  // When viewing "All Subscribers", the backend already filters to active only
+  // So subscribers.length IS the active count when selectedGroup is null
   const totalSubscribers = subscribers.length;
   const activeSubscribers = subscribers.filter(s => s.status === 'active').length;
   const totalSent = analytics.reduce((sum, a) => sum + a.totalSent, 0);

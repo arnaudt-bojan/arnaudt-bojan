@@ -306,6 +306,17 @@ export class ComplianceService {
       // Use SubscriberService to unsubscribe (handles "Unsubscribed" group automatically)
       await this.subscriberService.unsubscribe(campaign.userId, email, 'unsubscribe_link');
 
+      // Track open event first (you can't unsubscribe without opening the email)
+      // This helps track opens when email clients block tracking pixels
+      if (this.analyticsService) {
+        await this.analyticsService.ingestEvent({
+          campaignId,
+          recipientEmail: email,
+          eventType: 'open',
+          eventData: { source: 'inferred_from_unsubscribe' },
+        });
+      }
+
       // Track unsubscribe event in analytics
       if (this.analyticsService) {
         await this.analyticsService.ingestEvent({
