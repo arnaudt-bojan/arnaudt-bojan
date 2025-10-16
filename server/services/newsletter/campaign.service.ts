@@ -158,7 +158,7 @@ export class CampaignService {
 
     // Inject GDPR-compliant unsubscribe footer with placeholders
     const unsubscribeFooter = `
-<div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e5e5;text-align:center;font-size:13px;color:#737373;font-family:Arial,sans-serif;background-color:#ffffff;">
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e5e5;text-align:center;font-size:13px;color:#737373;font-family:Arial,sans-serif;">
   <p style="margin:0 0 8px 0;color:#737373;">You're receiving this because you subscribed to {storeName}.</p>
   <p style="margin:0;"><a href="{unsubscribeUrl}" style="color:#737373;text-decoration:underline;">Unsubscribe</a></p>
 </div>`;

@@ -221,7 +221,9 @@ export class ComplianceService {
    * Generate unsubscribe URL for email footer
    */
   generateUnsubscribeUrl(campaignId: string, subscriberEmail: string): string {
-    const baseUrl = process.env.APP_URL || "https://upfirst.io";
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : (process.env.APP_URL || "http://localhost:5000");
     const token = this.generateUnsubscribeToken(campaignId, subscriberEmail);
     return `${baseUrl}/api/unsubscribe/${token}`;
   }
