@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -117,6 +117,104 @@ export default function SellerNewsletterPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<{ email: string; name?: string }[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // Quill ref for custom image handler
+  const quillRef = useRef<any>(null);
+
+  // Custom image handler for React Quill
+  const imageHandler = useCallback(() => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Image must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Show loading state
+      const quill = quillRef.current?.getEditor();
+      if (!quill) return;
+      
+      const range = quill.getSelection(true);
+      
+      try {
+        quill.insertText(range.index, 'Uploading image...');
+
+        // Upload image
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch('/api/newsletter/upload-image', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const data = await response.json();
+        
+        // Remove "Uploading..." text and insert image
+        quill.deleteText(range.index, 'Uploading image...'.length);
+        quill.insertEmbed(range.index, 'image', data.url, 'user');
+        quill.setSelection(range.index + 1);
+
+        toast({
+          title: "Image uploaded",
+          description: "Image added to your email",
+        });
+      } catch (error) {
+        console.error('Image upload error:', error);
+        toast({
+          title: "Upload failed",
+          description: "Could not upload image. Please try again.",
+          variant: "destructive",
+        });
+        
+        // Remove "Uploading..." text using the original range
+        quill.deleteText(range.index, 'Uploading image...'.length);
+      }
+    };
+  }, [toast]);
+
+  // Quill modules configuration with custom image handler
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        ['link', 'image'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['clean']
+      ],
+      handlers: {
+        image: imageHandler
+      }
+    },
+  }), [imageHandler]);
 
   // Queries
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery<Campaign[]>({
@@ -976,19 +1074,12 @@ export default function SellerNewsletterPage() {
                   <div>
                     <Label className="mb-2 block">Email Content *</Label>
                     <ReactQuill
+                      ref={quillRef}
                       theme="snow"
                       value={content}
                       onChange={setContent}
                       className="h-[500px] [&_.ql-editor]:break-words [&_.ql-editor]:overflow-wrap-anywhere"
-                      modules={{
-                        toolbar: [
-                          [{ 'header': [1, 2, 3, false] }],
-                          ['bold', 'italic', 'underline'],
-                          ['link', 'image'],
-                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                          ['clean']
-                        ],
-                      }}
+                      modules={modules}
                     />
                   </div>
 

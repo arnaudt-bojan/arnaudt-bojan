@@ -6234,6 +6234,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload image for newsletter editor
+  app.post("/api/newsletter/upload-image", requireAuth, requireUserType("seller"), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!req.files || !req.files.image) {
+        return res.status(400).json({ error: "No image file provided" });
+      }
+
+      const imageFile = Array.isArray(req.files.image) ? req.files.image[0] : req.files.image;
+      
+      // Validate file type
+      if (!imageFile.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: "File must be an image" });
+      }
+
+      // Validate file size (max 5MB)
+      if (imageFile.size > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "Image must be less than 5MB" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Get upload URL
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      logger.info('[Newsletter] Generated presigned URL for image upload');
+      
+      // Upload file to object storage
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: imageFile.data,
+        headers: {
+          'Content-Type': imageFile.mimetype,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        logger.error('[Newsletter] Storage upload failed:', uploadResponse.status, errorText);
+        throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
+      }
+      
+      // Normalize the path and set public ACL
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        uploadURL,
+        {
+          owner: userId,
+          visibility: "public",
+        }
+      );
+      
+      logger.info('[Newsletter] Image uploaded:', { userId, path: objectPath });
+      
+      // Construct the full URL that can be used in emails
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : 'http://localhost:5000';
+      const url = `${baseUrl}${objectPath}`;
+
+      res.json({ url });
+    } catch (error: any) {
+      logger.error("Newsletter image upload error", error);
+      res.status(500).json({ error: error.message || "Failed to upload image" });
+    }
+  });
+
   // Subscriber Groups
   app.get("/api/subscriber-groups", requireAuth, async (req: any, res) => {
     try {
