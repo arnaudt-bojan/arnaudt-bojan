@@ -2592,6 +2592,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transformedCount++;
       }
 
+      // Update job status to 'pending' so it's ready for validation
+      await storage.updateBulkUploadJob(jobId, { 
+        status: 'pending'
+      });
+
       logger.info('[AIFieldMapping] Data transformed', { 
         jobId, 
         itemCount: transformedCount 
