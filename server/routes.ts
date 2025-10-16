@@ -6271,10 +6271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const event = req.body;
 
-      logger.info('[Newsletter Webhook] Received Resend webhook:', { 
-        type: event.type,
-        email: event.data?.email 
-      });
+      // Log full payload to debug tag structure
+      logger.info('[Newsletter Webhook] Full webhook payload:', JSON.stringify(event, null, 2));
 
       // Map Resend event types to our analytics events
       const eventTypeMap: Record<string, 'open' | 'click' | 'bounce' | 'unsubscribe'> = {
@@ -6287,14 +6285,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const analyticsEventType = eventTypeMap[event.type];
 
-      // Extract campaignId from tags instead of event.data
-      const campaignIdTag = event.data?.tags?.find((tag: any) => tag.name === 'campaignId');
-      const campaignId = campaignIdTag?.value;
+      // Extract campaignId from tags
+      // Note: Resend transforms our array format [{ name: 'key', value: 'val' }]
+      // into an object format { key: 'val' } in webhook payloads
+      let campaignId: string | undefined;
+      
+      if (event.data?.tags) {
+        // Resend webhooks return tags as object: { campaignId: 'xxx' }
+        if (typeof event.data.tags === 'object' && !Array.isArray(event.data.tags)) {
+          campaignId = event.data.tags.campaignId;
+        }
+        // Fallback: handle array format just in case
+        else if (Array.isArray(event.data.tags)) {
+          const campaignIdTag = event.data.tags.find((tag: any) => tag?.name === 'campaignId');
+          campaignId = campaignIdTag?.value;
+        }
+      }
+      
+      // Extract email from either `email` field or `to` array
+      const recipientEmail = event.data?.email || event.data?.to?.[0];
+      
+      logger.info('[Newsletter Webhook] Parsed data:', { 
+        type: event.type,
+        email: recipientEmail,
+        campaignId,
+        rawTags: event.data?.tags
+      });
 
-      if (analyticsEventType && event.data?.email && campaignId) {
+      if (analyticsEventType && recipientEmail && campaignId) {
         await analyticsService.ingestEvent({
           campaignId: campaignId,
-          recipientEmail: event.data.email,
+          recipientEmail: recipientEmail,
           eventType: analyticsEventType,
           eventData: event.data,
           webhookEventId: event.id || null,
@@ -6302,11 +6323,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         logger.info('[Newsletter Webhook] Event ingested:', {
           type: analyticsEventType,
-          email: event.data.email,
+          email: recipientEmail,
           campaignId: campaignId,
         });
       } else {
-        logger.warn('[Newsletter Webhook] Unmapped or incomplete event:', { type: event.type });
+        logger.warn('[Newsletter Webhook] Unmapped or incomplete event:', { 
+          type: event.type, 
+          hasEmail: !!recipientEmail,
+          hasCampaignId: !!campaignId,
+          hasAnalyticsType: !!analyticsEventType
+        });
       }
 
       // Always return 200 OK to acknowledge receipt
