@@ -14,7 +14,7 @@ import {
   Users, Plus, Trash2, Mail, Upload, Download, Send, 
   Monitor, Smartphone, BarChart3, TrendingUp, Clock, 
   CheckCircle, AlertCircle, X, ChevronRight, ChevronLeft,
-  Eye, Loader2
+  Eye, Loader2, MoreVertical, Edit, Copy, Calendar
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -24,6 +24,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import Papa from "papaparse";
 import { format } from "date-fns";
 
@@ -148,6 +155,32 @@ export default function SellerNewsletterPage() {
     onError: (error: any) => {
       console.error("[Campaign] Creation error:", error);
       toast({ title: "Failed to create campaign", variant: "destructive" });
+    },
+  });
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/campaigns/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      toast({ title: "Campaign deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete campaign", variant: "destructive" });
+    },
+  });
+
+  const sendCampaignMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("POST", `/api/campaigns/${id}/send`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      toast({ title: "Campaign sent successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to send campaign", variant: "destructive" });
     },
   });
 
@@ -473,6 +506,7 @@ export default function SellerNewsletterPage() {
                         <TableHead>Recipients</TableHead>
                         <TableHead>Sent At</TableHead>
                         <TableHead>Created</TableHead>
+                        <TableHead className="w-[50px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -495,6 +529,92 @@ export default function SellerNewsletterPage() {
                             {campaign.sentAt ? format(new Date(campaign.sentAt), 'MMM d, yyyy h:mm a') : '-'}
                           </TableCell>
                           <TableCell>{format(new Date(campaign.createdAt), 'MMM d, yyyy')}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  data-testid={`button-actions-${campaign.id}`}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {campaign.status === 'draft' && (
+                                  <>
+                                    <DropdownMenuItem 
+                                      onClick={() => sendCampaignMutation.mutate(campaign.id)}
+                                      data-testid={`action-send-${campaign.id}`}
+                                    >
+                                      <Send className="mr-2 h-4 w-4" />
+                                      Send Now
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                      onClick={() => {
+                                        toast({ title: "Edit feature coming soon", description: "Edit functionality will be available in the next update" });
+                                      }}
+                                      data-testid={`action-edit-${campaign.id}`}
+                                    >
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                {campaign.status === 'scheduled' && (
+                                  <>
+                                    <DropdownMenuItem 
+                                      onClick={() => {
+                                        toast({ title: "Edit Schedule feature coming soon" });
+                                      }}
+                                      data-testid={`action-edit-schedule-${campaign.id}`}
+                                    >
+                                      <Calendar className="mr-2 h-4 w-4" />
+                                      Edit Schedule
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                {(campaign.status === 'sent' || campaign.status === 'failed') && (
+                                  <>
+                                    <DropdownMenuItem 
+                                      onClick={() => {
+                                        toast({ title: "View Details feature coming soon" });
+                                      }}
+                                      data-testid={`action-view-${campaign.id}`}
+                                    >
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    toast({ title: "Duplicate feature coming soon" });
+                                  }}
+                                  data-testid={`action-duplicate-${campaign.id}`}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                                {campaign.status !== 'sending' && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="text-destructive"
+                                      onClick={() => deleteCampaignMutation.mutate(campaign.id)}
+                                      data-testid={`action-delete-${campaign.id}`}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

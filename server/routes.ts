@@ -286,6 +286,51 @@ const complianceService = new ComplianceService(storage);
 // Start the newsletter job queue
 newsletterJobQueue.start();
 
+// Register newsletter job processors (MUST be at module level, before registerRoutes)
+newsletterJobQueue.registerProcessor('send_campaign', async (job, signal) => {
+  const { campaignId, recipients, from, replyTo, subject, htmlContent } = job.data;
+  
+  logger.info(`[NewsletterProcessor] Processing send_campaign job for campaign ${campaignId} with ${recipients.length} recipients`);
+  
+  // Send emails to all recipients
+  for (const recipient of recipients) {
+    if (signal.aborted) {
+      throw new Error('Job aborted');
+    }
+    
+    try {
+      await emailProvider.sendEmail({
+        to: recipient.email,
+        from,
+        replyTo,
+        subject,
+        html: htmlContent,
+      });
+      logger.info(`[NewsletterProcessor] Email sent to ${recipient.email}`);
+    } catch (error) {
+      logger.error(`[NewsletterProcessor] Failed to send email to ${recipient.email}:`, error);
+      // Continue with other recipients
+    }
+  }
+  
+  // Update campaign status to sent
+  await storage.updateNewsletter(campaignId, {
+    status: 'sent',
+    sentAt: new Date(),
+  });
+  
+  logger.info(`[NewsletterProcessor] Campaign ${campaignId} sent successfully to ${recipients.length} recipients`);
+});
+
+newsletterJobQueue.registerProcessor('send_scheduled_campaign', async (job, signal) => {
+  const { campaignId } = job.data;
+  
+  logger.info(`[NewsletterProcessor] Processing scheduled campaign ${campaignId}`);
+  
+  // Trigger the regular send process
+  await campaignService.sendCampaign(campaignId);
+});
+
 // Initialize CreateFlowService workflow orchestrator (Architecture 3)
 // Requires: storage, config, and all workflow step dependencies
 let createFlowService: CreateFlowService | null = null;
