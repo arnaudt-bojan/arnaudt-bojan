@@ -87,7 +87,7 @@ export class MultiRowProductPreprocessor {
   private detectFormat(headers: string[], rows: Record<string, any>[]): CSVFormat {
     const headerSet = new Set(headers.map(h => h.toLowerCase()));
 
-    logger.info('[MultiRowPreprocessor] Detecting format with headers:', { headers: headers.slice(0, 10) });
+    console.log('[MultiRowPreprocessor] Detecting format with headers:', headers.slice(0, 10));
 
     // WooCommerce detection: Has "Type" and "Parent" columns
     const hasType = headerSet.has('type');
