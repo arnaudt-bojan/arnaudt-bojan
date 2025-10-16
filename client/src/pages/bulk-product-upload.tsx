@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Download, CheckCircle, XCircle, AlertCircle, Loader2, RefreshCw, FileText, ChevronRight } from "lucide-react";
+import { Upload, Download, CheckCircle, XCircle, AlertCircle, Loader2, RefreshCw, FileText, ChevronRight, Package, ShoppingCart, Box, ArrowRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,11 +14,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDistanceToNow } from "date-fns";
 import { AIFieldMapping } from "@/components/ai-field-mapping";
 
+type PreprocessingResult = {
+  format: 'woocommerce' | 'shopify' | 'generic';
+  originalRowCount: number;
+  productCount: number;
+  warnings: string[];
+  diagnostics: {
+    orphanedVariations: number;
+    missingParents: number;
+  };
+  headers: string[];
+};
+
 type BulkUploadJob = {
   id: string;
   sellerId: string;
   fileName: string;
-  status: 'pending' | 'validating' | 'validated' | 'importing' | 'completed' | 'failed';
+  status: 'pending' | 'preprocessed' | 'validating' | 'validated' | 'importing' | 'completed' | 'failed';
   totalRows: number;
   processedRows: number;
   successCount: number;
@@ -46,6 +58,8 @@ export default function BulkProductUpload() {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("upload");
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [preprocessingResult, setPreprocessingResult] = useState<PreprocessingResult | null>(null);
+  const [preprocessingError, setPreprocessingError] = useState<string | null>(null);
 
   // Fetch job history
   const { data: jobHistory, isLoading: loadingHistory } = useQuery<BulkUploadJob[]>({
@@ -135,17 +149,52 @@ export default function BulkProductUpload() {
     onSuccess: (data) => {
       setCurrentJobId(data.job.id);
       setCsvHeaders(data.headers || []);
-      // Go to mapping tab first, then validation
-      setActiveTab(data.headers && data.headers.length > 0 ? "map" : "validate");
       queryClient.invalidateQueries({ queryKey: ["/api/bulk-upload/jobs"] });
       toast({
         title: "Upload successful",
-        description: `Uploaded ${data.totalRows} rows. ${data.headers ? 'Review field mappings next.' : 'Proceed to validation.'}`,
+        description: `Uploaded ${data.totalRows} rows. Starting preprocessing...`,
       });
+      // Auto-trigger preprocessing
+      if (data.job.id) {
+        preprocessMutation.mutate(data.job.id);
+      }
     },
     onError: (error: Error) => {
       toast({
         title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Preprocess CSV mutation
+  const preprocessMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await apiRequest("POST", `/api/bulk-upload/preprocess/${jobId}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Preprocessing failed");
+      }
+      return await response.json();
+    },
+    onSuccess: (data: PreprocessingResult, jobId) => {
+      setPreprocessingResult(data);
+      setPreprocessingError(null);
+      setCsvHeaders(data.headers);
+      queryClient.invalidateQueries({ queryKey: [`/api/bulk-upload/job/${jobId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bulk-upload/jobs"] });
+      toast({
+        title: "Preprocessing complete",
+        description: `Detected ${data.format} format. ${data.productCount} products ready for mapping.`,
+      });
+      // Stay on upload tab to show preprocessing results
+      setActiveTab("upload");
+    },
+    onError: (error: Error) => {
+      setPreprocessingError(error.message);
+      toast({
+        title: "Preprocessing failed",
         description: error.message,
         variant: "destructive",
       });
@@ -267,6 +316,7 @@ export default function BulkProductUpload() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; icon: any }> = {
       pending: { variant: "outline", icon: AlertCircle },
+      preprocessed: { variant: "outline", icon: CheckCircle },
       validating: { variant: "outline", icon: Loader2 },
       validated: { variant: "outline", icon: CheckCircle },
       importing: { variant: "outline", icon: Loader2 },
@@ -280,6 +330,24 @@ export default function BulkProductUpload() {
       <Badge variant={variant} data-testid={`badge-status-${status}`}>
         <Icon className={`mr-1 h-3 w-3 ${status === 'validating' || status === 'importing' ? 'animate-spin' : ''}`} />
         {status}
+      </Badge>
+    );
+  };
+
+  const getFormatBadge = (format: string) => {
+    const formatConfig: Record<string, { label: string; icon: any; variant: any }> = {
+      woocommerce: { label: "WooCommerce", icon: ShoppingCart, variant: "default" },
+      shopify: { label: "Shopify", icon: Package, variant: "default" },
+      generic: { label: "Generic CSV", icon: Box, variant: "secondary" },
+    };
+
+    const config = formatConfig[format] || formatConfig.generic;
+    const Icon = config.icon;
+
+    return (
+      <Badge variant={config.variant} data-testid={`badge-format-${format}`}>
+        <Icon className="mr-1 h-3 w-3" />
+        {config.label}
       </Badge>
     );
   };
@@ -351,7 +419,7 @@ export default function BulkProductUpload() {
                 </div>
                 <Button 
                   onClick={handleUpload} 
-                  disabled={!file || uploadMutation.isPending}
+                  disabled={!file || uploadMutation.isPending || preprocessMutation.isPending}
                   data-testid="button-upload-csv"
                 >
                   {uploadMutation.isPending ? (
@@ -369,6 +437,143 @@ export default function BulkProductUpload() {
               </div>
             </CardContent>
           </Card>
+
+          {preprocessMutation.isPending && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <div>
+                    <p className="font-medium">Preprocessing CSV...</p>
+                    <p className="text-sm text-muted-foreground">Detecting format and flattening multi-row products</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {preprocessingError && !preprocessMutation.isPending && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium mb-1">Preprocessing Failed</p>
+                    <p className="text-sm" data-testid="text-preprocessing-error">{preprocessingError}</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      if (currentJobId) {
+                        setPreprocessingError(null);
+                        preprocessMutation.mutate(currentJobId);
+                      }
+                    }}
+                    data-testid="button-retry-preprocessing"
+                  >
+                    <RefreshCw className="mr-2 h-3 w-3" />
+                    Retry
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {preprocessingResult && !preprocessMutation.isPending && (
+            <Card className="border-primary">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    Preprocessing Complete
+                  </CardTitle>
+                  {getFormatBadge(preprocessingResult.format)}
+                </div>
+                <CardDescription>
+                  CSV format detected and data prepared for import
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">Row Transformation</p>
+                      <p className="text-lg font-semibold" data-testid="text-row-transformation">
+                        {preprocessingResult.originalRowCount} rows → {preprocessingResult.productCount} products
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">CSV Headers</p>
+                      <p className="text-lg font-semibold" data-testid="text-headers-count">
+                        {preprocessingResult.headers.length} fields detected
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {preprocessingResult.warnings.length > 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <p className="font-medium mb-2">Warnings:</p>
+                      <ul className="list-disc list-inside space-y-1" data-testid="list-preprocessing-warnings">
+                        {preprocessingResult.warnings.map((warning, idx) => (
+                          <li key={idx} className="text-sm">{warning}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {(preprocessingResult.diagnostics.orphanedVariations > 0 || preprocessingResult.diagnostics.missingParents > 0) && (
+                  <Alert variant="destructive">
+                    <XCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <p className="font-medium mb-2">Issues Detected:</p>
+                      <ul className="list-disc list-inside space-y-1" data-testid="list-preprocessing-issues">
+                        {preprocessingResult.diagnostics.orphanedVariations > 0 && (
+                          <li className="text-sm">
+                            {preprocessingResult.diagnostics.orphanedVariations} orphaned variation(s) found
+                          </li>
+                        )}
+                        {preprocessingResult.diagnostics.missingParents > 0 && (
+                          <li className="text-sm">
+                            {preprocessingResult.diagnostics.missingParents} missing parent product(s)
+                          </li>
+                        )}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    onClick={() => {
+                      setActiveTab("map");
+                    }}
+                    className="flex-1"
+                    data-testid="button-continue-to-mapping"
+                  >
+                    Continue to Field Mapping
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setPreprocessingResult(null);
+                      setFile(null);
+                    }}
+                    data-testid="button-upload-another"
+                  >
+                    Upload Another File
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
