@@ -1151,7 +1151,8 @@ export default function SellerNewsletterPage() {
                     id="subject"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Enter email subject"
+                    placeholder="Enter subject line"
+                    autoComplete="off"
                     data-testid="input-subject"
                   />
                 </div>
