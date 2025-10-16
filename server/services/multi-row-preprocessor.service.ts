@@ -240,6 +240,11 @@ export class MultiRowProductPreprocessor {
     parent: Record<string, any>,
     variations: Record<string, any>[]
   ): Record<string, any> {
+    console.log('[WooCommerce] ========== FLATTEN FUNCTION CALLED ==========');
+    console.log('[WooCommerce] Parent keys:', Object.keys(parent));
+    console.log('[WooCommerce] Parent:', JSON.stringify(parent).substring(0, 200));
+    console.log('[WooCommerce] Variations count:', variations.length);
+    
     // Start with parent data
     const flattened: Record<string, any> = { ...parent };
 
