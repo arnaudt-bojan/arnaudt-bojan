@@ -37,6 +37,7 @@ import CreateMetaCampaign from "@/pages/create-meta-campaign";
 import SellerOrdersPage from "@/pages/seller-orders";
 import Newsletter from "@/pages/newsletter";
 import Campaigns from "@/pages/campaigns";
+import SellerNewsletterPage from "@/pages/seller-newsletter";
 import WholesaleProducts from "@/pages/wholesale-products";
 import CreateWholesaleProduct from "@/pages/create-wholesale-product";
 import WholesaleInvitations from "@/pages/wholesale-invitations";
@@ -328,12 +329,15 @@ function AppContent() {
               </Route>
               
               {/* Seller-only management routes */}
-              <Route path="/newsletter">
+              <Route path="/seller/newsletter">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <Newsletter />
+                    <SellerNewsletterPage />
                   </ProtectedRoute>
                 )}
+              </Route>
+              <Route path="/newsletter">
+                {() => <Redirect to="/seller/newsletter" />}
               </Route>
               <Route path="/seller/campaigns">
                 {() => (

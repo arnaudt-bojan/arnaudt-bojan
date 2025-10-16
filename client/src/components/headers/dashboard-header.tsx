@@ -120,12 +120,12 @@ export function DashboardHeader() {
                     Social Ads
                   </Link>
                   <Link
-                    href="/newsletter"
+                    href="/seller/newsletter"
                     onClick={() => setMobileMenuOpen(false)}
                     className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
                     data-testid="mobile-link-newsletter"
                   >
-                    Newsletter
+                    Email Marketing
                   </Link>
                   <Link
                     href="/seller/orders"
