@@ -543,6 +543,13 @@ export default function SellerNewsletterPage() {
   const avgOpenRate = analytics.length > 0 
     ? (analytics.reduce((sum, a) => sum + parseFloat(a.openRate || '0'), 0) / analytics.length).toFixed(1)
     : '0';
+  const avgClickRate = analytics.length > 0 
+    ? (analytics.reduce((sum, a) => sum + parseFloat(a.clickRate || '0'), 0) / analytics.length).toFixed(1)
+    : '0';
+  const totalUnsubscribed = analytics.reduce((sum, a) => sum + a.totalUnsubscribed, 0);
+  const avgUnsubscribeRate = analytics.length > 0 && totalSent > 0
+    ? ((totalUnsubscribed / totalSent) * 100).toFixed(2)
+    : '0';
 
   const filteredCampaigns = campaigns.filter(c => 
     statusFilter === "all" || c.status === statusFilter
@@ -947,7 +954,7 @@ export default function SellerNewsletterPage() {
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="mt-6">
             <div className="grid gap-6">
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-5">
                 <Card>
                   <CardHeader className="pb-2">
                     <CardDescription>Total Sent</CardDescription>
@@ -969,11 +976,15 @@ export default function SellerNewsletterPage() {
                     <CardDescription>Avg. Click Rate</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {analytics.length > 0 
-                        ? (analytics.reduce((sum, a) => sum + parseFloat(a.clickRate || '0'), 0) / analytics.length).toFixed(1)
-                        : '0'}%
-                    </div>
+                    <div className="text-2xl font-bold">{avgClickRate}%</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Unsubscribe Rate</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{avgUnsubscribeRate}%</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -1005,24 +1016,33 @@ export default function SellerNewsletterPage() {
                           <TableHead>Delivered</TableHead>
                           <TableHead>Opened</TableHead>
                           <TableHead>Clicked</TableHead>
+                          <TableHead>Unsubscribed</TableHead>
                           <TableHead>Open Rate</TableHead>
                           <TableHead>Click Rate</TableHead>
+                          <TableHead>Unsub Rate</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {analytics.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.newsletter?.subject || 'Unknown'}
-                            </TableCell>
-                            <TableCell>{item.totalSent}</TableCell>
-                            <TableCell>{item.totalDelivered}</TableCell>
-                            <TableCell>{item.totalOpened}</TableCell>
-                            <TableCell>{item.totalClicked}</TableCell>
-                            <TableCell>{item.openRate || '0'}%</TableCell>
-                            <TableCell>{item.clickRate || '0'}%</TableCell>
-                          </TableRow>
-                        ))}
+                        {analytics.map((item) => {
+                          const unsubRate = item.totalSent > 0 
+                            ? ((item.totalUnsubscribed / item.totalSent) * 100).toFixed(2)
+                            : '0';
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">
+                                {item.newsletter?.subject || 'Unknown'}
+                              </TableCell>
+                              <TableCell>{item.totalSent}</TableCell>
+                              <TableCell>{item.totalDelivered}</TableCell>
+                              <TableCell>{item.totalOpened}</TableCell>
+                              <TableCell>{item.totalClicked}</TableCell>
+                              <TableCell>{item.totalUnsubscribed}</TableCell>
+                              <TableCell>{item.openRate || '0'}%</TableCell>
+                              <TableCell>{item.clickRate || '0'}%</TableCell>
+                              <TableCell>{unsubRate}%</TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   )}
