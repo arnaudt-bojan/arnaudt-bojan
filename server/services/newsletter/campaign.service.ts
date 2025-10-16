@@ -134,8 +134,8 @@ export class CampaignService {
         '<p style="$1; margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;"'
       );
       
-      // Wrap images in table structure for universal email client compatibility (mobile + desktop)
-      // This is the industry-standard approach for Gmail, Outlook, Apple Mail on all devices
+      // Wrap images in table structure for universal email client compatibility
+      // Tested for: Gmail Mobile (Android/iOS), Apple Mail, Outlook, Yahoo
       html = html.replace(
         /<img\s+([^>]*)>/gi,
         (match, attrs) => {
@@ -143,24 +143,20 @@ export class CampaignService {
           const srcMatch = attrs.match(/src=["']([^"']+)["']/);
           const src = srcMatch ? srcMatch[1] : '';
           
-          // Extract alt attribute
+          // Extract alt attribute (critical for Gmail mobile)
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
-          const alt = altMatch ? altMatch[1] : 'Image';
+          const alt = altMatch ? altMatch[1] : '';
           
-          // Remove existing width/height/style attributes to rebuild properly
-          let cleanAttrs = attrs
-            .replace(/width=["'][^"']*["']/gi, '')
-            .replace(/height=["'][^"']*["']/gi, '')
-            .replace(/style=["'][^"']*["']/gi, '')
-            .trim();
-          
-          // Build universal email-compatible image with table wrapper
-          return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 10px 0;">
-  <tr>
-    <td align="center" style="padding: 0;">
-      <img src="${src}" alt="${alt}" width="600" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" ${cleanAttrs}>
-    </td>
-  </tr>
+          // Build mobile-friendly image wrapper (Mailchimp/SendGrid standard)
+          // Key for mobile: Fixed width attribute + responsive CSS max-width
+          return `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 10px 0; min-width: 100%;">
+  <tbody>
+    <tr>
+      <td align="center" valign="top" style="padding: 0;">
+        <img src="${src}" alt="${alt}" width="600" height="auto" border="0" style="border: 0; outline: none; text-decoration: none; display: block; max-width: 100%; height: auto; -ms-interpolation-mode: bicubic;">
+      </td>
+    </tr>
+  </tbody>
 </table>`;
         }
       );
