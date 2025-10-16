@@ -6317,6 +6317,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subject: z.string().min(1, "Subject is required"),
         content: z.string().min(1, "Content is required"),
         htmlContent: z.string().optional().nullable(),
+        preheader: z.string().optional().nullable(),
+        fromName: z.string().optional().nullable(),
         recipients: z.array(z.string().email()).optional(),
         sendToAll: z.boolean().optional(),
         templateId: z.string().optional(),
