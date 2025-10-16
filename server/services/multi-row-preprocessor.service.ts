@@ -308,9 +308,17 @@ export class MultiRowProductPreprocessor {
     // Extract price from variations if parent price is empty
     let basePrice = parent['Regular price'] || parent['regular price'] || parent.Price || parent.price || '';
     
+    console.log('[WooCommerce] Extracting price:', { 
+      productName: parent.Name,
+      parentPrice: basePrice, 
+      variationsCount: variantsArray.length,
+      firstVariationPrice: variantsArray[0]?.price 
+    });
+    
     if (!basePrice && variantsArray.length > 0) {
       // Get first non-empty variation price (as string, no parsing needed)
       const firstVariantPrice = variantsArray.find(v => v.price)?.price;
+      console.log('[WooCommerce] Extracted price from variation:', firstVariantPrice);
       if (firstVariantPrice) {
         basePrice = String(firstVariantPrice);
       }
@@ -322,6 +330,9 @@ export class MultiRowProductPreprocessor {
       flattened['regular price'] = basePrice;
       flattened.Price = basePrice;
       flattened.price = basePrice;
+      console.log('[WooCommerce] Final price set to:', basePrice);
+    } else {
+      console.log('[WooCommerce] ❌ NO PRICE FOUND for product:', parent.Name);
     }
     
     // Extract stock from variations if parent stock is empty
