@@ -6397,12 +6397,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       logger.info('[Newsletter] Generated presigned URL for image upload');
       
-      // Upload file to object storage
+      // Upload file to object storage with proper headers for Apple Mail compatibility
       const uploadResponse = await fetch(uploadURL, {
         method: 'PUT',
         body: imageFile.data,
         headers: {
           'Content-Type': imageFile.mimetype,
+          'Content-Disposition': 'inline', // CRITICAL: Apple Mail requires inline disposition
         },
       });
 

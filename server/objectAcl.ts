@@ -69,7 +69,13 @@ export async function setObjectAclPolicy(
     throw new Error(`Object not found: ${objectFile.name}`);
   }
 
+  // Get existing metadata to preserve contentType and contentDisposition
+  // CRITICAL: Apple Mail requires proper Content-Type and Content-Disposition: inline
+  const [existingMetadata] = await objectFile.getMetadata();
+
   await objectFile.setMetadata({
+    contentType: existingMetadata.contentType, // Preserve Content-Type (image/jpeg, image/png, etc.)
+    contentDisposition: existingMetadata.contentDisposition || 'inline', // Ensure inline for Apple Mail
     metadata: {
       [ACL_POLICY_METADATA_KEY]: JSON.stringify(aclPolicy),
     },
