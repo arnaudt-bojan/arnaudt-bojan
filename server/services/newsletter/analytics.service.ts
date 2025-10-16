@@ -85,8 +85,25 @@ export class AnalyticsService {
 
     // Calculate metrics from real stored events
     const totalSent = Array.isArray(campaign.recipients) ? campaign.recipients.length : 0;
-    const totalOpened = events.filter(e => e.eventType === "open").length;
-    const totalClicked = events.filter(e => e.eventType === "click").length;
+    
+    // CRITICAL: Infer opens from clicks (if someone clicked, they must have opened)
+    // This works around email clients blocking tracking pixels
+    const uniqueOpeners = new Set<string>();
+    const uniqueClickers = new Set<string>();
+    
+    events.forEach(e => {
+      const email = e.recipientEmail.toLowerCase();
+      if (e.eventType === "open") {
+        uniqueOpeners.add(email);
+      } else if (e.eventType === "click" || e.eventType === "unsubscribe") {
+        // If they clicked ANY link (including unsubscribe), they opened the email
+        uniqueOpeners.add(email);
+        uniqueClickers.add(email);
+      }
+    });
+    
+    const totalOpened = uniqueOpeners.size;
+    const totalClicked = uniqueClickers.size;
     const totalBounced = events.filter(e => e.eventType === "bounce").length;
     const totalUnsubscribed = events.filter(e => e.eventType === "unsubscribe").length;
 
