@@ -296,35 +296,46 @@ export class MultiRowProductPreprocessor {
     flattened.Name = parent.Name || parent.name || '';
     flattened.name = flattened.Name; // Also set lowercase
     
-    // Use parent price as base price, fall back to minimum variation price
+    // Extract price from variations if parent price is empty
     let basePrice = parent['Regular price'] || parent['regular price'] || parent.Price || parent.price || '';
-    if (!basePrice && variantsArray.length > 0) {
-      // Use minimum variation price if parent price is empty
-      const variantPrices = variantsArray
-        .map(v => parseFloat(v.price))
-        .filter(p => !isNaN(p) && p > 0);
-      if (variantPrices.length > 0) {
-        basePrice = Math.min(...variantPrices).toString();
-      }
-    }
-    // Update ALL price-related fields in the flattened row
-    flattened['Regular price'] = basePrice;
-    flattened['regular price'] = basePrice;
-    flattened.Price = basePrice;
-    flattened.price = basePrice;
     
-    // Use parent stock, fall back to sum of variation stock
-    let baseStock = parent.Stock || parent.stock || '';
-    if (!baseStock && variantsArray.length > 0) {
-      // Sum variation stock if parent stock is empty
-      const totalStock = variantsArray.reduce((sum, v) => sum + (v.stock || 0), 0);
-      if (totalStock > 0) {
-        baseStock = totalStock.toString();
+    if (!basePrice && variantsArray.length > 0) {
+      // Get first non-empty variation price (as string, no parsing needed)
+      const firstVariantPrice = variantsArray.find(v => v.price)?.price;
+      if (firstVariantPrice) {
+        basePrice = String(firstVariantPrice);
       }
     }
-    // Update ALL stock-related fields in the flattened row
-    flattened.Stock = baseStock;
-    flattened.stock = baseStock;
+    
+    // Populate ALL possible price field names that CSV might use
+    if (basePrice) {
+      flattened['Regular price'] = basePrice;
+      flattened['regular price'] = basePrice;
+      flattened.Price = basePrice;
+      flattened.price = basePrice;
+    }
+    
+    // Extract stock from variations if parent stock is empty
+    let baseStock = parent.Stock || parent.stock || '';
+    
+    if (!baseStock && variantsArray.length > 0) {
+      // Sum all variation stock values
+      const totalStock = variantsArray.reduce((sum, v) => {
+        const stockNum = typeof v.stock === 'number' ? v.stock : parseInt(String(v.stock || 0));
+        return sum + (isNaN(stockNum) ? 0 : stockNum);
+      }, 0);
+      
+      if (totalStock > 0) {
+        baseStock = String(totalStock);
+      }
+    }
+    
+    // Populate ALL possible stock field names that CSV might use
+    if (baseStock) {
+      flattened.Stock = baseStock;
+      flattened.stock = baseStock;
+      flattened['In stock?'] = baseStock;
+    }
 
     return flattened;
   }
