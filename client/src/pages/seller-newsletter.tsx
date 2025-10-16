@@ -928,7 +928,8 @@ export default function SellerNewsletterPage() {
                       onClick={() => setPreviewMode('desktop')}
                       data-testid="button-preview-desktop"
                     >
-                      <Monitor className="h-4 w-4" />
+                      <Monitor className="h-4 w-4 mr-1.5" />
+                      Desktop
                     </Button>
                     <Button
                       size="sm"
@@ -936,7 +937,8 @@ export default function SellerNewsletterPage() {
                       onClick={() => setPreviewMode('mobile')}
                       data-testid="button-preview-mobile"
                     >
-                      <Smartphone className="h-4 w-4" />
+                      <Smartphone className="h-4 w-4 mr-1.5" />
+                      Mobile
                     </Button>
                   </div>
                 </div>
@@ -948,7 +950,7 @@ export default function SellerNewsletterPage() {
                       theme="snow"
                       value={content}
                       onChange={setContent}
-                      className="h-96"
+                      className="h-96 [&_.ql-editor]:break-words [&_.ql-editor]:overflow-wrap-anywhere"
                       modules={{
                         toolbar: [
                           [{ 'header': [1, 2, 3, false] }],
@@ -962,19 +964,23 @@ export default function SellerNewsletterPage() {
                   </div>
 
                   {/* Preview Pane */}
-                  <div>
-                    <div className={`border rounded-lg p-4 bg-white dark:bg-gray-900 ${
-                      previewMode === 'mobile' ? 'max-w-sm mx-auto' : ''
+                  <div className="flex items-center justify-center">
+                    <div className={`border rounded-lg bg-white dark:bg-gray-900 transition-all duration-300 ${
+                      previewMode === 'mobile' 
+                        ? 'w-[375px] shadow-xl border-8 border-gray-800 dark:border-gray-200 rounded-[2.5rem]' 
+                        : 'w-full'
                     }`}>
-                      <div className="mb-4 pb-4 border-b">
-                        <p className="font-semibold">{subject || 'Email Subject'}</p>
-                        {preheader && <p className="text-sm text-muted-foreground">{preheader}</p>}
-                        {fromName && <p className="text-sm text-muted-foreground">From: {fromName}</p>}
+                      <div className={`${previewMode === 'mobile' ? 'p-6' : 'p-4'}`}>
+                        <div className="mb-4 pb-4 border-b">
+                          <p className="font-semibold break-words">{subject || 'Email Subject'}</p>
+                          {preheader && <p className="text-sm text-muted-foreground break-words">{preheader}</p>}
+                          {fromName && <p className="text-sm text-muted-foreground break-words">From: {fromName}</p>}
+                        </div>
+                        <div 
+                          className="prose prose-sm dark:prose-invert max-w-none break-words [&_*]:break-words"
+                          dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground">Your content will appear here...</p>' }}
+                        />
                       </div>
-                      <div 
-                        className="prose prose-sm dark:prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: content || '<p class="text-muted-foreground">Your content will appear here...</p>' }}
-                      />
                     </div>
                   </div>
                 </div>
