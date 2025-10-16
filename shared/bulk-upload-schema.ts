@@ -77,8 +77,8 @@ export const PRODUCT_SCHEMA_FIELDS: SchemaField[] = [
     name: "Image",
     dbColumn: "image",
     type: "string",
-    required: true,
-    description: "Primary product image URL",
+    required: false,
+    description: "Primary product image URL (can be auto-extracted from Images field if provided)",
     example: "https://example.com/images/product.jpg",
   },
   {
@@ -86,7 +86,7 @@ export const PRODUCT_SCHEMA_FIELDS: SchemaField[] = [
     dbColumn: "images",
     type: "array",
     required: false,
-    description: "Additional product images (comma-separated URLs)",
+    description: "Product images - can be single or multiple URLs (comma-separated). If Images is provided, first image will be used as primary Image.",
     example: "https://example.com/img1.jpg, https://example.com/img2.jpg",
   },
   

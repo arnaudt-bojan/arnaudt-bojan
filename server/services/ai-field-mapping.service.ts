@@ -76,6 +76,8 @@ MAPPING RULES:
 8. Provide brief reasoning for your mapping choice
 9. ALL PRODUCTS ARE IN-STOCK ITEMS - ignore pre-order or made-to-order fields
 10. VARIANT SKU is supported - map variant SKU columns to "Variant SKU" field
+11. IMPORTANT: If a CSV has "Images" (plural), it can be used instead of "Image" (singular). The system will auto-extract the primary image from Images.
+12. Map both "Image" and "Images" columns if they exist - the system handles both
 
 EXAMPLES OF GOOD MAPPINGS:
 - "product_name" / "title" / "name" → "Product Name" (confidence: 95)

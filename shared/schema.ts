@@ -256,9 +256,9 @@ const baseInsertProductSchema = createInsertSchema(products).omit({ id: true }).
   description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
   price: z.string().min(1, "Price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional SKU - auto-generated if not provided
-  image: z.string().min(1, "At least one product image is required"),
+  image: z.string().optional().nullable(), // Optional - can be extracted from images array
   category: z.string().min(1, "Category is required"),
-  productType: z.string().min(1, "Product type is required"),
+  productType: z.string().default("in-stock"), // Default to in-stock for bulk uploads
   preOrderDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
   discountPercentage: z.string().optional().nullable().transform(val => val || undefined),
   promotionEndDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
@@ -321,6 +321,17 @@ export const frontendProductSchema = baseInsertProductSchema.omit({ sellerId: tr
   sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional product SKU
   shippingType: z.enum(["flat", "matrix", "shippo", "free"]),
 }).refine(
+  (data) => {
+    // Either image or images must be provided
+    const hasImage = data.image && data.image.trim().length > 0;
+    const hasImages = data.images && data.images.length > 0;
+    return hasImage || hasImages;
+  },
+  {
+    message: "At least one product image is required (Image or Images field)",
+    path: ["image"],
+  }
+).refine(
   (data) => {
     // Pre-order products must have a pre-order date
     if (data.productType === "pre-order" && !data.preOrderDate) {
