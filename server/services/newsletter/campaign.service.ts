@@ -136,9 +136,9 @@ export class CampaignService {
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
           const alt = altMatch ? altMatch[1] : '';
           
-          // Responsive images: smaller max-width for better desktop/mobile display
-          // Desktop shows at 450px, mobile scales down with max-width:100%
-          return `<img src="${src}" alt="${alt}" width="450" style="width:450px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
+          // Full-width images that fill the email content area (540px = 600px container - 60px padding)
+          // Mobile scales down with max-width:100%
+          return `<img src="${src}" alt="${alt}" width="540" style="width:540px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
         }
       );
       
@@ -300,9 +300,9 @@ export class CampaignService {
           
           // PROFESSIONAL EMAIL CLIENT FIX (Mailchimp/SendGrid/Klaviyo standard)
           // Email clients need BOTH HTML attributes AND CSS styles together
-          // Responsive images: smaller max-width for better desktop/mobile display
-          // Desktop shows at 450px, mobile scales down with max-width:100%
-          return `<img src="${src}" alt="${alt}" width="450" style="width:450px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
+          // Full-width images that fill the email content area (540px = 600px container - 60px padding)
+          // Mobile scales down with max-width:100%
+          return `<img src="${src}" alt="${alt}" width="540" style="width:540px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
         }
       );
       
