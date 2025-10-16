@@ -62,20 +62,22 @@ export class AIFieldMappingService {
 
 Your task is to map user's CSV column headers to our database schema fields. All products will be imported as IN-STOCK items.
 
+IMPORTANT: You MUST map to the "dbColumn" field name, NOT the display "name". The dbColumn is the actual database field name that will be used for import.
+
 DATABASE SCHEMA FIELDS:
 ${JSON.stringify(standardFields, null, 2)}
 
 WOOCOMMERCE/SHOPIFY AUTHORITATIVE MAPPING DICTIONARY:
-Use these EXACT mappings with 95%+ confidence for WooCommerce/Shopify CSVs:
-- "Regular price" → "Price" (confidence: 98)
-- "Name" → "Product Name" (confidence: 98)
-- "Description" / "Short description" → "Description" (confidence: 98)
-- "SKU" → "SKU" (confidence: 98)
-- "Stock" / "Stock quantity" → "Stock" (confidence: 98)
-- "Images" → "Images" (confidence: 98)
-- "Categories" → "Category" (confidence: 98)
-- "Weight (kg)" / "Weight" → "Weight" (confidence: 95, but map to null - we don't support weight)
-- "Shipping class" → "Shipping Type" (confidence: 70)
+Use these EXACT mappings with 95%+ confidence for WooCommerce/Shopify CSVs (map to dbColumn):
+- "Regular price" → "price" (confidence: 98)
+- "Name" → "name" (confidence: 98)
+- "Description" / "Short description" → "description" (confidence: 98)
+- "SKU" → "sku" (confidence: 98)
+- "Stock" / "Stock quantity" → "stock" (confidence: 98)
+- "Images" → "images" (confidence: 98)
+- "Categories" → "category" (confidence: 98)
+- "Weight (kg)" / "Weight" → null (confidence: 95 - we don't support weight)
+- "Shipping class" → "shippingType" (confidence: 70)
 
 EXPLICIT IGNORE LIST - MUST MAP TO NULL:
 These WooCommerce/Shopify fields are NOT supported and MUST be set to null with appropriate reasoning:
@@ -184,8 +186,8 @@ Analyze each header and provide the best mapping with confidence score and reaso
       // Find missing required fields
       const mappedStandardFields = new Set(mappings.filter(m => m.standardField !== null).map(m => m.standardField));
       const missingRequiredFields = ALL_SCHEMA_FIELDS
-        .filter((f: SchemaField) => f.required && !mappedStandardFields.has(f.name))
-        .map((f: SchemaField) => f.name);
+        .filter((f: SchemaField) => f.required && !mappedStandardFields.has(f.dbColumn))
+        .map((f: SchemaField) => f.dbColumn);
 
       // Generate suggestions
       const suggestions: string[] = [];
@@ -258,8 +260,8 @@ Analyze each header and provide the best mapping with confidence score and reaso
 
     const requiredFields = ALL_SCHEMA_FIELDS.filter((f: SchemaField) => f.required);
     for (const field of requiredFields) {
-      if (!mappedStandardFields.has(field.name)) {
-        errors.push(`Required field "${field.name}" is not mapped`);
+      if (!mappedStandardFields.has(field.dbColumn)) {
+        errors.push(`Required field "${field.dbColumn}" is not mapped`);
       }
     }
 
