@@ -157,7 +157,7 @@ export class CampaignService {
       return html;
     };
 
-    // Generate HTML payload
+    // Generate HTML payload (MATCHING actual campaign format)
     let htmlPayload: string;
     if (campaign.htmlContent) {
       const preheaderHtml = campaign.preheader 
@@ -183,6 +183,18 @@ export class CampaignService {
               ${normalizedContent}
             </td>
           </tr>
+          <tr>
+            <td style="padding: 20px 30px; border-top: 1px solid #e5e5e5;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center; font-size: 13px; line-height: 1.6; color: #737373; font-family: Arial, sans-serif;">
+                    <p style="margin: 0 0 8px 0; color: #737373; font-size: 13px;">You're receiving this because you subscribed to ${fromName}.</p>
+                    <p style="margin: 0;"><span style="color: #737373; font-size: 13px;">[Unsubscribe link will appear here in actual email]</span></p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
         </table>
       </td>
     </tr>
@@ -205,6 +217,18 @@ export class CampaignService {
           <tr>
             <td style="padding: 30px;">
               ${textContent}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px 30px; border-top: 1px solid #e5e5e5;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center; font-size: 13px; line-height: 1.6; color: #737373; font-family: Arial, sans-serif;">
+                    <p style="margin: 0 0 8px 0; color: #737373; font-size: 13px;">You're receiving this because you subscribed to ${fromName}.</p>
+                    <p style="margin: 0;"><span style="color: #737373; font-size: 13px;">[Unsubscribe link will appear here in actual email]</span></p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
