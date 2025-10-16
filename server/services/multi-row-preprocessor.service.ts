@@ -292,8 +292,9 @@ export class MultiRowProductPreprocessor {
     // Serialize variants as JSON string
     flattened.variants = JSON.stringify(variantsArray);
 
-    // Use parent name
-    flattened.name = parent.Name || parent.name || '';
+    // Use parent name (preserve original column name)
+    flattened.Name = parent.Name || parent.name || '';
+    flattened.name = flattened.Name; // Also set lowercase
     
     // Use parent price as base price, fall back to minimum variation price
     let basePrice = parent['Regular price'] || parent['regular price'] || parent.Price || parent.price || '';
@@ -306,6 +307,10 @@ export class MultiRowProductPreprocessor {
         basePrice = Math.min(...variantPrices).toString();
       }
     }
+    // Update ALL price-related fields in the flattened row
+    flattened['Regular price'] = basePrice;
+    flattened['regular price'] = basePrice;
+    flattened.Price = basePrice;
     flattened.price = basePrice;
     
     // Use parent stock, fall back to sum of variation stock
@@ -317,6 +322,8 @@ export class MultiRowProductPreprocessor {
         baseStock = totalStock.toString();
       }
     }
+    // Update ALL stock-related fields in the flattened row
+    flattened.Stock = baseStock;
     flattened.stock = baseStock;
 
     return flattened;
