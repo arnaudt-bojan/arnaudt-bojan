@@ -157,7 +157,7 @@ export class CampaignService {
       return html;
     };
 
-    // Generate HTML payload (MATCHING actual campaign format)
+    // Generate simple HTML payload for test (NO unsubscribe footer - just preview)
     let htmlPayload: string;
     if (campaign.htmlContent) {
       const preheaderHtml = campaign.preheader 
@@ -183,18 +183,6 @@ export class CampaignService {
               ${normalizedContent}
             </td>
           </tr>
-          <tr>
-            <td style="padding: 20px 30px; border-top: 1px solid #e5e5e5;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td style="text-align: center; font-size: 13px; line-height: 1.6; color: #737373; font-family: Arial, sans-serif;">
-                    <p style="margin: 0 0 8px 0; color: #737373; font-size: 13px;">You're receiving this because you subscribed to ${fromName}.</p>
-                    <p style="margin: 0;"><span style="color: #737373; font-size: 13px;">[Unsubscribe link will appear here in actual email]</span></p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
         </table>
       </td>
     </tr>
@@ -217,18 +205,6 @@ export class CampaignService {
           <tr>
             <td style="padding: 30px;">
               ${textContent}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 20px 30px; border-top: 1px solid #e5e5e5;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td style="text-align: center; font-size: 13px; line-height: 1.6; color: #737373; font-family: Arial, sans-serif;">
-                    <p style="margin: 0 0 8px 0; color: #737373; font-size: 13px;">You're receiving this because you subscribed to ${fromName}.</p>
-                    <p style="margin: 0;"><span style="color: #737373; font-size: 13px;">[Unsubscribe link will appear here in actual email]</span></p>
-                  </td>
-                </tr>
-              </table>
             </td>
           </tr>
         </table>
@@ -527,53 +503,6 @@ export class CampaignService {
     logger.info(`[CampaignService] Campaign ${campaignId} schedule cancelled successfully`);
   }
 
-  /**
-   * Send a test email
-   */
-  async sendTestEmail(campaignId: string, testEmail: string): Promise<void> {
-    logger.info(`[CampaignService] Sending test email for campaign ${campaignId} to ${testEmail}`);
-
-    const campaign = await this.storage.getNewsletter(campaignId);
-    if (!campaign) {
-      throw new Error("Campaign not found");
-    }
-
-    const seller = await this.storage.getUser(campaign.userId);
-    if (!seller) {
-      throw new Error("Seller not found");
-    }
-
-    // Use same HTML normalization as production sends
-    let htmlPayload: string;
-    if (campaign.htmlContent) {
-      htmlPayload = campaign.htmlContent;
-    } else if (campaign.content) {
-      htmlPayload = `<!DOCTYPE html>
-<html>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    ${campaign.content.replace(/\n/g, '<br>')}
-  </div>
-</body>
-</html>`;
-    } else {
-      throw new Error("Campaign must have content");
-    }
-
-    const result = await this.emailProvider.sendEmail({
-      to: testEmail,
-      from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
-      replyTo: seller.email || undefined,
-      subject: `[TEST] ${campaign.subject}`,
-      html: htmlPayload,
-    });
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to send test email");
-    }
-
-    logger.info(`[CampaignService] Test email sent successfully to ${testEmail}`);
-  }
 
   /**
    * Create an A/B test for a campaign
