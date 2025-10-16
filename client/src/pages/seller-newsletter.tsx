@@ -146,33 +146,41 @@ export default function SellerNewsletterPage() {
   // Mutations
   const createCampaignMutation = useMutation({
     mutationFn: async (data: any) => {
+      const shouldSend = data._shouldSend;
+      // Remove internal flag before sending to backend
+      const { _shouldSend, ...cleanData } = data;
+      
       if (editingCampaignId) {
-        console.log("[Campaign] Updating campaign", editingCampaignId, "with data:", data);
-        const response = await apiRequest("PUT", `/api/campaigns/${editingCampaignId}`, data);
-        return { campaign: response, shouldSend: data._shouldSend };
+        console.log("[Campaign] Updating campaign", editingCampaignId, "with data:", cleanData);
+        const response = await apiRequest("PUT", `/api/campaigns/${editingCampaignId}`, cleanData);
+        return { campaign: response, shouldSend };
       } else {
-        console.log("[Campaign] Creating campaign with data:", data);
-        const response = await apiRequest("POST", "/api/campaigns", data);
-        return { campaign: response, shouldSend: data._shouldSend };
+        console.log("[Campaign] Creating campaign with data:", cleanData);
+        const response = await apiRequest("POST", "/api/campaigns", cleanData);
+        return { campaign: response, shouldSend };
       }
     },
     onSuccess: async (result: any) => {
+      console.log("[Campaign] onSuccess result:", result);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       
       // If "Send Now" was selected, send the campaign immediately
       if (result.shouldSend && result.campaign?.id) {
+        console.log("[Campaign] Sending campaign", result.campaign.id);
         try {
-          await apiRequest("POST", `/api/campaigns/${result.campaign.id}/send`, {});
+          const sendResult = await apiRequest("POST", `/api/campaigns/${result.campaign.id}/send`, {});
+          console.log("[Campaign] Send result:", sendResult);
           toast({ title: "Campaign sent successfully!" });
-        } catch (error) {
+        } catch (error: any) {
           console.error("[Campaign] Send error:", error);
-          toast({ title: "Campaign created but failed to send", variant: "destructive" });
+          toast({ title: "Campaign created but failed to send", description: error.message, variant: "destructive" });
         }
       } else {
         toast({ title: editingCampaignId ? "Campaign updated successfully" : "Campaign saved successfully" });
       }
       
       resetDrawer();
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
     },
     onError: (error: any) => {
       console.error("[Campaign] Error:", error);
