@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema, updateCustomerDetailsSchema } from "@shared/schema";
@@ -412,6 +413,98 @@ const requireApiKey: any = (req: any, res: any, next: any) => {
     return res.status(401).json({ error: 'Invalid API key' });
   }
 };
+
+/**
+ * Resend Webhook Signature Verification
+ * Resend uses Svix for webhooks with HMAC-SHA256 signatures
+ */
+function verifyResendWebhook(payload: string, signatureHeader: string, secret: string): boolean {
+  // Svix signature format: v1=<signature>,t=<timestamp>
+  // We need to extract the signature and verify it
+  
+  const signatures = signatureHeader.split(',');
+  for (const sig of signatures) {
+    if (sig.startsWith('v1=')) {
+      const signature = sig.substring(3);
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('base64');
+      
+      if (signature === expectedSignature) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Handle Resend Webhook Events
+ * Maps Resend events to AnalyticsService events for email tracking
+ */
+async function handleResendWebhookEvent(
+  event: any,
+  storage: any,
+  analyticsService: AnalyticsService
+): Promise<void> {
+  const eventType = event.type;
+  const data = event.data;
+
+  // Extract campaign ID from tags
+  const campaignIdTag = data.tags?.find((t: any) => t.name === 'campaignId');
+  if (!campaignIdTag) {
+    logger.warn('[ResendWebhook] No campaignId tag found');
+    return;
+  }
+
+  const campaignId = campaignIdTag.value;
+  const recipientEmail = Array.isArray(data.to) ? data.to[0] : data.to;
+
+  // Map Resend events to analytics events
+  switch (eventType) {
+    case 'email.opened':
+      await analyticsService.ingestEvent({
+        campaignId,
+        recipientEmail,
+        eventType: 'open',
+        webhookEventId: event.id || `${eventType}-${data.email_id}`,
+      });
+      break;
+
+    case 'email.clicked':
+      await analyticsService.ingestEvent({
+        campaignId,
+        recipientEmail,
+        eventType: 'click',
+        eventData: { url: data.link },
+        webhookEventId: event.id || `${eventType}-${data.email_id}`,
+      });
+      break;
+
+    case 'email.bounced':
+      await analyticsService.ingestEvent({
+        campaignId,
+        recipientEmail,
+        eventType: 'bounce',
+        eventData: { reason: data.bounce_type },
+        webhookEventId: event.id || `${eventType}-${data.email_id}`,
+      });
+      break;
+
+    case 'email.delivered':
+      logger.info('[ResendWebhook] Email delivered:', { campaignId, recipientEmail });
+      break;
+
+    case 'email.complained':
+      logger.warn('[ResendWebhook] Spam complaint:', { campaignId, recipientEmail });
+      // Future: Track complaints
+      break;
+
+    default:
+      logger.info('[ResendWebhook] Unhandled event type:', { eventType });
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -5326,6 +5419,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       logger.error("[Wholesale Webhook] Error", error);
       res.status(400).json({ error: error.message || "Webhook error" });
+    }
+  });
+
+  // Resend Webhook Handler - Email Analytics Tracking
+  app.post('/api/webhooks/resend', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const secret = process.env.RESEND_WEBHOOK_SECRET;
+      if (!secret) {
+        logger.error('[ResendWebhook] RESEND_WEBHOOK_SECRET not configured');
+        return res.status(500).json({ error: 'Webhook secret not configured' });
+      }
+
+      // Get signature from header
+      const signature = req.headers['svix-signature'] as string;
+      if (!signature) {
+        logger.error('[ResendWebhook] No signature header');
+        return res.status(401).json({ error: 'No signature' });
+      }
+
+      // Verify signature
+      const payload = req.body.toString('utf8');
+      const isValid = verifyResendWebhook(payload, signature, secret);
+      
+      if (!isValid) {
+        logger.error('[ResendWebhook] Invalid signature');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+
+      // Parse webhook event
+      const event = JSON.parse(payload);
+      logger.info('[ResendWebhook] Received event:', { type: event.type });
+
+      // Process event
+      await handleResendWebhookEvent(event, storage, analyticsService);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error('[ResendWebhook] Error processing webhook:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
 
