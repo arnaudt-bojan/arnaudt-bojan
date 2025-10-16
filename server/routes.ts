@@ -313,6 +313,7 @@ newsletterJobQueue.registerProcessor('send_campaign', async (job, signal) => {
         replyTo,
         subject,
         html: personalizedHtml,
+        tags: [{ name: 'campaignId', value: campaignId }],
       });
       logger.info(`[NewsletterProcessor] Email sent to ${recipient.email}`);
     } catch (error) {
@@ -6137,9 +6138,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const analyticsEventType = eventTypeMap[event.type];
 
-      if (analyticsEventType && event.data?.email && event.data?.campaignId) {
+      // Extract campaignId from tags instead of event.data
+      const campaignIdTag = event.data?.tags?.find((tag: any) => tag.name === 'campaignId');
+      const campaignId = campaignIdTag?.value;
+
+      if (analyticsEventType && event.data?.email && campaignId) {
         await analyticsService.ingestEvent({
-          campaignId: event.data.campaignId,
+          campaignId: campaignId,
           recipientEmail: event.data.email,
           eventType: analyticsEventType,
           eventData: event.data,
@@ -6149,7 +6154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logger.info('[Newsletter Webhook] Event ingested:', {
           type: analyticsEventType,
           email: event.data.email,
-          campaignId: event.data.campaignId,
+          campaignId: campaignId,
         });
       } else {
         logger.warn('[Newsletter Webhook] Unmapped or incomplete event:', { type: event.type });

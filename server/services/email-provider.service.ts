@@ -21,6 +21,7 @@ export interface SendEmailParams {
   subject: string;
   html: string;
   attachments?: EmailAttachment[];
+  tags?: Array<{ name: string; value: string }>;
 }
 
 export interface EmailSendResult {
@@ -58,7 +59,7 @@ export class ResendEmailProvider implements IEmailProvider {
   }
 
   async sendEmail(params: SendEmailParams): Promise<EmailSendResult> {
-    const { to, from, replyTo, subject, html, attachments } = params;
+    const { to, from, replyTo, subject, html, attachments, tags } = params;
 
     // If Resend is not configured, log the email instead of sending
     if (!this.isConfigured) {
@@ -87,6 +88,7 @@ export class ResendEmailProvider implements IEmailProvider {
         replyTo: replyTo,
         subject,
         html,
+        tags: tags,
         attachments: attachments?.map(att => ({
           filename: att.filename,
           content: att.content,
