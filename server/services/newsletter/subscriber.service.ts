@@ -129,9 +129,48 @@ export class SubscriberService {
 
     if (updated) {
       logger.info(`[SubscriberService] Subscriber unsubscribed`, { email, reason: reason || "no reason" });
+      
+      // Automatically add to "Unsubscribed" system group
+      try {
+        await this.ensureUnsubscribedGroup(userId, subscriber.id);
+      } catch (error: any) {
+        logger.error(`[SubscriberService] Failed to add subscriber to Unsubscribed group:`, error);
+      }
     }
 
     return updated;
+  }
+
+  /**
+   * Ensure "Unsubscribed" system group exists and add subscriber to it
+   */
+  private async ensureUnsubscribedGroup(userId: string, subscriberId: string): Promise<void> {
+    const groupName = "Unsubscribed";
+    
+    // Check if group exists
+    let unsubscribedGroup = await this.storage.getSubscriberGroupByName(userId, groupName);
+    
+    // Create group if it doesn't exist
+    if (!unsubscribedGroup) {
+      logger.info(`[SubscriberService] Creating Unsubscribed system group for user ${userId}`);
+      unsubscribedGroup = await this.storage.createSubscriberGroup({
+        userId,
+        name: groupName,
+        description: "Automatically managed group for unsubscribed users",
+      });
+    }
+    
+    // Add subscriber to group (will fail silently if already in group)
+    try {
+      await this.storage.addSubscriberToGroup(subscriberId, unsubscribedGroup.id);
+      logger.info(`[SubscriberService] Added subscriber to Unsubscribed group`, { subscriberId });
+    } catch (error: any) {
+      // Subscriber might already be in the group (unique constraint violation)
+      if (!error.message?.includes("duplicate") && !error.message?.includes("unique")) {
+        throw error;
+      }
+      logger.info(`[SubscriberService] Subscriber already in Unsubscribed group`, { subscriberId });
+    }
   }
 
   /**

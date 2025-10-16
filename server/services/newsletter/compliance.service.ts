@@ -7,6 +7,7 @@ import crypto from "crypto";
 import type { IStorage } from "../../storage";
 import type { Subscriber } from "@shared/schema";
 import type { AnalyticsService } from "./analytics.service";
+import type { SubscriberService } from "./subscriber.service";
 import { logger } from "../../logger";
 
 export interface ConsentRecord {
@@ -46,6 +47,7 @@ export interface GDPRExportData {
 export class ComplianceService {
   constructor(
     private storage: IStorage,
+    private subscriberService: SubscriberService,
     private analyticsService?: AnalyticsService
   ) {}
 
@@ -301,17 +303,8 @@ export class ComplianceService {
         return { success: false, error: 'Campaign not found' };
       }
 
-      // Get the subscriber
-      const subscriber = await this.storage.getSubscriberByEmail(campaign.userId, email);
-      if (!subscriber) {
-        logger.warn(`[ComplianceService] Subscriber not found`, { email });
-        return { success: false, error: 'Subscriber not found' };
-      }
-
-      // Update subscriber status to unsubscribed
-      await this.storage.updateSubscriber(subscriber.id, {
-        status: 'unsubscribed',
-      });
+      // Use SubscriberService to unsubscribe (handles "Unsubscribed" group automatically)
+      await this.subscriberService.unsubscribe(campaign.userId, email, 'unsubscribe_link');
 
       // Track unsubscribe event in analytics
       if (this.analyticsService) {
@@ -321,17 +314,6 @@ export class ComplianceService {
           eventType: 'unsubscribe',
           eventData: { timestamp: new Date().toISOString() },
         });
-      }
-
-      // Remove from all groups
-      const groups = await this.storage.getSubscriberGroupsByUserId(campaign.userId);
-      for (const group of groups) {
-        const members = group.subscriberIds || [];
-        if (members.includes(subscriber.id)) {
-          await this.storage.updateSubscriberGroup(group.id, {
-            subscriberIds: members.filter(id => id !== subscriber.id)
-          });
-        }
       }
 
       logger.info(`[ComplianceService] Unsubscribe successful`, { email });
