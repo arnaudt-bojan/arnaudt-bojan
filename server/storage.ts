@@ -439,6 +439,11 @@ export interface IStorage {
   createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics>;
   updateNewsletterAnalytics(newsletterId: string, data: Partial<NewsletterAnalytics>): Promise<NewsletterAnalytics | undefined>;
   
+  // Newsletter Events
+  createNewsletterEvent(event: InsertNewsletterEvent): Promise<NewsletterEvent | null>;
+  getNewsletterEventsByNewsletterId(newsletterId: string): Promise<NewsletterEvent[]>;
+  getNewsletterEventByWebhookId(webhookEventId: string): Promise<NewsletterEvent | undefined>;
+  
   createNftMint(nftMint: InsertNftMint): Promise<NftMint>;
   getNftMintsByUserId(userId: string): Promise<NftMint[]>;
   getNftMintByOrderId(orderId: string): Promise<NftMint | undefined>;

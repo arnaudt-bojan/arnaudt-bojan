@@ -215,12 +215,29 @@ export class CampaignService {
       throw new Error("Seller not found");
     }
 
+    // Use same HTML normalization as production sends
+    let htmlPayload: string;
+    if (campaign.htmlContent) {
+      htmlPayload = campaign.htmlContent;
+    } else if (campaign.content) {
+      htmlPayload = `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    ${campaign.content.replace(/\n/g, '<br>')}
+  </div>
+</body>
+</html>`;
+    } else {
+      throw new Error("Campaign must have content");
+    }
+
     const result = await this.emailProvider.sendEmail({
       to: testEmail,
       from: `${seller.firstName || seller.username} via Upfirst <hello@upfirst.io>`,
       replyTo: seller.email || undefined,
       subject: `[TEST] ${campaign.subject}`,
-      html: campaign.content,
+      html: htmlPayload,
     });
 
     if (!result.success) {
