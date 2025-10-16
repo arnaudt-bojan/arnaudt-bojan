@@ -136,9 +136,9 @@ export class CampaignService {
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
           const alt = altMatch ? altMatch[1] : '';
           
-          // Industry standard: HTML width + CSS width + max-width for responsive
-          // This works in Apple Mail, Gmail, Outlook, Yahoo, etc.
-          return `<img src="${src}" alt="${alt}" width="600" style="width:600px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
+          // Responsive images: smaller max-width for better desktop/mobile display
+          // Desktop shows at 450px, mobile scales down with max-width:100%
+          return `<img src="${src}" alt="${alt}" width="450" style="width:450px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
         }
       );
       
@@ -324,9 +324,9 @@ export class CampaignService {
           
           // PROFESSIONAL EMAIL CLIENT FIX (Mailchimp/SendGrid/Klaviyo standard)
           // Email clients need BOTH HTML attributes AND CSS styles together
-          // Industry standard: HTML width + CSS width + max-width for responsive
-          // This works in Apple Mail, Gmail, Outlook, Yahoo, etc.
-          return `<img src="${src}" alt="${alt}" width="600" style="width:600px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
+          // Responsive images: smaller max-width for better desktop/mobile display
+          // Desktop shows at 450px, mobile scales down with max-width:100%
+          return `<img src="${src}" alt="${alt}" width="450" style="width:450px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
         }
       );
       
