@@ -413,6 +413,7 @@ export interface IStorage {
   // Subscriber Groups
   getSubscriberGroupsByUserId(userId: string): Promise<SubscriberGroup[]>;
   getSubscriberGroup(id: string): Promise<SubscriberGroup | undefined>;
+  getSubscriberGroupByName(userId: string, name: string): Promise<SubscriberGroup | undefined>;
   createSubscriberGroup(group: InsertSubscriberGroup): Promise<SubscriberGroup>;
   updateSubscriberGroup(id: string, data: Partial<SubscriberGroup>): Promise<SubscriberGroup | undefined>;
   deleteSubscriberGroup(id: string): Promise<boolean>;
@@ -2336,6 +2337,12 @@ export class DatabaseStorage implements IStorage {
   async getSubscriberGroup(id: string): Promise<SubscriberGroup | undefined> {
     await this.ensureInitialized();
     const result = await this.db.select().from(subscriberGroups).where(eq(subscriberGroups.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getSubscriberGroupByName(userId: string, name: string): Promise<SubscriberGroup | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db.select().from(subscriberGroups).where(and(eq(subscriberGroups.userId, userId), eq(subscriberGroups.name, name))).limit(1);
     return result[0];
   }
 
