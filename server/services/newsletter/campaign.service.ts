@@ -149,17 +149,9 @@ export class CampaignService {
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
           const alt = altMatch ? altMatch[1] : '';
           
-          // APPLE MAIL MOBILE FIX: Remove ALL HTML attributes (width, height, border)
-          // Use ONLY inline CSS styles for maximum compatibility
-          return `<table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 10px 0;">
-  <tbody>
-    <tr>
-      <td align="center" style="padding: 0;">
-        <img src="${src}" alt="${alt}" style="display: block; width: 100%; max-width: 600px; height: auto; border: none; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;">
-      </td>
-    </tr>
-  </tbody>
-</table>`;
+          // APPLE MAIL MOBILE FIX: Absolute simplest approach (like Mailchimp)
+          // NO tables, NO complex CSS - just a plain img tag with minimal styles
+          return `<img src="${src}" alt="${alt}" style="max-width:100%; display:block; height:auto;">`;
         }
       );
       

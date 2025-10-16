@@ -267,11 +267,13 @@ export default function SellerNewsletterPage() {
       if (editingCampaignId) {
         console.log("[Campaign] Updating campaign", editingCampaignId, "with data:", cleanData);
         const response = await apiRequest("PUT", `/api/campaigns/${editingCampaignId}`, cleanData);
-        return { campaign: response, shouldSend };
+        const campaign = await response.json();
+        return { campaign, shouldSend };
       } else {
         console.log("[Campaign] Creating campaign with data:", cleanData);
         const response = await apiRequest("POST", "/api/campaigns", cleanData);
-        return { campaign: response, shouldSend };
+        const campaign = await response.json();
+        return { campaign, shouldSend };
       }
     },
     onSuccess: async (result: any) => {
