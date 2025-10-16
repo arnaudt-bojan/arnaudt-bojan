@@ -1338,7 +1338,9 @@ export class DatabaseStorage implements IStorage {
   async updateOrderItemDeliveryDate(itemId: string, preOrderDate: Date | null, madeToOrderLeadTime: number | null): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
     const updateData: any = {
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      // CRITICAL: Reset reminder flag when delivery date changes so a new reminder will be sent
+      deliveryReminderSentAt: null
     };
 
     if (preOrderDate !== null) {
