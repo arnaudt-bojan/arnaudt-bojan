@@ -2933,6 +2933,7 @@ export type TradePaymentSchedule = typeof tradePaymentSchedules.$inferSelect;
 // PostgreSQL enums for bulk upload
 export const bulkUploadStatusPgEnum = pgEnum("bulk_upload_status", [
   "pending",          // File uploaded, waiting to start
+  "preprocessed",     // Multi-row format detected and flattened
   "validating",       // Validating rows
   "validated",        // Validation complete, ready to import
   "importing",        // Creating products
