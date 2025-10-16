@@ -5,7 +5,7 @@
 
 import { storage } from "../../storage";
 import { newsletterJobs } from "@shared/schema";
-import { eq, and, lte } from "drizzle-orm";
+import { eq, and, lte, or, isNull } from "drizzle-orm";
 import { logger } from "../../logger";
 import type { JobType, JobStatus } from "@shared/newsletter-types";
 
@@ -159,14 +159,21 @@ export class NewsletterJobQueue {
       .from(newsletterJobs)
       .where(and(
         eq(newsletterJobs.status, 'queued'),
-        lte(newsletterJobs.scheduledFor ?? now, now)
+        or(
+          isNull(newsletterJobs.scheduledFor),
+          lte(newsletterJobs.scheduledFor, now)
+        )
       ))
       .orderBy(newsletterJobs.priority, newsletterJobs.createdAt)
       .limit(1);
 
     if (!queuedJob) {
+      logger.debug("[NewsletterQueue] No queued jobs found");
       return; // No jobs ready
     }
+    
+    logger.info(`[NewsletterQueue] Found queued job ${queuedJob.id} (type: ${queuedJob.type})`);
+
 
     const processor = this.processors.get(queuedJob.type as JobType);
     if (!processor) {
