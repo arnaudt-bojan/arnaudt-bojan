@@ -169,6 +169,14 @@ export function DashboardHeader() {
                       <Select value={mode} onValueChange={(value: any) => {
                         setMode(value);
                         setMobileMenuOpen(false);
+                        // Navigate to appropriate dashboard based on mode
+                        if (value === 'b2c') {
+                          setLocation('/seller-dashboard');
+                        } else if (value === 'b2b') {
+                          setLocation('/wholesale-dashboard');
+                        } else if (value === 'trade') {
+                          setLocation('/trade-quotations');
+                        }
                       }} data-testid="mobile-select-business-mode">
                         <SelectTrigger className="w-full">
                           <SelectValue>{getModeLabel(mode)}</SelectValue>
@@ -228,7 +236,17 @@ export function DashboardHeader() {
           {/* Desktop-only: Business Mode Selector, Notifications, Theme */}
           <div className="hidden md:flex items-center gap-2">
             {isSeller && (
-              <Select value={mode} onValueChange={(value: any) => setMode(value)} data-testid="select-business-mode">
+              <Select value={mode} onValueChange={(value: any) => {
+                setMode(value);
+                // Navigate to appropriate dashboard based on mode
+                if (value === 'b2c') {
+                  setLocation('/seller-dashboard');
+                } else if (value === 'b2b') {
+                  setLocation('/wholesale-dashboard');
+                } else if (value === 'trade') {
+                  setLocation('/trade-quotations');
+                }
+              }} data-testid="select-business-mode">
                 <SelectTrigger className="w-[180px]">
                   <SelectValue>{getModeLabel(mode)}</SelectValue>
                 </SelectTrigger>
