@@ -32,11 +32,13 @@ export class CampaignService {
     // Collect recipients from multiple sources
     const recipientEmails = new Set<string>();
 
-    // 1. If sendToAll is true, get all subscribers for this user
+    // 1. If sendToAll is true, get ONLY ACTIVE subscribers (exclude unsubscribed, bounced, complained)
     if ((data as any).sendToAll) {
       const allSubscribers = await this.storage.getSubscribersByUserId(userId);
-      allSubscribers.forEach(sub => recipientEmails.add(sub.email));
-      logger.info(`[CampaignService] Send to all: Added ${allSubscribers.length} subscribers`);
+      // CRITICAL: Only send to active subscribers - never send to unsubscribed/bounced/complained
+      const activeSubscribers = allSubscribers.filter(sub => sub.status === 'active');
+      activeSubscribers.forEach(sub => recipientEmails.add(sub.email));
+      logger.info(`[CampaignService] Send to all: Added ${activeSubscribers.length} active subscribers (filtered from ${allSubscribers.length} total)`);
     }
 
     // 2. Add direct recipients from the request
