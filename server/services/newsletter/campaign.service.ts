@@ -111,6 +111,9 @@ export class CampaignService {
     
     // Helper function to add inline styles to email content for universal email client compatibility
     const normalizeEmailHtml = (html: string): string => {
+      // FIX QUILL DOUBLE-QUOTE BUG: Replace double-escaped quotes in image src attributes
+      html = html.replace(/src=""/g, 'src="').replace(/"" /g, '" ').replace(/"">/g, '">');
+      
       // Add inline styles to <p> tags (for paragraph spacing)
       html = html.replace(
         /<p>/gi,
@@ -267,6 +270,9 @@ export class CampaignService {
     
     // Helper function to add inline styles to email content for universal email client compatibility
     const normalizeEmailHtml = (html: string): string => {
+      // FIX QUILL DOUBLE-QUOTE BUG: Replace double-escaped quotes in image src attributes
+      html = html.replace(/src=""/g, 'src="').replace(/"" /g, '" ').replace(/"">/g, '">');
+      
       // Add inline styles to <p> tags (for paragraph spacing)
       html = html.replace(
         /<p>/gi,
