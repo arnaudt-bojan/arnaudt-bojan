@@ -308,7 +308,7 @@ export default function BulkProductUpload() {
       generic: { label: "Generic CSV", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
     };
 
-    const config = formatConfig[format];
+    const config = formatConfig[format] || formatConfig.generic;
     return <Badge className={config.className} data-testid={`badge-format-${format}`}>{config.label}</Badge>;
   };
 
@@ -529,7 +529,7 @@ export default function BulkProductUpload() {
                     </div>
                   </div>
 
-                  {preprocessingResult.warnings.length > 0 && (
+                  {preprocessingResult.warnings && preprocessingResult.warnings.length > 0 && (
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
@@ -543,7 +543,7 @@ export default function BulkProductUpload() {
                     </Alert>
                   )}
 
-                  {((preprocessingResult.diagnostics.orphanedVariations ?? 0) > 0 || (preprocessingResult.diagnostics.missingParents ?? 0) > 0) && (
+                  {preprocessingResult.diagnostics && ((preprocessingResult.diagnostics.orphanedVariations ?? 0) > 0 || (preprocessingResult.diagnostics.missingParents ?? 0) > 0) && (
                     <Alert variant="destructive">
                       <XCircle className="h-4 w-4" />
                       <AlertDescription>
