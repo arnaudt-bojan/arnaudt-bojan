@@ -81,7 +81,12 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
   };
 
   // Get confidence badge variant and icon
-  const getConfidenceBadge = (confidence: number) => {
+  const getConfidenceBadge = (confidence: number, standardField: string | null) => {
+    // If unmapped (standardField is null), show as low confidence/manual
+    if (standardField === null) {
+      return { variant: "outline" as const, icon: <Info className="h-3 w-3" />, label: "Ignored" };
+    }
+    
     if (confidence >= 80) {
       return { variant: "default" as const, icon: <CheckCircle className="h-3 w-3" />, label: "High" };
     } else if (confidence >= 50) {
@@ -175,7 +180,7 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mappings.filter(m => m.confidence >= 80).length}
+                {mappings.filter(m => m.standardField !== null && m.confidence >= 80).length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Auto-mapped fields</p>
             </CardContent>
@@ -186,7 +191,7 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mappings.filter(m => m.confidence >= 50 && m.confidence < 80).length}
+                {mappings.filter(m => m.standardField !== null && m.confidence >= 50 && m.confidence < 80).length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Review suggested mappings</p>
             </CardContent>
@@ -197,7 +202,7 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {analysis.unmappedUserFields.length}
+                {mappings.filter(m => m.standardField === null).length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Fields will be ignored</p>
             </CardContent>
@@ -208,11 +213,16 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
       {/* Suggestions */}
       {analysis && analysis.suggestions.length > 0 && (
         <div className="space-y-2">
-          {analysis.suggestions.map((suggestion, idx) => (
-            <Alert key={idx} variant={suggestion.includes('⚠️') ? "destructive" : "default"}>
-              <AlertDescription>{suggestion}</AlertDescription>
-            </Alert>
-          ))}
+          {analysis.suggestions.map((suggestion, idx) => {
+            const variant = suggestion.includes('⚠️') ? "destructive" : 
+                          suggestion.includes('✅') ? "default" : 
+                          suggestion.includes('👀') ? "default" : "default";
+            return (
+              <Alert key={idx} variant={variant}>
+                <AlertDescription>{suggestion}</AlertDescription>
+              </Alert>
+            );
+          })}
         </div>
       )}
 
@@ -239,7 +249,7 @@ export function AIFieldMapping({ userHeaders, jobId, onMappingComplete }: AIFiel
             </TableHeader>
             <TableBody>
               {mappings.map((mapping) => {
-                const confidenceBadge = getConfidenceBadge(mapping.confidence);
+                const confidenceBadge = getConfidenceBadge(mapping.confidence, mapping.standardField);
                 return (
                   <TableRow key={mapping.userField}>
                     <TableCell className="font-medium">

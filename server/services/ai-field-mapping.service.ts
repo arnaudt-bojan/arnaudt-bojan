@@ -65,31 +65,62 @@ Your task is to map user's CSV column headers to our database schema fields. All
 DATABASE SCHEMA FIELDS:
 ${JSON.stringify(standardFields, null, 2)}
 
-MAPPING RULES:
-1. Match user headers to the most appropriate database field (use the "name" from schema)
-2. Provide a confidence score (0-100) for each mapping
-3. Consider synonyms, abbreviations, and common variations
-4. A confidence of 80+ means high confidence auto-map
-5. A confidence of 50-79 means review needed
-6. A confidence below 50 means manual mapping required
-7. If no good match exists, set standardField to null
-8. Provide brief reasoning for your mapping choice
-9. ALL PRODUCTS ARE IN-STOCK ITEMS - ignore pre-order or made-to-order fields
-10. VARIANT SKU is supported - map variant SKU columns to "Variant SKU" field
-11. IMPORTANT: If a CSV has "Images" (plural), it can be used instead of "Image" (singular). The system will auto-extract the primary image from Images.
-12. Map both "Image" and "Images" columns if they exist - the system handles both
+WOOCOMMERCE/SHOPIFY AUTHORITATIVE MAPPING DICTIONARY:
+Use these EXACT mappings with 95%+ confidence for WooCommerce/Shopify CSVs:
+- "Regular price" → "Price" (confidence: 98)
+- "Name" → "Product Name" (confidence: 98)
+- "Description" / "Short description" → "Description" (confidence: 98)
+- "SKU" → "SKU" (confidence: 98)
+- "Stock" / "Stock quantity" → "Stock" (confidence: 98)
+- "Images" → "Images" (confidence: 98)
+- "Categories" → "Category" (confidence: 98)
+- "Weight (kg)" / "Weight" → "Weight" (confidence: 95, but map to null - we don't support weight)
+- "Shipping class" → "Shipping Type" (confidence: 70)
 
-EXAMPLES OF GOOD MAPPINGS:
-- "product_name" / "title" / "name" → "Product Name" (confidence: 95)
-- "img_url" / "image_url" / "picture" → "Image" (confidence: 90)
-- "images" / "additional_images" → "Images" (confidence: 85)
-- "retail_price" / "price" / "cost" → "Price" (confidence: 95)
-- "item_description" / "desc" → "Description" (confidence: 92)
-- "category_name" / "category" → "Category" (confidence: 95)
-- "stock_qty" / "quantity" / "inventory" → "Stock" (confidence: 88)
-- "sku_code" / "sku" / "product_sku" → "SKU" (confidence: 95)
-- "variant_sku" / "size_sku" / "color_sku" → "Variant SKU" (confidence: 90)
-- "variants" / "options" / "sizes" → "Variants" (confidence: 85)
+EXPLICIT IGNORE LIST - MUST MAP TO NULL:
+These WooCommerce/Shopify fields are NOT supported and MUST be set to null with appropriate reasoning:
+- "ID" → null (reasoning: "Internal database IDs are not imported; our system generates IDs automatically")
+- "Type" → null (reasoning: "WooCommerce product type (simple/variable) is not needed; our system handles variants automatically")
+- "Parent" → null (reasoning: "Parent-child product relationships are not supported; variants are flattened during preprocessing")
+- "Tags" → null (reasoning: "Product tags are not captured in our schema")
+- "Tax status" / "Tax class" → null (reasoning: "Tax information is calculated automatically by our tax system")
+- "Published" / "Is featured?" → null (reasoning: "Publishing status is managed separately in our platform")
+- "In stock?" → null (reasoning: "Stock status is determined automatically from stock quantity")
+- "Sale price" → null (reasoning: "Sale prices and discounts are managed through our pricing system, not during import")
+- "Upsells" / "Cross-sells" → null (reasoning: "Product recommendations are not supported during bulk import")
+- "External URL" / "Button text" → null (reasoning: "External product features are not supported")
+- "Download limit" / "Download expiry days" → null (reasoning: "Downloadable product features are not supported")
+- "Position" / "Menu order" → null (reasoning: "Product ordering is managed in our dashboard")
+- "Width (cm)" / "Height (cm)" / "Length (cm)" → null (reasoning: "Product dimensions are not captured in our schema")
+- "Attribute 1 name" / "Attribute 2 name" / "Attribute 3 name" → null (reasoning: "WooCommerce attributes must be preprocessed into our variant format")
+- "Purchase note" → null (reasoning: "Purchase notes are not supported")
+
+CONFIDENCE SCORING RULES:
+1. EXACT matches from WooCommerce dictionary → 95-98% confidence
+2. Clear synonyms (e.g., "title"→"Product Name", "qty"→"Stock") → 85-94% confidence
+3. Probable matches with minor ambiguity → 70-84% confidence
+4. Uncertain matches → 50-69% confidence
+5. No good match OR on ignore list → map to null (no confidence needed)
+
+CRITICAL RULES:
+1. For WooCommerce CSVs, use the AUTHORITATIVE MAPPING DICTIONARY - don't guess
+2. Fields on IGNORE LIST must ALWAYS map to null with the provided reasoning
+3. Use 95%+ confidence for exact/canonical matches - be decisive!
+4. "Images" (plural) is preferred over "Image" (singular) - both are supported
+5. Product Type defaults to "in-stock" automatically - no mapping needed
+6. Map "Regular price" to "Price" (98%) - ignore "Sale price"
+7. Never map unrelated fields (e.g., "Tags" to "Category") - use null instead
+
+EXAMPLES OF CORRECT MAPPINGS:
+✅ "Regular price" → "Price" (confidence: 98, reasoning: "Direct match for regular/base price")
+✅ "Name" → "Product Name" (confidence: 98, reasoning: "Standard product name field")
+✅ "Tags" → null (confidence: 30, reasoning: "Product tags are not captured in our schema")
+✅ "Sale price" → null (confidence: 30, reasoning: "Sale prices are managed through our pricing system")
+✅ "Type" → null (confidence: 30, reasoning: "WooCommerce product type is not needed")
+
+❌ WRONG: "Tags" → "Category" (confidence: 60) - Tags are NOT categories
+❌ WRONG: "Type" → "Category" (confidence: 55) - Product type is NOT category
+❌ WRONG: "Sale price" → "Price" (confidence: 70) - We only import regular price
 
 Respond with a JSON array of mappings.`;
 
@@ -146,9 +177,9 @@ Analyze each header and provide the best mapping with confidence score and reaso
         reasoning: m.reasoning,
       }));
 
-      // Find unmapped user fields
-      const mappedUserFields = new Set(mappings.filter(m => m.standardField !== null).map(m => m.userField));
-      const unmappedUserFields = userHeaders.filter(h => !mappedUserFields.has(h));
+      // Find unmapped user fields (those with null standardField)
+      const unmappedMappings = mappings.filter(m => m.standardField === null);
+      const unmappedUserFields = unmappedMappings.map(m => m.userField);
 
       // Find missing required fields
       const mappedStandardFields = new Set(mappings.filter(m => m.standardField !== null).map(m => m.standardField));
@@ -168,8 +199,13 @@ Analyze each header and provide the best mapping with confidence score and reaso
         suggestions.push(`👀 ${lowConfidenceMappings.length} mapping(s) need review (confidence < 80%)`);
       }
 
+      const highConfidenceMappings = mappings.filter(m => m.confidence >= 80 && m.standardField !== null);
+      if (highConfidenceMappings.length > 0) {
+        suggestions.push(`✅ ${highConfidenceMappings.length} field(s) auto-mapped with high confidence`);
+      }
+
       if (unmappedUserFields.length > 0) {
-        suggestions.push(`ℹ️ ${unmappedUserFields.length} field(s) will be ignored: ${unmappedUserFields.join(', ')}`);
+        suggestions.push(`ℹ️ ${unmappedUserFields.length} field(s) will be ignored (not supported by our schema)`);
       }
 
       return {
