@@ -3,6 +3,7 @@
  * Architecture 3 compliant - Pure business logic, no direct database access
  */
 
+import crypto from "crypto";
 import type { IStorage } from "../../storage";
 import type { Subscriber } from "@shared/schema";
 import { logger } from "../../logger";
@@ -193,13 +194,134 @@ export class ComplianceService {
   }
 
   /**
-   * Generate unsubscribe link for email footer
+   * Generate unsubscribe token (secure, tamper-proof)
+   */
+  generateUnsubscribeToken(campaignId: string, subscriberEmail: string): string {
+    const secret = process.env.SESSION_SECRET;
+    
+    if (!secret) {
+      throw new Error('SESSION_SECRET environment variable is required for generating secure unsubscribe tokens');
+    }
+    
+    const payload = `${campaignId}:${subscriberEmail.toLowerCase()}`;
+    const signature = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex')
+      .slice(0, 16);
+    
+    return `${Buffer.from(payload).toString('base64')}.${signature}`;
+  }
+
+  /**
+   * Generate unsubscribe URL for email footer
+   */
+  generateUnsubscribeUrl(campaignId: string, subscriberEmail: string): string {
+    const baseUrl = process.env.APP_URL || "https://upfirst.io";
+    const token = this.generateUnsubscribeToken(campaignId, subscriberEmail);
+    return `${baseUrl}/api/unsubscribe/${token}`;
+  }
+
+  /**
+   * Generate unsubscribe link for email footer (deprecated - use generateUnsubscribeUrl)
    */
   generateUnsubscribeLink(campaignId: string, subscriberEmail: string): string {
-    // TODO: Implement token-based unsubscribe link
-    const baseUrl = process.env.APP_URL || "https://upfirst.io";
-    const token = Buffer.from(`${campaignId}:${subscriberEmail}`).toString("base64url");
-    return `${baseUrl}/newsletter/unsubscribe/${token}`;
+    return this.generateUnsubscribeUrl(campaignId, subscriberEmail);
+  }
+
+  /**
+   * Validate unsubscribe token and extract campaign/email
+   */
+  validateUnsubscribeToken(token: string): { campaignId: string; email: string } | null {
+    try {
+      const secret = process.env.SESSION_SECRET;
+      
+      if (!secret) {
+        throw new Error('SESSION_SECRET environment variable is required for validating unsubscribe tokens');
+      }
+      
+      const parts = token.split('.');
+      
+      if (parts.length !== 2) {
+        logger.warn(`[ComplianceService] Invalid token format`);
+        return null;
+      }
+
+      const [encodedPayload, signature] = parts;
+      const payload = Buffer.from(encodedPayload, 'base64').toString('utf-8');
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex')
+        .slice(0, 16);
+
+      if (signature !== expectedSignature) {
+        logger.warn(`[ComplianceService] Invalid token signature`);
+        return null;
+      }
+
+      const payloadParts = payload.split(':');
+      if (payloadParts.length !== 2) {
+        logger.warn(`[ComplianceService] Invalid payload format`);
+        return null;
+      }
+
+      const [campaignId, email] = payloadParts;
+      return { campaignId, email: email.toLowerCase() };
+    } catch (error) {
+      logger.error(`[ComplianceService] Token validation error:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Handle unsubscribe request from token
+   */
+  async handleUnsubscribe(token: string): Promise<{ success: boolean; email?: string; error?: string }> {
+    logger.info(`[ComplianceService] Processing unsubscribe request`);
+
+    const validated = this.validateUnsubscribeToken(token);
+    if (!validated) {
+      return { success: false, error: 'Invalid or expired unsubscribe link' };
+    }
+
+    const { campaignId, email } = validated;
+
+    try {
+      // Get the campaign to find the user
+      const campaign = await this.storage.getNewsletter(campaignId);
+      if (!campaign) {
+        logger.warn(`[ComplianceService] Campaign not found for unsubscribe`, { campaignId });
+        return { success: false, error: 'Campaign not found' };
+      }
+
+      // Get the subscriber
+      const subscriber = await this.storage.getSubscriberByEmail(campaign.userId, email);
+      if (!subscriber) {
+        logger.warn(`[ComplianceService] Subscriber not found`, { email });
+        return { success: false, error: 'Subscriber not found' };
+      }
+
+      // Update subscriber status to unsubscribed
+      await this.storage.updateSubscriber(subscriber.id, {
+        status: 'unsubscribed',
+      });
+
+      // Track the unsubscribe event
+      await this.storage.createNewsletterEvent({
+        newsletterId: campaignId,
+        recipientEmail: email,
+        eventType: 'unsubscribe',
+        eventData: { timestamp: new Date().toISOString() },
+        webhookEventId: null,
+      });
+
+      logger.info(`[ComplianceService] Unsubscribe successful`, { email });
+      return { success: true, email };
+    } catch (error) {
+      logger.error(`[ComplianceService] Unsubscribe failed:`, error);
+      return { success: false, error: 'Failed to process unsubscribe request' };
+    }
   }
 
   /**

@@ -152,6 +152,19 @@ export class CampaignService {
       throw new Error("Campaign must have content");
     }
 
+    // Inject GDPR-compliant unsubscribe footer with placeholders
+    const unsubscribeFooter = `
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;text-align:center;font-size:12px;color:#999;">
+  <p>You're receiving this because you subscribed to {storeName}.</p>
+  <p><a href="{unsubscribeUrl}" style="color:#999;text-decoration:underline;">Unsubscribe</a></p>
+</div>`;
+
+    // Inject footer before closing body tag
+    htmlPayload = htmlPayload.replace(
+      /<\/body>/i,
+      `${unsubscribeFooter}</body>`
+    );
+
     // Enqueue send job for background processing (with error handling)
     try {
       const jobId = await this.jobQueue.enqueue({
@@ -162,7 +175,8 @@ export class CampaignService {
           from: `${fromName} <hello@upfirst.io>`,
           replyTo: seller.email || undefined,
           subject: campaign.subject,
-          htmlContent: htmlPayload, // Guaranteed valid HTML with preheader
+          htmlContent: htmlPayload, // HTML with unsubscribe footer template (has placeholders)
+          storeName: fromName, // For personalizing unsubscribe footer
         },
         priority: 5,
       });

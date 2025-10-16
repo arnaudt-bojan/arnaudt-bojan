@@ -288,23 +288,31 @@ newsletterJobQueue.start();
 
 // Register newsletter job processors (MUST be at module level, before registerRoutes)
 newsletterJobQueue.registerProcessor('send_campaign', async (job, signal) => {
-  const { campaignId, recipients, from, replyTo, subject, htmlContent } = job.data;
+  const { campaignId, recipients, from, replyTo, subject, htmlContent, storeName } = job.data;
   
   logger.info(`[NewsletterProcessor] Processing send_campaign job for campaign ${campaignId} with ${recipients.length} recipients`);
   
-  // Send emails to all recipients
+  // Send emails to all recipients with personalized unsubscribe links
   for (const recipient of recipients) {
     if (signal.aborted) {
       throw new Error('Job aborted');
     }
     
     try {
+      // Generate personalized unsubscribe URL for this recipient
+      const unsubscribeUrl = complianceService.generateUnsubscribeUrl(campaignId, recipient.email);
+      
+      // Replace placeholders in HTML with personalized values
+      const personalizedHtml = htmlContent
+        .replace(/\{storeName\}/g, storeName || 'Store')
+        .replace(/\{unsubscribeUrl\}/g, unsubscribeUrl);
+      
       await emailProvider.sendEmail({
         to: recipient.email,
         from,
         replyTo,
         subject,
-        html: htmlContent,
+        html: personalizedHtml,
       });
       logger.info(`[NewsletterProcessor] Email sent to ${recipient.email}`);
     } catch (error) {
@@ -318,6 +326,9 @@ newsletterJobQueue.registerProcessor('send_campaign', async (job, signal) => {
     status: 'sent',
     sentAt: new Date(),
   });
+  
+  // Initialize analytics for this campaign
+  await analyticsService.updateCampaignAnalytics(campaignId);
   
   logger.info(`[NewsletterProcessor] Campaign ${campaignId} sent successfully to ${recipients.length} recipients`);
 });
@@ -5975,6 +5986,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Unsubscribe error", error);
       res.status(500).send("An error occurred while unsubscribing. Please try again.");
+    }
+  });
+
+  // GDPR-compliant token-based unsubscribe (public endpoint - no auth required)
+  app.get("/api/unsubscribe/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      if (!token) {
+        return res.status(400).send("Invalid unsubscribe link");
+      }
+
+      // Use ComplianceService to handle unsubscribe
+      const result = await complianceService.handleUnsubscribe(token);
+
+      if (!result.success) {
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Unsubscribe Error - Upfirst</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  min-height: 100vh;
+                  margin: 0;
+                  background: #f3f4f6;
+                }
+                .container {
+                  background: white;
+                  padding: 3rem;
+                  border-radius: 8px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                  text-align: center;
+                  max-width: 500px;
+                }
+                h1 {
+                  color: #dc2626;
+                  margin-bottom: 1rem;
+                }
+                p {
+                  color: #6b7280;
+                  line-height: 1.6;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>Unsubscribe Error</h1>
+                <p>${result.error || 'Unable to process your unsubscribe request.'}</p>
+                <p>Please contact support if this problem persists.</p>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+
+      // HTML escape function to prevent XSS
+      const escapeHtml = (unsafe: string) => {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      };
+
+      // Return a user-friendly unsubscribe confirmation page
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Unsubscribed - Upfirst</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background: #f3f4f6;
+              }
+              .container {
+                background: white;
+                padding: 3rem;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                text-align: center;
+                max-width: 500px;
+              }
+              h1 {
+                color: #2563eb;
+                margin-bottom: 1rem;
+              }
+              p {
+                color: #6b7280;
+                line-height: 1.6;
+              }
+              .success-icon {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="success-icon">✓</div>
+              <h1>You've been unsubscribed</h1>
+              <p>You will no longer receive newsletter emails at <strong>${escapeHtml(result.email || 'your email')}</strong></p>
+              <p>If this was a mistake, please contact the sender directly to resubscribe.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      logger.error("Token-based unsubscribe error", error);
+      res.status(500).send("An error occurred while unsubscribing. Please try again.");
+    }
+  });
+
+  // Webhook endpoint for Resend events (public endpoint - validates signature)
+  app.post("/api/newsletter/webhooks/resend", async (req, res) => {
+    try {
+      // TODO: Validate Resend webhook signature for security
+      const signature = req.headers['resend-signature'] || req.headers['x-resend-signature'];
+      
+      // For now, accept the webhook (signature validation can be added later)
+      const event = req.body;
+
+      logger.info('[Newsletter Webhook] Received Resend webhook:', { 
+        type: event.type,
+        email: event.data?.email 
+      });
+
+      // Map Resend event types to our analytics events
+      const eventTypeMap: Record<string, 'open' | 'click' | 'bounce' | 'unsubscribe'> = {
+        'email.opened': 'open',
+        'email.clicked': 'click',
+        'email.bounced': 'bounce',
+        'email.complained': 'bounce', // Treat complaints as bounces
+        'email.delivered': 'open', // Track deliveries as potential opens
+      };
+
+      const analyticsEventType = eventTypeMap[event.type];
+
+      if (analyticsEventType && event.data?.email && event.data?.campaignId) {
+        await analyticsService.ingestEvent({
+          campaignId: event.data.campaignId,
+          recipientEmail: event.data.email,
+          eventType: analyticsEventType,
+          eventData: event.data,
+          webhookEventId: event.id || null,
+        });
+
+        logger.info('[Newsletter Webhook] Event ingested:', {
+          type: analyticsEventType,
+          email: event.data.email,
+          campaignId: event.data.campaignId,
+        });
+      } else {
+        logger.warn('[Newsletter Webhook] Unmapped or incomplete event:', { type: event.type });
+      }
+
+      // Always return 200 OK to acknowledge receipt
+      res.status(200).json({ received: true });
+    } catch (error) {
+      logger.error("Newsletter webhook error", error);
+      // Still return 200 to prevent webhook retries on our errors
+      res.status(200).json({ received: true, error: 'processed with errors' });
     }
   });
 
