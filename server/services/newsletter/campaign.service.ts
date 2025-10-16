@@ -123,7 +123,8 @@ export class CampaignService {
         '<p style="$1; margin: 0 0 10px 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333;"'
       );
       
-      // APPLE MAIL MOBILE FIX: Absolute simplest approach (like Mailchimp)
+      // PROFESSIONAL EMAIL CLIENT FIX (Mailchimp/SendGrid/Klaviyo standard)
+      // Email clients need BOTH HTML attributes AND CSS styles together
       html = html.replace(
         /<img\s+([^>]*)>/gi,
         (match, attrs) => {
@@ -131,7 +132,10 @@ export class CampaignService {
           const src = srcMatch ? srcMatch[1] : '';
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
           const alt = altMatch ? altMatch[1] : '';
-          return `<img src="${src}" alt="${alt}" style="max-width:100%; display:block; height:auto;">`;
+          
+          // Industry standard: HTML width + CSS width + max-width for responsive
+          // This works in Apple Mail, Gmail, Outlook, Yahoo, etc.
+          return `<img src="${src}" alt="${alt}" width="600" style="width:600px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
         }
       );
       
@@ -284,9 +288,11 @@ export class CampaignService {
           const altMatch = attrs.match(/alt=["']([^"']+)["']/);
           const alt = altMatch ? altMatch[1] : '';
           
-          // APPLE MAIL MOBILE FIX: Absolute simplest approach (like Mailchimp)
-          // NO tables, NO complex CSS - just a plain img tag with minimal styles
-          return `<img src="${src}" alt="${alt}" style="max-width:100%; display:block; height:auto;">`;
+          // PROFESSIONAL EMAIL CLIENT FIX (Mailchimp/SendGrid/Klaviyo standard)
+          // Email clients need BOTH HTML attributes AND CSS styles together
+          // Industry standard: HTML width + CSS width + max-width for responsive
+          // This works in Apple Mail, Gmail, Outlook, Yahoo, etc.
+          return `<img src="${src}" alt="${alt}" width="600" style="width:600px; max-width:100%; height:auto; display:block; border:0; outline:none; text-decoration:none;">`;
         }
       );
       
