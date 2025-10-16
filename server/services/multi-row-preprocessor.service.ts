@@ -187,7 +187,9 @@ export class MultiRowProductPreprocessor {
     flattenedRows.push(...simpleProducts);
 
     // Process variable products with variations
+    console.log('[WooCommerce] Processing parents. Count:', parents.size);
     parents.forEach((parentRow, parentId) => {
+      console.log('[WooCommerce] Processing parent ID:', parentId, 'Name:', parentRow.Name || parentRow.name);
       const productVariations = variations.get(parentId) || [];
       
       if (productVariations.length === 0) {
@@ -195,7 +197,9 @@ export class MultiRowProductPreprocessor {
       }
 
       // Flatten to single row
+      console.log('[WooCommerce] About to flatten. Parent ID:', parentId, 'Variations:', productVariations.length);
       const flattened = this.flattenWooCommerceProduct(parentRow, productVariations);
+      console.log('[WooCommerce] Flattened result keys:', Object.keys(flattened));
       flattenedRows.push(flattened);
     });
 
