@@ -2616,19 +2616,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const items = await storage.getBulkUploadItemsByJob(jobId);
       const mappings = job.mappings as any[];
 
-      console.log('[ApplyMappings] Starting transformation. Items count:', items.length);
-      console.log('[ApplyMappings] First item keys:', items[0] ? Object.keys(items[0].rowData || {}) : 'NO ITEMS');
-
       let transformedCount = 0;
       for (const item of items) {
         const userRow = item.rowData as Record<string, any>;
-        console.log('[ApplyMappings] BEFORE transform. Row keys:', Object.keys(userRow || {}));
-        console.log('[ApplyMappings] Has variants?', userRow?.variants !== undefined);
-        
         const transformedRow = aiFieldMappingService.applyMapping(userRow, mappings);
-        
-        console.log('[ApplyMappings] AFTER transform. Row keys:', Object.keys(transformedRow || {}));
-        console.log('[ApplyMappings] Has variants?', transformedRow?.variants !== undefined);
         
         // Update item with transformed data
         await storage.updateBulkUploadItem(item.id, {
@@ -2636,8 +2627,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         transformedCount++;
       }
-      
-      console.log('[ApplyMappings] Transformation complete. Count:', transformedCount);
 
       // Update job status to 'pending' so it's ready for validation
       await storage.updateBulkUploadJob(jobId, { 

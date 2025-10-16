@@ -47,7 +47,7 @@ export class AIFieldMappingService {
 
     // DEBUG: Log headers received
     logger.info('[AIFieldMapping] Headers received for mapping:', { 
-      headers: userHeaders, 
+      headers: JSON.stringify(userHeaders), 
       count: userHeaders.length,
       hasVariants: userHeaders.includes('variants') 
     });
@@ -245,6 +245,7 @@ Analyze each header and provide the best mapping with confidence score and reaso
    * Apply field mappings to transform user data to standard format
    * Translates display names to database columns (Architecture 3)
    * Preserves preprocessing-generated fields (variants, etc.)
+   * Handles multiple columns mapping to array fields (e.g., Image 1, Image 2 → images)
    */
   applyMapping(
     userRow: Record<string, any>,
@@ -260,18 +261,44 @@ Analyze each header and provide the best mapping with confidence score and reaso
       }
     }
 
+    // Track array fields to collect multiple values
+    const arrayFieldCollectors: Record<string, string[]> = {};
+
     for (const mapping of mappings) {
       if (mapping.standardField && userRow[mapping.userField] !== undefined) {
-        // Find the schema field to get the database column name
-        const schemaField = ALL_SCHEMA_FIELDS.find((f: SchemaField) => f.name === mapping.standardField);
+        // Find the schema field - check both name and dbColumn since AI might return either
+        const schemaField = ALL_SCHEMA_FIELDS.find((f: SchemaField) => 
+          f.name === mapping.standardField || f.dbColumn === mapping.standardField
+        );
         
         if (schemaField) {
-          // Use database column name, not display name
-          transformedRow[schemaField.dbColumn] = userRow[mapping.userField];
+          const dbColumn = schemaField.dbColumn;
+          const value = userRow[mapping.userField];
+          
+          // Handle array fields (e.g., images) - collect all non-empty values
+          if (schemaField.type === 'array') {
+            if (!arrayFieldCollectors[dbColumn]) {
+              arrayFieldCollectors[dbColumn] = [];
+            }
+            // Only add non-empty values
+            if (value && String(value).trim()) {
+              arrayFieldCollectors[dbColumn].push(String(value).trim());
+            }
+          } else {
+            // Non-array fields: use last value (standard behavior)
+            transformedRow[dbColumn] = value;
+          }
         } else {
           // Fallback to standardField if not found in schema
           transformedRow[mapping.standardField] = userRow[mapping.userField];
         }
+      }
+    }
+
+    // Join array field values with pipe separator (database format)
+    for (const [dbColumn, values] of Object.entries(arrayFieldCollectors)) {
+      if (values.length > 0) {
+        transformedRow[dbColumn] = values.join('|');
       }
     }
 
