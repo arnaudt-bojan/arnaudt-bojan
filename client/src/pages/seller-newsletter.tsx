@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Editor } from "@tinymce/tinymce-react";
+import type { Editor as TinyMCEEditor } from "tinymce";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,7 +122,7 @@ export default function SellerNewsletterPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // TinyMCE editor ref
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<TinyMCEEditor | null>(null);
 
   // Queries
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery<Campaign[]>({
