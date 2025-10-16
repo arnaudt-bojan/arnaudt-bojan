@@ -462,7 +462,7 @@ export default function SellerNewsletterPage() {
       htmlContent: content,
       preheader: preheader || undefined,
       fromName: fromName || undefined,
-      _shouldSend: sendNow, // Internal flag to trigger sending
+      _shouldSend: sendMode === 'now', // Internal flag to trigger immediate sending (not draft/scheduled)
     };
 
     // Handle recipient selection - NO SEGMENTS
