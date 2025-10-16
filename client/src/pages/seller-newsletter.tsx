@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo } from "react";
-import { Editor } from "@tinymce/tinymce-react";
-import type { Editor as TinyMCEEditor } from "tinymce";
+import { useState, useRef, useMemo, useCallback } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,8 +121,103 @@ export default function SellerNewsletterPage() {
   const [csvPreview, setCsvPreview] = useState<{ email: string; name?: string }[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // TinyMCE editor ref
-  const editorRef = useRef<TinyMCEEditor | null>(null);
+  // Quill editor ref
+  const quillRef = useRef<any>(null);
+
+  // Custom image handler for React Quill
+  const imageHandler = useCallback(() => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Image must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const quill = quillRef.current?.getEditor();
+      if (!quill) return;
+      
+      const range = quill.getSelection(true);
+      
+      try {
+        quill.insertText(range.index, 'Uploading image...');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch('/api/newsletter/upload-image', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const data = await response.json();
+        
+        quill.deleteText(range.index, 'Uploading image...'.length);
+        quill.insertEmbed(range.index, 'image', data.url, 'user');
+        quill.setSelection(range.index + 1);
+
+        toast({
+          title: "Image uploaded",
+          description: "Image added to your email",
+        });
+      } catch (error) {
+        console.error('Image upload error:', error);
+        toast({
+          title: "Upload failed",
+          description: "Could not upload image. Please try again.",
+          variant: "destructive",
+        });
+        
+        quill.deleteText(range.index, 'Uploading image...'.length);
+      }
+    };
+  }, [toast]);
+
+  // Enhanced Quill modules with more formatting
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+        [{ 'font': [] }],
+        [{ 'size': ['small', false, 'large', 'huge'] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'align': [] }],
+        ['link', 'image'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        ['blockquote', 'code-block'],
+        ['clean']
+      ],
+      handlers: {
+        image: imageHandler,
+      }
+    },
+  }), [imageHandler]);
 
   // Queries
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery<Campaign[]>({
@@ -1076,73 +1171,13 @@ export default function SellerNewsletterPage() {
                   {/* Editor */}
                   <div>
                     <Label className="mb-2 block">Email Content *</Label>
-                    <Editor
-                      apiKey="no-api-key"
-                      onInit={(evt, editor) => editorRef.current = editor}
+                    <ReactQuill
+                      ref={quillRef}
+                      theme="snow"
                       value={content}
-                      onEditorChange={(newContent) => setContent(newContent)}
-                      init={{
-                        height: 500,
-                        menubar: false,
-                        plugins: [
-                          'lists', 'link', 'image', 'table', 'code', 'fullscreen',
-                          'insertdatetime', 'media', 'wordcount', 'anchor', 'searchreplace',
-                          'visualblocks', 'visualchars', 'charmap', 'nonbreaking',
-                          'emoticons', 'help'
-                        ],
-                        toolbar: 'undo redo | blocks | fontfamily fontsize | ' +
-                                'forecolor backcolor | bold italic underline strikethrough | ' +
-                                'alignleft aligncenter alignright alignjustify | ' +
-                                'bullist numlist outdent indent | link image media table | ' +
-                                'removeformat code fullscreen',
-                        font_family_formats: 'Arial=arial,helvetica,sans-serif; ' +
-                                            'Arial Black=arial black,avant garde; ' +
-                                            'Book Antiqua=book antiqua,palatino; ' +
-                                            'Comic Sans MS=comic sans ms,sans-serif; ' +
-                                            'Courier New=courier new,courier; ' +
-                                            'Georgia=georgia,palatino; ' +
-                                            'Helvetica=helvetica; ' +
-                                            'Impact=impact,chicago; ' +
-                                            'Tahoma=tahoma,arial,helvetica,sans-serif; ' +
-                                            'Times New Roman=times new roman,times; ' +
-                                            'Trebuchet MS=trebuchet ms,geneva; ' +
-                                            'Verdana=verdana,geneva',
-                        font_size_formats: '8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt 72pt',
-                        content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
-                        branding: false,
-                        promotion: false,
-                        images_upload_handler: async (blobInfo: any) => {
-                          const formData = new FormData();
-                          formData.append('image', blobInfo.blob(), blobInfo.filename());
-                          
-                          try {
-                            const response = await fetch('/api/newsletter/upload-image', {
-                              method: 'POST',
-                              body: formData,
-                              credentials: 'include',
-                            });
-                            
-                            if (!response.ok) {
-                              throw new Error('Upload failed');
-                            }
-                            
-                            const data = await response.json();
-                            toast({
-                              title: "Image uploaded",
-                              description: "Image added to your email",
-                            });
-                            return data.url;
-                          } catch (error) {
-                            console.error('Image upload error:', error);
-                            toast({
-                              title: "Upload failed",
-                              description: "Could not upload image. Please try again.",
-                              variant: "destructive",
-                            });
-                            throw error;
-                          }
-                        },
-                      }}
+                      onChange={setContent}
+                      className="h-[500px] [&_.ql-editor]:break-words [&_.ql-editor]:overflow-wrap-anywhere"
+                      modules={modules}
                     />
                   </div>
 
