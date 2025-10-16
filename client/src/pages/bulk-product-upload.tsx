@@ -620,6 +620,10 @@ export default function BulkProductUpload() {
                       title: "Mappings saved",
                       description: "Your data has been transformed. Proceeding to validation.",
                     });
+                    // Refetch job to get updated status
+                    refetchJob();
+                    // Invalidate items query to refresh validation results
+                    queryClient.invalidateQueries({ queryKey: [`/api/bulk-upload/job/${currentJobId}/items`] });
                     setActiveTab("validate");
                   }}
                 />
