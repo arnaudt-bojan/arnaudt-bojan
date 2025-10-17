@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Package2, Search } from "lucide-react";
+import { Package2, Search, Eye } from "lucide-react";
 import { useLocation } from "wouter";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { WholesaleStorefrontHeader } from "@/components/headers/wholesale-storefront-header";
@@ -35,6 +35,10 @@ export default function BuyerCatalog() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { itemsCount } = useCart();
+
+  // Check for preview mode
+  const searchParams = new URLSearchParams(window.location.search);
+  const isPreviewMode = searchParams.get('preview') === 'true';
 
   const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
     queryKey: ["/api/wholesale/catalog"],
@@ -81,13 +85,29 @@ export default function BuyerCatalog() {
     <>
       <WholesaleStorefrontHeader cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
       <div className="min-h-screen py-12">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 max-w-7xl">
+        {isPreviewMode && (
+          <div className="mb-6 bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Preview Mode</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  This is how buyers will see your wholesale storefront. Close this window to return to your dashboard.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
             Wholesale Catalog
           </h1>
           <p className="text-muted-foreground">
-            Browse B2B products with exclusive wholesale pricing
+            Browse professional B2B products with exclusive wholesale pricing
           </p>
         </div>
 

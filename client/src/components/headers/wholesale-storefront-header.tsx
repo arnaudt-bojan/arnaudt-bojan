@@ -39,6 +39,12 @@ export function WholesaleStorefrontHeader({ cartItemsCount = 0, onCartClick }: W
   const { theme, setTheme } = useTheme();
   const { currentUser } = useAuthStore();
   
+  // Check for preview mode parameters
+  const searchParams = new URLSearchParams(window.location.search);
+  const isPreviewMode = searchParams.get('preview') === 'true';
+  const previewLogo = searchParams.get('previewLogo');
+  const previewBanner = searchParams.get('previewBanner');
+  
   // Fetch seller information from the wholesale products to get seller branding
   const { data: products } = useQuery<any[]>({
     queryKey: ["/api/wholesale/catalog"],
@@ -53,8 +59,9 @@ export function WholesaleStorefrontHeader({ cartItemsCount = 0, onCartClick }: W
     enabled: !!sellerId,
   });
   
-  const displayLogo = seller?.storeLogo;
-  const displayBanner = seller?.storeBanner;
+  // Use preview parameters if in preview mode, otherwise use seller data
+  const displayLogo = isPreviewMode ? previewLogo : seller?.storeLogo;
+  const displayBanner = isPreviewMode ? previewBanner : seller?.storeBanner;
   const sellerName = seller?.instagramUsername 
     ? `@${seller.instagramUsername}` 
     : seller?.firstName && seller?.lastName
