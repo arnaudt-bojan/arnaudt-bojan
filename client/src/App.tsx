@@ -318,14 +318,18 @@ function AppContent() {
               <Route path="/quick-access">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <QuickAccess />
+                    <WholesaleLayout>
+                      <QuickAccess />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/team">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <Team />
+                    <WholesaleLayout>
+                      <Team />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
@@ -385,14 +389,18 @@ function AppContent() {
               <Route path="/subscription-success">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SubscriptionSuccess />
+                    <WholesaleLayout>
+                      <SubscriptionSuccess />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/meta-oauth-success">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <MetaOAuthSuccess />
+                    <WholesaleLayout>
+                      <MetaOAuthSuccess />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
@@ -522,21 +530,27 @@ function AppContent() {
               <Route path="/seller/wholesale/products">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <WholesaleProducts />
+                    <WholesaleLayout mode="wholesale">
+                      <WholesaleProducts />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/wholesale/create-product">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <CreateWholesaleProduct />
+                    <WholesaleLayout mode="wholesale">
+                      <CreateWholesaleProduct />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/wholesale/invitations">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <WholesaleInvitations />
+                    <WholesaleLayout mode="wholesale">
+                      <WholesaleInvitations />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>

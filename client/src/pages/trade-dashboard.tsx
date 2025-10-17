@@ -12,9 +12,11 @@ import type { TradeQuotation } from "@shared/schema";
 export default function TradeDashboard() {
   const [, setLocation] = useLocation();
 
-  const { data: quotations = [], isLoading } = useQuery<TradeQuotation[]>({
+  const { data, isLoading } = useQuery<{ quotations: TradeQuotation[]; total: number }>({
     queryKey: ["/api/trade/quotations"],
   });
+  
+  const quotations = data?.quotations || [];
 
   const { data: user } = useQuery<any>({ 
     queryKey: ["/api/auth/user"] 
