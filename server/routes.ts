@@ -9908,46 +9908,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Construct variantId for cart storage
       const finalVariantId = productVariantService.constructVariantId(variantSelection);
 
-      // ARCHITECTURE 3: Create stock reservation BEFORE adding to cart
-      // This ensures we have a guaranteed soft hold before cart update
+      // ARCHITECTURE 3: Create or update stock reservation BEFORE adding to cart
+      // CRITICAL FIX: Check for existing reservation to prevent duplicates
       let reservationId: string | undefined;
       
       if (product.productType === 'in-stock') {
-        const reservationResult = await inventoryService.reserveStock(
-          productId,
-          quantity,
-          sessionId,
-          {
-            variantId: finalVariantId,
-            userId,
-            expirationMinutes: 30, // 30-minute cart reservation
-          }
+        // Check for existing active reservation for this product/variant/session
+        const sessionReservations = await storage.getStockReservationsBySession(sessionId);
+        const existingReservation = sessionReservations.find(
+          (r) =>
+            r.status === 'active' &&
+            r.productId === productId &&
+            r.variantId === (finalVariantId || null)
         );
-        
-        if (!reservationResult.success) {
-          logger.warn('[Cart] Insufficient stock for add-to-cart', {
+
+        if (existingReservation) {
+          // Update existing reservation atomically
+          logger.info('[Cart/Add] Found existing reservation, updating atomically', {
+            reservationId: existingReservation.id,
+            currentQuantity: existingReservation.quantity,
+            addingQuantity: quantity,
+          });
+
+          const updateResult = await storage.updateReservationQuantityAtomic(
+            existingReservation.id,
+            existingReservation.quantity + quantity,
+            product.productType
+          );
+
+          if (!updateResult.success) {
+            logger.warn('[Cart/Add] Failed to update reservation atomically', {
+              reservationId: existingReservation.id,
+              error: updateResult.error,
+            });
+            
+            return res.status(409).json({ 
+              error: updateResult.error || 'Insufficient stock',
+            });
+          }
+
+          reservationId = existingReservation.id;
+          logger.info('[Cart/Add] Reservation updated atomically', {
+            reservationId,
+            newQuantity: existingReservation.quantity + quantity,
+          });
+        } else {
+          // Create new reservation
+          const reservationResult = await inventoryService.reserveStock(
+            productId,
+            quantity,
+            sessionId,
+            {
+              variantId: finalVariantId,
+              userId,
+              expirationMinutes: 30, // 30-minute cart reservation
+            }
+          );
+          
+          if (!reservationResult.success) {
+            logger.warn('[Cart] Insufficient stock for add-to-cart', {
+              productId,
+              variantId: finalVariantId,
+              quantity,
+              error: reservationResult.error,
+              availability: reservationResult.availability,
+            });
+            
+            // CRITICAL: Fail the entire operation - no reservation = no cart add
+            return res.status(409).json({ 
+              error: reservationResult.error || 'Insufficient stock',
+              availability: reservationResult.availability,
+            });
+          }
+          
+          reservationId = reservationResult.reservation?.id;
+          logger.info('[Cart] Stock reservation created', {
+            reservationId,
             productId,
             variantId: finalVariantId,
             quantity,
-            error: reservationResult.error,
-            availability: reservationResult.availability,
-          });
-          
-          // CRITICAL: Fail the entire operation - no reservation = no cart add
-          return res.status(409).json({ 
-            error: reservationResult.error || 'Insufficient stock',
-            availability: reservationResult.availability,
+            expiresAt: reservationResult.reservation?.expiresAt,
           });
         }
-        
-        reservationId = reservationResult.reservation?.id;
-        logger.info('[Cart] Stock reservation created', {
-          reservationId,
-          productId,
-          variantId: finalVariantId,
-          quantity,
-          expiresAt: reservationResult.reservation?.expiresAt,
-        });
       }
 
       // Only add to cart if reservation succeeded (or product is not in-stock)
@@ -9997,39 +10039,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Release reservation if item exists and is in-stock
       if (itemToRemove && itemToRemove.productType === 'in-stock') {
         try {
-          // Find active reservation for this product/variant in this session
+          // Find ALL active reservations for this product/variant in this session
+          // CRITICAL FIX: Release ALL matching reservations to clean up any duplicates
           const sessionReservations = await storage.getStockReservationsBySession(sessionId);
           
-          logger.info('[Cart/Remove] DEBUG: Searching for reservation', {
-            productId: itemToRemove.id,
-            cartItemVariantId: itemToRemove.variantId,
-            cartItemVariantIdType: typeof itemToRemove.variantId,
-            sessionId,
-            allSessionReservations: sessionReservations.map(r => ({
-              id: r.id,
-              productId: r.productId,
-              variantId: r.variantId,
-              variantIdType: typeof r.variantId,
-              quantity: r.quantity,
-              status: r.status,
-            })),
-          });
-          
-          const matchingReservation = sessionReservations.find(
+          const matchingReservations = sessionReservations.filter(
             (r) =>
               r.status === 'active' &&
               r.productId === itemToRemove.id &&
               r.variantId === (itemToRemove.variantId || null)
           );
 
-          if (matchingReservation) {
-            await inventoryService.releaseReservation(matchingReservation.id);
-            logger.info('[Cart] Released reservation on item removal', {
-              reservationId: matchingReservation.id,
-              productId: itemToRemove.id,
-              variantId: itemToRemove.variantId,
-              quantity: matchingReservation.quantity,
-            });
+          if (matchingReservations.length > 0) {
+            // Release all matching reservations (handles duplicates)
+            for (const reservation of matchingReservations) {
+              await inventoryService.releaseReservation(reservation.id);
+              logger.info('[Cart] Released reservation on item removal', {
+                reservationId: reservation.id,
+                productId: itemToRemove.id,
+                variantId: itemToRemove.variantId,
+                quantity: reservation.quantity,
+              });
+            }
+            
+            if (matchingReservations.length > 1) {
+              logger.warn('[Cart] Found and released multiple duplicate reservations', {
+                productId: itemToRemove.id,
+                variantId: itemToRemove.variantId,
+                count: matchingReservations.length,
+              });
+            }
           } else {
             logger.warn('[Cart] No matching reservation found for item removal', {
               productId: itemToRemove.id,
