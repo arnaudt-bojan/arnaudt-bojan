@@ -46,19 +46,29 @@ export class InventoryService {
     let currentStock = 0;
     
     if (variantId && product.variants) {
-      // CRITICAL FIX: Variants are stored as color groups with nested sizes arrays
-      // Structure: [{colorName, colorHex, sizes: [{size, stock}, ...]}]
+      // Architecture 3: Server-side variant stock calculation
+      // Two variant formats supported (matches incrementStock/decrementStock logic):
+      // 1. Color-based (hasColors=1): [{colorName, colorHex, sizes: [{size, stock}]}]
+      // 2. Size-only (hasColors=0): [{size, stock, sku}]
       const variants = Array.isArray(product.variants) ? product.variants : [];
       let variantStock = 0;
 
-      for (const colorVariant of variants) {
-        if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
-          const sizeVariant = colorVariant.sizes.find((s: any) => 
-            `${s.size}-${colorVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase() ||
-            s.size === variantId
+      for (const colorOrSizeVariant of variants) {
+        // Handle color-based structure with nested sizes array
+        if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
+          const sizeVariant = colorOrSizeVariant.sizes.find((s: any) => 
+            `${s.size}-${colorOrSizeVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase()
           );
           if (sizeVariant && typeof sizeVariant.stock === 'number') {
             variantStock = sizeVariant.stock;
+            break;
+          }
+        }
+        // Handle size-only structure (no nested sizes array)
+        else {
+          const currentVariantId = colorOrSizeVariant.size?.toLowerCase() || '';
+          if (currentVariantId === variantId.toLowerCase()) {
+            variantStock = colorOrSizeVariant.stock || 0;
             break;
           }
         }
