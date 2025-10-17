@@ -1,7 +1,8 @@
 import { useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronDown, ChevronRight, Package } from "lucide-react";
+import { ChevronDown, ChevronRight, Package, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 import { OrderRowExpanded } from "@/components/order-row-expanded";
 import {
   Table,
@@ -18,6 +19,7 @@ import type { Order } from "@shared/schema";
 import { getPaymentStatusLabel, getOrderStatusLabel, getProductTypeLabel } from "@/lib/format-status";
 
 export default function SellerOrdersPage() {
+  const [, setLocation] = useLocation();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   const { data: orders, isLoading } = useQuery<Order[]>({
@@ -91,6 +93,15 @@ export default function SellerOrdersPage() {
   if (isLoading) {
     return (
       <div className="container mx-auto py-8 px-4" data-testid="page-seller-orders">
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/seller-dashboard")}
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
         <div className="mb-6">
           <Skeleton className="h-8 w-48 mb-2" />
           <Skeleton className="h-4 w-96" />
@@ -112,6 +123,15 @@ export default function SellerOrdersPage() {
   if (!orders || orders.length === 0) {
     return (
       <div className="container mx-auto py-8 px-4" data-testid="page-seller-orders">
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/seller-dashboard")}
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Orders</h1>
           <p className="text-muted-foreground">Manage all your customer orders</p>
@@ -134,6 +154,15 @@ export default function SellerOrdersPage() {
 
   return (
     <div className="container mx-auto py-8 px-4" data-testid="page-seller-orders">
+      <Button
+        variant="ghost"
+        onClick={() => setLocation("/seller-dashboard")}
+        className="mb-4"
+        data-testid="button-back-to-dashboard"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Dashboard
+      </Button>
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Orders</h1>
         <p className="text-muted-foreground">
