@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useSEO } from "@/hooks/use-seo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,6 +39,84 @@ export default function ExperiencePage() {
   const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+
+  // SEO Optimization with Structured Data
+  useSEO({
+    title: "Upfirst - Complete E-Commerce Platform | Retail, Wholesale & Trade",
+    description: "The only e-commerce platform with Retail B2C, B2B Wholesale, and Trade quotations in one ecosystem. Launch your store, scale with wholesale buyers, and expand globally with professional trade tools. AI-powered marketing, MOQ management, and international trade compliance built-in.",
+    keywords: "e-commerce platform, multi-channel commerce, B2B wholesale software, trade quotation system, retail storefront, D2C platform, wholesale management, international trade, Incoterms, MOQ, Net payment terms, Meta Ads, AI marketing, Shopify alternative, B2B marketplace",
+    ogTitle: "Upfirst - The Complete Commerce Platform for Modern Brands",
+    ogDescription: "Three platforms in one: Retail B2C with AI marketing, B2B Wholesale like Joor, and professional Trade quotations. Start your free trial today.",
+    ogType: "website",
+    structuredData: {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "name": "Upfirst",
+          "url": "https://upfirst.io",
+          "description": "Complete e-commerce platform for modern brands",
+          "sameAs": [
+            "https://twitter.com/upfirst",
+            "https://linkedin.com/company/upfirst"
+          ]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Upfirst Commerce Platform",
+          "applicationCategory": "BusinessApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "49",
+            "priceCurrency": "USD",
+            "priceValidUntil": "2025-12-31"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "250"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Do I get access to all three platforms?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Professional and Enterprise plans include access to all three platforms: Retail B2C, B2B Wholesale, and Trade Quotations. You can use them independently or together as your business grows."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is there a free trial?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Absolutely! We offer a 30-day free trial on all plans. No credit card required to start. You can explore all features and see if Upfirst is right for your business."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do payments work?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "We use Stripe Connect for secure, multi-seller payment processing. You get paid directly to your bank account, and we handle all PCI compliance. Stripe fees are separate from Upfirst subscription costs."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How long does setup take?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Most sellers are up and running within 24 hours. The Retail B2C platform can be launched in minutes. B2B Wholesale and Trade platforms may take a bit longer depending on your catalog size and requirements."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  });
 
   useEffect(() => {
     const handleScroll = () => {
