@@ -633,6 +633,15 @@ export default function Checkout() {
   // Get buyer's selected currency and conversion functions
   const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
   
+  // Get sellerId from cart items (all items are from same seller)
+  const sellerId = items.length > 0 ? items[0].sellerId : undefined;
+
+  // Fetch seller data to get actual Stripe currency for payment
+  const { data: seller } = useQuery<any>({
+    queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
+    enabled: !!sellerId,
+  });
+  
   // Get seller's actual Stripe currency for payment processing
   // This is what the customer will be charged in (not the buyer's display currency)
   const sellerCurrency = seller?.listingCurrency || buyerCurrency;
@@ -713,15 +722,6 @@ export default function Checkout() {
     shippingCountry,
     form
   ]);
-
-  // Get sellerId from cart items (all items are from same seller)
-  const sellerId = items.length > 0 ? items[0].sellerId : undefined;
-
-  // Fetch seller data to get actual Stripe currency for payment
-  const { data: seller } = useQuery<any>({
-    queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
-    enabled: !!sellerId,
-  });
 
   // CRITICAL FIX: Memoize destination to prevent unnecessary re-renders and pricing calculations
   const destination = useMemo(() => 
