@@ -24,29 +24,8 @@ interface WholesaleLayoutProps {
   children: React.ReactNode;
 }
 
-export function WholesaleLayout({ children }: WholesaleLayoutProps) {
-  const [location] = useLocation();
-  const { mode, setMode } = useBusinessMode();
-
-  // Auto-detect mode based on current route
-  useEffect(() => {
-    if (location.startsWith('/wholesale/') || location.startsWith('/seller/wholesale/')) {
-      setMode('b2b');
-    } else if (location.startsWith('/seller/trade/')) {
-      setMode('trade');
-    } else if (
-      location.startsWith('/seller') || 
-      location.startsWith('/meta-ads') ||
-      location === '/settings' ||
-      location === '/quick-access' ||
-      location === '/team'
-    ) {
-      setMode('b2c');
-    }
-  }, [location, setMode]);
-
-  // B2C Navigation Items
-  const b2cNavigation = [
+// B2C Navigation Items - MOVED OUTSIDE to prevent re-creation
+const b2cNavigation = [
     {
       name: "Dashboard",
       href: "/seller-dashboard",
@@ -91,8 +70,8 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
     },
   ];
 
-  // B2B Navigation Items
-  const b2bNavigation = [
+// B2B Navigation Items - MOVED OUTSIDE to prevent re-creation
+const b2bNavigation = [
     {
       name: "Dashboard",
       href: "/wholesale/dashboard",
@@ -131,8 +110,8 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
     },
   ];
 
-  // Trade Navigation Items
-  const tradeNavigation = [
+// Trade Navigation Items - MOVED OUTSIDE to prevent re-creation
+const tradeNavigation = [
     {
       name: "Dashboard",
       href: "/seller/trade/dashboard",
@@ -164,6 +143,27 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
       testId: "link-trade-settings",
     },
   ];
+
+export function WholesaleLayout({ children }: WholesaleLayoutProps) {
+  const [location] = useLocation();
+  const { mode, setMode } = useBusinessMode();
+
+  // Auto-detect mode based on current route
+  useEffect(() => {
+    if (location.startsWith('/wholesale/') || location.startsWith('/seller/wholesale/')) {
+      setMode('b2b');
+    } else if (location.startsWith('/seller/trade/')) {
+      setMode('trade');
+    } else if (
+      location.startsWith('/seller') || 
+      location.startsWith('/meta-ads') ||
+      location === '/settings' ||
+      location === '/quick-access' ||
+      location === '/team'
+    ) {
+      setMode('b2c');
+    }
+  }, [location, setMode]);
 
   // Select navigation based on current mode
   const navigation = mode === 'b2c' ? b2cNavigation : mode === 'b2b' ? b2bNavigation : tradeNavigation;
