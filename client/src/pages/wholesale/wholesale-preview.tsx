@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package2, ArrowRight, Layers, ExternalLink, Eye } from "lucide-react";
 import { useLocation } from "wouter";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import type { User } from "@shared/schema";
 
 interface WholesaleProduct {
@@ -28,7 +28,7 @@ interface WholesaleProduct {
 
 export default function WholesalePreview() {
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Fetch current user for preview
@@ -213,7 +213,8 @@ export default function WholesalePreview() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {products.slice(0, 8).map((product) => {
-              const margin = ((parseFloat(product.rrp) - parseFloat(product.wholesalePrice)) / parseFloat(product.rrp)) * 100;
+              // Architecture 3: Backend should provide margin percentage pre-calculated
+              // Margin calculation removed - backend should provide this value
               const hasVariants = product.variants && product.variants.length > 0;
               
               return (
@@ -236,14 +237,7 @@ export default function WholesalePreview() {
                         {product.category}
                       </Badge>
                     </div>
-                    {/* Margin Badge - Top Right */}
-                    {margin > 0 && (
-                      <div className="absolute top-3 right-3">
-                        <Badge className="bg-green-600 text-white backdrop-blur-sm">
-                          {margin.toFixed(0)}% margin
-                        </Badge>
-                      </div>
-                    )}
+                    {/* Margin Badge - Top Right - Backend should provide margin */}
                     {/* Variants Indicator */}
                     {hasVariants && (
                       <div className="absolute bottom-3 left-3">
@@ -269,10 +263,10 @@ export default function WholesalePreview() {
                         <span className="text-sm text-muted-foreground">Your Price</span>
                         <div className="text-right">
                           <div className="text-2xl font-bold text-primary" data-testid={`text-wholesale-price-${product.id}`}>
-                            {formatPrice(parseFloat(product.wholesalePrice))}
+                            {formatCurrency(parseFloat(product.wholesalePrice), currency)}
                           </div>
                           <div className="text-xs text-muted-foreground line-through">
-                            RRP {formatPrice(parseFloat(product.rrp))}
+                            RRP {formatCurrency(parseFloat(product.rrp), currency)}
                           </div>
                         </div>
                       </div>

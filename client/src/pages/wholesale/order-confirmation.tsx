@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, Package } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 import { format } from "date-fns";
 
 interface WholesaleOrder {
@@ -37,7 +37,7 @@ interface WholesaleOrder {
 export default function OrderConfirmation() {
   const { orderId } = useParams<{ orderId: string }>();
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
 
   const { data: order, isLoading } = useQuery<WholesaleOrder>({
     queryKey: ["/api/wholesale/orders", orderId],
@@ -133,11 +133,11 @@ export default function OrderConfirmation() {
                         </div>
                       )}
                       <div className="text-sm text-muted-foreground">
-                        Qty: {item.quantity} × {formatPrice(item.unitPriceCents / 100)}
+                        Qty: {item.quantity} × {formatCurrencyFromCents(item.unitPriceCents, currency)}
                       </div>
                     </div>
                     <div className="font-semibold" data-testid={`text-item-total-${index}`}>
-                      {formatPrice((item.unitPriceCents * item.quantity) / 100)}
+                      {formatCurrencyFromCents(item.unitPriceCents * item.quantity, currency)}
                     </div>
                   </div>
                 ))}
@@ -160,13 +160,13 @@ export default function OrderConfirmation() {
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Deposit Paid:</span>
                     <span className="font-semibold text-green-600" data-testid="text-deposit-paid">
-                      {formatPrice(order.depositAmountCents / 100)}
+                      {formatCurrencyFromCents(order.depositAmountCents, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Balance Due:</span>
                     <span className="font-semibold" data-testid="text-balance-due">
-                      {formatPrice(order.balanceAmountCents / 100)}
+                      {formatCurrencyFromCents(order.balanceAmountCents, currency)}
                     </span>
                   </div>
                 </>
@@ -178,7 +178,7 @@ export default function OrderConfirmation() {
             <div className="flex justify-between items-center">
               <span className="font-semibold">Total:</span>
               <span className="text-2xl font-bold" data-testid="text-order-total">
-                {formatPrice(order.totalAmountCents / 100)}
+                {formatCurrencyFromCents(order.totalAmountCents, currency)}
               </span>
             </div>
           </CardContent>

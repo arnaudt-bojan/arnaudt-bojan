@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { PlusCircle, Search, Pencil, Trash2, Package } from "lucide-react";
 import type { WholesaleProduct } from "@shared/schema";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 
 export default function WholesaleProducts() {
   const { toast } = useToast();
@@ -78,14 +79,8 @@ export default function WholesaleProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  // Format price from decimal to dollars
-  const formatPrice = (price: string | number) => {
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(numPrice);
-  };
+  // Architecture 3: Use currency from localStorage, no manual conversions
+  const currency = getCurrentCurrency();
 
   return (
     <div className="space-y-6" data-testid="page-wholesale-products">
@@ -195,7 +190,7 @@ export default function WholesaleProducts() {
                     {product.category}
                   </TableCell>
                   <TableCell data-testid={`text-price-${product.id}`}>
-                    {formatPrice(product.wholesalePrice)}
+                    {formatCurrency(parseFloat(product.wholesalePrice), currency)}
                   </TableCell>
                   <TableCell className="text-center" data-testid={`text-moq-${product.id}`}>
                     {product.moq}

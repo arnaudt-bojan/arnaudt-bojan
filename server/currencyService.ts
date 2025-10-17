@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 interface ExchangeRates {
   [currency: string]: number;
 }

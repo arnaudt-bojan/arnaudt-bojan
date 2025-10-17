@@ -4,6 +4,7 @@ import { DocumentGenerator, type InvoiceData, type PackingSlipData } from '../se
 import { z } from 'zod';
 import { isAuthenticated } from '../replitAuth';
 import type { WholesaleOrderItem } from '@shared/schema';
+import { formatCurrency } from '../currencyService';
 
 const router = Router();
 
@@ -72,13 +73,14 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
     const subtotalCents = order.subtotalCents;
     const taxAmountCents = order.taxAmountCents || 0;
     const totalCents = order.totalCents;
+    const currency = order.currency || 'USD';
     
-    // Convert to dollars for display
-    const subtotal = (subtotalCents / 100).toFixed(2);
-    const tax = (taxAmountCents / 100).toFixed(2);
-    const total = (totalCents / 100).toFixed(2);
-    const depositAmount = (order.depositAmountCents / 100).toFixed(2);
-    const balanceAmount = (order.balanceAmountCents / 100).toFixed(2);
+    // Convert to dollars for display with currency-aware formatting
+    const subtotal = formatCurrency(subtotalCents / 100, currency);
+    const tax = formatCurrency(taxAmountCents / 100, currency);
+    const total = formatCurrency(totalCents / 100, currency);
+    const depositAmount = formatCurrency(order.depositAmountCents / 100, currency);
+    const balanceAmount = formatCurrency(order.balanceAmountCents / 100, currency);
 
     // Prepare invoice data
     const invoiceNumber = DocumentGenerator.generateDocumentNumber('INV-WH');
@@ -126,8 +128,8 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
         sku: item.productSku || item.productId,
         variant: item.variant ? JSON.stringify(item.variant) : undefined,
         quantity: item.quantity,
-        price: (item.unitPriceCents / 100).toFixed(2),
-        subtotal: (item.subtotalCents / 100).toFixed(2),
+        price: formatCurrency(item.unitPriceCents / 100, currency),
+        subtotal: formatCurrency(item.subtotalCents / 100, currency),
       })),
       wholesale: {
         poNumber: data.poNumber || order.poNumber || undefined,
@@ -135,7 +137,7 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
         paymentTerms: data.paymentTerms || order.paymentTerms || undefined,
       },
       currency: order.currency || 'USD',
-      notes: data.notes || `Deposit: $${depositAmount} | Balance: $${balanceAmount}`,
+      notes: data.notes || `Deposit: ${depositAmount} | Balance: ${balanceAmount}`,
     };
 
     // Generate PDF

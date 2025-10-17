@@ -57,6 +57,8 @@ export interface CheckoutData {
   sellerId: string;
   buyerId: string;
   cartItems: CartItem[];
+  currency?: string;
+  exchangeRate?: string;
   shippingData?: {
     shippingType: 'freight_collect' | 'buyer_pickup';
     carrierName?: string;
@@ -554,6 +556,8 @@ export class WholesaleCheckoutService {
           orderData: {
             subtotalCents,
             totalCents: subtotalCents,
+            currency: data.currency,
+            exchangeRate: data.exchangeRate,
             depositAmountCents: depositResult.depositCents,
             balanceAmountCents: balanceResult.balanceCents,
             depositPercentage: data.depositPercentage,

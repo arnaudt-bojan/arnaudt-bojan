@@ -61,7 +61,8 @@ export class WholesalePaymentService {
   async createDepositPayment(
     orderId: string,
     amountCents: number,
-    currency: string = 'USD'
+    currency: string = 'USD',
+    exchangeRate?: string
   ): Promise<CreatePaymentResult> {
     try {
       const order = await this.storage.getWholesaleOrder(orderId);
@@ -94,6 +95,7 @@ export class WholesalePaymentService {
         status: 'pending',
         amountCents,
         currency,
+        exchangeRate,
       };
 
       const payment = await this.storage.createWholesalePayment(paymentInsert);
@@ -110,6 +112,8 @@ export class WholesalePaymentService {
         paymentId: payment.id,
         orderId,
         amountCents,
+        currency,
+        exchangeRate,
       });
 
       return { success: true, payment };
@@ -131,7 +135,8 @@ export class WholesalePaymentService {
     orderId: string,
     amountCents: number,
     dueDate?: Date,
-    currency: string = 'USD'
+    currency: string = 'USD',
+    exchangeRate?: string
   ): Promise<CreatePaymentResult> {
     try {
       const order = await this.storage.getWholesaleOrder(orderId);
@@ -164,6 +169,7 @@ export class WholesalePaymentService {
         status: 'pending',
         amountCents,
         currency,
+        exchangeRate,
         dueDate: dueDate as any,
       };
 
@@ -181,6 +187,8 @@ export class WholesalePaymentService {
         paymentId: payment.id,
         orderId,
         amountCents,
+        currency,
+        exchangeRate,
         dueDate: dueDate?.toISOString(),
       });
 

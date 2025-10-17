@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 
 interface OrderDetails {
   order: {
@@ -169,13 +170,8 @@ export default function OrderDetail() {
     },
   });
 
-  // Format price from cents to dollars
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(cents / 100);
-  };
+  // Architecture 3: Use currency from localStorage, no manual conversions
+  const currency = getCurrentCurrency();
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -446,10 +442,10 @@ export default function OrderDetail() {
                     {item.quantity}
                   </TableCell>
                   <TableCell className="text-right" data-testid={`text-unit-price-${item.id}`}>
-                    {formatPrice(item.unitPriceCents)}
+                    {formatCurrencyFromCents(item.unitPriceCents, currency)}
                   </TableCell>
                   <TableCell className="text-right font-medium" data-testid={`text-subtotal-${item.id}`}>
-                    {formatPrice(item.subtotalCents)}
+                    {formatCurrencyFromCents(item.subtotalCents, currency)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -469,7 +465,7 @@ export default function OrderDetail() {
         <CardContent className="space-y-4">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span data-testid="text-subtotal">{formatPrice(order.subtotalCents)}</span>
+            <span data-testid="text-subtotal">{formatCurrencyFromCents(order.subtotalCents, currency)}</span>
           </div>
 
           <Separator />
@@ -482,14 +478,14 @@ export default function OrderDetail() {
                 <>
                   <Check className="h-4 w-4 text-green-600" />
                   <span className="text-green-600" data-testid="text-deposit-paid">
-                    Paid: {formatPrice(order.depositAmountCents)}
+                    Paid: {formatCurrencyFromCents(order.depositAmountCents, currency)}
                   </span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-4 w-4 text-yellow-600" />
                   <span className="text-yellow-600" data-testid="text-deposit-pending">
-                    Pending: {formatPrice(order.depositAmountCents)}
+                    Pending: {formatCurrencyFromCents(order.depositAmountCents, currency)}
                   </span>
                 </>
               )}
@@ -504,20 +500,20 @@ export default function OrderDetail() {
                 <>
                   <Check className="h-4 w-4 text-green-600" />
                   <span className="text-green-600" data-testid="text-balance-paid">
-                    Paid: {formatPrice(order.balanceAmountCents)}
+                    Paid: {formatCurrencyFromCents(order.balanceAmountCents, currency)}
                   </span>
                 </>
               ) : order.status === "balance_overdue" ? (
                 <>
                   <X className="h-4 w-4 text-red-600" />
                   <span className="text-red-600" data-testid="text-balance-overdue">
-                    Overdue: {formatPrice(order.balanceAmountCents)}
+                    Overdue: {formatCurrencyFromCents(order.balanceAmountCents, currency)}
                     {order.balancePaymentDueDate && ` (due ${format(new Date(order.balancePaymentDueDate), "PP")})`}
                   </span>
                 </>
               ) : (
                 <span data-testid="text-balance-due">
-                  Due: {formatPrice(order.balanceAmountCents)}
+                  Due: {formatCurrencyFromCents(order.balanceAmountCents, currency)}
                   {order.balancePaymentDueDate && ` (by ${format(new Date(order.balancePaymentDueDate), "PP")})`}
                 </span>
               )}
@@ -528,7 +524,7 @@ export default function OrderDetail() {
 
           <div className="flex justify-between font-bold text-lg">
             <span>Total</span>
-            <span data-testid="text-total">{formatPrice(order.totalCents)}</span>
+            <span data-testid="text-total">{formatCurrencyFromCents(order.totalCents, currency)}</span>
           </div>
         </CardContent>
       </Card>

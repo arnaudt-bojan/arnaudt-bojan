@@ -22,10 +22,12 @@ import {
 } from "@/components/ui/select";
 import { Eye, Package, CheckCircle, AlertCircle, Truck, MapPin } from "lucide-react";
 import type { WholesaleOrder } from "@shared/schema";
+import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 
 export default function WholesaleOrders() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [, setLocation] = useLocation();
+  const currency = getCurrentCurrency();
 
   // Fetch wholesale orders
   const { data: orders = [], isLoading } = useQuery<WholesaleOrder[]>({
@@ -36,14 +38,6 @@ export default function WholesaleOrders() {
   const filteredOrders = orders.filter(order => {
     return statusFilter === "all" || order.status === statusFilter;
   });
-
-  // Format price from cents to dollars
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(cents / 100);
-  };
 
   // Get status badge variant
   const getStatusBadge = (status: string) => {
@@ -155,7 +149,7 @@ export default function WholesaleOrders() {
                       {order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "N/A"}
                     </TableCell>
                     <TableCell data-testid={`text-total-${order.id}`}>
-                      {formatPrice(order.totalCents)}
+                      {formatCurrencyFromCents(order.totalCents, currency)}
                     </TableCell>
                     <TableCell data-testid={`payment-status-${order.id}`}>
                       <div className="flex gap-1">

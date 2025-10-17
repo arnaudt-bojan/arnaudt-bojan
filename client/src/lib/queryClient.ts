@@ -12,9 +12,19 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const selectedCurrency = localStorage.getItem("selectedCurrency") || "USD";
+  
+  const headers: Record<string, string> = {
+    "Accept-Currency": selectedCurrency,
+  };
+  
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -29,8 +39,13 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const selectedCurrency = localStorage.getItem("selectedCurrency") || "USD";
+    
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers: {
+        "Accept-Currency": selectedCurrency,
+      },
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

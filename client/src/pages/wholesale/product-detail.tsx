@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Package2, AlertCircle } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -48,7 +48,7 @@ interface WholesaleProduct {
 export default function ProductDetail() {
   const { productId } = useParams<{ productId: string }>();
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
   const { toast } = useToast();
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -184,11 +184,7 @@ export default function ProductDetail() {
     );
   }
 
-  const depositAmount = product.depositAmount
-    ? parseFloat(product.depositAmount)
-    : product.depositPercentage
-    ? (parseFloat(product.wholesalePrice) * totalQuantity * product.depositPercentage) / 100
-    : 0;
+  // Architecture 3: Backend should provide deposit amount pre-calculated
 
   return (
     <div className="min-h-screen py-12">
@@ -234,14 +230,14 @@ export default function ProductDetail() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Wholesale Price</span>
                   <span className="text-2xl font-bold text-primary" data-testid="text-wholesale-price">
-                    {formatPrice(parseFloat(product.wholesalePrice))}
+                    {formatCurrency(parseFloat(product.wholesalePrice), currency)}
                   </span>
                 </div>
                 {product.rrp && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">RRP</span>
                     <span className="text-lg" data-testid="text-rrp">
-                      {formatPrice(parseFloat(product.rrp))}
+                      {formatCurrency(parseFloat(product.rrp), currency)}
                     </span>
                   </div>
                 )}
@@ -249,7 +245,7 @@ export default function ProductDetail() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">SRP</span>
                     <span className="text-lg" data-testid="text-srp">
-                      {formatPrice(parseFloat(product.srp))}
+                      {formatCurrency(parseFloat(product.srp), currency)}
                     </span>
                   </div>
                 )}
@@ -272,7 +268,7 @@ export default function ProductDetail() {
                     <span className="text-sm text-muted-foreground">Deposit Required</span>
                     <span className="font-semibold" data-testid="text-deposit">
                       {product.depositAmount
-                        ? formatPrice(parseFloat(product.depositAmount))
+                        ? formatCurrency(parseFloat(product.depositAmount), currency)
                         : `${product.depositPercentage}%`}
                     </span>
                   </div>

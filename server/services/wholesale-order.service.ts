@@ -15,7 +15,9 @@ import type {
   WholesaleOrderItem,
   InsertWholesaleOrderItem,
   WholesaleOrderEvent,
-  InsertWholesaleOrderEvent
+  InsertWholesaleOrderEvent,
+  WholesalePaymentIntent,
+  WholesaleShippingMetadata
 } from '@shared/schema';
 import { logger } from '../logger';
 import type { NotificationService } from '../notifications';
@@ -32,6 +34,7 @@ export interface CreateOrderParams {
     taxAmountCents?: number;
     totalCents: number;
     currency?: string;
+    exchangeRate?: string;
     depositAmountCents: number;
     balanceAmountCents: number;
     depositPercentage?: number;
@@ -156,6 +159,7 @@ export class WholesaleOrderService {
         taxAmountCents: orderData.taxAmountCents || 0,
         totalCents: orderData.totalCents,
         currency: orderData.currency || 'USD',
+        exchangeRate: orderData.exchangeRate,
         depositAmountCents: orderData.depositAmountCents,
         balanceAmountCents: orderData.balanceAmountCents,
         depositPercentage: orderData.depositPercentage?.toString(),
@@ -214,6 +218,8 @@ export class WholesaleOrderService {
         orderNumber,
         sellerId,
         buyerId,
+        currency: orderData.currency || 'USD',
+        exchangeRate: orderData.exchangeRate,
       });
 
       return { success: true, order };
@@ -331,18 +337,22 @@ export class WholesaleOrderService {
       // Format buyer info
       const buyer = buyerUser ? {
         id: buyerUser.id,
-        name: buyerUser.name || order.buyerName,
-        email: buyerUser.email || order.buyerEmail,
-        companyName: order.buyerCompanyName,
-        phone: buyerUser.phone,
+        name: buyerUser.firstName && buyerUser.lastName 
+          ? `${buyerUser.firstName} ${buyerUser.lastName}` 
+          : buyerUser.firstName || buyerUser.lastName || order.buyerName || undefined,
+        email: (buyerUser.email || order.buyerEmail) ?? '',
+        companyName: order.buyerCompanyName || undefined,
+        phone: buyerUser.businessPhone || undefined,
       } : undefined;
 
       // Format seller info
       const seller = sellerUser ? {
         id: sellerUser.id,
-        name: sellerUser.name,
-        email: sellerUser.email,
-        companyName: sellerUser.businessName,
+        name: sellerUser.firstName && sellerUser.lastName 
+          ? `${sellerUser.firstName} ${sellerUser.lastName}` 
+          : sellerUser.firstName || sellerUser.lastName || undefined,
+        email: sellerUser.email ?? '',
+        companyName: sellerUser.companyName || undefined,
       } : undefined;
 
       logger.info('[WholesaleOrderService] Order details retrieved', {

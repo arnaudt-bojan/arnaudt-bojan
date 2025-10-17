@@ -6,6 +6,7 @@ import { DocumentGenerator } from './services/document-generator';
 import { logger } from './logger';
 import { formatVariant } from '../shared/variant-formatter';
 import { computeDeliveryDate } from '../shared/order-utils';
+import { formatCurrency } from './currencyService';
 import { 
   createEmailTemplate, 
   createEmailButton, 
@@ -4087,9 +4088,9 @@ class NotificationServiceImpl implements NotificationService {
     const balanceCents = wholesaleOrder.balanceAmountCents || 0;
     const currency = wholesaleOrder.currency || 'USD';
 
-    const formattedTotal = (totalCents / 100).toFixed(2);
-    const formattedDeposit = (depositCents / 100).toFixed(2);
-    const formattedBalance = (balanceCents / 100).toFixed(2);
+    const formattedTotal = formatCurrency(totalCents / 100, currency);
+    const formattedDeposit = formatCurrency(depositCents / 100, currency);
+    const formattedBalance = formatCurrency(balanceCents / 100, currency);
 
     const expectedShipDate = wholesaleOrder.expectedShipDate 
       ? new Date(wholesaleOrder.expectedShipDate).toLocaleDateString()
@@ -4099,8 +4100,8 @@ class NotificationServiceImpl implements NotificationService {
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #1a1a1a !important;">${item.productName}</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #1a1a1a !important;">${item.quantity}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important;">$${(item.unitPriceCents / 100).toFixed(2)}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important;">$${(item.subtotalCents / 100).toFixed(2)}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important;">${formatCurrency(item.unitPriceCents / 100, currency)}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1a1a1a !important;">${formatCurrency(item.subtotalCents / 100, currency)}</td>
       </tr>
     `).join('');
 
@@ -4141,18 +4142,18 @@ class NotificationServiceImpl implements NotificationService {
       <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb !important; border-radius: 8px;" class="dark-mode-bg-white">
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
           <span style="color: #1a1a1a !important; font-weight: 600;">Order Total:</span>
-          <span style="color: #1a1a1a !important; font-weight: 600; font-size: 20px;">$${formattedTotal}</span>
+          <span style="color: #1a1a1a !important; font-weight: 600; font-size: 20px;">${formattedTotal}</span>
         </div>
         ${depositCents > 0 ? `
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
             <span style="color: #047857 !important;">Deposit Paid:</span>
-            <span style="color: #047857 !important; font-weight: 600;">$${formattedDeposit}</span>
+            <span style="color: #047857 !important; font-weight: 600;">${formattedDeposit}</span>
           </div>
         ` : ''}
         ${balanceCents > 0 ? `
           <div style="display: flex; justify-content: space-between;">
             <span style="color: #dc2626 !important;">Balance Due:</span>
-            <span style="color: #dc2626 !important; font-weight: 600;">$${formattedBalance}</span>
+            <span style="color: #dc2626 !important; font-weight: 600;">${formattedBalance}</span>
           </div>
           ${wholesaleOrder.balancePaymentDueDate ? `
             <p style="margin: 10px 0 0; color: #6b7280 !important; font-size: 14px;">
@@ -4178,7 +4179,7 @@ class NotificationServiceImpl implements NotificationService {
       header,
       content,
       footer,
-      preheader: `Order ${wholesaleOrder.orderNumber} confirmed - $${formattedTotal}`,
+      preheader: `Order ${wholesaleOrder.orderNumber} confirmed - ${formattedTotal}`,
       darkModeSafe: true,
     });
   }
@@ -4196,8 +4197,9 @@ class NotificationServiceImpl implements NotificationService {
 
     const depositCents = wholesaleOrder.depositAmountCents || 0;
     const balanceCents = wholesaleOrder.balanceAmountCents || 0;
-    const formattedDeposit = (depositCents / 100).toFixed(2);
-    const formattedBalance = (balanceCents / 100).toFixed(2);
+    const currency = wholesaleOrder.currency || 'USD';
+    const formattedDeposit = formatCurrency(depositCents / 100, currency);
+    const formattedBalance = formatCurrency(balanceCents / 100, currency);
 
     const balanceDueDate = wholesaleOrder.balancePaymentDueDate
       ? new Date(wholesaleOrder.balancePaymentDueDate).toLocaleDateString()
@@ -4213,7 +4215,7 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #047857 !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${formattedDeposit} paid
+          ${formattedDeposit} paid
         </p>
         <p style="margin: 0; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
           Order: ${wholesaleOrder.orderNumber}
@@ -4223,7 +4225,7 @@ class NotificationServiceImpl implements NotificationService {
       ${balanceCents > 0 ? `
         <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
           <p style="margin: 0 0 10px; color: #92400e !important; font-weight: 600; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-            Balance Due: $${formattedBalance}
+            Balance Due: ${formattedBalance}
           </p>
           <p style="margin: 0; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
             Due Date: ${balanceDueDate}
@@ -4246,7 +4248,7 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #047857 !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${formattedDeposit} received
+          ${formattedDeposit} received
         </p>
         <p style="margin: 0; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
           From: ${wholesaleOrder.buyerEmail}
@@ -4255,7 +4257,7 @@ class NotificationServiceImpl implements NotificationService {
 
       ${balanceCents > 0 ? `
         <p style="margin: 20px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          Balance payment of <strong>$${formattedBalance}</strong> is due by ${balanceDueDate}.
+          Balance payment of <strong>${formattedBalance}</strong> is due by ${balanceDueDate}.
         </p>
       ` : ''}
     `;
@@ -4281,7 +4283,8 @@ class NotificationServiceImpl implements NotificationService {
     const footer = await generateSellerFooter(seller);
 
     const balanceCents = wholesaleOrder.balanceAmountCents || 0;
-    const formattedBalance = (balanceCents / 100).toFixed(2);
+    const currency = wholesaleOrder.currency || 'USD';
+    const formattedBalance = formatCurrency(balanceCents / 100, currency);
 
     const dueDate = wholesaleOrder.balancePaymentDueDate
       ? new Date(wholesaleOrder.balancePaymentDueDate).toLocaleDateString()
@@ -4297,7 +4300,7 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #92400e !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${formattedBalance} due
+          ${formattedBalance} due
         </p>
         <p style="margin: 0; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
           Order: ${wholesaleOrder.orderNumber} • Due: ${dueDate}
@@ -4315,7 +4318,7 @@ class NotificationServiceImpl implements NotificationService {
       header,
       content,
       footer,
-      preheader: `Balance payment due: $${formattedBalance}`,
+      preheader: `Balance payment due: ${formattedBalance}`,
       darkModeSafe: true,
     });
   }
@@ -4333,7 +4336,8 @@ class NotificationServiceImpl implements NotificationService {
     const footer = await generateSellerFooter(seller);
 
     const balanceCents = wholesaleOrder.balanceAmountCents || 0;
-    const formattedBalance = (balanceCents / 100).toFixed(2);
+    const currency = wholesaleOrder.currency || 'USD';
+    const formattedBalance = formatCurrency(balanceCents / 100, currency);
 
     const dueDate = wholesaleOrder.balancePaymentDueDate
       ? new Date(wholesaleOrder.balancePaymentDueDate)
@@ -4351,7 +4355,7 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2 !important; border-left: 4px solid #dc2626; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #991b1b !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${formattedBalance} OVERDUE
+          ${formattedBalance} OVERDUE
         </p>
         <p style="margin: 0; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
           Order: ${wholesaleOrder.orderNumber} • Overdue by: ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'}
@@ -4375,7 +4379,7 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2 !important; border-left: 4px solid #dc2626; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #991b1b !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${formattedBalance} overdue
+          ${formattedBalance} overdue
         </p>
         <p style="margin: 0; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
           Buyer: ${wholesaleOrder.buyerEmail}

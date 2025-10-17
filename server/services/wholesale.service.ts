@@ -551,7 +551,7 @@ export class WholesaleService {
   // Wholesale Cart Methods
   // ============================================================================
 
-  async addToCart(buyerId: string, itemData: any) {
+  async addToCart(buyerId: string, itemData: any, currency?: string) {
     try {
       const { productId, quantity, variant } = itemData;
 
@@ -565,7 +565,7 @@ export class WholesaleService {
       }
 
       if (!cart) {
-        cart = await this.storage.createWholesaleCart(buyerId, product.sellerId);
+        cart = await this.storage.createWholesaleCart(buyerId, product.sellerId, currency);
       }
 
       // Validate MOQ
@@ -603,8 +603,8 @@ export class WholesaleService {
         items.push({ productId, quantity, variant: normalizedVariant });
       }
 
-      // Update cart
-      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+      // Update cart (with currency if provided)
+      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items, currency);
       
       return { success: true, data: updatedCart };
     } catch (error) {
@@ -631,7 +631,7 @@ export class WholesaleService {
     }
   }
 
-  async updateCartItem(buyerId: string, itemData: any) {
+  async updateCartItem(buyerId: string, itemData: any, currency?: string) {
     try {
       const { productId, variant, quantity } = itemData;
 
@@ -676,7 +676,7 @@ export class WholesaleService {
 
       if (itemIndex >= 0) {
         items[itemIndex].quantity = quantity;
-        const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+        const updatedCart = await this.storage.updateWholesaleCart(buyerId, items, currency);
         return { success: true, data: updatedCart };
       }
 
@@ -687,7 +687,7 @@ export class WholesaleService {
     }
   }
 
-  async removeCartItem(buyerId: string, itemData: any) {
+  async removeCartItem(buyerId: string, itemData: any, currency?: string) {
     try {
       const { productId, variant } = itemData;
 
@@ -713,7 +713,7 @@ export class WholesaleService {
                  JSON.stringify(itemVariant) === JSON.stringify(normalizedVariant));
       });
 
-      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items, currency);
       return { success: true, data: updatedCart };
     } catch (error) {
       logger.error("WholesaleService: Error removing cart item", error);

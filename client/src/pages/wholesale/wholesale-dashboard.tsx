@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package, Users, ShoppingCart, DollarSign, PlusCircle } from "lucide-react";
 import { Link } from "wouter";
-import { formatPrice } from "@/lib/currency-utils";
+import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 
 export default function WholesaleDashboard() {
+  const currency = getCurrentCurrency();
+  
   const { data: stats, isLoading } = useQuery<{
     totalProducts: number;
     totalBuyers: number;
@@ -122,7 +124,7 @@ export default function WholesaleDashboard() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <div className="text-2xl font-bold" data-testid="text-total-revenue">
-                {formatPrice(stats?.totalRevenue || 0, 'USD')}
+                {formatCurrencyFromCents((stats?.totalRevenue || 0) * 100, currency)}
               </div>
             )}
           </CardContent>
@@ -180,7 +182,7 @@ export default function WholesaleDashboard() {
                         <div className="text-sm text-muted-foreground">{order.buyerEmail}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">{formatPrice(order.totalAmount || 0, 'USD')}</div>
+                        <div className="font-semibold">{formatCurrencyFromCents((order.totalAmount || 0) * 100, currency)}</div>
                         <div className="text-sm text-muted-foreground capitalize">{order.status}</div>
                       </div>
                     </div>

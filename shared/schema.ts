@@ -1858,6 +1858,7 @@ export const wholesaleCarts = pgTable("wholesale_carts", {
   buyerId: varchar("buyer_id").notNull().unique(),
   sellerId: varchar("seller_id").notNull(),
   items: jsonb("items").notNull(), // WholesaleCartItem[]
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"), // Currency preference from Accept-Currency header or IP detection
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1885,6 +1886,7 @@ export const wholesaleOrders = pgTable("wholesale_orders", {
   taxAmountCents: integer("tax_amount_cents").default(0), // Tax in cents
   totalCents: integer("total_cents").notNull(), // Total in cents
   currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }), // Exchange rate snapshot at order creation (1 USD = X currency)
   
   // Deposit & Balance Configuration
   depositAmountCents: integer("deposit_amount_cents").notNull(), // Deposit in cents
@@ -1984,6 +1986,7 @@ export const wholesalePayments = pgTable("wholesale_payments", {
   // Amount & Currency (in cents)
   amountCents: integer("amount_cents").notNull(), // Payment amount in cents
   currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }), // Exchange rate snapshot at payment creation (1 USD = X currency)
   
   // Stripe Integration
   stripePaymentIntentId: varchar("stripe_payment_intent_id"),

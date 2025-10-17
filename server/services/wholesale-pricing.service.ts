@@ -9,6 +9,7 @@
 
 import type { IStorage } from '../storage';
 import { logger } from '../logger';
+import { getExchangeRates, convertPrice, formatCurrency } from '../currencyService';
 
 export interface CartItem {
   productId: string;
@@ -32,6 +33,8 @@ export interface WholesalePricingBreakdown {
   subtotalCents: number;
   depositCents: number;
   balanceCents: number;
+  currency: string;
+  exchangeRate?: number;
   validatedItems: Array<{
     productId: string;
     productName: string;
@@ -56,29 +59,36 @@ export class WholesalePricingService {
    * - Subtotal aggregation
    * - Deposit calculation (fixed amount OR percentage)
    * - Balance calculation
+   * - Multi-currency conversion
    * 
    * Steps:
    * 1. Validate cart items against MOQ requirements
-   * 2. Calculate unit prices (product-level or variant-level)
-   * 3. Calculate subtotal
-   * 4. Calculate deposit (fixed amount OR percentage)
-   * 5. Calculate balance (total - deposit)
-   * 6. Assemble pricing breakdown response
+   * 2. Calculate unit prices (product-level or variant-level) in USD
+   * 3. Calculate subtotal in USD
+   * 4. Fetch exchange rates and convert to target currency
+   * 5. Calculate deposit (fixed amount OR percentage)
+   * 6. Calculate balance (total - deposit)
+   * 7. Assemble pricing breakdown response
    */
   async calculateWholesalePricing(
-    params: CalculateWholesalePricingParams
+    params: CalculateWholesalePricingParams & { currency?: string }
   ): Promise<WholesalePricingBreakdown> {
-    const { cartItems, sellerId, depositPercentage, depositAmountCents } = params;
+    const { cartItems, sellerId, depositPercentage, depositAmountCents, currency = 'USD' } = params;
 
     logger.info('[WholesalePricingService] Calculating wholesale pricing', {
       sellerId,
       itemCount: cartItems?.length,
       depositPercentage,
       depositAmountCents,
+      currency,
     });
 
     try {
-      // Step 1-3: Validate cart and calculate subtotal
+      // Fetch exchange rates for currency conversion
+      const exchangeData = await getExchangeRates();
+      const exchangeRate = exchangeData.rates[currency] || 1;
+
+      // Step 1-3: Validate cart and calculate subtotal in USD
       const moqErrors: string[] = [];
       const validatedItems: any[] = [];
       let subtotalCents = 0;
@@ -172,6 +182,7 @@ export class WholesalePricingService {
           subtotalCents: 0,
           depositCents: 0,
           balanceCents: 0,
+          currency,
           validatedItems: [],
           moqErrors,
           error: 'MOQ validation failed',
@@ -195,6 +206,7 @@ export class WholesalePricingService {
           subtotalCents,
           depositCents: 0,
           balanceCents: 0,
+          currency,
           validatedItems,
           error: depositResult.error,
         };
@@ -215,6 +227,7 @@ export class WholesalePricingService {
           subtotalCents,
           depositCents,
           balanceCents: 0,
+          currency,
           validatedItems,
           error: balanceResult.error,
         };
@@ -233,20 +246,44 @@ export class WholesalePricingService {
       if (finalDepositCents < 0) finalDepositCents = 0;
       if (finalBalanceCents < 0) finalBalanceCents = 0;
 
-      // Step 6: Assemble pricing breakdown response
+      // Step 6: Convert to target currency if needed
+      let convertedSubtotalCents = subtotalCents;
+      let convertedDepositCents = finalDepositCents;
+      let convertedBalanceCents = finalBalanceCents;
+      let convertedValidatedItems = validatedItems;
+
+      if (currency !== 'USD') {
+        // Convert all USD cent amounts to target currency cents
+        convertedSubtotalCents = Math.round(subtotalCents * exchangeRate);
+        convertedDepositCents = Math.round(finalDepositCents * exchangeRate);
+        convertedBalanceCents = Math.round(finalBalanceCents * exchangeRate);
+        
+        // Convert validated items
+        convertedValidatedItems = validatedItems.map(item => ({
+          ...item,
+          unitPriceCents: Math.round(item.unitPriceCents * exchangeRate),
+          subtotalCents: Math.round(item.subtotalCents * exchangeRate),
+        }));
+      }
+
+      // Step 7: Assemble pricing breakdown response
       const pricingBreakdown: WholesalePricingBreakdown = {
         success: true,
-        subtotalCents,
-        depositCents: finalDepositCents,
-        balanceCents: finalBalanceCents,
-        validatedItems,
+        subtotalCents: convertedSubtotalCents,
+        depositCents: convertedDepositCents,
+        balanceCents: convertedBalanceCents,
+        currency,
+        exchangeRate: currency !== 'USD' ? exchangeRate : undefined,
+        validatedItems: convertedValidatedItems,
       };
 
       logger.info('[WholesalePricingService] Pricing calculated successfully', {
-        subtotalCents,
-        depositCents: finalDepositCents,
-        balanceCents: finalBalanceCents,
-        itemCount: validatedItems.length,
+        currency,
+        subtotalCents: convertedSubtotalCents,
+        depositCents: convertedDepositCents,
+        balanceCents: convertedBalanceCents,
+        exchangeRate: currency !== 'USD' ? exchangeRate : undefined,
+        itemCount: convertedValidatedItems.length,
       });
 
       return pricingBreakdown;
@@ -258,6 +295,7 @@ export class WholesalePricingService {
         subtotalCents: 0,
         depositCents: 0,
         balanceCents: 0,
+        currency: params.currency || 'USD',
         validatedItems: [],
         error: error.message || 'Failed to calculate wholesale pricing',
       };

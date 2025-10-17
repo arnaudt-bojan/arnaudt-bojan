@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ShoppingCart, Trash2, AlertCircle } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
@@ -36,7 +36,7 @@ interface ProductWithDetails extends CartItem {
 
 export default function WholesaleCartPage() {
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
   const { toast } = useToast();
 
   const { data: cart, isLoading } = useQuery<WholesaleCart>({
@@ -130,6 +130,8 @@ export default function WholesaleCartPage() {
     });
   };
 
+  // Architecture 3: Backend should provide subtotal pre-calculated
+  // For display purposes, calculate from backend prices (already in correct currency)
   const subtotal = itemsWithDetails.reduce((sum, item) => {
     return sum + parseFloat(item.wholesalePrice) * item.quantity;
   }, 0);
@@ -248,10 +250,10 @@ export default function WholesaleCartPage() {
 
                       <div className="flex justify-between items-center">
                         <div className="text-sm text-muted-foreground">
-                          Unit Price: {formatPrice(parseFloat(item.wholesalePrice))}
+                          Unit Price: {formatCurrency(parseFloat(item.wholesalePrice), currency)}
                         </div>
                         <div className="text-lg font-semibold" data-testid={`text-item-subtotal-${index}`}>
-                          {formatPrice(parseFloat(item.wholesalePrice) * item.quantity)}
+                          {formatCurrency(parseFloat(item.wholesalePrice) * item.quantity, currency)}
                         </div>
                       </div>
 
@@ -279,7 +281,7 @@ export default function WholesaleCartPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-semibold" data-testid="text-subtotal">
-                    {formatPrice(subtotal)}
+                    {formatCurrency(subtotal, currency)}
                   </span>
                 </div>
 
@@ -288,7 +290,7 @@ export default function WholesaleCartPage() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">Total</span>
                   <span className="text-2xl font-bold" data-testid="text-total">
-                    {formatPrice(subtotal)}
+                    {formatCurrency(subtotal, currency)}
                   </span>
                 </div>
 

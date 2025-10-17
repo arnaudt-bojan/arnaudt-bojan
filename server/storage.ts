@@ -503,8 +503,8 @@ export interface IStorage {
   
   // Wholesale Carts
   getWholesaleCart(buyerId: string): Promise<WholesaleCart | undefined>;
-  createWholesaleCart(buyerId: string, sellerId: string): Promise<WholesaleCart>;
-  updateWholesaleCart(buyerId: string, items: any[]): Promise<WholesaleCart | undefined>;
+  createWholesaleCart(buyerId: string, sellerId: string, currency?: string): Promise<WholesaleCart>;
+  updateWholesaleCart(buyerId: string, items: any[], currency?: string): Promise<WholesaleCart | undefined>;
   clearWholesaleCart(buyerId: string): Promise<boolean>;
   
   // Wholesale B2B Orders
@@ -2714,25 +2714,33 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async createWholesaleCart(buyerId: string, sellerId: string): Promise<WholesaleCart> {
+  async createWholesaleCart(buyerId: string, sellerId: string, currency?: string): Promise<WholesaleCart> {
     await this.ensureInitialized();
     const cart: InsertWholesaleCart = {
       buyerId,
       sellerId,
       items: [],
+      currency: currency || 'USD', // Use provided currency or default to USD
     };
     const result = await this.db.insert(wholesaleCarts).values(cart).returning();
     return result[0];
   }
 
-  async updateWholesaleCart(buyerId: string, items: any[]): Promise<WholesaleCart | undefined> {
+  async updateWholesaleCart(buyerId: string, items: any[], currency?: string): Promise<WholesaleCart | undefined> {
     await this.ensureInitialized();
+    const updateData: any = { 
+      items: items as any,
+      updatedAt: new Date()
+    };
+    
+    // Only update currency if explicitly provided
+    if (currency) {
+      updateData.currency = currency;
+    }
+    
     const result = await this.db
       .update(wholesaleCarts)
-      .set({ 
-        items: items as any,
-        updatedAt: new Date()
-      })
+      .set(updateData)
       .where(eq(wholesaleCarts.buyerId, buyerId))
       .returning();
     return result[0];

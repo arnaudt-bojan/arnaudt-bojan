@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Package2, Search, Eye, Grid3x3, LayoutGrid, LayoutList, ChevronRight, Home, Layers } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import { WholesaleStorefrontHeader } from "@/components/headers/wholesale-storefront-header";
 import { useCart } from "@/lib/cart-context";
 import { CartSheet } from "@/components/cart-sheet";
@@ -53,7 +53,7 @@ const DEFAULT_FILTERS: WholesaleFilterOptions = {
 
 export default function BuyerCatalog() {
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { itemsCount } = useCart();
@@ -381,7 +381,6 @@ export default function BuyerCatalog() {
         ) : (
           <div className={getGridClasses()}>
             {filteredProducts.map((product) => {
-              const margin = ((parseFloat(product.rrp) - parseFloat(product.wholesalePrice)) / parseFloat(product.rrp)) * 100;
               const hasVariants = product.variants && product.variants.length > 0;
               
               return (
@@ -399,14 +398,7 @@ export default function BuyerCatalog() {
                       className="w-full h-full object-cover"
                       data-testid={`img-product-${product.id}`}
                     />
-                    {/* Margin Badge - Top Right */}
-                    {margin > 0 && (
-                      <div className="absolute top-3 right-3">
-                        <Badge className="bg-green-600 text-white backdrop-blur-sm">
-                          {margin.toFixed(0)}% margin
-                        </Badge>
-                      </div>
-                    )}
+                    {/* Margin Badge - Architecture 3: Backend should provide margin percentage */}
                     {/* Variants Indicator */}
                     {hasVariants && (
                       <div className="absolute bottom-3 left-3">
@@ -435,11 +427,11 @@ export default function BuyerCatalog() {
                         <span className={cardSize === "compact" ? "text-xs text-muted-foreground" : "text-sm text-muted-foreground"}>Your Price</span>
                         <div className="text-right">
                           <div className={cardSize === "compact" ? "text-lg font-bold text-primary" : "text-2xl font-bold text-primary"} data-testid={`text-wholesale-price-${product.id}`}>
-                            {formatPrice(parseFloat(product.wholesalePrice))}
+                            {formatCurrency(parseFloat(product.wholesalePrice), currency)}
                           </div>
                           {cardSize !== "compact" && (
                             <div className="text-xs text-muted-foreground line-through">
-                              RRP {formatPrice(parseFloat(product.rrp))}
+                              RRP {formatCurrency(parseFloat(product.rrp), currency)}
                             </div>
                           )}
                         </div>

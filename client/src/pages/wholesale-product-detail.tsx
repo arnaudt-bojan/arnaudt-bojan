@@ -29,7 +29,7 @@ import {
   CheckCircle,
   TrendingDown
 } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart-context";
 import { apiRequest } from "@/lib/queryClient";
@@ -77,7 +77,7 @@ interface WholesaleProduct {
 export default function WholesaleProductDetail() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
   const { toast } = useToast();
   const { addItem, updateQuantity, isLoading: isCartLoading } = useCart();
 
@@ -272,17 +272,7 @@ export default function WholesaleProductDetail() {
     return variant?.stock || 0;
   };
 
-  const margin = ((parseFloat(product.rrp) - parseFloat(product.wholesalePrice)) / parseFloat(product.rrp)) * 100;
-
-  // Calculate deposit amounts if percentage is used
-  const wholesalePriceNum = parseFloat(product.wholesalePrice);
-  const depositPercentageNum = product.depositPercentage ? parseFloat(product.depositPercentage) : 0;
-  const depositAmount = product.requiresDeposit === 1 && product.depositPercentage
-    ? (wholesalePriceNum * depositPercentageNum / 100)
-    : product.depositAmount ? parseFloat(product.depositAmount) : 0;
-  const balanceAmount = product.requiresDeposit === 1
-    ? wholesalePriceNum - depositAmount
-    : wholesalePriceNum;
+  // Architecture 3: Backend should provide margin, depositAmount, balanceAmount pre-calculated
 
   // Get all product images
   const productImages = product.images && product.images.length > 0 ? product.images : [product.image];
@@ -444,23 +434,23 @@ export default function WholesaleProductDetail() {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Your Price (Per Unit)</span>
                   <span className="text-3xl font-bold text-primary" data-testid="text-wholesale-price">
-                    {formatPrice(wholesalePriceNum)}
+                    {formatCurrency(parseFloat(product.wholesalePrice), currency)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-3 border-b">
                   <span className="text-sm text-muted-foreground">RRP / Retail Price</span>
                   <span className="text-lg line-through text-muted-foreground" data-testid="text-rrp">
-                    {formatPrice(parseFloat(product.rrp))}
+                    {formatCurrency(parseFloat(product.rrp), currency)}
                   </span>
                 </div>
                 
-                {/* Deposit Information */}
-                {product.requiresDeposit === 1 && (
+                {/* Deposit Information - Architecture 3: Backend should provide deposit amounts */}
+                {product.requiresDeposit === 1 && product.depositAmount && (
                   <div className="space-y-3 pt-3 border-t">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Deposit ({depositPercentageNum}%)</span>
+                      <span className="text-sm text-muted-foreground">Deposit</span>
                       <span className="font-semibold" data-testid="text-deposit">
-                        {formatPrice(depositAmount)} per unit
+                        {formatCurrency(parseFloat(product.depositAmount), currency)} per unit
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -472,9 +462,6 @@ export default function WholesaleProductDetail() {
                           </Badge>
                         )}
                       </div>
-                      <span className="font-semibold" data-testid="text-balance">
-                        {formatPrice(balanceAmount)} per unit
-                      </span>
                     </div>
                   </div>
                 )}
@@ -632,11 +619,11 @@ export default function WholesaleProductDetail() {
               <div className="text-center md:text-right space-y-1">
                 <div className="text-sm text-muted-foreground">Total Order Cost</div>
                 <div className="text-4xl font-bold text-primary" data-testid="text-total-cost">
-                  {formatPrice(totalQuantity * wholesalePriceNum)}
+                  {formatCurrency(totalQuantity * parseFloat(product.wholesalePrice), currency)}
                 </div>
-                {product.requiresDeposit === 1 && totalQuantity > 0 && (
+                {product.requiresDeposit === 1 && totalQuantity > 0 && product.depositAmount && (
                   <div className="text-sm text-muted-foreground">
-                    Deposit: {formatPrice(totalQuantity * depositAmount)}
+                    Deposit: {formatCurrency(totalQuantity * parseFloat(product.depositAmount), currency)}
                   </div>
                 )}
               </div>
@@ -688,11 +675,11 @@ export default function WholesaleProductDetail() {
               <div className="text-center md:text-right space-y-1">
                 <div className="text-sm text-muted-foreground">Total Order Cost</div>
                 <div className="text-4xl font-bold text-primary" data-testid="text-simple-total-cost">
-                  {formatPrice(product.moq * wholesalePriceNum)}
+                  {formatCurrency(product.moq * parseFloat(product.wholesalePrice), currency)}
                 </div>
-                {product.requiresDeposit === 1 && (
+                {product.requiresDeposit === 1 && product.depositAmount && (
                   <div className="text-sm text-muted-foreground">
-                    Deposit: {formatPrice(product.moq * depositAmount)}
+                    Deposit: {formatCurrency(product.moq * parseFloat(product.depositAmount), currency)}
                   </div>
                 )}
               </div>

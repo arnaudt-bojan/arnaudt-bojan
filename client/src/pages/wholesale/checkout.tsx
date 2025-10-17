@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -64,7 +64,7 @@ interface ProductWithDetails extends CartItem {
 
 export default function WholesaleCheckout() {
   const [, setLocation] = useLocation();
-  const { formatPrice } = useCurrency();
+  const currency = getCurrentCurrency();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
 
@@ -152,6 +152,8 @@ export default function WholesaleCheckout() {
     },
   });
 
+  // Architecture 3: Backend should provide subtotal, depositAmount, balanceAmount pre-calculated
+  // For display purposes, calculate from backend prices (already in correct currency)
   const subtotal = (itemsWithDetails || []).reduce((sum, item) => {
     return sum + parseFloat(item.wholesalePrice) * item.quantity;
   }, 0);
@@ -449,13 +451,13 @@ export default function WholesaleCheckout() {
                             <div className="flex justify-between items-center">
                               <span className="font-medium">Deposit Due Now:</span>
                               <span className="text-xl font-bold text-primary" data-testid="text-deposit-amount">
-                                {formatPrice(depositAmount)}
+                                {formatCurrency(depositAmount, currency)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-sm text-muted-foreground">Balance Due:</span>
                               <span className="font-semibold" data-testid="text-balance-amount">
-                                {formatPrice(balanceAmount)}
+                                {formatCurrency(balanceAmount, currency)}
                               </span>
                             </div>
                             {itemsWithDetails[0]?.balancePaymentDate && (
@@ -495,7 +497,7 @@ export default function WholesaleCheckout() {
                               </div>
                             </div>
                             <div className="font-semibold">
-                              {formatPrice(parseFloat(item.wholesalePrice) * item.quantity)}
+                              {formatCurrency(parseFloat(item.wholesalePrice) * item.quantity, currency)}
                             </div>
                           </div>
                         ))}
@@ -538,11 +540,11 @@ export default function WholesaleCheckout() {
                             <>
                               <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">Deposit:</span>
-                                <span className="font-semibold">{formatPrice(depositAmount)}</span>
+                                <span className="font-semibold">{formatCurrency(depositAmount, currency)}</span>
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">Balance:</span>
-                                <span className="font-semibold">{formatPrice(balanceAmount)}</span>
+                                <span className="font-semibold">{formatCurrency(balanceAmount, currency)}</span>
                               </div>
                             </>
                           )}
@@ -553,7 +555,7 @@ export default function WholesaleCheckout() {
                         <div className="flex justify-between items-center">
                           <span className="font-semibold">Total:</span>
                           <span className="text-2xl font-bold" data-testid="text-review-total">
-                            {formatPrice(subtotal)}
+                            {formatCurrency(subtotal, currency)}
                           </span>
                         </div>
                       </CardContent>
@@ -596,14 +598,14 @@ export default function WholesaleCheckout() {
                   <CardContent className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-semibold">{formatPrice(subtotal)}</span>
+                      <span className="font-semibold">{formatCurrency(subtotal, currency)}</span>
                     </div>
 
                     <Separator />
 
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">Total</span>
-                      <span className="text-2xl font-bold">{formatPrice(subtotal)}</span>
+                      <span className="text-2xl font-bold">{formatCurrency(subtotal, currency)}</span>
                     </div>
                   </CardContent>
                 </Card>

@@ -8422,10 +8422,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * Currency Detection Utility for Wholesale Routes
+   * 
+   * Extracts currency from request using the following priority:
+   * 1. Accept-Currency header (explicitly set by frontend)
+   * 2. IP-based geolocation detection (x-replit-user-geo-country-code or cf-ipcountry)
+   * 3. Default to USD if no detection method available
+   * 
+   * @param req - Express request object
+   * @returns Currency code (e.g., 'USD', 'EUR', 'GBP')
+   */
+  async function getCurrencyFromRequest(req: any): Promise<string> {
+    // Priority 1: Accept-Currency header
+    const acceptCurrency = req.headers['accept-currency'] as string;
+    if (acceptCurrency && typeof acceptCurrency === 'string') {
+      const normalizedCurrency = acceptCurrency.trim().toUpperCase();
+      // Validate it's a 3-letter currency code
+      if (normalizedCurrency.length === 3) {
+        logger.info('[Currency Detection] Using Accept-Currency header:', normalizedCurrency);
+        return normalizedCurrency;
+      }
+    }
+
+    // Priority 2: IP-based geolocation detection
+    const countryCode = req.headers['x-replit-user-geo-country-code'] as string || 
+                       req.headers['cf-ipcountry'] as string;
+    
+    if (countryCode) {
+      const currency = await getUserCurrency(countryCode);
+      logger.info('[Currency Detection] Using IP-based detection:', { countryCode, currency });
+      return currency;
+    }
+
+    // Priority 3: Default to USD
+    logger.info('[Currency Detection] Defaulting to USD (no header or geo data found)');
+    return 'USD';
+  }
+
   app.post("/api/wholesale/cart", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
       const buyerId = req.user.claims.sub;
-      const result = await wholesaleService.addToCart(buyerId, req.body);
+      
+      // Detect currency from request (Accept-Currency header or IP-based fallback)
+      const currency = await getCurrencyFromRequest(req);
+      
+      const result = await wholesaleService.addToCart(buyerId, req.body, currency);
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
@@ -8461,7 +8503,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "productId and quantity are required" });
       }
 
-      const result = await wholesaleService.updateCartItem(buyerId, { productId, variant, quantity });
+      // Detect currency from request (Accept-Currency header or IP-based fallback)
+      const currency = await getCurrencyFromRequest(req);
+
+      const result = await wholesaleService.updateCartItem(buyerId, { productId, variant, quantity }, currency);
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
@@ -8485,7 +8530,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse variant if it's a JSON string
       const parsedVariant = variant && typeof variant === 'string' ? JSON.parse(variant) : variant;
 
-      const result = await wholesaleService.removeCartItem(buyerId, { productId: productId as string, variant: parsedVariant });
+      // Detect currency from request (Accept-Currency header or IP-based fallback)
+      const currency = await getCurrencyFromRequest(req);
+
+      const result = await wholesaleService.removeCartItem(buyerId, { productId: productId as string, variant: parsedVariant }, currency);
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
@@ -8500,6 +8548,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wholesale pricing calculation endpoint (Architecture 3)
   app.post("/api/wholesale/pricing", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
+      // Detect currency from request (Accept-Currency header or IP-based fallback)
+      const currency = await getCurrencyFromRequest(req);
+      
       // Zod schema for wholesale pricing request validation
       const wholesalePricingRequestSchema = z.object({
         sellerId: z.string().min(1),
@@ -8536,8 +8587,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: pricingResult.error || "Failed to calculate pricing" });
       }
 
-      // Return pricing breakdown
+      // Return pricing breakdown with detected currency
       res.json({
+        currency,
         subtotalCents: pricingResult.subtotalCents,
         depositCents: pricingResult.depositCents,
         balanceCents: pricingResult.balanceCents,
@@ -8556,9 +8608,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get cart
       const cartResult = await wholesaleService.getCart(buyerId);
-      if (!cartResult.success || !cartResult.cart) {
+      if (!cartResult.success || !cartResult.data) {
         return res.status(400).json({ message: "Cart not found" });
       }
+
+      // Get currency from cart, fallback to request detection for legacy carts
+      const currency = cartResult.data.currency || await getCurrencyFromRequest(req);
+      logger.info('[Wholesale Checkout] Using currency:', currency);
 
       // Validate required fields from request body
       const { sellerId, shippingData, buyerContact, depositTerms, acceptsTerms } = req.body;
@@ -8579,11 +8635,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "You must accept the terms and conditions" });
       }
 
-      // Build complete checkout data
+      // Calculate pricing to get exchange rate snapshot
+      const pricingResult = await wholesalePricingService.calculateWholesalePricing({
+        cartItems: cartResult.data.items,
+        sellerId,
+        depositPercentage: depositTerms?.depositPercentage,
+        depositAmountCents: depositTerms?.depositAmount ? Math.round(depositTerms.depositAmount * 100) : undefined,
+        currency,
+      });
+
+      if (!pricingResult.success) {
+        return res.status(400).json({ message: pricingResult.error || "Failed to calculate pricing" });
+      }
+
+      // Build complete checkout data with currency and exchange rate
       const checkoutData = {
         sellerId,
         buyerId,
-        cartItems: cartResult.cart.items,
+        cartItems: cartResult.data.items,
+        currency: pricingResult.currency,
+        exchangeRate: pricingResult.exchangeRate?.toString(),
         shippingData: {
           shippingType: shippingData.shippingType,
           carrierName: shippingData.carrierName,
