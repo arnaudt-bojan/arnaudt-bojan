@@ -67,9 +67,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       // Update cart cache with server response
       queryClient.setQueryData(CART_QUERY_KEY, data);
+      
+      // ARCHITECTURE 3: Invalidate stock queries to refresh PDP stock display
+      // This shows the reservation (soft hold) immediately after adding to cart
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/products/${variables.productId}/stock-availability`],
+      });
     },
   });
 
@@ -84,6 +90,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(CART_QUERY_KEY, data);
+      
+      // ARCHITECTURE 3: Invalidate all stock queries to refresh availability
+      // When items are removed, stock should increase
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/stock-availability');
+        }
+      });
     },
   });
 
@@ -98,6 +113,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(CART_QUERY_KEY, data);
+      
+      // ARCHITECTURE 3: Invalidate all stock queries to refresh availability
+      // When quantity changes, stock reservations change
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/stock-availability');
+        }
+      });
     },
   });
 
@@ -112,6 +136,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(CART_QUERY_KEY, data);
+      
+      // ARCHITECTURE 3: Invalidate all stock queries to refresh availability
+      // When cart is cleared, all reservations are released
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/stock-availability');
+        }
+      });
     },
   });
 

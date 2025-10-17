@@ -9908,9 +9908,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Construct variantId for cart storage
       const finalVariantId = productVariantService.constructVariantId(variantSelection);
 
+      // ARCHITECTURE 3: Create stock reservation BEFORE adding to cart
+      // This ensures we have a guaranteed soft hold before cart update
+      let reservationId: string | undefined;
+      
+      if (product.productType === 'in-stock') {
+        const reservationResult = await inventoryService.reserveStock(
+          productId,
+          quantity,
+          sessionId,
+          {
+            variantId: finalVariantId,
+            userId,
+            expirationMinutes: 30, // 30-minute cart reservation
+          }
+        );
+        
+        if (!reservationResult.success) {
+          logger.warn('[Cart] Insufficient stock for add-to-cart', {
+            productId,
+            variantId: finalVariantId,
+            quantity,
+            error: reservationResult.error,
+            availability: reservationResult.availability,
+          });
+          
+          // CRITICAL: Fail the entire operation - no reservation = no cart add
+          return res.status(409).json({ 
+            error: reservationResult.error || 'Insufficient stock',
+            availability: reservationResult.availability,
+          });
+        }
+        
+        reservationId = reservationResult.reservation?.id;
+        logger.info('[Cart] Stock reservation created', {
+          reservationId,
+          productId,
+          variantId: finalVariantId,
+          quantity,
+          expiresAt: reservationResult.reservation?.expiresAt,
+        });
+      }
+
+      // Only add to cart if reservation succeeded (or product is not in-stock)
       const result = await cartService.addToCart(sessionId, productId, quantity, finalVariantId, userId);
       
       if (!result.success) {
+        // CRITICAL: Release reservation if cart add fails to avoid stale holds
+        if (reservationId) {
+          try {
+            await inventoryService.releaseReservation(reservationId);
+            logger.info('[Cart] Released reservation after cart add failure', { reservationId });
+          } catch (releaseError) {
+            logger.error('[Cart] Failed to release reservation', { reservationId, error: releaseError });
+          }
+        }
         return res.status(400).json({ error: result.error });
       }
 
