@@ -551,13 +551,12 @@ export default function CreateWholesaleProduct() {
                 )}
               />
 
-              {/* Images - Using BulkImageInput */}
+              {/* Images - Using BulkImageInput with enhanced UI */}
               <FormField
                 control={form.control}
                 name="images"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Product Images</FormLabel>
                     <FormControl>
                       <BulkImageInput
                         images={field.value}
@@ -565,9 +564,6 @@ export default function CreateWholesaleProduct() {
                         maxImages={10}
                       />
                     </FormControl>
-                    <FormDescription>
-                      Upload multiple images or paste URLs. First image will be the hero image.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
