@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Package2, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { WholesaleStorefrontHeader } from "@/components/headers/wholesale-storefront-header";
+import { useCart } from "@/lib/cart-context";
+import { CartSheet } from "@/components/cart-sheet";
 
 interface WholesaleProduct {
   id: string;
@@ -30,6 +33,8 @@ export default function BuyerCatalog() {
   const { formatPrice } = useCurrency();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { itemsCount } = useCart();
 
   const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
     queryKey: ["/api/wholesale/catalog"],
@@ -46,30 +51,36 @@ export default function BuyerCatalog() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen py-12">
-        <div className="container mx-auto px-4">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Wholesale Catalog</h1>
-            <p className="text-muted-foreground">Loading products...</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <div className="h-48 bg-muted" />
-                <CardHeader>
-                  <div className="h-6 bg-muted rounded w-3/4 mb-2" />
-                  <div className="h-4 bg-muted rounded w-1/2" />
-                </CardHeader>
-              </Card>
-            ))}
+      <>
+        <WholesaleStorefrontHeader cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
+        <div className="min-h-screen py-12">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold mb-2">Wholesale Catalog</h1>
+              <p className="text-muted-foreground">Loading products...</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <Card key={i} className="animate-pulse overflow-hidden">
+                  <div className="aspect-square bg-muted" />
+                  <CardHeader className="pb-3">
+                    <div className="h-5 bg-muted rounded w-3/4 mb-2" />
+                    <div className="h-4 bg-muted rounded w-1/2" />
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+        <CartSheet open={isCartOpen} onOpenChange={setIsCartOpen} />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen py-12">
+    <>
+      <WholesaleStorefrontHeader cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
+      <div className="min-h-screen py-12">
       <div className="container mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2" data-testid="text-page-title">
@@ -203,5 +214,7 @@ export default function BuyerCatalog() {
         )}
       </div>
     </div>
+    <CartSheet open={isCartOpen} onOpenChange={setIsCartOpen} />
+    </>
   );
 }
