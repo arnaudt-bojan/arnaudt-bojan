@@ -104,7 +104,8 @@ function PaymentForm({
   paymentType,
   billingDetails,
   items,
-  onCancel
+  onCancel,
+  sellerCurrency
 }: { 
   onSuccess: (orderId: string) => void; 
   amount: number; 
@@ -113,6 +114,7 @@ function PaymentForm({
   billingDetails: CheckoutForm;
   items: any[];
   onCancel?: () => void;
+  sellerCurrency: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -120,10 +122,9 @@ function PaymentForm({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const { formatPrice, currency: defaultCurrency } = useCurrency();
+  const { formatPrice } = useCurrency();
   
-  // Format amount with currency conversion
-  const sellerCurrency = items[0]?.currency || defaultCurrency;
+  // Format amount using seller's Stripe currency
   const formattedAmount = formatPrice(amount, sellerCurrency);
 
   useEffect(() => {
@@ -632,9 +633,9 @@ export default function Checkout() {
   // Get buyer's selected currency and conversion functions
   const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
   
-  // Get seller's currency from cart items (all items are from same seller)
-  // Use buyer's currency as fallback (should never happen as checkout requires items)
-  const sellerCurrency = items.length > 0 ? items[0].currency || buyerCurrency : buyerCurrency;
+  // Get seller's actual Stripe currency for payment processing
+  // This is what the customer will be charged in (not the buyer's display currency)
+  const sellerCurrency = seller?.listingCurrency || buyerCurrency;
   
   // Helper function to format prices with conversion from seller to buyer currency
   const formatConvertedPrice = (amount: number) => {
@@ -715,6 +716,12 @@ export default function Checkout() {
 
   // Get sellerId from cart items (all items are from same seller)
   const sellerId = items.length > 0 ? items[0].sellerId : undefined;
+
+  // Fetch seller data to get actual Stripe currency for payment
+  const { data: seller } = useQuery<any>({
+    queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
+    enabled: !!sellerId,
+  });
 
   // CRITICAL FIX: Memoize destination to prevent unnecessary re-renders and pricing calculations
   const destination = useMemo(() => 
@@ -1605,6 +1612,7 @@ export default function Checkout() {
                       billingDetails={billingDetails!}
                       items={items as any}
                       onCancel={handleCancelPayment}
+                      sellerCurrency={sellerCurrency}
                     />
                   </Elements>
                 </CardContent>
