@@ -1102,23 +1102,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public products endpoint (for storefront - only active and coming-soon products)
+  // Public products endpoint (for storefront - with search, filter, sort, pagination)
   app.get("/api/products", async (req, res) => {
     try {
-      const products = await storage.getAllProducts();
-      // Filter to only show active and coming-soon products to public
-      const publicProducts = products.filter(p => 
-        p.status === "active" || p.status === "coming-soon"
-      );
+      const {
+        search,
+        categoryLevel1Id,
+        categoryLevel2Id,
+        categoryLevel3Id,
+        minPrice,
+        maxPrice,
+        sellerId,
+        productType,
+        status,
+        sortBy,
+        sortOrder,
+        limit,
+        offset
+      } = req.query;
+      
+      // Build filter object
+      const filters: any = {
+        search: search as string,
+        categoryLevel1Id: categoryLevel1Id as string,
+        categoryLevel2Id: categoryLevel2Id as string,
+        categoryLevel3Id: categoryLevel3Id as string,
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        sellerId: sellerId as string,
+        productType: productType as string,
+        // CRITICAL FIX: Pass status filter to database instead of filtering client-side
+        // Default to ['active', 'coming-soon'] for public storefront if no status specified
+        status: status as string || ['active', 'coming-soon'],
+        sortBy: (sortBy as any) || 'createdAt',
+        sortOrder: (sortOrder as any) || 'desc',
+        limit: limit ? parseInt(limit as string) : 20,
+        offset: offset ? parseInt(offset as string) : 0
+      };
+      
+      // CRITICAL FIX: All filtering now happens in the database via searchProducts
+      // This ensures pagination metadata (total, limit, offset) is accurate
+      const result = await storage.searchProducts(filters);
       
       // CRITICAL FIX: Explicitly ensure sellerId is included in response
-      const productsWithSellerId = publicProducts.map(p => ({
+      const productsWithSellerId = result.products.map(p => ({
         ...p,
-        sellerId: p.sellerId, // Explicit field inclusion for cart validation
+        sellerId: p.sellerId,
       }));
       
-      res.json(productsWithSellerId);
+      res.json({
+        products: productsWithSellerId,
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset
+      });
     } catch (error) {
+      logger.error("Error searching products:", error);
       res.status(500).json({ error: "Failed to fetch products" });
     }
   });
@@ -8098,17 +8137,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Wholesale Products Routes
-  // Get seller's wholesale products (authenticated)
+  // Get seller's wholesale products (authenticated) - with search, filter, sort, pagination
   app.get("/api/wholesale/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const result = await wholesaleService.getProductsBySellerId(userId);
-      if (!result.success) {
-        return res.status(500).json({ message: result.error });
-      }
-      res.json(result.data);
+      
+      const {
+        search,
+        categoryLevel1Id,
+        categoryLevel2Id,
+        categoryLevel3Id,
+        minPrice,
+        maxPrice,
+        minMoq,
+        maxMoq,
+        sortBy,
+        sortOrder,
+        limit,
+        offset
+      } = req.query;
+      
+      // Get status from query params
+      const { status } = req.query;
+      
+      // Build filter object - always filter by seller's own products
+      const filters: any = {
+        search: search as string,
+        categoryLevel1Id: categoryLevel1Id as string,
+        categoryLevel2Id: categoryLevel2Id as string,
+        categoryLevel3Id: categoryLevel3Id as string,
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        sellerId: userId, // Always filter to seller's own products
+        minMoq: minMoq ? parseInt(minMoq as string) : undefined,
+        maxMoq: maxMoq ? parseInt(maxMoq as string) : undefined,
+        status: status as string, // Support status filtering
+        sortBy: (sortBy as any) || 'createdAt',
+        sortOrder: (sortOrder as any) || 'desc',
+        limit: limit ? parseInt(limit as string) : 20,
+        offset: offset ? parseInt(offset as string) : 0
+      };
+      
+      const result = await storage.searchWholesaleProducts(filters);
+      
+      res.json({
+        products: result.products,
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset
+      });
     } catch (error) {
-      logger.error("Error fetching seller wholesale products", error);
+      logger.error("Error searching seller wholesale products", error);
       res.status(500).json({ message: "Failed to fetch wholesale products" });
     }
   });
@@ -8212,6 +8291,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Error updating wholesale product", error);
       res.status(500).json({ message: "Failed to update wholesale product" });
+    }
+  });
+
+  // Quick status update endpoint for wholesale products
+  app.patch("/api/wholesale/products/:id/status", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const userId = req.user.claims.sub;
+      
+      // Validate status
+      if (!status || !['draft', 'active', 'coming-soon', 'paused', 'out-of-stock', 'archived'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Must be 'draft', 'active', 'coming-soon', 'paused', 'out-of-stock', or 'archived'" });
+      }
+      
+      const result = await wholesaleService.updateProduct({
+        productId: id,
+        userId,
+        updates: { status },
+      });
+
+      if (!result.success) {
+        const statusCode = result.error === "Wholesale product not found" ? 404 : 
+                          result.error === "Unauthorized to update this product" ? 403 : 500;
+        return res.status(statusCode).json({ message: result.error });
+      }
+
+      res.json(result.data);
+    } catch (error) {
+      logger.error("Error updating wholesale product status", error);
+      res.status(500).json({ message: "Failed to update wholesale product status" });
     }
   });
 

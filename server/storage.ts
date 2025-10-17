@@ -209,11 +209,61 @@ import {
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, desc, sql, and, or, lt, lte, asc, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, or, lt, lte, gte, asc, inArray, like, ilike } from "drizzle-orm";
 import ws from "ws";
 import { logger } from './logger';
 
 neonConfig.webSocketConstructor = ws;
+
+// Product Search Filters (B2C)
+export interface ProductSearchFilters {
+  search?: string; // Search in name, description, SKU
+  categoryLevel1Id?: string;
+  categoryLevel2Id?: string;
+  categoryLevel3Id?: string;
+  minPrice?: number; // Price in dollars (will be converted to cents)
+  maxPrice?: number; // Price in dollars (will be converted to cents)
+  sellerId?: string;
+  productType?: string;
+  status?: string | string[]; // Single status or array of statuses (e.g., ['active', 'coming-soon'])
+  sortBy?: 'name' | 'price' | 'createdAt' | 'stock';
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+// Wholesale Product Search Filters (B2B)
+export interface WholesaleProductSearchFilters {
+  search?: string; // Search in name, description, SKU
+  categoryLevel1Id?: string;
+  categoryLevel2Id?: string;
+  categoryLevel3Id?: string;
+  minPrice?: number; // Wholesale price in dollars (will be converted to cents)
+  maxPrice?: number; // Wholesale price in dollars (will be converted to cents)
+  sellerId?: string;
+  minMoq?: number; // Minimum order quantity filter
+  maxMoq?: number; // Maximum order quantity filter
+  status?: string | string[]; // Single status or array of statuses (e.g., ['active', 'draft'])
+  sortBy?: 'name' | 'wholesalePrice' | 'createdAt' | 'moq' | 'stock';
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+// Search results with pagination metadata
+export interface ProductSearchResult {
+  products: Product[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface WholesaleProductSearchResult {
+  products: WholesaleProduct[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -275,6 +325,10 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
+  
+  // Product Search & Filtering (B2C)
+  searchProducts(filters: ProductSearchFilters): Promise<ProductSearchResult>;
+  countProducts(filters: ProductSearchFilters): Promise<number>;
   
   // Inventory Management - Stock Reservations
   getStockReservation(id: string): Promise<StockReservation | undefined>;
@@ -493,6 +547,10 @@ export interface IStorage {
   createWholesaleProduct(product: InsertWholesaleProduct): Promise<WholesaleProduct>;
   updateWholesaleProduct(id: string, product: Partial<InsertWholesaleProduct>): Promise<WholesaleProduct | undefined>;
   deleteWholesaleProduct(id: string): Promise<boolean>;
+  
+  // Wholesale Product Search & Filtering (B2B)
+  searchWholesaleProducts(filters: WholesaleProductSearchFilters): Promise<WholesaleProductSearchResult>;
+  countWholesaleProducts(filters: WholesaleProductSearchFilters): Promise<number>;
   
   createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation>;
   getAllWholesaleInvitations(): Promise<WholesaleInvitation[]>;
@@ -893,6 +951,163 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await this.db.delete(products).where(eq(products.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Product Search & Filtering (B2C)
+  async searchProducts(filters: ProductSearchFilters): Promise<ProductSearchResult> {
+    await this.ensureInitialized();
+    
+    const conditions: any[] = [];
+    
+    // Text search (name, description, SKU)
+    if (filters.search) {
+      conditions.push(
+        or(
+          ilike(products.name, `%${filters.search}%`),
+          ilike(products.description, `%${filters.search}%`),
+          ilike(products.sku, `%${filters.search}%`)
+        )
+      );
+    }
+    
+    // Category filters
+    if (filters.categoryLevel1Id) {
+      conditions.push(eq(products.categoryLevel1Id, filters.categoryLevel1Id));
+    }
+    if (filters.categoryLevel2Id) {
+      conditions.push(eq(products.categoryLevel2Id, filters.categoryLevel2Id));
+    }
+    if (filters.categoryLevel3Id) {
+      conditions.push(eq(products.categoryLevel3Id, filters.categoryLevel3Id));
+    }
+    
+    // Price range filters (convert dollars to cents)
+    if (filters.minPrice !== undefined) {
+      const minPriceCents = Math.round(filters.minPrice * 100);
+      conditions.push(gte(sql`CAST(${products.price} AS DECIMAL)`, minPriceCents.toString()));
+    }
+    if (filters.maxPrice !== undefined) {
+      const maxPriceCents = Math.round(filters.maxPrice * 100);
+      conditions.push(lte(sql`CAST(${products.price} AS DECIMAL)`, maxPriceCents.toString()));
+    }
+    
+    // Seller filter
+    if (filters.sellerId) {
+      conditions.push(eq(products.sellerId, filters.sellerId));
+    }
+    
+    // Product type filter
+    if (filters.productType) {
+      conditions.push(eq(products.productType, filters.productType));
+    }
+    
+    // Status filter (supports both single status and array of statuses)
+    if (filters.status) {
+      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+      conditions.push(inArray(products.status, statuses));
+    }
+    
+    // Build query
+    let query = this.db.select().from(products);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    // Sorting
+    const sortBy = filters.sortBy || 'createdAt';
+    const sortOrder = filters.sortOrder || 'desc';
+    const sortColumn = products[sortBy as keyof typeof products];
+    
+    if (sortColumn) {
+      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)) as any;
+    }
+    
+    // Pagination
+    const limit = filters.limit || 20;
+    const offset = filters.offset || 0;
+    
+    const results = await query.limit(limit).offset(offset);
+    
+    // Map results to ensure sellerId is correct
+    const mappedProducts = results.map(product => ({
+      ...product,
+      sellerId: product.sellerId || (product as any).seller_id,
+    }));
+    
+    // Get total count
+    const total = await this.countProducts(filters);
+    
+    return {
+      products: mappedProducts,
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  async countProducts(filters: ProductSearchFilters): Promise<number> {
+    await this.ensureInitialized();
+    
+    const conditions: any[] = [];
+    
+    // Text search (name, description, SKU)
+    if (filters.search) {
+      conditions.push(
+        or(
+          ilike(products.name, `%${filters.search}%`),
+          ilike(products.description, `%${filters.search}%`),
+          ilike(products.sku, `%${filters.search}%`)
+        )
+      );
+    }
+    
+    // Category filters
+    if (filters.categoryLevel1Id) {
+      conditions.push(eq(products.categoryLevel1Id, filters.categoryLevel1Id));
+    }
+    if (filters.categoryLevel2Id) {
+      conditions.push(eq(products.categoryLevel2Id, filters.categoryLevel2Id));
+    }
+    if (filters.categoryLevel3Id) {
+      conditions.push(eq(products.categoryLevel3Id, filters.categoryLevel3Id));
+    }
+    
+    // Price range filters (convert dollars to cents)
+    if (filters.minPrice !== undefined) {
+      const minPriceCents = Math.round(filters.minPrice * 100);
+      conditions.push(gte(sql`CAST(${products.price} AS DECIMAL)`, minPriceCents.toString()));
+    }
+    if (filters.maxPrice !== undefined) {
+      const maxPriceCents = Math.round(filters.maxPrice * 100);
+      conditions.push(lte(sql`CAST(${products.price} AS DECIMAL)`, maxPriceCents.toString()));
+    }
+    
+    // Seller filter
+    if (filters.sellerId) {
+      conditions.push(eq(products.sellerId, filters.sellerId));
+    }
+    
+    // Product type filter
+    if (filters.productType) {
+      conditions.push(eq(products.productType, filters.productType));
+    }
+    
+    // Status filter (supports both single status and array of statuses)
+    if (filters.status) {
+      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+      conditions.push(inArray(products.status, statuses));
+    }
+    
+    // Build count query
+    let countQuery = this.db.select({ count: sql<number>`count(*)` }).from(products);
+    
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as any;
+    }
+    
+    const result = await countQuery;
+    return Number(result[0]?.count || 0);
   }
 
   // Inventory Management - Stock Reservations
@@ -2789,6 +3004,163 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(wholesaleProducts).where(eq(wholesaleProducts.id, id));
     return true;
+  }
+
+  // Wholesale Product Search & Filtering (B2B)
+  async searchWholesaleProducts(filters: WholesaleProductSearchFilters): Promise<WholesaleProductSearchResult> {
+    await this.ensureInitialized();
+    
+    const conditions: any[] = [];
+    
+    // Text search (name, description, SKU)
+    if (filters.search) {
+      conditions.push(
+        or(
+          ilike(wholesaleProducts.name, `%${filters.search}%`),
+          ilike(wholesaleProducts.description, `%${filters.search}%`),
+          ilike(wholesaleProducts.sku, `%${filters.search}%`)
+        )
+      );
+    }
+    
+    // Category filters
+    if (filters.categoryLevel1Id) {
+      conditions.push(eq(wholesaleProducts.categoryLevel1Id, filters.categoryLevel1Id));
+    }
+    if (filters.categoryLevel2Id) {
+      conditions.push(eq(wholesaleProducts.categoryLevel2Id, filters.categoryLevel2Id));
+    }
+    if (filters.categoryLevel3Id) {
+      conditions.push(eq(wholesaleProducts.categoryLevel3Id, filters.categoryLevel3Id));
+    }
+    
+    // Price range filters (convert dollars to cents for wholesalePrice)
+    if (filters.minPrice !== undefined) {
+      const minPriceCents = Math.round(filters.minPrice * 100);
+      conditions.push(gte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, minPriceCents.toString()));
+    }
+    if (filters.maxPrice !== undefined) {
+      const maxPriceCents = Math.round(filters.maxPrice * 100);
+      conditions.push(lte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, maxPriceCents.toString()));
+    }
+    
+    // Seller filter
+    if (filters.sellerId) {
+      conditions.push(eq(wholesaleProducts.sellerId, filters.sellerId));
+    }
+    
+    // MOQ filters (Minimum Order Quantity)
+    if (filters.minMoq !== undefined) {
+      conditions.push(gte(wholesaleProducts.moq, filters.minMoq));
+    }
+    if (filters.maxMoq !== undefined) {
+      conditions.push(lte(wholesaleProducts.moq, filters.maxMoq));
+    }
+    
+    // Status filter (supports both single status and array of statuses)
+    if (filters.status) {
+      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+      conditions.push(inArray(wholesaleProducts.status, statuses));
+    }
+    
+    // Build query
+    let query = this.db.select().from(wholesaleProducts);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    // Sorting
+    const sortBy = filters.sortBy || 'createdAt';
+    const sortOrder = filters.sortOrder || 'desc';
+    const sortColumn = wholesaleProducts[sortBy as keyof typeof wholesaleProducts];
+    
+    if (sortColumn) {
+      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)) as any;
+    }
+    
+    // Pagination
+    const limit = filters.limit || 20;
+    const offset = filters.offset || 0;
+    
+    const results = await query.limit(limit).offset(offset);
+    
+    // Get total count
+    const total = await this.countWholesaleProducts(filters);
+    
+    return {
+      products: results,
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  async countWholesaleProducts(filters: WholesaleProductSearchFilters): Promise<number> {
+    await this.ensureInitialized();
+    
+    const conditions: any[] = [];
+    
+    // Text search (name, description, SKU)
+    if (filters.search) {
+      conditions.push(
+        or(
+          ilike(wholesaleProducts.name, `%${filters.search}%`),
+          ilike(wholesaleProducts.description, `%${filters.search}%`),
+          ilike(wholesaleProducts.sku, `%${filters.search}%`)
+        )
+      );
+    }
+    
+    // Category filters
+    if (filters.categoryLevel1Id) {
+      conditions.push(eq(wholesaleProducts.categoryLevel1Id, filters.categoryLevel1Id));
+    }
+    if (filters.categoryLevel2Id) {
+      conditions.push(eq(wholesaleProducts.categoryLevel2Id, filters.categoryLevel2Id));
+    }
+    if (filters.categoryLevel3Id) {
+      conditions.push(eq(wholesaleProducts.categoryLevel3Id, filters.categoryLevel3Id));
+    }
+    
+    // Price range filters (convert dollars to cents for wholesalePrice)
+    if (filters.minPrice !== undefined) {
+      const minPriceCents = Math.round(filters.minPrice * 100);
+      conditions.push(gte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, minPriceCents.toString()));
+    }
+    if (filters.maxPrice !== undefined) {
+      const maxPriceCents = Math.round(filters.maxPrice * 100);
+      conditions.push(lte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, maxPriceCents.toString()));
+    }
+    
+    // Seller filter
+    if (filters.sellerId) {
+      conditions.push(eq(wholesaleProducts.sellerId, filters.sellerId));
+    }
+    
+    // MOQ filters (Minimum Order Quantity)
+    if (filters.minMoq !== undefined) {
+      conditions.push(gte(wholesaleProducts.moq, filters.minMoq));
+    }
+    if (filters.maxMoq !== undefined) {
+      conditions.push(lte(wholesaleProducts.moq, filters.maxMoq));
+    }
+    
+    // Status filter (supports both single status and array of statuses)
+    if (filters.status) {
+      const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+      conditions.push(inArray(wholesaleProducts.status, statuses));
+    }
+    
+    // Build count query
+    let countQuery = this.db.select({ count: sql<number>`count(*)` }).from(wholesaleProducts);
+    
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as any;
+    }
+    
+    const result = await countQuery;
+    return Number(result[0]?.count || 0);
   }
 
   // Wholesale Orders Methods

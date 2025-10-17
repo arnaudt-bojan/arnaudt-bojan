@@ -256,7 +256,7 @@ const baseInsertProductSchema = createInsertSchema(products).omit({ id: true }).
   description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
   price: z.string().min(1, "Price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional SKU - auto-generated if not provided
-  image: z.string().optional().nullable(), // Optional - can be extracted from images array
+  image: z.string().min(1).optional(), // Optional during validation - will be set from images array
   category: z.string().min(1, "Category is required"),
   productType: z.string().default("in-stock"), // Default to in-stock for bulk uploads
   preOrderDate: z.coerce.date().optional().nullable().transform(val => val || undefined),
@@ -1795,7 +1795,10 @@ export const wholesaleProducts = pgTable("wholesale_products", {
   description: text("description").notNull(),
   image: text("image").notNull(), // Primary/first image (backward compatibility)
   images: text("images").array(), // Array of all product images (up to 8-10)
-  category: text("category").notNull(),
+  category: text("category").notNull(), // Legacy text field for backward compatibility
+  categoryLevel1Id: varchar("category_level_1_id"), // Top-level category (matches B2C pattern)
+  categoryLevel2Id: varchar("category_level_2_id"), // Mid-level category (matches B2C pattern)
+  categoryLevel3Id: varchar("category_level_3_id"), // Leaf-level category (matches B2C pattern)
   rrp: decimal("rrp", { precision: 10, scale: 2 }).notNull(), // Recommended Retail Price
   wholesalePrice: decimal("wholesale_price", { precision: 10, scale: 2 }).notNull(),
   moq: integer("moq").notNull(), // Minimum Order Quantity (product-level)
@@ -1837,15 +1840,63 @@ export const wholesaleProducts = pgTable("wholesale_products", {
   // Variants (extended to include per-variant MOQ and pricing)
   variants: jsonb("variants"), // [{size, color, stock, image, moq, wholesalePrice, sku}]
   
+  // Product visibility and status (matches B2C pattern)
+  status: text("status").default("draft"), // "active", "draft", "archived"
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertWholesaleProductSchema = createInsertSchema(wholesaleProducts).omit({ 
+// Base wholesale product schema with proper image handling
+const baseInsertWholesaleProductSchema = createInsertSchema(wholesaleProducts).omit({ 
   id: true, 
   createdAt: true, 
   updatedAt: true 
+}).extend({
+  // Image fields (match B2C pattern)
+  image: z.string().min(1).optional(), // Optional during validation - will be set from images array
+  images: z.array(z.string()).min(1).optional(), // Array of image URLs (up to 8-10)
+  
+  // Numeric fields with proper coercion
+  rrp: z.string().min(1, "RRP is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid RRP format"),
+  wholesalePrice: z.string().min(1, "Wholesale price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+  moq: z.coerce.number().int().positive("MOQ must be a positive integer"),
+  stock: z.coerce.number().int().nonnegative("Stock cannot be negative").optional().nullable().default(0),
+  
+  // Optional numeric fields
+  depositAmount: z.string().optional().nullable().transform(val => val || undefined),
+  depositPercentage: z.string().optional().nullable().transform(val => val || undefined),
+  balancePercentage: z.string().optional().nullable().transform(val => val || undefined),
+  suggestedRetailPrice: z.string().optional().nullable().transform(val => val || undefined),
+  
+  // Optional fields
+  sku: z.string().optional().nullable().transform(val => val?.trim() || undefined),
+  requiresDeposit: z.coerce.number().int().min(0).max(1).optional().nullable().default(0),
+  readinessDays: z.coerce.number().int().positive().optional().nullable(),
+  
+  // Category hierarchy fields (matches B2C pattern)
+  categoryLevel1Id: z.string().optional().nullable(),
+  categoryLevel2Id: z.string().optional().nullable(),
+  categoryLevel3Id: z.string().optional().nullable(),
+  
+  // Status field (matches B2C pattern)
+  status: z.enum(["draft", "active", "coming-soon", "paused", "out-of-stock", "archived"]).optional().default("draft"),
 });
+
+// Wholesale product schema with image validation (matches B2C pattern)
+export const insertWholesaleProductSchema = baseInsertWholesaleProductSchema.refine(
+  (data) => {
+    // Either image or images must be provided (same logic as B2C products)
+    const hasImage = data.image && data.image.trim().length > 0;
+    const hasImages = data.images && data.images.length > 0;
+    return hasImage || hasImages;
+  },
+  {
+    message: "At least one product image is required (Image or Images field)",
+    path: ["image"],
+  }
+);
+
 export type InsertWholesaleProduct = z.infer<typeof insertWholesaleProductSchema>;
 export type WholesaleProduct = typeof wholesaleProducts.$inferSelect;
 export type SelectWholesaleProduct = typeof wholesaleProducts.$inferSelect;

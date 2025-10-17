@@ -73,27 +73,35 @@ export class ProductService {
 
       await this.syncCurrencyFromStripe(user);
 
-      // Step 2: Validate product data
-      const validationResult = insertProductSchema.safeParse({
-        ...productData,
-        sellerId,
-      });
+      // Step 2: Sync image and images fields (Architecture 3 - match wholesale pattern)
+      // If images array is provided but no single image, use first image from array
+      const dataToValidate = { ...productData, sellerId };
+      if (dataToValidate.images && dataToValidate.images.length > 0 && !dataToValidate.image) {
+        dataToValidate.image = dataToValidate.images[0];
+      }
+      // If single image is provided but no images array, create array with single image
+      else if (dataToValidate.image && (!dataToValidate.images || dataToValidate.images.length === 0)) {
+        dataToValidate.images = [dataToValidate.image];
+      }
+
+      // Step 3: Validate product data
+      const validationResult = insertProductSchema.safeParse(dataToValidate);
 
       if (!validationResult.success) {
         const error = fromZodError(validationResult.error);
         return { success: false, error: error.message };
       }
 
-      // Step 3: Generate SKUs using SKU service
+      // Step 4: Generate SKUs using SKU service
       const productDataWithSKU = await this.generateSKUs(validationResult.data, sellerId);
 
-      // Step 4: Sync stock from variants
+      // Step 5: Sync stock from variants
       const syncedProductData = syncProductStockFromVariants(productDataWithSKU);
 
-      // Step 5: Create product
+      // Step 6: Create product
       const product = await this.storage.createProduct(syncedProductData);
 
-      // Step 6: Send notifications (don't fail if notifications fail)
+      // Step 7: Send notifications (don't fail if notifications fail)
       await this.sendProductListingNotifications(product, user).catch(error => {
         logger.error('[ProductService] Failed to send notifications:', error);
       });

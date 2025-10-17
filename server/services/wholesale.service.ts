@@ -6,6 +6,8 @@ import type { NotificationService } from '../notifications';
 import type { WholesaleCartValidationService } from './wholesale-cart-validation.service';
 import type { CartReservationService } from './cart-reservation.service';
 import type { InventoryService } from './inventory.service';
+import { insertWholesaleProductSchema } from '@shared/schema';
+import { fromZodError } from 'zod-validation-error';
 
 interface BulkUploadInput {
   userId: string;
@@ -194,16 +196,47 @@ export class WholesaleService {
 
   async createProduct(productData: any, userId: string) {
     try {
+      // Step 1: Add sellerId to product data
       const dataWithSeller = {
         ...productData,
         sellerId: userId,
       };
       
-      const product = await this.storage.createWholesaleProduct(dataWithSeller);
+      // Step 2: Sync image and images fields (match B2C pattern)
+      // If images array is provided but no single image, use first image from array
+      if (dataWithSeller.images && dataWithSeller.images.length > 0 && !dataWithSeller.image) {
+        dataWithSeller.image = dataWithSeller.images[0];
+      }
+      // If single image is provided but no images array, create array with single image
+      else if (dataWithSeller.image && (!dataWithSeller.images || dataWithSeller.images.length === 0)) {
+        dataWithSeller.images = [dataWithSeller.image];
+      }
+      
+      // Step 3: Validate with enhanced schema
+      const validationResult = insertWholesaleProductSchema.safeParse(dataWithSeller);
+      
+      if (!validationResult.success) {
+        const error = fromZodError(validationResult.error);
+        logger.error("WholesaleService: Validation failed", { error: error.message });
+        return { success: false, error: error.message };
+      }
+      
+      // Step 4: Create product with validated data
+      const product = await this.storage.createWholesaleProduct(validationResult.data);
+      
+      logger.info("WholesaleService: Product created successfully", { 
+        productId: product.id, 
+        sellerId: userId,
+        imageCount: product.images?.length || 0
+      });
+      
       return { success: true, data: product };
-    } catch (error) {
+    } catch (error: any) {
       logger.error("WholesaleService: Error creating product", error);
-      return { success: false, error: "Failed to create wholesale product" };
+      return { 
+        success: false, 
+        error: error.message || "Failed to create wholesale product" 
+      };
     }
   }
 
