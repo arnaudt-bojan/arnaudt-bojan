@@ -1287,17 +1287,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (hasColors) {
           // ColorVariant structure: [{colorName, colorHex, images, sizes: [{size, stock, sku}]}]
+          // Support both "size-color" format (e.g., "m-red") and size-only format (e.g., "m")
           const [size, color] = variantIdStr.split('-');
           
-          if (size && color) {
-            const colorVariant = variants.find((cv: any) => 
-              cv.colorName?.toLowerCase() === color.toLowerCase()
-            );
-            
-            if (colorVariant?.sizes) {
-              variantFound = colorVariant.sizes.some((s: any) => 
-                s.size?.toLowerCase() === size.toLowerCase()
-              );
+          for (const colorVariant of variants) {
+            if (colorVariant.sizes && Array.isArray(colorVariant.sizes)) {
+              // Check if any size matches (full format or size-only fallback)
+              variantFound = colorVariant.sizes.some((s: any) => {
+                const fullMatch = size && color && 
+                  s.size?.toLowerCase() === size.toLowerCase() && 
+                  colorVariant.colorName?.toLowerCase() === color.toLowerCase();
+                const sizeOnlyMatch = size && s.size?.toLowerCase() === size.toLowerCase();
+                return fullMatch || sizeOnlyMatch;
+              });
+              
+              if (variantFound) break;
             }
           }
         } else {

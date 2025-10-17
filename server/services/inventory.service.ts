@@ -56,9 +56,16 @@ export class InventoryService {
       for (const colorOrSizeVariant of variants) {
         // Handle color-based structure with nested sizes array
         if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
-          const sizeVariant = colorOrSizeVariant.sizes.find((s: any) => 
-            `${s.size}-${colorOrSizeVariant.colorName}`.toLowerCase() === String(variantId).toLowerCase()
-          );
+          const sizeVariant = colorOrSizeVariant.sizes.find((s: any) => {
+            // Match variantId in multiple formats (same logic as increment/decrementStock):
+            // 1. Full format: "size-color" (e.g., "s-red")
+            // 2. Size-only format: "s" (fallback for legacy/simple IDs)
+            const fullVariantId = `${s.size}-${colorOrSizeVariant.colorName}`.toLowerCase();
+            const sizeOnlyId = s.size?.toLowerCase();
+            const normalizedVariantId = String(variantId).toLowerCase();
+            
+            return fullVariantId === normalizedVariantId || sizeOnlyId === normalizedVariantId;
+          });
           if (sizeVariant && typeof sizeVariant.stock === 'number') {
             variantStock = sizeVariant.stock;
             break;
