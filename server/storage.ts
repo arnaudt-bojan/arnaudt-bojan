@@ -367,10 +367,7 @@ export interface IStorage {
   }>;
   updateReservationQuantityAtomic(
     reservationId: string,
-    newQuantity: number,
-    productId: string,
-    variantId: string | null,
-    currentStock: number
+    newQuantity: number
   ): Promise<{
     success: boolean;
     reservation?: StockReservation;
@@ -1478,10 +1475,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateReservationQuantityAtomic(
     reservationId: string,
-    newQuantity: number,
-    productId: string,
-    variantId: string | null,
-    currentStock: number
+    newQuantity: number
   ): Promise<{
     success: boolean;
     reservation?: StockReservation;
@@ -1498,7 +1492,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     
     // CRITICAL: Database transaction with row-level locking to prevent race conditions
-    // This ensures availability check and update happen atomically
+    // Locks product row to get FRESH stock data (not stale)
     return await this.db.transaction(async (tx) => {
       // Step 1: Lock the reservation row with SELECT ... FOR UPDATE
       const currentReservation = await tx
@@ -1524,7 +1518,61 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      // Step 2: Lock all active reservations for this product/variant
+      const productId = reservation.productId;
+      const variantId = reservation.variantId;
+
+      // Step 2: Lock product row and get FRESH stock (prevents stale data)
+      const product = await tx
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+        .for('update')
+        .limit(1);
+      
+      if (!product || product.length === 0) {
+        return {
+          success: false,
+          error: 'Product not found',
+        };
+      }
+
+      const prod = product[0];
+
+      // Step 3: Calculate CURRENT stock (fresh, locked data)
+      let currentStock = 0;
+      
+      if (variantId && prod.variants) {
+        const variants = Array.isArray(prod.variants) ? prod.variants : [];
+        const hasColors = prod.hasColors === 1;
+        
+        if (hasColors) {
+          // ColorVariant structure: parse "size-color" format (e.g., "l-black")
+          const [size, color] = variantId.split('-');
+          
+          if (size && color) {
+            const colorVariant = variants.find((cv: any) => 
+              cv.colorName?.toLowerCase() === color.toLowerCase()
+            );
+            
+            if (colorVariant?.sizes) {
+              const sizeVariant = colorVariant.sizes.find((s: any) => 
+                s.size?.toLowerCase() === size.toLowerCase()
+              );
+              currentStock = sizeVariant?.stock || 0;
+            }
+          }
+        } else {
+          // SizeVariant structure: direct size lookup
+          const sizeVariant = variants.find((v: any) => 
+            v.size?.toLowerCase() === variantId.toLowerCase()
+          );
+          currentStock = sizeVariant?.stock || 0;
+        }
+      } else {
+        currentStock = prod.stock || 0;
+      }
+
+      // Step 4: Lock all active reservations for this product/variant
       const conditions = [
         eq(stockReservations.productId, productId),
         eq(stockReservations.status, 'active')
@@ -1540,7 +1588,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(...conditions))
         .for('update');
       
-      // Step 3: Calculate reserved stock EXCLUDING current reservation
+      // Step 5: Calculate reserved stock EXCLUDING current reservation
       const allReservedStock = activeReservations.reduce((total, res) => total + res.quantity, 0);
       const otherReservedStock = allReservedStock - reservation.quantity;
       const availableStock = Math.max(0, currentStock - otherReservedStock);
@@ -1554,7 +1602,7 @@ export class DatabaseStorage implements IStorage {
         variantId: variantId || undefined,
       };
 
-      // Step 4: Check if enough stock is available for new quantity
+      // Step 6: Check if enough stock is available for new quantity
       if (availableStock < newQuantity) {
         return {
           success: false,
@@ -1563,7 +1611,7 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      // Step 5: Atomically update reservation quantity within transaction
+      // Step 7: Atomically update reservation quantity within transaction
       const result = await tx
         .update(stockReservations)
         .set({ quantity: newQuantity })

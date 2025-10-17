@@ -286,42 +286,12 @@ export class InventoryService {
       };
     }
 
-    // For in-stock products: Calculate current stock for atomic storage operation
-    let currentStock = 0;
-    if (reservation.variantId && product.variants) {
-      const variants = Array.isArray(product.variants) ? product.variants : [];
-      for (const colorOrSizeVariant of variants) {
-        if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
-          const sizeVariant = colorOrSizeVariant.sizes.find((s: any) => {
-            const fullVariantId = `${s.size}-${colorOrSizeVariant.colorName}`.toLowerCase();
-            const sizeOnlyId = s.size?.toLowerCase();
-            const normalizedVariantId = String(reservation.variantId).toLowerCase();
-            return fullVariantId === normalizedVariantId || sizeOnlyId === normalizedVariantId;
-          });
-          if (sizeVariant && typeof sizeVariant.stock === 'number') {
-            currentStock = sizeVariant.stock;
-            break;
-          }
-        } else {
-          const currentVariantId = colorOrSizeVariant.size?.toLowerCase() || '';
-          if (currentVariantId === reservation.variantId.toLowerCase()) {
-            currentStock = colorOrSizeVariant.stock || 0;
-            break;
-          }
-        }
-      }
-    } else {
-      currentStock = product.stock || 0;
-    }
-
     // CRITICAL: Use atomic storage method with database transaction and row-level locking
-    // This prevents race conditions by doing availability check and update in single transaction
+    // The storage layer locks the product row and gets FRESH stock inside transaction
+    // This prevents race conditions and stale stock data issues
     const result = await this.storage.updateReservationQuantityAtomic(
       reservationId,
-      newQuantity,
-      reservation.productId,
-      reservation.variantId,
-      currentStock
+      newQuantity
     );
 
     if (!result.success) {
