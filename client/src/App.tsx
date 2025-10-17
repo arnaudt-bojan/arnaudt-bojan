@@ -311,7 +311,9 @@ function AppContent() {
               <Route path="/settings">
                 {() => (
                   <ProtectedRoute>
-                    <Settings />
+                    <WholesaleLayout>
+                      <Settings />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
@@ -530,7 +532,7 @@ function AppContent() {
               <Route path="/seller/wholesale/products">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <WholesaleLayout mode="wholesale">
+                    <WholesaleLayout>
                       <WholesaleProducts />
                     </WholesaleLayout>
                   </ProtectedRoute>
@@ -539,7 +541,7 @@ function AppContent() {
               <Route path="/seller/wholesale/create-product">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <WholesaleLayout mode="wholesale">
+                    <WholesaleLayout>
                       <CreateWholesaleProduct />
                     </WholesaleLayout>
                   </ProtectedRoute>
@@ -548,7 +550,7 @@ function AppContent() {
               <Route path="/seller/wholesale/invitations">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <WholesaleLayout mode="wholesale">
+                    <WholesaleLayout>
                       <WholesaleInvitations />
                     </WholesaleLayout>
                   </ProtectedRoute>
