@@ -54,8 +54,6 @@ import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
-import { DocumentUploader } from "@/components/DocumentUploader";
-import type { UploadResult } from "@uppy/core";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Product } from "@shared/schema";
@@ -256,45 +254,6 @@ export default function CreateWholesaleProduct() {
       title: "SKU Generated",
       description: `Generated SKU: ${sku}`,
     });
-  };
-
-  // Document upload handlers
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload");
-    return {
-      method: "PUT" as const,
-      url: (response as any).uploadURL,
-    };
-  };
-
-  const handleTermsUpload = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      try {
-        const uploadedFile = result.successful[0];
-        const uploadURL = uploadedFile.uploadURL;
-        
-        console.log("[T&C Upload] Upload URL:", uploadURL);
-        
-        const response = await apiRequest("PUT", "/api/wholesale/documents", {
-          documentURL: uploadURL,
-        }) as { objectPath: string };
-        
-        console.log("[T&C Upload] Normalized path:", response.objectPath);
-        
-        form.setValue("termsAndConditionsUrl", response.objectPath);
-        toast({
-          title: "Success",
-          description: "Terms & Conditions uploaded successfully",
-        });
-      } catch (error) {
-        console.error("[T&C Upload] Error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to upload Terms & Conditions",
-          variant: "destructive",
-        });
-      }
-    }
   };
 
 
@@ -1199,28 +1158,72 @@ export default function CreateWholesaleProduct() {
                   <p className="text-sm text-muted-foreground">Product-specific terms and conditions</p>
                 </div>
 
-                {/* T&C File Upload */}
+                {/* T&C File Upload - Same as Settings */}
               <FormField
                 control={form.control}
                 name="termsAndConditionsUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Terms & Conditions (Optional)</FormLabel>
-                    <DocumentUploader
-                      maxNumberOfFiles={1}
-                      maxFileSize={10 * 1024 * 1024}
-                      allowedFileTypes={['.pdf', '.docx', '.txt']}
-                      onGetUploadParameters={handleGetUploadParameters}
-                      onComplete={handleTermsUpload}
-                      variant="outline"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      {field.value ? "Change T&C" : "Upload T&C"}
-                    </DocumentUploader>
+                    <FormLabel>Upload Custom Terms & Conditions PDF</FormLabel>
+                    <FormDescription>Upload your own Terms & Conditions as a PDF file</FormDescription>
+                    <FormControl>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          if (file.type !== 'application/pdf') {
+                            toast({
+                              title: "Invalid file type",
+                              description: "Please upload a PDF file",
+                              variant: "destructive",
+                            });
+                            e.target.value = '';
+                            return;
+                          }
+
+                          try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+
+                            const uploadRes = await fetch('/api/objects/upload-file', {
+                              method: 'POST',
+                              body: formData,
+                            });
+
+                            if (!uploadRes.ok) throw new Error('Upload failed');
+
+                            const { objectPath } = await uploadRes.json();
+                            const pdfUrl = `/objects/${objectPath}`;
+
+                            field.onChange(pdfUrl);
+                            toast({
+                              title: "PDF uploaded",
+                              description: "Terms & Conditions PDF uploaded successfully",
+                            });
+                            e.target.value = '';
+                          } catch (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to upload PDF",
+                              variant: "destructive",
+                            });
+                            e.target.value = '';
+                          }
+                        }}
+                        className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                        data-testid="input-tc-pdf"
+                      />
+                    </FormControl>
                     {field.value && (
-                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md mt-2">
-                        <FileText className="h-4 w-4" />
-                        <span className="text-sm flex-1 truncate">{field.value.split('/').pop()}</span>
+                      <div className="flex items-center gap-3 p-3 border rounded-lg mt-2">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Terms & Conditions PDF</p>
+                          <p className="text-xs text-muted-foreground">{field.value.split('/').pop()}</p>
+                        </div>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1232,9 +1235,6 @@ export default function CreateWholesaleProduct() {
                         </Button>
                       </div>
                     )}
-                    <FormDescription>
-                      Upload custom terms and conditions for this product (.pdf, .docx, or .txt)
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
