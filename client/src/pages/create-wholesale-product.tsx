@@ -594,11 +594,11 @@ export default function CreateWholesaleProduct() {
                 />
               </Card>
 
-              {/* Category Selection - Same as B2C */}
+              {/* Category & SKU */}
               <Card className="p-6 space-y-6">
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold">Category & Settings</h3>
-                  <p className="text-sm text-muted-foreground">Organize and configure product details</p>
+                  <h3 className="text-xl font-semibold">Category & SKU</h3>
+                  <p className="text-sm text-muted-foreground">Product classification and tracking</p>
                 </div>
 
                 <div className="space-y-4">
@@ -692,6 +692,40 @@ export default function CreateWholesaleProduct() {
                       )}
                     </div>
                   </div>
+
+                  {/* SKU Field with Auto-Generate */}
+                  <FormField
+                    control={form.control}
+                    name="sku"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SKU (Stock Keeping Unit)</FormLabel>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="e.g., APP-A3X9K2"
+                              data-testid="input-sku"
+                            />
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleGenerateSKU}
+                            className="gap-2"
+                            data-testid="button-generate-sku"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            Generate
+                          </Button>
+                        </div>
+                        <FormDescription>
+                          Optional product tracking code. Click Generate for auto-generated SKU.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </Card>
 
@@ -771,41 +805,14 @@ export default function CreateWholesaleProduct() {
                 </DialogContent>
               </Dialog>
 
-              {/* SKU Field with Auto-Generate */}
-              <FormField
-                control={form.control}
-                name="sku"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>SKU (Stock Keeping Unit)</FormLabel>
-                    <div className="flex gap-2">
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="e.g., APP-A3X9K2"
-                          data-testid="input-sku"
-                        />
-                      </FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleGenerateSKU}
-                        className="gap-2"
-                        data-testid="button-generate-sku"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Generate
-                      </Button>
-                    </div>
-                    <FormDescription>
-                      Optional product tracking code. Click Generate for auto-generated SKU.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Pricing & Payment Terms */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Pricing & Payment Terms</h3>
+                  <p className="text-sm text-muted-foreground">B2B pricing structure and deposit settings</p>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="rrp"
@@ -847,11 +854,124 @@ export default function CreateWholesaleProduct() {
                     </FormItem>
                   )}
                 />
-              </div>
+                </div>
 
-              <FormField
-                control={form.control}
-                name="moq"
+                {/* Deposit Percentage - Simple Text Input */}
+                <FormField
+                  control={form.control}
+                  name="depositPercentage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deposit Percentage</FormLabel>
+                      <FormControl>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            {...field}
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="30"
+                            className="max-w-[200px]"
+                            data-testid="input-deposit-percentage"
+                          />
+                          <span className="text-sm font-medium">%</span>
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Percentage of wholesale price required as upfront deposit
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Balance Payment Terms */}
+                <FormField
+                  control={form.control}
+                  name="balancePaymentTerms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Balance Payment Terms</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-balance-payment-terms">
+                            <SelectValue placeholder="Select payment terms" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Net 30">Net 30</SelectItem>
+                          <SelectItem value="Net 60">Net 60</SelectItem>
+                          <SelectItem value="Net 90">Net 90</SelectItem>
+                          <SelectItem value="Custom Date">Custom Date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        When balance payment is due (industry standard)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {balancePaymentTerms === "Custom Date" && (
+                  <FormField
+                    control={form.control}
+                    name="balancePaymentDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Custom Balance Payment Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                data-testid="button-balance-payment-date"
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) =>
+                                date < new Date()
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormDescription>
+                          Specific date when balance payment is due
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </Card>
+
+              {/* Quantities & Availability */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Quantities & Availability</h3>
+                  <p className="text-sm text-muted-foreground">MOQ, stock levels, and production readiness</p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="moq"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Minimum Order Quantity (MOQ)</FormLabel>
@@ -976,117 +1096,44 @@ export default function CreateWholesaleProduct() {
                 />
               )}
 
-              {/* Deposit Percentage - Simple Text Input */}
               <FormField
                 control={form.control}
-                name="depositPercentage"
+                name="stock"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Deposit Percentage</FormLabel>
+                    <FormLabel>Stock Quantity</FormLabel>
                     <FormControl>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          {...field}
-                          type="number"
-                          min="0"
-                          max="100"
-                          placeholder="30"
-                          className="max-w-[200px]"
-                          data-testid="input-deposit-percentage"
-                        />
-                        <span className="text-sm font-medium">%</span>
-                      </div>
+                      <Input
+                        {...field}
+                        type="number"
+                        placeholder="0"
+                        data-testid="input-stock"
+                      />
                     </FormControl>
                     <FormDescription>
-                      Percentage of wholesale price required as upfront deposit
+                      Stock = 0 means unlimited availability (Made-to-Order)
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              </Card>
 
-              {/* Balance Payment Terms */}
-              <FormField
-                control={form.control}
-                name="balancePaymentTerms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Balance Payment Terms</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-balance-payment-terms">
-                          <SelectValue placeholder="Select payment terms" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Net 30">Net 30</SelectItem>
-                        <SelectItem value="Net 60">Net 60</SelectItem>
-                        <SelectItem value="Net 90">Net 90</SelectItem>
-                        <SelectItem value="Custom Date">Custom Date</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      When balance payment is due (industry standard)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {balancePaymentTerms === "Custom Date" && (
-                <FormField
-                  control={form.control}
-                  name="balancePaymentDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Custom Balance Payment Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                              data-testid="button-balance-payment-date"
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date < new Date()
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        Specific date when balance payment is due
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              {/* Ship From Warehouse - Editable Fields */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Warehouse className="h-5 w-5" />
-                  <h3 className="text-lg font-semibold">Warehouse Address</h3>
+              {/* Warehouse & Shipping */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="h-5 w-5" />
+                    <h3 className="text-xl font-semibold">Warehouse & Shipping</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {authUser?.warehouseStreet ? 
+                      "Default values loaded from your settings. You can edit them here for this product." :
+                      "Enter the warehouse address where this product will ship from."
+                    }
+                  </p>
                 </div>
+
                 
                 <FormField
                   control={form.control}
@@ -1143,15 +1190,16 @@ export default function CreateWholesaleProduct() {
                     )}
                   />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {authUser?.warehouseStreet ? 
-                    "Default values loaded from your settings. You can edit them here for this product." :
-                    "Enter the warehouse address where this product will ship from."
-                  }
-                </p>
-              </div>
+              </Card>
 
-              {/* T&C File Upload */}
+              {/* Legal Documents */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Legal Documents</h3>
+                  <p className="text-sm text-muted-foreground">Product-specific terms and conditions</p>
+                </div>
+
+                {/* T&C File Upload */}
               <FormField
                 control={form.control}
                 name="termsAndConditionsUrl"
@@ -1191,6 +1239,7 @@ export default function CreateWholesaleProduct() {
                   </FormItem>
                 )}
               />
+              </Card>
 
               {/* Variant Manager - Same as B2C with B2B Stock Logic */}
               <Card className="p-6 space-y-6">
