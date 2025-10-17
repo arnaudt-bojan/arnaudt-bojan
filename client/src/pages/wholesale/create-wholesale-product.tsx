@@ -193,6 +193,24 @@ export default function CreateWholesaleProduct() {
     defaultValue: '',
   });
   
+  const enableVariants = useWatch({
+    control: form.control,
+    name: 'enableVariants',
+    defaultValue: false,
+  });
+  
+  const readinessType = useWatch({
+    control: form.control,
+    name: 'readinessType',
+    defaultValue: 'days',
+  });
+  
+  const requiresDeposit = useWatch({
+    control: form.control,
+    name: 'requiresDeposit',
+    defaultValue: false,
+  });
+  
   // Fetch categories
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -705,7 +723,7 @@ export default function CreateWholesaleProduct() {
               />
 
               {/* Section 9: Sizes & Colors (conditional) */}
-              {form.watch("enableVariants") && (
+              {enableVariants && (
                 <div className="space-y-4 pt-4">
                   <FormField
                     control={form.control}
@@ -806,10 +824,10 @@ export default function CreateWholesaleProduct() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {form.watch("readinessType") === "days" ? "Number of Days" : "Delivery Date"}
+                      {readinessType === "days" ? "Number of Days" : "Delivery Date"}
                     </FormLabel>
                     <FormControl>
-                      {form.watch("readinessType") === "days" ? (
+                      {readinessType === "days" ? (
                         <Input 
                           {...field} 
                           type="number" 
@@ -855,7 +873,7 @@ export default function CreateWholesaleProduct() {
                 )}
               />
 
-              {form.watch("requiresDeposit") && (
+              {requiresDeposit && (
                 <FormField
                   control={form.control}
                   name="depositPercentage"
