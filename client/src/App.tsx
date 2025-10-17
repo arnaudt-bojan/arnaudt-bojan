@@ -72,6 +72,7 @@ import TradeQuotationBuilder from "@/pages/trade-quotation-builder";
 import TradeQuotationView from "@/pages/trade-quotation-view";
 import TradeDashboard from "@/pages/trade-dashboard";
 import TradeOrders from "@/pages/trade-orders";
+import ExperiencePage from "@/pages/experience";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -95,9 +96,12 @@ function AppContent() {
                            hostname.includes('upfirst.io') && 
                            hostname !== 'www.upfirst.io';
 
+  // Hide header on experience page (has its own navigation)
+  const isExperiencePage = location === '/experience';
+  
   return (
     <div className="min-h-screen flex flex-col">
-      {!isPreviewMode && (
+      {!isPreviewMode && !isExperiencePage && (
         <MainHeader cartItemsCount={itemsCount} onCartClick={() => setIsCartOpen(true)} />
       )}
       <main className="flex-1">
@@ -175,6 +179,7 @@ function AppContent() {
           <Switch>
               {/* Main domain or dev routes */}
               <Route path="/" component={Home} />
+              <Route path="/experience" component={ExperiencePage} />
               <Route path="/email-login" component={EmailLogin} />
               <Route path="/auth/magic" component={MagicLinkVerify} />
               <Route path="/login" component={Login} />
