@@ -180,14 +180,25 @@ export default function CreateWholesaleProduct() {
       stock: "0",
       readinessType: "days",
       readinessDays: "30",
-      shipFromAddress: authUser ? {
-        street: authUser.warehouseStreet || "",
-        city: authUser.warehouseCity || "",
-        country: authUser.warehouseCountry || "",
-      } : undefined,
+      shipFromAddress: {
+        street: "",
+        city: "",
+        country: "",
+      },
       hasVariants: false,
     },
   });
+
+  // Update warehouse address when authUser data loads
+  useEffect(() => {
+    if (authUser && (authUser as any).warehouseStreet) {
+      form.setValue("shipFromAddress", {
+        street: (authUser as any).warehouseStreet || "",
+        city: (authUser as any).warehouseCity || "",
+        country: (authUser as any).warehouseCountry || "",
+      });
+    }
+  }, [authUser, form]);
 
   const useExisting = form.watch("useExisting");
   const requiresDeposit = form.watch("requiresDeposit");
@@ -514,42 +525,54 @@ export default function CreateWholesaleProduct() {
                 />
               )}
 
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Product Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Premium Cotton T-Shirt"
-                        data-testid="input-name"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Basic Information Card */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Basic Information</h3>
+                  <p className="text-sm text-muted-foreground">Essential product details</p>
+                </div>
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Detailed product description..."
-                        rows={4}
-                        data-testid="input-description"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Premium Cotton T-Shirt"
+                            {...field}
+                            data-testid="input-name"
+                            className="text-base"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Detailed product description..."
+                            {...field}
+                            rows={4}
+                            data-testid="input-description"
+                            className="text-base"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Card>
 
               {/* Product Images - Using UniversalImageUpload (same as B2C) */}
               <Card className="p-6 space-y-6">
