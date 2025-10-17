@@ -203,7 +203,7 @@ export default function CreateWholesaleProduct() {
         country: (authUser as any).warehouseCountry || "",
       });
     }
-  }, [authUser, form]);
+  }, [authUser]);
 
   const useExisting = form.watch("useExisting");
   const requiresDeposit = form.watch("requiresDeposit");
@@ -243,7 +243,7 @@ export default function CreateWholesaleProduct() {
       const categoryValue = categoryNames.join(" > ") || "General";
       form.setValue("category", categoryValue, { shouldValidate: true });
     }
-  }, [selectedLevel1, selectedLevel2, selectedLevel3, categories, form]);
+  }, [selectedLevel1, selectedLevel2, selectedLevel3, categories]);
 
   // Calculate deposit and balance amounts
   const calculatedDeposit = requiresDeposit && depositPercentage && wholesalePrice
