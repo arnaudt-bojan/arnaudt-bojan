@@ -8393,20 +8393,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortBy
       } = req.query;
 
+      // Normalize all filters with defensive defaults to prevent runtime errors
       const filters = {
-        search: search as string,
-        categoryL1: categoryL1 ? (Array.isArray(categoryL1) ? categoryL1 : [categoryL1]) : [],
-        categoryL2: categoryL2 ? (Array.isArray(categoryL2) ? categoryL2 : [categoryL2]) : [],
-        categoryL3: categoryL3 ? (Array.isArray(categoryL3) ? categoryL3 : [categoryL3]) : [],
+        search: search as string || '',
+        categoryL1: categoryL1 ? (Array.isArray(categoryL1) ? categoryL1 as string[] : [categoryL1 as string]) : [],
+        categoryL2: categoryL2 ? (Array.isArray(categoryL2) ? categoryL2 as string[] : [categoryL2 as string]) : [],
+        categoryL3: categoryL3 ? (Array.isArray(categoryL3) ? categoryL3 as string[] : [categoryL3 as string]) : [],
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
         minMoq: minMoq ? parseInt(minMoq as string, 10) : undefined,
         maxMoq: maxMoq ? parseInt(maxMoq as string, 10) : undefined,
         requiresDeposit: requiresDeposit === 'true' ? true : requiresDeposit === 'false' ? false : undefined,
         inStock: inStock === 'true',
-        paymentTerms: paymentTerms ? (Array.isArray(paymentTerms) ? paymentTerms : [paymentTerms]) : [],
-        readinessType: readinessType ? (Array.isArray(readinessType) ? readinessType : [readinessType]) : [],
-        sortBy: sortBy as string || 'newest'
+        paymentTerms: paymentTerms ? (Array.isArray(paymentTerms) ? paymentTerms as string[] : [paymentTerms as string]) : [],
+        readinessType: readinessType ? (Array.isArray(readinessType) ? readinessType as string[] : [readinessType as string]) : [],
+        sortBy: (sortBy as string) || 'newest'
       };
 
       const result = await wholesaleService.getBuyerCatalog(buyerId, sellerId as string, filters);
