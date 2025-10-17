@@ -86,18 +86,20 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
       : '0.00';
     const total = parseFloat(order.total).toFixed(2);
 
-    // Get product SKUs for items
-    const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
-      const product = await storage.getProduct(item.productId);
+    // Get product SKUs for items - prioritize variant SKU over product SKU
+    // ARCHITECTURE 3: Use stored SKU data from order items (variantSku takes precedence)
+    const itemsWithSku = orderItems.map((item) => {
+      const sku = item.variantSku || item.productSku || item.productId.substring(0, 8).toUpperCase();
+      
       return {
         name: item.productName,
-        sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
+        sku,
         variant: item.variant ? JSON.stringify(item.variant) : undefined,
         quantity: item.quantity,
         price: parseFloat(item.price).toFixed(2),
         subtotal: parseFloat(item.subtotal).toFixed(2),
       };
-    }));
+    });
 
     // Prepare invoice data
     const invoiceNumber = DocumentGenerator.generateDocumentNumber('INV');
@@ -244,17 +246,19 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
       });
     }
 
-    // Get product SKUs for items
-    const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
-      const product = await storage.getProduct(item.productId);
+    // Get product SKUs for items - prioritize variant SKU over product SKU
+    // ARCHITECTURE 3: Use stored SKU data from order items (variantSku takes precedence)
+    const itemsWithSku = orderItems.map((item) => {
+      const sku = item.variantSku || item.productSku || item.productId.substring(0, 8).toUpperCase();
+      
       return {
         name: item.productName,
-        sku: product?.sku || item.productId.substring(0, 8).toUpperCase(),
+        sku,
         variant: item.variant ? JSON.stringify(item.variant) : undefined,
         quantity: item.quantity,
         image: item.productImage || undefined,
       };
-    }));
+    });
 
     // Prepare packing slip data
     const packingSlipNumber = DocumentGenerator.generateDocumentNumber('PS');
