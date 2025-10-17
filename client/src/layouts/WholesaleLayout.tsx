@@ -90,6 +90,12 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
       icon: Eye,
       testId: "link-wholesale-preview",
     },
+    {
+      name: "Settings",
+      href: "/settings",
+      icon: Settings,
+      testId: "link-wholesale-settings",
+    },
   ];
 
   // Trade Navigation Items
@@ -117,6 +123,12 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
       href: "/seller/trade/orders",
       icon: ShoppingCart,
       testId: "link-trade-orders",
+    },
+    {
+      name: "Settings",
+      href: "/settings",
+      icon: Settings,
+      testId: "link-trade-settings",
     },
   ];
 
