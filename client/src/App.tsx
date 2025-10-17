@@ -69,6 +69,8 @@ import DashboardRedirect from "@/components/DashboardRedirect";
 import TradeQuotationsList from "@/pages/trade-quotations-list";
 import TradeQuotationBuilder from "@/pages/trade-quotation-builder";
 import TradeQuotationView from "@/pages/trade-quotation-view";
+import TradeDashboard from "@/pages/trade-dashboard";
+import TradeOrders from "@/pages/trade-orders";
 
 function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -426,6 +428,33 @@ function AppContent() {
                   <ProtectedRoute requireSeller>
                     <WholesaleLayout>
                       <TradeQuotationBuilder />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Trade Dashboard */}
+              <Route path="/seller/trade/dashboard">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <TradeDashboard />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              
+              {/* Send Quotation (redirect to builder) */}
+              <Route path="/seller/trade/send-quotation">
+                {() => <Redirect to="/seller/trade/quotations/new" />}
+              </Route>
+              
+              {/* Trade Orders */}
+              <Route path="/seller/trade/orders">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <TradeOrders />
                     </WholesaleLayout>
                   </ProtectedRoute>
                 )}
