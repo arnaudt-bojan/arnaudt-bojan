@@ -217,9 +217,9 @@ export default function BuyerCatalog() {
                 <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-blue-900 dark:text-blue-100">Preview Mode</p>
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Preview Mode - Browse Only</p>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  This is how buyers will see your wholesale storefront. Close this window to return to your dashboard.
+                  This is how buyers will see your wholesale storefront. Purchasing is disabled in preview mode. Close this window to return to your dashboard.
                 </p>
               </div>
             </div>

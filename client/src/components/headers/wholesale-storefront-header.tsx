@@ -62,11 +62,12 @@ export function WholesaleStorefrontHeader({ cartItemsCount = 0, onCartClick }: W
   // Use preview parameters if in preview mode, otherwise use seller data
   const displayLogo = isPreviewMode ? previewLogo : seller?.storeLogo;
   const displayBanner = isPreviewMode ? previewBanner : seller?.storeBanner;
+  // Get seller display name - prioritize Instagram username, then full name, then username
   const sellerName = seller?.instagramUsername 
     ? `@${seller.instagramUsername}` 
     : seller?.firstName && seller?.lastName
     ? `${seller.firstName} ${seller.lastName}`
-    : seller?.username || 'Wholesale Store';
+    : seller?.username || 'Store';
   
   const isAuthenticated = !!currentUser;
 
@@ -168,19 +169,23 @@ export function WholesaleStorefrontHeader({ cartItemsCount = 0, onCartClick }: W
               </SheetContent>
             </Sheet>
             
-            {/* Logo/Branding */}
+            {/* Logo/Branding - Match B2C pattern */}
             <Link href="/wholesale/catalog" className="flex items-center gap-3 hover-elevate px-3 py-2 rounded-lg" data-testid="link-home">
               {displayLogo ? (
-                <img src={displayLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+                <>
+                  <img src={displayLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
+                  <Badge variant="secondary" className="hidden md:flex">
+                    Wholesale
+                  </Badge>
+                </>
               ) : (
-                <div className="flex items-center gap-2">
-                  <Package className="h-6 w-6" />
-                  <span className="text-lg font-semibold">{sellerName}</span>
-                </div>
+                <>
+                  <div className="text-lg font-semibold">{sellerName}</div>
+                  <Badge variant="secondary" className="hidden md:flex">
+                    Wholesale
+                  </Badge>
+                </>
               )}
-              <Badge variant="secondary" className="hidden md:flex">
-                Wholesale
-              </Badge>
             </Link>
           </div>
 

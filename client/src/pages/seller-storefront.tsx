@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ProductCard } from "@/components/product-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList } from "lucide-react";
+import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList, Eye } from "lucide-react";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -183,6 +183,25 @@ export default function SellerStorefront() {
             className="w-full h-full object-cover"
             data-testid="img-store-banner"
           />
+        </div>
+      )}
+
+      {/* Preview Mode Ribbon */}
+      {isPreviewMode && (
+        <div className="container mx-auto px-4 max-w-7xl pt-8">
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-blue-900 dark:text-blue-100">Preview Mode - Browse Only</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  This is how customers will see your storefront. Purchasing is disabled in preview mode. Close this window to return to your dashboard.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
