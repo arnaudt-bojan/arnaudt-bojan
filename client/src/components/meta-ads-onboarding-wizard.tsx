@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Collapsible,
@@ -24,9 +23,6 @@ interface MetaAdsOnboardingWizardProps {
 
 export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [hasMetaAccount, setHasMetaAccount] = useState(false);
-  const [hasBusinessManager, setHasBusinessManager] = useState(false);
-  const [hasAdAccount, setHasAdAccount] = useState(false);
   const [showHelp, setShowHelp] = useState<Record<number, boolean>>({});
 
   const steps = [
@@ -34,8 +30,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
       number: 1,
       title: "Facebook/Instagram Account",
       description: "You need an active Meta account to continue",
-      checked: hasMetaAccount,
-      setChecked: setHasMetaAccount,
       helpTitle: "What is a Meta Account?",
       helpContent: (
         <div className="space-y-2 text-sm">
@@ -57,8 +51,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
       number: 2,
       title: "Meta Business Manager",
       description: "Required to manage ad accounts and run campaigns",
-      checked: hasBusinessManager,
-      setChecked: setHasBusinessManager,
       helpTitle: "What is Meta Business Manager?",
       helpContent: (
         <div className="space-y-2 text-sm">
@@ -86,8 +78,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
       number: 3,
       title: "Meta Ad Account",
       description: "The account that will run your advertising campaigns",
-      checked: hasAdAccount,
-      setChecked: setHasAdAccount,
       helpTitle: "What is an Ad Account?",
       helpContent: (
         <div className="space-y-2 text-sm">
@@ -114,7 +104,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
     }
   ];
 
-  const allRequirementsMet = hasMetaAccount && hasBusinessManager && hasAdAccount;
   const currentStepData = steps[currentStep - 1];
 
   const toggleHelp = (step: number) => {
@@ -160,7 +149,7 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
             <div key={step.number} className="flex items-center">
               <div 
                 className={`flex items-center justify-center w-8 h-8 rounded-full font-medium text-sm ${
-                  step.checked 
+                  currentStep > step.number
                     ? 'bg-primary text-primary-foreground' 
                     : currentStep === step.number
                     ? 'bg-primary/20 text-primary'
@@ -168,10 +157,10 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
                 }`}
                 data-testid={`indicator-step-${step.number}`}
               >
-                {step.checked ? <CheckCircle2 className="h-5 w-5" /> : step.number}
+                {currentStep > step.number ? <CheckCircle2 className="h-5 w-5" /> : step.number}
               </div>
               {index < steps.length - 1 && (
-                <div className={`w-12 h-0.5 mx-2 ${step.checked ? 'bg-primary' : 'bg-muted'}`} />
+                <div className={`w-12 h-0.5 mx-2 ${currentStep > step.number ? 'bg-primary' : 'bg-muted'}`} />
               )}
             </div>
           ))}
@@ -180,26 +169,15 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
         {/* Current Step */}
         <div className="space-y-4">
           <div className="flex items-start gap-4 p-6 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-3 flex-1">
-              <Checkbox 
-                checked={currentStepData.checked}
-                onCheckedChange={(checked) => currentStepData.setChecked(!!checked)}
-                id={`step-${currentStep}`}
-                data-testid={`checkbox-step-${currentStep}`}
-              />
-              <label 
-                htmlFor={`step-${currentStep}`} 
-                className="flex-1 cursor-pointer"
-              >
-                <div className="space-y-1">
-                  <p className="font-semibold" data-testid={`text-step-${currentStep}-title`}>
-                    Step {currentStep} of 3: {currentStepData.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {currentStepData.description}
-                  </p>
-                </div>
-              </label>
+            <div className="flex-1">
+              <div className="space-y-1">
+                <p className="font-semibold" data-testid={`text-step-${currentStep}-title`}>
+                  Step {currentStep} of 3: {currentStepData.title}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {currentStepData.description}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -242,7 +220,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
               <Button 
                 className="flex-1"
                 onClick={handleNext}
-                disabled={!currentStepData.checked}
                 data-testid="button-next"
               >
                 Next Step
@@ -251,7 +228,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
               <Button 
                 className="flex-1"
                 onClick={onConnect}
-                disabled={!allRequirementsMet}
                 data-testid="button-connect-meta"
               >
                 <SiFacebook className="h-5 w-5 mr-2" />
@@ -259,15 +235,6 @@ export function MetaAdsOnboardingWizard({ onConnect }: MetaAdsOnboardingWizardPr
               </Button>
             )}
           </div>
-
-          {!allRequirementsMet && currentStep === 3 && (
-            <Alert data-testid="alert-requirements-not-met">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Please complete all prerequisites before connecting your Meta account
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
 
         {/* Info Footer */}
