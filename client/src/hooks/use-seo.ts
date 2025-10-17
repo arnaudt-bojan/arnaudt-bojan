@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface SEOProps {
   title: string;
@@ -21,19 +21,35 @@ export function useSEO({
   ogType = "website",
   structuredData,
 }: SEOProps) {
+  // Track elements created by this hook and their original values
+  const createdElements = useRef<Set<HTMLElement>>(new Set());
+  const previousTitle = useRef<string>("");
+  const previousMetaValues = useRef<Map<string, string>>(new Map());
+
   useEffect(() => {
+    // Save previous title
+    previousTitle.current = document.title;
+    
     // Set document title
     document.title = title;
 
-    // Update or create meta tags
+    // Update or create meta tags (track what we create and save original values)
     const updateMetaTag = (name: string, content: string, isProperty = false) => {
       const attribute = isProperty ? "property" : "name";
-      let tag = document.querySelector(`meta[${attribute}="${name}"]`);
+      const tagKey = `${attribute}:${name}`;
+      let tag = document.querySelector(`meta[${attribute}="${name}"]`) as HTMLMetaElement;
       
       if (!tag) {
+        // New tag - create and track it
         tag = document.createElement("meta");
         tag.setAttribute(attribute, name);
         document.head.appendChild(tag);
+        createdElements.current.add(tag);
+      } else {
+        // Existing tag - save its current value before updating
+        if (!previousMetaValues.current.has(tagKey)) {
+          previousMetaValues.current.set(tagKey, tag.getAttribute("content") || "");
+        }
       }
       
       tag.setAttribute("content", content);
@@ -63,33 +79,51 @@ export function useSEO({
 
     // Structured data (JSON-LD)
     if (structuredData) {
-      let scriptTag = document.querySelector('script[type="application/ld+json"]');
+      let scriptTag = document.querySelector('script[type="application/ld+json"][data-seo-hook="true"]') as HTMLScriptElement;
       
       if (!scriptTag) {
         scriptTag = document.createElement("script");
         scriptTag.setAttribute("type", "application/ld+json");
+        scriptTag.setAttribute("data-seo-hook", "true");
         document.head.appendChild(scriptTag);
+        createdElements.current.add(scriptTag);
       }
       
       scriptTag.textContent = JSON.stringify(structuredData);
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - restore original values and remove created elements
     return () => {
-      document.title = "Upfirst";
-      const metaTags = document.querySelectorAll('meta[name], meta[property]');
-      metaTags.forEach(tag => {
-        const name = tag.getAttribute('name') || tag.getAttribute('property');
-        if (name?.startsWith('og:') || name?.startsWith('twitter:') || 
-            name === 'description' || name === 'keywords') {
-          tag.remove();
+      // Restore previous title
+      document.title = previousTitle.current || "Upfirst";
+      
+      // Restore original meta tag values for tags we modified
+      previousMetaValues.current.forEach((originalValue, tagKey) => {
+        const [attribute, name] = tagKey.split(":");
+        const isProperty = attribute === "property";
+        const tag = document.querySelector(`meta[${attribute}="${name}"]`) as HTMLMetaElement;
+        
+        if (tag) {
+          if (originalValue) {
+            // Restore original value
+            tag.setAttribute("content", originalValue);
+          } else {
+            // Tag was empty before, restore that state
+            tag.setAttribute("content", "");
+          }
         }
       });
       
-      const scriptTag = document.querySelector('script[type="application/ld+json"]');
-      if (scriptTag) {
-        scriptTag.remove();
-      }
+      // Remove only the elements this hook created
+      createdElements.current.forEach(element => {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+      });
+      
+      // Clear refs
+      createdElements.current.clear();
+      previousMetaValues.current.clear();
     };
   }, [title, description, keywords, ogTitle, ogDescription, ogImage, ogType, structuredData]);
 }

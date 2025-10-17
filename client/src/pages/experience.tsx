@@ -171,11 +171,9 @@ export default function ExperiencePage() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/">
-              <a className="flex items-center gap-2 font-bold text-xl" data-testid="link-home">
-                <Zap className="h-6 w-6" />
-                Upfirst
-              </a>
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl" data-testid="link-home">
+              <Zap className="h-6 w-6" />
+              Upfirst
             </Link>
 
             {/* Desktop Navigation */}
@@ -198,16 +196,12 @@ export default function ExperiencePage() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/email-login">
-              <Button variant="ghost" size="sm" data-testid="button-sign-in">
-                Sign In
-              </Button>
+            <Link href="/email-login" className="inline-flex items-center justify-center min-h-8 px-4 py-2 text-sm font-medium rounded-lg hover-elevate active-elevate-2" data-testid="button-sign-in">
+              Sign In
             </Link>
-            <Link href="/email-login">
-              <Button size="sm" data-testid="button-get-started">
-                Get Started
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+            <Link href="/email-login" className="inline-flex items-center justify-center min-h-8 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover-elevate active-elevate-2" data-testid="button-get-started">
+              Get Started
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </div>
 
@@ -240,16 +234,12 @@ export default function ExperiencePage() {
                 </Button>
               ))}
               <div className="pt-4 space-y-2">
-                <Link href="/email-login">
-                  <Button variant="outline" className="w-full" data-testid="button-mobile-sign-in">
-                    Sign In
-                  </Button>
+                <Link href="/email-login" className="inline-flex items-center justify-center w-full min-h-10 px-6 py-3 text-sm font-medium rounded-lg border border-input bg-background hover-elevate active-elevate-2" data-testid="button-mobile-sign-in">
+                  Sign In
                 </Link>
-                <Link href="/email-login">
-                  <Button className="w-full" data-testid="button-mobile-get-started">
-                    Get Started
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                <Link href="/email-login" className="inline-flex items-center justify-center w-full min-h-10 px-6 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover-elevate active-elevate-2" data-testid="button-mobile-get-started">
+                  Get Started
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>
             </nav>
@@ -280,11 +270,9 @@ export default function ExperiencePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Link href="/email-login">
-                <Button size="lg" className="min-w-[200px]" data-testid="button-start-free-trial">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+              <Link href="/email-login" className="inline-flex items-center justify-center min-h-10 px-6 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover-elevate active-elevate-2 min-w-[200px]" data-testid="button-start-free-trial">
+                Start Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
               <Button
                 size="lg"
@@ -741,10 +729,8 @@ export default function ExperiencePage() {
                       30-day free trial
                     </li>
                   </ul>
-                  <Link href="/email-login">
-                    <Button className="w-full" variant="outline" data-testid="button-pricing-starter">
-                      Get Started
-                    </Button>
+                  <Link href="/email-login" className="inline-flex items-center justify-center w-full min-h-10 px-6 py-3 text-sm font-medium rounded-lg border border-input bg-background hover-elevate active-elevate-2" data-testid="button-pricing-starter">
+                    Get Started
                   </Link>
                 </CardContent>
               </Card>
@@ -784,10 +770,8 @@ export default function ExperiencePage() {
                       Advanced analytics
                     </li>
                   </ul>
-                  <Link href="/email-login">
-                    <Button className="w-full" data-testid="button-pricing-professional">
-                      Get Started
-                    </Button>
+                  <Link href="/email-login" className="inline-flex items-center justify-center w-full min-h-10 px-6 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover-elevate active-elevate-2" data-testid="button-pricing-professional">
+                    Get Started
                   </Link>
                 </CardContent>
               </Card>
@@ -920,11 +904,9 @@ export default function ExperiencePage() {
               Join thousands of brands selling with Upfirst. Start your free trial today.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/email-login">
-                <Button size="lg" className="min-w-[200px]" data-testid="button-final-start">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+              <Link href="/email-login" className="inline-flex items-center justify-center min-h-10 px-6 py-3 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover-elevate active-elevate-2 min-w-[200px]" data-testid="button-final-start">
+                Start Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
               <Button size="lg" variant="outline" className="min-w-[200px]" data-testid="button-final-contact">
                 Contact Sales
