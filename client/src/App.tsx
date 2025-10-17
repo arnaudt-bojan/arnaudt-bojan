@@ -34,6 +34,7 @@ import MetaAdsDashboard from "@/pages/meta-ads/dashboard";
 import CreateAdWizard from "@/pages/meta-ads/create";
 import MetaAdsAnalytics from "@/pages/meta-ads/analytics";
 import SellerOrdersPage from "@/pages/seller-orders";
+import SellerAnalytics from "@/pages/seller-analytics";
 import Newsletter from "@/pages/newsletter";
 import Campaigns from "@/pages/campaigns";
 import SellerNewsletterPage from "@/pages/seller-newsletter";
@@ -223,60 +224,85 @@ function AppContent() {
                 )}
               </Route>
               
-              {/* Protected seller routes */}
+              {/* Protected seller routes - Retail B2C with unified layout */}
               <Route path="/seller-dashboard">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SellerDashboard />
+                    <WholesaleLayout>
+                      <SellerDashboard />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/dashboard">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SellerDashboard />
+                    <WholesaleLayout>
+                      <SellerDashboard />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/products">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SellerProducts />
+                    <WholesaleLayout>
+                      <SellerProducts />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/dashboard/products">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SellerProducts />
+                    <WholesaleLayout>
+                      <SellerProducts />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/create-product">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <CreateProduct />
+                    <WholesaleLayout>
+                      <CreateProduct />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/bulk-upload">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <BulkProductUpload />
+                    <WholesaleLayout>
+                      <BulkProductUpload />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/products/:id/edit">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <EditProduct />
+                    <WholesaleLayout>
+                      <EditProduct />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/seller/orders">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SellerOrdersPage />
+                    <WholesaleLayout>
+                      <SellerOrdersPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/analytics">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <SellerAnalytics />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
@@ -309,21 +335,27 @@ function AppContent() {
               <Route path="/meta-ads/dashboard">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <MetaAdsDashboard />
+                    <WholesaleLayout>
+                      <MetaAdsDashboard />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/meta-ads/create">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <CreateAdWizard />
+                    <WholesaleLayout>
+                      <CreateAdWizard />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
               <Route path="/meta-ads/analytics">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <MetaAdsAnalytics />
+                    <WholesaleLayout>
+                      <MetaAdsAnalytics />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
@@ -332,7 +364,9 @@ function AppContent() {
               <Route path="/seller/newsletter">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <SellerNewsletterPage />
+                    <WholesaleLayout>
+                      <SellerNewsletterPage />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
@@ -342,7 +376,9 @@ function AppContent() {
               <Route path="/seller/campaigns">
                 {() => (
                   <ProtectedRoute requireSeller>
-                    <Campaigns />
+                    <WholesaleLayout>
+                      <Campaigns />
+                    </WholesaleLayout>
                   </ProtectedRoute>
                 )}
               </Route>
