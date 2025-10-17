@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,24 @@ interface WholesaleLayoutProps {
 
 export function WholesaleLayout({ children }: WholesaleLayoutProps) {
   const [location] = useLocation();
-  const { mode } = useBusinessMode();
+  const { mode, setMode } = useBusinessMode();
+
+  // Auto-detect mode based on current route
+  useEffect(() => {
+    if (location.startsWith('/wholesale/') || location.startsWith('/seller/wholesale/')) {
+      setMode('b2b');
+    } else if (location.startsWith('/seller/trade/')) {
+      setMode('trade');
+    } else if (
+      location.startsWith('/seller') || 
+      location.startsWith('/meta-ads') ||
+      location === '/settings' ||
+      location === '/quick-access' ||
+      location === '/team'
+    ) {
+      setMode('b2c');
+    }
+  }, [location, setMode]);
 
   // B2C Navigation Items
   const b2cNavigation = [
