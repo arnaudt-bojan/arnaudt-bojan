@@ -358,6 +358,203 @@ export const frontendProductSchema = baseInsertProductSchema.omit({ sellerId: tr
 );
 export type FrontendProduct = z.infer<typeof frontendProductSchema>;
 
+// ============================================================================
+// Architecture 3: Mode-Aware Product Schemas (Retail + Wholesale)
+// ============================================================================
+// This section implements a discriminated union approach to handle both retail 
+// and wholesale product creation with shared core fields and mode-specific augments.
+// This eliminates duplication between frontendProductSchema and inline wholesale schemas,
+// and provides type-safe mode switching with shared validation logic.
+//
+// Design Pattern:
+// - ProductCore: Common fields shared by all product types
+// - RetailAugment: B2C retail-specific fields (pricing, shipping, promotions)
+// - WholesaleAugment: B2B wholesale-specific fields (MOQ, RRP, warehouse)
+// - ProductFormSchema: Discriminated union combining core + augments
+
+// ProductCore: Shared fields for both retail and wholesale products
+export const productCoreSchema = z.object({
+  // Basic product information
+  name: z.string().min(1, "Product name is required").max(200, "Name must be 200 characters or less"),
+  description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
+  images: z.array(z.string().min(1, "Image URL/path is required")).min(1, "At least one image is required"),
+  category: z.string().min(1, "Category is required"),
+  sku: z.string().optional().nullable().transform(val => val?.trim() || undefined),
+  
+  // Category hierarchy (optional - can be set programmatically)
+  categoryLevel1Id: z.string().optional().nullable(),
+  categoryLevel2Id: z.string().optional().nullable(),
+  categoryLevel3Id: z.string().optional().nullable(),
+  
+  // Stock and status
+  stock: z.coerce.number().int().nonnegative("Stock cannot be negative").optional().nullable(),
+  status: z.string().optional().nullable().default("draft"),
+});
+
+// RetailAugment: Retail-specific fields (B2C e-commerce)
+export const retailAugmentSchema = z.object({
+  mode: z.literal("retail"),
+  
+  // Pricing
+  price: z.coerce.number().positive("Price must be positive"),
+  depositAmount: z.coerce.number().positive().optional().nullable(),
+  requiresDeposit: z.coerce.number().int().min(0).max(1).optional().nullable().default(0), // 0 = false, 1 = true
+  
+  // Product type and fulfillment
+  productType: z.enum(["in-stock", "pre-order", "made-to-order"]).default("in-stock"),
+  madeToOrderDays: z.coerce.number().int().positive().optional().nullable(),
+  preOrderDate: z.coerce.date().optional().nullable(),
+  
+  // Promotions
+  discountPercentage: z.coerce.number().min(0).max(100).optional().nullable(),
+  promotionActive: z.coerce.number().int().min(0).max(1).optional().nullable().default(0), // 0 = false, 1 = true
+  promotionEndDate: z.coerce.date().optional().nullable(),
+  
+  // Shipping configuration
+  shippingType: z.enum(["flat", "matrix", "shippo", "free"]).default("flat"),
+  flatShippingRate: z.coerce.number().nonnegative().optional().nullable(),
+  shippingMatrixId: z.string().optional().nullable(),
+  shippoWeight: z.coerce.number().positive().optional().nullable(),
+  shippoLength: z.coerce.number().positive().optional().nullable(),
+  shippoWidth: z.coerce.number().positive().optional().nullable(),
+  shippoHeight: z.coerce.number().positive().optional().nullable(),
+  shippoTemplate: z.string().optional().nullable(),
+  
+  // Variants (JSON format: [{size, color, stock, image, sku}])
+  variants: z.any().optional().nullable(),
+  hasColors: z.coerce.number().int().min(0).max(1).optional().nullable().default(0), // 0 = size-only, 1 = color mode
+});
+
+// WholesaleAugment: Wholesale-specific fields (B2B trade)
+export const wholesaleAugmentSchema = z.object({
+  mode: z.literal("wholesale"),
+  
+  // B2B Pricing
+  rrp: z.coerce.number().positive("RRP (Recommended Retail Price) must be positive"),
+  wholesalePrice: z.coerce.number().positive("Wholesale price must be positive"),
+  moq: z.coerce.number().int().positive("MOQ (Minimum Order Quantity) must be a positive integer"),
+  
+  // Deposit (percentage-based for wholesale)
+  requiresDeposit: z.boolean().default(false),
+  depositPercentage: z.coerce.number().min(0).max(100).optional().or(z.literal("")),
+  
+  // Product readiness/availability
+  readinessType: z.enum(["days", "date"]).default("days"),
+  readinessValue: z.string().min(1, "Readiness value is required"),
+  
+  // Variants (comma-separated strings for wholesale)
+  enableVariants: z.boolean().default(false),
+  sizes: z.string().optional().nullable(),
+  colors: z.string().optional().nullable(),
+  
+  // Warehouse/shipping origin
+  shipFromStreet: z.string().optional().nullable(),
+  shipFromCity: z.string().optional().nullable(),
+  shipFromCountry: z.string().default("US"),
+  
+  // Terms and conditions
+  termsAndConditionsUrl: z.string().optional().nullable(),
+  
+  // Use existing product (link to retail catalog)
+  useExistingProduct: z.boolean().default(false),
+  productId: z.string().optional().nullable(),
+});
+
+// Discriminated Union: Combines ProductCore with mode-specific augments
+// Create base schemas without refinements (discriminatedUnion requires ZodObject types)
+const retailProductBaseSchema = productCoreSchema.merge(retailAugmentSchema);
+const wholesaleProductBaseSchema = productCoreSchema.merge(wholesaleAugmentSchema);
+
+// Create the discriminated union
+const baseProductFormSchema = z.discriminatedUnion("mode", [
+  retailProductBaseSchema,
+  wholesaleProductBaseSchema,
+]);
+
+// Apply mode-specific validations using superRefine
+export const productFormSchema = baseProductFormSchema.superRefine((data, ctx) => {
+  // Retail-specific validations
+  if (data.mode === "retail") {
+    // Pre-order products must have a pre-order date
+    if (data.productType === "pre-order" && !data.preOrderDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pre-order date is required for pre-order products",
+        path: ["preOrderDate"],
+      });
+    }
+    // Made-to-order products must have lead time days
+    if (data.productType === "made-to-order" && (!data.madeToOrderDays || data.madeToOrderDays <= 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Lead time (days) is required for made-to-order products and must be greater than 0",
+        path: ["madeToOrderDays"],
+      });
+    }
+  }
+  
+  // Wholesale-specific validations
+  if (data.mode === "wholesale") {
+    // When using existing product, productId is required
+    if (data.useExistingProduct && !data.productId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please select a product when using existing product",
+        path: ["productId"],
+      });
+    }
+    // When deposit is required, depositPercentage must be provided
+    if (data.requiresDeposit && (data.depositPercentage === "" || data.depositPercentage === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Deposit percentage is required when deposit is enabled",
+        path: ["depositPercentage"],
+      });
+    }
+    // Validate readinessValue based on readinessType
+    if (data.readinessType === "days") {
+      const num = Number(data.readinessValue);
+      if (isNaN(num) || num <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Number of days must be a positive number",
+          path: ["readinessValue"],
+        });
+      }
+    }
+    // Validate date format for readinessType "date"
+    if (data.readinessType === "date") {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(data.readinessValue)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a valid date in YYYY-MM-DD format",
+          path: ["readinessValue"],
+        });
+      } else {
+        const date = new Date(data.readinessValue);
+        if (isNaN(date.getTime())) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please enter a valid date in YYYY-MM-DD format",
+            path: ["readinessValue"],
+          });
+        }
+      }
+    }
+  }
+});
+
+// Type exports for mode-aware product forms
+export type ProductFormData = z.infer<typeof productFormSchema>;
+export type RetailProductForm = Extract<ProductFormData, { mode: "retail" }>;
+export type WholesaleProductForm = Extract<ProductFormData, { mode: "wholesale" }>;
+export type ProductCore = z.infer<typeof productCoreSchema>;
+
+// ============================================================================
+// End of Architecture 3 Mode-Aware Schemas
+// ============================================================================
+
 export const cartItems = pgTable("cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").notNull(),
