@@ -168,20 +168,6 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
   // Select navigation based on current mode
   const navigation = mode === 'b2c' ? b2cNavigation : mode === 'b2b' ? b2bNavigation : tradeNavigation;
 
-  // Get mode label for sidebar header
-  const getModeLabel = () => {
-    switch (mode) {
-      case 'b2c':
-        return 'Retail (B2C)';
-      case 'b2b':
-        return 'Wholesale (B2B)';
-      case 'trade':
-        return 'Trade (Professional)';
-      default:
-        return 'Dashboard';
-    }
-  };
-
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
@@ -190,11 +176,6 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
           {/* Platform Mode Selector */}
           <div className="mb-4">
             <PlatformSwitcher />
-          </div>
-
-          <div className="mb-4 px-3">
-            <h2 className="text-lg font-bold">Upfirst</h2>
-            <p className="text-xs text-muted-foreground mt-1">{getModeLabel()}</p>
           </div>
           
           <nav className="space-y-1">
