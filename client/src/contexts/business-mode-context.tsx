@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 
 export type BusinessMode = 'b2c' | 'b2b' | 'trade';
 
@@ -19,10 +19,10 @@ export function BusinessModeProvider({ children }: BusinessModeProviderProps) {
     return (stored === 'b2c' || stored === 'b2b' || stored === 'trade') ? stored : 'b2c';
   });
 
-  const setMode = (newMode: BusinessMode) => {
+  const setMode = useCallback((newMode: BusinessMode) => {
     setModeState(newMode);
     localStorage.setItem('businessMode', newMode);
-  };
+  }, []);
 
   return (
     <BusinessModeContext.Provider value={{ mode, setMode }}>
