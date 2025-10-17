@@ -1,22 +1,30 @@
 import { Router } from 'express';
 import { storage } from '../storage';
 import { WholesaleOrderLifecycleService } from '../services/wholesale-order-lifecycle.service';
+import { RefundService } from '../services/refund.service';
+import { StripePaymentProvider } from '../services/payment/stripe-provider';
+import { createNotificationService } from '../notifications';
 import { z } from 'zod';
 import { isAuthenticated } from '../replitAuth';
-import Stripe from 'stripe';
 
 const router = Router();
 
-// Initialize Stripe if available
-let stripe: Stripe | undefined;
+// Initialize notification service
+const notificationService = createNotificationService(storage);
+
+// Initialize Stripe payment provider and refund service
+// CRITICAL: Only STRIPE_SECRET_KEY is required for refunds (webhook secret is optional)
+let refundService: RefundService | undefined;
 if (process.env.STRIPE_SECRET_KEY) {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: "2025-09-30.clover",
-  });
+  const stripeProvider = new StripePaymentProvider(
+    process.env.STRIPE_SECRET_KEY,
+    process.env.STRIPE_WEBHOOK_SECRET || '' // Webhook secret optional for refunds
+  );
+  refundService = new RefundService(storage, stripeProvider, notificationService);
 }
 
-// Initialize wholesale order lifecycle service
-const wholesaleOrderLifecycleService = new WholesaleOrderLifecycleService(storage, stripe);
+// Initialize wholesale order lifecycle service with refund service
+const wholesaleOrderLifecycleService = new WholesaleOrderLifecycleService(storage, refundService);
 
 /**
  * POST /api/wholesale/orders/:id/refunds

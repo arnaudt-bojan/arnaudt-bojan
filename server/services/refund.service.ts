@@ -43,6 +43,28 @@ export interface RefundResult {
   error?: string;
 }
 
+export interface CreateWholesaleRefundRequest {
+  orderId: string;
+  sellerId: string;
+  refundType: 'deposit' | 'balance' | 'full' | 'partial';
+  reason?: string;
+  customRefundAmountCents?: number; // In cents (wholesale uses cents-based pricing)
+  items?: Array<{
+    itemId: string; // wholesale_order_items.id
+    quantity: number;
+    amountCents?: number; // Optional custom amount per item
+  }>;
+  wholesalePaymentId?: string; // Specific payment to refund
+}
+
+export interface WholesaleRefundResult {
+  success: boolean;
+  refundId: string;
+  totalAmount: string;
+  stripeRefundId?: string;
+  error?: string;
+}
+
 export class RefundService {
   constructor(
     private storage: IStorage,
@@ -391,5 +413,282 @@ export class RefundService {
     }
     
     return 100; // Default: two decimal places (USD, EUR, GBP, etc.)
+  }
+
+  // ============================================================================
+  // Wholesale Refund Processing
+  // ============================================================================
+
+  /**
+   * Create a wholesale refund with support for deposit/balance payment refunds
+   * 
+   * Flow:
+   * 1. Validate wholesale order and seller ownership
+   * 2. Determine which payment to refund (deposit, balance, or both)
+   * 3. Calculate refund amounts (cents-based for wholesale)
+   * 4. Validate against refundable amounts
+   * 5. Process Stripe refund using shared paymentProvider
+   * 6. Create refund record with wholesale metadata
+   * 7. Update wholesale order items
+   * 8. Send notifications
+   * 
+   * Wholesale-specific features:
+   * - Handles deposit and balance payments separately
+   * - Supports cents-based pricing
+   * - Links to wholesale_payments table
+   * - Updates wholesale_order_items refund tracking
+   */
+  async createWholesaleRefund(request: CreateWholesaleRefundRequest): Promise<WholesaleRefundResult> {
+    try {
+      // Step 1: Validate wholesale order and seller ownership
+      const order = await this.storage.getWholesaleOrder(request.orderId);
+      if (!order) {
+        throw new Error('Wholesale order not found');
+      }
+
+      if (order.sellerId !== request.sellerId) {
+        throw new Error('Unauthorized: Order does not belong to this seller');
+      }
+
+      // Step 2: Get wholesale payments to determine payment intent
+      const payments = await this.storage.getWholesalePaymentsByOrderId(request.orderId);
+      const paidPayments = payments.filter(p => p.status === 'paid' && p.stripePaymentIntentId);
+
+      if (paidPayments.length === 0) {
+        throw new Error('No paid payments found for this order');
+      }
+
+      // Step 3: Determine which payment to refund based on refund type
+      let paymentIntentId: string;
+      let refundAmountCents: number;
+      let refundedPaymentType: 'deposit' | 'balance' | 'full';
+
+      if (request.refundType === 'deposit') {
+        // Refund deposit payment only
+        const depositPayment = paidPayments.find(p => p.paymentType === 'deposit');
+        if (!depositPayment || !depositPayment.stripePaymentIntentId) {
+          throw new Error('No paid deposit payment found');
+        }
+        paymentIntentId = depositPayment.stripePaymentIntentId;
+        refundAmountCents = request.customRefundAmountCents || depositPayment.amountCents;
+        refundedPaymentType = 'deposit';
+      } else if (request.refundType === 'balance') {
+        // Refund balance payment only
+        const balancePayment = paidPayments.find(p => p.paymentType === 'balance');
+        if (!balancePayment || !balancePayment.stripePaymentIntentId) {
+          throw new Error('No paid balance payment found');
+        }
+        paymentIntentId = balancePayment.stripePaymentIntentId;
+        refundAmountCents = request.customRefundAmountCents || balancePayment.amountCents;
+        refundedPaymentType = 'balance';
+      } else if (request.refundType === 'full') {
+        // Refund most recent payment (or both if needed)
+        const latestPayment = paidPayments[paidPayments.length - 1];
+        paymentIntentId = latestPayment.stripePaymentIntentId!;
+        refundAmountCents = request.customRefundAmountCents || order.totalCents;
+        refundedPaymentType = 'full';
+      } else if (request.refundType === 'partial') {
+        // Partial refund - use custom amount and most recent payment
+        if (!request.customRefundAmountCents) {
+          throw new Error('Custom refund amount required for partial refunds');
+        }
+        const latestPayment = paidPayments[paidPayments.length - 1];
+        paymentIntentId = latestPayment.stripePaymentIntentId!;
+        refundAmountCents = request.customRefundAmountCents;
+        refundedPaymentType = 'full'; // Stored as 'full' but with partial amount
+      } else {
+        throw new Error(`Invalid refund type: ${request.refundType}`);
+      }
+
+      // Step 4: Validate refund amount
+      const maxRefundableCents = order.totalCents;
+      if (refundAmountCents <= 0 || refundAmountCents > maxRefundableCents) {
+        throw new Error(
+          `Refund amount must be between $0.01 and $${(maxRefundableCents / 100).toFixed(2)}`
+        );
+      }
+
+      // Step 5: Check for existing refunds (OVER-REFUND VALIDATION)
+      // CRITICAL: Only count succeeded refunds to prevent over-refunding
+      const existingRefunds = await this.storage.getRefundsByOrderId(request.orderId);
+      const totalRefundedCents = existingRefunds
+        .filter(r => r.status === 'succeeded')
+        .reduce((sum, r) => sum + parseFloat(r.totalAmount) * 100, 0);
+      const remainingRefundableCents = maxRefundableCents - totalRefundedCents;
+
+      if (refundAmountCents > remainingRefundableCents) {
+        throw new Error(
+          `Cannot refund $${(refundAmountCents / 100).toFixed(2)}. Only $${(remainingRefundableCents / 100).toFixed(2)} remaining after previous refunds.`
+        );
+      }
+
+      // Step 6: Create refund record FIRST with 'pending' status (ATOMIC OPERATION)
+      const refundAmountDollars = refundAmountCents / 100;
+      const refund = await this.storage.createRefund({
+        orderId: request.orderId,
+        totalAmount: refundAmountDollars.toFixed(2),
+        currency: order.currency || 'USD',
+        reason: request.reason || `Wholesale ${request.refundType} refund`,
+        status: 'pending', // Start as pending, update after Stripe success
+        processedBy: request.sellerId,
+        wholesaleOrderId: request.orderId,
+        wholesalePaymentId: request.wholesalePaymentId || null,
+      });
+
+      logger.info(`[WholesaleRefund] Created refund ${refund.id} for order ${request.orderId}`);
+
+      // Step 7: Process Stripe refund using shared paymentProvider (with atomic rollback)
+      let stripeRefundId: string | undefined;
+      try {
+        const currency = order.currency || 'USD';
+        const amountInSmallestUnit = this.convertToSmallestUnit(refundAmountDollars, currency);
+        
+        // Use refund ID as idempotency key to prevent duplicate refunds
+        const idempotencyKey = `refund_${refund.id}`;
+        
+        const stripeRefund = await this.paymentProvider.createRefund({
+          paymentIntentId,
+          amount: amountInSmallestUnit,
+          reason: 'requested_by_customer',
+          metadata: {
+            orderId: request.orderId,
+            refundId: refund.id,
+            refundType: request.refundType,
+            sellerId: request.sellerId,
+            wholesaleOrder: 'true',
+          },
+        }, idempotencyKey);
+
+        stripeRefundId = stripeRefund.id;
+        logger.info(`[WholesaleRefund] Stripe refund ${stripeRefundId} created for refund ${refund.id}`);
+
+        // Step 8: ONLY AFTER Stripe success - Update refund status with Stripe refund ID
+        await this.storage.updateRefundStatus(
+          refund.id,
+          stripeRefund.status,
+          stripeRefundId
+        );
+
+        // Step 9-10: Post-processing wrapped in try-catch
+        // CRITICAL: Once Stripe succeeds, we MUST return success even if post-processing fails
+        try {
+          // Step 9: Update wholesale order items if item-level refund
+          if (request.items && request.items.length > 0) {
+            for (const item of request.items) {
+              const orderItem = await this.storage.getWholesaleOrderItem(item.itemId);
+              if (orderItem) {
+                const newRefundedQty = (orderItem.refundedQuantity || 0) + item.quantity;
+                const itemRefundCents = item.amountCents || 
+                  (orderItem.unitPriceCents * item.quantity);
+                const newRefundedAmountCents = (orderItem.refundedAmountCents || 0) + itemRefundCents;
+                
+                await this.storage.updateWholesaleOrderItemRefund(
+                  item.itemId,
+                  newRefundedQty,
+                  newRefundedAmountCents
+                );
+              }
+            }
+          }
+
+          // Step 10: Update wholesale order status
+          await this.updateWholesaleOrderPaymentStatus(request.orderId);
+        } catch (postError: any) {
+          // Log but don't propagate - refund already succeeded in Stripe
+          logger.error(`[WholesaleRefund] Post-processing error after successful refund ${refund.id}:`, postError);
+        }
+
+      } catch (error: any) {
+        // Only executes if Stripe itself failed (before stripeRefundId was set)
+        logger.error(`[WholesaleRefund] Stripe refund failed for refund ${refund.id}:`, error);
+        
+        if (!stripeRefundId) {
+          await this.storage.updateRefundStatus(refund.id, 'failed');
+          logger.info(`[WholesaleRefund] Marked refund ${refund.id} as failed - Stripe refund did not complete`);
+        }
+
+        throw error;
+      }
+
+      // Step 11: Send refund confirmation email
+      try {
+        const seller = await this.storage.getUser(order.sellerId);
+        const buyer = await this.storage.getUser(order.buyerId);
+        
+        if (seller && buyer) {
+          // Create a B2C-compatible order object for email template
+          const orderForEmail = {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            sellerId: order.sellerId,
+            userId: order.buyerId, // Map buyerId to userId for B2C email template
+            currency: order.currency || 'USD',
+          };
+
+          await this.notificationService.sendRefundConfirmation(
+            orderForEmail as any,
+            seller,
+            {
+              amount: refundAmountDollars.toFixed(2),
+              currency: order.currency || 'USD',
+              reason: request.reason,
+              lineItems: request.items?.map(item => ({
+                type: 'product' as const,
+                description: `Wholesale item refund`,
+                amount: ((item.amountCents || 0) / 100).toFixed(2),
+                quantity: item.quantity,
+              })) || [],
+            }
+          );
+          
+          logger.info(`[WholesaleRefund] Refund confirmation email sent for order ${order.id}`);
+        }
+      } catch (emailError: any) {
+        logger.error(`[WholesaleRefund] Failed to send refund confirmation email for order ${order.id}:`, emailError);
+      }
+
+      return {
+        success: true,
+        refundId: refund.id,
+        totalAmount: refundAmountDollars.toFixed(2),
+        stripeRefundId,
+      };
+
+    } catch (error: any) {
+      logger.error(`[WholesaleRefund] Failed to create wholesale refund for order ${request.orderId}:`, error);
+      return {
+        success: false,
+        refundId: '',
+        totalAmount: '0',
+        error: error.message || 'Failed to process wholesale refund',
+      };
+    }
+  }
+
+  /**
+   * Update wholesale order status based on refund totals
+   * Note: Wholesale orders use 'status' field, not 'paymentStatus'
+   */
+  private async updateWholesaleOrderPaymentStatus(orderId: string): Promise<void> {
+    const order = await this.storage.getWholesaleOrder(orderId);
+    if (!order) {
+      logger.error(`[WholesaleRefund] Order ${orderId} not found when updating payment status`);
+      return;
+    }
+
+    const refunds = await this.storage.getRefundsByOrderId(orderId);
+    // CRITICAL: Only count succeeded refunds to prevent orders being marked cancelled based on pending/failed refunds
+    const totalRefundedDollars = refunds
+      .filter(r => r.status === 'succeeded')
+      .reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+    const totalRefundedCents = Math.round(totalRefundedDollars * 100);
+    const totalPaidCents = order.totalCents;
+
+    // Wholesale orders don't have paymentStatus, they use the main status field
+    // We'll update it if the order is fully refunded
+    if (totalRefundedCents >= totalPaidCents && order.status !== 'cancelled') {
+      await this.storage.updateWholesaleOrder(orderId, { status: 'cancelled' });
+      logger.info(`[WholesaleRefund] Updated order ${orderId} status to cancelled (fully refunded)`);
+    }
   }
 }
