@@ -548,6 +548,26 @@ async function handleResendWebhookEvent(
   }
 }
 
+/**
+ * Helper function to parse order.items field which is stored as text/JSON (not jsonb)
+ * @param items - The order.items field from database
+ * @returns Parsed array of order items
+ */
+function parseOrderItems(items: any): any[] {
+  if (Array.isArray(items)) {
+    return items;
+  }
+  if (typeof items === 'string') {
+    try {
+      return JSON.parse(items);
+    } catch (e) {
+      logger.error('[parseOrderItems] Failed to parse order items:', e);
+      return [];
+    }
+  }
+  return [];
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
@@ -1431,8 +1451,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter orders that contain products from this seller's store
       const sellerOrders = allOrders.filter(order => {
         try {
-          // Note: order.items is already parsed by Drizzle (jsonb column), no need for JSON.parse
-          const items = Array.isArray(order.items) ? order.items : [];
+          // Parse order.items (it's a text/JSON column, not jsonb)
+          let items: any[] = [];
+          if (Array.isArray(order.items)) {
+            items = order.items;
+          } else if (typeof order.items === 'string') {
+            items = JSON.parse(order.items);
+          }
+          
           const hasSellerProduct = items.some((item: any) => sellerProductIds.has(item.productId));
           if (hasSellerProduct) {
             logger.info(`[Seller Orders] Order ${order.id} belongs to seller`);
@@ -1447,13 +1473,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logger.info(`[Seller Orders] Returning ${sellerOrders.length} orders`);
       
       // Inject deliveryDate into order items
-      const ordersWithDeliveryDates = sellerOrders.map(order => ({
-        ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-          ...item,
-          deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
-      }));
+      const ordersWithDeliveryDates = sellerOrders.map(order => {
+        // Parse order.items (it's a text/JSON column)
+        let items: any[] = [];
+        if (Array.isArray(order.items)) {
+          items = order.items;
+        } else if (typeof order.items === 'string') {
+          try {
+            items = JSON.parse(order.items);
+          } catch (e) {
+            logger.error(`[Seller Orders] Failed to parse items for delivery date in order ${order.id}:`, e);
+            items = [];
+          }
+        }
+        
+        return {
+          ...order,
+          items: items.map((item: any) => ({
+            ...item,
+            deliveryDate: computeDeliveryDate(item, order.createdAt)
+          }))
+        };
+      });
       
       res.json(ordersWithDeliveryDates);
     } catch (error) {
@@ -2100,13 +2141,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getAllOrders();
       
       // Inject deliveryDate into order items
-      const ordersWithDeliveryDates = orders.map(order => ({
-        ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-          ...item,
-          deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
-      }));
+      const ordersWithDeliveryDates = orders.map(order => {
+        const items = parseOrderItems(order.items);
+        return {
+          ...order,
+          items: items.map((item: any) => ({
+            ...item,
+            deliveryDate: computeDeliveryDate(item, order.createdAt)
+          }))
+        };
+      });
       
       res.json(ordersWithDeliveryDates);
     } catch (error) {
@@ -2120,13 +2164,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getOrdersByUserId(userId);
       
       // Inject deliveryDate into order items
-      const ordersWithDeliveryDates = orders.map(order => ({
-        ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-          ...item,
-          deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
-      }));
+      const ordersWithDeliveryDates = orders.map(order => {
+        const items = parseOrderItems(order.items);
+        return {
+          ...order,
+          items: items.map((item: any) => ({
+            ...item,
+            deliveryDate: computeDeliveryDate(item, order.createdAt)
+          }))
+        };
+      });
       
       res.json(ordersWithDeliveryDates);
     } catch (error) {
@@ -2141,13 +2188,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getOrdersByUserId(userId);
       
       // Inject deliveryDate into order items
-      const ordersWithDeliveryDates = orders.map(order => ({
-        ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-          ...item,
-          deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
-      }));
+      const ordersWithDeliveryDates = orders.map(order => {
+        const items = parseOrderItems(order.items);
+        return {
+          ...order,
+          items: items.map((item: any) => ({
+            ...item,
+            deliveryDate: computeDeliveryDate(item, order.createdAt)
+          }))
+        };
+      });
       
       res.json(ordersWithDeliveryDates);
     } catch (error) {
@@ -2170,13 +2220,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getAllOrders();
       
       // Inject deliveryDate into order items
-      const ordersWithDeliveryDates = orders.map(order => ({
-        ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-          ...item,
-          deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
-      }));
+      const ordersWithDeliveryDates = orders.map(order => {
+        const items = parseOrderItems(order.items);
+        return {
+          ...order,
+          items: items.map((item: any) => ({
+            ...item,
+            deliveryDate: computeDeliveryDate(item, order.createdAt)
+          }))
+        };
+      });
       
       res.json(ordersWithDeliveryDates);
     } catch (error) {
@@ -2206,12 +2259,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Inject deliveryDate into order items
+      const items = parseOrderItems(order.items);
       const orderWithDeliveryDates = {
         ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+        items: items.map((item: any) => ({
           ...item,
           deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
+        }))
       };
       
       res.json(orderWithDeliveryDates);
@@ -2256,12 +2310,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Inject deliveryDate into order items
+      const items = parseOrderItems(order.items);
       const orderWithDeliveryDates = {
         ...order,
-        items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+        items: items.map((item: any) => ({
           ...item,
           deliveryDate: computeDeliveryDate(item, order.createdAt)
-        })) : order.items
+        }))
       };
       
       // Return just the order object for backward compatibility
