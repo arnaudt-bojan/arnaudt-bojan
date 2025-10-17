@@ -223,6 +223,7 @@ export class InventoryService {
   /**
    * ATOMIC: Update reservation quantity
    * Excludes current reservation from availability check to prevent false negatives
+   * BYPASS: Pre-order and made-to-order products skip stock validation
    */
   async updateReservationQuantity(
     reservationId: string,
@@ -245,7 +246,7 @@ export class InventoryService {
       };
     }
 
-    // Check availability EXCLUDING current reservation
+    // Get product to check type (business logic)
     const product = await this.storage.getProduct(reservation.productId);
     if (!product) {
       return {
@@ -254,6 +255,38 @@ export class InventoryService {
       };
     }
 
+    // CRITICAL: Pre-order and made-to-order products bypass stock validation
+    const isPreOrderOrMadeToOrder = product.productType === 'pre-order' || product.productType === 'made-to-order';
+    
+    if (isPreOrderOrMadeToOrder) {
+      // Update quantity directly without stock check
+      const updated = await this.storage.updateStockReservation(reservationId, {
+        quantity: newQuantity,
+      });
+
+      if (!updated) {
+        return {
+          success: false,
+          error: 'Failed to update reservation',
+        };
+      }
+
+      logger.info('[InventoryService] Updated reservation for pre-order/made-to-order (no stock check)', {
+        reservationId,
+        productId: reservation.productId,
+        productType: product.productType,
+        variantId: reservation.variantId,
+        oldQuantity: reservation.quantity,
+        newQuantity,
+      });
+
+      return {
+        success: true,
+        reservation: updated,
+      };
+    }
+
+    // For in-stock products: Calculate current stock for atomic storage operation
     let currentStock = 0;
     if (reservation.variantId && product.variants) {
       const variants = Array.isArray(product.variants) ? product.variants : [];
@@ -281,52 +314,36 @@ export class InventoryService {
       currentStock = product.stock || 0;
     }
 
-    // Get reserved stock EXCLUDING this reservation
-    const allReservedStock = await this.storage.getReservedStock(
+    // CRITICAL: Use atomic storage method with database transaction and row-level locking
+    // This prevents race conditions by doing availability check and update in single transaction
+    const result = await this.storage.updateReservationQuantityAtomic(
+      reservationId,
+      newQuantity,
       reservation.productId,
-      reservation.variantId || undefined
+      reservation.variantId,
+      currentStock
     );
-    const otherReservedStock = allReservedStock - reservation.quantity;
-    const availableStock = currentStock - otherReservedStock;
 
-    if (newQuantity > availableStock) {
+    if (!result.success) {
       return {
         success: false,
-        error: 'Insufficient stock for quantity change',
-        availability: {
-          available: false,
-          currentStock,
-          reservedStock: otherReservedStock,
-          availableStock,
-          productId: reservation.productId,
-          variantId: reservation.variantId || undefined,
-        },
+        error: result.error,
+        availability: result.availability,
       };
     }
 
-    // ATOMIC UPDATE: Change quantity in-place
-    const updated = await this.storage.updateStockReservation(reservationId, {
-      quantity: newQuantity,
-    });
-
-    if (!updated) {
-      return {
-        success: false,
-        error: 'Failed to update reservation',
-      };
-    }
-
-    logger.info('[InventoryService] Atomically updated reservation quantity', {
+    logger.info('[InventoryService] Atomically updated reservation quantity for in-stock (DB transaction)', {
       reservationId,
       oldQuantity: reservation.quantity,
       newQuantity,
       productId: reservation.productId,
       variantId: reservation.variantId,
+      availability: result.availability,
     });
 
     return {
       success: true,
-      reservation: updated,
+      reservation: result.reservation,
     };
   }
 

@@ -365,6 +365,25 @@ export interface IStorage {
       variantId?: string;
     };
   }>;
+  updateReservationQuantityAtomic(
+    reservationId: string,
+    newQuantity: number,
+    productId: string,
+    variantId: string | null,
+    currentStock: number
+  ): Promise<{
+    success: boolean;
+    reservation?: StockReservation;
+    error?: string;
+    availability?: {
+      available: boolean;
+      currentStock: number;
+      reservedStock: number;
+      availableStock: number;
+      productId: string;
+      variantId?: string;
+    };
+  }>;
   
   getAllOrders(): Promise<Order[]>;
   getOrdersByUserId(userId: string): Promise<Order[]>;
@@ -1448,6 +1467,108 @@ export class DatabaseStorage implements IStorage {
       };
 
       const result = await tx.insert(stockReservations).values(reservationData).returning();
+      
+      return {
+        success: true,
+        reservation: result[0],
+        availability,
+      };
+    });
+  }
+
+  async updateReservationQuantityAtomic(
+    reservationId: string,
+    newQuantity: number,
+    productId: string,
+    variantId: string | null,
+    currentStock: number
+  ): Promise<{
+    success: boolean;
+    reservation?: StockReservation;
+    error?: string;
+    availability?: {
+      available: boolean;
+      currentStock: number;
+      reservedStock: number;
+      availableStock: number;
+      productId: string;
+      variantId?: string;
+    };
+  }> {
+    await this.ensureInitialized();
+    
+    // CRITICAL: Database transaction with row-level locking to prevent race conditions
+    // This ensures availability check and update happen atomically
+    return await this.db.transaction(async (tx) => {
+      // Step 1: Lock the reservation row with SELECT ... FOR UPDATE
+      const currentReservation = await tx
+        .select()
+        .from(stockReservations)
+        .where(eq(stockReservations.id, reservationId))
+        .for('update')
+        .limit(1);
+      
+      if (!currentReservation || currentReservation.length === 0) {
+        return {
+          success: false,
+          error: 'Reservation not found',
+        };
+      }
+
+      const reservation = currentReservation[0];
+
+      if (reservation.status !== 'active') {
+        return {
+          success: false,
+          error: `Cannot update ${reservation.status} reservation`,
+        };
+      }
+
+      // Step 2: Lock all active reservations for this product/variant
+      const conditions = [
+        eq(stockReservations.productId, productId),
+        eq(stockReservations.status, 'active')
+      ];
+      
+      if (variantId) {
+        conditions.push(eq(stockReservations.variantId, variantId));
+      }
+
+      const activeReservations = await tx
+        .select()
+        .from(stockReservations)
+        .where(and(...conditions))
+        .for('update');
+      
+      // Step 3: Calculate reserved stock EXCLUDING current reservation
+      const allReservedStock = activeReservations.reduce((total, res) => total + res.quantity, 0);
+      const otherReservedStock = allReservedStock - reservation.quantity;
+      const availableStock = Math.max(0, currentStock - otherReservedStock);
+
+      const availability = {
+        available: availableStock >= newQuantity,
+        currentStock,
+        reservedStock: otherReservedStock,
+        availableStock,
+        productId,
+        variantId: variantId || undefined,
+      };
+
+      // Step 4: Check if enough stock is available for new quantity
+      if (availableStock < newQuantity) {
+        return {
+          success: false,
+          error: `Insufficient stock. Only ${availableStock} available (excluding your current reservation).`,
+          availability,
+        };
+      }
+
+      // Step 5: Atomically update reservation quantity within transaction
+      const result = await tx
+        .update(stockReservations)
+        .set({ quantity: newQuantity })
+        .where(eq(stockReservations.id, reservationId))
+        .returning();
       
       return {
         success: true,
