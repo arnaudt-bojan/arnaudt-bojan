@@ -218,10 +218,10 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
                 </span>
               </div>
               
-              {/* Currency Disclaimer */}
-              {currency && (
+              {/* Currency Disclaimer - Show seller's actual Stripe currency */}
+              {seller?.listingCurrency && (
                 <CurrencyDisclaimer 
-                  sellerCurrency={currency} 
+                  sellerCurrency={seller.listingCurrency} 
                   variant="compact"
                 />
               )}
