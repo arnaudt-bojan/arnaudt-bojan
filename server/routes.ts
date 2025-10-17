@@ -10059,7 +10059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return itemKey === itemId || item.id === itemId;
       });
 
-      // Handle reservation adjustment for in-stock products
+      // ATOMIC RESERVATION ADJUSTMENT for in-stock products
       if (itemToUpdate && itemToUpdate.productType === 'in-stock') {
         try {
           const sessionReservations = await storage.getStockReservationsBySession(sessionId);
@@ -10072,37 +10072,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (matchingReservation) {
             const oldQuantity = itemToUpdate.quantity;
-            const quantityDiff = quantity - oldQuantity;
 
-            if (quantityDiff < 0) {
-              // Decreasing quantity: Release the difference
-              await inventoryService.releaseReservation(matchingReservation.id);
-              
-              // Create new reservation for the new quantity
-              if (quantity > 0) {
-                await inventoryService.reserveStock(
-                  itemToUpdate.id,
-                  quantity,
-                  sessionId,
-                  {
-                    variantId: itemToUpdate.variantId || undefined,
-                    userId,
-                    expirationMinutes: 30,
-                  }
-                );
-              }
-              
-              logger.info('[Cart] Adjusted reservation on quantity decrease', {
-                productId: itemToUpdate.id,
-                variantId: itemToUpdate.variantId,
-                oldQuantity,
-                newQuantity: quantity,
-              });
-            } else if (quantityDiff > 0) {
-              // Increasing quantity: Try to reserve more
+            // CRITICAL FIX: Reserve TOTAL new quantity FIRST (atomic pattern)
+            // This prevents both race conditions and duplicate reservations
+            if (quantity !== oldQuantity) {
+              // Step 1: Reserve the TOTAL new quantity (creates new reservation)
               const reserveResult = await inventoryService.reserveStock(
                 itemToUpdate.id,
-                quantityDiff,
+                quantity,
                 sessionId,
                 {
                   variantId: itemToUpdate.variantId || undefined,
@@ -10112,21 +10089,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
               
               if (!reserveResult.success) {
-                // Not enough stock for increase
+                // Stock unavailable - keep old reservation intact
                 return res.status(409).json({
-                  error: reserveResult.error || 'Insufficient stock for quantity increase',
+                  error: reserveResult.error || 'Insufficient stock for quantity change',
                   availability: reserveResult.availability,
                 });
               }
               
-              // Release old reservation and create new combined one
+              // Step 2: New reservation succeeded - release old reservation
+              // This order prevents: (a) race conditions, (b) duplicate reservations
               await inventoryService.releaseReservation(matchingReservation.id);
               
-              logger.info('[Cart] Adjusted reservation on quantity increase', {
+              logger.info('[Cart] Atomically adjusted reservation', {
                 productId: itemToUpdate.id,
                 variantId: itemToUpdate.variantId,
                 oldQuantity,
                 newQuantity: quantity,
+                oldReservationId: matchingReservation.id,
+                newReservationId: reserveResult.reservation?.id,
               });
             }
           }
