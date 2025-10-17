@@ -9999,6 +9999,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Find active reservation for this product/variant in this session
           const sessionReservations = await storage.getStockReservationsBySession(sessionId);
+          
+          logger.info('[Cart/Remove] DEBUG: Searching for reservation', {
+            productId: itemToRemove.id,
+            cartItemVariantId: itemToRemove.variantId,
+            cartItemVariantIdType: typeof itemToRemove.variantId,
+            sessionId,
+            allSessionReservations: sessionReservations.map(r => ({
+              id: r.id,
+              productId: r.productId,
+              variantId: r.variantId,
+              variantIdType: typeof r.variantId,
+              quantity: r.quantity,
+              status: r.status,
+            })),
+          });
+          
           const matchingReservation = sessionReservations.find(
             (r) =>
               r.status === 'active' &&
