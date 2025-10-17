@@ -60,6 +60,7 @@ import type { UploadResult } from "@uppy/core";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Product } from "@shared/schema";
+import { SimpleVariantManager, type SizeVariant, type ColorVariant } from "@/components/simple-variant-manager";
 
 interface Category {
   id: string;
@@ -100,7 +101,6 @@ const wholesaleProductSchema = z.object({
     country: z.string().optional(),
   }).optional(),
   termsAndConditionsUrl: z.string().optional(),
-  hasVariants: z.boolean().default(false),
 });
 
 type WholesaleProductFormData = z.infer<typeof wholesaleProductSchema>;
@@ -137,12 +137,10 @@ export default function CreateWholesaleProduct() {
     country: "",
   });
 
-  // Variant management state
-  const [sizes, setSizes] = useState<string[]>([]);
-  const [colors, setColors] = useState<string[]>([]);
-  const [newSize, setNewSize] = useState("");
-  const [newColor, setNewColor] = useState("");
-  const [variantMatrix, setVariantMatrix] = useState<Map<string, Variant>>(new Map());
+  // Variant management state - using SimpleVariantManager (same as B2C)
+  const [hasColors, setHasColors] = useState(false);
+  const [sizes, setSizes] = useState<SizeVariant[]>([]);
+  const [colors, setColors] = useState<ColorVariant[]>([]);
 
   // Category dialog state
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -190,7 +188,6 @@ export default function CreateWholesaleProduct() {
         city: "",
         country: "",
       },
-      hasVariants: false,
     },
   });
 
@@ -211,7 +208,6 @@ export default function CreateWholesaleProduct() {
   const wholesalePrice = form.watch("wholesalePrice");
   const readinessType = form.watch("readinessType");
   const balancePaymentTerms = form.watch("balancePaymentTerms");
-  const hasVariants = form.watch("hasVariants");
   const currentCategory = form.watch("category");
 
   // Reset child selections when parent changes
@@ -313,73 +309,6 @@ export default function CreateWholesaleProduct() {
     }
   };
 
-  const addSize = () => {
-    if (newSize && !sizes.includes(newSize.trim())) {
-      const updatedSizes = [...sizes, newSize.trim()];
-      setSizes(updatedSizes);
-      setNewSize("");
-      
-      const newMatrix = new Map(variantMatrix);
-      colors.forEach(color => {
-        const key = `${newSize.trim()}-${color}`;
-        if (!newMatrix.has(key)) {
-          newMatrix.set(key, {
-            size: newSize.trim(),
-            color,
-            stock: 0,
-          });
-        }
-      });
-      setVariantMatrix(newMatrix);
-    }
-  };
-
-  const addColor = () => {
-    if (newColor && !colors.includes(newColor.trim())) {
-      const updatedColors = [...colors, newColor.trim()];
-      setColors(updatedColors);
-      setNewColor("");
-      
-      const newMatrix = new Map(variantMatrix);
-      sizes.forEach(size => {
-        const key = `${size}-${newColor.trim()}`;
-        if (!newMatrix.has(key)) {
-          newMatrix.set(key, {
-            size,
-            color: newColor.trim(),
-            stock: 0,
-          });
-        }
-      });
-      setVariantMatrix(newMatrix);
-    }
-  };
-
-  const removeSize = (size: string) => {
-    setSizes(sizes.filter(s => s !== size));
-    const newMatrix = new Map(variantMatrix);
-    colors.forEach(color => {
-      newMatrix.delete(`${size}-${color}`);
-    });
-    setVariantMatrix(newMatrix);
-  };
-
-  const removeColor = (color: string) => {
-    setColors(colors.filter(c => c !== color));
-    const newMatrix = new Map(variantMatrix);
-    sizes.forEach(size => {
-      newMatrix.delete(`${size}-${color}`);
-    });
-    setVariantMatrix(newMatrix);
-  };
-
-  const updateVariantStock = (size: string, color: string, stock: number) => {
-    const key = `${size}-${color}`;
-    const newMatrix = new Map(variantMatrix);
-    const variant = newMatrix.get(key) || { size, color, stock: 0 };
-    newMatrix.set(key, { ...variant, stock });
-    setVariantMatrix(newMatrix);
-  };
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data: { name: string; level: number; parentId: string | null }) => {
@@ -414,8 +343,25 @@ export default function CreateWholesaleProduct() {
   const createMutation = useMutation({
     mutationFn: async (data: WholesaleProductFormData) => {
       let variants = null;
-      if (data.hasVariants && sizes.length > 0 && colors.length > 0) {
-        variants = Array.from(variantMatrix.values());
+      if (hasColors && colors.length > 0) {
+        // Use color variants with sizes
+        variants = colors.flatMap(color => 
+          color.sizes.map(size => ({
+            colorName: color.colorName,
+            colorHex: color.colorHex,
+            size: size.size,
+            stock: size.stock,
+            sku: size.sku,
+            images: color.images,
+          }))
+        );
+      } else if (sizes.length > 0) {
+        // Use size-only variants
+        variants = sizes.map(size => ({
+          size: size.size,
+          stock: size.stock,
+          sku: size.sku,
+        }));
       }
 
       const payload = {
@@ -465,15 +411,30 @@ export default function CreateWholesaleProduct() {
   });
 
   const onSubmit = (data: WholesaleProductFormData) => {
-    if (data.hasVariants) {
-      if (sizes.length === 0 || colors.length === 0) {
-        toast({
-          title: "Variants Required",
-          description: "Please add at least one size and one color for variants.",
-          variant: "destructive",
-        });
-        return;
-      }
+    // Validate variants if enabled
+    if (hasColors && colors.length === 0) {
+      toast({
+        title: "Variants Required",
+        description: "Please add at least one color variant",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (hasColors && colors.some(c => c.sizes.length === 0)) {
+      toast({
+        title: "Sizes Required",
+        description: "Each color variant must have at least one size",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!hasColors && sizes.length > 0 && sizes.some(s => !s.size)) {
+      toast({
+        title: "Invalid Sizes",
+        description: "Please fill in all size names",
+        variant: "destructive",
+      });
+      return;
     }
     createMutation.mutate(data);
   };
@@ -921,165 +882,6 @@ export default function CreateWholesaleProduct() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="hasVariants"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel>Enable Size & Color Variants</FormLabel>
-                      <FormDescription>
-                        Allow buyers to choose from different size and color combinations
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-has-variants"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {hasVariants ? (
-                <Card className="p-6 space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Variant Configuration</h3>
-                    
-                    <div className="mb-6">
-                      <Label className="mb-2 block">Sizes</Label>
-                      <div className="flex gap-2 mb-3">
-                        <Input
-                          value={newSize}
-                          onChange={(e) => setNewSize(e.target.value)}
-                          placeholder="e.g., S, M, L, XL"
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSize())}
-                          data-testid="input-new-size"
-                        />
-                        <Button
-                          type="button"
-                          onClick={addSize}
-                          size="icon"
-                          data-testid="button-add-size"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {sizes.map(size => (
-                          <Badge key={size} variant="secondary" className="gap-2">
-                            {size}
-                            <X
-                              className="h-3 w-3 cursor-pointer"
-                              onClick={() => removeSize(size)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <Label className="mb-2 block">Colors</Label>
-                      <div className="flex gap-2 mb-3">
-                        <Input
-                          value={newColor}
-                          onChange={(e) => setNewColor(e.target.value)}
-                          placeholder="e.g., Red, Blue, Black"
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
-                          data-testid="input-new-color"
-                        />
-                        <Button
-                          type="button"
-                          onClick={addColor}
-                          size="icon"
-                          data-testid="button-add-color"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {colors.map(color => (
-                          <Badge key={color} variant="secondary" className="gap-2">
-                            {color}
-                            <X
-                              className="h-3 w-3 cursor-pointer"
-                              onClick={() => removeColor(color)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {sizes.length > 0 && colors.length > 0 && (
-                      <div>
-                        <Label className="mb-2 block">Stock for Each Variant</Label>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Size</TableHead>
-                                {colors.map(color => (
-                                  <TableHead key={color}>{color}</TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {sizes.map(size => (
-                                <TableRow key={size}>
-                                  <TableCell className="font-medium">{size}</TableCell>
-                                  {colors.map(color => {
-                                    const key = `${size}-${color}`;
-                                    const variant = variantMatrix.get(key);
-                                    return (
-                                      <TableCell key={color}>
-                                        <Input
-                                          type="number"
-                                          min="0"
-                                          value={variant?.stock || 0}
-                                          onChange={(e) => updateVariantStock(size, color, parseInt(e.target.value) || 0)}
-                                          className="w-20"
-                                          data-testid={`input-stock-${size}-${color}`}
-                                        />
-                                      </TableCell>
-                                    );
-                                  })}
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Enter 0 for Made-to-Order variants (no stock limit)
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ) : (
-                <FormField
-                  control={form.control}
-                  name="stock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stock Available</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="number"
-                          placeholder="0"
-                          data-testid="input-stock"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Enter 0 for Made-to-Order products (no stock limit). Enter actual quantity for in-stock items.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
 
               {/* Readiness Configuration - Days OR Fixed Date */}
               <FormField
@@ -1448,6 +1250,23 @@ export default function CreateWholesaleProduct() {
                   </FormItem>
                 )}
               />
+
+              {/* Variant Manager - Same as B2C */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Variants (Optional)</h3>
+                  <p className="text-sm text-muted-foreground">Configure size and color options for this product</p>
+                </div>
+                <SimpleVariantManager
+                  sizes={sizes}
+                  onSizesChange={setSizes}
+                  hasColors={hasColors}
+                  onHasColorsChange={setHasColors}
+                  colors={colors}
+                  onColorsChange={setColors}
+                  mainProductImages={form.watch("images") || []}
+                />
+              </Card>
 
               <div className="flex gap-4 justify-end">
                 <Button
