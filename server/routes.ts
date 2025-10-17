@@ -64,6 +64,8 @@ import { QuotationPaymentService } from "./services/quotation-payment.service";
 import { CartReservationService } from "./services/cart-reservation.service";
 import { SKUService } from "./services/sku.service";
 import { RefundService } from "./services/refund.service";
+import { CheckoutWorkflowOrchestrator } from "./services/checkout-workflow-orchestrator.service";
+import { WholesaleCheckoutWorkflowOrchestrator, type WholesaleCheckoutData } from "./services/wholesale-checkout-workflow-orchestrator.service";
 
 // Import Newsletter Services (Architecture 3)
 import { CampaignService } from "./services/newsletter/campaign.service";
@@ -425,6 +427,39 @@ if (paymentService && stripeProvider) {
     storage,
     stripeProvider,
     createFlowService
+  );
+}
+
+// Initialize CheckoutWorkflowOrchestrator for B2C checkout (Architecture 3 migration)
+// Simplified orchestrator compared to CreateFlowService - direct sequential flow with rollback
+let checkoutWorkflowOrchestrator: CheckoutWorkflowOrchestrator | null = null;
+
+if (stripeProvider) {
+  checkoutWorkflowOrchestrator = new CheckoutWorkflowOrchestrator(
+    storage,
+    cartValidationService,
+    inventoryService,
+    stripeProvider,
+    notificationService,
+    taxService,
+    shippingService
+  );
+}
+
+// Initialize WholesaleCheckoutWorkflowOrchestrator for B2B wholesale checkout (Architecture 3 migration)
+// Orchestrates wholesale checkout with deposit payments, MOQ validation, and freight options
+let wholesaleCheckoutOrchestrator: WholesaleCheckoutWorkflowOrchestrator | null = null;
+
+if (stripeProvider) {
+  wholesaleCheckoutOrchestrator = new WholesaleCheckoutWorkflowOrchestrator(
+    storage,
+    wholesaleCartValidationService,
+    wholesalePricingService,
+    inventoryService,
+    stripeProvider,
+    notificationService,
+    wholesaleOrderService,
+    wholesalePaymentService
   );
 }
 
@@ -3779,13 +3814,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Checkout - Server-orchestrated workflow (Architecture 3)
-  // Delegates to CheckoutService → CreateFlowService workflow orchestrator
+  // Checkout - B2C checkout using CheckoutWorkflowOrchestrator (Architecture 3)
+  // Simplified orchestrator with direct sequential flow and rollback capabilities
   app.post('/api/checkout/initiate', async (req, res) => {
     try {
-      // Validate checkoutService availability
-      if (!checkoutService) {
-        logger.error('[API] CheckoutService not available - Stripe not configured');
+      // Validate checkoutWorkflowOrchestrator availability
+      if (!checkoutWorkflowOrchestrator) {
+        logger.error('[API] CheckoutWorkflowOrchestrator not available - Stripe not configured');
         return res.status(500).json({ 
           error: 'Checkout service not available',
           errorCode: 'SERVICE_UNAVAILABLE' 
@@ -3808,25 +3843,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { items, shippingAddress, billingAddress, billingSameAsShipping, customerEmail, customerName, checkoutSessionId } = validatedData;
 
-      // Use billing address if provided, otherwise fall back to shipping address
+      // Prepare billing address for orchestrator (optional parameter)
       const finalBillingAddress = billingSameAsShipping || !billingAddress 
-        ? {
-            name: customerName,
-            email: customerEmail,
-            phone: billingAddress?.phone || '',
-            street: shippingAddress.street,
-            city: shippingAddress.city,
-            state: shippingAddress.state,
-            postalCode: shippingAddress.postalCode,
-            country: shippingAddress.country,
-          }
-        : billingAddress;
+        ? undefined // Let orchestrator handle default behavior
+        : {
+            name: billingAddress.name,
+            email: billingAddress.email || customerEmail,
+            phone: billingAddress.phone,
+            street: billingAddress.street,
+            city: billingAddress.city,
+            state: billingAddress.state,
+            postalCode: billingAddress.postalCode,
+            country: billingAddress.country,
+          };
 
-      // Delegate to CheckoutService workflow orchestrator
-      const result = await checkoutService.initiateCheckout({
-        items,
+      // Map request to CheckoutData format expected by orchestrator
+      const checkoutData = {
+        sessionId: checkoutSessionId,
+        userId: (req as any).user?.claims?.sub, // Optional user ID for authenticated users
+        items: items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          variantId: item.variantId,
+        })),
         shippingAddress: {
           line1: shippingAddress.street,
+          line2: shippingAddress.line2,
           city: shippingAddress.city,
           state: shippingAddress.state,
           postalCode: shippingAddress.postalCode,
@@ -3835,33 +3877,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingAddress: finalBillingAddress,
         customerEmail,
         customerName,
-        checkoutSessionId,
-      });
+        currency: (req as any).detectedCurrency || 'USD', // Use detected currency or default to USD
+      };
+
+      // Execute checkout workflow
+      const result = await checkoutWorkflowOrchestrator.executeCheckout(checkoutData);
 
       if (!result.success) {
         // Determine appropriate status code: 400 for client errors, 500 for server errors
-        const isClientError = result.errorCode?.startsWith('VALIDATION_') || 
-                              result.errorCode?.startsWith('CART_') ||
-                              result.errorCode?.startsWith('SELLER_') ||
-                              result.errorCode === 'INSUFFICIENT_STOCK';
+        const isClientError = result.errorCode?.includes('VALIDATION') || 
+                              result.errorCode?.includes('CART') ||
+                              result.errorCode?.includes('STOCK') ||
+                              result.errorCode?.includes('SELLER');
         const statusCode = isClientError ? 400 : 500;
         
         return res.status(statusCode).json({
           error: result.error,
           errorCode: result.errorCode,
-          retryable: result.retryable,
           step: result.step,
-          state: result.state,
-          details: result.details,
         });
       }
 
+      // Map orchestrator result to API response format (preserve API contract)
       return res.json({
         clientSecret: result.clientSecret,
         paymentIntentId: result.paymentIntentId,
-        checkoutSessionId: result.checkoutSessionId,
-        amountToCharge: result.amountToCharge,
-        currency: result.currency,
+        checkoutSessionId: checkoutSessionId, // Echo back the session ID
+        amountToCharge: result.order?.total, // Map order total to amountToCharge
+        currency: result.order?.currency || 'USD',
       });
 
     } catch (error: any) {
@@ -8844,6 +8887,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/wholesale/checkout", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
+      // Validate wholesaleCheckoutOrchestrator availability
+      if (!wholesaleCheckoutOrchestrator) {
+        logger.error('[Wholesale Checkout] WholesaleCheckoutWorkflowOrchestrator not available - Stripe not configured');
+        return res.status(500).json({ 
+          message: 'Wholesale checkout service not available',
+          error: 'SERVICE_UNAVAILABLE' 
+        });
+      }
+
       const buyerId = req.user.claims.sub;
       
       // Get cart
@@ -8888,48 +8940,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: pricingResult.error || "Failed to calculate pricing" });
       }
 
-      // Build complete checkout data with currency and exchange rate
-      const checkoutData = {
-        sellerId,
+      // Map request data to WholesaleCheckoutData interface
+      const checkoutData: WholesaleCheckoutData = {
         buyerId,
+        sellerId,
         cartItems: cartResult.data.items,
-        currency: pricingResult.currency,
-        exchangeRate: pricingResult.exchangeRate?.toString(),
         shippingData: {
           shippingType: shippingData.shippingType,
           carrierName: shippingData.carrierName,
-          freightAccountNumber: shippingData.freightAccountNumber,  // Changed from carrierAccountNumber
-          pickupInstructions: shippingData.pickupInstructions,     // Added for buyer pickup
+          freightAccountNumber: shippingData.freightAccountNumber,
+          pickupInstructions: shippingData.pickupInstructions,
           pickupAddress: shippingData.pickupAddress,
           invoicingAddress: shippingData.invoicingAddress,
+          shippingAddress: shippingData.shippingAddress,
         },
-        buyerCompanyName: buyerContact.company,
-        buyerEmail: buyerContact.email,
-        buyerName: buyerContact.name,
-        buyerPhone: buyerContact.phone,
-        depositPercentage: depositTerms?.depositPercentage,
-        depositAmountCents: depositTerms?.depositAmount ? Math.round(depositTerms.depositAmount * 100) : undefined,
+        buyerContact: {
+          name: buyerContact.name,
+          email: buyerContact.email,
+          phone: buyerContact.phone,
+          company: buyerContact.company,
+        },
+        depositTerms: depositTerms ? {
+          depositPercentage: depositTerms.depositPercentage,
+          depositAmount: depositTerms.depositAmount,
+        } : undefined,
         paymentTerms: req.body.paymentTerms,
         poNumber: req.body.poNumber,
         vatNumber: req.body.vatNumber,
+        incoterms: req.body.incoterms,
+        currency: pricingResult.currency,
+        exchangeRate: pricingResult.exchangeRate,
+        expectedShipDate: req.body.expectedShipDate ? new Date(req.body.expectedShipDate) : undefined,
+        balancePaymentDueDate: req.body.balancePaymentDueDate ? new Date(req.body.balancePaymentDueDate) : undefined,
+        orderDeadline: req.body.orderDeadline ? new Date(req.body.orderDeadline) : undefined,
       };
 
-      const result = await wholesaleService.processCheckout(checkoutData);
-      
+      // Execute wholesale checkout workflow
+      const result = await wholesaleCheckoutOrchestrator.executeCheckout(checkoutData);
+
       if (!result.success) {
-        return res.status(result.statusCode || 400).json({ message: result.error });
+        // Determine appropriate status code
+        const isClientError = result.errorCode?.includes('VALIDATION') || 
+                              result.errorCode?.includes('CART') ||
+                              result.errorCode?.includes('STOCK') ||
+                              result.errorCode?.includes('MOQ');
+        const statusCode = isClientError ? 400 : 500;
+        
+        return res.status(statusCode).json({
+          message: result.error,
+          error: result.errorCode,
+          step: result.step,
+        });
       }
 
       // Clear cart after successful checkout
       await wholesaleService.clearCart(buyerId);
 
+      // Preserve existing API contract (orderId and orderNumber)
       res.json({ 
-        orderId: result.orderId, 
-        orderNumber: result.orderNumber 
+        orderId: result.order?.id, 
+        orderNumber: result.order?.orderNumber 
       });
-    } catch (error) {
-      logger.error("Error processing checkout", error);
-      res.status(500).json({ message: "Failed to process checkout" });
+    } catch (error: any) {
+      logger.error("[Wholesale Checkout] Error processing checkout", error);
+      res.status(500).json({ 
+        message: "Failed to process checkout",
+        error: error.message 
+      });
     }
   });
 
