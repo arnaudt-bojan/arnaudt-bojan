@@ -275,7 +275,7 @@ export class InventoryService {
         reservationId,
         productId: reservation.productId,
         productType: product.productType,
-        variantId: reservation.variantId,
+        variantId: reservation.variantId ?? undefined,
         oldQuantity: reservation.quantity,
         newQuantity,
       });
@@ -307,8 +307,8 @@ export class InventoryService {
       oldQuantity: reservation.quantity,
       newQuantity,
       productId: reservation.productId,
-      variantId: reservation.variantId,
-      availability: result.availability,
+      variantId: reservation.variantId ?? undefined,
+      availableStock: result.availability?.availableStock,
     });
 
     return {

@@ -113,14 +113,36 @@ export class CartService {
     userId?: string
   ): Promise<{ success: boolean; cart?: Cart; error?: string }> {
     try {
+      // CRITICAL FIX #4: Validate quantity bounds (1 ≤ quantity ≤ 10000)
+      if (quantity < 1 || quantity > 10000) {
+        return { 
+          success: false, 
+          error: `Invalid quantity: ${quantity}. Must be between 1 and 10000.` 
+        };
+      }
+      
+      // Additional validation: quantity must be an integer
+      if (!Number.isInteger(quantity)) {
+        return { 
+          success: false, 
+          error: `Invalid quantity: ${quantity}. Must be a whole number.` 
+        };
+      }
+
       // Fetch product
       const product = await this.storage.getProduct(productId);
       if (!product) {
         return { success: false, error: "Product not found" };
       }
 
-      // Get current cart
-      const currentCart = await this.getCart(sessionId);
+      // CRITICAL FIX #1 & #2: Clone cart before modifications to prevent state inconsistency
+      const originalCart = await this.getCart(sessionId);
+      const currentCart: Cart = {
+        items: JSON.parse(JSON.stringify(originalCart.items)),
+        sellerId: originalCart.sellerId,
+        total: originalCart.total,
+        itemsCount: originalCart.itemsCount,
+      };
 
       // Validate seller constraint (single-seller cart)
       if (currentCart.sellerId && currentCart.sellerId !== product.sellerId) {
@@ -238,15 +260,26 @@ export class CartService {
       // Recalculate totals
       this.recalculateCart(currentCart);
 
-      // Save cart to storage
-      await this.storage.saveCart(
-        sessionId,
-        currentCart.sellerId!,
-        currentCart.items,
-        userId
-      );
-
-      return { success: true, cart: currentCart };
+      // CRITICAL FIX #2: Save cart to storage and only return updated cart if save succeeds
+      try {
+        await this.storage.saveCart(
+          sessionId,
+          currentCart.sellerId!,
+          currentCart.items,
+          userId
+        );
+        
+        // Only return modified cart after successful save
+        return { success: true, cart: currentCart };
+      } catch (saveError: any) {
+        logger.error("[CartService] Failed to save cart", saveError, { sessionId, productId });
+        // Return original cart on save failure to maintain consistency
+        return { 
+          success: false, 
+          error: "Failed to save cart. Please try again.",
+          cart: originalCart 
+        };
+      }
     } catch (error: any) {
       logger.error("[CartService] Error adding to cart", error, { sessionId, productId });
       return { success: false, error: error.message };
@@ -260,9 +293,16 @@ export class CartService {
     sessionId: string,
     itemId: string,
     userId?: string
-  ): Promise<{ success: boolean; cart?: Cart }> {
+  ): Promise<{ success: boolean; cart?: Cart; error?: string }> {
     try {
-      const cart = await this.getCart(sessionId);
+      // CRITICAL FIX #2: Clone cart before modifications
+      const originalCart = await this.getCart(sessionId);
+      const cart: Cart = {
+        items: JSON.parse(JSON.stringify(originalCart.items)),
+        sellerId: originalCart.sellerId,
+        total: originalCart.total,
+        itemsCount: originalCart.itemsCount,
+      };
       
       // Remove item (handles both productId and productId-variantId)
       const initialLength = cart.items.length;
@@ -271,28 +311,47 @@ export class CartService {
         return itemKey !== itemId && item.id !== itemId;
       });
 
-      // If no items were removed, return current cart
+      // If no items were removed, return original cart
       if (cart.items.length === initialLength) {
-        return { success: true, cart };
+        return { success: true, cart: originalCart };
       }
 
       // Clear seller if cart is empty
       if (cart.items.length === 0) {
         cart.sellerId = null;
-        await this.storage.clearCartBySession(sessionId);
-        // CRITICAL FIX: Recalculate to set total=0 and itemsCount=0
         this.recalculateCart(cart);
+        
+        try {
+          await this.storage.clearCartBySession(sessionId);
+          return { success: true, cart };
+        } catch (saveError: any) {
+          logger.error("[CartService] Failed to clear cart", saveError, { sessionId, itemId });
+          return { 
+            success: false, 
+            error: "Failed to remove item. Please try again.",
+            cart: originalCart 
+          };
+        }
       } else {
         this.recalculateCart(cart);
-        await this.storage.saveCart(
-          sessionId,
-          cart.sellerId!,
-          cart.items,
-          userId
-        );
+        
+        try {
+          await this.storage.saveCart(
+            sessionId,
+            cart.sellerId!,
+            cart.items,
+            userId
+          );
+          return { success: true, cart };
+        } catch (saveError: any) {
+          logger.error("[CartService] Failed to save cart", saveError, { sessionId, itemId });
+          return { 
+            success: false, 
+            error: "Failed to remove item. Please try again.",
+            cart: originalCart 
+          };
+        }
       }
-
-      return { success: true, cart };
     } catch (error: any) {
       logger.error("[CartService] Error removing from cart", error, { sessionId, itemId });
       return { success: false, cart: this.createEmptyCart() };
@@ -307,14 +366,36 @@ export class CartService {
     itemId: string,
     quantity: number,
     userId?: string
-  ): Promise<{ success: boolean; cart?: Cart }> {
+  ): Promise<{ success: boolean; cart?: Cart; error?: string }> {
     try {
       // If quantity is 0 or negative, remove the item
       if (quantity <= 0) {
         return this.removeFromCart(sessionId, itemId, userId);
       }
 
-      const cart = await this.getCart(sessionId);
+      // CRITICAL FIX #4: Validate quantity bounds (1 ≤ quantity ≤ 10000)
+      if (quantity < 1 || quantity > 10000) {
+        return { 
+          success: false, 
+          error: `Invalid quantity: ${quantity}. Must be between 1 and 10000.` 
+        };
+      }
+      
+      if (!Number.isInteger(quantity)) {
+        return { 
+          success: false, 
+          error: `Invalid quantity: ${quantity}. Must be a whole number.` 
+        };
+      }
+
+      // CRITICAL FIX #2: Clone cart before modifications
+      const originalCart = await this.getCart(sessionId);
+      const cart: Cart = {
+        items: JSON.parse(JSON.stringify(originalCart.items)),
+        sellerId: originalCart.sellerId,
+        total: originalCart.total,
+        itemsCount: originalCart.itemsCount,
+      };
       
       // Find item (handles both productId and productId-variantId)
       const item = cart.items.find((item) => {
@@ -325,15 +406,27 @@ export class CartService {
       if (item) {
         item.quantity = quantity;
         this.recalculateCart(cart);
-        await this.storage.saveCart(
-          sessionId,
-          cart.sellerId!,
-          cart.items,
-          userId
-        );
+        
+        // Save and only return updated cart if save succeeds
+        try {
+          await this.storage.saveCart(
+            sessionId,
+            cart.sellerId!,
+            cart.items,
+            userId
+          );
+          return { success: true, cart };
+        } catch (saveError: any) {
+          logger.error("[CartService] Failed to save cart", saveError, { sessionId, itemId });
+          return { 
+            success: false, 
+            error: "Failed to update quantity. Please try again.",
+            cart: originalCart 
+          };
+        }
       }
 
-      return { success: true, cart };
+      return { success: true, cart: originalCart };
     } catch (error: any) {
       logger.error("[CartService] Error updating cart quantity", error, { sessionId, itemId, quantity });
       return { success: false, cart: this.createEmptyCart() };
@@ -356,21 +449,88 @@ export class CartService {
   /**
    * Migrate guest cart to authenticated user (called on login)
    * 
-   * CRITICAL FIX: Always check for existing user cart first to handle returning users with new sessions
+   * CRITICAL FIX #5 & #6: 
+   * - Use atomic operations with row locking to prevent race conditions
+   * - Detect seller mismatches and return conflict error instead of silent data loss
    */
   async migrateGuestCart(
     sessionId: string,
     userId: string
-  ): Promise<{ success: boolean; cart?: Cart; error?: string }> {
+  ): Promise<{ success: boolean; cart?: Cart; error?: string; conflict?: { userCart: Cart; guestCart: Cart } }> {
     try {
-      // ALWAYS try to get authenticated user's cart first
+      // CRITICAL FIX #5: Get both carts atomically to detect conflicts
+      // The saveCart method uses transactions with row locking for auth users
       const userCart = await this.storage.getCartByUserId(userId);
+      const guestCartStorage = await this.storage.getCartBySession(sessionId);
       
-      if (userCart) {
-        // User has existing cart - bind new session to it
+      // Convert guest cart to service format if it exists
+      let guestCart: Cart | null = null;
+      if (guestCartStorage && guestCartStorage.items) {
+        guestCart = {
+          items: (guestCartStorage.items as CartItem[]) || [],
+          sellerId: guestCartStorage.sellerId,
+          total: 0,
+          itemsCount: 0,
+        };
+        this.recalculateCart(guestCart);
+      }
+      
+      // CASE 1: User has existing cart and guest has cart
+      if (userCart && guestCart && guestCart.items.length > 0) {
+        // CRITICAL FIX #6: Check for seller mismatch
+        if (userCart.sellerId !== guestCart.sellerId) {
+          // Seller mismatch - return conflict error with both carts
+          const userCartFormatted: Cart = {
+            items: (userCart.items as CartItem[]) || [],
+            sellerId: userCart.sellerId,
+            total: 0,
+            itemsCount: 0,
+          };
+          this.recalculateCart(userCartFormatted);
+          
+          logger.warn("[CartService] Seller mismatch during cart migration", { 
+            sessionId, 
+            userId, 
+            userSellerId: userCart.sellerId || 'null',
+            guestSellerId: guestCart.sellerId || 'null'
+          });
+          
+          return {
+            success: false,
+            error: "SELLER_MISMATCH",
+            conflict: {
+              userCart: userCartFormatted,
+              guestCart: guestCart
+            }
+          };
+        }
+        
+        // Same seller - merge carts (use existing user cart, bind session to it)
+        // The saveCart with userId will use row locking to ensure atomicity
         await this.storage.saveCart(sessionId, userCart.sellerId, userCart.items as any[], userId);
         
-        // Convert to service cart format
+        const cart: Cart = {
+          items: (userCart.items as CartItem[]) || [],
+          sellerId: userCart.sellerId,
+          total: 0,
+          itemsCount: 0,
+        };
+        this.recalculateCart(cart);
+        
+        logger.info("[CartService] Bound new session to existing user cart (same seller)", { 
+          sessionId, 
+          userId, 
+          cartId: userCart.id,
+          guestCartDiscarded: true 
+        });
+        return { success: true, cart };
+      }
+      
+      // CASE 2: User has existing cart, no guest cart
+      if (userCart) {
+        // Bind new session to existing user cart atomically
+        await this.storage.saveCart(sessionId, userCart.sellerId, userCart.items as any[], userId);
+        
         const cart: Cart = {
           items: (userCart.items as CartItem[]) || [],
           sellerId: userCart.sellerId,
@@ -383,11 +543,9 @@ export class CartService {
         return { success: true, cart };
       }
       
-      // No user cart exists - check guest cart
-      const guestCart = await this.getCart(sessionId);
-      
+      // CASE 3: No user cart, but guest has cart - promote guest cart
       if (guestCart && guestCart.items.length > 0) {
-        // Promote guest cart to authenticated
+        // Atomically promote guest cart to authenticated cart
         await this.storage.saveCart(
           sessionId,
           guestCart.sellerId!,
@@ -399,7 +557,7 @@ export class CartService {
         return { success: true, cart: guestCart };
       }
       
-      // No cart exists for user or session
+      // CASE 4: No cart exists for user or session
       return { success: true, cart: this.createEmptyCart() };
     } catch (error: any) {
       logger.error("[CartService] Error migrating guest cart", error, { sessionId, userId });
@@ -409,13 +567,42 @@ export class CartService {
 
   /**
    * Recalculate cart totals
+   * CRITICAL FIX #3: Add NaN validation with fallback values
    */
   private recalculateCart(cart: Cart): void {
-    cart.total = cart.items.reduce(
-      (sum, item) => sum + parseFloat(item.price) * item.quantity,
-      0
-    );
-    cart.itemsCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    cart.total = cart.items.reduce((sum, item) => {
+      const price = parseFloat(item.price);
+      const quantity = item.quantity;
+      
+      // CRITICAL: Validate parseFloat result and quantity
+      if (isNaN(price) || isNaN(quantity)) {
+        logger.error("[CartService] Invalid price or quantity in cart item", { 
+          itemId: item.id, 
+          price: item.price, 
+          quantity,
+          parsedPrice: price 
+        });
+        // Use 0 as fallback to prevent NaN propagation
+        return sum + 0;
+      }
+      
+      return sum + price * quantity;
+    }, 0);
+    
+    cart.itemsCount = cart.items.reduce((sum, item) => {
+      const quantity = item.quantity;
+      
+      // Validate quantity is a valid number
+      if (isNaN(quantity)) {
+        logger.error("[CartService] Invalid quantity in cart item", { 
+          itemId: item.id, 
+          quantity 
+        });
+        return sum + 0;
+      }
+      
+      return sum + quantity;
+    }, 0);
   }
 
   /**

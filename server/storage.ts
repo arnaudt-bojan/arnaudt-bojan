@@ -269,6 +269,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(userId: string, role: string): Promise<User | undefined>;
   updateWelcomeEmailSent(userId: string): Promise<User | undefined>;
@@ -919,7 +920,10 @@ export class DatabaseStorage implements IStorage {
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     await this.ensureInitialized();
-    const result = await this.db.insert(products).values(insertProduct).returning();
+    const result = await this.db.insert(products).values([{
+      ...insertProduct,
+      image: insertProduct.image || ''
+    }]).returning();
     return result[0];
   }
 
@@ -1036,7 +1040,7 @@ export class DatabaseStorage implements IStorage {
     const sortColumn = products[sortBy as keyof typeof products];
     
     if (sortColumn) {
-      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)) as any;
+      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn as any) : desc(sortColumn as any)) as any;
     }
     
     // Pagination
@@ -3155,7 +3159,10 @@ export class DatabaseStorage implements IStorage {
 
   async createWholesaleProduct(product: InsertWholesaleProduct): Promise<WholesaleProduct> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleProducts).values(product).returning();
+    const result = await this.db.insert(wholesaleProducts).values([{
+      ...product,
+      image: product.image || ''
+    }]).returning();
     return result[0];
   }
 
@@ -3245,7 +3252,7 @@ export class DatabaseStorage implements IStorage {
     const sortColumn = wholesaleProducts[sortBy as keyof typeof wholesaleProducts];
     
     if (sortColumn) {
-      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)) as any;
+      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn as any) : desc(sortColumn as any)) as any;
     }
     
     // Pagination

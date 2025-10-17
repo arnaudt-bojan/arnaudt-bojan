@@ -157,7 +157,8 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
     stripeProvider,
     inventoryService,
     notificationService,
-    orderService
+    orderService,
+    stripe || undefined
   );
   paymentService = new PaymentService(
     storage,

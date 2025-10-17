@@ -309,9 +309,10 @@ export class WholesaleService {
             wholesalePrice: (Math.round(wholesalePriceNum * 100) / 100).toString(),
             moq: parseInt(rawData.moq.toString().replace(/[^0-9]/g, '')) || 1,
             stock: parseInt(rawData.stock.toString().replace(/[^0-9]/g, '')) || 0,
-            depositAmount: depositNum ? (Math.round(depositNum * 100) / 100).toString() : null,
+            depositAmount: depositNum ? (Math.round(depositNum * 100) / 100).toString() : undefined,
             requiresDeposit: parseInt(rawData.requiresDeposit.toString().replace(/[^0-9]/g, '')) || 0,
-            readinessDays: rawData.readinessDays ? parseInt(rawData.readinessDays.toString().replace(/[^0-9]/g, '')) : null,
+            readinessDays: rawData.readinessDays ? parseInt(rawData.readinessDays.toString().replace(/[^0-9]/g, '')) : undefined,
+            status: 'active' as const,
           };
 
           // Validate numeric conversions
@@ -521,36 +522,6 @@ export class WholesaleService {
     }
   }
 
-  async getBuyerCatalog(userId: string) {
-    try {
-      const user = await this.storage.getUser(userId);
-      
-      if (!user || !user.email) {
-        return { success: false, error: "User not found" };
-      }
-
-      // Check if user has any accepted invitations
-      const allInvitations = await this.storage.getAllWholesaleInvitations();
-      const userInvitations = allInvitations.filter(
-        inv => inv.buyerEmail === user.email && inv.status === "accepted"
-      );
-
-      if (userInvitations.length === 0) {
-        // No invitations - return empty catalog
-        return { success: true, data: [] };
-      }
-
-      // Get all wholesale products from sellers who invited this buyer
-      const sellerIds = userInvitations.map(inv => inv.sellerId);
-      const allProducts = await this.storage.getAllWholesaleProducts();
-      const invitedProducts = allProducts.filter(p => sellerIds.includes(p.sellerId));
-
-      return { success: true, data: invitedProducts };
-    } catch (error) {
-      logger.error("WholesaleService: Error fetching buyer catalog", error);
-      return { success: false, error: "Failed to fetch catalog" };
-    }
-  }
 
   async getBuyerProduct(input: GetBuyerProductInput) {
     try {
@@ -632,7 +603,7 @@ export class WholesaleService {
       };
       
       // Normalize ALL existing items first
-      const items = (cart.items || []).map((item: any) => ({
+      const items = ((cart.items as any[]) || []).map((item: any) => ({
         ...item,
         variant: normalizeVariant(item.variant)
       }));
@@ -667,49 +638,76 @@ export class WholesaleService {
           // Use buyerId as sessionId for wholesale (each buyer has one cart/session)
           const sessionId = `wholesale_${buyerId}`;
 
-          // If updating existing item, release old reservation first
-          if (!isNewItem && oldQuantity !== quantity) {
-            logger.info('[WholesaleService] Updating reservation quantity', {
+          // CRITICAL FIX: Use atomic pattern to prevent race conditions
+          // Check for existing reservation first
+          const sessionReservations = await this.storage.getStockReservationsBySession(sessionId);
+          const existingReservation = sessionReservations.find(
+            (r) =>
+              r.status === 'active' &&
+              r.productId === productId &&
+              r.variantId === (variantId || null)
+          );
+
+          if (existingReservation) {
+            // Update existing reservation atomically (prevents race condition)
+            logger.info('[WholesaleService] Updating reservation atomically', {
+              reservationId: existingReservation.id,
               productId,
               variantId,
-              oldQuantity,
+              oldQuantity: existingReservation.quantity,
               newQuantity: quantity,
               sessionId,
             });
 
-            // Release old reservations for this product
-            await this.releaseItemReservation(sessionId, productId, variantId);
-          }
+            const updateResult = await this.storage.updateReservationQuantityAtomic(
+              existingReservation.id,
+              quantity
+            );
 
-          // Create new reservation
-          const reservationResult = await this.inventoryService.reserveStock(
-            productId,
-            quantity,
-            sessionId,
-            {
-              variantId,
-              userId: buyerId,
-              expirationMinutes: 30, // 30-minute expiry for wholesale carts
+            if (!updateResult.success) {
+              logger.error('[WholesaleService] Failed to update reservation atomically', {
+                reservationId: existingReservation.id,
+                error: updateResult.error,
+              });
+              // Note: We don't fail the cart add operation if reservation fails
+              // The item is still added to cart, but without reservation
+            } else {
+              logger.info('[WholesaleService] Reservation updated atomically', {
+                reservationId: existingReservation.id,
+                newQuantity: quantity,
+              });
             }
-          );
-
-          if (!reservationResult.success) {
-            logger.error('[WholesaleService] Reservation failed', {
-              productId,
-              variantId,
-              quantity,
-              error: reservationResult.error,
-            });
-            // Note: We don't fail the cart add operation if reservation fails
-            // The item is still added to cart, but without reservation
           } else {
-            logger.info('[WholesaleService] Reservation created successfully', {
+            // Create new reservation (no existing reservation found)
+            const reservationResult = await this.inventoryService.reserveStock(
               productId,
-              variantId,
               quantity,
-              reservationId: reservationResult.reservation?.id,
-              expiresAt: reservationResult.reservation?.expiresAt,
-            });
+              sessionId,
+              {
+                variantId,
+                userId: buyerId,
+                expirationMinutes: 30, // 30-minute expiry for wholesale carts
+              }
+            );
+
+            if (!reservationResult.success) {
+              logger.error('[WholesaleService] Reservation failed', {
+                productId,
+                variantId,
+                quantity,
+                error: reservationResult.error,
+              });
+              // Note: We don't fail the cart add operation if reservation fails
+              // The item is still added to cart, but without reservation
+            } else {
+              logger.info('[WholesaleService] Reservation created successfully', {
+                productId,
+                variantId,
+                quantity,
+                reservationId: reservationResult.reservation?.id,
+                expiresAt: reservationResult.reservation?.expiresAt?.toISOString(),
+              });
+            }
           }
         } catch (reservationError) {
           logger.error('[WholesaleService] Error creating reservation', reservationError);
@@ -773,7 +771,7 @@ export class WholesaleService {
       };
 
       // Normalize all items
-      const items = (cart.items || []).map((item: any) => ({
+      const items = ((cart.items as any[]) || []).map((item: any) => ({
         ...item,
         variant: normalizeVariant(item.variant)
       }));
@@ -798,34 +796,69 @@ export class WholesaleService {
               : undefined;
             const sessionId = `wholesale_${buyerId}`;
 
-            logger.info('[WholesaleService] Updating reservation for cart item', {
-              productId,
-              variantId,
-              oldQuantity,
-              newQuantity: quantity,
-            });
-
-            // Release old reservation
-            await this.releaseItemReservation(sessionId, productId, variantId);
-
-            // Create new reservation with updated quantity
-            const reservationResult = await this.inventoryService.reserveStock(
-              productId,
-              quantity,
-              sessionId,
-              {
-                variantId,
-                userId: buyerId,
-                expirationMinutes: 30,
-              }
+            // CRITICAL FIX: Use atomic pattern to prevent race conditions
+            // Check for existing reservation first
+            const sessionReservations = await this.storage.getStockReservationsBySession(sessionId);
+            const existingReservation = sessionReservations.find(
+              (r) =>
+                r.status === 'active' &&
+                r.productId === productId &&
+                r.variantId === (variantId || null)
             );
 
-            if (!reservationResult.success) {
-              logger.error('[WholesaleService] Failed to update reservation', {
+            if (existingReservation) {
+              // Update existing reservation atomically (prevents race condition)
+              logger.info('[WholesaleService] Updating reservation atomically for cart item', {
+                reservationId: existingReservation.id,
                 productId,
                 variantId,
-                error: reservationResult.error,
+                oldQuantity,
+                newQuantity: quantity,
               });
+
+              const updateResult = await this.storage.updateReservationQuantityAtomic(
+                existingReservation.id,
+                quantity
+              );
+
+              if (!updateResult.success) {
+                logger.error('[WholesaleService] Failed to update reservation atomically', {
+                  reservationId: existingReservation.id,
+                  error: updateResult.error,
+                });
+              } else {
+                logger.info('[WholesaleService] Reservation updated atomically', {
+                  reservationId: existingReservation.id,
+                  newQuantity: quantity,
+                });
+              }
+            } else {
+              // Create new reservation if none exists
+              const reservationResult = await this.inventoryService.reserveStock(
+                productId,
+                quantity,
+                sessionId,
+                {
+                  variantId,
+                  userId: buyerId,
+                  expirationMinutes: 30,
+                }
+              );
+
+              if (!reservationResult.success) {
+                logger.error('[WholesaleService] Failed to create reservation', {
+                  productId,
+                  variantId,
+                  error: reservationResult.error,
+                });
+              } else {
+                logger.info('[WholesaleService] Reservation created successfully', {
+                  productId,
+                  variantId,
+                  quantity,
+                  reservationId: reservationResult.reservation?.id,
+                });
+              }
             }
           } catch (reservationError) {
             logger.error('[WholesaleService] Error updating reservation', reservationError);
@@ -862,7 +895,7 @@ export class WholesaleService {
       const normalizedVariant = normalizeVariant(variant);
 
       // Remove item from cart
-      const items = (cart.items || []).filter((item: any) => {
+      const items = ((cart.items as any[]) || []).filter((item: any) => {
         const itemVariant = normalizeVariant(item.variant);
         return !(item.productId === productId && 
                  JSON.stringify(itemVariant) === JSON.stringify(normalizedVariant));

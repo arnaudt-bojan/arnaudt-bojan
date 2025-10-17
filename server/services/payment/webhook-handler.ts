@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { IStorage } from '../../storage';
 import { IPaymentProvider } from './payment-provider.interface';
-import { InventoryService } from '../inventory/inventory.service';
+import { InventoryService } from '../inventory.service';
 import { NotificationService } from '../../notifications';
 import { logger } from '../../logger';
 import type { OrderService } from '../order.service';
@@ -24,7 +24,8 @@ export class WebhookHandler {
     private provider: IPaymentProvider,
     private inventoryService: InventoryService,
     private notificationService: NotificationService,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private stripe?: Stripe
   ) {}
 
   /**
@@ -267,7 +268,6 @@ export class WebhookHandler {
       // Update balance request status with full payment details
       await this.storage.updateBalanceRequest(balanceRequestId, {
         status: 'paid',
-        balancePaidAt: new Date(),
         paymentIntentId: paymentIntent.id,
       });
       
@@ -286,7 +286,7 @@ export class WebhookHandler {
       });
       
       // Get seller for email notification
-      const seller = await this.storage.getUser(order.sellerId);
+      const seller = order.sellerId ? await this.storage.getUser(order.sellerId) : null;
       
       if (seller) {
         // Send balance payment confirmation email (currency-aware)
@@ -302,9 +302,8 @@ export class WebhookHandler {
       if (updatedOrder) {
         orderWebSocketService.broadcastOrderUpdate(orderId, {
           status: updatedOrder.status,
-          paymentStatus: updatedOrder.paymentStatus,
-          balancePaidAt: updatedOrder.balancePaidAt?.toISOString() || null,
-          amountPaid: updatedOrder.amountPaid,
+          paymentStatus: updatedOrder.paymentStatus || undefined,
+          amountPaid: updatedOrder.amountPaid || undefined,
         });
         logger.info(`[Webhook] Broadcasted balance payment update via WebSocket for order ${orderId}`);
       }
@@ -435,8 +434,8 @@ export class WebhookHandler {
     const session = event.data.object as Stripe.Checkout.Session;
     logger.info(`[Webhook] Checkout session ${session.id} completed`, {
       mode: session.mode,
-      customerId: session.customer,
-      subscriptionId: session.subscription,
+      customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+      subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
     });
 
     // Only process subscription checkouts
@@ -446,19 +445,26 @@ export class WebhookHandler {
     }
 
     try {
-      // Get user by Stripe customer ID
-      const user = await this.storage.getUserByStripeCustomerId(session.customer as string);
-      if (!user) {
-        logger.warn(`[Webhook] No user found for customer ${session.customer}`);
+      // Get customer ID as string
+      const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+      if (!customerId) {
+        logger.warn(`[Webhook] No customer ID in session ${session.id}`);
         return;
       }
 
-      // Get Stripe instance from provider  
-      const stripe = await this.provider.getClient();
-      if (!stripe) {
+      // Get user by Stripe customer ID
+      const user = await this.storage.getUserByStripeCustomerId(customerId);
+      if (!user) {
+        logger.warn(`[Webhook] No user found for customer ${customerId}`);
+        return;
+      }
+
+      // Use Stripe instance from constructor
+      if (!this.stripe) {
         logger.error('[Webhook] Stripe instance not available');
         return;
       }
+      const stripe = this.stripe;
 
       // Fetch subscription details with expanded payment method and latest invoice
       const subscription = await stripe.subscriptions.retrieve(session.subscription as string, {
@@ -502,7 +508,7 @@ export class WebhookHandler {
       
       // 3. Fallback: Check latest_invoice.payment_intent.payment_method
       if (!paymentMethodId && subscription.latest_invoice) {
-        const invoice = subscription.latest_invoice as Stripe.Invoice;
+        const invoice = subscription.latest_invoice as any; // Use 'any' for expanded invoice
         if (invoice.payment_intent && typeof invoice.payment_intent === 'object') {
           const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
           if (paymentIntent.payment_method) {
