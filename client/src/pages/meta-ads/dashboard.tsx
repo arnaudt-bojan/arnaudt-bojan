@@ -42,6 +42,7 @@ import {
   TrendingUp,
   MousePointerClick,
   Users,
+  ArrowLeft,
 } from "lucide-react";
 import { SiFacebook, SiInstagram } from "react-icons/si";
 import type { MetaCampaign } from "@shared/schema";
@@ -153,15 +154,6 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
               <h3 className="text-lg font-semibold truncate" data-testid={`text-campaign-name-${campaign.id}`}>
                 {campaign.name}
               </h3>
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className="h-6 w-6"
-                onClick={() => setLocation(`/meta-campaigns/${campaign.id}/edit`)}
-                data-testid={`button-edit-name-${campaign.id}`}
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={getStatusColor(campaign.status)} data-testid={`badge-status-${campaign.id}`}>
@@ -180,14 +172,6 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setLocation(`/meta-campaigns/${campaign.id}`)} data-testid={`menu-view-${campaign.id}`}>
-                <Eye className="h-4 w-4 mr-2" />
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLocation(`/meta-campaigns/${campaign.id}/edit`)} data-testid={`menu-edit-${campaign.id}`}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Campaign
-              </DropdownMenuItem>
               {campaign.status === "active" && (
                 <DropdownMenuItem onClick={() => pauseCampaignMutation.mutate()} data-testid={`menu-pause-${campaign.id}`}>
                   <Pause className="h-4 w-4 mr-2" />
@@ -234,15 +218,6 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Budget Remaining</p>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-auto p-0 text-xs underline hover:no-underline"
-              onClick={() => setLocation(`/meta-campaigns/${campaign.id}/budget`)}
-              data-testid={`button-increase-budget-${campaign.id}`}
-            >
-              Increase budget
-            </Button>
           </div>
           <p className="text-lg font-bold" data-testid={`text-budget-${campaign.id}`}>
             ${budgetRemaining.toFixed(2)} (OUT OF ${lifetimeBudget.toFixed(2)} TOTAL)
@@ -363,6 +338,17 @@ export default function MetaAdsDashboard() {
   return (
     <div className="min-h-screen py-6 md:py-12">
       <div className="container mx-auto px-4 max-w-7xl">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/seller-dashboard")}
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Seller Dashboard
+        </Button>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -386,7 +372,7 @@ export default function MetaAdsDashboard() {
                 Analytics
               </Button>
               <Button 
-                onClick={() => setLocation("/meta-ads-setup")}
+                onClick={() => setLocation("/meta-ads/create")}
                 data-testid="button-create-ad"
                 size="lg"
               >
@@ -449,7 +435,7 @@ export default function MetaAdsDashboard() {
                     : "Get started by creating your first Meta ad campaign"}
                 </p>
                 {!searchQuery && statusFilter === "all" && (
-                  <Button onClick={() => setLocation("/meta-ads-setup")} data-testid="button-create-first-ad">
+                  <Button onClick={() => setLocation("/meta-ads/create")} data-testid="button-create-first-ad">
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Ad
                   </Button>

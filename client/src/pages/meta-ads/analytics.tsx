@@ -51,6 +51,7 @@ import {
   Target,
   Calendar as CalendarIcon,
   ArrowRight,
+  ArrowLeft,
   BarChart3,
 } from "lucide-react";
 import { SiFacebook, SiInstagram } from "react-icons/si";
@@ -331,6 +332,17 @@ export default function MetaAdsAnalytics() {
   return (
     <div className="min-h-screen py-6 md:py-12">
       <div className="container mx-auto px-4 max-w-7xl">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/meta-ads/dashboard")}
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Meta Ads Dashboard
+        </Button>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -353,9 +365,9 @@ export default function MetaAdsAnalytics() {
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
-              <Button onClick={() => setLocation("/meta-campaigns")} data-testid="button-view-campaigns">
+              <Button onClick={() => setLocation("/meta-ads/dashboard")} data-testid="button-back-to-dashboard-alt">
                 <BarChart3 className="h-4 w-4 mr-2" />
-                View Campaigns
+                Back to Dashboard
               </Button>
             </div>
           </div>
@@ -647,10 +659,10 @@ export default function MetaAdsAnalytics() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setLocation(`/meta-campaigns/${perf.campaignId}`)}
-                            data-testid={`button-view-details-${perf.campaignId}`}
+                            onClick={() => setLocation("/meta-ads/dashboard")}
+                            data-testid={`button-back-to-dashboard-${perf.campaignId}`}
                           >
-                            View Details
+                            Back to Dashboard
                             <ArrowRight className="h-4 w-4 ml-2" />
                           </Button>
                         </TableCell>

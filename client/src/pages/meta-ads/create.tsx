@@ -463,6 +463,17 @@ export default function CreateAdWizard() {
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <div className="space-y-6">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/meta-ads/dashboard")}
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Meta Ads Dashboard
+        </Button>
+
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold">Create Meta Ad Campaign</h1>
