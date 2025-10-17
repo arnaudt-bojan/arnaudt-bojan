@@ -34,15 +34,15 @@ import { BulkImageInput } from "@/components/bulk-image-input";
 const wholesaleProductSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  images: z.array(z.string().url("Must be a valid image URL")).min(1, "At least one image is required"),
+  images: z.array(z.string().min(1, "Image URL/path is required")).min(1, "At least one image is required"),
   category: z.string().min(1, "Category is required"),
-  rrp: z.number().positive("RRP must be positive"),
-  wholesalePrice: z.number().positive("Wholesale price must be positive"),
-  suggestedRetailPrice: z.number().positive().optional(),
-  moq: z.number().int().positive("MOQ must be a positive integer"),
-  stock: z.number().int().nonnegative("Stock cannot be negative"),
-  depositAmount: z.number().positive().optional(),
-  depositPercentage: z.number().min(0).max(100).optional(),
+  rrp: z.coerce.number().positive("RRP must be positive"),
+  wholesalePrice: z.coerce.number().positive("Wholesale price must be positive"),
+  suggestedRetailPrice: z.coerce.number().positive().optional().or(z.literal("")),
+  moq: z.coerce.number().int().positive("MOQ must be a positive integer"),
+  stock: z.coerce.number().int().nonnegative("Stock cannot be negative"),
+  depositAmount: z.coerce.number().positive().optional().or(z.literal("")),
+  depositPercentage: z.coerce.number().min(0).max(100).optional().or(z.literal("")),
   requiresDeposit: z.boolean().default(false),
   expectedShipDate: z.string().optional(),
   balancePaymentDate: z.string().optional(),
@@ -58,10 +58,11 @@ const wholesaleProductSchema = z.object({
   contactEmail: z.string().email().optional().or(z.literal("")),
 }).refine((data) => {
   if (!data.requiresDeposit) return true;
-  return (data.depositAmount !== undefined && data.depositAmount !== null) || 
-         (data.depositPercentage !== undefined && data.depositPercentage !== null);
+  const hasAmount = data.depositAmount && data.depositAmount !== "";
+  const hasPercentage = data.depositPercentage && data.depositPercentage !== "";
+  return (hasAmount && !hasPercentage) || (!hasAmount && hasPercentage);
 }, {
-  message: "Either deposit amount or percentage is required when deposit is enabled",
+  message: "Either deposit amount or percentage is required (not both)",
   path: ["depositAmount"]
 });
 
@@ -78,13 +79,13 @@ export default function CreateWholesaleProduct() {
       description: "",
       images: [],
       category: "",
-      rrp: 0,
-      wholesalePrice: 0,
-      suggestedRetailPrice: undefined,
-      moq: 1,
-      stock: 0,
-      depositAmount: undefined,
-      depositPercentage: undefined,
+      rrp: "" as any,
+      wholesalePrice: "" as any,
+      suggestedRetailPrice: "",
+      moq: "" as any,
+      stock: "" as any,
+      depositAmount: "",
+      depositPercentage: "",
       requiresDeposit: false,
       paymentTerms: "Net 30",
       shipFromStreet: "",
@@ -107,13 +108,13 @@ export default function CreateWholesaleProduct() {
         image: data.images[0], // First image as hero/primary
         images: data.images, // All images array
         category: data.category,
-        rrp: data.rrp,
-        wholesalePrice: data.wholesalePrice,
-        suggestedRetailPrice: data.suggestedRetailPrice || null,
-        moq: data.moq,
-        stock: data.stock,
-        depositAmount: data.depositAmount || null,
-        depositPercentage: data.depositPercentage || null,
+        rrp: Number(data.rrp),
+        wholesalePrice: Number(data.wholesalePrice),
+        suggestedRetailPrice: data.suggestedRetailPrice && data.suggestedRetailPrice !== "" ? Number(data.suggestedRetailPrice) : null,
+        moq: Number(data.moq),
+        stock: Number(data.stock),
+        depositAmount: data.depositAmount && data.depositAmount !== "" ? Number(data.depositAmount) : null,
+        depositPercentage: data.depositPercentage && data.depositPercentage !== "" ? Number(data.depositPercentage) : null,
         requiresDeposit: data.requiresDeposit ? 1 : 0,
         expectedShipDate: data.expectedShipDate || undefined,
         balancePaymentDate: data.balancePaymentDate || undefined,
