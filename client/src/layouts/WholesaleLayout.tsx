@@ -15,6 +15,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { useBusinessMode } from "@/contexts/business-mode-context";
+import { PlatformSwitcher } from "@/components/platform-switcher";
 
 interface WholesaleLayoutProps {
   children: React.ReactNode;
@@ -151,6 +152,16 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Header with Platform Switcher */}
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 max-w-7xl items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-semibold">Upfirst Dashboard</h1>
+          </div>
+          <PlatformSwitcher />
+        </div>
+      </header>
+
       <div className="flex-1 flex">
         {/* Sidebar */}
         <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card/50">
