@@ -1251,11 +1251,13 @@ export default function CreateWholesaleProduct() {
                 )}
               />
 
-              {/* Variant Manager - Same as B2C */}
+              {/* Variant Manager - Same as B2C with B2B Stock Logic */}
               <Card className="p-6 space-y-6">
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold">Variants (Optional)</h3>
-                  <p className="text-sm text-muted-foreground">Configure size and color options for this product</p>
+                  <h3 className="text-xl font-semibold">Product Variants (Optional)</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Most products just need sizes. Enable colors if your product comes in multiple colors.
+                  </p>
                 </div>
                 <SimpleVariantManager
                   sizes={sizes}
@@ -1266,6 +1268,11 @@ export default function CreateWholesaleProduct() {
                   onColorsChange={setColors}
                   mainProductImages={form.watch("images") || []}
                 />
+                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-4 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-900 dark:text-blue-100">
+                    <strong>Stock = 0 means unlimited availability</strong> (Made-to-Order). Enter actual quantities only for in-stock items with limited inventory.
+                  </p>
+                </div>
               </Card>
 
               <div className="flex gap-4 justify-end">
