@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, ShoppingCart, Package, TrendingUp, AlertCircle } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Package, TrendingUp, AlertCircle, FileText, Warehouse, Calendar } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart-context";
@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { format } from "date-fns";
 
 interface WholesaleProduct {
   id: string;
@@ -32,14 +33,23 @@ interface WholesaleProduct {
   name: string;
   description: string;
   image: string;
+  images?: string[];
   category: string;
+  sku?: string;
   rrp: string;
   wholesalePrice: string;
   moq: number;
   depositAmount?: string;
+  depositPercentage?: string;
   requiresDeposit: number;
   stock: number;
   readinessDays?: number;
+  readinessType?: string;
+  readinessValue?: string;
+  balancePaymentTerms?: string;
+  balancePaymentDate?: string;
+  shipFromAddress?: any;
+  termsAndConditionsUrl?: string;
   variants?: Array<{
     size: string;
     color: string;
@@ -57,6 +67,9 @@ export default function WholesaleProductDetail() {
   const { toast } = useToast();
   const { addItem, updateQuantity, isLoading: isCartLoading } = useCart();
 
+  // Image gallery state
+  const [selectedImage, setSelectedImage] = useState<string>("");
+
   // Quantity selections for variants
   const [variantQuantities, setVariantQuantities] = useState<Map<string, number>>(new Map());
   const [totalQuantity, setTotalQuantity] = useState(0);
@@ -64,6 +77,13 @@ export default function WholesaleProductDetail() {
   const { data: product, isLoading } = useQuery<WholesaleProduct>({
     queryKey: ["/api/wholesale/buyer/products", id],
   });
+
+  // Set initial selected image when product loads
+  useEffect(() => {
+    if (product) {
+      setSelectedImage(product.images?.[0] || product.image);
+    }
+  }, [product]);
 
   // Calculate total quantity whenever variant quantities change
   useEffect(() => {
@@ -111,13 +131,11 @@ export default function WholesaleProductDetail() {
         return;
       }
 
-      // Build selected variants array
       const selectedVariants = Array.from(variantQuantities.entries()).map(([key, quantity]) => {
         const [size, color] = key.split("-");
         return { size, color, quantity };
       });
 
-      // Convert wholesale product to cart-compatible format
       const cartItem = {
         id: product.id,
         name: product.name,
@@ -128,12 +146,12 @@ export default function WholesaleProductDetail() {
         productType: "wholesale" as const,
         stock: product.stock,
         depositAmount: product.depositAmount,
+        depositPercentage: product.depositPercentage,
         requiresDeposit: product.requiresDeposit,
         variants: product.variants,
         sellerId: product.sellerId,
       } as any;
 
-      // Add to cart with total quantity
       const result = await addItem(cartItem);
       if (result.success) {
         updateQuantity(cartItem.id, totalQuantity);
@@ -149,7 +167,6 @@ export default function WholesaleProductDetail() {
         });
       }
     } else {
-      // Simple product without variants - add with MOQ
       const cartItem = {
         id: product.id,
         name: product.name,
@@ -160,6 +177,7 @@ export default function WholesaleProductDetail() {
         productType: "wholesale" as const,
         stock: product.stock,
         depositAmount: product.depositAmount,
+        depositPercentage: product.depositPercentage,
         requiresDeposit: product.requiresDeposit,
         sellerId: product.sellerId,
       } as any;
@@ -242,6 +260,19 @@ export default function WholesaleProductDetail() {
 
   const margin = ((parseFloat(product.rrp) - parseFloat(product.wholesalePrice)) / parseFloat(product.rrp)) * 100;
 
+  // Calculate deposit amounts if percentage is used
+  const wholesalePriceNum = parseFloat(product.wholesalePrice);
+  const depositPercentageNum = product.depositPercentage ? parseFloat(product.depositPercentage) : 0;
+  const depositAmount = product.requiresDeposit === 1 && product.depositPercentage
+    ? (wholesalePriceNum * depositPercentageNum / 100)
+    : product.depositAmount ? parseFloat(product.depositAmount) : 0;
+  const balanceAmount = product.requiresDeposit === 1
+    ? wholesalePriceNum - depositAmount
+    : wholesalePriceNum;
+
+  // Get all product images
+  const productImages = product.images && product.images.length > 0 ? product.images : [product.image];
+
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-6xl">
@@ -257,23 +288,53 @@ export default function WholesaleProductDetail() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 mb-8">
-          {/* Product Image */}
-          <div className="aspect-square overflow-hidden rounded-lg">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover"
-              data-testid="img-product"
-            />
+          {/* Product Image Gallery */}
+          <div className="space-y-4">
+            <div className="aspect-square overflow-hidden rounded-lg border">
+              <img
+                src={selectedImage}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                data-testid="img-product-main"
+              />
+            </div>
+            {productImages.length > 1 && (
+              <div className="grid grid-cols-5 gap-2">
+                {productImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImage(img)}
+                    className={`aspect-square overflow-hidden rounded-md border-2 transition-all ${
+                      selectedImage === img ? 'border-primary' : 'border-transparent hover:border-muted-foreground'
+                    }`}
+                    data-testid={`button-image-${idx}`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
           <div className="space-y-6">
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-4xl font-bold" data-testid="text-product-name">
-                  {product.name}
-                </h1>
+                <div className="flex-1">
+                  <h1 className="text-4xl font-bold mb-2" data-testid="text-product-name">
+                    {product.name}
+                  </h1>
+                  {product.sku && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                      <Package className="h-4 w-4" />
+                      <span data-testid="text-sku">SKU: {product.sku}</span>
+                    </div>
+                  )}
+                </div>
                 <Badge variant="secondary">{product.category}</Badge>
               </div>
               <p className="text-muted-foreground" data-testid="text-description">
@@ -290,7 +351,7 @@ export default function WholesaleProductDetail() {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Your Price</span>
                   <span className="text-2xl font-bold text-primary" data-testid="text-wholesale-price">
-                    {formatPrice(parseFloat(product.wholesalePrice))}
+                    {formatPrice(wholesalePriceNum)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -308,10 +369,10 @@ export default function WholesaleProductDetail() {
               </CardContent>
             </Card>
 
-            {/* Requirements */}
+            {/* Requirements & Terms */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Order Requirements</CardTitle>
+                <CardTitle className="text-lg">Order Requirements & Terms</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -320,18 +381,99 @@ export default function WholesaleProductDetail() {
                     {product.moq} units
                   </Badge>
                 </div>
-                {product.readinessDays && (
+
+                {/* Readiness Information */}
+                {(product.readinessType || product.readinessDays) && (
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Lead Time</span>
-                    <span className="font-medium">{product.readinessDays} days</span>
+                    <span className="text-muted-foreground">Readiness</span>
+                    <span className="font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {product.readinessType === 'date' && product.readinessValue
+                        ? `Ships ${format(new Date(product.readinessValue), 'PPP')}`
+                        : product.readinessType === 'days' && product.readinessValue
+                        ? `${product.readinessValue} days after order`
+                        : product.readinessDays
+                        ? `${product.readinessDays} days`
+                        : 'Standard lead time'
+                      }
+                    </span>
                   </div>
                 )}
-                {product.requiresDeposit === 1 && product.depositAmount && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Deposit Required</span>
-                    <span className="font-medium">
-                      {formatPrice(parseFloat(product.depositAmount))} per unit
+
+                {/* Deposit Information */}
+                {product.requiresDeposit === 1 && (
+                  <>
+                    <div className="flex justify-between items-center pt-3 border-t">
+                      <span className="text-muted-foreground">Deposit Required</span>
+                      <div className="text-right">
+                        {product.depositPercentage && (
+                          <div className="text-sm text-muted-foreground">
+                            {depositPercentageNum}% upfront
+                          </div>
+                        )}
+                        <span className="font-medium">
+                          {formatPrice(depositAmount)} per unit
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Balance Payment</span>
+                      <div className="text-right">
+                        {product.balancePaymentTerms && (
+                          <div className="text-sm text-muted-foreground">
+                            {product.balancePaymentTerms}
+                          </div>
+                        )}
+                        <span className="font-medium">
+                          {formatPrice(balanceAmount)} per unit
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Warehouse/Ship From */}
+                {product.shipFromAddress && (
+                  <div className="flex justify-between items-start pt-3 border-t">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Warehouse className="h-4 w-4" />
+                      Ships From
                     </span>
+                    <div className="text-right text-sm">
+                      {typeof product.shipFromAddress === 'object' ? (
+                        <>
+                          <div>{product.shipFromAddress.street}</div>
+                          <div>{product.shipFromAddress.city}, {product.shipFromAddress.country}</div>
+                        </>
+                      ) : (
+                        <div>{product.shipFromAddress}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Terms & Conditions */}
+                {product.termsAndConditionsUrl && (
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Terms & Conditions
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      data-testid="button-download-tc"
+                    >
+                      <a
+                        href={product.termsAndConditionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                      >
+                        Download
+                      </a>
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -371,7 +513,7 @@ export default function WholesaleProductDetail() {
                       {colors.map(color => {
                         const stock = getVariantStock(size, color);
                         const quantity = getVariantQuantity(size, color);
-                        const isAvailable = stock > 0 || stock === 0; // 0 = made to order
+                        const isAvailable = stock > 0 || stock === 0;
                         
                         return (
                           <TableCell key={color} className="text-center">
@@ -425,7 +567,7 @@ export default function WholesaleProductDetail() {
               <div className="text-right space-y-1">
                 <div className="text-sm text-muted-foreground">Total Cost</div>
                 <div className="text-3xl font-bold" data-testid="text-total-cost">
-                  {formatPrice(totalQuantity * parseFloat(product.wholesalePrice))}
+                  {formatPrice(totalQuantity * wholesalePriceNum)}
                 </div>
               </div>
             </div>

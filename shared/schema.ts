@@ -1603,15 +1603,22 @@ export const wholesaleProducts = pgTable("wholesale_products", {
   wholesalePrice: decimal("wholesale_price", { precision: 10, scale: 2 }).notNull(),
   moq: integer("moq").notNull(), // Minimum Order Quantity (product-level)
   
+  // SKU (Stock Keeping Unit) - Industry Best Practice
+  sku: varchar("sku", { length: 100 }), // Optional SKU for product tracking
+  
   // Deposit/Balance Configuration (support both fixed and percentage)
-  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }), // Fixed deposit amount
+  depositAmount: decimal("deposit_amount", { precision: 10, scale: 2 }), // Fixed deposit amount (deprecated, use depositPercentage)
   depositPercentage: decimal("deposit_percentage", { precision: 5, scale: 2 }), // Deposit % (e.g., 30.00 for 30%)
   balancePercentage: decimal("balance_percentage", { precision: 5, scale: 2 }), // Balance % (e.g., 70.00 for 70%)
   requiresDeposit: integer("requires_deposit").default(0), // 0 = false, 1 = true
   
   // Stock & Availability
   stock: integer("stock").default(0),
-  readinessDays: integer("readiness_days"), // Days after order for production/delivery
+  readinessDays: integer("readiness_days"), // Days after order for production/delivery (deprecated, use readinessType/Value)
+  
+  // Readiness Configuration - Industry Best Practice (days OR fixed date)
+  readinessType: varchar("readiness_type", { length: 20 }), // 'days' or 'date'
+  readinessValue: varchar("readiness_value", { length: 50 }), // Number of days or ISO date string
   
   // B2B Specific Dates
   expectedShipDate: timestamp("expected_ship_date"), // When product will ship
@@ -1625,6 +1632,10 @@ export const wholesaleProducts = pgTable("wholesale_products", {
   // Pricing & Terms
   suggestedRetailPrice: decimal("suggested_retail_price", { precision: 10, scale: 2 }), // SRP for retailers
   paymentTerms: varchar("payment_terms").default("Net 30"), // Net 30/60/90
+  balancePaymentTerms: varchar("balance_payment_terms", { length: 50 }), // Balance payment terms (Net 30/60/90 or Custom)
+  
+  // Terms & Conditions - Industry Best Practice
+  termsAndConditionsUrl: text("terms_and_conditions_url"), // URL to uploaded T&C document
   
   // Variants (extended to include per-variant MOQ and pricing)
   variants: jsonb("variants"), // [{size, color, stock, image, moq, wholesalePrice, sku}]

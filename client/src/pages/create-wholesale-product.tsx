@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -34,19 +50,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X, Sparkles, CalendarIcon, Upload, FileText, Warehouse } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BulkImageInput } from "@/components/bulk-image-input";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import type { Product } from "@shared/schema";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  level: number;
+}
 
 const wholesaleProductSchema = z.object({
   useExisting: z.boolean().default(false),
   existingProductId: z.string().optional(),
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(1, "Description is required"),
-  image: z.string().url("Must be a valid URL"),
+  images: z.array(z.string().url()).min(1, "At least one image is required"),
   category: z.string().min(1, "Category is required"),
+  sku: z.string().optional(),
   rrp: z.string().min(1, "RRP is required").refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "RRP must be a positive number",
   }),
@@ -57,9 +85,15 @@ const wholesaleProductSchema = z.object({
     message: "MOQ must be a positive integer",
   }),
   requiresDeposit: z.boolean().default(false),
-  depositAmount: z.string().optional(),
+  depositPercentage: z.string().optional(),
+  balancePaymentTerms: z.string().optional(),
+  balancePaymentDate: z.date().optional(),
   stock: z.string().default("0"),
+  readinessType: z.enum(["days", "date"]).default("days"),
   readinessDays: z.string().optional(),
+  readinessDate: z.date().optional(),
+  shipFromWarehouse: z.string().optional(),
+  termsAndConditionsUrl: z.string().optional(),
   hasVariants: z.boolean().default(false),
 });
 
@@ -72,9 +106,30 @@ interface Variant {
   image?: string;
 }
 
+// Auto-generate SKU helper
+const generateSKU = (categoryName: string): string => {
+  const categoryAbbr = categoryName.split(/[\s>]+/).map(word => word.substring(0, 3).toUpperCase()).join('-');
+  const randomChars = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `${categoryAbbr}-${randomChars}`;
+};
+
 export default function CreateWholesaleProduct() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Category selection state
+  const [selectedLevel1, setSelectedLevel1] = useState<string>("");
+  const [selectedLevel2, setSelectedLevel2] = useState<string>("");
+  const [selectedLevel3, setSelectedLevel3] = useState<string>("");
+
+  // Warehouse dialog state
+  const [showWarehouseDialog, setShowWarehouseDialog] = useState(false);
+  const [newWarehouse, setNewWarehouse] = useState({
+    name: "",
+    street: "",
+    city: "",
+    country: "",
+  });
 
   // Variant management state
   const [sizes, setSizes] = useState<string[]>([]);
@@ -83,9 +138,23 @@ export default function CreateWholesaleProduct() {
   const [newColor, setNewColor] = useState("");
   const [variantMatrix, setVariantMatrix] = useState<Map<string, Variant>>(new Map());
 
+  // Fetch categories
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
   const { data: existingProducts } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
+
+  // Fetch user's warehouse info from auth
+  const { data: authUser } = useQuery({
+    queryKey: ["/api/auth/user"],
+  });
+
+  const level1Categories = categories.filter(c => c.level === 1);
+  const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
+  const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
 
   const form = useForm<WholesaleProductFormData>({
     resolver: zodResolver(wholesaleProductSchema),
@@ -93,32 +162,127 @@ export default function CreateWholesaleProduct() {
       useExisting: false,
       name: "",
       description: "",
-      image: "",
-      category: "Apparel",
+      images: [],
+      category: "",
+      sku: "",
       rrp: "",
       wholesalePrice: "",
       moq: "10",
       requiresDeposit: false,
-      depositAmount: "",
+      depositPercentage: "30",
+      balancePaymentTerms: "Net 30",
       stock: "0",
-      readinessDays: "",
+      readinessType: "days",
+      readinessDays: "30",
       hasVariants: false,
     },
   });
 
   const useExisting = form.watch("useExisting");
   const requiresDeposit = form.watch("requiresDeposit");
+  const depositPercentage = form.watch("depositPercentage");
+  const wholesalePrice = form.watch("wholesalePrice");
+  const readinessType = form.watch("readinessType");
+  const balancePaymentTerms = form.watch("balancePaymentTerms");
   const hasVariants = form.watch("hasVariants");
+  const currentCategory = form.watch("category");
+
+  // Update form category when selections change
+  useEffect(() => {
+    if (selectedLevel1 || selectedLevel2 || selectedLevel3) {
+      const categoryNames = [];
+      if (selectedLevel1) {
+        const level1 = categories.find(c => c.id === selectedLevel1);
+        if (level1) categoryNames.push(level1.name);
+      }
+      if (selectedLevel2) {
+        const level2 = categories.find(c => c.id === selectedLevel2);
+        if (level2) categoryNames.push(level2.name);
+      }
+      if (selectedLevel3) {
+        const level3 = categories.find(c => c.id === selectedLevel3);
+        if (level3) categoryNames.push(level3.name);
+      }
+      const categoryValue = categoryNames.join(" > ") || "General";
+      form.setValue("category", categoryValue, { shouldValidate: true });
+    }
+  }, [selectedLevel1, selectedLevel2, selectedLevel3, categories, form]);
+
+  // Calculate deposit and balance amounts
+  const calculatedDeposit = requiresDeposit && depositPercentage && wholesalePrice
+    ? (parseFloat(wholesalePrice) * parseFloat(depositPercentage) / 100).toFixed(2)
+    : "0.00";
+  const calculatedBalance = requiresDeposit && depositPercentage && wholesalePrice
+    ? (parseFloat(wholesalePrice) - parseFloat(calculatedDeposit)).toFixed(2)
+    : wholesalePrice || "0.00";
 
   const handleProductSelect = (productId: string) => {
     const product = existingProducts?.find(p => p.id === productId);
     if (product) {
       form.setValue("name", product.name);
       form.setValue("description", product.description);
-      form.setValue("image", product.image);
+      form.setValue("images", [product.image]);
       form.setValue("category", product.category);
       form.setValue("rrp", product.price);
       form.setValue("stock", product.stock?.toString() || "0");
+    }
+  };
+
+  const handleGenerateSKU = () => {
+    const sku = generateSKU(currentCategory || "PROD");
+    form.setValue("sku", sku);
+    toast({
+      title: "SKU Generated",
+      description: `Generated SKU: ${sku}`,
+    });
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['.pdf', '.docx', '.txt'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
+    if (!validTypes.includes(fileExtension.toLowerCase())) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a PDF, DOCX, or TXT file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Get upload URL
+      const uploadResponse = await apiRequest("POST", "/api/objects/upload");
+      const { uploadURL } = uploadResponse as any;
+
+      // Upload file
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      // Normalize path and set ACL
+      const normalizeResponse = await apiRequest("PUT", "/api/product-images", {
+        imageURL: uploadURL,
+      });
+
+      form.setValue("termsAndConditionsUrl", (normalizeResponse as any).objectPath);
+      toast({
+        title: "T&C Uploaded",
+        description: "Terms and conditions document uploaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload T&C document",
+        variant: "destructive",
+      });
     }
   };
 
@@ -128,7 +292,6 @@ export default function CreateWholesaleProduct() {
       setSizes(updatedSizes);
       setNewSize("");
       
-      // Initialize variants for new size with existing colors
       const newMatrix = new Map(variantMatrix);
       colors.forEach(color => {
         const key = `${newSize.trim()}-${color}`;
@@ -150,7 +313,6 @@ export default function CreateWholesaleProduct() {
       setColors(updatedColors);
       setNewColor("");
       
-      // Initialize variants for new color with existing sizes
       const newMatrix = new Map(variantMatrix);
       sizes.forEach(size => {
         const key = `${size}-${newColor.trim()}`;
@@ -168,7 +330,6 @@ export default function CreateWholesaleProduct() {
 
   const removeSize = (size: string) => {
     setSizes(sizes.filter(s => s !== size));
-    // Remove variants with this size
     const newMatrix = new Map(variantMatrix);
     colors.forEach(color => {
       newMatrix.delete(`${size}-${color}`);
@@ -178,7 +339,6 @@ export default function CreateWholesaleProduct() {
 
   const removeColor = (color: string) => {
     setColors(colors.filter(c => c !== color));
-    // Remove variants with this color
     const newMatrix = new Map(variantMatrix);
     sizes.forEach(size => {
       newMatrix.delete(`${size}-${color}`);
@@ -196,7 +356,6 @@ export default function CreateWholesaleProduct() {
 
   const createMutation = useMutation({
     mutationFn: async (data: WholesaleProductFormData) => {
-      // Build variants array from matrix
       let variants = null;
       if (data.hasVariants && sizes.length > 0 && colors.length > 0) {
         variants = Array.from(variantMatrix.values());
@@ -206,15 +365,22 @@ export default function CreateWholesaleProduct() {
         productId: data.useExisting ? data.existingProductId : undefined,
         name: data.name,
         description: data.description,
-        image: data.image,
+        image: data.images[0], // First image for backward compatibility
+        images: data.images, // All images array
         category: data.category,
+        sku: data.sku || null,
         rrp: data.rrp,
         wholesalePrice: data.wholesalePrice,
         moq: parseInt(data.moq),
         requiresDeposit: data.requiresDeposit ? 1 : 0,
-        depositAmount: data.requiresDeposit && data.depositAmount ? data.depositAmount : null,
+        depositPercentage: data.requiresDeposit && data.depositPercentage ? parseFloat(data.depositPercentage) : null,
+        balancePaymentTerms: data.requiresDeposit ? data.balancePaymentTerms : null,
+        balancePaymentDate: data.balancePaymentDate || null,
         stock: parseInt(data.stock),
-        readinessDays: data.readinessDays ? parseInt(data.readinessDays) : null,
+        readinessType: data.readinessType,
+        readinessValue: data.readinessType === 'days' ? data.readinessDays : data.readinessDate?.toISOString(),
+        shipFromAddress: data.shipFromWarehouse ? { id: data.shipFromWarehouse } : null,
+        termsAndConditionsUrl: data.termsAndConditionsUrl || null,
         variants,
       };
 
@@ -269,7 +435,7 @@ export default function CreateWholesaleProduct() {
                 Create Wholesale Product
               </h1>
               <p className="text-muted-foreground">
-                Set up B2B pricing with MOQ and special terms
+                Industry-standard B2B product setup with advanced wholesale features
               </p>
             </div>
           </div>
@@ -370,46 +536,141 @@ export default function CreateWholesaleProduct() {
                 )}
               />
 
+              {/* Images - Using BulkImageInput */}
               <FormField
                 control={form.control}
-                name="image"
+                name="images"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel>Product Images</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="https://example.com/image.jpg"
-                        data-testid="input-image"
+                      <BulkImageInput
+                        images={field.value}
+                        onChange={field.onChange}
+                        maxImages={10}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Upload multiple images or paste URLs. First image will be the hero image.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* 3-Level Category Selector */}
               <FormField
                 control={form.control}
                 name="category"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <div className="space-y-3">
+                      <Select
+                        value={selectedLevel1}
+                        onValueChange={(value) => {
+                          setSelectedLevel1(value);
+                          setSelectedLevel2("");
+                          setSelectedLevel3("");
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-category-level1">
+                            <SelectValue placeholder="Select Master Category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {level1Categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {selectedLevel1 && level2Categories.length > 0 && (
+                        <Select
+                          value={selectedLevel2}
+                          onValueChange={(value) => {
+                            setSelectedLevel2(value);
+                            setSelectedLevel3("");
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-category-level2">
+                              <SelectValue placeholder="Select Sub Category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {level2Categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {selectedLevel2 && level3Categories.length > 0 && (
+                        <Select
+                          value={selectedLevel3}
+                          onValueChange={setSelectedLevel3}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-category-level3">
+                              <SelectValue placeholder="Select Sub-Sub Category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {level3Categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {field.value && (
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {field.value}
+                        </p>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* SKU Field with Auto-Generate */}
+              <FormField
+                control={form.control}
+                name="sku"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SKU (Stock Keeping Unit)</FormLabel>
+                    <div className="flex gap-2">
                       <FormControl>
-                        <SelectTrigger data-testid="select-category">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <Input
+                          {...field}
+                          placeholder="e.g., APP-A3X9K2"
+                          data-testid="input-sku"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Apparel">Apparel</SelectItem>
-                        <SelectItem value="Accessories">Accessories</SelectItem>
-                        <SelectItem value="Footwear">Footwear</SelectItem>
-                        <SelectItem value="Home & Living">Home & Living</SelectItem>
-                        <SelectItem value="Electronics">Electronics</SelectItem>
-                        <SelectItem value="Beauty">Beauty</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGenerateSKU}
+                        className="gap-2"
+                        data-testid="button-generate-sku"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Generate
+                      </Button>
+                    </div>
+                    <FormDescription>
+                      Optional product tracking code. Click Generate for auto-generated SKU.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -506,7 +767,6 @@ export default function CreateWholesaleProduct() {
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Variant Configuration</h3>
                     
-                    {/* Sizes Section */}
                     <div className="mb-6">
                       <Label className="mb-2 block">Sizes</Label>
                       <div className="flex gap-2 mb-3">
@@ -539,7 +799,6 @@ export default function CreateWholesaleProduct() {
                       </div>
                     </div>
 
-                    {/* Colors Section */}
                     <div className="mb-6">
                       <Label className="mb-2 block">Colors</Label>
                       <div className="flex gap-2 mb-3">
@@ -572,7 +831,6 @@ export default function CreateWholesaleProduct() {
                       </div>
                     </div>
 
-                    {/* Variant Matrix */}
                     {sizes.length > 0 && colors.length > 0 && (
                       <div>
                         <Label className="mb-2 block">Stock for Each Variant</Label>
@@ -612,7 +870,7 @@ export default function CreateWholesaleProduct() {
                           </Table>
                         </div>
                         <p className="text-sm text-muted-foreground mt-2">
-                          Set stock to 0 for made-to-order variants
+                          Enter 0 for Made-to-Order variants (no stock limit)
                         </p>
                       </div>
                     )}
@@ -633,35 +891,122 @@ export default function CreateWholesaleProduct() {
                           data-testid="input-stock"
                         />
                       </FormControl>
-                      <FormDescription>0 = Made to order</FormDescription>
+                      <FormDescription>
+                        Enter 0 for Made-to-Order products (no stock limit). Enter actual quantity for in-stock items.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               )}
 
+              {/* Readiness Configuration - Days OR Fixed Date */}
               <FormField
                 control={form.control}
-                name="readinessDays"
+                name="readinessType"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Readiness Days (Optional)</FormLabel>
+                  <FormItem className="space-y-3">
+                    <FormLabel>Product Readiness</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        placeholder="30"
-                        data-testid="input-readiness-days"
-                      />
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="flex flex-col space-y-1"
+                      >
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="days" data-testid="radio-readiness-days" />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            Days after purchase
+                          </FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="date" data-testid="radio-readiness-date" />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            Fixed delivery date
+                          </FormLabel>
+                        </FormItem>
+                      </RadioGroup>
                     </FormControl>
-                    <FormDescription>
-                      Days required for production/delivery after order
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {readinessType === "days" ? (
+                <FormField
+                  control={form.control}
+                  name="readinessDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Days After Order</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="number"
+                          placeholder="30"
+                          data-testid="input-readiness-days"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Number of days required for production/delivery after order
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="readinessDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Fixed Delivery Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                              data-testid="button-readiness-date"
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date()
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>
+                        Specific date when product will be delivered
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Deposit as Percentage with Real-Time Calculation */}
               <FormField
                 control={form.control}
                 name="requiresDeposit"
@@ -670,7 +1015,7 @@ export default function CreateWholesaleProduct() {
                     <div className="space-y-0.5">
                       <FormLabel>Requires Deposit</FormLabel>
                       <FormDescription>
-                        Request upfront deposit before production
+                        Request upfront deposit before production (industry standard)
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -685,29 +1030,228 @@ export default function CreateWholesaleProduct() {
               />
 
               {requiresDeposit && (
-                <FormField
-                  control={form.control}
-                  name="depositAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Deposit Amount</FormLabel>
+                <>
+                  <FormField
+                    control={form.control}
+                    name="depositPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deposit Percentage</FormLabel>
+                        <FormControl>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                              <Slider
+                                min={0}
+                                max={100}
+                                step={5}
+                                value={[parseFloat(field.value || "30")]}
+                                onValueChange={(values) => field.onChange(values[0].toString())}
+                                className="flex-1"
+                                data-testid="slider-deposit-percentage"
+                              />
+                              <Input
+                                {...field}
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="5"
+                                className="w-20"
+                                data-testid="input-deposit-percentage"
+                              />
+                              <span className="text-sm font-medium">%</span>
+                            </div>
+                            {wholesalePrice && (
+                              <div className="p-3 bg-muted rounded-md space-y-1">
+                                <p className="text-sm">
+                                  <span className="font-medium">Deposit:</span> ${calculatedDeposit}
+                                </p>
+                                <p className="text-sm">
+                                  <span className="font-medium">Balance:</span> ${calculatedBalance}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          Percentage of wholesale price required as upfront deposit
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Balance Payment Terms */}
+                  <FormField
+                    control={form.control}
+                    name="balancePaymentTerms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Balance Payment Terms</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-balance-payment-terms">
+                              <SelectValue placeholder="Select payment terms" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Net 30">Net 30</SelectItem>
+                            <SelectItem value="Net 60">Net 60</SelectItem>
+                            <SelectItem value="Net 90">Net 90</SelectItem>
+                            <SelectItem value="Custom Date">Custom Date</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          When balance payment is due (industry standard)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {balancePaymentTerms === "Custom Date" && (
+                    <FormField
+                      control={form.control}
+                      name="balancePaymentDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Custom Balance Payment Date</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                  data-testid="button-balance-payment-date"
+                                >
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date < new Date()
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormDescription>
+                            Specific date when balance payment is due
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Ship From Warehouse */}
+              <FormField
+                control={form.control}
+                name="shipFromWarehouse"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ship From Warehouse</FormLabel>
+                    <div className="flex gap-2">
                       <FormControl>
                         <Input
                           {...field}
-                          type="number"
-                          step="0.01"
-                          placeholder="25.00"
-                          data-testid="input-deposit-amount"
+                          placeholder="Warehouse address or ID"
+                          disabled={!!authUser?.warehouseStreet}
+                          value={authUser?.warehouseStreet ? 
+                            `${authUser.warehouseStreet}, ${authUser.warehouseCity}, ${authUser.warehouseCountry}` : 
+                            field.value || ""
+                          }
+                          data-testid="input-warehouse"
                         />
                       </FormControl>
-                      <FormDescription>
-                        Fixed deposit amount per unit
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+                      {!authUser?.warehouseStreet && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowWarehouseDialog(true)}
+                          className="gap-2"
+                          data-testid="button-add-warehouse"
+                        >
+                          <Warehouse className="h-4 w-4" />
+                          Add
+                        </Button>
+                      )}
+                    </div>
+                    <FormDescription>
+                      {authUser?.warehouseStreet ? 
+                        "Using your default warehouse address from settings" :
+                        "Where will this product ship from? Add warehouse address in settings."
+                      }
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* T&C File Upload */}
+              <FormField
+                control={form.control}
+                name="termsAndConditionsUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Terms & Conditions (Optional)</FormLabel>
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <div className="flex-1">
+                          <Input
+                            type="file"
+                            accept=".pdf,.docx,.txt"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id="tc-upload"
+                            data-testid="input-tc-file"
+                          />
+                          <label
+                            htmlFor="tc-upload"
+                            className="flex items-center justify-center w-full h-10 px-4 py-2 border border-input bg-background hover-elevate rounded-md cursor-pointer"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {field.value ? "Change File" : "Upload T&C"}
+                          </label>
+                        </div>
+                      </FormControl>
+                    </div>
+                    {field.value && (
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                        <FileText className="h-4 w-4" />
+                        <span className="text-sm flex-1 truncate">{field.value}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => field.onChange("")}
+                          data-testid="button-remove-tc"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <FormDescription>
+                      Upload custom terms and conditions for this product (.pdf, .docx, or .txt)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="flex gap-4 justify-end">
                 <Button
@@ -730,6 +1274,36 @@ export default function CreateWholesaleProduct() {
           </Form>
         </Card>
       </div>
+
+      {/* Warehouse Dialog (Placeholder - redirects to settings) */}
+      <Dialog open={showWarehouseDialog} onOpenChange={setShowWarehouseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Warehouse Address</DialogTitle>
+            <DialogDescription>
+              Please add your warehouse address in your seller settings.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowWarehouseDialog(false)}
+              data-testid="button-warehouse-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowWarehouseDialog(false);
+                setLocation("/seller/settings");
+              }}
+              data-testid="button-warehouse-settings"
+            >
+              Go to Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
