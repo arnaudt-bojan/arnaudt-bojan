@@ -69,10 +69,10 @@ export function WholesaleFiltersSheet({
   const { formatPrice } = useCurrency();
 
   const handleReset = () => {
-    const resetFilters = {
+    const resetFilters: WholesaleFilterOptions = {
       ...DEFAULT_FILTERS,
-      priceRange: [0, maxPrice],
-      moqRange: [0, maxMoq],
+      priceRange: [0, maxPrice] as [number, number],
+      moqRange: [0, maxMoq] as [number, number],
     };
     setFilters(resetFilters);
     onFilterChange(resetFilters);

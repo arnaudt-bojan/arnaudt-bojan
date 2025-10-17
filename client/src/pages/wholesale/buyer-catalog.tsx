@@ -65,8 +65,39 @@ export default function BuyerCatalog() {
   const searchParams = new URLSearchParams(window.location.search);
   const isPreviewMode = searchParams.get('preview') === 'true';
 
+  // Build query string for server-side filtering (Architecture 3)
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    
+    if (searchQuery) params.set('search', searchQuery);
+    if (filters.categoryL1.length > 0) filters.categoryL1.forEach(c => params.append('categoryL1', c));
+    if (filters.categoryL2.length > 0) filters.categoryL2.forEach(c => params.append('categoryL2', c));
+    if (filters.categoryL3.length > 0) filters.categoryL3.forEach(c => params.append('categoryL3', c));
+    if (filters.priceRange[0] > 0) params.set('minPrice', filters.priceRange[0].toString());
+    if (filters.priceRange[1] < 100000) params.set('maxPrice', filters.priceRange[1].toString());
+    if (filters.moqRange[0] > 0) params.set('minMoq', filters.moqRange[0].toString());
+    if (filters.moqRange[1] < 10000) params.set('maxMoq', filters.moqRange[1].toString());
+    if (filters.requiresDeposit !== null) params.set('requiresDeposit', filters.requiresDeposit.toString());
+    if (filters.inStock) params.set('inStock', 'true');
+    if (filters.paymentTerms.length > 0) filters.paymentTerms.forEach(t => params.append('paymentTerms', t));
+    if (filters.readinessType.length > 0) filters.readinessType.forEach(t => params.append('readinessType', t));
+    if (selectedBreadcrumb.level1) params.set('categoryL1', selectedBreadcrumb.level1);
+    if (selectedBreadcrumb.level2) params.set('categoryL2', selectedBreadcrumb.level2);
+    if (selectedBreadcrumb.level3) params.set('categoryL3', selectedBreadcrumb.level3);
+    params.set('sortBy', filters.sortBy);
+    
+    return params.toString();
+  };
+
+  const queryString = buildQueryString();
+  
   const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
-    queryKey: ["/api/wholesale/catalog"],
+    queryKey: ["/api/wholesale/catalog", queryString],
+    queryFn: async () => {
+      const response = await fetch(`/api/wholesale/catalog?${queryString}`);
+      if (!response.ok) throw new Error("Failed to fetch catalog");
+      return response.json();
+    },
   });
 
   // Extract unique categories by parsing the category field (Level 1 > Level 2 > Level 3)
@@ -114,78 +145,8 @@ export default function BuyerCatalog() {
   const maxPrice = products ? Math.max(...products.map(p => parseFloat(p.wholesalePrice)), 100000) : 100000;
   const maxMoq = products ? Math.max(...products.map(p => p.moq), 10000) : 10000;
 
-  // Filter and sort products
-  const filteredProducts = products
-    ?.filter((p) => {
-      // Search query
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch = 
-          p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.sku?.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query);
-        if (!matchesSearch) return false;
-      }
-
-      // Parse category levels
-      const categoryParts = p.category.split('>').map(c => c.trim());
-      const [catL1, catL2, catL3] = categoryParts;
-
-      // Category filters
-      if (filters.categoryL1.length > 0 && !filters.categoryL1.includes(catL1)) return false;
-      if (filters.categoryL2.length > 0 && !filters.categoryL2.includes(catL2)) return false;
-      if (filters.categoryL3.length > 0 && !filters.categoryL3.includes(catL3)) return false;
-
-      // Breadcrumb navigation
-      if (selectedBreadcrumb.level1 && catL1 !== selectedBreadcrumb.level1) return false;
-      if (selectedBreadcrumb.level2 && catL2 !== selectedBreadcrumb.level2) return false;
-      if (selectedBreadcrumb.level3 && catL3 !== selectedBreadcrumb.level3) return false;
-
-      // Price filter
-      const price = parseFloat(p.wholesalePrice);
-      if (price < filters.priceRange[0] || price > filters.priceRange[1]) return false;
-
-      // MOQ filter
-      if (p.moq < filters.moqRange[0] || p.moq > filters.moqRange[1]) return false;
-
-      // Deposit filter
-      if (filters.requiresDeposit !== null) {
-        const hasDeposit = p.requiresDeposit === 1;
-        if (filters.requiresDeposit !== hasDeposit) return false;
-      }
-
-      // Stock filter (stock=0 means unlimited/made-to-order in B2B)
-      if (filters.inStock && p.stock === 0) return false;
-
-      // Payment terms filter
-      if (filters.paymentTerms.length > 0 && !filters.paymentTerms.includes(p.balancePaymentTerms || '')) return false;
-
-      // Readiness type filter
-      if (filters.readinessType.length > 0 && !filters.readinessType.includes(p.readinessType || '')) return false;
-
-      return true;
-    })
-    .sort((a, b) => {
-      switch (filters.sortBy) {
-        case "price-low":
-          return parseFloat(a.wholesalePrice) - parseFloat(b.wholesalePrice);
-        case "price-high":
-          return parseFloat(b.wholesalePrice) - parseFloat(a.wholesalePrice);
-        case "moq-low":
-          return a.moq - b.moq;
-        case "moq-high":
-          return b.moq - a.moq;
-        case "margin-high": {
-          const marginA = ((parseFloat(a.rrp) - parseFloat(a.wholesalePrice)) / parseFloat(a.rrp)) * 100;
-          const marginB = ((parseFloat(b.rrp) - parseFloat(b.wholesalePrice)) / parseFloat(b.rrp)) * 100;
-          return marginB - marginA;
-        }
-        case "newest":
-        default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-    });
+  // Server already filtered/sorted products (Architecture 3)
+  const filteredProducts = products;
 
   // Dynamic grid classes based on card size
   const getGridClasses = () => {

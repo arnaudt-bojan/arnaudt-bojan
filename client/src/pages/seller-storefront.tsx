@@ -22,7 +22,6 @@ interface FilterOptions {
 export default function SellerStorefront() {
   const { username } = useParams();
   const [, setLocation] = useLocation();
-  const { cart } = useCart();
   const [cardSize, setCardSize] = useState<"compact" | "medium" | "large">("medium");
   const [filters, setFilters] = useState<FilterOptions>({
     categories: [],

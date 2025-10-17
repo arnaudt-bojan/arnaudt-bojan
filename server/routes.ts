@@ -8376,8 +8376,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/wholesale/catalog", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
       const buyerId = req.user.claims.sub;
-      const { sellerId } = req.query;
-      const result = await wholesaleService.getBuyerCatalog(buyerId, sellerId);
+      const {
+        sellerId,
+        search,
+        categoryL1,
+        categoryL2,
+        categoryL3,
+        minPrice,
+        maxPrice,
+        minMoq,
+        maxMoq,
+        requiresDeposit,
+        inStock,
+        paymentTerms,
+        readinessType,
+        sortBy
+      } = req.query;
+
+      const filters = {
+        search: search as string,
+        categoryL1: categoryL1 ? (Array.isArray(categoryL1) ? categoryL1 : [categoryL1]) : [],
+        categoryL2: categoryL2 ? (Array.isArray(categoryL2) ? categoryL2 : [categoryL2]) : [],
+        categoryL3: categoryL3 ? (Array.isArray(categoryL3) ? categoryL3 : [categoryL3]) : [],
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        minMoq: minMoq ? parseInt(minMoq as string, 10) : undefined,
+        maxMoq: maxMoq ? parseInt(maxMoq as string, 10) : undefined,
+        requiresDeposit: requiresDeposit === 'true' ? true : requiresDeposit === 'false' ? false : undefined,
+        inStock: inStock === 'true',
+        paymentTerms: paymentTerms ? (Array.isArray(paymentTerms) ? paymentTerms : [paymentTerms]) : [],
+        readinessType: readinessType ? (Array.isArray(readinessType) ? readinessType : [readinessType]) : [],
+        sortBy: sortBy as string || 'newest'
+      };
+
+      const result = await wholesaleService.getBuyerCatalog(buyerId, sellerId as string, filters);
       
       if (!result.success) {
         return res.status(500).json({ message: result.error });

@@ -60,7 +60,7 @@ export class WholesaleService {
     }
   }
 
-  async getBuyerCatalog(buyerId: string, sellerId?: string) {
+  async getBuyerCatalog(buyerId: string, sellerId?: string, filters?: any) {
     try {
       // Get all wholesale access grants for this buyer
       const grants = await this.storage.getWholesaleAccessGrantsByBuyer(buyerId);
@@ -79,10 +79,85 @@ export class WholesaleService {
       }
 
       // Get products from all sellers the buyer has access to
-      const allProducts: any[] = [];
+      let allProducts: any[] = [];
       for (const grant of activeGrants) {
         const products = await this.storage.getWholesaleProductsBySellerId(grant.sellerId);
         allProducts.push(...products);
+      }
+
+      // Apply filters server-side (Architecture 3)
+      if (filters) {
+        allProducts = allProducts.filter(p => {
+          // Search query
+          if (filters.search) {
+            const query = filters.search.toLowerCase();
+            const matchesSearch = 
+              p.name.toLowerCase().includes(query) ||
+              p.description.toLowerCase().includes(query) ||
+              p.sku?.toLowerCase().includes(query) ||
+              p.category.toLowerCase().includes(query);
+            if (!matchesSearch) return false;
+          }
+
+          // Parse category levels
+          const categoryParts = p.category.split('>').map((c: string) => c.trim());
+          const [catL1, catL2, catL3] = categoryParts;
+
+          // Category filters
+          if (filters.categoryL1.length > 0 && !filters.categoryL1.includes(catL1)) return false;
+          if (filters.categoryL2.length > 0 && !filters.categoryL2.includes(catL2)) return false;
+          if (filters.categoryL3.length > 0 && !filters.categoryL3.includes(catL3)) return false;
+
+          // Price filter
+          if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+            const price = parseFloat(p.wholesalePrice);
+            if (filters.minPrice !== undefined && price < filters.minPrice) return false;
+            if (filters.maxPrice !== undefined && price > filters.maxPrice) return false;
+          }
+
+          // MOQ filter
+          if (filters.minMoq !== undefined && p.moq < filters.minMoq) return false;
+          if (filters.maxMoq !== undefined && p.moq > filters.maxMoq) return false;
+
+          // Deposit filter
+          if (filters.requiresDeposit !== undefined) {
+            const hasDeposit = p.requiresDeposit === 1;
+            if (filters.requiresDeposit !== hasDeposit) return false;
+          }
+
+          // Stock filter (stock=0 means unlimited/made-to-order in B2B)
+          if (filters.inStock && p.stock === 0) return false;
+
+          // Payment terms filter
+          if (filters.paymentTerms.length > 0 && !filters.paymentTerms.includes(p.balancePaymentTerms || '')) return false;
+
+          // Readiness type filter
+          if (filters.readinessType.length > 0 && !filters.readinessType.includes(p.readinessType || '')) return false;
+
+          return true;
+        });
+
+        // Apply sorting server-side
+        allProducts.sort((a, b) => {
+          switch (filters.sortBy) {
+            case "price-low":
+              return parseFloat(a.wholesalePrice) - parseFloat(b.wholesalePrice);
+            case "price-high":
+              return parseFloat(b.wholesalePrice) - parseFloat(a.wholesalePrice);
+            case "moq-low":
+              return a.moq - b.moq;
+            case "moq-high":
+              return b.moq - a.moq;
+            case "margin-high": {
+              const marginA = ((parseFloat(a.rrp) - parseFloat(a.wholesalePrice)) / parseFloat(a.rrp)) * 100;
+              const marginB = ((parseFloat(b.rrp) - parseFloat(b.wholesalePrice)) / parseFloat(b.rrp)) * 100;
+              return marginB - marginA;
+            }
+            case "newest":
+            default:
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+        });
       }
 
       return { success: true, data: allProducts };
