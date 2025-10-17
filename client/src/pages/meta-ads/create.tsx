@@ -49,7 +49,7 @@ import {
 import { format } from "date-fns";
 import type { Product } from "@shared/schema";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
 
 // Validation schemas for each step
 const step1Schema = z.object({
@@ -351,9 +351,13 @@ export default function CreateAdWizard() {
       });
     },
     onSuccess: (data: any) => {
+      console.log("[Meta Ads Payment] Budget purchase response:", data);
+      console.log("[Meta Ads Payment] Client secret:", data.clientSecret);
       setClientSecret(data.clientSecret);
+      console.log("[Meta Ads Payment] Client secret state set");
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("[Meta Ads Payment] Budget purchase error:", error);
       toast({
         title: "Error",
         description: "Failed to initiate payment. Please try again.",
@@ -926,38 +930,52 @@ export default function CreateAdWizard() {
         )}
 
         {/* Stripe Payment Form */}
-        {currentStep === 3 && clientSecret && step3Data && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Method</CardTitle>
-              <CardDescription>
-                Enter your payment details to fund your campaign
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <PaymentForm
-                  amount={Number(step3Data.totalBudget)}
-                  onSuccess={handlePaymentSuccess}
-                />
-              </Elements>
+        {(() => {
+          const shouldShowPayment = currentStep === 3 && clientSecret && step3Data;
+          console.log("[Meta Ads Payment] Render check:", {
+            currentStep,
+            hasClientSecret: !!clientSecret,
+            clientSecret: clientSecret?.substring(0, 20) + "...",
+            hasStep3Data: !!step3Data,
+            shouldShowPayment
+          });
+          
+          if (shouldShowPayment) {
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Method</CardTitle>
+                  <CardDescription>
+                    Enter your payment details to fund your campaign
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <PaymentForm
+                      amount={Number(step3Data.totalBudget)}
+                      onSuccess={handlePaymentSuccess}
+                    />
+                  </Elements>
 
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setClientSecret("");
-                    setStep3Data(null);
-                  }}
-                  data-testid="button-back-payment"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Budget
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  <div className="mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setClientSecret("");
+                        setStep3Data(null);
+                      }}
+                      data-testid="button-back-payment"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to Budget
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
 
         {/* Creating Campaign Loading */}
         {createCampaignMutation.isPending && (
