@@ -114,12 +114,12 @@ export function OwnerStorefrontHeader({ cartItemsCount = 0, onCartClick }: Owner
                     Wholesale
                   </Link>
                   <Link
-                    href="/social-ads-setup"
+                    href="/meta-ads/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
                     className="text-base font-medium hover-elevate px-3 py-2.5 rounded-lg"
-                    data-testid="mobile-link-social-ads"
+                    data-testid="mobile-link-meta-ads"
                   >
-                    Social Ads
+                    Meta Ads
                   </Link>
                   <Link
                     href="/newsletter"

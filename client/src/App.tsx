@@ -30,10 +30,6 @@ import Settings from "@/pages/settings";
 import QuickAccess from "@/pages/quick-access";
 import Team from "@/pages/team";
 import AcceptInvitation from "@/pages/accept-invitation";
-import SocialAdsSetup from "@/pages/social-ads-setup";
-import CreateAdCampaign from "@/pages/create-ad-campaign";
-import PromoteProduct from "@/pages/promote-product";
-import CreateMetaCampaign from "@/pages/create-meta-campaign";
 import MetaAdsDashboard from "@/pages/meta-ads/dashboard";
 import CreateAdWizard from "@/pages/meta-ads/create";
 import MetaAdsAnalytics from "@/pages/meta-ads/analytics";
@@ -301,28 +297,7 @@ function AppContent() {
               </Route>
               <Route path="/accept-invitation" component={AcceptInvitation} />
               
-              {/* Seller-only ad routes */}
-              <Route path="/social-ads-setup">
-                {() => (
-                  <ProtectedRoute requireSeller>
-                    <SocialAdsSetup />
-                  </ProtectedRoute>
-                )}
-              </Route>
-              <Route path="/promote-product/:id">
-                {() => (
-                  <ProtectedRoute requireSeller>
-                    <PromoteProduct />
-                  </ProtectedRoute>
-                )}
-              </Route>
-              <Route path="/create-meta-campaign/:id">
-                {() => (
-                  <ProtectedRoute requireSeller>
-                    <CreateMetaCampaign />
-                  </ProtectedRoute>
-                )}
-              </Route>
+              {/* Meta Ads routes */}
               <Route path="/meta-ads/dashboard">
                 {() => (
                   <ProtectedRoute requireSeller>
@@ -341,13 +316,6 @@ function AppContent() {
                 {() => (
                   <ProtectedRoute requireSeller>
                     <MetaAdsAnalytics />
-                  </ProtectedRoute>
-                )}
-              </Route>
-              <Route path="/create-ad-campaign">
-                {() => (
-                  <ProtectedRoute requireSeller>
-                    <CreateAdCampaign />
                   </ProtectedRoute>
                 )}
               </Route>

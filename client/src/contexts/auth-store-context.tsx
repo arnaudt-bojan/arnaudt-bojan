@@ -93,7 +93,7 @@ export function AuthStoreProvider({ children }: { children: ReactNode }) {
                                    (pathname === "/admin") ||
                                    pathname.startsWith("/team") ||
                                    pathname.startsWith("/settings") ||
-                                   pathname.startsWith("/social-ads-setup") ||
+                                   pathname.startsWith("/meta-ads") ||
                                    pathname.startsWith("/newsletter");
     
     // Collaborators and sellers can access dashboard routes
