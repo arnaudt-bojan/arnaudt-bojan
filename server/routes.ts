@@ -6750,8 +6750,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sellerId = req.user.claims.sub;
       const result = await metaOAuthService.startOAuthFlow(sellerId);
 
-      logger.info('[Meta OAuth] Started OAuth flow', { sellerId });
-      res.json(result);
+      logger.info('[Meta OAuth] Started OAuth flow', { sellerId, authUrl: result.authUrl });
+      
+      // Redirect to Meta OAuth URL instead of returning JSON
+      res.redirect(result.authUrl);
     } catch (error: any) {
       logger.error('[Meta OAuth] Start flow error', { error });
       res.status(500).json({ error: error.message || 'Failed to start OAuth flow' });
