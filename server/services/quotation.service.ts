@@ -556,8 +556,6 @@ export class QuotationService {
         quotation.items.map((item) => ({
           unitPrice: Number(item.unitPrice),
           quantity: item.quantity,
-          taxRate: item.taxRate ? Number(item.taxRate) : undefined,
-          shippingCost: item.shippingCost ? Number(item.shippingCost) : undefined,
         }))
       );
 
@@ -1182,11 +1180,11 @@ export class QuotationService {
   // ==========================================================================
 
   /**
-   * Generate unique quotation number in Q-YYYY-NNN format
+   * Generate unique quotation number in QT-YYYY-NNN format
    */
   private async generateQuotationNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const prefix = `Q-${year}-`;
+    const prefix = `QT-${year}-`;
 
     // Get the last quotation number for this year
     const [lastQuotation] = await db
