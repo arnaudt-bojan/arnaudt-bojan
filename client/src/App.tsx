@@ -50,6 +50,7 @@ import BalancePayment from "@/pages/BalancePayment";
 import SellerStorefront from "@/pages/seller-storefront";
 import AdminDashboard from "@/pages/admin-dashboard";
 import SubscriptionSuccess from "@/pages/subscription-success";
+import MetaOAuthSuccess from "@/pages/meta-oauth-success";
 import Help from "@/pages/help";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
@@ -344,6 +345,13 @@ function AppContent() {
                 {() => (
                   <ProtectedRoute requireSeller>
                     <SubscriptionSuccess />
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/meta-oauth-success">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <MetaOAuthSuccess />
                   </ProtectedRoute>
                 )}
               </Route>

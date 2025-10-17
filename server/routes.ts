@@ -6781,14 +6781,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!result.success) {
-        return res.status(400).json({ error: result.error || 'OAuth failed' });
+        return res.redirect('/meta-ads/dashboard?error=' + encodeURIComponent(result.error || 'OAuth failed'));
       }
 
       logger.info('[Meta OAuth] OAuth completed', { sellerId, accountId: result.account?.id });
-      res.json(result);
+      res.redirect('/meta-oauth-success');
     } catch (error: any) {
       logger.error('[Meta OAuth] Callback error', { error });
-      res.status(500).json({ error: error.message || 'Failed to complete OAuth' });
+      res.redirect('/meta-ads/dashboard?error=' + encodeURIComponent(error.message || 'Failed to complete OAuth'));
     }
   });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -321,20 +321,92 @@ function CampaignCardSkeleton() {
 
 export default function MetaAdsDashboard() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [oauthWindow, setOauthWindow] = useState<Window | null>(null);
 
   const { data: campaigns = [], isLoading } = useQuery<MetaCampaign[]>({
     queryKey: ["/api/meta/campaigns"],
   });
 
   // Check if user has connected Meta ad account
-  const { data: adAccounts = [], isLoading: adAccountsLoading } = useQuery<any[]>({
+  const { data: adAccounts = [], isLoading: adAccountsLoading, refetch: refetchAdAccounts } = useQuery<any[]>({
     queryKey: ["/api/meta/ad-accounts"],
   });
 
+  // Listen for postMessage from Meta OAuth success page in popup
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify message is from our origin
+      if (event.origin !== window.location.origin) return;
+      
+      // Check if it's a Meta OAuth success message
+      if (event.data?.type === 'meta_oauth_success') {
+        if (oauthWindow && !oauthWindow.closed) {
+          oauthWindow.close();
+        }
+        setOauthWindow(null);
+        
+        // Refetch ad accounts to update UI
+        setTimeout(async () => {
+          await queryClient.invalidateQueries({ queryKey: ["/api/meta/ad-accounts"] });
+          await refetchAdAccounts();
+          
+          toast({
+            title: "Meta Account Connected!",
+            description: "Your Meta ad account has been successfully linked.",
+          });
+        }, 500);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [oauthWindow, toast, refetchAdAccounts]);
+
+  // Check if OAuth window was closed
+  useEffect(() => {
+    if (!oauthWindow) return;
+
+    const checkWindowClosed = setInterval(() => {
+      if (oauthWindow.closed) {
+        setOauthWindow(null);
+        clearInterval(checkWindowClosed);
+        
+        // Refetch ad accounts in case OAuth was completed
+        setTimeout(async () => {
+          await queryClient.invalidateQueries({ queryKey: ["/api/meta/ad-accounts"] });
+          await refetchAdAccounts();
+        }, 1000);
+      }
+    }, 500);
+
+    return () => clearInterval(checkWindowClosed);
+  }, [oauthWindow, refetchAdAccounts]);
+
   const handleConnectMeta = () => {
-    window.location.href = "/api/meta/oauth/start";
+    // Open OAuth in popup window
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    const newWindow = window.open(
+      '/api/meta/oauth/start',
+      '_blank',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no`
+    );
+    
+    if (newWindow) {
+      setOauthWindow(newWindow);
+    } else {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to connect your Meta account.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Filter campaigns based on search and status
@@ -344,8 +416,26 @@ export default function MetaAdsDashboard() {
     return matchesSearch && matchesStatus;
   });
 
+  // Show loading state while checking ad accounts
+  if (adAccountsLoading) {
+    return (
+      <div className="min-h-screen py-6 md:py-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted">
+                <SiFacebook className="h-8 w-8 text-[#1877F2] animate-pulse" />
+              </div>
+              <p className="text-muted-foreground">Loading Meta Ads...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show "Connect Meta Account" prompt if no ad accounts
-  if (!adAccountsLoading && adAccounts.length === 0) {
+  if (adAccounts.length === 0) {
     return (
       <div className="min-h-screen py-6 md:py-12">
         <div className="container mx-auto px-4 max-w-4xl">
