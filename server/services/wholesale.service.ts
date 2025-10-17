@@ -441,4 +441,188 @@ export class WholesaleService {
       return { success: false, error: "Failed to fetch product" };
     }
   }
+
+  // ============================================================================
+  // Wholesale Cart Methods
+  // ============================================================================
+
+  async addToCart(buyerId: string, itemData: any) {
+    try {
+      const { productId, quantity, variant } = itemData;
+
+      // Get or create cart
+      let cart = await this.storage.getWholesaleCart(buyerId);
+      
+      // Get product to determine seller
+      const product = await this.storage.getWholesaleProduct(productId);
+      if (!product) {
+        return { success: false, error: "Product not found" };
+      }
+
+      if (!cart) {
+        cart = await this.storage.createWholesaleCart(buyerId, product.sellerId);
+      }
+
+      // Validate MOQ
+      if (quantity < product.moq) {
+        return { 
+          success: false, 
+          error: `Minimum order quantity is ${product.moq} units` 
+        };
+      }
+
+      // Normalize variants to handle null/undefined/empty object equivalence
+      const normalizeVariant = (v: any) => {
+        if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) {
+          return null;
+        }
+        return v;
+      };
+      
+      // Normalize ALL existing items first
+      const items = (cart.items || []).map((item: any) => ({
+        ...item,
+        variant: normalizeVariant(item.variant)
+      }));
+      
+      const normalizedVariant = normalizeVariant(variant);
+      
+      const existingItemIndex = items.findIndex((item: any) => {
+        return item.productId === productId && 
+               JSON.stringify(item.variant) === JSON.stringify(normalizedVariant);
+      });
+
+      if (existingItemIndex >= 0) {
+        items[existingItemIndex].quantity = quantity;
+      } else {
+        items.push({ productId, quantity, variant: normalizedVariant });
+      }
+
+      // Update cart
+      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+      
+      return { success: true, data: updatedCart };
+    } catch (error) {
+      logger.error("WholesaleService: Error adding to cart", error);
+      return { success: false, error: "Failed to add item to cart" };
+    }
+  }
+
+  async getCart(buyerId: string) {
+    try {
+      const cart = await this.storage.getWholesaleCart(buyerId);
+      
+      if (!cart) {
+        return { 
+          success: true, 
+          data: { buyerId, items: [], sellerId: null } 
+        };
+      }
+
+      return { success: true, data: cart };
+    } catch (error) {
+      logger.error("WholesaleService: Error fetching cart", error);
+      return { success: false, error: "Failed to fetch cart" };
+    }
+  }
+
+  async updateCartItem(buyerId: string, itemData: any) {
+    try {
+      const { productId, variant, quantity } = itemData;
+
+      const cart = await this.storage.getWholesaleCart(buyerId);
+      if (!cart) {
+        return { success: false, error: "Cart not found" };
+      }
+
+      // Get product to validate MOQ
+      const product = await this.storage.getWholesaleProduct(productId);
+      if (!product) {
+        return { success: false, error: "Product not found" };
+      }
+
+      if (quantity < product.moq) {
+        return { 
+          success: false, 
+          error: `Minimum order quantity is ${product.moq} units` 
+        };
+      }
+
+      // Normalize variants
+      const normalizeVariant = (v: any) => {
+        if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) {
+          return null;
+        }
+        return v;
+      };
+
+      // Normalize all items
+      const items = (cart.items || []).map((item: any) => ({
+        ...item,
+        variant: normalizeVariant(item.variant)
+      }));
+
+      const normalizedVariant = normalizeVariant(variant);
+      
+      const itemIndex = items.findIndex((item: any) => 
+        item.productId === productId && 
+        JSON.stringify(item.variant) === JSON.stringify(normalizedVariant)
+      );
+
+      if (itemIndex >= 0) {
+        items[itemIndex].quantity = quantity;
+        const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+        return { success: true, data: updatedCart };
+      }
+
+      return { success: false, error: "Item not found in cart" };
+    } catch (error) {
+      logger.error("WholesaleService: Error updating cart item", error);
+      return { success: false, error: "Failed to update cart item" };
+    }
+  }
+
+  async removeCartItem(buyerId: string, itemData: any) {
+    try {
+      const { productId, variant } = itemData;
+
+      const cart = await this.storage.getWholesaleCart(buyerId);
+      if (!cart) {
+        return { success: false, error: "Cart not found" };
+      }
+
+      // Normalize variants
+      const normalizeVariant = (v: any) => {
+        if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) {
+          return null;
+        }
+        return v;
+      };
+
+      const normalizedVariant = normalizeVariant(variant);
+
+      // Remove item from cart
+      const items = (cart.items || []).filter((item: any) => {
+        const itemVariant = normalizeVariant(item.variant);
+        return !(item.productId === productId && 
+                 JSON.stringify(itemVariant) === JSON.stringify(normalizedVariant));
+      });
+
+      const updatedCart = await this.storage.updateWholesaleCart(buyerId, items);
+      return { success: true, data: updatedCart };
+    } catch (error) {
+      logger.error("WholesaleService: Error removing cart item", error);
+      return { success: false, error: "Failed to remove cart item" };
+    }
+  }
+
+  async clearCart(buyerId: string) {
+    try {
+      await this.storage.clearWholesaleCart(buyerId);
+      return { success: true };
+    } catch (error) {
+      logger.error("WholesaleService: Error clearing cart", error);
+      return { success: false, error: "Failed to clear cart" };
+    }
+  }
 }

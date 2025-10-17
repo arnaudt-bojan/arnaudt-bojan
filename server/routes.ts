@@ -8397,7 +8397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.success) {
         return res.status(400).json({ message: result.error });
       }
-      res.json(result.cart);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error adding to cart", error);
       res.status(500).json({ message: "Failed to add item to cart" });
@@ -8412,7 +8412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.success) {
         return res.status(500).json({ message: result.error });
       }
-      res.json(result.cart);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error fetching cart", error);
       res.status(500).json({ message: "Failed to fetch cart" });
@@ -8428,12 +8428,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "productId and quantity are required" });
       }
 
-      const result = await wholesaleService.updateCartItem(buyerId, productId, variant, quantity);
+      const result = await wholesaleService.updateCartItem(buyerId, { productId, variant, quantity });
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
       }
-      res.json(result.cart);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error updating cart item", error);
       res.status(500).json({ message: "Failed to update cart item" });
@@ -8443,18 +8443,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/wholesale/cart/item", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
       const buyerId = req.user.claims.sub;
-      const { productId, variant } = req.body;
+      const { productId, variant } = req.query;
       
       if (!productId) {
         return res.status(400).json({ message: "productId is required" });
       }
 
-      const result = await wholesaleService.removeCartItem(buyerId, productId, variant);
+      // Parse variant if it's a JSON string
+      const parsedVariant = variant && typeof variant === 'string' ? JSON.parse(variant) : variant;
+
+      const result = await wholesaleService.removeCartItem(buyerId, { productId: productId as string, variant: parsedVariant });
       
       if (!result.success) {
         return res.status(400).json({ message: result.error });
       }
-      res.json(result.cart);
+      res.json(result.data);
     } catch (error) {
       logger.error("Error removing cart item", error);
       res.status(500).json({ message: "Failed to remove cart item" });

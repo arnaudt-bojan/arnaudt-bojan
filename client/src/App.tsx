@@ -416,6 +416,15 @@ function AppContent() {
                   </ProtectedRoute>
                 )}
               </Route>
+              <Route path="/wholesale/invitations">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <WholesaleInvitations />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
               
               {/* Trade Quotation Routes */}
               <Route path="/seller/trade/quotations">

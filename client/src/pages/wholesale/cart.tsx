@@ -83,7 +83,19 @@ export default function WholesaleCartPage() {
 
   const removeItemMutation = useMutation({
     mutationFn: async ({ productId, variant }: { productId: string; variant: any }) => {
-      return apiRequest("DELETE", "/api/wholesale/cart/item", { productId, variant });
+      const params = new URLSearchParams({ productId });
+      if (variant && Object.keys(variant).length > 0) {
+        params.append('variant', JSON.stringify(variant));
+      }
+      const response = await fetch(`/api/wholesale/cart/item?${params.toString()}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to remove item');
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/wholesale/cart"] });

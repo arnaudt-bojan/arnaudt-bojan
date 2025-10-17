@@ -87,9 +87,7 @@ export default function WholesaleCheckout() {
     queryKey: ["/api/wholesale/cart"],
   });
 
-  const [itemsWithDetails, setItemsWithDetails] = useState<ProductWithDetails[]>([]);
-
-  const { data: products, isLoading } = useQuery({
+  const { data: itemsWithDetails, isLoading } = useQuery<ProductWithDetails[]>({
     queryKey: ["/api/wholesale/cart/details"],
     queryFn: async () => {
       if (!cart?.items || cart.items.length === 0) return [];
@@ -102,7 +100,6 @@ export default function WholesaleCheckout() {
           return { ...item, ...product };
         })
       );
-      setItemsWithDetails(details);
       return details;
     },
     enabled: !!cart?.items && cart.items.length > 0,
@@ -155,12 +152,12 @@ export default function WholesaleCheckout() {
     },
   });
 
-  const subtotal = itemsWithDetails.reduce((sum, item) => {
+  const subtotal = (itemsWithDetails || []).reduce((sum, item) => {
     return sum + parseFloat(item.wholesalePrice) * item.quantity;
   }, 0);
 
-  const requiresDeposit = itemsWithDetails.some((item) => item.requiresDeposit === 1);
-  const depositAmount = itemsWithDetails.reduce((sum, item) => {
+  const requiresDeposit = (itemsWithDetails || []).some((item) => item.requiresDeposit === 1);
+  const depositAmount = (itemsWithDetails || []).reduce((sum, item) => {
     if (item.requiresDeposit !== 1) return sum;
     const itemSubtotal = parseFloat(item.wholesalePrice) * item.quantity;
     if (item.depositAmount) {
