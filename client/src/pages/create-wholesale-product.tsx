@@ -8,9 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -87,7 +85,6 @@ const wholesaleProductSchema = z.object({
   moq: z.string().min(1, "MOQ is required").refine((val) => !isNaN(parseInt(val)) && parseInt(val) > 0, {
     message: "MOQ must be a positive integer",
   }),
-  requiresDeposit: z.boolean().default(false),
   depositPercentage: z.string().optional(),
   balancePaymentTerms: z.string().optional(),
   balancePaymentDate: z.date().optional(),
@@ -177,9 +174,8 @@ export default function CreateWholesaleProduct() {
       rrp: "",
       wholesalePrice: "",
       moq: "10",
-      requiresDeposit: false,
-      depositPercentage: "30",
-      balancePaymentTerms: "Net 30",
+      depositPercentage: "",
+      balancePaymentTerms: "",
       stock: "0",
       readinessType: "days",
       readinessDays: "30",
@@ -203,7 +199,6 @@ export default function CreateWholesaleProduct() {
   }, [authUser]);
 
   const useExisting = form.watch("useExisting");
-  const requiresDeposit = form.watch("requiresDeposit");
   const depositPercentage = form.watch("depositPercentage");
   const wholesalePrice = form.watch("wholesalePrice");
   const readinessType = form.watch("readinessType");
@@ -240,14 +235,6 @@ export default function CreateWholesaleProduct() {
       form.setValue("category", categoryValue, { shouldValidate: true });
     }
   }, [selectedLevel1, selectedLevel2, selectedLevel3, categories]);
-
-  // Calculate deposit and balance amounts
-  const calculatedDeposit = requiresDeposit && depositPercentage && wholesalePrice
-    ? (parseFloat(wholesalePrice) * parseFloat(depositPercentage) / 100).toFixed(2)
-    : "0.00";
-  const calculatedBalance = requiresDeposit && depositPercentage && wholesalePrice
-    ? (parseFloat(wholesalePrice) - parseFloat(calculatedDeposit)).toFixed(2)
-    : wholesalePrice || "0.00";
 
   const handleProductSelect = (productId: string) => {
     const product = existingProducts?.find(p => p.id === productId);
@@ -375,9 +362,8 @@ export default function CreateWholesaleProduct() {
         rrp: data.rrp,
         wholesalePrice: data.wholesalePrice,
         moq: parseInt(data.moq),
-        requiresDeposit: data.requiresDeposit ? 1 : 0,
-        depositPercentage: data.requiresDeposit && data.depositPercentage ? parseFloat(data.depositPercentage) : null,
-        balancePaymentTerms: data.requiresDeposit ? data.balancePaymentTerms : null,
+        depositPercentage: data.depositPercentage ? parseFloat(data.depositPercentage) : null,
+        balancePaymentTerms: data.balancePaymentTerms || null,
         balancePaymentDate: data.balancePaymentDate || null,
         stock: parseInt(data.stock),
         readinessType: data.readinessType,
@@ -989,156 +975,109 @@ export default function CreateWholesaleProduct() {
                 />
               )}
 
-              {/* Deposit as Percentage with Real-Time Calculation */}
+              {/* Deposit Percentage - Simple Text Input */}
               <FormField
                 control={form.control}
-                name="requiresDeposit"
+                name="depositPercentage"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel>Requires Deposit</FormLabel>
-                      <FormDescription>
-                        Request upfront deposit before production (industry standard)
-                      </FormDescription>
-                    </div>
+                  <FormItem>
+                    <FormLabel>Deposit Percentage</FormLabel>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-requires-deposit"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          {...field}
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="30"
+                          className="max-w-[200px]"
+                          data-testid="input-deposit-percentage"
+                        />
+                        <span className="text-sm font-medium">%</span>
+                      </div>
                     </FormControl>
+                    <FormDescription>
+                      Percentage of wholesale price required as upfront deposit
+                    </FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {requiresDeposit && (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="depositPercentage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Deposit Percentage</FormLabel>
-                        <FormControl>
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                              <Slider
-                                min={0}
-                                max={100}
-                                step={5}
-                                value={[parseFloat(field.value || "30")]}
-                                onValueChange={(values) => field.onChange(values[0].toString())}
-                                className="flex-1"
-                                data-testid="slider-deposit-percentage"
-                              />
-                              <Input
-                                {...field}
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="5"
-                                className="w-20"
-                                data-testid="input-deposit-percentage"
-                              />
-                              <span className="text-sm font-medium">%</span>
-                            </div>
-                            {wholesalePrice && (
-                              <div className="p-3 bg-muted rounded-md space-y-1">
-                                <p className="text-sm">
-                                  <span className="font-medium">Deposit:</span> ${calculatedDeposit}
-                                </p>
-                                <p className="text-sm">
-                                  <span className="font-medium">Balance:</span> ${calculatedBalance}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormDescription>
-                          Percentage of wholesale price required as upfront deposit
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {/* Balance Payment Terms */}
+              <FormField
+                control={form.control}
+                name="balancePaymentTerms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Balance Payment Terms</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-balance-payment-terms">
+                          <SelectValue placeholder="Select payment terms" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Net 30">Net 30</SelectItem>
+                        <SelectItem value="Net 60">Net 60</SelectItem>
+                        <SelectItem value="Net 90">Net 90</SelectItem>
+                        <SelectItem value="Custom Date">Custom Date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      When balance payment is due (industry standard)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                  {/* Balance Payment Terms */}
-                  <FormField
-                    control={form.control}
-                    name="balancePaymentTerms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Balance Payment Terms</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+              {balancePaymentTerms === "Custom Date" && (
+                <FormField
+                  control={form.control}
+                  name="balancePaymentDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Custom Balance Payment Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <FormControl>
-                            <SelectTrigger data-testid="select-balance-payment-terms">
-                              <SelectValue placeholder="Select payment terms" />
-                            </SelectTrigger>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                              data-testid="button-balance-payment-date"
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Net 30">Net 30</SelectItem>
-                            <SelectItem value="Net 60">Net 60</SelectItem>
-                            <SelectItem value="Net 90">Net 90</SelectItem>
-                            <SelectItem value="Custom Date">Custom Date</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          When balance payment is due (industry standard)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {balancePaymentTerms === "Custom Date" && (
-                    <FormField
-                      control={form.control}
-                      name="balancePaymentDate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Custom Balance Payment Date</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                  data-testid="button-balance-payment-date"
-                                >
-                                  {field.value ? (
-                                    format(field.value, "PPP")
-                                  ) : (
-                                    <span>Pick a date</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                disabled={(date) =>
-                                  date < new Date()
-                                }
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormDescription>
-                            Specific date when balance payment is due
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date()
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>
+                        Specific date when balance payment is due
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </>
+                />
               )}
 
               {/* Ship From Warehouse - Editable Fields */}
