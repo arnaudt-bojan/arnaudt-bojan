@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useSEO } from "@/hooks/use-seo";
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,6 +40,14 @@ export default function ExperiencePage() {
   const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+
+  // Intersection observers for scroll animations
+  const heroSection = useIntersectionObserver({ threshold: 0.2 });
+  const retailSection = useIntersectionObserver({ threshold: 0.2 });
+  const wholesaleSection = useIntersectionObserver({ threshold: 0.2 });
+  const tradeSection = useIntersectionObserver({ threshold: 0.2 });
+  const pricingSection = useIntersectionObserver({ threshold: 0.2 });
+  const faqSection = useIntersectionObserver({ threshold: 0.2 });
 
   // SEO Optimization with Structured Data
   useSEO({
@@ -249,7 +258,13 @@ export default function ExperiencePage() {
       </header>
 
       {/* Hero Section */}
-      <section id="overview" className="py-20 md:py-32 bg-gradient-to-b from-background to-accent/5">
+      <section 
+        id="overview" 
+        ref={heroSection.ref}
+        className={`py-20 md:py-32 bg-gradient-to-b from-background to-accent/5 transition-all duration-1000 ${
+          heroSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="container">
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <Badge className="mx-auto" data-testid="badge-platform">
@@ -368,7 +383,13 @@ export default function ExperiencePage() {
       </section>
 
       {/* Retail B2C Section */}
-      <section id="retail" className="py-20 bg-background">
+      <section 
+        id="retail" 
+        ref={retailSection.ref}
+        className={`py-20 bg-background transition-all duration-1000 ${
+          retailSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="container">
           <div className="max-w-6xl mx-auto space-y-12">
             <div className="text-center space-y-4">
@@ -451,7 +472,13 @@ export default function ExperiencePage() {
       </section>
 
       {/* B2B Wholesale Section */}
-      <section id="wholesale" className="py-20 bg-accent/5">
+      <section 
+        id="wholesale" 
+        ref={wholesaleSection.ref}
+        className={`py-20 bg-accent/5 transition-all duration-1000 ${
+          wholesaleSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="container">
           <div className="max-w-6xl mx-auto space-y-12">
             <div className="text-center space-y-4">
@@ -574,7 +601,13 @@ export default function ExperiencePage() {
       </section>
 
       {/* Trade Quotation Section */}
-      <section id="trade" className="py-20 bg-background">
+      <section 
+        id="trade" 
+        ref={tradeSection.ref}
+        className={`py-20 bg-background transition-all duration-1000 ${
+          tradeSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="container">
           <div className="max-w-6xl mx-auto space-y-12">
             <div className="text-center space-y-4">
@@ -657,7 +690,13 @@ export default function ExperiencePage() {
       </section>
 
       {/* Pricing Overview */}
-      <section id="pricing" className="py-20 bg-accent/5">
+      <section 
+        id="pricing" 
+        ref={pricingSection.ref}
+        className={`py-20 bg-accent/5 transition-all duration-1000 ${
+          pricingSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="container">
           <div className="max-w-6xl mx-auto space-y-12">
             <div className="text-center space-y-4">
@@ -792,7 +831,13 @@ export default function ExperiencePage() {
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-20 bg-background">
+      <section 
+        id="faq" 
+        ref={faqSection.ref}
+        className={`py-20 bg-background transition-all duration-1000 ${
+          faqSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
         <div className="container">
           <div className="max-w-3xl mx-auto space-y-8">
             <div className="text-center space-y-4">
