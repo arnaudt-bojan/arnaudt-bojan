@@ -85,10 +85,14 @@ export default function ProductDetail() {
     queryKey: ["/api/categories"],
   });
 
-  // Construct variant ID for stock checking (size-color format)
+  // Construct variant ID for stock checking
+  // Color-size variants: "size-color" format (e.g., "m-red")
+  // Size-only variants: just "size" (e.g., "m")
   const variantId = selectedColor && selectedSize 
     ? `${selectedSize}-${selectedColor}`.toLowerCase()
-    : null;
+    : selectedSize
+      ? selectedSize.toLowerCase()
+      : null;
 
   // Build stock availability query URL
   const stockQueryUrl = productId 
