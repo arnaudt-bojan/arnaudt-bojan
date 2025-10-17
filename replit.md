@@ -43,7 +43,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Bulk Product Upload System:** Shopify-class bulk upload with comprehensive CSV import, job tracking, validation, and rollback, including URL-safe delimiters and real-time error reporting.
 -   **AI-Powered Field Mapping:** Google Gemini AI integration for intelligent CSV column mapping to database schema, enabling universal CSV import compatibility without requiring specific formats.
 -   **Newsletter System:** Enterprise-grade email marketing platform with campaign management, subscriber handling, segmentation, compliance, a database-persistent job queue, multi-ESP support, and a rich text editor (TinyMCE).
--   **Meta Ads B2C Platform:** Self-service social advertising system for Meta (Facebook/Instagram) campaigns, integrating with Meta Marketing API, Gemini AI for ad intelligence, and Stripe for payments. Features OAuth, AI-powered ad copy, Advantage+ optimization, 20% Upfirst fee on ad spend, credit-based budget system, real-time analytics, and automated low-balance alerts.
+-   **Meta Ads B2C Platform:** Self-service social advertising system for Meta (Facebook/Instagram) campaigns, integrating with Meta Marketing API, Gemini AI for ad intelligence, and Stripe for payments. Features popup-based OAuth (like Stripe Connect), AI-powered ad copy, Advantage+ optimization, 20% Upfirst fee on ad spend, credit-based budget system, real-time analytics, and automated low-balance alerts. OAuth flow opens in popup window to avoid Replit URL bar restrictions.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
