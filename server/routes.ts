@@ -240,7 +240,8 @@ const wholesalePaymentService = new WholesalePaymentService(
 const wholesaleShippingService = new WholesaleShippingService(storage);
 
 // Initialize Wholesale Pricing service for B2B pricing calculations (Architecture 3)
-const wholesalePricingService = new WholesalePricingService(storage);
+// Delegate common pricing logic (shipping, tax, currency) to PricingCalculationService (DRY refactoring)
+const wholesalePricingService = new WholesalePricingService(storage, pricingCalculationService);
 
 // Initialize Team Management service (Architecture 3 migration)
 const teamService = new TeamManagementService(storage);
@@ -8545,6 +8546,219 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wholesale Cart Details - Enhanced with pre-calculated pricing (Architecture 3)
+  app.get("/api/wholesale/cart/details", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      const buyerId = req.user.claims.sub;
+      
+      // Get cart
+      const cartResult = await wholesaleService.getCart(buyerId);
+      if (!cartResult.success) {
+        return res.status(500).json({ message: cartResult.error || "Failed to fetch cart" });
+      }
+
+      const cart = cartResult.data;
+      
+      // Return empty cart if no items
+      if (!cart || !cart.items || cart.items.length === 0) {
+        return res.json({
+          items: [],
+          subtotalCents: 0,
+          currency: 'USD',
+        });
+      }
+
+      // Detect currency from cart or request
+      const currency = cart.currency || await getCurrencyFromRequest(req);
+      
+      // Fetch exchange rates for currency conversion
+      const exchangeData = await getExchangeRates();
+      const exchangeRate = currency !== 'USD' ? exchangeData.rates[currency] || 1 : undefined;
+
+      // Enrich cart items with pricing details
+      const enrichedItems = [];
+      let subtotalCents = 0;
+
+      for (const item of cart.items) {
+        // Get product details
+        const product = await storage.getWholesaleProduct(item.productId);
+        
+        if (!product) {
+          logger.warn('[Cart Details] Product not found', { productId: item.productId });
+          continue;
+        }
+
+        // Calculate unit price (USD cents)
+        let unitPriceCents = Math.round(parseFloat(product.wholesalePrice) * 100);
+        
+        // Check for variant-specific pricing
+        if (item.variant && product.variants) {
+          const variants = Array.isArray(product.variants) ? product.variants : [];
+          const matchingVariant = variants.find((v: any) => 
+            (item.variant?.variantId && v.variantId === item.variant.variantId) ||
+            (v.size === item.variant?.size && v.color === item.variant?.color)
+          );
+          
+          if (matchingVariant?.wholesalePrice) {
+            unitPriceCents = Math.round(parseFloat(matchingVariant.wholesalePrice) * 100);
+          }
+        }
+
+        // Calculate item subtotal in USD cents
+        const itemSubtotalCents = unitPriceCents * item.quantity;
+        
+        // Convert to target currency if needed
+        const convertedUnitPriceCents = currency !== 'USD' 
+          ? Math.round(unitPriceCents * (exchangeRate || 1))
+          : unitPriceCents;
+        const convertedSubtotalCents = currency !== 'USD'
+          ? Math.round(itemSubtotalCents * (exchangeRate || 1))
+          : itemSubtotalCents;
+
+        enrichedItems.push({
+          productId: item.productId,
+          productName: product.name,
+          productImage: product.image,
+          quantity: item.quantity,
+          variant: item.variant,
+          unitPriceCents: convertedUnitPriceCents,
+          subtotalCents: convertedSubtotalCents,
+          moq: product.moq,
+        });
+
+        subtotalCents += convertedSubtotalCents;
+      }
+
+      // Return enriched cart details
+      res.json({
+        items: enrichedItems,
+        subtotalCents,
+        currency,
+        exchangeRate,
+      });
+    } catch (error: any) {
+      logger.error("Error fetching cart details", error);
+      res.status(500).json({ message: "Failed to fetch cart details" });
+    }
+  });
+
+  // Wholesale Pricing Breakdown - Complete pricing calculations (Architecture 3)
+  app.post("/api/wholesale/pricing/breakdown", requireAuth, requireUserType('buyer'), async (req: any, res) => {
+    try {
+      // Detect currency from request (Accept-Currency header or IP-based fallback)
+      const currency = req.body.currency || await getCurrencyFromRequest(req);
+      
+      // Zod schema for pricing breakdown request validation
+      const pricingBreakdownRequestSchema = z.object({
+        sellerId: z.string().min(1),
+        items: z.array(z.object({
+          productId: z.string(),
+          quantity: z.number().int().positive(),
+          variant: z.object({
+            size: z.string().optional(),
+            color: z.string().optional(),
+            variantId: z.string().optional()
+          }).optional()
+        })).min(1),
+        shippingMethod: z.string().optional(),
+        currency: z.string().length(3).optional(),
+        shippingAddress: z.object({
+          line1: z.string(),
+          line2: z.string().optional(),
+          city: z.string(),
+          state: z.string(),
+          postalCode: z.string(),
+          country: z.string(),
+        }).optional(),
+      });
+
+      // Validate request body
+      const validation = pricingBreakdownRequestSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: fromZodError(validation.error).message });
+      }
+
+      const { sellerId, items, shippingAddress, shippingMethod } = validation.data;
+
+      // Get seller to fetch deposit settings
+      const seller = await storage.getUser(sellerId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // Calculate deposit from seller settings (priority: fixed amount > percentage > none)
+      let depositPercentage: number | undefined;
+      let depositAmountCents: number | undefined;
+
+      if (seller.depositAmountCents !== undefined && seller.depositAmountCents >= 0) {
+        depositAmountCents = seller.depositAmountCents;
+      } else if (seller.depositPercentage !== undefined && seller.depositPercentage >= 0) {
+        depositPercentage = seller.depositPercentage;
+      }
+
+      // Calculate wholesale pricing using WholesalePricingService (with shipping and tax calculation if address provided)
+      const pricingResult = await wholesalePricingService.calculateWholesalePricing({
+        cartItems: items,
+        sellerId,
+        depositPercentage,
+        depositAmountCents,
+        currency,
+        shippingAddress,
+        shippingMethod: shippingMethod as 'freight_collect' | 'buyer_pickup' | 'seller_shipping' | undefined,
+      });
+
+      if (!pricingResult.success) {
+        return res.status(400).json({ 
+          error: pricingResult.error || "Failed to calculate pricing",
+          moqErrors: pricingResult.moqErrors || [],
+        });
+      }
+
+      // Enrich items with deposit information
+      const enrichedItems = pricingResult.validatedItems.map((item: any) => {
+        const depositInfo: any = {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPriceCents,
+          subtotalCents: item.subtotalCents,
+        };
+
+        // Add deposit information if applicable
+        if (depositPercentage !== undefined) {
+          depositInfo.depositPercentage = depositPercentage;
+          depositInfo.depositAmountCents = Math.round(item.subtotalCents * (depositPercentage / 100));
+        } else if (depositAmountCents !== undefined) {
+          // For fixed deposit amount, distribute proportionally across items
+          const itemDepositCents = Math.round(
+            (item.subtotalCents / pricingResult.subtotalCents) * depositAmountCents
+          );
+          depositInfo.depositAmountCents = itemDepositCents;
+        }
+
+        return depositInfo;
+      });
+
+      // Return complete pricing breakdown with shipping and tax
+      res.json({
+        currency: pricingResult.currency,
+        exchangeRate: pricingResult.exchangeRate,
+        items: enrichedItems,
+        subtotalCents: pricingResult.subtotalCents,
+        depositAmountCents: pricingResult.depositCents,
+        balanceAmountCents: pricingResult.balanceCents,
+        taxCents: pricingResult.taxCents,
+        taxRate: pricingResult.taxRate,
+        taxCalculationId: pricingResult.taxCalculationId,
+        shippingCents: pricingResult.shippingCents,
+        shippingMethod: pricingResult.shippingMethod,
+        totalCents: pricingResult.totalCents, // subtotal + shipping + tax
+      });
+    } catch (error: any) {
+      logger.error("Error calculating pricing breakdown", error);
+      res.status(500).json({ error: error.message || "Failed to calculate pricing breakdown" });
+    }
+  });
+
   // Wholesale pricing calculation endpoint (Architecture 3)
   app.post("/api/wholesale/pricing", requireAuth, requireUserType('buyer'), async (req: any, res) => {
     try {
@@ -8564,7 +8778,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }).optional()
         })).min(1),
         depositPercentage: z.number().min(0).max(100).optional(),
-        depositAmountCents: z.number().int().min(0).optional()
+        depositAmountCents: z.number().int().min(0).optional(),
+        shippingMethod: z.string().optional(),
+        shippingAddress: z.object({
+          line1: z.string(),
+          line2: z.string().optional(),
+          city: z.string(),
+          state: z.string(),
+          postalCode: z.string(),
+          country: z.string(),
+        }).optional(),
       });
 
       // Validate request body with Zod schema
@@ -8573,26 +8796,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: fromZodError(validation.error).message });
       }
 
-      const { sellerId, cartItems, depositPercentage, depositAmountCents } = validation.data;
+      const { sellerId, cartItems, depositPercentage, depositAmountCents, shippingAddress, shippingMethod } = validation.data;
 
-      // Calculate wholesale pricing using WholesalePricingService
+      // Calculate wholesale pricing using WholesalePricingService (with shipping and tax if address provided)
       const pricingResult = await wholesalePricingService.calculateWholesalePricing({
         cartItems,
         sellerId,
         depositPercentage,
         depositAmountCents,
+        shippingAddress,
+        shippingMethod: shippingMethod as 'freight_collect' | 'buyer_pickup' | 'seller_shipping' | undefined,
       });
 
       if (!pricingResult.success) {
         return res.status(400).json({ error: pricingResult.error || "Failed to calculate pricing" });
       }
 
-      // Return pricing breakdown with detected currency
+      // Return pricing breakdown with shipping and tax fields
       res.json({
         currency,
         subtotalCents: pricingResult.subtotalCents,
         depositCents: pricingResult.depositCents,
         balanceCents: pricingResult.balanceCents,
+        taxCents: pricingResult.taxCents,
+        taxRate: pricingResult.taxRate,
+        taxCalculationId: pricingResult.taxCalculationId,
+        shippingCents: pricingResult.shippingCents,
+        shippingMethod: pricingResult.shippingMethod,
+        totalCents: pricingResult.totalCents,
         validatedItems: pricingResult.validatedItems,
         moqErrors: pricingResult.moqErrors || [],
       });

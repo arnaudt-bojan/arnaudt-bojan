@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ShoppingCart, Trash2, AlertCircle } from "lucide-react";
-import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
+import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
@@ -24,14 +24,25 @@ interface WholesaleCart {
   items: CartItem[];
 }
 
-interface ProductWithDetails extends CartItem {
-  name: string;
-  image: string;
-  wholesalePrice: string;
+interface CartItemWithDetails {
+  productId: string;
+  productName: string;
+  productImage: string;
+  quantity: number;
+  variant?: {
+    size?: string;
+    color?: string;
+  };
+  unitPriceCents: number;
+  subtotalCents: number;
   moq: number;
-  requiresDeposit: number;
-  depositAmount?: string;
-  depositPercentage?: number;
+}
+
+interface CartDetails {
+  items: CartItemWithDetails[];
+  subtotalCents: number;
+  currency: string;
+  exchangeRate?: number;
 }
 
 export default function WholesaleCartPage() {
@@ -43,26 +54,12 @@ export default function WholesaleCartPage() {
     queryKey: ["/api/wholesale/cart"],
   });
 
-  const [itemsWithDetails, setItemsWithDetails] = useState<ProductWithDetails[]>([]);
-
-  const { data: products, isLoading: productsLoading } = useQuery({
+  const { data: cartDetails, isLoading: productsLoading } = useQuery<CartDetails>({
     queryKey: ["/api/wholesale/cart/details"],
-    queryFn: async () => {
-      if (!cart?.items || cart.items.length === 0) return [];
-      
-      const details = await Promise.all(
-        cart.items.map(async (item) => {
-          const res = await fetch(`/api/wholesale/products/${item.productId}`);
-          if (!res.ok) throw new Error("Failed to fetch product");
-          const product = await res.json();
-          return { ...item, ...product };
-        })
-      );
-      setItemsWithDetails(details);
-      return details;
-    },
     enabled: !!cart?.items && cart.items.length > 0,
   });
+
+  const itemsWithDetails = cartDetails?.items || [];
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ productId, variant, quantity }: { productId: string; variant: any; quantity: number }) => {
@@ -114,7 +111,7 @@ export default function WholesaleCartPage() {
     },
   });
 
-  const handleQuantityChange = (item: ProductWithDetails, newQuantity: number) => {
+  const handleQuantityChange = (item: CartItemWithDetails, newQuantity: number) => {
     if (newQuantity < 0) return;
     updateItemMutation.mutate({
       productId: item.productId,
@@ -123,18 +120,15 @@ export default function WholesaleCartPage() {
     });
   };
 
-  const handleRemoveItem = (item: ProductWithDetails) => {
+  const handleRemoveItem = (item: CartItemWithDetails) => {
     removeItemMutation.mutate({
       productId: item.productId,
       variant: item.variant,
     });
   };
 
-  // Architecture 3: Backend should provide subtotal pre-calculated
-  // For display purposes, calculate from backend prices (already in correct currency)
-  const subtotal = itemsWithDetails.reduce((sum, item) => {
-    return sum + parseFloat(item.wholesalePrice) * item.quantity;
-  }, 0);
+  // Use backend-calculated subtotal (Architecture 3)
+  const subtotal = cartDetails?.subtotalCents || 0;
 
   const validationErrors: string[] = [];
   itemsWithDetails.forEach((item) => {
@@ -142,7 +136,7 @@ export default function WholesaleCartPage() {
       const variantLabel = item.variant
         ? ` (${item.variant.size || ""}${item.variant.size && item.variant.color ? "/" : ""}${item.variant.color || ""})`
         : "";
-      validationErrors.push(`${item.name}${variantLabel}: Quantity ${item.quantity} is below MOQ of ${item.moq}`);
+      validationErrors.push(`${item.productName}${variantLabel}: Quantity ${item.quantity} is below MOQ of ${item.moq}`);
     }
   });
 
@@ -200,8 +194,8 @@ export default function WholesaleCartPage() {
                   <div className="flex gap-6">
                     <div className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-lg">
                       <img
-                        src={item.image}
-                        alt={item.name}
+                        src={item.productImage}
+                        alt={item.productName}
                         className="w-full h-full object-cover"
                         data-testid={`img-item-${index}`}
                       />
@@ -211,7 +205,7 @@ export default function WholesaleCartPage() {
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-semibold text-lg" data-testid={`text-item-name-${index}`}>
-                            {item.name}
+                            {item.productName}
                           </h3>
                           {item.variant && (
                             <p className="text-sm text-muted-foreground" data-testid={`text-item-variant-${index}`}>
@@ -250,10 +244,10 @@ export default function WholesaleCartPage() {
 
                       <div className="flex justify-between items-center">
                         <div className="text-sm text-muted-foreground">
-                          Unit Price: {formatCurrency(parseFloat(item.wholesalePrice), currency)}
+                          Unit Price: {formatCurrencyFromCents(item.unitPriceCents, currency)}
                         </div>
                         <div className="text-lg font-semibold" data-testid={`text-item-subtotal-${index}`}>
-                          {formatCurrency(parseFloat(item.wholesalePrice) * item.quantity, currency)}
+                          {formatCurrencyFromCents(item.subtotalCents, currency)}
                         </div>
                       </div>
 
@@ -281,7 +275,7 @@ export default function WholesaleCartPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-semibold" data-testid="text-subtotal">
-                    {formatCurrency(subtotal, currency)}
+                    {formatCurrencyFromCents(subtotal, currency)}
                   </span>
                 </div>
 
@@ -290,7 +284,7 @@ export default function WholesaleCartPage() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">Total</span>
                   <span className="text-2xl font-bold" data-testid="text-total">
-                    {formatCurrency(subtotal, currency)}
+                    {formatCurrencyFromCents(subtotal, currency)}
                   </span>
                 </div>
 

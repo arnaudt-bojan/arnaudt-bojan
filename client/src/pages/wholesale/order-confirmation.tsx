@@ -27,6 +27,7 @@ interface WholesaleOrder {
     productName: string;
     quantity: number;
     unitPriceCents: number;
+    subtotalCents: number;
     variant?: {
       size?: string;
       color?: string;
@@ -137,7 +138,7 @@ export default function OrderConfirmation() {
                       </div>
                     </div>
                     <div className="font-semibold" data-testid={`text-item-total-${index}`}>
-                      {formatCurrencyFromCents(item.unitPriceCents * item.quantity, currency)}
+                      {formatCurrencyFromCents(item.subtotalCents, currency)}
                     </div>
                   </div>
                 ))}

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
+import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -48,18 +48,47 @@ interface WholesaleCart {
   items: CartItem[];
 }
 
-interface ProductWithDetails extends CartItem {
-  name: string;
-  image: string;
-  wholesalePrice: string;
+interface ProductWithDetails {
+  productId: string;
+  productName: string;
+  productImage: string;
+  quantity: number;
+  variant?: {
+    size?: string;
+    color?: string;
+  };
+  unitPriceCents: number;
+  subtotalCents: number;
+  moq: number;
   sellerId: string;
   requiresDeposit: number;
-  depositAmount?: string;
   depositPercentage?: number;
   balancePaymentDate?: string;
   expectedShipDate?: string;
   orderDeadline?: string;
-  moq: number;
+  sellerWarehouseAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+}
+
+interface PricingBreakdown {
+  currency: string;
+  exchangeRate?: number;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPriceCents: number;
+    subtotalCents: number;
+    depositPercentage?: number;
+    depositAmountCents?: number;
+  }>;
+  subtotalCents: number;
+  depositAmountCents: number;
+  balanceAmountCents: number;
+  totalCents: number;
 }
 
 export default function WholesaleCheckout() {
@@ -87,8 +116,9 @@ export default function WholesaleCheckout() {
     queryKey: ["/api/wholesale/cart"],
   });
 
-  const { data: itemsWithDetails, isLoading } = useQuery<ProductWithDetails[]>({
-    queryKey: ["/api/wholesale/cart/details"],
+  // Fetch product details to get seller info and other metadata
+  const { data: productDetails, isLoading: productsLoading } = useQuery<ProductWithDetails[]>({
+    queryKey: ["/api/wholesale/cart/product-details"],
     queryFn: async () => {
       if (!cart?.items || cart.items.length === 0) return [];
       
@@ -97,13 +127,51 @@ export default function WholesaleCheckout() {
           const res = await fetch(`/api/wholesale/products/${item.productId}`);
           if (!res.ok) throw new Error("Failed to fetch product");
           const product = await res.json();
-          return { ...item, ...product };
+          return { 
+            ...item,
+            productId: item.productId,
+            productName: product.name,
+            productImage: product.image,
+            moq: product.moq,
+            sellerId: product.sellerId,
+            requiresDeposit: product.requiresDeposit,
+            depositPercentage: product.depositPercentage,
+            balancePaymentDate: product.balancePaymentDate,
+            expectedShipDate: product.expectedShipDate,
+            orderDeadline: product.orderDeadline,
+            sellerWarehouseAddress: product.sellerWarehouseAddress,
+            unitPriceCents: 0,
+            subtotalCents: 0,
+          };
         })
       );
       return details;
     },
     enabled: !!cart?.items && cart.items.length > 0,
   });
+
+  // Fetch pricing breakdown with deposit/balance calculations
+  const { data: pricingBreakdown, isLoading: pricingLoading } = useQuery<PricingBreakdown>({
+    queryKey: ["/api/wholesale/pricing/breakdown", productDetails?.[0]?.sellerId, cart?.items],
+    queryFn: async () => {
+      if (!productDetails || productDetails.length === 0 || !cart?.items) {
+        throw new Error("Missing product details or cart items");
+      }
+
+      const sellerId = productDetails[0].sellerId;
+      const response = await apiRequest("POST", "/api/wholesale/pricing/breakdown", {
+        sellerId,
+        items: cart.items,
+        currency,
+      });
+      
+      return response.json();
+    },
+    enabled: !!productDetails && productDetails.length > 0 && !!cart?.items && cart.items.length > 0,
+  });
+
+  const isLoading = productsLoading || pricingLoading;
+  const itemsWithDetails = productDetails || [];
 
   const checkoutMutation = useMutation({
     mutationFn: async (data: CheckoutFormData) => {
@@ -152,24 +220,11 @@ export default function WholesaleCheckout() {
     },
   });
 
-  // Architecture 3: Backend should provide subtotal, depositAmount, balanceAmount pre-calculated
-  // For display purposes, calculate from backend prices (already in correct currency)
-  const subtotal = (itemsWithDetails || []).reduce((sum, item) => {
-    return sum + parseFloat(item.wholesalePrice) * item.quantity;
-  }, 0);
-
-  const requiresDeposit = (itemsWithDetails || []).some((item) => item.requiresDeposit === 1);
-  const depositAmount = (itemsWithDetails || []).reduce((sum, item) => {
-    if (item.requiresDeposit !== 1) return sum;
-    const itemSubtotal = parseFloat(item.wholesalePrice) * item.quantity;
-    if (item.depositAmount) {
-      return sum + parseFloat(item.depositAmount);
-    } else if (item.depositPercentage) {
-      return sum + (itemSubtotal * item.depositPercentage) / 100;
-    }
-    return sum;
-  }, 0);
-  const balanceAmount = subtotal - depositAmount;
+  // Use backend-calculated pricing (Architecture 3)
+  const subtotal = pricingBreakdown?.subtotalCents || 0;
+  const requiresDeposit = (pricingBreakdown?.depositAmountCents || 0) > 0;
+  const depositAmount = pricingBreakdown?.depositAmountCents || 0;
+  const balanceAmount = pricingBreakdown?.balanceAmountCents || 0;
 
   const shippingType = form.watch("shippingType");
 
@@ -451,13 +506,13 @@ export default function WholesaleCheckout() {
                             <div className="flex justify-between items-center">
                               <span className="font-medium">Deposit Due Now:</span>
                               <span className="text-xl font-bold text-primary" data-testid="text-deposit-amount">
-                                {formatCurrency(depositAmount, currency)}
+                                {formatCurrencyFromCents(depositAmount, currency)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-sm text-muted-foreground">Balance Due:</span>
                               <span className="font-semibold" data-testid="text-balance-amount">
-                                {formatCurrency(balanceAmount, currency)}
+                                {formatCurrencyFromCents(balanceAmount, currency)}
                               </span>
                             </div>
                             {itemsWithDetails[0]?.balancePaymentDate && (
@@ -479,28 +534,31 @@ export default function WholesaleCheckout() {
                         <CardDescription>Review your order details</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        {itemsWithDetails.map((item, index) => (
-                          <div key={index} className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium" data-testid={`text-review-item-name-${index}`}>
-                                {item.name}
-                              </div>
-                              {item.variant && (
-                                <div className="text-sm text-muted-foreground">
-                                  {item.variant.size && `Size: ${item.variant.size}`}
-                                  {item.variant.size && item.variant.color && " | "}
-                                  {item.variant.color && `Color: ${item.variant.color}`}
+                        {itemsWithDetails.map((item, index) => {
+                          const pricingItem = pricingBreakdown?.items.find(p => p.productId === item.productId);
+                          return (
+                            <div key={index} className="flex justify-between items-start">
+                              <div>
+                                <div className="font-medium" data-testid={`text-review-item-name-${index}`}>
+                                  {item.productName}
                                 </div>
-                              )}
-                              <div className="text-sm text-muted-foreground">
-                                Qty: {item.quantity}
+                                {item.variant && (
+                                  <div className="text-sm text-muted-foreground">
+                                    {item.variant.size && `Size: ${item.variant.size}`}
+                                    {item.variant.size && item.variant.color && " | "}
+                                    {item.variant.color && `Color: ${item.variant.color}`}
+                                  </div>
+                                )}
+                                <div className="text-sm text-muted-foreground">
+                                  Qty: {item.quantity}
+                                </div>
+                              </div>
+                              <div className="font-semibold">
+                                {formatCurrencyFromCents(pricingItem?.subtotalCents || 0, currency)}
                               </div>
                             </div>
-                            <div className="font-semibold">
-                              {formatCurrency(parseFloat(item.wholesalePrice) * item.quantity, currency)}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
                         <Separator />
 
@@ -540,11 +598,11 @@ export default function WholesaleCheckout() {
                             <>
                               <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">Deposit:</span>
-                                <span className="font-semibold">{formatCurrency(depositAmount, currency)}</span>
+                                <span className="font-semibold">{formatCurrencyFromCents(depositAmount, currency)}</span>
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">Balance:</span>
-                                <span className="font-semibold">{formatCurrency(balanceAmount, currency)}</span>
+                                <span className="font-semibold">{formatCurrencyFromCents(balanceAmount, currency)}</span>
                               </div>
                             </>
                           )}
@@ -555,7 +613,7 @@ export default function WholesaleCheckout() {
                         <div className="flex justify-between items-center">
                           <span className="font-semibold">Total:</span>
                           <span className="text-2xl font-bold" data-testid="text-review-total">
-                            {formatCurrency(subtotal, currency)}
+                            {formatCurrencyFromCents(subtotal, currency)}
                           </span>
                         </div>
                       </CardContent>
@@ -598,14 +656,14 @@ export default function WholesaleCheckout() {
                   <CardContent className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-semibold">{formatCurrency(subtotal, currency)}</span>
+                      <span className="font-semibold">{formatCurrencyFromCents(subtotal, currency)}</span>
                     </div>
 
                     <Separator />
 
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">Total</span>
-                      <span className="text-2xl font-bold">{formatCurrency(subtotal, currency)}</span>
+                      <span className="text-2xl font-bold">{formatCurrencyFromCents(subtotal, currency)}</span>
                     </div>
                   </CardContent>
                 </Card>

@@ -274,4 +274,167 @@ export class PricingCalculationService {
 
     return pricingBreakdown;
   }
+
+  /**
+   * Calculate shipping cost for items (helper method for code reuse)
+   * 
+   * @param items - Cart items with product IDs and quantities
+   * @param destination - Shipping destination address
+   * @param sellerId - Optional seller ID for fallback shipping rate
+   * @returns Shipping cost in dollars (or seller's currency)
+   */
+  async calculateShippingCostOnly(
+    items: Array<{ id: string; quantity: number }>,
+    destination?: {
+      country: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+    },
+    sellerId?: string
+  ): Promise<number> {
+    let shippingCost = 0;
+    
+    if (destination) {
+      try {
+        const shippingCalculation = await this.shippingService.calculateShipping(
+          items,
+          {
+            country: destination.country,
+            city: destination.city,
+            state: destination.state,
+            postalCode: destination.postalCode,
+          }
+        );
+        shippingCost = shippingCalculation.cost;
+        
+        logger.info(`[PricingCalculationService] Shipping calculated: ${shippingCost}`, {
+          method: shippingCalculation.method,
+          zone: shippingCalculation.zone
+        });
+      } catch (shippingError: any) {
+        logger.error(`[PricingCalculationService] Shipping calculation failed:`, shippingError);
+        
+        // Use seller's flat shipping as fallback if sellerId provided
+        if (sellerId) {
+          const seller = await this.storage.getUser(sellerId);
+          shippingCost = seller?.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
+          logger.info(`[PricingCalculationService] Using fallback shipping: ${shippingCost}`);
+        }
+      }
+    } else if (sellerId) {
+      // No destination provided, use seller's default shipping
+      const seller = await this.storage.getUser(sellerId);
+      shippingCost = seller?.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
+      logger.info(`[PricingCalculationService] No destination - using default shipping: ${shippingCost}`);
+    }
+    
+    return shippingCost;
+  }
+
+  /**
+   * Calculate tax for a given subtotal and shipping (helper method for code reuse)
+   * 
+   * @param params - Tax calculation parameters
+   * @returns Tax amount in dollars and calculation ID (if successful)
+   */
+  async calculateTaxOnly(params: {
+    subtotalCents: number;
+    shippingCents: number;
+    destination: {
+      line1: string;
+      line2?: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
+    sellerId: string;
+    items?: Array<{
+      productId: string;
+      quantity: number;
+      unitPriceCents: number;
+    }>;
+    currency?: string;
+  }): Promise<{
+    taxCents: number;
+    taxCalculationId?: string;
+    taxRate?: number;
+  }> {
+    const { subtotalCents, shippingCents, destination, sellerId, items, currency = 'USD' } = params;
+    
+    let taxCents = 0;
+    let taxCalculationId: string | undefined = undefined;
+    let taxRate: number | undefined = undefined;
+
+    // Check if seller has tax enabled
+    const seller = await this.storage.getUser(sellerId);
+    
+    if (!seller) {
+      logger.warn(`[PricingCalculationService] Seller ${sellerId} not found for tax calculation`);
+      return { taxCents, taxCalculationId, taxRate };
+    }
+
+    if (seller.taxEnabled !== 1) {
+      logger.info(`[PricingCalculationService] Tax disabled for seller: ${sellerId}`);
+      return { taxCents, taxCalculationId, taxRate };
+    }
+
+    if (!this.stripe) {
+      logger.warn(`[PricingCalculationService] Stripe not configured - skipping tax calculation`);
+      return { taxCents, taxCalculationId, taxRate };
+    }
+
+    // Check if we have complete address for tax calculation
+    const hasCompleteAddress = destination.line1 && destination.city && destination.country;
+    
+    if (!hasCompleteAddress) {
+      logger.info(`[PricingCalculationService] Incomplete address - skipping tax calculation`);
+      return { taxCents, taxCalculationId, taxRate };
+    }
+
+    try {
+      logger.info(`[PricingCalculationService] Calculating tax for seller ${sellerId}`, {
+        subtotalCents,
+        shippingCents,
+        currency,
+        destination: `${destination.city}, ${destination.state || ''}`
+      });
+
+      // Convert cents to dollars for TaxService
+      const subtotalDollars = subtotalCents / 100;
+      const shippingDollars = shippingCents / 100;
+
+      const taxCalculation = await this.taxService.calculateTax({
+        amount: subtotalDollars,
+        currency: currency,
+        shippingAddress: destination,
+        sellerId: sellerId,
+        items: items?.map(item => ({
+          id: item.productId,
+          price: (item.unitPriceCents / 100).toString(),
+          quantity: item.quantity,
+        })) || [],
+        shippingCost: shippingDollars,
+      });
+
+      taxCents = Math.round(taxCalculation.taxAmount * 100);
+      taxCalculationId = taxCalculation.calculationId;
+      
+      // Calculate effective tax rate for transparency
+      if (subtotalCents > 0) {
+        taxRate = (taxCents / subtotalCents) * 100;
+      }
+
+      logger.info(`[PricingCalculationService] Tax calculated: ${taxCents} cents`, {
+        taxRate,
+        calculationId: taxCalculationId
+      });
+    } catch (taxError: any) {
+      logger.error(`[PricingCalculationService] Tax calculation failed:`, taxError);
+      // Continue without tax if calculation fails
+    }
+
+    return { taxCents, taxCalculationId, taxRate };
+  }
 }
