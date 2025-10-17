@@ -4543,11 +4543,18 @@ class NotificationServiceImpl implements NotificationService {
    */
   async sendWholesaleOrderConfirmation(wholesaleOrder: any, seller: User, items: any[]): Promise<void> {
     const emailHtml = await this.generateWholesaleOrderConfirmationEmail(wholesaleOrder, seller, items);
+    
+    // Get message template from NotificationMessagesService
+    const template = this.messages.wholesaleOrderConfirmation(
+      wholesaleOrder.orderNumber,
+      wholesaleOrder.totalCents || 0,
+      wholesaleOrder.currency || 'USD'
+    );
 
     const result = await this.sendEmail({
       to: wholesaleOrder.buyerEmail,
       replyTo: seller.email,
-      subject: `Order Confirmed - ${wholesaleOrder.orderNumber}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -4566,16 +4573,31 @@ class NotificationServiceImpl implements NotificationService {
     const buyerEmailHtml = await this.generateWholesaleDepositReceivedEmail(wholesaleOrder, seller, 'buyer');
     const sellerEmailHtml = await this.generateWholesaleDepositReceivedEmail(wholesaleOrder, seller, 'seller');
 
+    // Get message templates from NotificationMessagesService
+    const buyerTemplate = this.messages.wholesaleDepositReceived(
+      wholesaleOrder.orderNumber,
+      wholesaleOrder.depositAmountCents || 0,
+      wholesaleOrder.currency || 'USD',
+      'buyer'
+    );
+    
+    const sellerTemplate = this.messages.wholesaleDepositReceived(
+      wholesaleOrder.orderNumber,
+      wholesaleOrder.depositAmountCents || 0,
+      wholesaleOrder.currency || 'USD',
+      'seller'
+    );
+
     const buyerResult = await this.sendEmail({
       to: wholesaleOrder.buyerEmail,
       replyTo: seller.email,
-      subject: `Deposit Received - ${wholesaleOrder.orderNumber}`,
+      subject: buyerTemplate.emailSubject,
       html: buyerEmailHtml,
     });
 
     const sellerResult = await this.sendEmail({
       to: seller.email,
-      subject: `Deposit Received - ${wholesaleOrder.orderNumber}`,
+      subject: sellerTemplate.emailSubject,
       html: sellerEmailHtml,
     });
 
@@ -4593,10 +4615,17 @@ class NotificationServiceImpl implements NotificationService {
   async sendWholesaleBalanceReminder(wholesaleOrder: any, seller: User, paymentLink: string): Promise<void> {
     const emailHtml = await this.generateWholesaleBalanceReminderEmail(wholesaleOrder, seller, paymentLink);
 
+    // Get message template from NotificationMessagesService
+    const template = this.messages.wholesaleBalanceReminder(
+      wholesaleOrder.orderNumber,
+      wholesaleOrder.balanceAmountCents || 0,
+      wholesaleOrder.currency || 'USD'
+    );
+
     const result = await this.sendEmail({
       to: wholesaleOrder.buyerEmail,
       replyTo: seller.email,
-      subject: `Balance Payment Due - ${wholesaleOrder.orderNumber}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -4615,16 +4644,31 @@ class NotificationServiceImpl implements NotificationService {
     const buyerEmailHtml = await this.generateWholesaleBalanceOverdueEmail(wholesaleOrder, seller, 'buyer', paymentLink);
     const sellerEmailHtml = await this.generateWholesaleBalanceOverdueEmail(wholesaleOrder, seller, 'seller');
 
+    // Get message templates from NotificationMessagesService
+    const buyerTemplate = this.messages.wholesaleBalanceOverdue(
+      wholesaleOrder.orderNumber,
+      wholesaleOrder.balanceAmountCents || 0,
+      wholesaleOrder.currency || 'USD',
+      'buyer'
+    );
+    
+    const sellerTemplate = this.messages.wholesaleBalanceOverdue(
+      wholesaleOrder.orderNumber,
+      wholesaleOrder.balanceAmountCents || 0,
+      wholesaleOrder.currency || 'USD',
+      'seller'
+    );
+
     const buyerResult = await this.sendEmail({
       to: wholesaleOrder.buyerEmail,
       replyTo: seller.email,
-      subject: `OVERDUE: Balance Payment Required - ${wholesaleOrder.orderNumber}`,
+      subject: buyerTemplate.emailSubject,
       html: buyerEmailHtml,
     });
 
     const sellerResult = await this.sendEmail({
       to: seller.email,
-      subject: `Balance Payment Overdue - ${wholesaleOrder.orderNumber}`,
+      subject: sellerTemplate.emailSubject,
       html: sellerEmailHtml,
     });
 
@@ -4642,10 +4686,16 @@ class NotificationServiceImpl implements NotificationService {
   async sendWholesaleOrderShipped(wholesaleOrder: any, seller: User, trackingInfo: any): Promise<void> {
     const emailHtml = await this.generateWholesaleOrderShippedEmail(wholesaleOrder, seller, trackingInfo);
 
+    // Get message template from NotificationMessagesService
+    const template = this.messages.wholesaleOrderShipped(
+      wholesaleOrder.orderNumber,
+      trackingInfo?.trackingNumber
+    );
+
     const result = await this.sendEmail({
       to: wholesaleOrder.buyerEmail,
       replyTo: seller.email,
-      subject: `Order Shipped - ${wholesaleOrder.orderNumber}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 
@@ -4668,10 +4718,16 @@ class NotificationServiceImpl implements NotificationService {
   ): Promise<void> {
     const emailHtml = await this.generateWholesaleOrderFulfilledEmail(wholesaleOrder, seller, fulfillmentType, pickupDetails);
 
+    // Get message template from NotificationMessagesService
+    const template = this.messages.wholesaleOrderFulfilled(
+      wholesaleOrder.orderNumber,
+      fulfillmentType
+    );
+
     const result = await this.sendEmail({
       to: wholesaleOrder.buyerEmail,
       replyTo: seller.email,
-      subject: `Order Ready - ${wholesaleOrder.orderNumber}`,
+      subject: template.emailSubject,
       html: emailHtml,
     });
 

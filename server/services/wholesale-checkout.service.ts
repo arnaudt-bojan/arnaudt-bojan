@@ -10,6 +10,8 @@
 import type { IStorage } from '../storage';
 import type { WholesaleOrderService } from './wholesale-order.service';
 import type { NotificationService } from '../notifications';
+import type { WholesaleCartValidationService } from './wholesale-cart-validation.service';
+import type { InventoryService } from './inventory.service';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -123,7 +125,9 @@ export class WholesaleCheckoutService {
   constructor(
     private storage: IStorage,
     private wholesaleOrderService: WholesaleOrderService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private wholesaleCartValidationService: WholesaleCartValidationService,
+    private inventoryService?: InventoryService
   ) {}
 
   /**
@@ -277,105 +281,40 @@ export class WholesaleCheckoutService {
 
   /**
    * Validate cart items against MOQ requirements
-   * Issue 4 Fix: Handle all variant types including variantId
+   * Delegates to WholesaleCartValidationService for consolidated validation logic
    */
   async validateCart(
     cartItems: CartItem[], 
     sellerId: string
   ): Promise<ValidateCartResult> {
     try {
-      const errors: string[] = [];
-      const validatedItems: any[] = [];
-      let subtotalCents = 0;
+      // Delegate to WholesaleCartValidationService
+      const validation = await this.wholesaleCartValidationService.validateCart(
+        cartItems,
+        sellerId
+      );
 
-      for (const item of cartItems) {
-        const product = await this.storage.getWholesaleProduct(item.productId);
-
-        if (!product) {
-          errors.push(`Product ${item.productId} not found`);
-          continue;
-        }
-
-        if (product.sellerId !== sellerId) {
-          errors.push(`Product ${product.name} belongs to different seller`);
-          continue;
-        }
-
-        // Check MOQ (product-level or variant-level)
-        let moq = product.moq;
-        let unitPriceCents = Math.round(parseFloat(product.wholesalePrice) * 100);
-        let matchingVariant: any = null;
-
-        // Issue 4: Enhanced variant matching with variantId support
-        if (item.variant && product.variants) {
-          const variants = Array.isArray(product.variants) ? product.variants : [];
-          
-          // Try to match by variantId first if available
-          if ((item.variant as any).variantId) {
-            matchingVariant = variants.find((v: any) => 
-              v.variantId === (item.variant as any).variantId
-            );
-          }
-          
-          // Fallback to size/color matching if variantId not found
-          if (!matchingVariant && (item.variant.size || item.variant.color)) {
-            matchingVariant = variants.find((v: any) => 
-              v.size === item.variant?.size && v.color === item.variant?.color
-            );
-          }
-
-          if (matchingVariant) {
-            moq = matchingVariant.moq || moq;
-            if (matchingVariant.wholesalePrice) {
-              unitPriceCents = Math.round(parseFloat(matchingVariant.wholesalePrice) * 100);
-            }
-          } else if (item.variant.size || item.variant.color || (item.variant as any).variantId) {
-            // Variant specified but not found in product
-            const variantDesc = (item.variant as any).variantId 
-              ? `variantId: ${(item.variant as any).variantId}`
-              : `${item.variant.size || 'any size'}/${item.variant.color || 'any color'}`;
-            errors.push(`${product.name}: variant (${variantDesc}) not found`);
-            continue;
-          }
-        }
-
-        // Check MOQ
-        if (item.quantity < moq) {
-          const variantInfo = matchingVariant 
-            ? ` (variant: ${matchingVariant.variantId || `${matchingVariant.size}/${matchingVariant.color}`})`
-            : '';
-          errors.push(`${product.name}${variantInfo}: quantity ${item.quantity} is below MOQ of ${moq}`);
-          continue;
-        }
-
-        const itemSubtotal = unitPriceCents * item.quantity;
-        subtotalCents += itemSubtotal;
-
-        validatedItems.push({
-          productId: product.id,
-          productName: product.name,
-          productImage: product.image,
-          quantity: item.quantity,
-          moq,
-          unitPriceCents,
-          subtotalCents: itemSubtotal,
-          variant: item.variant,
-        });
+      if (!validation.success) {
+        return {
+          success: false,
+          valid: false,
+          errors: validation.errors,
+        };
       }
 
-      if (errors.length > 0) {
+      if (!validation.valid) {
         return {
           success: true,
           valid: false,
-          errors,
+          errors: validation.errors,
         };
       }
 
       return {
         success: true,
         valid: true,
-        validatedItems,
-        subtotalCents,
+        validatedItems: validation.validatedItems,
+        subtotalCents: validation.subtotalCents,
       };
     } catch (error: any) {
       logger.error('[WholesaleCheckoutService] Failed to validate cart', error);
@@ -591,6 +530,44 @@ export class WholesaleCheckoutService {
           } catch (shippingError: any) {
             logger.error('[WholesaleCheckoutService] Shipping creation failed, initiating cleanup', shippingError);
             throw new Error(`Shipping creation failed: ${shippingError.message}`);
+          }
+        }
+
+        // Step 6: Commit inventory reservations to actual inventory
+        if (this.inventoryService && createdOrderId) {
+          try {
+            const sessionId = `wholesale_${data.buyerId}`;
+            logger.info('[WholesaleCheckoutService] Committing inventory reservations', {
+              sessionId,
+              orderId: createdOrderId,
+            });
+
+            const commitResult = await this.inventoryService.commitReservationsBySession(
+              sessionId,
+              createdOrderId
+            );
+
+            if (!commitResult.success) {
+              logger.error('[WholesaleCheckoutService] Failed to commit reservations', {
+                sessionId,
+                orderId: createdOrderId,
+                error: commitResult.error,
+              });
+              // Note: We don't fail the checkout if reservation commit fails
+              // The order is already created, reservations will expire naturally
+            } else {
+              logger.info('[WholesaleCheckoutService] Reservations committed successfully', {
+                sessionId,
+                orderId: createdOrderId,
+                committedCount: commitResult.committed,
+              });
+            }
+          } catch (commitError: any) {
+            logger.error('[WholesaleCheckoutService] Error committing reservations', {
+              orderId: createdOrderId,
+              error: commitError.message,
+            });
+            // Don't fail checkout if reservation commit fails
           }
         }
 

@@ -1,3 +1,43 @@
+/**
+ * Wholesale Document Generation Routes
+ * 
+ * INTEGRATION STATUS: ✅ COMPLETE
+ * 
+ * This module uses the SHARED DocumentGenerator service for all PDF generation.
+ * There is NO duplicate PDF generation code - all document creation goes through
+ * the centralized DocumentGenerator service located at server/services/document-generator.ts
+ * 
+ * Supported Document Types:
+ * - Invoices (INV-WH-*): Wholesale invoices with deposit/balance info
+ * - Packing Slips (PS-WH-*): Wholesale packing slips with warehouse notes
+ * 
+ * Wholesale-Specific Features Supported:
+ * ✅ PO Numbers (Purchase Order tracking)
+ * ✅ Incoterms (International shipping terms)
+ * ✅ Payment Terms (Net 30, Net 60, etc.)
+ * ✅ Deposit/Balance split payments
+ * ✅ Multi-currency support via formatCurrency()
+ * ✅ VAT/Tax ID numbers
+ * ✅ Seller branding (logos, business info)
+ * ✅ Professional B2B document layout
+ * ✅ Warehouse notes and shipping details
+ * 
+ * Architecture Notes:
+ * - All pricing uses STORED values from orders table (Architecture 3 compliance)
+ * - Never recalculates subtotal, tax, or total - single source of truth
+ * - Documents are uploaded to Replit Object Storage with signed URLs
+ * - Invoice/packing slip records saved to database for tracking
+ * 
+ * NOT Implemented (not in schema):
+ * ❌ Proforma Invoices (for international pre-shipment quotes)
+ * ❌ Commercial Invoices (for customs documentation)
+ * 
+ * If these document types are needed, they would require:
+ * 1. Schema updates to documentTypeEnum in shared/schema.ts
+ * 2. New methods in DocumentGenerator service
+ * 3. New routes in this file
+ */
+
 import { Router } from 'express';
 import { storage } from '../storage';
 import { DocumentGenerator, type InvoiceData, type PackingSlipData } from '../services/document-generator';

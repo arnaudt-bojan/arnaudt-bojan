@@ -25,6 +25,7 @@ import { generateCollaboratorInvitationEmail } from "./utils/email-templates";
 import { InventoryService } from "./services/inventory.service";
 import { OrderService } from "./services/order.service";
 import { CartValidationService } from "./services/cart-validation.service";
+import { WholesaleCartValidationService } from "./services/wholesale-cart-validation.service";
 import { ShippingService } from "./services/shipping.service";
 import { TaxService } from "./services/tax.service";
 import { StripePaymentProvider } from "./services/payment/stripe-provider";
@@ -114,6 +115,7 @@ if (process.env.STRIPE_SECRET_KEY) {
 // Initialize cart validation, shipping, and tax services (Plan C architecture)
 // Note: TaxService requires Stripe to be initialized first
 const cartValidationService = new CartValidationService(storage);
+const wholesaleCartValidationService = new WholesaleCartValidationService(storage);
 const shippingService = new ShippingService(storage);
 const taxService = new TaxService(storage, stripe || undefined);
 
@@ -221,7 +223,14 @@ const subscriptionService = new SubscriptionService(
 );
 
 // Initialize Wholesale service (Architecture 3 migration)
-const wholesaleService = new WholesaleService(storage, notificationService);
+// Now with inventory reservation support for 30-min cart holds
+const wholesaleService = new WholesaleService(
+  storage, 
+  notificationService, 
+  wholesaleCartValidationService,
+  cartReservationService,
+  inventoryService
+);
 
 // Initialize Wholesale Order service for B2B order management
 const wholesaleOrderService = new WholesaleOrderService(storage, notificationService);
@@ -241,7 +250,7 @@ const wholesaleShippingService = new WholesaleShippingService(storage);
 
 // Initialize Wholesale Pricing service for B2B pricing calculations (Architecture 3)
 // Delegate common pricing logic (shipping, tax, currency) to PricingCalculationService (DRY refactoring)
-const wholesalePricingService = new WholesalePricingService(storage, pricingCalculationService);
+const wholesalePricingService = new WholesalePricingService(storage, pricingCalculationService, wholesaleCartValidationService);
 
 // Initialize Team Management service (Architecture 3 migration)
 const teamService = new TeamManagementService(storage);

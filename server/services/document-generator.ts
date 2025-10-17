@@ -1,3 +1,52 @@
+/**
+ * DocumentGenerator Service
+ * 
+ * UNIFIED PDF GENERATION SERVICE FOR BOTH B2C AND B2B/WHOLESALE
+ * 
+ * This is the SINGLE centralized service for generating all PDF documents in the application.
+ * It supports both B2C (direct consumer) and B2B/Wholesale orders through a unified interface.
+ * 
+ * Document Types Supported:
+ * ✅ Invoices (B2C and B2B/Wholesale)
+ * ✅ Packing Slips (B2C and B2B/Wholesale)
+ * 
+ * B2B/Wholesale Specific Features:
+ * ✅ PO Numbers (Purchase Order tracking)
+ * ✅ Incoterms (International shipping terms like FOB, CIF, EXW)
+ * ✅ Payment Terms (Net 30, Net 60, etc.)
+ * ✅ Deposit/Balance payment display
+ * ✅ VAT/Tax ID numbers
+ * ✅ Multi-currency formatting
+ * ✅ Company logos and branding
+ * ✅ Professional B2B layout
+ * 
+ * Key Design Patterns:
+ * - Single generateInvoice() method handles both B2C and B2B via optional 'wholesale' field
+ * - Single generatePackingSlip() method handles both B2C and B2B
+ * - Currency-aware formatting throughout
+ * - Automatic upload to Replit Object Storage with signed URLs
+ * - Professional PDF layout using PDFKit
+ * 
+ * Usage Example (Wholesale):
+ * ```typescript
+ * const invoiceData: InvoiceData = {
+ *   invoice: { number: 'INV-WH-001', date: new Date() },
+ *   seller: { businessName: 'Acme Corp', email: 'seller@acme.com' },
+ *   customer: { name: 'Buyer Co', email: 'buyer@example.com', address: '...' },
+ *   order: { id: '...', orderNumber: 'WO-001', total: '5000.00', ... },
+ *   items: [...],
+ *   wholesale: {  // Wholesale-specific fields
+ *     poNumber: 'PO-12345',
+ *     incoterms: 'FOB Shanghai',
+ *     paymentTerms: 'Net 30'
+ *   },
+ *   currency: 'USD'
+ * };
+ * 
+ * const { buffer, url } = await DocumentGenerator.generateInvoice(invoiceData);
+ * ```
+ */
+
 import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
 import { format } from 'date-fns';

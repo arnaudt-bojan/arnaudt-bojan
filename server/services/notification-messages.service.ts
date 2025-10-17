@@ -7,6 +7,7 @@
 
 import type { User, Order, Product, OrderItem } from '../../shared/schema';
 import { formatPrice } from '../email-template';
+import { formatCurrency } from '../currencyService';
 
 /**
  * Notification message template types
@@ -272,6 +273,143 @@ export class NotificationMessagesService {
       notificationTitle: 'Refund Processed',
       notificationMessage: `${formatPrice(refundAmount, currency)} refund processed for ${itemName}`,
     };
+  }
+
+  // ============================================================================
+  // WHOLESALE B2B NOTIFICATION TEMPLATES
+  // ============================================================================
+
+  /**
+   * Wholesale Order Confirmation (Seller → Buyer)
+   */
+  wholesaleOrderConfirmation(
+    orderNumber: string, 
+    totalCents: number, 
+    currency: string
+  ): NotificationMessageTemplate {
+    const formattedTotal = formatCurrency(totalCents / 100, currency);
+    return {
+      emailSubject: `Order Confirmed - ${orderNumber}`,
+      emailPreheader: `Order ${orderNumber} confirmed - ${formattedTotal}`,
+      notificationTitle: 'Wholesale Order Confirmed',
+      notificationMessage: `Wholesale order ${orderNumber} confirmed for ${formattedTotal}`,
+    };
+  }
+
+  /**
+   * Wholesale Deposit Received (Seller → Buyer or Seller)
+   */
+  wholesaleDepositReceived(
+    orderNumber: string,
+    depositCents: number,
+    currency: string,
+    recipient: 'buyer' | 'seller'
+  ): NotificationMessageTemplate {
+    const formattedDeposit = formatCurrency(depositCents / 100, currency);
+    
+    if (recipient === 'buyer') {
+      return {
+        emailSubject: `Deposit Received - ${orderNumber}`,
+        emailPreheader: `Deposit received for order ${orderNumber}`,
+        notificationTitle: 'Deposit Received',
+        notificationMessage: `Your deposit of ${formattedDeposit} has been received for order ${orderNumber}`,
+      };
+    } else {
+      return {
+        emailSubject: `Deposit Received - ${orderNumber}`,
+        emailPreheader: `Deposit received for order ${orderNumber}`,
+        notificationTitle: 'Deposit Payment Received',
+        notificationMessage: `Deposit payment of ${formattedDeposit} received for wholesale order ${orderNumber}`,
+      };
+    }
+  }
+
+  /**
+   * Wholesale Balance Payment Reminder (Seller → Buyer)
+   */
+  wholesaleBalanceReminder(
+    orderNumber: string,
+    balanceCents: number,
+    currency: string
+  ): NotificationMessageTemplate {
+    const formattedBalance = formatCurrency(balanceCents / 100, currency);
+    return {
+      emailSubject: `Balance Payment Due - ${orderNumber}`,
+      emailPreheader: `Balance payment due: ${formattedBalance}`,
+      notificationTitle: 'Balance Payment Reminder',
+      notificationMessage: `Balance payment of ${formattedBalance} due for order ${orderNumber}`,
+    };
+  }
+
+  /**
+   * Wholesale Balance Payment Overdue (Seller → Buyer or Seller)
+   */
+  wholesaleBalanceOverdue(
+    orderNumber: string,
+    balanceCents: number,
+    currency: string,
+    recipient: 'buyer' | 'seller'
+  ): NotificationMessageTemplate {
+    const formattedBalance = formatCurrency(balanceCents / 100, currency);
+    
+    if (recipient === 'buyer') {
+      return {
+        emailSubject: `OVERDUE: Balance Payment Required - ${orderNumber}`,
+        emailPreheader: `OVERDUE: Balance payment for ${orderNumber}`,
+        notificationTitle: 'Balance Payment Overdue',
+        notificationMessage: `URGENT: Balance payment of ${formattedBalance} is overdue for order ${orderNumber}`,
+      };
+    } else {
+      return {
+        emailSubject: `Balance Payment Overdue - ${orderNumber}`,
+        emailPreheader: `OVERDUE: Balance payment for ${orderNumber}`,
+        notificationTitle: 'Balance Payment Overdue',
+        notificationMessage: `Balance payment of ${formattedBalance} is overdue for wholesale order ${orderNumber}`,
+      };
+    }
+  }
+
+  /**
+   * Wholesale Order Shipped (Seller → Buyer)
+   */
+  wholesaleOrderShipped(
+    orderNumber: string,
+    trackingNumber?: string
+  ): NotificationMessageTemplate {
+    return {
+      emailSubject: `Order Shipped - ${orderNumber}`,
+      emailPreheader: trackingNumber 
+        ? `Order ${orderNumber} has shipped - Tracking: ${trackingNumber}` 
+        : `Order ${orderNumber} has shipped`,
+      notificationTitle: 'Wholesale Order Shipped',
+      notificationMessage: trackingNumber
+        ? `Wholesale order ${orderNumber} has shipped. Tracking: ${trackingNumber}`
+        : `Wholesale order ${orderNumber} has shipped`,
+    };
+  }
+
+  /**
+   * Wholesale Order Fulfilled (Seller → Buyer)
+   */
+  wholesaleOrderFulfilled(
+    orderNumber: string,
+    fulfillmentType: 'shipped' | 'pickup'
+  ): NotificationMessageTemplate {
+    if (fulfillmentType === 'shipped') {
+      return {
+        emailSubject: `Order Ready - ${orderNumber}`,
+        emailPreheader: `Order ${orderNumber} ${fulfillmentType === 'shipped' ? 'delivered' : 'ready for pickup'}`,
+        notificationTitle: 'Wholesale Order Complete',
+        notificationMessage: `Wholesale order ${orderNumber} has been delivered`,
+      };
+    } else {
+      return {
+        emailSubject: `Order Ready - ${orderNumber}`,
+        emailPreheader: `Order ${orderNumber} ready for pickup`,
+        notificationTitle: 'Wholesale Order Ready',
+        notificationMessage: `Wholesale order ${orderNumber} is ready for pickup`,
+      };
+    }
   }
 }
 

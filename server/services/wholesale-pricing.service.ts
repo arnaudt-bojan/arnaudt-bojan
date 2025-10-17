@@ -11,6 +11,7 @@ import type { IStorage } from '../storage';
 import { logger } from '../logger';
 import { getExchangeRates, convertPrice, formatCurrency } from '../currencyService';
 import { PricingCalculationService } from './pricing-calculation.service';
+import { WholesaleCartValidationService } from './wholesale-cart-validation.service';
 import type Stripe from 'stripe';
 
 export interface CartItem {
@@ -69,7 +70,8 @@ export interface WholesalePricingBreakdown {
 export class WholesalePricingService {
   constructor(
     private storage: IStorage,
-    private pricingCalculationService: PricingCalculationService
+    private pricingCalculationService: PricingCalculationService,
+    private wholesaleCartValidationService: WholesaleCartValidationService
   ) {}
 
   /**
@@ -112,93 +114,16 @@ export class WholesalePricingService {
       const exchangeData = await getExchangeRates();
       const exchangeRate = exchangeData.rates[currency] || 1;
 
-      // Step 1-3: Validate cart and calculate subtotal in USD
-      const moqErrors: string[] = [];
-      const validatedItems: any[] = [];
-      let subtotalCents = 0;
+      // Step 1-3: Validate cart and calculate subtotal using WholesaleCartValidationService
+      const validation = await this.wholesaleCartValidationService.validateCart(
+        cartItems,
+        sellerId
+      );
 
-      for (const item of cartItems) {
-        const product = await this.storage.getWholesaleProduct(item.productId);
-
-        if (!product) {
-          moqErrors.push(`Product ${item.productId} not found`);
-          continue;
-        }
-
-        if (product.sellerId !== sellerId) {
-          moqErrors.push(`Product ${product.name} belongs to different seller`);
-          continue;
-        }
-
-        // Calculate unit price and MOQ (product-level or variant-level)
-        let moq = product.moq;
-        let unitPriceCents = Math.round(parseFloat(product.wholesalePrice) * 100);
-        let matchingVariant: any = null;
-
-        // Enhanced variant matching with variantId support
-        if (item.variant && product.variants) {
-          const variants = Array.isArray(product.variants) ? product.variants : [];
-          
-          // Try to match by variantId first if available
-          if (item.variant.variantId) {
-            matchingVariant = variants.find((v: any) => 
-              v.variantId === item.variant?.variantId
-            );
-          }
-          
-          // Fallback to size/color matching if variantId not found
-          if (!matchingVariant && (item.variant.size || item.variant.color)) {
-            matchingVariant = variants.find((v: any) => 
-              v.size === item.variant?.size && v.color === item.variant?.color
-            );
-          }
-
-          if (matchingVariant) {
-            // Use variant-level MOQ and price if available
-            moq = matchingVariant.moq || moq;
-            if (matchingVariant.wholesalePrice) {
-              unitPriceCents = Math.round(parseFloat(matchingVariant.wholesalePrice) * 100);
-            }
-          } else if (item.variant.size || item.variant.color || item.variant.variantId) {
-            // Variant specified but not found in product
-            const variantDesc = item.variant.variantId 
-              ? `variantId: ${item.variant.variantId}`
-              : `${item.variant.size || 'any size'}/${item.variant.color || 'any color'}`;
-            moqErrors.push(`${product.name}: variant (${variantDesc}) not found`);
-            continue;
-          }
-        }
-
-        // Validate MOQ
-        if (item.quantity < moq) {
-          const variantInfo = matchingVariant 
-            ? ` (variant: ${matchingVariant.variantId || `${matchingVariant.size}/${matchingVariant.color}`})`
-            : '';
-          moqErrors.push(`${product.name}${variantInfo}: quantity ${item.quantity} is below MOQ of ${moq}`);
-          continue;
-        }
-
-        // Calculate item subtotal
-        const itemSubtotal = unitPriceCents * item.quantity;
-        subtotalCents += itemSubtotal;
-
-        validatedItems.push({
-          productId: product.id,
-          productName: product.name,
-          productImage: product.image,
-          quantity: item.quantity,
-          moq,
-          unitPriceCents,
-          subtotalCents: itemSubtotal,
-          variant: item.variant,
-        });
-      }
-
-      // If there are MOQ errors, return early
-      if (moqErrors.length > 0) {
-        logger.warn('[WholesalePricingService] MOQ validation failed', {
-          errorCount: moqErrors.length,
-          errorsList: moqErrors.join('; '),
+      if (!validation.success || !validation.valid) {
+        logger.warn('[WholesalePricingService] Cart validation failed', {
+          errorCount: validation.errors.length,
+          errorsList: validation.errors.join('; '),
         });
 
         return {
@@ -211,10 +136,13 @@ export class WholesalePricingService {
           totalCents: 0,
           currency,
           validatedItems: [],
-          moqErrors,
-          error: 'MOQ validation failed',
+          moqErrors: validation.errors,
+          error: validation.errors.join('; ') || 'Cart validation failed',
         };
       }
+
+      const validatedItems = validation.validatedItems;
+      const subtotalCents = validation.subtotalCents;
 
       // Step 4: Calculate shipping cost via PricingCalculationService (delegated to shared service)
       // Default to freight_collect if not specified (common B2B practice)
