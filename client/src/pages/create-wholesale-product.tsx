@@ -50,11 +50,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, X, Sparkles, CalendarIcon, Upload, FileText, Warehouse } from "lucide-react";
+import { ArrowLeft, Plus, X, Sparkles, CalendarIcon, Upload, FileText, Warehouse, Image as ImageIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { BulkImageInput } from "@/components/bulk-image-input";
+import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import type { UploadResult } from "@uppy/core";
 import { format } from "date-fns";
@@ -551,23 +551,42 @@ export default function CreateWholesaleProduct() {
                 )}
               />
 
-              {/* Images - Using BulkImageInput with enhanced UI */}
-              <FormField
-                control={form.control}
-                name="images"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <BulkImageInput
-                        images={field.value}
-                        onChange={field.onChange}
-                        maxImages={10}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Product Images - Using UniversalImageUpload (same as B2C) */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold flex items-center gap-2">
+                    <div className="bg-primary/10 rounded-lg p-2">
+                      <ImageIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    Product Images
+                  </h3>
+                  <p className="text-sm text-muted-foreground">Upload or paste image URLs. First image is the hero image.</p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="images"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <UniversalImageUpload
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          label=""
+                          mode="multiple"
+                          maxImages={10}
+                          aspectRatio="square"
+                          heroSelection={true}
+                          size="compact"
+                          allowUrl={true}
+                          allowUpload={true}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Card>
 
               {/* 3-Level Category Selector */}
               <FormField
