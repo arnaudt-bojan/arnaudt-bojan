@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -29,6 +31,15 @@ import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { BulkImageInput } from "@/components/bulk-image-input";
+import { SimpleVariantManager, type SizeVariant, type ColorVariant } from "@/components/simple-variant-manager";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  level: number;
+}
 
 // Wholesale product schema
 const wholesaleProductSchema = z.object({
@@ -71,6 +82,46 @@ type WholesaleProductForm = z.infer<typeof wholesaleProductSchema>;
 export default function CreateWholesaleProduct() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Category hierarchy state
+  const [selectedLevel1, setSelectedLevel1] = useState<string>("");
+  const [selectedLevel2, setSelectedLevel2] = useState<string>("");
+  const [selectedLevel3, setSelectedLevel3] = useState<string>("");
+  
+  // Variant state
+  const [hasColors, setHasColors] = useState(false);
+  const [sizes, setSizes] = useState<SizeVariant[]>([]);
+  const [colors, setColors] = useState<ColorVariant[]>([]);
+  
+  // Fetch categories
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+  
+  const level1Categories = categories.filter(c => c.level === 1);
+  const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
+  const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
+  
+  // Update form category field when category selections change
+  useEffect(() => {
+    if (selectedLevel1 || selectedLevel2 || selectedLevel3) {
+      const categoryNames = [];
+      if (selectedLevel1) {
+        const level1 = categories.find(c => c.id === selectedLevel1);
+        if (level1) categoryNames.push(level1.name);
+      }
+      if (selectedLevel2) {
+        const level2 = categories.find(c => c.id === selectedLevel2);
+        if (level2) categoryNames.push(level2.name);
+      }
+      if (selectedLevel3) {
+        const level3 = categories.find(c => c.id === selectedLevel3);
+        if (level3) categoryNames.push(level3.name);
+      }
+      const categoryValue = categoryNames.join(" > ") || "General";
+      form.setValue("category", categoryValue, { shouldValidate: true });
+    }
+  }, [selectedLevel1, selectedLevel2, selectedLevel3, categories, form]);
 
   const form = useForm<WholesaleProductForm>({
     resolver: zodResolver(wholesaleProductSchema),
@@ -101,13 +152,32 @@ export default function CreateWholesaleProduct() {
 
   const createMutation = useMutation({
     mutationFn: async (data: WholesaleProductForm) => {
+      // Build category value
+      const categoryNames = [];
+      if (selectedLevel1) {
+        const level1 = categories.find(c => c.id === selectedLevel1);
+        if (level1) categoryNames.push(level1.name);
+      }
+      if (selectedLevel2) {
+        const level2 = categories.find(c => c.id === selectedLevel2);
+        if (level2) categoryNames.push(level2.name);
+      }
+      if (selectedLevel3) {
+        const level3 = categories.find(c => c.id === selectedLevel3);
+        if (level3) categoryNames.push(level3.name);
+      }
+      const categoryValue = categoryNames.join(" > ") || "General";
+      
       // Transform form data to API format
-      const payload = {
+      const payload: any = {
         name: data.name,
         description: data.description,
         image: data.images[0], // First image as hero/primary
         images: data.images, // All images array
-        category: data.category,
+        category: categoryValue,
+        categoryLevel1Id: selectedLevel1 || null,
+        categoryLevel2Id: selectedLevel2 || null,
+        categoryLevel3Id: selectedLevel3 || null,
         rrp: Number(data.rrp),
         wholesalePrice: Number(data.wholesalePrice),
         suggestedRetailPrice: data.suggestedRetailPrice && data.suggestedRetailPrice !== "" ? Number(data.suggestedRetailPrice) : null,
@@ -133,6 +203,13 @@ export default function CreateWholesaleProduct() {
           email: data.contactEmail,
         } : undefined,
       };
+      
+      // Add variant data if applicable
+      if (hasColors && colors.length > 0) {
+        payload.variants = colors;
+      } else if (!hasColors && sizes.length > 0) {
+        payload.sizes = sizes;
+      }
 
       return await apiRequest('POST', '/api/wholesale/products', payload);
     },
@@ -223,19 +300,80 @@ export default function CreateWholesaleProduct() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-category" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              {/* Category Hierarchy Selector */}
+              <div className="space-y-4">
+                <FormLabel>Category</FormLabel>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Master Category</Label>
+                    <Select
+                      value={selectedLevel1}
+                      onValueChange={(value) => {
+                        setSelectedLevel1(value);
+                        setSelectedLevel2(""); // Reset child selections
+                        setSelectedLevel3("");
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-category-level1">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {level1Categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Sub-category</Label>
+                    <Select
+                      value={selectedLevel2}
+                      onValueChange={(value) => {
+                        setSelectedLevel2(value);
+                        setSelectedLevel3(""); // Reset child selection
+                      }}
+                      disabled={!selectedLevel1}
+                    >
+                      <SelectTrigger data-testid="select-category-level2">
+                        <SelectValue placeholder="Select sub-category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {level2Categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Detail Category</Label>
+                    <Select
+                      value={selectedLevel3}
+                      onValueChange={setSelectedLevel3}
+                      disabled={!selectedLevel2}
+                    >
+                      <SelectTrigger data-testid="select-category-level3">
+                        <SelectValue placeholder="Select detail" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {level3Categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {form.watch("category") && (
+                  <p className="text-sm text-muted-foreground">
+                    Selected: {form.watch("category")}
+                  </p>
                 )}
-              />
+              </div>
             </CardContent>
           </Card>
 
@@ -398,6 +536,25 @@ export default function CreateWholesaleProduct() {
                   )}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Size & Color Variants */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Size & Color Variants</CardTitle>
+              <CardDescription>Allow buyers to choose from different size and color combinations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SimpleVariantManager
+                sizes={sizes}
+                onSizesChange={setSizes}
+                hasColors={hasColors}
+                onHasColorsChange={setHasColors}
+                colors={colors}
+                onColorsChange={setColors}
+                mainProductImages={form.watch("images")}
+              />
             </CardContent>
           </Card>
 
