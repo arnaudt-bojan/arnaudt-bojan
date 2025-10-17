@@ -439,20 +439,49 @@ export default function CreateAdWizard() {
 
   // Check if user has connected Meta account
   if (adAccounts.length === 0) {
+    const handleConnectMeta = () => {
+      window.location.href = "/api/meta/oauth/start";
+    };
+
     return (
       <div className="container max-w-4xl mx-auto py-8 px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Connect Meta Account</CardTitle>
-            <CardDescription>
-              You need to connect your Meta ad account before creating campaigns
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => setLocation("/meta-ads/dashboard")} data-testid="button-go-to-dashboard">
-              Go to Dashboard
-            </Button>
-          </CardContent>
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/meta-ads/dashboard")}
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
+        <Card className="p-12">
+          <div className="text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="flex items-center gap-3 p-6 bg-muted rounded-2xl">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1024px-2021_Facebook_icon.svg.png" alt="Facebook" className="h-16 w-16" />
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/600px-Instagram_icon.png" alt="Instagram" className="h-16 w-16" />
+              </div>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold mb-3">Connect Your Meta Ad Account</h2>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                You need to connect your Facebook Business account before creating ad campaigns. This allows you to run ads across Facebook and Instagram.
+              </p>
+              <Button 
+                onClick={handleConnectMeta} 
+                size="lg"
+                data-testid="button-connect-meta-account"
+              >
+                Connect Meta Account
+              </Button>
+            </div>
+            <div className="pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                You'll be redirected to Meta to authorize access to your ad account
+              </p>
+            </div>
+          </div>
         </Card>
       </div>
     );

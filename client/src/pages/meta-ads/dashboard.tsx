@@ -328,12 +328,70 @@ export default function MetaAdsDashboard() {
     queryKey: ["/api/meta/campaigns"],
   });
 
+  // Check if user has connected Meta ad account
+  const { data: adAccounts = [], isLoading: adAccountsLoading } = useQuery<any[]>({
+    queryKey: ["/api/meta/ad-accounts"],
+  });
+
+  const handleConnectMeta = () => {
+    window.location.href = "/api/meta/oauth/start";
+  };
+
   // Filter campaigns based on search and status
   const filteredCampaigns = campaigns.filter((campaign) => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || campaign.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Show "Connect Meta Account" prompt if no ad accounts
+  if (!adAccountsLoading && adAccounts.length === 0) {
+    return (
+      <div className="min-h-screen py-6 md:py-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <Button
+            variant="ghost"
+            onClick={() => setLocation("/seller-dashboard")}
+            className="mb-4"
+            data-testid="button-back-to-dashboard"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Seller Dashboard
+          </Button>
+
+          <Card className="p-12">
+            <div className="text-center space-y-6">
+              <div className="flex justify-center">
+                <div className="flex items-center gap-3 p-6 bg-muted rounded-2xl">
+                  <SiFacebook className="h-16 w-16 text-[#1877F2]" />
+                  <SiInstagram className="h-16 w-16 text-[#E4405F]" />
+                </div>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold mb-3">Connect Your Meta Ad Account</h2>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Link your Facebook Business account to start creating and managing Meta ads for your products across Facebook and Instagram.
+                </p>
+                <Button 
+                  onClick={handleConnectMeta} 
+                  size="lg"
+                  data-testid="button-connect-meta"
+                >
+                  <SiFacebook className="h-5 w-5 mr-2" />
+                  Connect Meta Account
+                </Button>
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  You'll be redirected to Meta to authorize access to your ad account
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-6 md:py-12">
