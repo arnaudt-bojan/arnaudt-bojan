@@ -189,7 +189,7 @@ app.use((req, res, next) => {
     if (process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.STRIPE_SECRET_KEY) {
       try {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { 
-          apiVersion: '2024-12-18.acacia' 
+          apiVersion: '2025-09-30.clover' 
         });
         
         const metaRedirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta/oauth/callback`;
