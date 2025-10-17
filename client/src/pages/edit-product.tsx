@@ -27,11 +27,33 @@ export default function EditProduct() {
   const [preOrderDate, setPreOrderDate] = useState<string>("");
   const [discountPercentage, setDiscountPercentage] = useState<string>("");
   const [promotionEndDate, setPromotionEndDate] = useState<string>("");
+  
+  // Category hierarchy state (FIX: These were missing!)
+  const [selectedLevel1, setSelectedLevel1] = useState<string>("");
+  const [selectedLevel2, setSelectedLevel2] = useState<string>("");
+  const [selectedLevel3, setSelectedLevel3] = useState<string>("");
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", id],
     enabled: !!id,
   });
+  
+  // Fetch categories (FIX: This was missing!)
+  interface Category {
+    id: string;
+    name: string;
+    slug: string;
+    parentId: string | null;
+    level: number;
+  }
+  const { data: categories = [], refetch: refetchCategories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+  
+  // Filter categories by level (FIX: This was missing!)
+  const level1Categories = categories.filter(c => c.level === 1);
+  const level2Categories = categories.filter(c => c.level === 2 && c.parentId === selectedLevel1);
+  const level3Categories = categories.filter(c => c.level === 3 && c.parentId === selectedLevel2);
 
   const form = useForm<FrontendProduct>({
     resolver: zodResolver(frontendProductSchema),
@@ -53,16 +75,43 @@ export default function EditProduct() {
   useEffect(() => {
     if (product) {
       form.reset({
+        // Basic info
         name: product.name,
         description: product.description,
         price: product.price,
         image: product.image,
         category: product.category,
+        sku: product.sku || undefined,
+        
+        // Product type and stock
         productType: product.productType,
         stock: product.stock || 0,
+        status: product.status || "draft",
+        
+        // Deposit
         depositAmount: product.depositAmount || undefined,
         requiresDeposit: product.requiresDeposit || 0,
-        additionalImages: product.images || [],
+        
+        // Images
+        images: product.images || [],
+        
+        // Shipping fields (FIX: These were missing!)
+        shippingType: product.shippingType || "flat",
+        flatShippingRate: product.flatShippingRate || undefined,
+        shippingMatrixId: product.shippingMatrixId || undefined,
+        shippoWeight: product.shippoWeight || undefined,
+        shippoLength: product.shippoLength || undefined,
+        shippoWidth: product.shippoWidth || undefined,
+        shippoHeight: product.shippoHeight || undefined,
+        shippoTemplate: product.shippoTemplate || undefined,
+        
+        // Category hierarchy (FIX: These were missing!)
+        categoryLevel1Id: product.categoryLevel1Id || undefined,
+        categoryLevel2Id: product.categoryLevel2Id || undefined,
+        categoryLevel3Id: product.categoryLevel3Id || undefined,
+        
+        // Promotion fields (FIX: promotionActive was missing!)
+        promotionActive: product.promotionActive || 0,
       } as any);
       
       // Load variants if they exist
@@ -149,9 +198,41 @@ export default function EditProduct() {
         const date = new Date(product.promotionEndDate);
         setPromotionEndDate(date.toISOString().split('T')[0]);
       }
+      
+      // Load category hierarchy (FIX: This was missing!)
+      if (product.categoryLevel1Id) {
+        setSelectedLevel1(product.categoryLevel1Id);
+      }
+      if (product.categoryLevel2Id) {
+        setSelectedLevel2(product.categoryLevel2Id);
+      }
+      if (product.categoryLevel3Id) {
+        setSelectedLevel3(product.categoryLevel3Id);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]); // Run when product.id changes (new product loaded), not when product object reference changes
+  
+  // Update form category field when category selections change (FIX: This was missing!)
+  useEffect(() => {
+    if (selectedLevel1 || selectedLevel2 || selectedLevel3) {
+      const categoryNames = [];
+      if (selectedLevel1) {
+        const level1 = categories.find(c => c.id === selectedLevel1);
+        if (level1) categoryNames.push(level1.name);
+      }
+      if (selectedLevel2) {
+        const level2 = categories.find(c => c.id === selectedLevel2);
+        if (level2) categoryNames.push(level2.name);
+      }
+      if (selectedLevel3) {
+        const level3 = categories.find(c => c.id === selectedLevel3);
+        if (level3) categoryNames.push(level3.name);
+      }
+      const categoryValue = categoryNames.join(" > ") || "General";
+      form.setValue("category", categoryValue);
+    }
+  }, [selectedLevel1, selectedLevel2, selectedLevel3, categories, form]);
 
   const updateMutation = useMutation({
     mutationFn: async (dataWithVariants: any) => {
@@ -242,6 +323,11 @@ export default function EditProduct() {
       fullData.requiresDeposit = 0;
       fullData.depositAmount = undefined;
     }
+    
+    // Add category IDs (FIX: This was missing!)
+    fullData.categoryLevel1Id = selectedLevel1 || null;
+    fullData.categoryLevel2Id = selectedLevel2 || null;
+    fullData.categoryLevel3Id = selectedLevel3 || null;
     
     // Handle discount/promotion
     if (discountPercentage && parseFloat(discountPercentage) > 0) {
@@ -334,6 +420,17 @@ export default function EditProduct() {
                 setDiscountPercentage={setDiscountPercentage}
                 promotionEndDate={promotionEndDate}
                 setPromotionEndDate={setPromotionEndDate}
+                selectedLevel1={selectedLevel1}
+                setSelectedLevel1={setSelectedLevel1}
+                selectedLevel2={selectedLevel2}
+                setSelectedLevel2={setSelectedLevel2}
+                selectedLevel3={selectedLevel3}
+                setSelectedLevel3={setSelectedLevel3}
+                level1Categories={level1Categories}
+                level2Categories={level2Categories}
+                level3Categories={level3Categories}
+                categories={categories}
+                refetchCategories={refetchCategories}
               />
 
               <div className="flex gap-4 pt-4">
