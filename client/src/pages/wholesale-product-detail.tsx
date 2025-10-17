@@ -14,7 +14,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, ShoppingCart, Package, TrendingUp, AlertCircle, FileText, Warehouse, Calendar } from "lucide-react";
+import { 
+  ArrowLeft, 
+  ShoppingCart, 
+  Package, 
+  TrendingUp, 
+  AlertCircle, 
+  FileText, 
+  Warehouse, 
+  Calendar,
+  DollarSign,
+  Box,
+  Clock,
+  CheckCircle,
+  TrendingDown
+} from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart-context";
@@ -202,7 +216,7 @@ export default function WholesaleProductDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen py-12">
-        <div className="container mx-auto px-4 max-w-6xl">
+        <div className="container mx-auto px-4 max-w-7xl">
           <div className="mb-8">
             <Button
               variant="ghost"
@@ -230,7 +244,7 @@ export default function WholesaleProductDetail() {
   if (!product) {
     return (
       <div className="min-h-screen py-12">
-        <div className="container mx-auto px-4 max-w-6xl">
+        <div className="container mx-auto px-4 max-w-7xl">
           <Card className="text-center py-12">
             <CardContent>
               <AlertCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -273,9 +287,13 @@ export default function WholesaleProductDetail() {
   // Get all product images
   const productImages = product.images && product.images.length > 0 ? product.images : [product.image];
 
+  // Stock availability display
+  const stockDisplay = product.stock === 0 ? "Made-to-Order" : `${product.stock} units in stock`;
+  const isUnlimitedStock = product.stock === 0;
+
   return (
     <div className="min-h-screen py-12">
-      <div className="container mx-auto px-4 max-w-6xl">
+      <div className="container mx-auto px-4 max-w-7xl">
         <div className="mb-8">
           <Button
             variant="ghost"
@@ -287,10 +305,10 @@ export default function WholesaleProductDetail() {
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-8">
+        <div className="grid lg:grid-cols-2 gap-8 mb-8">
           {/* Product Image Gallery */}
           <div className="space-y-4">
-            <div className="aspect-square overflow-hidden rounded-lg border">
+            <div className="aspect-square overflow-hidden rounded-lg border bg-muted">
               <img
                 src={selectedImage}
                 alt={product.name}
@@ -299,13 +317,13 @@ export default function WholesaleProductDetail() {
               />
             </div>
             {productImages.length > 1 && (
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-6 gap-2">
                 {productImages.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImage(img)}
-                    className={`aspect-square overflow-hidden rounded-md border-2 transition-all ${
-                      selectedImage === img ? 'border-primary' : 'border-transparent hover:border-muted-foreground'
+                    className={`aspect-square overflow-hidden rounded-md border-2 transition-all hover-elevate ${
+                      selectedImage === img ? 'border-primary' : 'border-transparent'
                     }`}
                     data-testid={`button-image-${idx}`}
                   >
@@ -323,142 +341,179 @@ export default function WholesaleProductDetail() {
           {/* Product Info */}
           <div className="space-y-6">
             <div>
-              <div className="flex items-start justify-between gap-4 mb-2">
+              <div className="flex items-start justify-between gap-4 mb-4">
                 <div className="flex-1">
-                  <h1 className="text-4xl font-bold mb-2" data-testid="text-product-name">
+                  <h1 className="text-4xl font-bold mb-3" data-testid="text-product-name">
                     {product.name}
                   </h1>
-                  {product.sku && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                      <Package className="h-4 w-4" />
-                      <span data-testid="text-sku">SKU: {product.sku}</span>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <Badge variant="secondary" className="text-sm">{product.category}</Badge>
+                    {product.sku && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Package className="h-4 w-4" />
+                        <span data-testid="text-sku">SKU: {product.sku}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <Badge variant="secondary">{product.category}</Badge>
               </div>
-              <p className="text-muted-foreground" data-testid="text-description">
+              <p className="text-muted-foreground leading-relaxed" data-testid="text-description">
                 {product.description}
               </p>
             </div>
 
-            {/* Pricing */}
+            {/* Key Features - B2B Style */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Box className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Min Order</p>
+                    <p className="text-lg font-bold" data-testid="text-moq">{product.moq} units</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Your Margin</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">{margin.toFixed(0)}%</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Stock</p>
+                    <p className="text-sm font-semibold" data-testid="text-stock">
+                      {isUnlimitedStock ? (
+                        <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30">
+                          Made-to-Order
+                        </Badge>
+                      ) : (
+                        `${product.stock} units`
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {(product.readinessType || product.readinessDays) && (
+                <Card className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg bg-orange-500/10">
+                      <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Readiness</p>
+                      <p className="text-sm font-semibold" data-testid="text-readiness">
+                        {product.readinessType === 'date' && product.readinessValue
+                          ? format(new Date(product.readinessValue), 'MMM d, yyyy')
+                          : product.readinessType === 'days' && product.readinessValue
+                          ? `${product.readinessValue} days`
+                          : product.readinessDays
+                          ? `${product.readinessDays} days`
+                          : 'Standard'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+
+            {/* Pricing Card */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Wholesale Pricing</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Wholesale Pricing
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Your Price</span>
-                  <span className="text-2xl font-bold text-primary" data-testid="text-wholesale-price">
+                  <span className="text-muted-foreground">Your Price (Per Unit)</span>
+                  <span className="text-3xl font-bold text-primary" data-testid="text-wholesale-price">
                     {formatPrice(wholesalePriceNum)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Retail Price (RRP)</span>
-                  <span className="text-lg line-through" data-testid="text-rrp">
+                <div className="flex justify-between items-center pb-3 border-b">
+                  <span className="text-sm text-muted-foreground">RRP / Retail Price</span>
+                  <span className="text-lg line-through text-muted-foreground" data-testid="text-rrp">
                     {formatPrice(parseFloat(product.rrp))}
                   </span>
                 </div>
-                <div className="flex justify-between items-center pt-3 border-t">
-                  <span className="text-muted-foreground">Your Margin</span>
-                  <Badge variant="default" className="text-lg">
-                    {margin.toFixed(0)}%
-                  </Badge>
-                </div>
+                
+                {/* Deposit Information */}
+                {product.requiresDeposit === 1 && (
+                  <div className="space-y-3 pt-3 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Deposit ({depositPercentageNum}%)</span>
+                      <span className="font-semibold" data-testid="text-deposit">
+                        {formatPrice(depositAmount)} per unit
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground">Balance Payment</p>
+                        {product.balancePaymentTerms && (
+                          <Badge variant="outline" className="mt-1 text-xs">
+                            {product.balancePaymentTerms}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="font-semibold" data-testid="text-balance">
+                        {formatPrice(balanceAmount)} per unit
+                      </span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Requirements & Terms */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Order Requirements & Terms</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Minimum Order Qty</span>
-                  <Badge variant="outline" data-testid="badge-moq">
-                    {product.moq} units
-                  </Badge>
-                </div>
-
-                {/* Readiness Information */}
-                {(product.readinessType || product.readinessDays) && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Readiness</span>
-                    <span className="font-medium flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {product.readinessType === 'date' && product.readinessValue
-                        ? `Ships ${format(new Date(product.readinessValue), 'PPP')}`
-                        : product.readinessType === 'days' && product.readinessValue
-                        ? `${product.readinessValue} days after order`
-                        : product.readinessDays
-                        ? `${product.readinessDays} days`
-                        : 'Standard lead time'
-                      }
-                    </span>
-                  </div>
-                )}
-
-                {/* Deposit Information */}
-                {product.requiresDeposit === 1 && (
-                  <>
-                    <div className="flex justify-between items-center pt-3 border-t">
-                      <span className="text-muted-foreground">Deposit Required</span>
-                      <div className="text-right">
-                        {product.depositPercentage && (
-                          <div className="text-sm text-muted-foreground">
-                            {depositPercentageNum}% upfront
-                          </div>
+            {/* Warehouse & Legal */}
+            <div className="grid gap-3">
+              {product.shipFromAddress && (
+                <Card className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Warehouse className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold mb-1">Ships From</p>
+                      <div className="text-sm text-muted-foreground" data-testid="text-warehouse">
+                        {typeof product.shipFromAddress === 'object' ? (
+                          <>
+                            <div>{product.shipFromAddress.street}</div>
+                            <div>{product.shipFromAddress.city}, {product.shipFromAddress.country}</div>
+                          </>
+                        ) : (
+                          <div>{product.shipFromAddress}</div>
                         )}
-                        <span className="font-medium">
-                          {formatPrice(depositAmount)} per unit
-                        </span>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Balance Payment</span>
-                      <div className="text-right">
-                        {product.balancePaymentTerms && (
-                          <div className="text-sm text-muted-foreground">
-                            {product.balancePaymentTerms}
-                          </div>
-                        )}
-                        <span className="font-medium">
-                          {formatPrice(balanceAmount)} per unit
-                        </span>
+                  </div>
+                </Card>
+              )}
+
+              {product.termsAndConditionsUrl && (
+                <Card className="p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-semibold">Terms & Conditions</p>
+                        <p className="text-xs text-muted-foreground">Product-specific T&C</p>
                       </div>
                     </div>
-                  </>
-                )}
-
-                {/* Warehouse/Ship From */}
-                {product.shipFromAddress && (
-                  <div className="flex justify-between items-start pt-3 border-t">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <Warehouse className="h-4 w-4" />
-                      Ships From
-                    </span>
-                    <div className="text-right text-sm">
-                      {typeof product.shipFromAddress === 'object' ? (
-                        <>
-                          <div>{product.shipFromAddress.street}</div>
-                          <div>{product.shipFromAddress.city}, {product.shipFromAddress.country}</div>
-                        </>
-                      ) : (
-                        <div>{product.shipFromAddress}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Terms & Conditions */}
-                {product.termsAndConditionsUrl && (
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Terms & Conditions
-                    </span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -471,13 +526,13 @@ export default function WholesaleProductDetail() {
                         rel="noopener noreferrer"
                         download
                       >
-                        Download
+                        Download PDF
                       </a>
                     </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
 
@@ -487,20 +542,25 @@ export default function WholesaleProductDetail() {
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-2">Select Variants & Quantities</h2>
               <p className="text-muted-foreground">
-                Choose quantities for each size and color combination. Total must meet MOQ of {product.moq} units.
+                Choose quantities for each size and color combination. Total must meet MOQ of <strong>{product.moq} units</strong>.
               </p>
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  <strong>Stock = 0 means unlimited availability</strong> (Made-to-Order). We'll produce your order specifically for you.
+                </p>
+              </div>
             </div>
 
             <div className="overflow-x-auto mb-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-32">Size</TableHead>
+                    <TableHead className="w-32 font-semibold">Size</TableHead>
                     {colors.map(color => (
-                      <TableHead key={color} className="text-center">
+                      <TableHead key={color} className="text-center min-w-[140px]">
                         <div className="space-y-1">
                           <div className="font-semibold">{color}</div>
-                          <div className="text-xs text-muted-foreground">Stock</div>
+                          <div className="text-xs text-muted-foreground">Stock / Quantity</div>
                         </div>
                       </TableHead>
                     ))}
@@ -513,19 +573,24 @@ export default function WholesaleProductDetail() {
                       {colors.map(color => {
                         const stock = getVariantStock(size, color);
                         const quantity = getVariantQuantity(size, color);
-                        const isAvailable = stock > 0 || stock === 0;
+                        const isAvailable = stock >= 0;
+                        const isMTO = stock === 0;
                         
                         return (
                           <TableCell key={color} className="text-center">
                             <div className="flex flex-col items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {stock === 0 ? "MTO" : `${stock}`}
+                              <Badge 
+                                variant={isMTO ? "default" : "outline"} 
+                                className={isMTO ? "bg-blue-500 text-white" : ""}
+                              >
+                                {isMTO ? "MTO" : `${stock} in stock`}
                               </Badge>
                               <Input
                                 type="number"
                                 min="0"
                                 max={stock > 0 ? stock : undefined}
-                                value={quantity}
+                                value={quantity || ""}
+                                placeholder="0"
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value) || 0;
                                   if (stock > 0 && val > stock) {
@@ -538,7 +603,7 @@ export default function WholesaleProductDetail() {
                                   }
                                   updateVariantQuantity(size, color, val);
                                 }}
-                                className="w-20 text-center"
+                                className="w-24 text-center"
                                 disabled={!isAvailable}
                                 data-testid={`input-quantity-${size}-${color}`}
                               />
@@ -552,40 +617,47 @@ export default function WholesaleProductDetail() {
               </Table>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-              <div className="space-y-1">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-6 bg-muted rounded-lg">
+              <div className="space-y-1 text-center md:text-left">
                 <div className="text-sm text-muted-foreground">Total Selected Quantity</div>
-                <div className="text-3xl font-bold" data-testid="text-total-quantity">
+                <div className="text-4xl font-bold" data-testid="text-total-quantity">
                   {totalQuantity} units
                 </div>
-                {totalQuantity < product.moq && (
-                  <div className="text-sm text-destructive">
+                {totalQuantity < product.moq && totalQuantity > 0 && (
+                  <div className="text-sm text-destructive font-medium">
                     Need {product.moq - totalQuantity} more to meet MOQ
                   </div>
                 )}
               </div>
-              <div className="text-right space-y-1">
-                <div className="text-sm text-muted-foreground">Total Cost</div>
-                <div className="text-3xl font-bold" data-testid="text-total-cost">
+              <div className="text-center md:text-right space-y-1">
+                <div className="text-sm text-muted-foreground">Total Order Cost</div>
+                <div className="text-4xl font-bold text-primary" data-testid="text-total-cost">
                   {formatPrice(totalQuantity * wholesalePriceNum)}
                 </div>
+                {product.requiresDeposit === 1 && totalQuantity > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    Deposit: {formatPrice(totalQuantity * depositAmount)}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="mt-6 flex gap-4">
+            <div className="mt-6">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     onClick={handleAddToCart}
                     disabled={totalQuantity < product.moq || totalQuantity === 0 || isCartLoading}
-                    className="flex-1"
+                    className="w-full"
                     size="lg"
                     data-testid="button-add-to-cart"
                   >
                     <ShoppingCart className="mr-2 h-5 w-5" />
                     {totalQuantity < product.moq 
-                      ? `Need ${product.moq - totalQuantity} More Units`
-                      : "Add to Cart"
+                      ? `Select ${product.moq - totalQuantity} More Units to Meet MOQ`
+                      : totalQuantity === 0
+                      ? "Select Quantities Above"
+                      : `Add ${totalQuantity} Units to Cart`
                     }
                   </Button>
                 </TooltipTrigger>
@@ -598,28 +670,44 @@ export default function WholesaleProductDetail() {
             </div>
           </Card>
         ) : (
+          // No variants - simple quantity input
           <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Order This Product</h3>
-                <p className="text-muted-foreground">
-                  Minimum order: {product.moq} units
-                </p>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="lg" onClick={handleAddToCart} disabled={isCartLoading} data-testid="button-add-to-cart">
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    Add to Cart
-                  </Button>
-                </TooltipTrigger>
-                {isCartLoading && (
-                  <TooltipContent>
-                    <p>Loading cart...</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-2">Order Quantity</h2>
+              <p className="text-muted-foreground">
+                Minimum order quantity is <strong>{product.moq} units</strong>.
+              </p>
             </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6 bg-muted rounded-lg mb-6">
+              <div className="flex-1 text-center md:text-left">
+                <div className="text-sm text-muted-foreground mb-2">Order Quantity</div>
+                <div className="text-4xl font-bold">{product.moq} units</div>
+                <div className="text-sm text-muted-foreground mt-1">(MOQ)</div>
+              </div>
+              <div className="text-center md:text-right space-y-1">
+                <div className="text-sm text-muted-foreground">Total Order Cost</div>
+                <div className="text-4xl font-bold text-primary" data-testid="text-simple-total-cost">
+                  {formatPrice(product.moq * wholesalePriceNum)}
+                </div>
+                {product.requiresDeposit === 1 && (
+                  <div className="text-sm text-muted-foreground">
+                    Deposit: {formatPrice(product.moq * depositAmount)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Button
+              onClick={handleAddToCart}
+              disabled={isCartLoading}
+              className="w-full"
+              size="lg"
+              data-testid="button-add-to-cart-simple"
+            >
+              <ShoppingCart className="mr-2 h-5 w-5" />
+              Add {product.moq} Units to Cart
+            </Button>
           </Card>
         )}
       </div>
