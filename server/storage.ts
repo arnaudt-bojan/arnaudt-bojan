@@ -690,9 +690,12 @@ export interface IStorage {
   // Meta Ad Accounts
   getMetaAdAccount(id: string): Promise<MetaAdAccount | undefined>;
   getMetaAdAccountBySeller(sellerId: string): Promise<MetaAdAccount | undefined>;
+  getAllMetaAdAccountsBySeller(sellerId: string): Promise<MetaAdAccount[]>;
+  getSelectedMetaAdAccount(sellerId: string): Promise<MetaAdAccount | undefined>;
   getMetaAdAccountByMetaAccountId(metaAdAccountId: string): Promise<MetaAdAccount | undefined>;
   createMetaAdAccount(account: InsertMetaAdAccount): Promise<string>;
   updateMetaAdAccount(id: string, updates: Partial<MetaAdAccount>): Promise<MetaAdAccount | undefined>;
+  selectMetaAdAccount(sellerId: string, accountId: string): Promise<boolean>;
   
   // Meta Campaigns
   getMetaCampaign(id: string): Promise<MetaCampaign | undefined>;
@@ -3991,6 +3994,50 @@ export class DatabaseStorage implements IStorage {
       .where(eq(metaAdAccounts.id, id))
       .returning();
     return result;
+  }
+
+  async getAllMetaAdAccountsBySeller(sellerId: string): Promise<MetaAdAccount[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(metaAdAccounts)
+      .where(eq(metaAdAccounts.sellerId, sellerId))
+      .orderBy(desc(metaAdAccounts.createdAt));
+  }
+
+  async getSelectedMetaAdAccount(sellerId: string): Promise<MetaAdAccount | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(metaAdAccounts)
+      .where(and(
+        eq(metaAdAccounts.sellerId, sellerId),
+        eq(metaAdAccounts.isSelected, 1)
+      ))
+      .limit(1);
+    return result;
+  }
+
+  async selectMetaAdAccount(sellerId: string, accountId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    
+    // First, deselect all accounts for this seller
+    await this.db
+      .update(metaAdAccounts)
+      .set({ isSelected: 0 })
+      .where(eq(metaAdAccounts.sellerId, sellerId));
+    
+    // Then, select the specified account
+    const [result] = await this.db
+      .update(metaAdAccounts)
+      .set({ isSelected: 1 })
+      .where(and(
+        eq(metaAdAccounts.id, accountId),
+        eq(metaAdAccounts.sellerId, sellerId)
+      ))
+      .returning();
+    
+    return !!result;
   }
 
   // ===== META CAMPAIGNS METHODS =====

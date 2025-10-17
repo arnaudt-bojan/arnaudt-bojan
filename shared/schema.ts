@@ -3318,6 +3318,7 @@ export const metaAdAccounts = pgTable("meta_ad_accounts", {
   
   // Account status
   status: metaAdAccountStatusPgEnum("status").notNull().default("connected"),
+  isSelected: integer("is_selected").notNull().default(0), // 0 = not selected, 1 = selected (only one per seller)
   
   // Business details
   businessName: text("business_name"),

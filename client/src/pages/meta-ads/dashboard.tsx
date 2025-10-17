@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,10 +44,15 @@ import {
   MousePointerClick,
   Users,
   ArrowLeft,
+  AlertCircle,
+  ExternalLink,
+  XCircle,
 } from "lucide-react";
 import { SiFacebook, SiInstagram } from "react-icons/si";
-import type { MetaCampaign } from "@shared/schema";
+import type { MetaCampaign, MetaAdAccount } from "@shared/schema";
 import { format } from "date-fns";
+import { MetaAdsOnboardingWizard } from "@/components/meta-ads-onboarding-wizard";
+import { MetaAdAccountSelector } from "@/components/meta-ad-account-selector";
 
 const getStatusBadgeVariant = (status: string) => {
   switch (status) {
@@ -142,12 +148,11 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
 
   const lifetimeBudget = parseFloat(campaign.lifetimeBudget?.toString() || "0");
   const budgetRemaining = lifetimeBudget;
-  const budgetPercentage = 0; // Will be calculated from metrics
+  const budgetPercentage = 0;
 
   return (
     <Card className="p-6" data-testid={`card-campaign-${campaign.id}`}>
       <div className="space-y-4">
-        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
@@ -196,7 +201,6 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
           </DropdownMenu>
         </div>
 
-        {/* Dates */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground mb-1">Date Created</p>
@@ -214,7 +218,6 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
           </div>
         </div>
 
-        {/* Budget */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Budget Remaining</p>
@@ -233,7 +236,6 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
           </p>
         </div>
 
-        {/* Performance Metrics (Collapsible) */}
         <Collapsible open={isPerformanceOpen} onOpenChange={setIsPerformanceOpen}>
           <CollapsibleTrigger asChild>
             <Button 
@@ -320,35 +322,64 @@ function CampaignCardSkeleton() {
 }
 
 export default function MetaAdsDashboard() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [oauthWindow, setOauthWindow] = useState<Window | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [showAccountSelector, setShowAccountSelector] = useState(false);
 
   const { data: campaigns = [], isLoading } = useQuery<MetaCampaign[]>({
     queryKey: ["/api/meta/campaigns"],
   });
 
-  // Check if user has connected Meta ad account
-  const { data: adAccounts = [], isLoading: adAccountsLoading, refetch: refetchAdAccounts } = useQuery<any[]>({
+  const { data: adAccounts = [], isLoading: adAccountsLoading, refetch: refetchAdAccounts } = useQuery<MetaAdAccount[]>({
     queryKey: ["/api/meta/ad-accounts"],
   });
 
-  // Listen for postMessage from Meta OAuth success page in popup
+  // Check for OAuth errors in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
+    
+    if (error) {
+      if (error === 'access_denied') {
+        setOauthError('oauth_cancelled');
+        toast({
+          title: "Connection Cancelled",
+          description: "You cancelled the Meta account connection. No changes were made.",
+          variant: "destructive",
+        });
+      } else if (error === 'redirect_uri_mismatch' || errorDescription?.includes('redirect_uri')) {
+        setOauthError('redirect_uri_error');
+      } else {
+        setOauthError('oauth_failed');
+        toast({
+          title: "Connection Failed",
+          description: errorDescription || "Failed to connect Meta account. Please try again.",
+          variant: "destructive",
+        });
+      }
+      
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [location, toast]);
+
+  // Listen for postMessage from OAuth success
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Verify message is from our origin
       if (event.origin !== window.location.origin) return;
       
-      // Check if it's a Meta OAuth success message
       if (event.data?.type === 'meta_oauth_success') {
         if (oauthWindow && !oauthWindow.closed) {
           oauthWindow.close();
         }
         setOauthWindow(null);
+        setOauthError(null);
         
-        // Refetch ad accounts to update UI
         setTimeout(async () => {
           await queryClient.invalidateQueries({ queryKey: ["/api/meta/ad-accounts"] });
           await refetchAdAccounts();
@@ -358,6 +389,12 @@ export default function MetaAdsDashboard() {
             description: "Your Meta ad account has been successfully linked.",
           });
         }, 500);
+      } else if (event.data?.type === 'meta_oauth_error') {
+        if (oauthWindow && !oauthWindow.closed) {
+          oauthWindow.close();
+        }
+        setOauthWindow(null);
+        setOauthError(event.data.error || 'oauth_failed');
       }
     };
     
@@ -365,7 +402,7 @@ export default function MetaAdsDashboard() {
     return () => window.removeEventListener('message', handleMessage);
   }, [oauthWindow, toast, refetchAdAccounts]);
 
-  // Check if OAuth window was closed
+  // Check if OAuth window closed
   useEffect(() => {
     if (!oauthWindow) return;
 
@@ -374,7 +411,6 @@ export default function MetaAdsDashboard() {
         setOauthWindow(null);
         clearInterval(checkWindowClosed);
         
-        // Refetch ad accounts in case OAuth was completed
         setTimeout(async () => {
           await queryClient.invalidateQueries({ queryKey: ["/api/meta/ad-accounts"] });
           await refetchAdAccounts();
@@ -386,7 +422,6 @@ export default function MetaAdsDashboard() {
   }, [oauthWindow, refetchAdAccounts]);
 
   const handleConnectMeta = () => {
-    // Open OAuth in popup window
     const width = 600;
     const height = 700;
     const left = window.screen.width / 2 - width / 2;
@@ -400,6 +435,7 @@ export default function MetaAdsDashboard() {
     
     if (newWindow) {
       setOauthWindow(newWindow);
+      setOauthError(null);
     } else {
       toast({
         title: "Popup Blocked",
@@ -409,14 +445,16 @@ export default function MetaAdsDashboard() {
     }
   };
 
-  // Filter campaigns based on search and status
   const filteredCampaigns = campaigns.filter((campaign) => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || campaign.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Show loading state while checking ad accounts
+  const selectedAccount = adAccounts.find(acc => acc.isSelected === 1);
+  const hasMultipleAccounts = adAccounts.length > 1;
+  const needsAccountSelection = hasMultipleAccounts && !selectedAccount;
+
   if (adAccountsLoading) {
     return (
       <div className="min-h-screen py-6 md:py-12">
@@ -434,7 +472,12 @@ export default function MetaAdsDashboard() {
     );
   }
 
-  // Show "Connect Meta Account" prompt if no ad accounts
+  // Show account selector if multiple accounts and none selected
+  if (needsAccountSelection && !showAccountSelector) {
+    setShowAccountSelector(true);
+  }
+
+  // Show onboarding wizard if no accounts
   if (adAccounts.length === 0) {
     return (
       <div className="min-h-screen py-6 md:py-12">
@@ -449,35 +492,78 @@ export default function MetaAdsDashboard() {
             Back to Seller Dashboard
           </Button>
 
-          <Card className="p-12">
-            <div className="text-center space-y-6">
-              <div className="flex justify-center">
-                <div className="flex items-center gap-3 p-6 bg-muted rounded-2xl">
-                  <SiFacebook className="h-16 w-16 text-[#1877F2]" />
-                  <SiInstagram className="h-16 w-16 text-[#E4405F]" />
-                </div>
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold mb-3">Connect Your Meta Ad Account</h2>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  Link your Facebook Business account to start creating and managing Meta ads for your products across Facebook and Instagram.
-                </p>
-                <Button 
-                  onClick={handleConnectMeta} 
-                  size="lg"
-                  data-testid="button-connect-meta"
+          {oauthError === 'oauth_cancelled' && (
+            <Alert className="mb-6" data-testid="alert-oauth-cancelled">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">Connection Cancelled</p>
+                <p className="text-sm">You cancelled the Meta account connection. Click "Connect Meta Account" below to try again.</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {oauthError === 'redirect_uri_error' && (
+            <Alert variant="destructive" className="mb-6" data-testid="alert-redirect-uri-error">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">OAuth Configuration Error</p>
+                <p className="text-sm mb-2">The redirect URI is not whitelisted in your Meta App settings.</p>
+                <Collapsible>
+                  <CollapsibleTrigger className="text-sm underline">
+                    View technical details
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 p-2 bg-muted rounded text-xs font-mono">
+                    <p>Expected redirect URI: {window.location.origin}/api/meta/oauth/callback</p>
+                    <p className="mt-1">Add this URI to your Meta App settings at developers.facebook.com</p>
+                  </CollapsibleContent>
+                </Collapsible>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {oauthError === 'no_ad_accounts' && (
+            <Alert variant="destructive" className="mb-6" data-testid="alert-no-ad-accounts">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">No Ad Accounts Found</p>
+                <p className="text-sm mb-2">OAuth succeeded but no ad accounts were found. Please create an ad account first.</p>
+                <a 
+                  href="https://business.facebook.com/adsmanager/creation"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm underline"
                 >
-                  <SiFacebook className="h-5 w-5 mr-2" />
-                  Connect Meta Account
-                </Button>
-              </div>
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">
-                  You'll be redirected to Meta to authorize access to your ad account
-                </p>
-              </div>
-            </div>
-          </Card>
+                  Create Ad Account <ExternalLink className="h-3 w-3" />
+                </a>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <MetaAdsOnboardingWizard onConnect={handleConnectMeta} />
+        </div>
+      </div>
+    );
+  }
+
+  // Show account selector if multiple accounts
+  if (showAccountSelector && needsAccountSelection) {
+    return (
+      <div className="min-h-screen py-6 md:py-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <Button
+            variant="ghost"
+            onClick={() => setLocation("/seller-dashboard")}
+            className="mb-4"
+            data-testid="button-back-to-dashboard"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Seller Dashboard
+          </Button>
+
+          <MetaAdAccountSelector 
+            accounts={adAccounts} 
+            onAccountSelected={() => setShowAccountSelector(false)}
+          />
         </div>
       </div>
     );
@@ -486,7 +572,6 @@ export default function MetaAdsDashboard() {
   return (
     <div className="min-h-screen py-6 md:py-12">
       <div className="container mx-auto px-4 max-w-7xl">
-        {/* Back Button */}
         <Button
           variant="ghost"
           onClick={() => setLocation("/seller-dashboard")}
@@ -497,7 +582,6 @@ export default function MetaAdsDashboard() {
           Back to Seller Dashboard
         </Button>
 
-        {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
@@ -530,7 +614,6 @@ export default function MetaAdsDashboard() {
             </div>
           </div>
 
-          {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -558,7 +641,6 @@ export default function MetaAdsDashboard() {
           </div>
         </div>
 
-        {/* Campaign List */}
         {isLoading ? (
           <div className="space-y-4" data-testid="loading-campaigns">
             <CampaignCardSkeleton />

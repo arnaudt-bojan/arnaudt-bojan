@@ -6838,6 +6838,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all ad accounts for a seller
+  app.get("/api/meta/ad-accounts", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const accounts = await storage.getAllMetaAdAccountsBySeller(sellerId);
+      
+      logger.info('[Meta Account] Listed ad accounts', { sellerId, count: accounts.length });
+      
+      // Don't send access tokens to frontend
+      const sanitizedAccounts = accounts.map(acc => ({
+        ...acc,
+        accessToken: undefined
+      }));
+      
+      res.json(sanitizedAccounts);
+    } catch (error: any) {
+      logger.error('[Meta Account] List error', { error });
+      res.status(500).json({ error: error.message || 'Failed to list ad accounts' });
+    }
+  });
+
+  // Select an ad account to use for campaigns
+  app.post("/api/meta/select-account", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+      const { adAccountId } = req.body;
+      
+      if (!adAccountId) {
+        return res.status(400).json({ error: 'adAccountId is required' });
+      }
+      
+      // Verify the account belongs to this seller
+      const account = await storage.getMetaAdAccount(adAccountId);
+      if (!account || account.sellerId !== sellerId) {
+        return res.status(404).json({ error: 'Ad account not found' });
+      }
+      
+      // Select the account
+      const success = await storage.selectMetaAdAccount(sellerId, adAccountId);
+      
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to select ad account' });
+      }
+      
+      logger.info('[Meta Account] Selected ad account', { sellerId, adAccountId });
+      res.json({ success: true, accountId: adAccountId });
+    } catch (error: any) {
+      logger.error('[Meta Account] Select error', { error });
+      res.status(500).json({ error: error.message || 'Failed to select ad account' });
+    }
+  });
+
   // Campaign Routes
   
   // List seller's campaigns
