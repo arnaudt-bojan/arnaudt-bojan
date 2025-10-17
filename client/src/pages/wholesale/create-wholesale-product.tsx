@@ -31,7 +31,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, RefreshCw, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
-import { BulkImageInput } from "@/components/bulk-image-input";
+import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { useDropzone } from "react-dropzone";
 import { cn } from "@/lib/utils";
 
@@ -508,10 +508,11 @@ export default function CreateWholesaleProduct() {
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <BulkImageInput
-                        images={field.value}
+                      <UniversalImageUpload
+                        value={field.value || []}
                         onChange={field.onChange}
                         maxImages={10}
+                        mode="multiple"
                       />
                     </FormControl>
                     <FormMessage />
