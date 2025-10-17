@@ -47,7 +47,7 @@ export function PlatformSwitcher() {
   return (
     <Select value={mode} onValueChange={handlePlatformChange}>
       <SelectTrigger 
-        className="w-[200px]" 
+        className="w-full" 
         data-testid="select-platform-switcher"
       >
         <div className="flex items-center gap-2">
