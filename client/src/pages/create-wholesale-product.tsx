@@ -55,6 +55,8 @@ import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BulkImageInput } from "@/components/bulk-image-input";
+import { DocumentUploader } from "@/components/DocumentUploader";
+import type { UploadResult } from "@uppy/core";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Product } from "@shared/schema";
@@ -92,7 +94,11 @@ const wholesaleProductSchema = z.object({
   readinessType: z.enum(["days", "date"]).default("days"),
   readinessDays: z.string().optional(),
   readinessDate: z.date().optional(),
-  shipFromWarehouse: z.string().optional(),
+  shipFromAddress: z.object({
+    street: z.string().optional(),
+    city: z.string().optional(),
+    country: z.string().optional(),
+  }).optional(),
   termsAndConditionsUrl: z.string().optional(),
   hasVariants: z.boolean().default(false),
 });
@@ -174,6 +180,11 @@ export default function CreateWholesaleProduct() {
       stock: "0",
       readinessType: "days",
       readinessDays: "30",
+      shipFromAddress: authUser ? {
+        street: authUser.warehouseStreet || "",
+        city: authUser.warehouseCity || "",
+        country: authUser.warehouseCountry || "",
+      } : undefined,
       hasVariants: false,
     },
   });
@@ -186,6 +197,16 @@ export default function CreateWholesaleProduct() {
   const balancePaymentTerms = form.watch("balancePaymentTerms");
   const hasVariants = form.watch("hasVariants");
   const currentCategory = form.watch("category");
+
+  // Reset child selections when parent changes
+  useEffect(() => {
+    setSelectedLevel2("");
+    setSelectedLevel3("");
+  }, [selectedLevel1]);
+
+  useEffect(() => {
+    setSelectedLevel3("");
+  }, [selectedLevel2]);
 
   // Update form category when selections change
   useEffect(() => {
@@ -237,52 +258,42 @@ export default function CreateWholesaleProduct() {
     });
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // Document upload handlers
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("POST", "/api/objects/upload");
+    return {
+      method: "PUT" as const,
+      url: (response as any).uploadURL,
+    };
+  };
 
-    // Validate file type
-    const validTypes = ['.pdf', '.docx', '.txt'];
-    const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
-    if (!validTypes.includes(fileExtension.toLowerCase())) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please upload a PDF, DOCX, or TXT file",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Get upload URL
-      const uploadResponse = await apiRequest("POST", "/api/objects/upload");
-      const { uploadURL } = uploadResponse as any;
-
-      // Upload file
-      await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      // Normalize path and set ACL
-      const normalizeResponse = await apiRequest("PUT", "/api/product-images", {
-        imageURL: uploadURL,
-      });
-
-      form.setValue("termsAndConditionsUrl", (normalizeResponse as any).objectPath);
-      toast({
-        title: "T&C Uploaded",
-        description: "Terms and conditions document uploaded successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Upload Failed",
-        description: error.message || "Failed to upload T&C document",
-        variant: "destructive",
-      });
+  const handleTermsUpload = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful.length > 0) {
+      try {
+        const uploadedFile = result.successful[0];
+        const uploadURL = uploadedFile.uploadURL;
+        
+        console.log("[T&C Upload] Upload URL:", uploadURL);
+        
+        const response = await apiRequest("PUT", "/api/wholesale/documents", {
+          documentURL: uploadURL,
+        }) as { objectPath: string };
+        
+        console.log("[T&C Upload] Normalized path:", response.objectPath);
+        
+        form.setValue("termsAndConditionsUrl", response.objectPath);
+        toast({
+          title: "Success",
+          description: "Terms & Conditions uploaded successfully",
+        });
+      } catch (error) {
+        console.error("[T&C Upload] Error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to upload Terms & Conditions",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -379,7 +390,11 @@ export default function CreateWholesaleProduct() {
         stock: parseInt(data.stock),
         readinessType: data.readinessType,
         readinessValue: data.readinessType === 'days' ? data.readinessDays : data.readinessDate?.toISOString(),
-        shipFromAddress: data.shipFromWarehouse ? { id: data.shipFromWarehouse } : null,
+        shipFromAddress: {
+          street: data.shipFromAddress?.street,
+          city: data.shipFromAddress?.city,
+          country: data.shipFromAddress?.country,
+        },
         termsAndConditionsUrl: data.termsAndConditionsUrl || null,
         variants,
       };
@@ -567,12 +582,9 @@ export default function CreateWholesaleProduct() {
                     <FormLabel>Category</FormLabel>
                     <div className="space-y-3">
                       <Select
+                        key="level1"
                         value={selectedLevel1}
-                        onValueChange={(value) => {
-                          setSelectedLevel1(value);
-                          setSelectedLevel2("");
-                          setSelectedLevel3("");
-                        }}
+                        onValueChange={setSelectedLevel1}
                       >
                         <FormControl>
                           <SelectTrigger data-testid="select-category-level1">
@@ -590,11 +602,9 @@ export default function CreateWholesaleProduct() {
 
                       {selectedLevel1 && level2Categories.length > 0 && (
                         <Select
+                          key={`level2-${selectedLevel1}`}
                           value={selectedLevel2}
-                          onValueChange={(value) => {
-                            setSelectedLevel2(value);
-                            setSelectedLevel3("");
-                          }}
+                          onValueChange={setSelectedLevel2}
                         >
                           <FormControl>
                             <SelectTrigger data-testid="select-category-level2">
@@ -613,6 +623,7 @@ export default function CreateWholesaleProduct() {
 
                       {selectedLevel2 && level3Categories.length > 0 && (
                         <Select
+                          key={`level3-${selectedLevel2}`}
                           value={selectedLevel3}
                           onValueChange={setSelectedLevel3}
                         >
@@ -1158,49 +1169,75 @@ export default function CreateWholesaleProduct() {
                 </>
               )}
 
-              {/* Ship From Warehouse */}
-              <FormField
-                control={form.control}
-                name="shipFromWarehouse"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ship From Warehouse</FormLabel>
-                    <div className="flex gap-2">
+              {/* Ship From Warehouse - Editable Fields */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Warehouse className="h-5 w-5" />
+                  <h3 className="text-lg font-semibold">Warehouse Address</h3>
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="shipFromAddress.street"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street Address</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Warehouse address or ID"
-                          disabled={!!authUser?.warehouseStreet}
-                          value={authUser?.warehouseStreet ? 
-                            `${authUser.warehouseStreet}, ${authUser.warehouseCity}, ${authUser.warehouseCountry}` : 
-                            field.value || ""
-                          }
-                          data-testid="input-warehouse"
+                          placeholder="123 Warehouse St"
+                          data-testid="input-warehouse-street"
                         />
                       </FormControl>
-                      {!authUser?.warehouseStreet && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowWarehouseDialog(true)}
-                          className="gap-2"
-                          data-testid="button-add-warehouse"
-                        >
-                          <Warehouse className="h-4 w-4" />
-                          Add
-                        </Button>
-                      )}
-                    </div>
-                    <FormDescription>
-                      {authUser?.warehouseStreet ? 
-                        "Using your default warehouse address from settings" :
-                        "Where will this product ship from? Add warehouse address in settings."
-                      }
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="shipFromAddress.city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="City name"
+                            data-testid="input-warehouse-city"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="shipFromAddress.country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Country name"
+                            data-testid="input-warehouse-country"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {authUser?.warehouseStreet ? 
+                    "Default values loaded from your settings. You can edit them here for this product." :
+                    "Enter the warehouse address where this product will ship from."
+                  }
+                </p>
+              </div>
 
               {/* T&C File Upload */}
               <FormField
@@ -1210,25 +1247,14 @@ export default function CreateWholesaleProduct() {
                   <FormItem>
                     <FormLabel>Terms & Conditions (Optional)</FormLabel>
                     <div className="flex gap-2">
-                      <FormControl>
-                        <div className="flex-1">
-                          <Input
-                            type="file"
-                            accept=".pdf,.docx,.txt"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                            id="tc-upload"
-                            data-testid="input-tc-file"
-                          />
-                          <label
-                            htmlFor="tc-upload"
-                            className="flex items-center justify-center w-full h-10 px-4 py-2 border border-input bg-background hover-elevate rounded-md cursor-pointer"
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {field.value ? "Change File" : "Upload T&C"}
-                          </label>
-                        </div>
-                      </FormControl>
+                      <DocumentUploader
+                        onGetUploadParameters={handleGetUploadParameters}
+                        onComplete={handleTermsUpload}
+                        buttonLabel={field.value ? "Change T&C" : "Upload T&C"}
+                        variant="outline"
+                        allowedFileTypes={['.pdf', '.docx', '.txt']}
+                        maxFileSize={10 * 1024 * 1024}
+                      />
                     </div>
                     {field.value && (
                       <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
