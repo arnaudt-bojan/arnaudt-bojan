@@ -221,7 +221,7 @@ const subscriptionService = new SubscriptionService(
 );
 
 // Initialize Wholesale service (Architecture 3 migration)
-const wholesaleService = new WholesaleService(storage);
+const wholesaleService = new WholesaleService(storage, notificationService);
 
 // Initialize Wholesale Order service for B2B order management
 const wholesaleOrderService = new WholesaleOrderService(storage, notificationService);
