@@ -163,38 +163,6 @@ export function DashboardHeader() {
                 <div className="flex flex-col gap-3">
                   <div className="text-xs font-semibold text-muted-foreground px-3">Preferences</div>
                   
-                  {/* Business Mode Selector - Mobile */}
-                  {isSeller && (
-                    <div className="px-3">
-                      <Select value={mode} onValueChange={(value: any) => {
-                        setMode(value);
-                        setMobileMenuOpen(false);
-                        // Navigate to appropriate dashboard based on mode
-                        if (value === 'b2c') {
-                          setLocation('/seller-dashboard');
-                        } else if (value === 'b2b') {
-                          setLocation('/wholesale/dashboard');
-                        } else if (value === 'trade') {
-                          setLocation('/seller/trade/quotations');
-                        }
-                      }} data-testid="mobile-select-business-mode">
-                        <SelectTrigger className="w-full">
-                          <SelectValue>{getModeLabel(mode)}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="b2c">🏪 Retail (B2C)</SelectItem>
-                          <SelectItem value="b2b">🏢 Wholesale (B2B)</SelectItem>
-                          <SelectItem value="trade">📋 Trade (Professional)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  
-                  {/* Notifications */}
-                  <div className="px-3 py-2">
-                    <NotificationBell />
-                  </div>
-
                   {/* Theme Toggle */}
                   <button
                     onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -233,31 +201,8 @@ export function DashboardHeader() {
 
         {/* Desktop controls - right side */}
         <div className="flex items-center gap-2">
-          {/* Desktop-only: Business Mode Selector, Notifications, Theme */}
+          {/* Desktop-only: Theme */}
           <div className="hidden md:flex items-center gap-2">
-            {isSeller && (
-              <Select value={mode} onValueChange={(value: any) => {
-                setMode(value);
-                // Navigate to appropriate dashboard based on mode
-                if (value === 'b2c') {
-                  setLocation('/seller-dashboard');
-                } else if (value === 'b2b') {
-                  setLocation('/wholesale/dashboard');
-                } else if (value === 'trade') {
-                  setLocation('/seller/trade/quotations');
-                }
-              }} data-testid="select-business-mode">
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue>{getModeLabel(mode)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="b2c">🏪 Retail (B2C)</SelectItem>
-                  <SelectItem value="b2b">🏢 Wholesale (B2B)</SelectItem>
-                  <SelectItem value="trade">📋 Trade (Professional)</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            <NotificationBell />
             <ThemeToggle />
           </div>
           

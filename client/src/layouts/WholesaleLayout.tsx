@@ -197,7 +197,7 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
             <p className="text-xs text-muted-foreground mt-1">{getModeLabel()}</p>
           </div>
           
-          <nav className="space-y-1 flex-1">
+          <nav className="space-y-1">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -220,7 +220,7 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
           </nav>
 
           {/* Sidebar Footer */}
-          <div className="mt-auto space-y-2 pt-4 border-t">
+          <div className="space-y-2 pt-4 mt-4 border-t">
             <div className="flex items-center justify-between px-3 mb-2">
               <span className="text-sm font-medium">Notifications</span>
               <NotificationBell />
