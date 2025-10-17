@@ -177,14 +177,30 @@ export default function EditProduct() {
   });
 
   const onSubmit = (data: FrontendProduct) => {
-    // Validate made-to-order production time
-    if (data.productType === "made-to-order" && (!madeToOrderDays || madeToOrderDays <= 0)) {
-      toast({
-        title: "Validation Error",
-        description: "Estimated Production Time is required for made-to-order products",
-        variant: "destructive",
-      });
-      return;
+    // Add pre-order date BEFORE validation
+    if (data.productType === "pre-order") {
+      if (!preOrderDate) {
+        toast({
+          title: "Validation Error",
+          description: "Expected Delivery Date is required for pre-order products",
+          variant: "destructive",
+        });
+        return;
+      }
+      (data as any).preOrderDate = new Date(preOrderDate).toISOString();
+    }
+    
+    // Add made-to-order days BEFORE validation
+    if (data.productType === "made-to-order") {
+      if (!madeToOrderDays || madeToOrderDays <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Estimated Production Time is required for made-to-order products",
+          variant: "destructive",
+        });
+        return;
+      }
+      (data as any).madeToOrderDays = madeToOrderDays;
     }
     
     // Create full data object with FRESH state (avoiding closure staleness)
@@ -209,16 +225,13 @@ export default function EditProduct() {
       }
     }
     
-    // Add readiness dates based on product type
-    if (data.productType === "made-to-order") {
-      fullData.madeToOrderDays = madeToOrderDays;
-    } else {
+    // Note: preOrderDate and madeToOrderDays are now added earlier in onSubmit before validation
+    // Just need to clear them if product type changed
+    if (data.productType !== "made-to-order") {
       fullData.madeToOrderDays = null;
     }
     
-    if (data.productType === "pre-order" && preOrderDate) {
-      fullData.preOrderDate = new Date(preOrderDate).toISOString();
-    } else {
+    if (data.productType !== "pre-order") {
       fullData.preOrderDate = null;
     }
     

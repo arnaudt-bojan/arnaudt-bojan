@@ -208,13 +208,7 @@ export default function CreateProduct() {
         }
       }
       
-      // Add readiness dates based on product type
-      if (data.productType === "made-to-order") {
-        (data as any).madeToOrderDays = madeToOrderDays;
-      }
-      if (data.productType === "pre-order" && preOrderDate) {
-        (data as any).preOrderDate = new Date(preOrderDate).toISOString();
-      }
+      // Note: preOrderDate and madeToOrderDays are now added in onSubmit before validation
       
       return await apiRequest("POST", "/api/products", data);
     },
@@ -236,14 +230,30 @@ export default function CreateProduct() {
   });
 
   const onSubmit = (data: FrontendProduct) => {
-    // Validate made-to-order production time
-    if (data.productType === "made-to-order" && (!madeToOrderDays || madeToOrderDays <= 0)) {
-      toast({
-        title: "Validation Error",
-        description: "Estimated Production Time is required for made-to-order products",
-        variant: "destructive",
-      });
-      return;
+    // Add pre-order date BEFORE validation
+    if (data.productType === "pre-order") {
+      if (!preOrderDate) {
+        toast({
+          title: "Validation Error",
+          description: "Expected Delivery Date is required for pre-order products",
+          variant: "destructive",
+        });
+        return;
+      }
+      (data as any).preOrderDate = new Date(preOrderDate).toISOString();
+    }
+    
+    // Add made-to-order days BEFORE validation
+    if (data.productType === "made-to-order") {
+      if (!madeToOrderDays || madeToOrderDays <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Estimated Production Time is required for made-to-order products",
+          variant: "destructive",
+        });
+        return;
+      }
+      (data as any).madeToOrderDays = madeToOrderDays;
     }
     
     createMutation.mutate(data);

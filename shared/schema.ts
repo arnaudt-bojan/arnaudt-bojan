@@ -317,6 +317,8 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
 // Frontend product schema (without sellerId - added by backend)
+// Note: preOrderDate and madeToOrderDays validation removed - now validated in form onSubmit
+// since these fields are managed as separate state variables, not form fields
 export const frontendProductSchema = baseInsertProductSchema.omit({ sellerId: true }).extend({
   sku: z.string().optional().nullable().transform(val => val?.trim() || undefined), // Optional product SKU
   shippingType: z.enum(["flat", "matrix", "shippo", "free"]),
@@ -330,30 +332,6 @@ export const frontendProductSchema = baseInsertProductSchema.omit({ sellerId: tr
   {
     message: "At least one product image is required (Image or Images field)",
     path: ["image"],
-  }
-).refine(
-  (data) => {
-    // Pre-order products must have a pre-order date
-    if (data.productType === "pre-order" && !data.preOrderDate) {
-      return false;
-    }
-    return true;
-  },
-  {
-    message: "Pre-order date is required for pre-order products",
-    path: ["preOrderDate"],
-  }
-).refine(
-  (data) => {
-    // Made-to-order products must have lead time days
-    if (data.productType === "made-to-order" && (!data.madeToOrderDays || data.madeToOrderDays <= 0)) {
-      return false;
-    }
-    return true;
-  },
-  {
-    message: "Lead time (days) is required for made-to-order products and must be greater than 0",
-    path: ["madeToOrderDays"],
   }
 );
 export type FrontendProduct = z.infer<typeof frontendProductSchema>;
