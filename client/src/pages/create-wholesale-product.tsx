@@ -144,6 +144,11 @@ export default function CreateWholesaleProduct() {
   const [newColor, setNewColor] = useState("");
   const [variantMatrix, setVariantMatrix] = useState<Map<string, Variant>>(new Map());
 
+  // Category dialog state
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryLevel, setCategoryLevel] = useState<1 | 2 | 3>(1);
+
   // Fetch categories
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -374,6 +379,36 @@ export default function CreateWholesaleProduct() {
     const variant = newMatrix.get(key) || { size, color, stock: 0 };
     newMatrix.set(key, { ...variant, stock });
     setVariantMatrix(newMatrix);
+  };
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string; level: number; parentId: string | null }) => {
+      const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return await apiRequest("POST", "/api/categories", { ...data, slug });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setNewCategoryName("");
+      setShowCategoryDialog(false);
+      toast({ title: "Category created", description: "The category has been added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create category", variant: "destructive" });
+    },
+  });
+
+  const handleCreateCategory = () => {
+    if (!newCategoryName.trim()) return;
+    
+    let parentId: string | null = null;
+    if (categoryLevel === 2) parentId = selectedLevel1 || null;
+    if (categoryLevel === 3) parentId = selectedLevel2 || null;
+
+    createCategoryMutation.mutate({
+      name: newCategoryName.trim(),
+      level: categoryLevel,
+      parentId,
+    });
   };
 
   const createMutation = useMutation({
@@ -611,24 +646,36 @@ export default function CreateWholesaleProduct() {
                 />
               </Card>
 
-              {/* 3-Level Category Selector */}
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <div className="space-y-3">
-                      <Select
-                        key="level1"
-                        value={selectedLevel1}
-                        onValueChange={setSelectedLevel1}
+              {/* Category Selection - Same as B2C */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Category & Settings</h3>
+                  <p className="text-sm text-muted-foreground">Organize and configure product details</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Product Category</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowCategoryDialog(true);
+                          setCategoryLevel(selectedLevel2 ? 3 : selectedLevel1 ? 2 : 1);
+                        }}
+                        data-testid="button-add-category"
                       >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-category-level1">
-                            <SelectValue placeholder="Select Master Category" />
-                          </SelectTrigger>
-                        </FormControl>
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Category
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Select value={selectedLevel1} onValueChange={setSelectedLevel1}>
+                        <SelectTrigger data-testid="select-level1" className="text-base">
+                          <SelectValue placeholder="Main Category" />
+                        </SelectTrigger>
                         <SelectContent>
                           {level1Categories.map((cat) => (
                             <SelectItem key={cat.id} value={cat.id}>
@@ -638,17 +685,25 @@ export default function CreateWholesaleProduct() {
                         </SelectContent>
                       </Select>
 
-                      {selectedLevel1 && level2Categories.length > 0 && (
-                        <Select
-                          key={`level2-${selectedLevel1}`}
-                          value={selectedLevel2}
+                      {selectedLevel1 && (
+                        <Select 
+                          value={selectedLevel2} 
                           onValueChange={setSelectedLevel2}
+                          disabled={level2Categories.length === 0}
                         >
-                          <FormControl>
-                            <SelectTrigger data-testid="select-category-level2">
-                              <SelectValue placeholder="Select Sub Category" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <SelectTrigger 
+                            data-testid="select-level2" 
+                            className={cn(
+                              "text-base",
+                              level2Categories.length === 0 && "opacity-60 cursor-not-allowed"
+                            )}
+                          >
+                            <SelectValue placeholder={
+                              level2Categories.length === 0 
+                                ? "No subcategories - Click Add Category" 
+                                : "Subcategory (Optional)"
+                            } />
+                          </SelectTrigger>
                           <SelectContent>
                             {level2Categories.map((cat) => (
                               <SelectItem key={cat.id} value={cat.id}>
@@ -659,17 +714,25 @@ export default function CreateWholesaleProduct() {
                         </Select>
                       )}
 
-                      {selectedLevel2 && level3Categories.length > 0 && (
-                        <Select
-                          key={`level3-${selectedLevel2}`}
-                          value={selectedLevel3}
+                      {selectedLevel2 && (
+                        <Select 
+                          value={selectedLevel3} 
                           onValueChange={setSelectedLevel3}
+                          disabled={level3Categories.length === 0}
                         >
-                          <FormControl>
-                            <SelectTrigger data-testid="select-category-level3">
-                              <SelectValue placeholder="Select Sub-Sub Category" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <SelectTrigger 
+                            data-testid="select-level3" 
+                            className={cn(
+                              "text-base",
+                              level3Categories.length === 0 && "opacity-60 cursor-not-allowed"
+                            )}
+                          >
+                            <SelectValue placeholder={
+                              level3Categories.length === 0 
+                                ? "No sub-subcategories - Click Add Category" 
+                                : "Sub-category (Optional)"
+                            } />
+                          </SelectTrigger>
                           <SelectContent>
                             {level3Categories.map((cat) => (
                               <SelectItem key={cat.id} value={cat.id}>
@@ -679,17 +742,86 @@ export default function CreateWholesaleProduct() {
                           </SelectContent>
                         </Select>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
 
-                      {field.value && (
-                        <p className="text-sm text-muted-foreground">
-                          Selected: {field.value}
+              {/* Quick Add Category Dialog */}
+              <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Category</DialogTitle>
+                    <DialogDescription>
+                      Create a new category to organize your products
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <FormLabel>Category Name</FormLabel>
+                      <Input
+                        placeholder="e.g., Electronics, Clothing, Home & Garden"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCreateCategory();
+                          }
+                        }}
+                        data-testid="input-new-category-name"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <FormLabel>Category Level</FormLabel>
+                      <Select
+                        value={categoryLevel.toString()}
+                        onValueChange={(val) => setCategoryLevel(parseInt(val) as 1 | 2 | 3)}
+                      >
+                        <SelectTrigger data-testid="select-category-level">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Level 1 (Main Category)</SelectItem>
+                          {selectedLevel1 && <SelectItem value="2">Level 2 (Subcategory)</SelectItem>}
+                          {selectedLevel2 && <SelectItem value="3">Level 3 (Sub-subcategory)</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                      {categoryLevel > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                          Will be added under: {categoryLevel === 2 
+                            ? level1Categories.find(c => c.id === selectedLevel1)?.name 
+                            : level2Categories.find(c => c.id === selectedLevel2)?.name}
                         </p>
                       )}
                     </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowCategoryDialog(false);
+                        setNewCategoryName("");
+                      }}
+                      data-testid="button-cancel-category"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                      data-testid="button-create-category"
+                    >
+                      {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {/* SKU Field with Auto-Generate */}
               <FormField
