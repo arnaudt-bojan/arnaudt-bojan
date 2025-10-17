@@ -169,23 +169,15 @@ export function WholesaleStorefrontHeader({ cartItemsCount = 0, onCartClick }: W
               </SheetContent>
             </Sheet>
             
-            {/* Logo/Branding - Match B2C pattern */}
+            {/* Logo/Branding - Show seller name + logo (if exists) + Wholesale badge */}
             <Link href="/wholesale/catalog" className="flex items-center gap-3 hover-elevate px-3 py-2 rounded-lg" data-testid="link-home">
-              {displayLogo ? (
-                <>
-                  <img src={displayLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
-                  <Badge variant="secondary" className="hidden md:flex">
-                    Wholesale
-                  </Badge>
-                </>
-              ) : (
-                <>
-                  <div className="text-lg font-semibold">{sellerName}</div>
-                  <Badge variant="secondary" className="hidden md:flex">
-                    Wholesale
-                  </Badge>
-                </>
+              {displayLogo && (
+                <img src={displayLogo} alt="Store Logo" className="h-10 max-w-[220px] object-contain" />
               )}
+              <div className="text-lg font-semibold">{sellerName}</div>
+              <Badge variant="secondary" className="hidden md:flex">
+                Wholesale
+              </Badge>
             </Link>
           </div>
 
