@@ -21,7 +21,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck, Eye, EyeOff, Archive, AlertCircle, Sparkles } from "lucide-react";
+import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck, Eye, EyeOff, Archive, AlertCircle, Sparkles, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { UniversalImageUpload } from "@/components/universal-image-upload";
@@ -34,13 +34,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencyInput } from "@/components/currency-input";
 
 interface ProductFormFieldsProps {
-  form: UseFormReturn<FrontendProduct>;
-  // New variant system
+  form: UseFormReturn<any>; // Accept both retail and wholesale forms
+  mode?: "retail" | "wholesale"; // NEW: determines which fields to show
+  
+  // Existing retail props
   hasColors: boolean;
   setHasColors: (value: boolean) => void;
   sizes: SizeVariant[];
@@ -67,6 +70,16 @@ interface ProductFormFieldsProps {
   level2Categories?: any[];
   level3Categories?: any[];
   currency?: string;
+  
+  // NEW: Wholesale-specific props (optional, only used when mode="wholesale")
+  onGenerateSKU?: () => void; // Wholesale SKU generation
+  wholesaleConfig?: {
+    showExistingProductSelector?: boolean;
+    showMOQ?: boolean;
+    showReadiness?: boolean;
+    showWarehouse?: boolean;
+    showTermsAndConditions?: boolean;
+  };
 }
 
 // Standard package size presets with dimensions
@@ -120,6 +133,7 @@ const productTypes = [
 
 export function ProductFormFields({
   form,
+  mode = "retail", // Default to retail
   hasColors,
   setHasColors,
   sizes,
@@ -145,6 +159,8 @@ export function ProductFormFields({
   level2Categories = [],
   level3Categories = [],
   currency,
+  onGenerateSKU,
+  wholesaleConfig = {},
 }: ProductFormFieldsProps) {
   const { toast } = useToast();
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -354,51 +370,53 @@ export function ProductFormFields({
         />
       </Card>
 
-      {/* Product Type Selection - Beautiful Cards at Top */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold">Choose Product Type</h2>
-          <p className="text-muted-foreground">Select how this product will be fulfilled</p>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {productTypes.map((type) => {
-            const Icon = type.icon;
-            const isSelected = selectedType === type.value;
-            
-            return (
-              <button
-                key={type.value}
-                type="button"
-                onClick={() => form.setValue("productType", type.value as any)}
-                className={cn(
-                  "relative group p-6 rounded-xl border-2 transition-all text-left hover-elevate active-elevate-2",
-                  isSelected 
-                    ? `${type.activeBg} ${type.borderColor} ring-2 ${type.ringColor}` 
-                    : "border-border bg-card",
-                )}
-                data-testid={`button-product-type-${type.value}`}
-              >
-                {isSelected && (
-                  <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
-                    <Check className="h-4 w-4 text-primary-foreground" />
+      {/* Product Type Selection - Retail Only */}
+      {(!mode || mode === "retail") && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">Choose Product Type</h2>
+            <p className="text-muted-foreground">Select how this product will be fulfilled</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {productTypes.map((type) => {
+              const Icon = type.icon;
+              const isSelected = selectedType === type.value;
+              
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => form.setValue("productType", type.value as any)}
+                  className={cn(
+                    "relative group p-6 rounded-xl border-2 transition-all text-left hover-elevate active-elevate-2",
+                    isSelected 
+                      ? `${type.activeBg} ${type.borderColor} ring-2 ${type.ringColor}` 
+                      : "border-border bg-card",
+                  )}
+                  data-testid={`button-product-type-${type.value}`}
+                >
+                  {isSelected && (
+                    <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
+                      <Check className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                  )}
+                  
+                  <div className={cn(
+                    "rounded-lg p-3 w-fit mb-4 transition-colors bg-gradient-to-br",
+                    type.gradient
+                  )}>
+                    <Icon className={cn("h-6 w-6", type.iconColor)} />
                   </div>
-                )}
-                
-                <div className={cn(
-                  "rounded-lg p-3 w-fit mb-4 transition-colors bg-gradient-to-br",
-                  type.gradient
-                )}>
-                  <Icon className={cn("h-6 w-6", type.iconColor)} />
-                </div>
-                
-                <h3 className="font-semibold text-lg mb-1">{type.label}</h3>
-                <p className="text-sm text-muted-foreground">{type.description}</p>
-              </button>
-            );
-          })}
+                  
+                  <h3 className="font-semibold text-lg mb-1">{type.label}</h3>
+                  <p className="text-sm text-muted-foreground">{type.description}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Basic Information */}
       <Card className="p-6 space-y-6">
@@ -432,18 +450,36 @@ export function ProductFormFields({
             name="sku"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>SKU (Optional)</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="Leave blank to auto-generate (Format: UPF-XXX-###)" 
-                    {...field} 
-                    value={field.value || ""}
-                    data-testid="input-product-sku" 
-                    className="text-base" 
-                  />
-                </FormControl>
+                <FormLabel>SKU {mode !== "wholesale" && "(Optional)"}</FormLabel>
+                {mode === "wholesale" && onGenerateSKU ? (
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter SKU or generate" 
+                        {...field} 
+                        value={field.value || ""}
+                        data-testid="input-sku" 
+                        className="text-base flex-1" 
+                      />
+                    </FormControl>
+                    <Button type="button" variant="outline" onClick={onGenerateSKU} data-testid="button-generate-sku">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Generate
+                    </Button>
+                  </div>
+                ) : (
+                  <FormControl>
+                    <Input 
+                      placeholder="Leave blank to auto-generate (Format: UPF-XXX-###)" 
+                      {...field} 
+                      value={field.value || ""}
+                      data-testid="input-product-sku" 
+                      className="text-base" 
+                    />
+                  </FormControl>
+                )}
                 <FormDescription>
-                  Leave blank to auto-generate (Format: UPF-XXX-###)
+                  {mode === "wholesale" ? "Unique identifier for B2B orders" : "Leave blank to auto-generate (Format: UPF-XXX-###)"}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -770,17 +806,18 @@ export function ProductFormFields({
         </div>
       </Card>
 
-      {/* Shipping Configuration */}
-      <Card className="p-6 space-y-6">
-        <div className="space-y-2">
-          <h3 className="text-xl font-semibold flex items-center gap-2">
-            <div className="bg-primary/10 rounded-lg p-2">
-              <Truck className="h-5 w-5 text-primary" />
-            </div>
-            Shipping Configuration
-          </h3>
-          <p className="text-sm text-muted-foreground">Configure how this product will be shipped</p>
-        </div>
+      {/* Shipping Configuration - Retail Only */}
+      {(!mode || mode === "retail") && (
+        <Card className="p-6 space-y-6">
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
+              <div className="bg-primary/10 rounded-lg p-2">
+                <Truck className="h-5 w-5 text-primary" />
+              </div>
+              Shipping Configuration
+            </h3>
+            <p className="text-sm text-muted-foreground">Configure how this product will be shipped</p>
+          </div>
 
         <div className="space-y-4">
           <FormField
@@ -1096,6 +1133,7 @@ export function ProductFormFields({
           )}
         </div>
       </Card>
+      )}
 
       {/* Pricing & Promotions */}
       <Card className="p-6 space-y-6">
@@ -1110,31 +1148,78 @@ export function ProductFormFields({
         </div>
 
         <div className="space-y-4">
-          {/* Base Price - NOW FIRST */}
-          <FormField
-            control={form.control}
-            name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-base font-semibold">Product Price</FormLabel>
-                <FormControl>
-                  <CurrencyInput
-                    {...field}
-                    currency={currency}
-                    data-testid="input-price"
-                    className="text-base font-medium h-12"
-                  />
-                </FormControl>
-                <FormDescription>
-                  The base price for this product
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Pricing - Retail or Wholesale */}
+          {!mode || mode === "retail" ? (
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base font-semibold">Product Price</FormLabel>
+                  <FormControl>
+                    <CurrencyInput
+                      {...field}
+                      currency={currency}
+                      data-testid="input-price"
+                      className="text-base font-medium h-12"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    The base price for this product
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="rrp"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base font-semibold">RRP (Retail Price)</FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        {...field}
+                        currency={currency}
+                        data-testid="input-rrp"
+                        className="text-base font-medium h-12"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Recommended retail price
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="wholesalePrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base font-semibold">Wholesale Price</FormLabel>
+                    <FormControl>
+                      <CurrencyInput
+                        {...field}
+                        currency={currency}
+                        data-testid="input-wholesale-price"
+                        className="text-base font-medium h-12"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Your B2B selling price
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
 
-          {/* Deposit Amount for Pre-Order and Made-to-Order */}
-          {(selectedType === "pre-order" || selectedType === "made-to-order") && (
+          {/* Deposit Amount for Pre-Order and Made-to-Order - Retail Only */}
+          {(!mode || mode === "retail") && (selectedType === "pre-order" || selectedType === "made-to-order") && (
             <FormField
               control={form.control}
               name="depositAmount"
@@ -1167,7 +1252,91 @@ export function ProductFormFields({
             />
           )}
 
-          {/* Discount & Promotion */}
+          {/* Wholesale-Specific: MOQ */}
+          {mode === "wholesale" && wholesaleConfig?.showMOQ !== false && (
+            <FormField
+              control={form.control}
+              name="moq"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Minimum Order Quantity (MOQ)</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="number" min="1" data-testid="input-moq" className="text-base" />
+                  </FormControl>
+                  <FormDescription>Minimum units per order</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Wholesale-Specific: Readiness */}
+          {mode === "wholesale" && wholesaleConfig?.showReadiness !== false && (
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="readinessType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Readiness Type</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-readiness-type">
+                          <SelectValue placeholder="Select readiness type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="days">Days After Order</SelectItem>
+                        <SelectItem value="date">Fixed Delivery Date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="readinessValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {form.watch("readinessType") === "days" ? "Days" : "Delivery Date"}
+                    </FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        type={form.watch("readinessType") === "days" ? "number" : "date"}
+                        data-testid="input-readiness-value"
+                        className="text-base"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+
+          {/* Wholesale-Specific: Deposit Percentage */}
+          {mode === "wholesale" && (
+            <FormField
+              control={form.control}
+              name="depositPercentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Deposit Percentage (0-100%)</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="number" min="0" max="100" data-testid="input-deposit-percentage" className="text-base" />
+                  </FormControl>
+                  <FormDescription>Percentage of total required as deposit</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Discount & Promotion - Retail Only */}
+          {(!mode || mode === "retail") && (
           <div className="border-t pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1211,27 +1380,136 @@ export function ProductFormFields({
               </div>
             </div>
           </div>
+          )}
         </div>
       </Card>
 
-      {/* Product Variants - Simplified System */}
+      {/* Wholesale-Specific: Warehouse Address */}
+      {mode === "wholesale" && wholesaleConfig?.showWarehouse !== false && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Warehouse / Ship From</CardTitle>
+            <CardDescription>Origin address for B2B shipments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="shipFromStreet"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Street Address</FormLabel>
+                  <FormControl>
+                    <Input {...field} data-testid="input-ship-from-street" className="text-base" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="shipFromCity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-ship-from-city" className="text-base" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="shipFromCountry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="US" data-testid="input-ship-from-country" className="text-base" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Wholesale-Specific: Terms & Conditions URL */}
+      {mode === "wholesale" && wholesaleConfig?.showTermsAndConditions !== false && (
+        <Card className="p-6 space-y-4">
+          <FormField
+            control={form.control}
+            name="termsAndConditionsUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Terms & Conditions (URL)</FormLabel>
+                <FormControl>
+                  <Input {...field} type="url" placeholder="https://..." data-testid="input-terms-url" className="text-base" />
+                </FormControl>
+                <FormDescription>Link to B2B terms document</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </Card>
+      )}
+
+      {/* Product Variants */}
       <Card className="p-6 space-y-6">
         <div className="space-y-2">
           <h3 className="text-xl font-semibold">Product Variants (Optional)</h3>
           <p className="text-sm text-muted-foreground">
-            Most products just need sizes. Enable colors if your product comes in multiple colors.
+            {mode === "wholesale" 
+              ? "Enter sizes and colors as comma-separated values" 
+              : "Most products just need sizes. Enable colors if your product comes in multiple colors."}
           </p>
         </div>
 
-        <SimpleVariantManager
-          hasColors={hasColors}
-          onHasColorsChange={setHasColors}
-          sizes={sizes}
-          onSizesChange={setSizes}
-          colors={colors}
-          onColorsChange={setColors}
-          mainProductImages={mainProductImages}
-        />
+        {mode === "wholesale" ? (
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="sizes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sizes</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="S, M, L, XL" data-testid="input-sizes" className="text-base" />
+                  </FormControl>
+                  <FormDescription>Enter sizes separated by commas</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="colors"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Colors</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Red, Blue, Green" data-testid="input-colors" className="text-base" />
+                  </FormControl>
+                  <FormDescription>Enter colors separated by commas</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        ) : (
+          <SimpleVariantManager
+            hasColors={hasColors}
+            onHasColorsChange={setHasColors}
+            sizes={sizes}
+            onSizesChange={setSizes}
+            colors={colors}
+            onColorsChange={setColors}
+            mainProductImages={mainProductImages}
+          />
+        )}
       </Card>
     </div>
   );
