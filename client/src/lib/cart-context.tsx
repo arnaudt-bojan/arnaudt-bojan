@@ -73,8 +73,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       
       // ARCHITECTURE 3: Invalidate stock queries to refresh PDP stock display
       // This shows the reservation (soft hold) immediately after adding to cart
+      // Use predicate to match ALL stock queries for this product (with or without variant params)
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/products/${variables.productId}/stock-availability`],
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && 
+            key.includes(`/api/products/${variables.productId}/stock-availability`);
+        }
       });
     },
   });
