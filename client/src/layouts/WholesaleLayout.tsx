@@ -17,8 +17,15 @@ import {
   Megaphone,
   LogOut
 } from "lucide-react";
-import { useBusinessMode } from "@/contexts/business-mode-context";
+import { useBusinessMode, type BusinessMode } from "@/contexts/business-mode-context";
 import { NotificationBell } from "@/components/notification-bell";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface WholesaleLayoutProps {
   children: React.ReactNode;
@@ -182,11 +189,38 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
     }
   };
 
+  // Handle manual platform selection
+  const handleModeChange = (newMode: BusinessMode) => {
+    setMode(newMode);
+    // Navigate to appropriate dashboard
+    if (newMode === 'b2c') {
+      window.location.href = '/seller-dashboard';
+    } else if (newMode === 'b2b') {
+      window.location.href = '/wholesale/dashboard';
+    } else if (newMode === 'trade') {
+      window.location.href = '/seller/trade/dashboard';
+    }
+  };
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
       <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card/50">
         <div className="flex-1 flex flex-col gap-1 p-4">
+          {/* Platform Mode Selector */}
+          <div className="mb-4 px-3">
+            <Select value={mode} onValueChange={handleModeChange}>
+              <SelectTrigger className="w-full" data-testid="select-platform-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="b2c">Retail (B2C)</SelectItem>
+                <SelectItem value="b2b">Wholesale (B2B)</SelectItem>
+                <SelectItem value="trade">Trade (Professional)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="mb-4 px-3">
             <h2 className="text-lg font-bold">Upfirst</h2>
             <p className="text-xs text-muted-foreground mt-1">{getModeLabel()}</p>

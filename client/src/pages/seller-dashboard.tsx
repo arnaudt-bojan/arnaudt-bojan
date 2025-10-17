@@ -221,16 +221,6 @@ export default function SellerDashboard() {
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/settings")}
-                data-testid="button-advanced-settings"
-                className="flex-1 md:flex-none"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Advanced Settings</span>
-                <span className="sm:hidden">Settings</span>
-              </Button>
             </div>
           </div>
           
@@ -306,72 +296,6 @@ export default function SellerDashboard() {
             </Alert>
           )}
 
-          {/* Quick Actions */}
-          <div className="mb-6 md:mb-8">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-5 gap-3 md:gap-4">
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/seller/create-product")}
-                data-testid="button-create-product"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-primary/10">
-                    <Plus className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Create Product</span>
-                </div>
-              </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/seller/products")}
-                data-testid="button-manage-products"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-blue-500/10">
-                    <LayoutGrid className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">My Products</span>
-                </div>
-              </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/meta-ads/dashboard")}
-                data-testid="button-social-ads"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-orange-500/10">
-                    <Megaphone className="h-5 w-5 md:h-6 md:w-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Meta Ads</span>
-                </div>
-              </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/newsletter")}
-                data-testid="button-newsletter"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-cyan-500/10">
-                    <Mail className="h-5 w-5 md:h-6 md:w-6 text-cyan-600 dark:text-cyan-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Newsletter</span>
-                </div>
-              </Card>
-              <Card
-                className="p-4 md:p-6 cursor-pointer transition-all hover-elevate active-elevate-2"
-                onClick={() => setLocation("/seller/orders")}
-                data-testid="button-order-management"
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="p-3 rounded-full bg-pink-500/10">
-                    <FileText className="h-5 w-5 md:h-6 md:w-6 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">Order Mgmt</span>
-                </div>
-              </Card>
-            </div>
-          </div>
         </div>
 
         {/* Analytics Cards */}
