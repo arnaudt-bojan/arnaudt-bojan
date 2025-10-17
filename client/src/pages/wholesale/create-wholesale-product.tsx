@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -105,7 +105,7 @@ const wholesaleProductSchema = z.object({
   message: "Please select a product when using existing product",
   path: ["productId"]
 }).refine((data) => {
-  if (data.requiresDeposit && (!data.depositPercentage || data.depositPercentage === "")) {
+  if (data.requiresDeposit && (data.depositPercentage === "" || data.depositPercentage === undefined)) {
     return false;
   }
   return true;
@@ -151,7 +151,7 @@ export default function CreateWholesaleProduct() {
   const [uploadingTC, setUploadingTC] = useState(false);
   const [tcFileName, setTcFileName] = useState<string>("");
   
-  // Initialize form BEFORE using form.watch() in queries
+  // Initialize form
   const form = useForm<WholesaleProductForm>({
     resolver: zodResolver(wholesaleProductSchema),
     defaultValues: {
@@ -180,6 +180,19 @@ export default function CreateWholesaleProduct() {
     },
   });
   
+  // Watch specific fields without causing full re-renders
+  const useExistingProduct = useWatch({
+    control: form.control,
+    name: 'useExistingProduct',
+    defaultValue: false,
+  });
+  
+  const category = useWatch({
+    control: form.control,
+    name: 'category',
+    defaultValue: '',
+  });
+  
   // Fetch categories
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -188,7 +201,7 @@ export default function CreateWholesaleProduct() {
   // Fetch existing products for dropdown
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
-    enabled: form.watch('useExistingProduct'),
+    enabled: useExistingProduct,
   });
   
   const level1Categories = categories.filter(c => c.level === 1);
@@ -304,7 +317,7 @@ export default function CreateWholesaleProduct() {
         moq: Number(data.moq),
         stock: Number(data.stock),
         requiresDeposit: data.requiresDeposit ? 1 : 0,
-        depositPercentage: data.depositPercentage && data.depositPercentage !== "" ? Number(data.depositPercentage) : null,
+        depositPercentage: data.depositPercentage !== "" && data.depositPercentage !== undefined ? Number(data.depositPercentage) : null,
         readinessType: data.readinessType,
         readinessValue: data.readinessType === "days" ? Number(data.readinessValue) : data.readinessValue,
         shipFromAddress: (data.shipFromStreet || data.shipFromCity) ? {
@@ -399,7 +412,7 @@ export default function CreateWholesaleProduct() {
                 )}
               />
               
-              {form.watch("useExistingProduct") && (
+              {useExistingProduct && (
                 <FormField
                   control={form.control}
                   name="productId"
@@ -563,9 +576,9 @@ export default function CreateWholesaleProduct() {
                     </Select>
                   </div>
                 </div>
-                {form.watch("category") && (
+                {category && (
                   <p className="text-sm text-muted-foreground">
-                    Selected: {form.watch("category")}
+                    Selected: {category}
                   </p>
                 )}
               </div>
