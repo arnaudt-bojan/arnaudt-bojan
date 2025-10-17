@@ -3038,6 +3038,9 @@ export const tradeQuotations = pgTable("trade_quotations", {
   status: tradeQuotationStatusPgEnum("status").notNull().default("draft"),
   orderId: varchar("order_id"), // Links to orders.id when converted - prevents duplicate order creation
   validUntil: timestamp("valid_until"),
+  deliveryTerms: varchar("delivery_terms", { length: 10 }), // Incoterms: FOB, CIF, DDP, EXW, DAP, FCA, CPT
+  dataSheetUrl: text("data_sheet_url"), // URL to uploaded data sheet PDF
+  termsAndConditionsUrl: text("terms_and_conditions_url"), // URL to T&C document
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -3068,8 +3071,6 @@ export const tradeQuotationItems = pgTable("trade_quotation_items", {
   productId: varchar("product_id"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   quantity: integer("quantity").notNull(),
-  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }),
-  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }),
   lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

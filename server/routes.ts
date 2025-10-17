@@ -9042,6 +9042,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint to normalize uploaded trade documents (after upload completes)
+  app.put("/api/trade/documents", requireAuth, async (req, res) => {
+    if (!req.body.documentURL) {
+      return res.status(400).json({ error: "documentURL is required" });
+    }
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      console.log('[Trade Upload] Normalizing document path:', req.body.documentURL);
+      // Normalize the path and set public ACL (trade documents accessible by buyers)
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.documentURL,
+        {
+          owner: req.user!.id,
+          visibility: "public", // Trade documents publicly accessible via link
+        }
+      );
+      
+      console.log('[Trade Upload] Document normalized to:', objectPath);
+      res.json({ objectPath });
+    } catch (error) {
+      logger.error("Error normalizing trade document path", error);
+      res.status(500).json({ error: "Failed to normalize document path" });
+    }
+  });
+
   // Endpoint to normalize uploaded image path (after upload completes)
   app.put("/api/product-images", requireAuth, async (req, res) => {
     if (!req.body.imageURL) {

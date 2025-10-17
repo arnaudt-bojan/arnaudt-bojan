@@ -37,35 +37,43 @@ const db = storage.db;
 // ============================================================================
 
 export interface CreateQuotationData {
+  quotationNumber?: string;
   buyerEmail: string;
   buyerId?: string;
   currency?: string;
   depositPercentage?: number;
   validUntil?: Date;
+  deliveryTerms?: string;
+  dataSheetUrl?: string;
+  termsAndConditionsUrl?: string;
+  taxAmount?: number;
+  shippingAmount?: number;
   metadata?: any;
   items: Array<{
     description: string;
     productId?: string;
     unitPrice: number;
     quantity: number;
-    taxRate?: number;
-    shippingCost?: number;
   }>;
 }
 
 export interface UpdateQuotationData {
+  quotationNumber?: string;
   buyerEmail?: string;
   buyerId?: string;
   depositPercentage?: number;
   validUntil?: Date;
+  deliveryTerms?: string;
+  dataSheetUrl?: string;
+  termsAndConditionsUrl?: string;
+  taxAmount?: number;
+  shippingAmount?: number;
   metadata?: any;
   items?: Array<{
     description: string;
     productId?: string;
     unitPrice: number;
     quantity: number;
-    taxRate?: number;
-    shippingCost?: number;
   }>;
 }
 
@@ -123,20 +131,17 @@ export class QuotationService {
         throw new Error("Invalid buyer email address");
       }
 
-      // Calculate line totals for all items
+      // Calculate line totals for all items (B2B best practice: no per-item tax/shipping)
       const itemsWithTotals = data.items.map((item, index) => ({
         ...item,
         lineNumber: index + 1,
-        lineTotal: this.calculateLineTotal(
-          item.unitPrice,
-          item.quantity,
-          item.taxRate,
-          item.shippingCost
-        ),
+        lineTotal: this.calculateLineTotal(item.unitPrice, item.quantity),
       }));
 
-      // Calculate quotation totals
-      const totals = this.calculateQuotationTotals(itemsWithTotals);
+      // Calculate quotation totals with bottom-level tax/shipping
+      const taxAmount = data.taxAmount || 0;
+      const shippingAmount = data.shippingAmount || 0;
+      const totals = this.calculateQuotationTotals(itemsWithTotals, taxAmount, shippingAmount);
 
       // Calculate deposit and balance
       const depositPercentage = data.depositPercentage || 50;
@@ -145,12 +150,12 @@ export class QuotationService {
         depositPercentage
       );
 
-      // Generate quotation number
-      const quotationNumber = await this.generateQuotationNumber();
+      // Generate or use provided quotation number
+      const quotationNumber = data.quotationNumber || await this.generateQuotationNumber();
 
       // Create quotation and items in transaction
       const quotation = await db.transaction(async (tx) => {
-        // Insert quotation
+        // Insert quotation with new B2B fields
         const [newQuotation] = await tx.insert(tradeQuotations).values({
           sellerId,
           buyerEmail: data.buyerEmail,
@@ -166,10 +171,13 @@ export class QuotationService {
           balanceAmount: balanceAmount.toFixed(2),
           status: "draft",
           validUntil: data.validUntil || null,
+          deliveryTerms: data.deliveryTerms || null,
+          dataSheetUrl: data.dataSheetUrl || null,
+          termsAndConditionsUrl: data.termsAndConditionsUrl || null,
           metadata: data.metadata || null,
         }).returning();
 
-        // Insert items
+        // Insert items (B2B best practice: no per-item tax/shipping)
         const items = await tx.insert(tradeQuotationItems).values(
           itemsWithTotals.map((item) => ({
             quotationId: newQuotation.id,
@@ -178,8 +186,6 @@ export class QuotationService {
             productId: item.productId || null,
             unitPrice: item.unitPrice.toFixed(2),
             quantity: item.quantity,
-            taxRate: item.taxRate?.toFixed(2) || null,
-            shippingCost: item.shippingCost?.toFixed(2) || null,
             lineTotal: item.lineTotal.toFixed(2),
           }))
         ).returning();
@@ -321,20 +327,17 @@ export class QuotationService {
             .delete(tradeQuotationItems)
             .where(eq(tradeQuotationItems.quotationId, id));
 
-          // Calculate line totals
+          // Calculate line totals (B2B best practice: no per-item tax/shipping)
           const itemsWithTotals = data.items.map((item, index) => ({
             ...item,
             lineNumber: index + 1,
-            lineTotal: this.calculateLineTotal(
-              item.unitPrice,
-              item.quantity,
-              item.taxRate,
-              item.shippingCost
-            ),
+            lineTotal: this.calculateLineTotal(item.unitPrice, item.quantity),
           }));
 
-          // Calculate quotation totals
-          const totals = this.calculateQuotationTotals(itemsWithTotals);
+          // Calculate quotation totals with bottom-level tax/shipping
+          const taxAmount = data.taxAmount !== undefined ? data.taxAmount : Number(existing.taxAmount);
+          const shippingAmount = data.shippingAmount !== undefined ? data.shippingAmount : Number(existing.shippingAmount);
+          const totals = this.calculateQuotationTotals(itemsWithTotals, taxAmount, shippingAmount);
 
           // Calculate deposit and balance
           const depositPercentage = data.depositPercentage || existing.depositPercentage;
@@ -343,10 +346,11 @@ export class QuotationService {
             depositPercentage
           );
 
-          // Update quotation with new totals
+          // Update quotation with new totals and B2B fields
           const [updated] = await tx
             .update(tradeQuotations)
             .set({
+              quotationNumber: data.quotationNumber || existing.quotationNumber,
               buyerEmail: data.buyerEmail || existing.buyerEmail,
               buyerId: data.buyerId !== undefined ? data.buyerId : existing.buyerId,
               subtotal: totals.subtotal.toFixed(2),
@@ -357,13 +361,16 @@ export class QuotationService {
               depositPercentage,
               balanceAmount: balanceAmount.toFixed(2),
               validUntil: data.validUntil !== undefined ? data.validUntil : existing.validUntil,
+              deliveryTerms: data.deliveryTerms !== undefined ? data.deliveryTerms : existing.deliveryTerms,
+              dataSheetUrl: data.dataSheetUrl !== undefined ? data.dataSheetUrl : existing.dataSheetUrl,
+              termsAndConditionsUrl: data.termsAndConditionsUrl !== undefined ? data.termsAndConditionsUrl : existing.termsAndConditionsUrl,
               metadata: data.metadata !== undefined ? data.metadata : existing.metadata,
               updatedAt: new Date(),
             })
             .where(eq(tradeQuotations.id, id))
             .returning();
 
-          // Insert new items
+          // Insert new items (B2B best practice: no per-item tax/shipping)
           const items = await tx.insert(tradeQuotationItems).values(
             itemsWithTotals.map((item) => ({
               quotationId: id,
@@ -372,22 +379,24 @@ export class QuotationService {
               productId: item.productId || null,
               unitPrice: item.unitPrice.toFixed(2),
               quantity: item.quantity,
-              taxRate: item.taxRate?.toFixed(2) || null,
-              shippingCost: item.shippingCost?.toFixed(2) || null,
               lineTotal: item.lineTotal.toFixed(2),
             }))
           ).returning();
 
           return { ...updated, items };
         } else {
-          // Update quotation metadata only
+          // Update quotation metadata only (including new B2B fields)
           const [updated] = await tx
             .update(tradeQuotations)
             .set({
+              quotationNumber: data.quotationNumber || existing.quotationNumber,
               buyerEmail: data.buyerEmail || existing.buyerEmail,
               buyerId: data.buyerId !== undefined ? data.buyerId : existing.buyerId,
               depositPercentage: data.depositPercentage || existing.depositPercentage,
               validUntil: data.validUntil !== undefined ? data.validUntil : existing.validUntil,
+              deliveryTerms: data.deliveryTerms !== undefined ? data.deliveryTerms : existing.deliveryTerms,
+              dataSheetUrl: data.dataSheetUrl !== undefined ? data.dataSheetUrl : existing.dataSheetUrl,
+              termsAndConditionsUrl: data.termsAndConditionsUrl !== undefined ? data.termsAndConditionsUrl : existing.termsAndConditionsUrl,
               metadata: data.metadata !== undefined ? data.metadata : existing.metadata,
               updatedAt: new Date(),
             })
@@ -468,51 +477,37 @@ export class QuotationService {
   // ==========================================================================
 
   /**
-   * Calculate line total for a single item
+   * Calculate line total for a single item (B2B best practice: no per-item tax/shipping)
    */
   calculateLineTotal(
     unitPrice: number,
-    quantity: number,
-    taxRate?: number,
-    shippingCost?: number
+    quantity: number
   ): number {
-    const subtotal = unitPrice * quantity;
-    const tax = taxRate ? subtotal * (taxRate / 100) : 0;
-    const shipping = shippingCost || 0;
-    return subtotal + tax + shipping;
+    return unitPrice * quantity;
   }
 
   /**
-   * Calculate quotation totals from items
+   * Calculate quotation totals from items and bottom-level tax/shipping (B2B best practice)
    */
-  calculateQuotationTotals(items: Array<{
-    unitPrice: number;
-    quantity: number;
-    taxRate?: number;
-    shippingCost?: number;
-  }>): {
+  calculateQuotationTotals(
+    items: Array<{
+      unitPrice: number;
+      quantity: number;
+    }>,
+    taxAmount: number = 0,
+    shippingAmount: number = 0
+  ): {
     subtotal: number;
     taxAmount: number;
     shippingAmount: number;
     total: number;
   } {
-    let subtotal = 0;
-    let taxAmount = 0;
-    let shippingAmount = 0;
+    // Calculate subtotal from items only
+    const subtotal = items.reduce((sum, item) => {
+      return sum + (item.unitPrice * item.quantity);
+    }, 0);
 
-    for (const item of items) {
-      const itemSubtotal = item.unitPrice * item.quantity;
-      subtotal += itemSubtotal;
-
-      if (item.taxRate) {
-        taxAmount += itemSubtotal * (item.taxRate / 100);
-      }
-
-      if (item.shippingCost) {
-        shippingAmount += item.shippingCost;
-      }
-    }
-
+    // Total = subtotal + bottom-level tax + bottom-level shipping
     const total = subtotal + taxAmount + shippingAmount;
 
     return {

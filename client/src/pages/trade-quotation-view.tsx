@@ -22,7 +22,9 @@ import {
   Mail,
   Calendar,
   CreditCard,
-  Loader2
+  Loader2,
+  Ship,
+  Download
 } from "lucide-react";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -33,8 +35,6 @@ interface QuotationItem {
   description: string;
   unitPrice: string;
   quantity: number;
-  taxRate: string | null;
-  shippingCost: string | null;
   lineTotal: string;
 }
 
@@ -53,6 +53,9 @@ interface Quotation {
   balanceAmount: string;
   status: string;
   validUntil: string | null;
+  deliveryTerms?: string | null;
+  dataSheetUrl?: string | null;
+  termsAndConditionsUrl?: string | null;
   createdAt: string;
   items: QuotationItem[];
   seller?: {
@@ -381,9 +384,57 @@ export default function TradeQuotationView() {
               </div>
             </div>
 
+            {/* B2B Professional Fields */}
+            {(quotation.deliveryTerms || quotation.dataSheetUrl || quotation.termsAndConditionsUrl) && (
+              <>
+                <Separator className="my-6" />
+                <div className="space-y-4">
+                  {quotation.deliveryTerms && (
+                    <div className="flex items-center gap-2 text-sm" data-testid="text-delivery-terms">
+                      <Ship className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Delivery Terms:</span>
+                      <Badge variant="outline" className="font-mono">{quotation.deliveryTerms}</Badge>
+                    </div>
+                  )}
+                  
+                  {quotation.dataSheetUrl && (
+                    <div className="flex items-center gap-2 text-sm" data-testid="link-data-sheet">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Data Sheet:</span>
+                      <a 
+                        href={quotation.dataSheetUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download Specification
+                      </a>
+                    </div>
+                  )}
+                  
+                  {quotation.termsAndConditionsUrl && (
+                    <div className="flex items-center gap-2 text-sm" data-testid="link-terms">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Terms & Conditions:</span>
+                      <a 
+                        href={quotation.termsAndConditionsUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download Document
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
             <Separator className="my-6" />
 
-            {/* Line Items Table */}
+            {/* Line Items Table - B2B Best Practice: No per-item tax/shipping */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4">Line Items</h3>
               <div className="border rounded-md overflow-auto">
@@ -394,8 +445,6 @@ export default function TradeQuotationView() {
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right">Unit Price</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Tax Rate</TableHead>
-                      <TableHead className="text-right">Shipping</TableHead>
                       <TableHead className="text-right">Line Total</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -408,12 +457,6 @@ export default function TradeQuotationView() {
                           {formatCurrency(item.unitPrice, quotation.currency)}
                         </TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">
-                          {item.taxRate ? `${parseFloat(item.taxRate).toFixed(1)}%` : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.shippingCost ? formatCurrency(item.shippingCost, quotation.currency) : '-'}
-                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(item.lineTotal, quotation.currency)}
                         </TableCell>
