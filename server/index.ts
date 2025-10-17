@@ -180,7 +180,7 @@ app.use((req, res, next) => {
     balanceReminderJob.start();
     
     // Start delivery reminder job (pre-order/made-to-order 7-day reminders)
-    const emailProvider = new ResendEmailProvider();
+    const emailProvider = new ResendEmailProvider(process.env.RESEND_API_KEY);
     deliveryReminderJob = new DeliveryReminderService(storage, emailProvider);
     deliveryReminderJob.start();
     
