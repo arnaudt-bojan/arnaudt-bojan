@@ -407,7 +407,7 @@ export default function CreateWholesaleProduct() {
         title: "Success",
         description: "Wholesale product created successfully!",
       });
-      setLocation("/seller/wholesale/products");
+      setLocation("/wholesale/products");
     },
     onError: (error: any) => {
       toast({
@@ -440,7 +440,7 @@ export default function CreateWholesaleProduct() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setLocation("/seller/wholesale/products")}
+              onClick={() => setLocation("/wholesale/products")}
               data-testid="button-back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -1283,7 +1283,7 @@ export default function CreateWholesaleProduct() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setLocation("/seller/wholesale/products")}
+                  onClick={() => setLocation("/wholesale/products")}
                   data-testid="button-cancel"
                 >
                   Cancel

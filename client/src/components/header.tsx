@@ -71,6 +71,18 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
   });
   const hasWholesaleAccess = wholesaleAccess?.hasAccess ?? false;
 
+  // Context-aware logo navigation
+  const getLogoHref = () => {
+    if (!isAuthenticated) return "/";
+    
+    // Navigate to the appropriate dashboard based on current section
+    if (location.startsWith("/wholesale") || location.startsWith("/seller/wholesale")) return "/wholesale/dashboard";
+    if (location.startsWith("/trade") || location.startsWith("/seller/trade")) return "/seller/trade/dashboard";
+    
+    // Default dashboard navigation
+    return isSeller ? "/seller-dashboard" : "/buyer-dashboard";
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
@@ -291,8 +303,8 @@ export function Header({ cartItemsCount = 0, onCartClick }: HeaderProps) {
               </Link>
             )
           ) : (
-            // On main app (dashboard, settings, etc.): always show Upfirst logo
-            <Link href={isAuthenticated ? (isSeller ? "/seller-dashboard" : "/buyer-dashboard") : "/"} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
+            // On main app (dashboard, settings, etc.): context-aware Upfirst logo navigation
+            <Link href={getLogoHref()} className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-lg" data-testid="link-home">
               <img src={logoImage} alt="Upfirst" className="h-8 dark:invert" />
             </Link>
           )}

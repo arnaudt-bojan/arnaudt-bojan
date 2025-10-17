@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BackToDashboard } from "@/components/back-to-dashboard";
 import {
   Table,
   TableBody,
@@ -23,27 +22,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { WholesaleProduct } from "@shared/schema";
-import { Plus, Package, Trash2, Mail, Upload, Download } from "lucide-react";
+import { Plus, Package, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 
 export default function WholesaleProducts() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
   const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
     queryKey: ["/api/wholesale/products"],
@@ -76,81 +64,10 @@ export default function WholesaleProducts() {
     }
   };
 
-  const downloadTemplate = () => {
-    const csvContent = `Name,Description,Image URL,Category,RRP,Wholesale Price,MOQ,Stock,Deposit Amount (optional),Requires Deposit (0 or 1),Readiness Days (optional)
-Classic T-Shirt,Premium cotton t-shirt,https://example.com/image.jpg,Apparel,29.99,15.00,50,500,5.00,1,14
-Leather Bag,Handcrafted leather bag,https://example.com/bag.jpg,Accessories,199.99,99.00,25,100,,,30`;
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'wholesale-products-template.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Template downloaded",
-      description: "Fill in your product data and upload the CSV file",
-    });
-  };
-
-  const handleBulkUpload = async () => {
-    if (!uploadFile) {
-      toast({
-        title: "No file selected",
-        description: "Please select a CSV file to upload",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-
-      const response = await fetch('/api/wholesale/products/bulk-upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      toast({
-        title: "Products uploaded successfully",
-        description: `${data.created} products created, ${data.errors?.length || 0} errors`,
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["/api/wholesale/products"] });
-      setShowBulkUpload(false);
-      setUploadFile(null);
-
-      if (data.errors && data.errors.length > 0) {
-        console.log("Upload errors:", data.errors);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload products",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-7xl">
-        <BackToDashboard />
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -163,23 +80,7 @@ Leather Bag,Handcrafted leather bag,https://example.com/bag.jpg,Accessories,199.
             </div>
             <div className="flex gap-2 flex-wrap">
               <Button
-                variant="outline"
-                onClick={() => setLocation("/seller/wholesale/invitations")}
-                data-testid="button-manage-invitations"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Buyer Invitations
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowBulkUpload(true)}
-                data-testid="button-bulk-upload"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Bulk Upload
-              </Button>
-              <Button
-                onClick={() => setLocation("/seller/wholesale/create-product")}
+                onClick={() => setLocation("/wholesale/products/create")}
                 data-testid="button-create-wholesale-product"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -205,7 +106,7 @@ Leather Bag,Handcrafted leather bag,https://example.com/bag.jpg,Accessories,199.
               Create your first wholesale product to start offering B2B pricing
             </p>
             <Button
-              onClick={() => setLocation("/seller/wholesale/create-product")}
+              onClick={() => setLocation("/wholesale/products/create")}
               data-testid="button-create-first-product"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -306,85 +207,6 @@ Leather Bag,Handcrafted leather bag,https://example.com/bag.jpg,Accessories,199.
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showBulkUpload} onOpenChange={setShowBulkUpload}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Bulk Upload Wholesale Products</DialogTitle>
-              <DialogDescription>
-                Upload a CSV file with your wholesale product line sheet. Download the template to see the required format.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={downloadTemplate}
-                  className="flex-1"
-                  data-testid="button-download-template"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download CSV Template
-                </Button>
-              </div>
-
-              <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                  id="csv-upload"
-                  data-testid="input-csv-file"
-                />
-                <label
-                  htmlFor="csv-upload"
-                  className="cursor-pointer flex flex-col items-center gap-2"
-                >
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">
-                      {uploadFile ? uploadFile.name : "Click to upload CSV"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Supports CSV, Excel (.xlsx, .xls)
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <div className="bg-muted p-4 rounded-lg text-sm space-y-2">
-                <p className="font-medium">CSV Format Requirements:</p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Required: Name, Description, Image URL, Category, RRP, Wholesale Price, MOQ</li>
-                  <li>Optional: Stock, Deposit Amount, Requires Deposit (0/1), Readiness Days</li>
-                  <li>First row must be headers</li>
-                </ul>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowBulkUpload(false);
-                  setUploadFile(null);
-                }}
-                disabled={isUploading}
-                data-testid="button-cancel-upload"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleBulkUpload}
-                disabled={!uploadFile || isUploading}
-                data-testid="button-confirm-upload"
-              >
-                {isUploading ? "Uploading..." : "Upload Products"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
