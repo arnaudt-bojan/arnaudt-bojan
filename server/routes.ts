@@ -9987,6 +9987,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Session not available" });
       }
 
+      // CRITICAL FIX: Get cart item details before removing to release reservation
+      const cart = await cartService.getCart(sessionId);
+      const itemToRemove = cart.items.find((item) => {
+        const itemKey = item.variantId ? `${item.id}-${item.variantId}` : item.id;
+        return itemKey === itemId || item.id === itemId;
+      });
+
+      // Release reservation if item exists and is in-stock
+      if (itemToRemove && itemToRemove.productType === 'in-stock') {
+        try {
+          // Find active reservation for this product/variant in this session
+          const sessionReservations = await storage.getStockReservationsBySession(sessionId);
+          const matchingReservation = sessionReservations.find(
+            (r) =>
+              r.status === 'active' &&
+              r.productId === itemToRemove.id &&
+              r.variantId === (itemToRemove.variantId || null)
+          );
+
+          if (matchingReservation) {
+            await inventoryService.releaseReservation(matchingReservation.id);
+            logger.info('[Cart] Released reservation on item removal', {
+              reservationId: matchingReservation.id,
+              productId: itemToRemove.id,
+              variantId: itemToRemove.variantId,
+              quantity: matchingReservation.quantity,
+            });
+          } else {
+            logger.warn('[Cart] No matching reservation found for item removal', {
+              productId: itemToRemove.id,
+              variantId: itemToRemove.variantId,
+              sessionId,
+            });
+          }
+        } catch (releaseError) {
+          logger.error('[Cart] Failed to release reservation on remove', {
+            error: releaseError,
+            productId: itemToRemove.id,
+          });
+          // Continue with removal even if reservation release fails
+        }
+      }
+
       const result = await cartService.removeFromCart(sessionId, itemId, userId);
       res.json(result.cart);
     } catch (error) {
@@ -10009,6 +10052,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Session not available" });
       }
 
+      // CRITICAL FIX: Adjust reservation when quantity changes
+      const cart = await cartService.getCart(sessionId);
+      const itemToUpdate = cart.items.find((item) => {
+        const itemKey = item.variantId ? `${item.id}-${item.variantId}` : item.id;
+        return itemKey === itemId || item.id === itemId;
+      });
+
+      // Handle reservation adjustment for in-stock products
+      if (itemToUpdate && itemToUpdate.productType === 'in-stock') {
+        try {
+          const sessionReservations = await storage.getStockReservationsBySession(sessionId);
+          const matchingReservation = sessionReservations.find(
+            (r) =>
+              r.status === 'active' &&
+              r.productId === itemToUpdate.id &&
+              r.variantId === (itemToUpdate.variantId || null)
+          );
+
+          if (matchingReservation) {
+            const oldQuantity = itemToUpdate.quantity;
+            const quantityDiff = quantity - oldQuantity;
+
+            if (quantityDiff < 0) {
+              // Decreasing quantity: Release the difference
+              await inventoryService.releaseReservation(matchingReservation.id);
+              
+              // Create new reservation for the new quantity
+              if (quantity > 0) {
+                await inventoryService.reserveStock(
+                  itemToUpdate.id,
+                  quantity,
+                  sessionId,
+                  {
+                    variantId: itemToUpdate.variantId || undefined,
+                    userId,
+                    expirationMinutes: 30,
+                  }
+                );
+              }
+              
+              logger.info('[Cart] Adjusted reservation on quantity decrease', {
+                productId: itemToUpdate.id,
+                variantId: itemToUpdate.variantId,
+                oldQuantity,
+                newQuantity: quantity,
+              });
+            } else if (quantityDiff > 0) {
+              // Increasing quantity: Try to reserve more
+              const reserveResult = await inventoryService.reserveStock(
+                itemToUpdate.id,
+                quantityDiff,
+                sessionId,
+                {
+                  variantId: itemToUpdate.variantId || undefined,
+                  userId,
+                  expirationMinutes: 30,
+                }
+              );
+              
+              if (!reserveResult.success) {
+                // Not enough stock for increase
+                return res.status(409).json({
+                  error: reserveResult.error || 'Insufficient stock for quantity increase',
+                  availability: reserveResult.availability,
+                });
+              }
+              
+              // Release old reservation and create new combined one
+              await inventoryService.releaseReservation(matchingReservation.id);
+              
+              logger.info('[Cart] Adjusted reservation on quantity increase', {
+                productId: itemToUpdate.id,
+                variantId: itemToUpdate.variantId,
+                oldQuantity,
+                newQuantity: quantity,
+              });
+            }
+          }
+        } catch (adjustError) {
+          logger.error('[Cart] Failed to adjust reservation on update', {
+            error: adjustError,
+            productId: itemToUpdate.id,
+          });
+          return res.status(500).json({ error: 'Failed to adjust stock reservation' });
+        }
+      }
+
       const result = await cartService.updateQuantity(sessionId, itemId, quantity, userId);
       res.json(result.cart);
     } catch (error) {
@@ -10023,6 +10153,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!sessionId) {
         return res.status(500).json({ error: "Session not available" });
+      }
+
+      // CRITICAL FIX: Release all reservations before clearing cart
+      try {
+        const sessionReservations = await storage.getStockReservationsBySession(sessionId);
+        const activeReservations = sessionReservations.filter((r) => r.status === 'active');
+
+        for (const reservation of activeReservations) {
+          await inventoryService.releaseReservation(reservation.id);
+          logger.info('[Cart] Released reservation on cart clear', {
+            reservationId: reservation.id,
+            productId: reservation.productId,
+            variantId: reservation.variantId,
+            quantity: reservation.quantity,
+          });
+        }
+
+        logger.info('[Cart] Released all reservations on clear', {
+          sessionId,
+          count: activeReservations.length,
+        });
+      } catch (releaseError) {
+        logger.error('[Cart] Failed to release reservations on clear', {
+          error: releaseError,
+          sessionId,
+        });
+        // Continue with clear even if reservation release fails
       }
 
       const result = await cartService.clearCart(sessionId);
