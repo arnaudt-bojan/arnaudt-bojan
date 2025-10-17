@@ -1040,6 +1040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storeActive: seller.storeActive,
         shippingPolicy: seller.shippingPolicy,
         returnsPolicy: seller.returnsPolicy,
+        listingCurrency: seller.listingCurrency, // Include for currency disclaimer
       };
       
       res.json(publicSellerInfo);
