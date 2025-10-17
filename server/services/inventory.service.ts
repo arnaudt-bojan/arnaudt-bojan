@@ -220,6 +220,116 @@ export class InventoryService {
     }
   }
 
+  /**
+   * ATOMIC: Update reservation quantity
+   * Excludes current reservation from availability check to prevent false negatives
+   */
+  async updateReservationQuantity(
+    reservationId: string,
+    newQuantity: number,
+    sessionId: string
+  ): Promise<ReservationResult> {
+    const reservation = await this.storage.getStockReservation(reservationId);
+    
+    if (!reservation) {
+      return {
+        success: false,
+        error: 'Reservation not found',
+      };
+    }
+
+    if (reservation.status !== 'active') {
+      return {
+        success: false,
+        error: `Cannot update ${reservation.status} reservation`,
+      };
+    }
+
+    // Check availability EXCLUDING current reservation
+    const product = await this.storage.getProduct(reservation.productId);
+    if (!product) {
+      return {
+        success: false,
+        error: 'Product not found',
+      };
+    }
+
+    let currentStock = 0;
+    if (reservation.variantId && product.variants) {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      for (const colorOrSizeVariant of variants) {
+        if (colorOrSizeVariant.sizes && Array.isArray(colorOrSizeVariant.sizes)) {
+          const sizeVariant = colorOrSizeVariant.sizes.find((s: any) => {
+            const fullVariantId = `${s.size}-${colorOrSizeVariant.colorName}`.toLowerCase();
+            const sizeOnlyId = s.size?.toLowerCase();
+            const normalizedVariantId = String(reservation.variantId).toLowerCase();
+            return fullVariantId === normalizedVariantId || sizeOnlyId === normalizedVariantId;
+          });
+          if (sizeVariant && typeof sizeVariant.stock === 'number') {
+            currentStock = sizeVariant.stock;
+            break;
+          }
+        } else {
+          const currentVariantId = colorOrSizeVariant.size?.toLowerCase() || '';
+          if (currentVariantId === reservation.variantId.toLowerCase()) {
+            currentStock = colorOrSizeVariant.stock || 0;
+            break;
+          }
+        }
+      }
+    } else {
+      currentStock = product.stock || 0;
+    }
+
+    // Get reserved stock EXCLUDING this reservation
+    const allReservedStock = await this.storage.getReservedStock(
+      reservation.productId,
+      reservation.variantId || undefined
+    );
+    const otherReservedStock = allReservedStock - reservation.quantity;
+    const availableStock = currentStock - otherReservedStock;
+
+    if (newQuantity > availableStock) {
+      return {
+        success: false,
+        error: 'Insufficient stock for quantity change',
+        availability: {
+          available: false,
+          currentStock,
+          reservedStock: otherReservedStock,
+          availableStock,
+          productId: reservation.productId,
+          variantId: reservation.variantId || undefined,
+        },
+      };
+    }
+
+    // ATOMIC UPDATE: Change quantity in-place
+    const updated = await this.storage.updateStockReservation(reservationId, {
+      quantity: newQuantity,
+    });
+
+    if (!updated) {
+      return {
+        success: false,
+        error: 'Failed to update reservation',
+      };
+    }
+
+    logger.info('[InventoryService] Atomically updated reservation quantity', {
+      reservationId,
+      oldQuantity: reservation.quantity,
+      newQuantity,
+      productId: reservation.productId,
+      variantId: reservation.variantId,
+    });
+
+    return {
+      success: true,
+      reservation: updated,
+    };
+  }
+
   async releaseReservation(reservationId: string): Promise<void> {
     const reservation = await this.storage.getStockReservation(reservationId);
     

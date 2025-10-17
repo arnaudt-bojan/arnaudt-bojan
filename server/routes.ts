@@ -10070,45 +10070,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               r.variantId === (itemToUpdate.variantId || null)
           );
 
-          if (matchingReservation) {
-            const oldQuantity = itemToUpdate.quantity;
+          if (matchingReservation && quantity !== itemToUpdate.quantity) {
+            // ATOMIC UPDATE: Use updateReservationQuantity to prevent race conditions
+            // This method excludes the current reservation from availability check
+            const updateResult = await inventoryService.updateReservationQuantity(
+              matchingReservation.id,
+              quantity,
+              sessionId
+            );
 
-            // CRITICAL FIX: Reserve TOTAL new quantity FIRST (atomic pattern)
-            // This prevents both race conditions and duplicate reservations
-            if (quantity !== oldQuantity) {
-              // Step 1: Reserve the TOTAL new quantity (creates new reservation)
-              const reserveResult = await inventoryService.reserveStock(
-                itemToUpdate.id,
-                quantity,
-                sessionId,
-                {
-                  variantId: itemToUpdate.variantId || undefined,
-                  userId,
-                  expirationMinutes: 30,
-                }
-              );
-              
-              if (!reserveResult.success) {
-                // Stock unavailable - keep old reservation intact
-                return res.status(409).json({
-                  error: reserveResult.error || 'Insufficient stock for quantity change',
-                  availability: reserveResult.availability,
-                });
-              }
-              
-              // Step 2: New reservation succeeded - release old reservation
-              // This order prevents: (a) race conditions, (b) duplicate reservations
-              await inventoryService.releaseReservation(matchingReservation.id);
-              
-              logger.info('[Cart] Atomically adjusted reservation', {
-                productId: itemToUpdate.id,
-                variantId: itemToUpdate.variantId,
-                oldQuantity,
-                newQuantity: quantity,
-                oldReservationId: matchingReservation.id,
-                newReservationId: reserveResult.reservation?.id,
+            if (!updateResult.success) {
+              // Stock unavailable for quantity change
+              return res.status(409).json({
+                error: updateResult.error || 'Insufficient stock for quantity change',
+                availability: updateResult.availability,
               });
             }
+
+            logger.info('[Cart] Atomically updated reservation quantity', {
+              productId: itemToUpdate.id,
+              variantId: itemToUpdate.variantId,
+              oldQuantity: itemToUpdate.quantity,
+              newQuantity: quantity,
+              reservationId: matchingReservation.id,
+            });
           }
         } catch (adjustError) {
           logger.error('[Cart] Failed to adjust reservation on update', {
