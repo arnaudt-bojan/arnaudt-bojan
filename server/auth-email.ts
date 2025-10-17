@@ -136,22 +136,33 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(400).json({ error: 'Email and code are required' });
     }
 
-    // Test seller bypass: Allow fixed code "111111" for test accounts
+    // E2E test account bypass: Allow fixed code "111111" for test accounts
     const normalizedEmailForTest = email.toLowerCase().trim();
     const normalizedCode = String(code).trim();
-    const isTestSeller = normalizedEmailForTest === 'mirtorabi+testseller@gmail.com' || normalizedEmailForTest === 'testseller@test.com';
+    
+    // E2E test accounts that bypass authentication
+    const testAccounts = [
+      'mirtorabi+seller1@gmail.com',
+      'mirtorabi+seller2@gmail.com', 
+      'mirtorabi+buyer1@gmail.com',
+      'mirtorabi+buyer2@gmail.com',
+      'mirtorabi+testseller@gmail.com', // Legacy test account
+      'testseller@test.com' // Legacy test account
+    ];
+    
+    const isTestAccount = testAccounts.includes(normalizedEmailForTest);
     let authToken;
     
     logger.auth('Auth verification attempt', { 
       email: normalizedEmailForTest, 
       code: normalizedCode,
-      isTestSeller 
+      isTestAccount 
     });
     
-    if (isTestSeller && normalizedCode === '111111') {
-      // For test seller, skip token validation (no need for exact code match)
+    if (isTestAccount && normalizedCode === '111111') {
+      // For E2E test accounts, skip token validation (no need for exact code match)
       authToken = null; // Will trigger user creation/lookup below
-      logger.auth('✅ Test seller authentication with fixed code 111111', { email: normalizedEmailForTest });
+      logger.auth('✅ E2E test account authentication with fixed code 111111', { email: normalizedEmailForTest });
     } else {
       // Normal flow: Find auth token by code
       authToken = await storage.getAuthTokenByCode(email, code);
@@ -192,7 +203,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
       sellerContextFromBody: sellerContext || undefined,
       sellerContextFromToken: authToken?.sellerContext || undefined,
       finalSellerContext: finalSellerContext || undefined,
-      isTestSeller
+      isTestAccount
     });
     
     // Get or create user (email lookup is case-insensitive in storage)

@@ -10,6 +10,19 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 - **Interaction Preferences**: Ask for confirmation before implementing significant architectural changes or refactoring large portions of the codebase.
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
+## E2E Test Accounts
+For end-to-end testing, the following test accounts are configured with authentication bypass (fixed code "111111" - no real OTP needed):
+
+**Seller Accounts** (emails delivered to mirtorabi@gmail.com):
+- `mirtorabi+seller1@gmail.com` - Username: `e2eseller1` - Role: admin/seller
+- `mirtorabi+seller2@gmail.com` - Username: `e2eseller2` - Role: admin/seller
+
+**Buyer Accounts** (emails delivered to mirtorabi@gmail.com):
+- `mirtorabi+buyer1@gmail.com` - Role: buyer
+- `mirtorabi+buyer2@gmail.com` - Role: buyer
+
+**Authentication Bypass**: All test accounts accept code `111111` without requiring email verification. This is implemented in `server/auth-email.ts` for automated E2E testing.
+
 ## System Architecture
 Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend, with an Express.js Node.js backend, PostgreSQL (Neon), and Drizzle ORM.
 
