@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -1157,20 +1158,21 @@ export default function CreateWholesaleProduct() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Terms & Conditions (Optional)</FormLabel>
-                    <div className="flex gap-2">
-                      <DocumentUploader
-                        onGetUploadParameters={handleGetUploadParameters}
-                        onComplete={handleTermsUpload}
-                        buttonLabel={field.value ? "Change T&C" : "Upload T&C"}
-                        variant="outline"
-                        allowedFileTypes={['.pdf', '.docx', '.txt']}
-                        maxFileSize={10 * 1024 * 1024}
-                      />
-                    </div>
+                    <DocumentUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={10 * 1024 * 1024}
+                      allowedFileTypes={['.pdf', '.docx', '.txt']}
+                      onGetUploadParameters={handleGetUploadParameters}
+                      onComplete={handleTermsUpload}
+                      variant="outline"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {field.value ? "Change T&C" : "Upload T&C"}
+                    </DocumentUploader>
                     {field.value && (
-                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md mt-2">
                         <FileText className="h-4 w-4" />
-                        <span className="text-sm flex-1 truncate">{field.value}</span>
+                        <span className="text-sm flex-1 truncate">{field.value.split('/').pop()}</span>
                         <Button
                           type="button"
                           variant="ghost"
