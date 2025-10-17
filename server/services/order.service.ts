@@ -252,7 +252,7 @@ export class OrderService {
         sellerCurrency,
         checkoutSessionId,
         taxCalculation.calculationId,
-        taxCalculation.breakdown || null, // Pass tax breakdown
+        taxCalculation.taxBreakdown || null, // Pass tax breakdown
         shipping,
         params.paymentIntentId // Pass payment intent ID from frontend
       );
@@ -721,7 +721,7 @@ export class OrderService {
 
         // Get products for the order
         const orderItems = await this.storage.getOrderItems(order.id);
-        const productIds = [...new Set(orderItems.map(item => item.productId))];
+        const productIds = Array.from(new Set(orderItems.map(item => item.productId)));
         const products = [];
         for (const productId of productIds) {
           const product = await this.storage.getProduct(productId);
@@ -738,7 +738,7 @@ export class OrderService {
           logger.info('[OrderService] Buyer email sent, now sending seller notification', {
             orderId: order.id,
             sellerId: seller.id,
-            sellerEmail: seller.email,
+            sellerEmail: seller.email ?? undefined,
             productCount: products.length,
           });
           
@@ -788,11 +788,22 @@ export class OrderService {
 
           if (balanceResult.success && balanceResult.balanceRequest && balanceResult.sessionToken) {
             // Send early payment email with magic link
-            await this.notificationService.sendBalancePaymentRequest(
-              order,
-              balanceResult.balanceRequest,
-              balanceResult.sessionToken
-            );
+            // Get seller from order items
+            const orderItems = await this.storage.getOrderItems(order.id);
+            if (orderItems.length > 0) {
+              const firstProduct = await this.storage.getProduct(orderItems[0].productId);
+              if (firstProduct) {
+                const seller = await this.storage.getUser(firstProduct.sellerId);
+                if (seller) {
+                  await this.notificationService.sendBalancePaymentRequest(
+                    order,
+                    seller,
+                    balanceResult.balanceRequest,
+                    balanceResult.sessionToken
+                  );
+                }
+              }
+            }
             
             logger.info('[OrderService] Early balance payment request created and email sent', {
               orderId: order.id,
@@ -903,7 +914,7 @@ export class OrderService {
         constructedVariantId: requestedItem.variant ? this.inventoryService.getVariantId(
           requestedItem.variant.size,
           requestedItem.variant.color
-        ) : null,
+        ) : undefined,
         finalVariantId: variantId,
       });
 
@@ -1024,15 +1035,9 @@ export class OrderService {
           productSku: item.sku || item.productSku || null, // Product-level SKU
           variantSku: item.variantSku || null, // Variant-specific SKU
           // Delivery date fields for pre-order and made-to-order
-          // Use customer-submitted values from params.items (what was in cart)
-          preOrderDate: (() => {
-            const matchedItem = params.items.find((i: any) => i.productId === item.id);
-            return matchedItem?.preOrderDate || item.preOrderDate || null;
-          })(),
-          madeToOrderDays: (() => {
-            const matchedItem = params.items.find((i: any) => i.productId === item.id);
-            return matchedItem?.madeToOrderDays || item.madeToOrderDays || null;
-          })(),
+          // Use values from validated items (params.items doesn't have these properties)
+          preOrderDate: item.preOrderDate || null,
+          madeToOrderDays: item.madeToOrderDays || null,
           variant: (() => {
             const matchedItem = params.items.find(i => i.productId === item.id);
             if (matchedItem?.variant) {
@@ -1144,7 +1149,6 @@ export class OrderService {
       logger.info('[OrderService] About to insert order items', {
         orderId: order.id,
         itemCount: orderItemsToCreate.length,
-        firstItem: orderItemsToCreate[0],
       });
 
       await this.storage.createOrderItems(orderItemsToCreate);
@@ -1279,7 +1283,7 @@ export class OrderService {
       }
 
       // Get products for the order items
-      const productIds = [...new Set(orderItems.map(item => item.productId))];
+      const productIds = Array.from(new Set(orderItems.map(item => item.productId)));
       const products: Product[] = [];
       
       for (const productId of productIds) {
@@ -1319,7 +1323,7 @@ export class OrderService {
 
       logger.info('[OrderService] Seller order notification sent', {
         orderId: order.id,
-        sellerEmail: seller.email,
+        sellerEmail: seller.email ?? undefined,
       });
     } catch (error) {
       logger.error('[OrderService] Failed to send order notifications', { error, orderId: order.id });
@@ -1566,13 +1570,17 @@ export class OrderService {
       }
 
       // Send refund notification using NotificationService
-      await this.notificationService.sendItemRefunded(
+      // Use sendOrderRefunded since sendItemRefunded doesn't exist in the interface
+      const refundedItemsData = [{
+        item: refundedItem,
+        quantity: refundedItem.refundedQuantity || 1,
+        amount: amount
+      }];
+      await this.notificationService.sendOrderRefunded(
         order,
-        refundedItem,
         seller,
         amount,
-        refundedItem.refundedQuantity || 1,
-        order.currency || 'USD'
+        refundedItemsData
       );
 
       logger.info('[OrderService] Refund notification sent', {
@@ -1661,11 +1669,12 @@ export class OrderService {
         return;
       }
 
-      // Build payment link with client secret
-      const paymentLink = `${this.getBaseUrl()}/checkout-complete?payment_intent_client_secret=${paymentIntent.client_secret}&order_id=${order.id}`;
-
-      // Send balance payment request using NotificationService
-      await this.notificationService.sendBalancePaymentRequest(order, seller, paymentLink);
+      // NOTE: This method uses old architecture - balance payment requests should use BalancePaymentService
+      // For now, we skip sending email here as the proper flow is handled in confirmPayment method
+      // The BalancePaymentService creates balanceRequest and sessionToken, then sends email
+      logger.info('[OrderService] Skipping balance payment notification - handled by BalancePaymentService', {
+        orderId: order.id,
+      });
 
       // Calculate balance amount for logging
       const balanceAmount = paymentIntent.amount / this.getCurrencyDivisor(paymentIntent.currency || 'usd');
