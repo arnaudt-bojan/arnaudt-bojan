@@ -102,15 +102,37 @@ export class GeminiAdIntelligenceService {
 
       const prompt = this.buildAdCopyPrompt(product, targetAudience, tone);
       
+      logger.debug('[GeminiAdIntelligence] Calling Gemini API', { 
+        model: this.MODEL_NAME,
+        promptLength: prompt.length 
+      });
+      
       const result = await this.genAI.models.generateContent({
         model: this.MODEL_NAME,
         contents: prompt,
       });
       
+      logger.debug('[GeminiAdIntelligence] Gemini API response received', {
+        hasText: !!result.text,
+        textLength: result.text?.length || 0
+      });
+      
       const text = result.text || '';
+      
+      if (!text) {
+        logger.warn('[GeminiAdIntelligence] Empty response from Gemini API, using fallback');
+        return this.generateFallbackAdCopy(product, tone);
+      }
       
       // Parse JSON response
       const parsed = this.parseJSONResponse(text);
+      
+      if (!parsed) {
+        logger.warn('[GeminiAdIntelligence] Failed to parse JSON from Gemini response', {
+          responsePreview: text.substring(0, 200)
+        });
+        return this.generateFallbackAdCopy(product, tone);
+      }
       
       if (parsed && this.isValidAdCopyResponse(parsed)) {
         logger.info('[GeminiAdIntelligence] Successfully generated AI ad copy');
@@ -118,11 +140,17 @@ export class GeminiAdIntelligenceService {
       }
       
       // Fallback to deterministic copy
-      logger.warn('[GeminiAdIntelligence] AI response invalid, using fallback copy');
+      logger.warn('[GeminiAdIntelligence] AI response invalid format, using fallback copy', {
+        parsedKeys: Object.keys(parsed)
+      });
       return this.generateFallbackAdCopy(product, tone);
       
-    } catch (error) {
-      logger.error('[GeminiAdIntelligence] Failed to generate ad copy', { error });
+    } catch (error: any) {
+      logger.error('[GeminiAdIntelligence] Failed to generate ad copy', { 
+        error: error.message,
+        stack: error.stack,
+        errorType: error.constructor.name
+      });
       return this.generateFallbackAdCopy(product, tone);
     }
   }

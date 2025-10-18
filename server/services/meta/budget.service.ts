@@ -117,7 +117,7 @@ export class BudgetService {
         metadata: {
           sellerId,
           campaignId: campaignId || '',
-          type: 'meta_credit_purchase',
+          paymentType: 'meta_credit_purchase',
         },
         description: description || `Meta Ads credit purchase for ${seller.email}`,
       });

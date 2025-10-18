@@ -184,8 +184,10 @@ export class WebhookHandler {
   private async handlePaymentIntentSucceeded(event: WebhookEvent): Promise<void> {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     const orderId = paymentIntent.metadata?.orderId;
-    const paymentType = paymentIntent.metadata?.paymentType; // 'deposit' | 'balance' | undefined
+    const paymentType = paymentIntent.metadata?.paymentType; // 'deposit' | 'balance' | 'meta_credit_purchase' | undefined
     const balanceRequestId = paymentIntent.metadata?.balanceRequestId;
+    const sellerId = paymentIntent.metadata?.sellerId;
+    const campaignId = paymentIntent.metadata?.campaignId;
     
     // Update payment intent status in database
     const existingIntent = await this.storage.getPaymentIntentByProviderIntentId(paymentIntent.id);
@@ -215,6 +217,51 @@ export class WebhookHandler {
     const amountPaid = amountInMinorUnits / divisor;
     const amountPaidCents = amountInMinorUnits; // Store amount in cents for events
     const checkoutSessionId = paymentIntent.metadata?.checkoutSessionId;
+
+    // Handle META CREDIT PURCHASE payments
+    if (paymentType === 'meta_credit_purchase' && sellerId) {
+      logger.info(`[Webhook] Processing Meta Ads credit purchase for seller ${sellerId}`);
+      
+      try {
+        // Find the finance record by payment intent ID
+        const financeRecords = await this.storage.getMetaCampaignFinanceBySeller(sellerId);
+        const pendingRecord = financeRecords.find(
+          (record) => record.stripePaymentIntentId === paymentIntent.id && record.status === 'pending'
+        );
+        
+        if (!pendingRecord) {
+          logger.error(`[Webhook] Meta credit purchase finance record not found for payment intent ${paymentIntent.id}`);
+          return;
+        }
+        
+        // Update finance record to succeeded
+        await this.storage.updateMetaCampaignFinanceRecord(pendingRecord.id, {
+          status: 'succeeded',
+          metadata: {
+            ...pendingRecord.metadata,
+            paymentIntentStatus: 'succeeded',
+            completedAt: new Date().toISOString(),
+          },
+        });
+        
+        logger.info(`[Webhook] Meta credit purchase confirmed`, {
+          sellerId,
+          campaignId: campaignId || 'none',
+          amount: amountPaid,
+          currency,
+          financeRecordId: pendingRecord.id,
+          paymentIntentId: paymentIntent.id,
+        });
+        
+        // TODO: Send email notification to seller about credit purchase
+        // await this.notificationService.sendMetaCreditPurchaseConfirmed(seller, amountPaid, currency);
+        
+        return;
+      } catch (error: any) {
+        logger.error(`[Webhook] Failed to process Meta credit purchase:`, error);
+        throw error;
+      }
+    }
 
     // Handle BALANCE payments separately
     if (paymentType === 'balance' && balanceRequestId && orderId) {
