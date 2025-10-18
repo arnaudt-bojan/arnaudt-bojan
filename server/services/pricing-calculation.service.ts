@@ -140,6 +140,8 @@ export class PricingCalculationService {
             city: destination.city,
             state: destination.state,
             postalCode: destination.postalCode,
+            line1: destination.line1,
+            line2: destination.line2,
           }
         );
         shippingCost = shippingCalculation.cost;
@@ -308,6 +310,8 @@ export class PricingCalculationService {
       city?: string;
       state?: string;
       postalCode?: string;
+      line1?: string;
+      line2?: string;
     },
     sellerId?: string
   ): Promise<number> {
@@ -322,6 +326,8 @@ export class PricingCalculationService {
             city: destination.city,
             state: destination.state,
             postalCode: destination.postalCode,
+            line1: destination.line1,
+            line2: destination.line2,
           }
         );
         shippingCost = shippingCalculation.cost;

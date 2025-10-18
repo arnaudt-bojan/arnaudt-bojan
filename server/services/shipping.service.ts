@@ -39,6 +39,8 @@ export class ShippingService {
       city?: string;
       state?: string;
       postalCode?: string;
+      line1?: string;
+      line2?: string;
     }
   ): Promise<ShippingCalculation> {
     logger.debug('[ShippingService] calculateShipping called', {
@@ -169,6 +171,8 @@ export class ShippingService {
       city?: string;
       state?: string;
       postalCode?: string;
+      line1?: string;
+      line2?: string;
     }
   ): Promise<ShippingCalculation> {
     logger.info('[ShippingService] calculateMatrixShipping - Starting zone matching', {
@@ -387,6 +391,8 @@ export class ShippingService {
       city?: string;
       state?: string;
       postalCode?: string;
+      line1?: string;
+      line2?: string;
     },
     items: Array<{ id: string; quantity: number }>
   ): Promise<ShippingCalculation> {
@@ -430,6 +436,8 @@ export class ShippingService {
       // Convert country name to ISO code for Shippo
       logger.info('[ShippingService] Converting country for Shippo API', {
         rawCountry: destination.country,
+        destinationLine1: destination.line1,
+        destinationLine2: destination.line2,
         destinationCity: destination.city,
         destinationState: destination.state,
         destinationPostalCode: destination.postalCode
@@ -445,7 +453,8 @@ export class ShippingService {
       
       const addressTo = {
         name: 'Customer',
-        street1: destination.city || 'Address',  // Use city as street1 for rate calculation
+        street1: destination.line1 || destination.city || 'Address',  // Use actual street address
+        street2: destination.line2 || '',  // Add line2 support
         city: destination.city || '',
         state: destination.state || '',
         zip: destination.postalCode || '',
@@ -464,16 +473,19 @@ export class ShippingService {
 
       logger.info('[ShippingService] Calling Shippo API with payload', {
         addressFrom: JSON.stringify({
-          country: addressFrom.country,
+          street1: addressFrom.street1,
           city: addressFrom.city,
           state: addressFrom.state,
-          zip: addressFrom.zip
+          zip: addressFrom.zip,
+          country: addressFrom.country
         }),
         addressTo: JSON.stringify({
-          country: addressTo.country,
+          street1: addressTo.street1,
+          street2: addressTo.street2,
           city: addressTo.city,
           state: addressTo.state,
-          zip: addressTo.zip
+          zip: addressTo.zip,
+          country: addressTo.country
         }),
         parcel: JSON.stringify({
           weight: parcel.weight,

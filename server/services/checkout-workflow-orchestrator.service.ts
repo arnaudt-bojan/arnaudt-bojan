@@ -345,6 +345,9 @@ export class CheckoutWorkflowOrchestrator {
         country: shippingAddress.country,
         city: shippingAddress.city,
         state: shippingAddress.state,
+        postalCode: shippingAddress.postalCode,
+        line1: shippingAddress.line1,
+        line2: shippingAddress.line2,
       }
     );
     const shippingCost = shippingResult.cost;

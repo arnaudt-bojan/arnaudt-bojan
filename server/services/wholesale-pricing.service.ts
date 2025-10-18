@@ -163,6 +163,8 @@ export class WholesalePricingService {
             city: params.shippingAddress.city,
             state: params.shippingAddress.state,
             postalCode: params.shippingAddress.postalCode,
+            line1: params.shippingAddress.line1,
+            line2: params.shippingAddress.line2,
           },
           sellerId
         );
