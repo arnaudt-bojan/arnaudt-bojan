@@ -183,8 +183,9 @@ export class CartService {
               }
             }
             if (variant) break;
-          } else if (colorGroup.size || colorGroup.color) {
+          } else if (colorGroup.size && colorGroup.color) {
             // Flat structure: {size, color, sku} (legacy)
+            // CRITICAL FIX: Changed OR to AND to avoid matching size-only variants
             const constructedId = `${colorGroup.size}-${colorGroup.color}`.toLowerCase();
             if (constructedId === variantId) {
               variant = {
