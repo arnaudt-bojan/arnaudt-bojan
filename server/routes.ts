@@ -4013,6 +4013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { orderId } = req.params;
+      const { warehouseAddressId } = req.body; // Optional warehouse address ID
 
       // Get order
       const order = await storage.getOrder(orderId);
@@ -4033,8 +4034,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Purchase label via service
-      const result = await shippoLabelService.purchaseLabel(orderId);
+      // Purchase label via service (with optional warehouse address)
+      const result = await shippoLabelService.purchaseLabel(orderId, warehouseAddressId);
 
       res.json({
         success: true,

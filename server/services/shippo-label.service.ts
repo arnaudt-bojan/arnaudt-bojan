@@ -39,36 +39,54 @@ export class ShippoLabelService {
   /**
    * Task 5: Ensure Sender Address
    * 
-   * Creates or retrieves cached Shippo Address object for seller.
+   * Creates or retrieves cached Shippo Address object for warehouse address.
    * This object is reusable and avoids creating duplicate addresses.
    * 
    * @param sellerId - Seller's user ID
+   * @param warehouseAddressId - Optional warehouse address ID (defaults to seller's default warehouse)
    * @returns Shippo Address object_id
    */
-  async ensureSenderAddress(sellerId: string): Promise<string> {
+  async ensureSenderAddress(sellerId: string, warehouseAddressId?: string): Promise<string> {
     const seller = await this.storage.getUser(sellerId);
     if (!seller) {
       throw new Error("Seller not found");
     }
 
-    // Return cached address if exists
-    if (seller.shippoAddressObjectId) {
-      logger.info('[ShippoLabelService] Using cached Shippo address', {
-        sellerId,
-        addressObjectId: seller.shippoAddressObjectId
-      });
-      return seller.shippoAddressObjectId;
+    // Get warehouse address: use provided ID or fetch default
+    let warehouseAddress;
+    if (warehouseAddressId) {
+      warehouseAddress = await this.storage.getWarehouseAddress(warehouseAddressId);
+      if (!warehouseAddress || warehouseAddress.sellerId !== sellerId) {
+        throw new Error("Warehouse address not found or access denied");
+      }
+    } else {
+      // Use default warehouse address
+      warehouseAddress = await this.storage.getDefaultWarehouseAddress(sellerId);
+      if (!warehouseAddress) {
+        // Fallback: use first warehouse address if no default
+        const addresses = await this.storage.getWarehouseAddressesBySellerId(sellerId);
+        warehouseAddress = addresses[0];
+      }
     }
 
-    // Validate warehouse address is configured
-    const warehouseStreet = seller.warehouseAddressLine1 || seller.warehouseStreet;
-    const warehouseCity = seller.warehouseAddressCity || seller.warehouseCity;
-    const warehouseState = seller.warehouseAddressState || seller.warehouseState;
-    const warehousePostalCode = seller.warehouseAddressPostalCode || seller.warehousePostalCode;
-    const warehouseCountry = seller.warehouseAddressCountryCode || seller.warehouseCountry;
+    if (!warehouseAddress) {
+      throw new Error("No warehouse address configured. Please add a warehouse address in Settings.");
+    }
 
-    if (!warehouseStreet || !warehouseCity || !warehousePostalCode || !warehouseCountry) {
-      throw new Error("Warehouse address not configured. Please set up your warehouse address in Settings.");
+    // Return cached Shippo address if exists
+    if (warehouseAddress.shippoAddressObjectId) {
+      logger.info('[ShippoLabelService] Using cached Shippo address', {
+        sellerId,
+        warehouseAddressId: warehouseAddress.id,
+        addressObjectId: warehouseAddress.shippoAddressObjectId
+      });
+      return warehouseAddress.shippoAddressObjectId;
+    }
+
+    // Validate address completeness
+    if (!warehouseAddress.addressLine1 || !warehouseAddress.city || 
+        !warehouseAddress.postalCode || !warehouseAddress.countryCode) {
+      throw new Error("Warehouse address is incomplete. Please update your warehouse address in Settings.");
     }
 
     // Create Shippo Address object
@@ -79,28 +97,29 @@ export class ShippoLabelService {
 
     try {
       const addressResponse = await shippo.addresses.create({
-        name: `${seller.firstName} ${seller.lastName}`.trim(),
+        name: warehouseAddress.name,
         company: seller.companyName || '',
-        street1: warehouseStreet,
-        street2: seller.warehouseAddressLine2 || '',
-        city: warehouseCity,
-        state: warehouseState || '',
-        zip: warehousePostalCode,
-        country: warehouseCountry,
-        phone: seller.businessPhone || '',
+        street1: warehouseAddress.addressLine1,
+        street2: warehouseAddress.addressLine2 || '',
+        city: warehouseAddress.city,
+        state: warehouseAddress.state || '',
+        zip: warehouseAddress.postalCode,
+        country: warehouseAddress.countryCode,
+        phone: warehouseAddress.phone || seller.businessPhone || '',
         email: seller.email || '',
-        metadata: `seller_id:${sellerId}`
+        metadata: `seller_id:${sellerId},warehouse_id:${warehouseAddress.id}`
       });
 
       const addressObjectId = addressResponse.objectId;
 
-      // Cache the address object ID in user record
-      await this.storage.updateUser(sellerId, {
+      // Cache the address object ID in warehouse address record
+      await this.storage.updateWarehouseAddress(warehouseAddress.id, {
         shippoAddressObjectId: addressObjectId
       });
 
       logger.info('[ShippoLabelService] Created and cached Shippo address', {
         sellerId,
+        warehouseAddressId: warehouseAddress.id,
         addressObjectId
       });
 
@@ -112,6 +131,7 @@ export class ShippoLabelService {
     } catch (error: any) {
       logger.error('[ShippoLabelService] Failed to create Shippo address', {
         sellerId,
+        warehouseAddressId: warehouseAddress.id,
         error: error.message
       });
       throw new Error(`Failed to create shipping address: ${error.message}`);
@@ -125,9 +145,10 @@ export class ShippoLabelService {
    * Architecture 3: All pricing calculations happen server-side.
    * 
    * @param orderId - Order ID to create label for
+   * @param warehouseAddressId - Optional warehouse address ID to use as sender (defaults to default warehouse)
    * @returns Label purchase result with download URL and tracking
    */
-  async purchaseLabel(orderId: string): Promise<LabelPurchaseResult> {
+  async purchaseLabel(orderId: string, warehouseAddressId?: string): Promise<LabelPurchaseResult> {
     const order = await this.storage.getOrder(orderId);
     if (!order) {
       throw new Error("Order not found");
@@ -146,8 +167,8 @@ export class ShippoLabelService {
       throw new Error("Order does not have a seller ID");
     }
 
-    // Get seller's cached Shippo address
-    const senderAddressId = await this.ensureSenderAddress(order.sellerId);
+    // Get seller's Shippo address (from specified warehouse or default)
+    const senderAddressId = await this.ensureSenderAddress(order.sellerId, warehouseAddressId);
 
     // Get first product to determine package dimensions (simplified - assumes single package)
     // TODO: For multi-package orders, extend this to support multiple labels per order
