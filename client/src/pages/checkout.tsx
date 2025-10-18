@@ -40,7 +40,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import type { InsertOrder } from "@shared/schema";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { usePricing } from "@/hooks/use-pricing";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -111,7 +111,16 @@ function PaymentForm({
   billingDetails,
   items,
   onCancel,
-  sellerCurrency
+  sellerCurrency,
+  clientSecret,
+  savedPaymentMethods = [],
+  useNewPayment = true,
+  setUseNewPayment,
+  selectedPaymentMethodId = null,
+  setSelectedPaymentMethodId,
+  savePaymentMethod = true,
+  setSavePaymentMethod,
+  onSavePaymentMethod
 }: { 
   onSuccess: (orderId: string) => void; 
   amount: number; 
@@ -121,6 +130,15 @@ function PaymentForm({
   items: any[];
   onCancel?: () => void;
   sellerCurrency: string;
+  clientSecret?: string;
+  savedPaymentMethods?: any[];
+  useNewPayment?: boolean;
+  setUseNewPayment?: (value: boolean) => void;
+  selectedPaymentMethodId?: number | null;
+  setSelectedPaymentMethodId?: (value: number | null) => void;
+  savePaymentMethod?: boolean;
+  setSavePaymentMethod?: (value: boolean) => void;
+  onSavePaymentMethod?: (paymentMethodId: string) => Promise<void>;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -142,7 +160,12 @@ function PaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements) {
+    if (!stripe) {
+      return;
+    }
+
+    // If using new payment, elements are required
+    if (useNewPayment && !elements) {
       return;
     }
 
@@ -150,31 +173,54 @@ function PaymentForm({
     setPaymentError(null);
 
     try {
-      // CRITICAL FIX: Use correct billing address based on billingSameAsShipping flag
-      const useBillingAddress = !billingDetails.billingSameAsShipping;
+      let error, paymentIntent;
       
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        redirect: "if_required",
-        confirmParams: {
-          return_url: window.location.origin + '/checkout/complete',
-          payment_method_data: {
-            billing_details: {
-              email: useBillingAddress ? billingDetails.billingEmail : billingDetails.customerEmail,
-              name: useBillingAddress ? billingDetails.billingName : billingDetails.customerName,
-              phone: useBillingAddress ? billingDetails.billingPhone : billingDetails.phone,
-              address: {
-                line1: useBillingAddress ? billingDetails.billingAddressLine1 : billingDetails.addressLine1,
-                line2: useBillingAddress ? (billingDetails.billingAddressLine2 || undefined) : (billingDetails.addressLine2 || undefined),
-                city: useBillingAddress ? billingDetails.billingCity : billingDetails.city,
-                state: useBillingAddress ? billingDetails.billingState : billingDetails.state,
-                postal_code: useBillingAddress ? billingDetails.billingPostalCode : billingDetails.postalCode,
-                country: useBillingAddress ? billingDetails.billingCountry : billingDetails.country,
+      // Handle saved payment method
+      if (!useNewPayment && selectedPaymentMethodId && clientSecret) {
+        const savedPM = savedPaymentMethods.find(pm => pm.id === selectedPaymentMethodId);
+        if (!savedPM) {
+          throw new Error("Selected payment method not found");
+        }
+
+        // Confirm payment using saved payment method
+        const result = await stripe.confirmCardPayment(
+          clientSecret,
+          {
+            payment_method: savedPM.stripePaymentMethodId,
+          }
+        );
+        error = result.error;
+        paymentIntent = result.paymentIntent;
+      } else {
+        // Handle new payment method with PaymentElement
+        // CRITICAL FIX: Use correct billing address based on billingSameAsShipping flag
+        const useBillingAddress = !billingDetails.billingSameAsShipping;
+        
+        const result = await stripe.confirmPayment({
+          elements: elements!,
+          redirect: "if_required",
+          confirmParams: {
+            return_url: window.location.origin + '/checkout/complete',
+            payment_method_data: {
+              billing_details: {
+                email: useBillingAddress ? billingDetails.billingEmail : billingDetails.customerEmail,
+                name: useBillingAddress ? billingDetails.billingName : billingDetails.customerName,
+                phone: useBillingAddress ? billingDetails.billingPhone : billingDetails.phone,
+                address: {
+                  line1: useBillingAddress ? billingDetails.billingAddressLine1 : billingDetails.addressLine1,
+                  line2: useBillingAddress ? (billingDetails.billingAddressLine2 || undefined) : (billingDetails.addressLine2 || undefined),
+                  city: useBillingAddress ? billingDetails.billingCity : billingDetails.city,
+                  state: useBillingAddress ? billingDetails.billingState : billingDetails.state,
+                  postal_code: useBillingAddress ? billingDetails.billingPostalCode : billingDetails.postalCode,
+                  country: useBillingAddress ? billingDetails.billingCountry : billingDetails.country,
+                },
               },
             },
           },
-        },
-      });
+        });
+        error = result.error;
+        paymentIntent = result.paymentIntent;
+      }
 
       if (error) {
         console.error("[Checkout] Stripe payment error:", error);
@@ -259,6 +305,19 @@ function PaymentForm({
           const createdOrder = await response.json();
           queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
           
+          // Save payment method if checkbox was checked and using new payment
+          if (useNewPayment && savePaymentMethod && paymentIntent.payment_method && onSavePaymentMethod) {
+            const paymentMethodId = typeof paymentIntent.payment_method === 'string' 
+              ? paymentIntent.payment_method 
+              : paymentIntent.payment_method.id;
+            try {
+              await onSavePaymentMethod(paymentMethodId);
+            } catch (saveError) {
+              console.error("[Checkout] Failed to save payment method:", saveError);
+              // Don't block order success if payment method save fails
+            }
+          }
+          
           toast({
             title: "Payment Successful",
             description: "Your order has been confirmed",
@@ -323,9 +382,56 @@ function PaymentForm({
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Saved Payment Methods Selection */}
+      {savedPaymentMethods.length > 0 && setUseNewPayment && setSelectedPaymentMethodId && (
+        <div className="space-y-3">
+          <h3 className="font-medium">Payment Method</h3>
+          {savedPaymentMethods.map((pm: any) => (
+            <div key={pm.id} className="flex items-start gap-3 p-3 rounded-lg hover-elevate">
+              <input
+                type="radio"
+                name="paymentSelection"
+                value={pm.id}
+                checked={!useNewPayment && selectedPaymentMethodId === pm.id}
+                onChange={() => {
+                  setUseNewPayment(false);
+                  setSelectedPaymentMethodId(pm.id);
+                }}
+                className="mt-1 h-4 w-4"
+                data-testid={`radio-saved-payment-${pm.id}`}
+              />
+              <div className="flex-1">
+                <div className="font-medium capitalize">
+                  {pm.cardBrand} •••• {pm.cardLast4}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Expires {pm.cardExpMonth}/{pm.cardExpYear}
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          <div className="flex items-start gap-3 p-3 rounded-lg hover-elevate">
+            <input
+              type="radio"
+              name="paymentSelection"
+              value="new"
+              checked={useNewPayment}
+              onChange={() => setUseNewPayment(true)}
+              className="mt-1 h-4 w-4"
+              data-testid="radio-new-payment"
+            />
+            <div className="font-medium">Use a new card</div>
+          </div>
+        </div>
+      )}
       
-      <div className="min-h-[240px]">
-        <PaymentElement 
+      {/* Payment Element - Only show if using new payment */}
+      {useNewPayment && (
+        <>
+          <div className="min-h-[240px]">
+            <PaymentElement 
           options={{
             layout: {
               type: 'tabs',
@@ -346,7 +452,26 @@ function PaymentForm({
             } as any,
           }}
         />
-      </div>
+          </div>
+
+          {/* Save Payment Method Checkbox */}
+          {setSavePaymentMethod && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="savePaymentMethod"
+                checked={savePaymentMethod}
+                onChange={(e) => setSavePaymentMethod(e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-save-payment"
+              />
+              <label htmlFor="savePaymentMethod" className="text-sm cursor-pointer">
+                Save this card for future purchases
+              </label>
+            </div>
+          )}
+        </>
+      )}
       
       <div className="flex gap-3">
         {onCancel && (
@@ -661,6 +786,54 @@ export default function Checkout() {
     return formatPrice(amount, sellerCurrency);
   };
 
+  // Fetch saved shipping addresses
+  const { data: savedAddresses = [] } = useQuery<any[]>({
+    queryKey: ["/api/shipping-addresses"],
+  });
+
+  // Fetch saved payment methods
+  const { data: savedPaymentMethods = [] } = useQuery<any[]>({
+    queryKey: ["/api/payment-methods"],
+  });
+
+  // State for saved addresses
+  const [useNewAddress, setUseNewAddress] = useState(true);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [saveAddress, setSaveAddress] = useState(true); // Pre-checked
+
+  // State for saved payment methods
+  const [useNewPayment, setUseNewPayment] = useState(true);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
+  const [savePaymentMethod, setSavePaymentMethod] = useState(true); // Pre-checked
+
+  // Mutation for saving address
+  const saveAddressMutation = useMutation({
+    mutationFn: async (address: any) => {
+      const response = await apiRequest("POST", "/api/shipping-addresses", {
+        ...address,
+        isDefault: savedAddresses.length === 0, // First one is default
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shipping-addresses"] });
+    },
+  });
+
+  // Mutation for saving payment method
+  const savePaymentMethodMutation = useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      const response = await apiRequest("POST", "/api/payment-methods", {
+        stripePaymentMethodId: paymentMethodId,
+        isDefault: savedPaymentMethods.length === 0,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+    },
+  });
+
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
@@ -744,6 +917,26 @@ export default function Checkout() {
   
   // Watch checkbox for billing address sync
   const billingSameAsShipping = form.watch("billingSameAsShipping");
+  
+  // Populate form with saved address when selected
+  useEffect(() => {
+    if (!useNewAddress && selectedAddressId) {
+      const selectedAddress = savedAddresses.find(addr => addr.id === selectedAddressId);
+      if (selectedAddress) {
+        form.setValue("customerName", selectedAddress.fullName);
+        form.setValue("addressLine1", selectedAddress.addressLine1);
+        form.setValue("addressLine2", selectedAddress.addressLine2 || "");
+        form.setValue("city", selectedAddress.city);
+        form.setValue("state", selectedAddress.state || "");
+        form.setValue("postalCode", selectedAddress.postalCode);
+        form.setValue("country", selectedAddress.country);
+        form.setValue("phone", selectedAddress.phone || "");
+        // Trigger country name update
+        const countryName = getCountryName(selectedAddress.country);
+        if (countryName) form.setValue("countryName", countryName);
+      }
+    }
+  }, [useNewAddress, selectedAddressId, savedAddresses, form]);
   
   // Watch all shipping fields for auto-sync to billing
   const shippingName = form.watch("customerName");
@@ -1005,7 +1198,27 @@ export default function Checkout() {
     }
   };
 
-  const handlePaymentSuccess = (orderId: string) => {
+  const handlePaymentSuccess = async (orderId: string) => {
+    // Save address if checkbox was checked and using new address
+    if (useNewAddress && saveAddress && billingDetails) {
+      try {
+        await saveAddressMutation.mutateAsync({
+          label: "Saved Address",
+          fullName: billingDetails.customerName,
+          addressLine1: billingDetails.addressLine1,
+          addressLine2: billingDetails.addressLine2 || "",
+          city: billingDetails.city,
+          state: billingDetails.state || "",
+          postalCode: billingDetails.postalCode,
+          country: billingDetails.country,
+          phone: billingDetails.phone,
+        });
+      } catch (saveError) {
+        console.error("[Checkout] Failed to save address:", saveError);
+        // Don't block checkout success if address save fails
+      }
+    }
+    
     clearCart();
     
     // Invalidate stock queries to refresh availability after purchase
@@ -1195,15 +1408,72 @@ export default function Checkout() {
         <div className="grid lg:grid-cols-5 gap-6 md:gap-8">
           {/* Main Form - 3 columns */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Shipping Information */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  <h2 className="text-xl font-semibold">Shipping Information</h2>
-                </div>
-              </CardHeader>
-              <CardContent>
+            {/* Saved Addresses Selection */}
+            {savedAddresses.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    <h2 className="text-xl font-semibold">Shipping Address</h2>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Radio buttons for saved addresses */}
+                  {savedAddresses.map((addr: any) => (
+                    <div key={addr.id} className="flex items-start gap-3 p-3 rounded-lg hover-elevate">
+                      <input
+                        type="radio"
+                        name="addressSelection"
+                        value={addr.id}
+                        checked={!useNewAddress && selectedAddressId === addr.id}
+                        onChange={() => {
+                          setUseNewAddress(false);
+                          setSelectedAddressId(addr.id);
+                        }}
+                        className="mt-1 h-4 w-4"
+                        data-testid={`radio-saved-address-${addr.id}`}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{addr.label || "Saved Address"}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {addr.fullName}<br/>
+                          {addr.addressLine1}{addr.addressLine2 ? `, ${addr.addressLine2}` : ''}<br/>
+                          {addr.city}, {addr.state} {addr.postalCode}<br/>
+                          {addr.country}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* "Use new address" option */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg hover-elevate">
+                    <input
+                      type="radio"
+                      name="addressSelection"
+                      value="new"
+                      checked={useNewAddress}
+                      onChange={() => setUseNewAddress(true)}
+                      className="mt-1 h-4 w-4"
+                      data-testid="radio-new-address"
+                    />
+                    <div className="font-medium">Use a new address</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Shipping Information Form */}
+            {useNewAddress && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    <h2 className="text-xl font-semibold">
+                      {savedAddresses.length > 0 ? "New Shipping Address" : "Shipping Information"}
+                    </h2>
+                  </div>
+                </CardHeader>
+                <CardContent>
                 {stripeError && (
                   <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-error">
                     <AlertCircle className="h-4 w-4" />
@@ -1635,6 +1905,23 @@ export default function Checkout() {
                       </Collapsible>
                     </div>
 
+                    <Separator />
+
+                    {/* Save Address Checkbox */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="saveAddress"
+                        checked={saveAddress}
+                        onChange={(e) => setSaveAddress(e.target.checked)}
+                        className="h-4 w-4"
+                        data-testid="checkbox-save-address"
+                      />
+                      <label htmlFor="saveAddress" className="text-sm cursor-pointer">
+                        Save this address for future orders
+                      </label>
+                    </div>
+
                     {!clientSecret && (
                       <Button
                         type="submit"
@@ -1662,6 +1949,7 @@ export default function Checkout() {
                 </Form>
               </CardContent>
             </Card>
+            )}
 
             {/* Payment Section */}
             {clientSecret && orderData && billingDetails && (
@@ -1706,6 +1994,19 @@ export default function Checkout() {
                       items={items as any}
                       onCancel={handleCancelPayment}
                       sellerCurrency={sellerCurrency}
+                      clientSecret={clientSecret}
+                      savedPaymentMethods={savedPaymentMethods}
+                      useNewPayment={useNewPayment}
+                      setUseNewPayment={setUseNewPayment}
+                      selectedPaymentMethodId={selectedPaymentMethodId}
+                      setSelectedPaymentMethodId={setSelectedPaymentMethodId}
+                      savePaymentMethod={savePaymentMethod}
+                      setSavePaymentMethod={setSavePaymentMethod}
+                      onSavePaymentMethod={async (paymentMethodId: string) => {
+                        if (useNewPayment && savePaymentMethod) {
+                          await savePaymentMethodMutation.mutateAsync(paymentMethodId);
+                        }
+                      }}
                     />
                   </Elements>
                 </CardContent>

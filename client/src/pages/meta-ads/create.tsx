@@ -191,10 +191,28 @@ function MultiSelectDropdown({ options, value, onChange, placeholder, label }: M
 
 function PaymentForm({ 
   amount, 
-  onSuccess 
+  onSuccess,
+  clientSecret,
+  savedPaymentMethods,
+  useNewPayment,
+  setUseNewPayment,
+  selectedPaymentMethodId,
+  setSelectedPaymentMethodId,
+  savePaymentMethod,
+  setSavePaymentMethod,
+  onSavePaymentMethod,
 }: { 
   amount: number; 
   onSuccess: () => void;
+  clientSecret: string;
+  savedPaymentMethods: any[];
+  useNewPayment: boolean;
+  setUseNewPayment: (value: boolean) => void;
+  selectedPaymentMethodId: number | null;
+  setSelectedPaymentMethodId: (value: number | null) => void;
+  savePaymentMethod: boolean;
+  setSavePaymentMethod: (value: boolean) => void;
+  onSavePaymentMethod: (paymentMethodId: string) => Promise<void>;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -204,7 +222,59 @@ function PaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements) {
+    if (!stripe) {
+      return;
+    }
+
+    // If using saved payment method, confirm with saved PM
+    if (!useNewPayment && selectedPaymentMethodId) {
+      setIsProcessing(true);
+      try {
+        const savedPM = savedPaymentMethods.find(pm => pm.id === selectedPaymentMethodId);
+        if (!savedPM) {
+          toast({
+            title: "Error",
+            description: "Selected payment method not found",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { error, paymentIntent } = await stripe.confirmPayment({
+          clientSecret,
+          confirmParams: {
+            payment_method: savedPM.stripePaymentMethodId,
+          },
+          redirect: "if_required",
+        });
+
+        if (error) {
+          toast({
+            title: "Payment Failed",
+            description: error.message || "An error occurred during payment processing",
+            variant: "destructive",
+          });
+        } else if (paymentIntent && paymentIntent.status === "succeeded") {
+          toast({
+            title: "Payment Successful",
+            description: "Your ad campaign budget has been added",
+          });
+          onSuccess();
+        }
+      } catch (error: any) {
+        toast({
+          title: "Payment Error",
+          description: error.message || "An unexpected error occurred",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Using new payment method
+    if (!elements) {
       return;
     }
 
@@ -223,6 +293,19 @@ function PaymentForm({
           variant: "destructive",
         });
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
+        // Save payment method if checkbox was checked
+        if (useNewPayment && savePaymentMethod && paymentIntent.payment_method && onSavePaymentMethod) {
+          const paymentMethodId = typeof paymentIntent.payment_method === 'string' 
+            ? paymentIntent.payment_method 
+            : paymentIntent.payment_method.id;
+          try {
+            await onSavePaymentMethod(paymentMethodId);
+          } catch (saveError) {
+            console.error("[Meta Ads] Failed to save payment method:", saveError);
+            // Don't block payment success if save fails
+          }
+        }
+
         toast({
           title: "Payment Successful",
           description: "Your ad campaign budget has been added",
@@ -242,15 +325,78 @@ function PaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="min-h-[200px]">
-        <PaymentElement />
-      </div>
+      {/* Saved Payment Methods Selection */}
+      {savedPaymentMethods.length > 0 && (
+        <div className="space-y-3">
+          {savedPaymentMethods.map((pm: any) => (
+            <div key={pm.id} className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="paymentSelection"
+                value={pm.id}
+                checked={!useNewPayment && selectedPaymentMethodId === pm.id}
+                onChange={() => {
+                  setUseNewPayment(false);
+                  setSelectedPaymentMethodId(pm.id);
+                }}
+                className="mt-1 h-4 w-4"
+                data-testid={`radio-saved-payment-${pm.id}`}
+              />
+              <div className="flex-1">
+                <div className="font-medium capitalize">
+                  {pm.cardBrand} •••• {pm.cardLast4}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Expires {pm.cardExpMonth}/{pm.cardExpYear}
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          <div className="flex items-start gap-3">
+            <input
+              type="radio"
+              name="paymentSelection"
+              value="new"
+              checked={useNewPayment}
+              onChange={() => setUseNewPayment(true)}
+              className="mt-1 h-4 w-4"
+              data-testid="radio-new-payment"
+            />
+            <div className="font-medium">Use a new card</div>
+          </div>
+        </div>
+      )}
+      
+      {/* Show Stripe Elements only if using new payment */}
+      {useNewPayment && (
+        <>
+          <div className="min-h-[200px]">
+            <PaymentElement />
+          </div>
+          
+          {/* Save card checkbox */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="savePaymentMethod"
+              checked={savePaymentMethod}
+              onChange={(e) => setSavePaymentMethod(e.target.checked)}
+              className="h-4 w-4"
+              data-testid="checkbox-save-payment"
+            />
+            <label htmlFor="savePaymentMethod" className="text-sm cursor-pointer">
+              Save this card for future purchases
+            </label>
+          </div>
+        </>
+      )}
       
       <Button
         type="submit"
         className="w-full"
         size="lg"
-        disabled={!stripe || isProcessing}
+        disabled={!stripe || isProcessing || (!useNewPayment && !selectedPaymentMethodId)}
         data-testid="button-pay"
       >
         {isProcessing ? (
@@ -283,6 +429,29 @@ export default function CreateAdWizard() {
   // Fetch ad accounts to verify Meta connection
   const { data: adAccounts = [] } = useQuery<any[]>({
     queryKey: ["/api/meta/ad-accounts"],
+  });
+
+  // Fetch saved payment methods
+  const { data: savedPaymentMethods = [] } = useQuery<any[]>({
+    queryKey: ["/api/payment-methods"],
+  });
+
+  // State for saved payment methods
+  const [useNewPayment, setUseNewPayment] = useState(true);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
+  const [savePaymentMethod, setSavePaymentMethod] = useState(true); // Pre-checked
+
+  // Mutation for saving payment methods
+  const savePaymentMethodMutation = useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      return apiRequest("POST", "/api/payment-methods", {
+        stripePaymentMethodId: paymentMethodId,
+        isDefault: savedPaymentMethods.length === 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+    },
   });
 
   // Step 1 form
@@ -958,6 +1127,19 @@ export default function CreateAdWizard() {
                     <PaymentForm
                       amount={Number(step3Data.totalBudget)}
                       onSuccess={handlePaymentSuccess}
+                      clientSecret={clientSecret}
+                      savedPaymentMethods={savedPaymentMethods}
+                      useNewPayment={useNewPayment}
+                      setUseNewPayment={setUseNewPayment}
+                      selectedPaymentMethodId={selectedPaymentMethodId}
+                      setSelectedPaymentMethodId={setSelectedPaymentMethodId}
+                      savePaymentMethod={savePaymentMethod}
+                      setSavePaymentMethod={setSavePaymentMethod}
+                      onSavePaymentMethod={async (paymentMethodId: string) => {
+                        if (useNewPayment && savePaymentMethod) {
+                          await savePaymentMethodMutation.mutateAsync(paymentMethodId);
+                        }
+                      }}
                     />
                   </Elements>
 
