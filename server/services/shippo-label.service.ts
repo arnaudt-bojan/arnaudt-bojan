@@ -246,7 +246,16 @@ export class ShippoLabelService {
       });
 
       if (transaction.status !== 'SUCCESS') {
-        throw new Error(`Label purchase failed: ${transaction.messages || 'Unknown error'}`);
+        // Shippo returns messages as an array of objects
+        const errorMessage = transaction.messages 
+          ? JSON.stringify(transaction.messages, null, 2)
+          : 'Unknown error';
+        logger.error('[ShippoLabelService] Transaction failed', {
+          orderId,
+          status: transaction.status,
+          messages: transaction.messages
+        });
+        throw new Error(`Label purchase failed: ${errorMessage}`);
       }
 
       // Architecture 3: Calculate markup server-side
