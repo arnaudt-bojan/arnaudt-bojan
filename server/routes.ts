@@ -67,6 +67,7 @@ import { RefundService } from "./services/refund.service";
 import { CheckoutWorkflowOrchestrator } from "./services/checkout-workflow-orchestrator.service";
 import { WholesaleCheckoutWorkflowOrchestrator, type WholesaleCheckoutData } from "./services/wholesale-checkout-workflow-orchestrator.service";
 import { LocationIQAddressService } from "./services/locationiq-address.service";
+import { ShippoLabelService } from "./services/shippo-label.service";
 
 // Import Newsletter Services (Architecture 3)
 import { CampaignService } from "./services/newsletter/campaign.service";
@@ -276,6 +277,9 @@ const balancePaymentService = new BalancePaymentService(
   shippingService,
   stripe || undefined
 );
+
+// Initialize Shippo Label service for shipping label management (Architecture 3)
+const shippoLabelService = new ShippoLabelService(storage);
 
 // Initialize Meta Integration service for Meta OAuth callback logic
 const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta-auth/callback`;
@@ -3854,6 +3858,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       logger.error("Create balance payment intent error", error);
       res.status(500).json({ error: "Failed to create payment intent" });
+    }
+  });
+
+  // POST /api/orders/:orderId/labels (Architecture 3)
+  // Purchase shipping label from Shippo with 20% markup
+  app.post("/api/orders/:orderId/labels", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Authorization: seller must own the order
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied - you do not own this order" });
+      }
+
+      // Validate order is ready to ship
+      if (order.status !== "ready_to_ship") {
+        return res.status(400).json({ 
+          error: "Order must be in 'ready_to_ship' status to purchase a label",
+          currentStatus: order.status 
+        });
+      }
+
+      // Purchase label via service
+      const result = await shippoLabelService.purchaseLabel(orderId);
+
+      res.json({
+        success: true,
+        labelId: result.labelId,
+        labelUrl: result.labelUrl,
+        trackingNumber: result.trackingNumber,
+        carrier: result.carrier,
+        baseCostUsd: result.baseCostUsd,
+        totalChargedUsd: result.totalChargedUsd,
+        shippoTransactionId: result.shippoTransactionId
+      });
+    } catch (error: any) {
+      logger.error("[ShippoLabel] Purchase label error", { orderId: req.params.orderId, error: error.message });
+      
+      // Distinguish validation errors from API errors
+      if (error.message.includes("not configured") || 
+          error.message.includes("does not have") ||
+          error.message.includes("already purchased")) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      res.status(500).json({ error: error.message || "Failed to purchase shipping label" });
+    }
+  });
+
+  // POST /api/orders/:orderId/labels/:labelId/cancel (Architecture 3)
+  // Cancel/void shipping label and process refund
+  app.post("/api/orders/:orderId/labels/:labelId/cancel", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId, labelId } = req.params;
+
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Authorization: seller must own the order
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied - you do not own this order" });
+      }
+
+      // Get label
+      const label = await storage.getShippingLabel(labelId);
+      if (!label) {
+        return res.status(404).json({ error: "Label not found" });
+      }
+
+      // Verify label belongs to this order
+      if (label.orderId !== orderId) {
+        return res.status(400).json({ error: "Label does not belong to this order" });
+      }
+
+      // Validate label can be cancelled
+      if (label.status !== "purchased") {
+        return res.status(400).json({ 
+          error: "Label cannot be cancelled - only purchased labels can be voided",
+          currentStatus: label.status 
+        });
+      }
+
+      // Request void via service
+      const result = await shippoLabelService.requestVoid(labelId);
+
+      res.json({
+        success: true,
+        refundId: result.refundId,
+        status: result.status,
+        rejectionReason: result.rejectionReason
+      });
+    } catch (error: any) {
+      logger.error("[ShippoLabel] Cancel label error", { 
+        orderId: req.params.orderId, 
+        labelId: req.params.labelId,
+        error: error.message 
+      });
+      
+      if (error.message.includes("not found") || 
+          error.message.includes("cannot be") ||
+          error.message.includes("already")) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      res.status(500).json({ error: error.message || "Failed to cancel shipping label" });
+    }
+  });
+
+  // GET /api/orders/:orderId/labels (Architecture 3)
+  // List all labels for an order
+  app.get("/api/orders/:orderId/labels", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Authorization: seller must own the order
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied - you do not own this order" });
+      }
+
+      // Get all labels for this order
+      const labels = await storage.getShippingLabelsByOrderId(orderId);
+
+      res.json({
+        success: true,
+        labels: labels || []
+      });
+    } catch (error: any) {
+      logger.error("[ShippoLabel] List labels error", { 
+        orderId: req.params.orderId,
+        error: error.message 
+      });
+      res.status(500).json({ error: "Failed to retrieve shipping labels" });
+    }
+  });
+
+  // GET /api/seller/credit-ledger (Architecture 3)
+  // View seller's credit ledger for label refunds
+  app.get("/api/seller/credit-ledger", requireAuth, async (req: any, res) => {
+    try {
+      const sellerId = req.user.claims.sub;
+
+      // Get user to retrieve current pending credit balance
+      const seller = await storage.getUser(sellerId);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+
+      // Get all credit ledger entries for this seller
+      const ledgerEntries = await storage.getSellerCreditLedgersBySellerId(sellerId);
+
+      res.json({
+        success: true,
+        currentBalanceUsd: seller.pendingLabelCreditUsd || 0,
+        ledgerEntries: ledgerEntries || []
+      });
+    } catch (error: any) {
+      logger.error("[ShippoLabel] Get credit ledger error", { 
+        sellerId: req.user?.claims?.sub,
+        error: error.message 
+      });
+      res.status(500).json({ error: "Failed to retrieve credit ledger" });
     }
   });
 

@@ -23,6 +23,7 @@ import { MetaJobScheduler } from "./services/meta/job-scheduler.service";
 import { AnalyticsService } from "./services/meta/analytics.service";
 import { BudgetService } from "./services/meta/budget.service";
 import { MetaOAuthService } from "./services/meta/meta-oauth.service";
+import { ShippoLabelService } from "./services/shippo-label.service";
 import Stripe from "stripe";
 
 const app = express();
@@ -128,6 +129,7 @@ app.use((req, res, next) => {
   let balanceReminderJob: WholesaleBalanceReminderJob | null = null;
   let deliveryReminderJob: DeliveryReminderService | null = null;
   let metaJobScheduler: MetaJobScheduler | null = null;
+  let shippoRefundPollInterval: NodeJS.Timeout | null = null;
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -214,6 +216,36 @@ app.use((req, res, next) => {
     } else {
       log('[Server] Meta Ads background jobs skipped (META_APP_ID, META_APP_SECRET, or STRIPE_SECRET_KEY not configured)');
     }
+    
+    // Poll Shippo refund status every 15 minutes
+    // Only initialize if Shippo API key is configured
+    if (process.env.SHIPPO_API_KEY) {
+      const shippoLabelService = new ShippoLabelService(storage);
+      
+      // Run immediately on startup
+      (async () => {
+        try {
+          await shippoLabelService.pollPendingRefunds();
+          log('[Shippo Refund Poll] Initial poll completed');
+        } catch (error) {
+          log('[Shippo Refund Poll] Initial poll failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        }
+      })();
+      
+      // Then run every 15 minutes
+      shippoRefundPollInterval = setInterval(async () => {
+        try {
+          await shippoLabelService.pollPendingRefunds();
+          log('[Shippo Refund Poll] Poll cycle completed');
+        } catch (error) {
+          log('[Shippo Refund Poll] Poll cycle failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        }
+      }, 15 * 60 * 1000); // 15 minutes
+      
+      log('[Server] Shippo refund polling job started (15 minute interval)');
+    } else {
+      log('[Server] Shippo refund polling skipped (SHIPPO_API_KEY not configured)');
+    }
   });
   
   // Graceful shutdown
@@ -232,6 +264,9 @@ app.use((req, res, next) => {
     }
     if (metaJobScheduler) {
       metaJobScheduler.stopJobs();
+    }
+    if (shippoRefundPollInterval) {
+      clearInterval(shippoRefundPollInterval);
     }
     
     // Wait a bit for jobs to cleanup
