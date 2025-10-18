@@ -3510,6 +3510,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
+      // Smart URL normalization: add https:// if no protocol is present
+      if (req.body.trackingLink && req.body.trackingLink.trim() !== "") {
+        const trimmedUrl = req.body.trackingLink.trim();
+        if (!trimmedUrl.match(/^https?:\/\//i)) {
+          req.body.trackingLink = `https://${trimmedUrl}`;
+        }
+      }
+      
       const trackingSchema = z.object({
         trackingNumber: z.string().min(1, "Tracking number is required"),
         trackingLink: z.string().url("Invalid tracking link").or(z.literal("")),
@@ -4638,6 +4646,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/order-items/:id/tracking", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Smart URL normalization: add https:// if no protocol is present
+      if (req.body.trackingUrl && req.body.trackingUrl.trim() !== "") {
+        const trimmedUrl = req.body.trackingUrl.trim();
+        if (!trimmedUrl.match(/^https?:\/\//i)) {
+          req.body.trackingUrl = `https://${trimmedUrl}`;
+        }
+      }
+      
       const trackingSchema = z.object({
         trackingNumber: z.string().min(1, "Tracking number is required"),
         trackingCarrier: z.string().optional(),

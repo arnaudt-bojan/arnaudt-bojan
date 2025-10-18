@@ -82,11 +82,26 @@ export function OrderActionBar({
     },
   });
 
+  // Smart URL normalization: add https:// if no protocol is present
+  const normalizeUrl = (url: string): string => {
+    if (!url || url.trim() === "") return "";
+    const trimmedUrl = url.trim();
+    // Check if URL already has a protocol
+    if (trimmedUrl.match(/^https?:\/\//i)) {
+      return trimmedUrl;
+    }
+    // Add https:// if no protocol present
+    return `https://${trimmedUrl}`;
+  };
+
   const updateTrackingMutation = useMutation({
     mutationFn: async () => {
+      // Normalize the tracking link before sending
+      const normalizedTrackingLink = normalizeUrl(trackingLink);
+      
       return await apiRequest("PATCH", `/api/orders/${order.id}/tracking`, {
         trackingNumber,
-        trackingLink,
+        trackingLink: normalizedTrackingLink,
         notifyCustomer,
       });
     },
@@ -388,9 +403,12 @@ export function OrderActionBar({
                 type="url"
                 value={trackingLink}
                 onChange={(e) => setTrackingLink(e.target.value)}
-                placeholder="https://example.com/track/..."
+                placeholder="ups.com/track/... or https://ups.com/track/..."
                 data-testid="input-tracking-url"
               />
+              <p className="text-xs text-muted-foreground">
+                💡 Tip: No need to add https:// - we'll add it automatically if you forget
+              </p>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
