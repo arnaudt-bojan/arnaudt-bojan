@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { MoreVertical, Truck, DollarSign, RotateCcw, FileText, Download, Package2, Mail } from "lucide-react";
+import { MoreVertical, Truck, DollarSign, RotateCcw, FileText, Download, Package2, Mail, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,13 +39,17 @@ interface OrderActionBarProps {
   orderItems?: OrderItem[];
   balancePaymentStatus?: string;
   balancePaymentRequestedAt?: string;
+  onPurchaseLabel?: () => void;
+  onViewLabel?: () => void;
 }
 
 export function OrderActionBar({ 
   order, 
   orderItems,
   balancePaymentStatus,
-  balancePaymentRequestedAt 
+  balancePaymentRequestedAt,
+  onPurchaseLabel,
+  onViewLabel
 }: OrderActionBarProps) {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
@@ -251,6 +255,10 @@ export function OrderActionBar({
   const balanceAlreadyRequested = balancePaymentStatus && 
     ['requested', 'paid', 'failed'].includes(balancePaymentStatus);
 
+  // Shipping label menu item conditions
+  const canShowLabelMenu = order.shippingStreet && order.paymentStatus !== "pending";
+  const hasLabel = !!order.shippingLabelId;
+
   return (
     <>
       <DropdownMenu>
@@ -278,6 +286,15 @@ export function OrderActionBar({
             <Truck className="mr-2 h-4 w-4" />
             Add/Update Tracking
           </DropdownMenuItem>
+          {canShowLabelMenu && (
+            <DropdownMenuItem
+              onClick={() => hasLabel ? onViewLabel?.() : onPurchaseLabel?.()}
+              data-testid={`menu-${hasLabel ? 'view' : 'purchase'}-shipping-label-${order.id}`}
+            >
+              <Package className="mr-2 h-4 w-4" />
+              {hasLabel ? "View Shipping Label" : "Purchase Shipping Label"}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => generateInvoiceMutation.mutate()}

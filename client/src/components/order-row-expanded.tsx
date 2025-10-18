@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { OrderActionBar } from "@/components/order-action-bar";
 import { OrderTimeline } from "@/components/order-timeline";
+import { PurchaseShippingLabelDialog, ShippingLabelSuccessDialog, ShippingLabelDetailsDialog } from "@/components/shipping-label-modals";
 import type { Order, OrderItem, UpdateCustomerDetails } from "@shared/schema";
 import { updateCustomerDetailsSchema } from "@shared/schema";
 import { getPaymentStatusLabel } from "@/lib/format-status";
@@ -46,35 +47,6 @@ interface OrderDetailsResponse {
   events: any[];
   balancePayments: any[];
   refunds: any[];
-}
-
-interface ShippingLabel {
-  id: string;
-  orderId: string;
-  sellerId: string;
-  shippoTransactionId: string;
-  baseCostUsd: string;
-  markupPercent: string;
-  totalChargedUsd: string;
-  labelUrl: string;
-  trackingNumber: string;
-  carrier: string;
-  serviceLevelName: string;
-  status: string;
-  purchasedAt: string;
-  voidedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface LabelRefund {
-  id: string;
-  labelId: string;
-  shippoRefundId: string;
-  status: string;
-  requestedAt: string;
-  resolvedAt?: string;
-  rejectionReason?: string;
 }
 
 interface WarehouseAddress {
@@ -109,38 +81,21 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newDeliveryDate, setNewDeliveryDate] = useState<Date | undefined>(undefined);
   const [isEditingCustomerDetails, setIsEditingCustomerDetails] = useState(false);
-  const [cancelingLabelId, setCancelingLabelId] = useState<string | null>(null);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
   const [showAddWarehouseDialog, setShowAddWarehouseDialog] = useState(false);
+  
+  // Shipping label modal states
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [labelData, setLabelData] = useState<any>(null);
+  
   const { toast } = useToast();
 
   const { data, isLoading } = useQuery<OrderDetailsResponse>({
     queryKey: [`/api/seller/orders/${orderId}`],
   });
 
-  // Fetch shipping labels if order has a label
-  const { data: labelsData, isLoading: labelsLoading } = useQuery<{ labels: ShippingLabel[]; refunds: LabelRefund[] }>({
-    queryKey: [`/api/orders/${orderId}/labels`],
-    enabled: !!data?.order?.shippingLabelId,
-  });
-
-  // Fetch seller wallet balance
-  const { data: walletBalance, isLoading: balanceLoading } = useQuery<{ balance: number; currency: string }>({
-    queryKey: ["/api/seller/wallet/balance"],
-  });
-
-  // Fetch warehouse addresses for label purchase
-  const { data: warehouseAddresses = [], isLoading: warehouseLoading } = useQuery<WarehouseAddress[]>({
-    queryKey: ["/api/seller/warehouse-addresses"],
-  });
-
-  // Set default warehouse when addresses load
-  useEffect(() => {
-    if (warehouseAddresses.length > 0 && !selectedWarehouseId) {
-      const defaultAddress = warehouseAddresses.find(addr => addr.isDefault === 1);
-      setSelectedWarehouseId(defaultAddress?.id || warehouseAddresses[0].id);
-    }
-  }, [warehouseAddresses, selectedWarehouseId]);
+  // Note: Warehouse addresses and wallet balance queries are now handled in the modals
 
   // Mutation to update delivery date
   const updateDeliveryDateMutation = useMutation({
@@ -286,63 +241,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     },
   });
 
-  // Mutation to purchase shipping label (with warehouse address ID)
-  const purchaseLabelMutation = useMutation({
-    mutationFn: async (warehouseAddressId: string) => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/labels`, { warehouseAddressId });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to purchase shipping label");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${orderId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/labels`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/wallet/balance"] });
-      toast({
-        title: "Shipping label purchased",
-        description: "Label has been purchased successfully and is ready to download",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to purchase label",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to cancel shipping label
-  const cancelLabelMutation = useMutation({
-    mutationFn: async (labelId: string) => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/labels/${labelId}/cancel`, {});
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to cancel shipping label");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${orderId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/labels`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/seller/credit-ledger"] });
-      setCancelingLabelId(null);
-      toast({
-        title: "Label cancelled",
-        description: "Shipping label has been cancelled. Refund is being processed.",
-      });
-    },
-    onError: (error: Error) => {
-      setCancelingLabelId(null);
-      toast({
-        title: "Failed to cancel label",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Note: Shipping label mutations are now handled in the modal components
 
   if (isLoading) {
     return (
@@ -413,6 +312,8 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
           orderItems={items}
           balancePaymentStatus={latestBalancePayment?.status}
           balancePaymentRequestedAt={latestBalancePayment?.requestedAt}
+          onPurchaseLabel={() => setShowPurchaseDialog(true)}
+          onViewLabel={() => setShowDetailsDialog(true)}
         />
       </div>
 
@@ -964,320 +865,6 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
         </div>
       </div>
 
-      {/* Shipping Label Section */}
-      {data?.order && (
-        <div className="border-t pt-6">
-          <div className="flex items-center gap-2 text-sm font-semibold mb-4">
-            <FileText className="h-4 w-4" />
-            <span>Shipping Label</span>
-          </div>
-
-          {/* Label Purchase Section - Show when ready to ship and no label exists */}
-          {!order.shippingLabelId && 
-           order.shippingStreet && 
-           order.shippingCity && 
-           order.shippingPostalCode && 
-           order.shippingCountry && 
-           order.paymentStatus !== "pending" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Warehouse className="h-4 w-4" />
-                  Purchase Shipping Label
-                </CardTitle>
-                <CardDescription>
-                  Select a warehouse address to ship from
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">Shipping To:</p>
-                  <div className="ml-4 text-sm">
-                    <p>{order.shippingCity}, {order.shippingState}</p>
-                    <p>{order.shippingPostalCode}, {order.shippingCountry}</p>
-                  </div>
-                </div>
-
-                {warehouseAddresses.length === 0 ? (
-                  <div className="p-4 border rounded-lg space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      You need to add a warehouse address before purchasing a shipping label.
-                    </p>
-                    <Button
-                      onClick={() => setShowAddWarehouseDialog(true)}
-                      variant="outline"
-                      size="sm"
-                      data-testid="button-add-first-warehouse-inline"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Warehouse Address
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Ship From Warehouse</label>
-                      <div className="flex gap-2">
-                        <Select
-                          value={selectedWarehouseId}
-                          onValueChange={setSelectedWarehouseId}
-                        >
-                          <SelectTrigger data-testid="select-warehouse">
-                            <SelectValue placeholder="Select warehouse..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {warehouseAddresses.map((addr) => (
-                              <SelectItem key={addr.id} value={addr.id} data-testid={`option-warehouse-${addr.id}`}>
-                                {addr.name} - {addr.city}, {addr.state}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          onClick={() => setShowAddWarehouseDialog(true)}
-                          variant="outline"
-                          size="icon"
-                          data-testid="button-add-warehouse-inline"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Wallet Balance Display */}
-                    <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Wallet Balance:</span>
-                        {balanceLoading ? (
-                          <Skeleton className="h-5 w-16" />
-                        ) : (
-                          <span className="font-semibold" data-testid="text-wallet-balance">
-                            ${walletBalance?.balance?.toFixed(2) || '0.00'}
-                          </span>
-                        )}
-                      </div>
-                      {walletBalance && walletBalance.balance < 10 && (
-                        <div className="flex items-start gap-2 text-xs text-orange-600 dark:text-orange-400">
-                          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p>Low balance. Shipping labels typically cost $10-$25.</p>
-                            <a 
-                              href="/seller/wallet" 
-                              className="underline font-medium hover:text-orange-700 dark:hover:text-orange-300"
-                              data-testid="link-add-funds"
-                            >
-                              Add funds to wallet
-                            </a>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <Button 
-                      onClick={() => purchaseLabelMutation.mutate(selectedWarehouseId)}
-                      disabled={purchaseLabelMutation.isPending || !selectedWarehouseId || (walletBalance && walletBalance.balance < 1)}
-                      data-testid="button-purchase-label"
-                      className="w-full"
-                    >
-                      {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
-                    </Button>
-                    
-                    {walletBalance && walletBalance.balance < 1 && (
-                      <p className="text-xs text-center text-destructive" data-testid="text-insufficient-funds">
-                        Insufficient wallet balance. Please add funds to continue.
-                      </p>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Label Details Section - Show when label exists */}
-          {order.shippingLabelId && (
-            <div className="space-y-4">
-              {labelsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-32 w-full" />
-                </div>
-              ) : labelsData && labelsData.labels.length > 0 ? (
-                labelsData.labels.map((label) => {
-                  const refund = labelsData.refunds.find(r => r.labelId === label.id);
-                  const markupPercent = parseFloat(label.markupPercent || "20");
-                  
-                  return (
-                    <Card key={label.id}>
-                      <CardContent className="pt-6 space-y-4">
-                        {/* Label Info Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Carrier</p>
-                            <p className="font-medium">{label.carrier}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Service Level</p>
-                            <p className="font-medium">{label.serviceLevelName}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Tracking Number</p>
-                            <p className="font-medium" data-testid="text-tracking-number">
-                              {label.trackingNumber}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Status</p>
-                            <Badge variant="outline">
-                              {label.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {/* Pricing Breakdown */}
-                        <div className="border-t pt-4 space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Base Cost:</span>
-                            <span data-testid="text-base-cost">
-                              ${parseFloat(label.baseCostUsd).toFixed(2)} USD
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Platform Markup ({markupPercent}%):</span>
-                            <span>
-                              ${(parseFloat(label.baseCostUsd) * (markupPercent / 100)).toFixed(2)} USD
-                            </span>
-                          </div>
-                          <div className="flex justify-between font-semibold border-t pt-2">
-                            <span>Total Charged:</span>
-                            <span data-testid="text-total-cost">
-                              ${parseFloat(label.totalChargedUsd).toFixed(2)} USD
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Timestamps */}
-                        <div className="text-sm text-muted-foreground">
-                          <p>Created: {format(new Date(label.createdAt), "PPP p")}</p>
-                          {label.purchasedAt && (
-                            <p>Purchased: {format(new Date(label.purchasedAt), "PPP p")}</p>
-                          )}
-                          {label.voidedAt && (
-                            <p>Voided: {format(new Date(label.voidedAt), "PPP p")}</p>
-                          )}
-                        </div>
-
-                        {/* Refund Status */}
-                        {refund && (
-                          <div className="border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 p-3 rounded-md">
-                            <div className="flex items-start gap-2">
-                              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5" />
-                              <div className="flex-1 text-sm">
-                                <p className="font-medium text-orange-900 dark:text-orange-100">
-                                  Refund Status: {refund.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                                </p>
-                                {refund.rejectionReason && (
-                                  <p className="text-orange-700 dark:text-orange-300 mt-1">
-                                    Reason: {refund.rejectionReason}
-                                  </p>
-                                )}
-                                <p className="text-orange-600 dark:text-orange-400 mt-1">
-                                  Requested: {format(new Date(refund.requestedAt), "PPP p")}
-                                </p>
-                                {refund.resolvedAt && (
-                                  <p className="text-orange-600 dark:text-orange-400">
-                                    Resolved: {format(new Date(refund.resolvedAt), "PPP p")}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 flex-wrap">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(label.labelUrl, "_blank")}
-                            data-testid="button-download-label"
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Label PDF
-                          </Button>
-                          {label.status === "purchased" && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setCancelingLabelId(label.id)}
-                              disabled={cancelLabelMutation.isPending}
-                              data-testid="button-cancel-label"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Cancel Label
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              ) : (
-                <p className="text-sm text-muted-foreground">No labels found</p>
-              )}
-            </div>
-          )}
-
-          {/* No Label Section - when not ready */}
-          {!order.shippingLabelId && 
-           (!order.shippingStreet || !order.shippingCity || !order.shippingPostalCode || !order.shippingCountry) && (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4 mt-0.5" />
-                  <p>Complete shipping address required before purchasing a label</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {!order.shippingLabelId && order.paymentStatus === "pending" && order.shippingStreet && (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4 mt-0.5" />
-                  <p>Payment required before purchasing a shipping label</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {/* Cancel Label Confirmation Dialog */}
-      <AlertDialog open={!!cancelingLabelId} onOpenChange={(open) => !open && setCancelingLabelId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Shipping Label?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel this shipping label? This action will request a refund from the carrier.
-              The refund may take several days to process and may be rejected if the label has already been scanned.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (cancelingLabelId) {
-                  cancelLabelMutation.mutate(cancelingLabelId);
-                }
-              }}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Yes, Cancel Label
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Order Timeline */}
       <div className="border-t pt-6">
         <OrderTimeline events={events} />
@@ -1448,6 +1035,34 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Shipping Label Modals */}
+      {data?.order && (
+        <>
+          <PurchaseShippingLabelDialog
+            open={showPurchaseDialog}
+            onOpenChange={setShowPurchaseDialog}
+            orderId={orderId}
+            order={order}
+            onSuccess={(labelData) => {
+              setLabelData(labelData);
+              setShowSuccessDialog(true);
+            }}
+          />
+
+          <ShippingLabelSuccessDialog
+            open={showSuccessDialog}
+            onOpenChange={setShowSuccessDialog}
+            labelData={labelData}
+          />
+
+          <ShippingLabelDetailsDialog
+            open={showDetailsDialog}
+            onOpenChange={setShowDetailsDialog}
+            orderId={orderId}
+          />
+        </>
+      )}
     </div>
   );
 }
