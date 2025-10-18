@@ -51,9 +51,34 @@ export default function SellerWallet() {
   const { toast } = useToast();
   const [customAmount, setCustomAmount] = useState<string>("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
-  // Note: Success/cancel handling is done via postMessage from popup pages
+  // Get query params for success/cancel feedback
+  const searchParams = new URLSearchParams(window.location.search);
+  const topupStatus = searchParams.get('topup');
+
+  // Show success/cancel toast on redirect back from Stripe
+  useEffect(() => {
+    if (topupStatus === 'success') {
+      toast({
+        title: "Top-up successful!",
+        description: "Your wallet has been credited. It may take a few moments to reflect.",
+        variant: "default",
+      });
+      // Refresh balance and ledger
+      queryClient.invalidateQueries({ queryKey: ['/api/seller/wallet/balance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/seller/credit-ledger'] });
+      // Clean up URL
+      window.history.replaceState({}, '', '/seller/wallet');
+    } else if (topupStatus === 'cancelled') {
+      toast({
+        title: "Top-up cancelled",
+        description: "You cancelled the payment. No charges were made.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/seller/wallet');
+    }
+  }, [topupStatus, toast]);
 
   // Fetch wallet balance
   const { data: balanceData, isLoading: isLoadingBalance, error: balanceError } = useQuery<WalletBalance>({
@@ -65,104 +90,25 @@ export default function SellerWallet() {
     queryKey: ['/api/seller/credit-ledger'],
   });
 
-  // Handle popup checkout flow (same pattern as Meta Ads OAuth)
-  const handleCheckoutPopup = async (amount: number) => {
-    setIsProcessingCheckout(true);
-    
-    try {
-      // Create checkout session
+  // Create checkout session mutation
+  const createCheckoutMutation = useMutation({
+    mutationFn: async (amount: number) => {
       const res = await apiRequest('POST', '/api/seller/wallet/checkout', { amount });
-      const data = await res.json();
-      
-      // Open Stripe Checkout in centered popup
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(
-        data.checkoutUrl,
-        "Stripe Checkout",
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
-      );
-      
-      // Check if popup was blocked
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        setIsProcessingCheckout(false);
-        toast({
-          title: "Pop-up blocked",
-          description: "Please allow pop-ups for this site and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Listen for message from popup (success/cancel pages will post message)
-      const handleMessage = (event: MessageEvent) => {
-        if (event.data.type === "STRIPE_CHECKOUT_SUCCESS") {
-          setIsProcessingCheckout(false);
-          toast({
-            title: "Top-up successful!",
-            description: "Your wallet has been credited. It may take a few moments to reflect.",
-            variant: "default",
-          });
-          // Refresh balance and ledger
-          queryClient.invalidateQueries({ queryKey: ['/api/seller/wallet/balance'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/seller/credit-ledger'] });
-          popup?.close();
-          window.removeEventListener("message", handleMessage);
-        } else if (event.data.type === "STRIPE_CHECKOUT_CANCELLED") {
-          setIsProcessingCheckout(false);
-          toast({
-            title: "Top-up cancelled",
-            description: "You cancelled the payment. No charges were made.",
-            variant: "destructive",
-          });
-          popup?.close();
-          window.removeEventListener("message", handleMessage);
-        }
-      };
-      
-      window.addEventListener("message", handleMessage);
-      
-      // Timeout after 5 minutes (in case popup never responds)
-      const timeout = setTimeout(() => {
-        if (!popup.closed) {
-          setIsProcessingCheckout(false);
-          toast({
-            title: "Still waiting for payment",
-            description: "Complete payment in the popup window. Your balance will update automatically when done.",
-          });
-        }
-        clearInterval(checkClosed);
-        window.removeEventListener("message", handleMessage);
-      }, 5 * 60 * 1000); // 5 minutes
-      
-      // Check if popup was closed without completing
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          clearTimeout(timeout);
-          setIsProcessingCheckout(false);
-          window.removeEventListener("message", handleMessage);
-          
-          toast({
-            title: "Checkout closed",
-            description: "The checkout window was closed. No charges were made if you didn't complete payment.",
-            variant: "destructive",
-          });
-        }
-      }, 1000);
-      
-    } catch (error: any) {
-      setIsProcessingCheckout(false);
+      return await res.json();
+    },
+    onSuccess: (data: { checkoutUrl: string }) => {
+      // Direct redirect to Stripe Checkout (like subscription flow)
+      // Success/cancel URLs will bring user back to /seller/wallet
+      window.location.href = data.checkoutUrl;
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create checkout session",
         variant: "destructive",
       });
-    }
-  };
+    },
+  });
 
   const handleAddFunds = () => {
     const amount = selectedAmount || parseFloat(customAmount);
@@ -194,7 +140,7 @@ export default function SellerWallet() {
       return;
     }
 
-    handleCheckoutPopup(amount);
+    createCheckoutMutation.mutate(amount);
   };
 
   const formatAmount = (amount: string) => {
@@ -315,11 +261,11 @@ export default function SellerWallet() {
                   </div>
                   <Button
                     onClick={handleAddFunds}
-                    disabled={isProcessingCheckout || (!selectedAmount && !customAmount)}
+                    disabled={createCheckoutMutation.isPending || (!selectedAmount && !customAmount)}
                     data-testid="button-add-funds"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    {isProcessingCheckout ? "Opening checkout..." : "Add Funds"}
+                    {createCheckoutMutation.isPending ? "Redirecting..." : "Add Funds"}
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">

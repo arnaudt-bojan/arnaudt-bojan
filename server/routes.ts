@@ -1580,8 +1580,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           quantity: 1,
         }],
-        success_url: `${baseUrl}/stripe-checkout-success`,
-        cancel_url: `${baseUrl}/stripe-checkout-cancelled`,
+        success_url: `${baseUrl}/seller/wallet?topup=success`,
+        cancel_url: `${baseUrl}/seller/wallet?topup=cancelled`,
         metadata: {
           type: 'wallet_topup',
           sellerId: userId,
