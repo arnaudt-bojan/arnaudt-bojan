@@ -1679,7 +1679,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const amountUsd = session.amount_total! / 100; // Convert from cents
 
       // Credit wallet (server-side only - Architecture 3)
-      const result = await creditLedgerService.creditWalletTopup({
+      const { CreditLedgerService } = await import("./services/credit-ledger.service");
+      const creditLedgerServiceInstance = new CreditLedgerService(storage);
+      
+      const result = await creditLedgerServiceInstance.creditWalletTopup({
         sellerId: userId,
         amountUsd,
         stripeSessionId: sessionId,
@@ -1706,8 +1709,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       logger.error("[SellerWallet] Wallet sync failed", {
-        userId: req.user.claims.sub,
-        error: error.message
+        userId: req.user?.claims?.sub,
+        sessionId: req.body?.sessionId,
+        error: error.message,
+        stack: error.stack
       });
       res.status(500).json({ error: "Failed to sync wallet balance" });
     }
