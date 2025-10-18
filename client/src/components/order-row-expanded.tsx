@@ -465,6 +465,274 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
             )}
           </div>
         </div>
+
+        {/* Customer Information */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <User className="h-4 w-4" />
+              <span>Customer Information</span>
+            </div>
+            {!isEditingCustomerDetails && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setIsEditingCustomerDetails(true);
+                  // Reset form with current order values
+                  customerDetailsForm.reset({
+                    customerName: order.customerName,
+                    shippingStreet: order.shippingStreet ?? "",
+                    shippingCity: order.shippingCity ?? "",
+                    shippingState: order.shippingState ?? "",
+                    shippingPostalCode: order.shippingPostalCode ?? "",
+                    shippingCountry: order.shippingCountry ?? "",
+                    billingStreet: order.billingStreet ?? "",
+                    billingCity: order.billingCity ?? "",
+                    billingState: order.billingState ?? "",
+                    billingPostalCode: order.billingPostalCode ?? "",
+                    billingCountry: order.billingCountry ?? "",
+                  });
+                }}
+                data-testid="button-edit-customer-details"
+              >
+                <Edit2 className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+            )}
+          </div>
+
+          {isEditingCustomerDetails ? (
+            <Form {...customerDetailsForm}>
+              <form className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={customerDetailsForm.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-customer-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <FormLabel>Customer Email</FormLabel>
+                      <Input value={order.customerEmail} disabled data-testid="input-customer-email-readonly" />
+                      <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3 flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    Shipping Address
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="shippingStreet"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Street Address</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-shipping-street" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="shippingCity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-shipping-city" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="shippingState"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State/Province</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-shipping-state" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="shippingPostalCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postal Code</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-shipping-postal-code" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="shippingCountry"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-shipping-country" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3 flex items-center gap-1">
+                    <CreditCard className="h-4 w-4" />
+                    Billing Address
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="billingStreet"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Street Address</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Same as shipping" data-testid="input-billing-street" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="billingCity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-billing-city" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="billingState"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State/Province</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-billing-state" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="billingPostalCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postal Code</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-billing-postal-code" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={customerDetailsForm.control}
+                      name="billingCountry"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-billing-country" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditingCustomerDetails(false)}
+                    data-testid="button-cancel-customer-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={customerDetailsForm.handleSubmit((data) => {
+                      updateCustomerDetailsMutation.mutate({ ...data, notify: false });
+                    })}
+                    disabled={updateCustomerDetailsMutation.isPending}
+                    data-testid="button-save-customer-details"
+                  >
+                    {updateCustomerDetailsMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          ) : (
+            <div className="space-y-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Name:</span>
+                <div className="font-medium">{order.customerName}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Email:</span>
+                <div className="font-medium">{order.customerEmail}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground flex items-start gap-1">
+                  <MapPin className="h-4 w-4 mt-0.5" />
+                  Billing Address:
+                </span>
+                <div className="font-medium whitespace-pre-line ml-5 text-muted-foreground" data-testid="text-billing-address">
+                  {order.billingStreet 
+                    ? `${order.billingName}\n${order.billingStreet}\n${order.billingCity}, ${order.billingState} ${order.billingPostalCode}\n${order.billingCountry}`
+                    : order.customerAddress}
+                </div>
+              </div>
+              <div>
+                <span className="text-muted-foreground flex items-start gap-1">
+                  <MapPin className="h-4 w-4 mt-0.5" />
+                  Shipping Address:
+                </span>
+                <div className="font-medium whitespace-pre-line ml-5 text-muted-foreground" data-testid="text-shipping-address">
+                  {order.shippingStreet
+                    ? `${order.shippingStreet}\n${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}\n${order.shippingCountry}`
+                    : order.customerAddress}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Payment Status */}
@@ -1009,291 +1277,6 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Customer Details with Edit Capability */}
-      <div className="border-t pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Customer Details</h3>
-          {!isEditingCustomerDetails && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setIsEditingCustomerDetails(true);
-                // Reset form with current order values
-                customerDetailsForm.reset({
-                  customerName: order.customerName,
-                  shippingStreet: order.shippingStreet ?? "",
-                  shippingCity: order.shippingCity ?? "",
-                  shippingState: order.shippingState ?? "",
-                  shippingPostalCode: order.shippingPostalCode ?? "",
-                  shippingCountry: order.shippingCountry ?? "",
-                  billingStreet: order.billingStreet ?? "",
-                  billingCity: order.billingCity ?? "",
-                  billingState: order.billingState ?? "",
-                  billingPostalCode: order.billingPostalCode ?? "",
-                  billingCountry: order.billingCountry ?? "",
-                });
-              }}
-              data-testid="button-edit-customer-details"
-            >
-              <Edit2 className="h-3 w-3 mr-1" />
-              Edit
-            </Button>
-          )}
-        </div>
-
-        {isEditingCustomerDetails ? (
-          <Form {...customerDetailsForm}>
-            <form className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={customerDetailsForm.control}
-                  name="customerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Customer Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-customer-name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <FormLabel>Customer Email</FormLabel>
-                    <Input value={order.customerEmail} disabled data-testid="input-customer-email-readonly" />
-                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-3">Shipping Address</h4>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="shippingStreet"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Street Address</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-shipping-street" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="shippingCity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-shipping-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="shippingState"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State/Province</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-shipping-state" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="shippingPostalCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Postal Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-shipping-postal-code" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="shippingCountry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-shipping-country" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-3">Billing Address</h4>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="billingStreet"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Street Address</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-billing-street" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="billingCity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-billing-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="billingState"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State/Province</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-billing-state" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="billingPostalCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Postal Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-billing-postal-code" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={customerDetailsForm.control}
-                    name="billingCountry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-billing-country" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={customerDetailsForm.handleSubmit((data) => {
-                    updateCustomerDetailsMutation.mutate({ ...data, notify: true });
-                  })}
-                  disabled={updateCustomerDetailsMutation.isPending}
-                  data-testid="button-save-notify-customer-details"
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Save & Notify
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={customerDetailsForm.handleSubmit((data) => {
-                    updateCustomerDetailsMutation.mutate({ ...data, notify: false });
-                  })}
-                  disabled={updateCustomerDetailsMutation.isPending}
-                  data-testid="button-save-customer-details"
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Save
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsEditingCustomerDetails(false)}
-                  data-testid="button-cancel-customer-details"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </form>
-          </Form>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Customer Name</p>
-                <p className="font-medium" data-testid="text-customer-name">{order.customerName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Customer Email</p>
-                <p className="font-medium" data-testid="text-customer-email">{order.customerEmail}</p>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="h-4 w-4" />
-                <p className="text-sm font-medium">Shipping Address</p>
-              </div>
-              <div className="ml-6" data-testid="text-shipping-address">
-                <p>{order.shippingStreet}</p>
-                <p>{order.shippingCity}, {order.shippingState} {order.shippingPostalCode}</p>
-                <p>{order.shippingCountry}</p>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="h-4 w-4" />
-                <p className="text-sm font-medium">Billing Address</p>
-              </div>
-              <div className="ml-6 text-muted-foreground" data-testid="text-billing-address">
-                {order.billingStreet ? (
-                  <>
-                    <p>{order.billingStreet}</p>
-                    <p>{order.billingCity}, {order.billingState} {order.billingPostalCode}</p>
-                    <p>{order.billingCountry}</p>
-                  </>
-                ) : (
-                  <p className="italic">Same as shipping address</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Order Timeline */}
       <div className="border-t pt-6">
