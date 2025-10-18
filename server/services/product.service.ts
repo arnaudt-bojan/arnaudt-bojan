@@ -92,10 +92,10 @@ export class ProductService {
         return { success: false, error: error.message };
       }
 
-      // Step 4: Validate Shippo shipping requirements (ISSUE #1 FIX)
+      // Step 4: Validate Shippo shipping requirements
       // If shippingType is "shippo", validate warehouse address is configured
       if (validationResult.data.shippingType === 'shippo') {
-        const warehouseValid = this.validateWarehouseAddress(user);
+        const warehouseValid = await this.validateWarehouseAddress(sellerId);
         if (!warehouseValid.valid) {
           logger.warn('[ProductService] Shippo product creation blocked - no warehouse address', {
             sellerId,
@@ -103,7 +103,7 @@ export class ProductService {
           });
           return { 
             success: false, 
-            error: 'Warehouse address required for Shippo shipping. Please configure your warehouse address in Settings > Warehouse before creating products with Shippo shipping.'
+            error: warehouseValid.error || 'Warehouse address required for Shippo shipping. Please configure your warehouse address in Settings > Warehouse before creating products with Shippo shipping.'
           };
         }
       }
@@ -210,12 +210,7 @@ export class ProductService {
 
       // Validate Shippo shipping requirements if changing to Shippo (ISSUE #1 FIX)
       if (updates.shippingType === 'shippo') {
-        const user = await this.storage.getUser(sellerId);
-        if (!user) {
-          return { success: false, error: 'User not found' };
-        }
-
-        const warehouseValid = this.validateWarehouseAddress(user);
+        const warehouseValid = await this.validateWarehouseAddress(sellerId);
         if (!warehouseValid.valid) {
           logger.warn('[ProductService] Shippo product update blocked - no warehouse address', {
             sellerId,
@@ -224,7 +219,7 @@ export class ProductService {
           });
           return { 
             success: false, 
-            error: 'Warehouse address required for Shippo shipping. Please configure your warehouse address in Settings > Warehouse before updating products to use Shippo shipping.'
+            error: warehouseValid.error || 'Warehouse address required for Shippo shipping. Please configure your warehouse address in Settings > Warehouse before updating products to use Shippo shipping.'
           };
         }
       }
@@ -450,28 +445,36 @@ export class ProductService {
   }
 
   /**
-   * Validate warehouse address for Shippo shipping (ISSUE #1 FIX)
+   * Validate warehouse address for Shippo shipping
+   * Uses new warehouse_addresses table (multi-warehouse support)
    * 
-   * @param user - The seller user object
+   * @param sellerId - The seller user ID
    * @returns Validation result with valid flag and optional error message
    */
-  private validateWarehouseAddress(user: User): { valid: boolean; error?: string } {
-    // Check new fields first, fallback to old fields (backward compatibility)
-    const requiredFields = {
-      warehouseStreet: user.warehouseAddressLine1 || user.warehouseStreet,
-      warehouseCity: user.warehouseAddressCity || user.warehouseCity,
-      warehousePostalCode: user.warehouseAddressPostalCode || user.warehousePostalCode,
-      warehouseCountry: user.warehouseAddressCountryCode || user.warehouseCountry,
-    };
-
-    const missingFields = Object.entries(requiredFields)
-      .filter(([_, value]) => !value)
-      .map(([field]) => field);
-
-    if (missingFields.length > 0) {
+  private async validateWarehouseAddress(sellerId: string): Promise<{ valid: boolean; error?: string }> {
+    // Check warehouse_addresses table (new multi-warehouse system)
+    const warehouseAddresses = await this.storage.getWarehouseAddressesBySellerId(sellerId);
+    
+    if (warehouseAddresses.length === 0) {
       return {
         valid: false,
-        error: `Warehouse address incomplete. Missing: ${missingFields.join(', ')}`,
+        error: 'No warehouse address configured. Please add a warehouse address in Settings > Warehouse.',
+      };
+    }
+
+    // Check that at least one warehouse has all required fields
+    const completeWarehouse = warehouseAddresses.find(warehouse => 
+      warehouse.addressLine1 &&
+      warehouse.city &&
+      warehouse.postalCode &&
+      warehouse.countryCode &&
+      warehouse.countryName
+    );
+
+    if (!completeWarehouse) {
+      return {
+        valid: false,
+        error: 'Warehouse address incomplete. Please ensure all required fields are filled in Settings > Warehouse.',
       };
     }
 

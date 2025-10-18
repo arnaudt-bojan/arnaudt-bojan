@@ -89,7 +89,12 @@ export function WarehouseAddressesManager() {
 
   const createMutation = useMutation({
     mutationFn: async (data: WarehouseAddressFormData) => {
-      return await apiRequest("POST", "/api/seller/warehouse-addresses", data);
+      // Add countryName based on countryCode (required by schema)
+      const payload = {
+        ...data,
+        countryName: getCountryName(data.countryCode) || data.countryCode,
+      };
+      return await apiRequest("POST", "/api/seller/warehouse-addresses", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/warehouse-addresses"] });
@@ -104,7 +109,11 @@ export function WarehouseAddressesManager() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<WarehouseAddressFormData> }) => {
-      return await apiRequest("PATCH", `/api/seller/warehouse-addresses/${id}`, data);
+      // Add countryName based on countryCode if countryCode is present
+      const payload = data.countryCode 
+        ? { ...data, countryName: getCountryName(data.countryCode) || data.countryCode }
+        : data;
+      return await apiRequest("PATCH", `/api/seller/warehouse-addresses/${id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/warehouse-addresses"] });

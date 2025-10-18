@@ -4357,32 +4357,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // **WAREHOUSE STATUS API** - Check if warehouse address is configured (ISSUE #1 FIX)
+  // **WAREHOUSE STATUS API** - Check if warehouse address is configured
+  // Uses new warehouse_addresses table (multi-warehouse support)
   app.get("/api/seller/warehouse-status", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
       
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Check new fields first, fallback to old fields (backward compatibility)
-      const hasWarehouse = !!(
-        (user.warehouseAddressLine1 || user.warehouseStreet) &&
-        (user.warehouseAddressCity || user.warehouseCity) &&
-        (user.warehouseAddressPostalCode || user.warehousePostalCode) &&
-        (user.warehouseAddressCountryCode || user.warehouseCountry)
-      );
+      // Check warehouse_addresses table (new multi-warehouse system)
+      const warehouseAddresses = await storage.getWarehouseAddressesBySellerId(userId);
+      const hasWarehouse = warehouseAddresses.length > 0;
+      const defaultWarehouse = warehouseAddresses.find(addr => addr.isDefault === 1) || warehouseAddresses[0];
 
       res.json({
         hasWarehouse,
-        warehouseAddress: hasWarehouse ? {
-          street: user.warehouseAddressLine1 || user.warehouseStreet,
-          city: user.warehouseAddressCity || user.warehouseCity,
-          state: user.warehouseAddressState || user.warehouseState,
-          postalCode: user.warehouseAddressPostalCode || user.warehousePostalCode,
-          country: user.warehouseAddressCountryCode || user.warehouseCountry,
+        warehouseAddress: defaultWarehouse ? {
+          id: defaultWarehouse.id,
+          name: defaultWarehouse.name,
+          street: defaultWarehouse.addressLine1,
+          city: defaultWarehouse.city,
+          state: defaultWarehouse.state,
+          postalCode: defaultWarehouse.postalCode,
+          country: defaultWarehouse.countryCode,
+          countryName: defaultWarehouse.countryName,
+          phone: defaultWarehouse.phone,
         } : null,
       });
     } catch (error: any) {

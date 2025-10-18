@@ -113,10 +113,16 @@ export default function CreateProduct() {
   const selectedShippingType = form.watch("shippingType");
   
   // Fetch warehouse status for Shippo shipping validation
-  const { data: warehouseStatus } = useQuery<{ hasWarehouse: boolean; warehouseAddress: any }>({
+  const { data: warehouseStatus, isLoading: isLoadingWarehouse } = useQuery<{ hasWarehouse: boolean; warehouseAddress: any }>({
     queryKey: ["/api/seller/warehouse-status"],
     enabled: selectedShippingType === 'shippo', // Only fetch when Shippo selected
   });
+  
+  // Determine if submit should be disabled due to missing warehouse
+  const isWarehouseBlocking = selectedShippingType === 'shippo' && (
+    isLoadingWarehouse || // Disable while loading
+    (warehouseStatus && !warehouseStatus.hasWarehouse) // Disable if no warehouse
+  );
 
   // Update form category field when category selections change
   useEffect(() => {
@@ -359,10 +365,7 @@ export default function CreateProduct() {
             <div className="flex gap-4">
               <Button
                 type="submit"
-                disabled={
-                  createMutation.isPending || 
-                  (selectedShippingType === 'shippo' && warehouseStatus && !warehouseStatus.hasWarehouse)
-                }
+                disabled={createMutation.isPending || isWarehouseBlocking}
                 data-testid="button-submit-product"
               >
                 {createMutation.isPending ? "Creating..." : "Create Product"}
