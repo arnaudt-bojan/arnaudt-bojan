@@ -51,7 +51,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Authentication & Authorization:** Email-based with dual-token system and capability-based authorization.
 -   **Payment Processing:** Integrated with Stripe Connect for multi-seller payments.
 -   **Subscription System:** Monthly/annual seller subscriptions managed via Stripe, including a 30-day trial.
--   **Multi-Currency Support:** IP-based detection with user-selectable currency and real-time exchange rates. Strict separation between seller-side (no conversion) and buyer-side (with conversion) pricing displays.
+-   **Multi-Currency Support:** IP-based detection with user-selectable currency and real-time exchange rates. Strict separation between seller-side and buyer-side: seller pages (Analytics, Wallet, Dashboard, Products, Wholesale, Trade) display all monetary values in the seller's Stripe account currency (`listingCurrency` from users table), while buyer-facing pages (Product Detail, Cart, Checkout, Wholesale Catalog) convert prices to buyer's selected currency using real-time exchange rates.
 -   **Wholesale B2B System:** Invitation-based access, variant-level MOQ, percentage deposit system, Net 30/60/90 payment terms, multi-image product galleries, 3-level category hierarchy, SKU auto-generation, dual readiness options, and comprehensive order lifecycle management.
 -   **Trade Quotation System:** Customizable quotation numbers, professional invoice structure, 8 standard Incoterms, data sheet/T&C document uploads, excel-like line item builder, server-side pricing validation, deposit/balance payment flows, and secure token-based buyer access.
 -   **Social Ads System:** Multi-platform (Meta, TikTok, X) social advertising with AI optimization.
@@ -64,6 +64,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Newsletter System:** Enterprise-grade email marketing platform with campaign management, subscriber handling, segmentation, and multi-ESP support.
 -   **Meta Ads B2C Platform:** Self-service social advertising system for Meta campaigns, integrating with Meta Marketing API, Gemini AI, and Stripe for payments. Features popup-based OAuth, AI-powered ad copy, Advantage+ optimization, credit-based budget system, and real-time analytics.
 -   **AI-Optimized Landing Page:** World-class marketing landing page at `/experience` route featuring platform overview, parallel platform deep-dives, pricing tiers, FAQ, and comparison matrix. Includes custom SEO hooks, structured data, Open Graph/Twitter Card tags, smooth scroll animations, and mobile-responsive navigation.
+-   **Analytics Dashboard:** Comprehensive seller analytics system with server-side calculations (Architecture 3) displaying revenue metrics, order analytics, product performance, customer insights, and B2C vs B2B platform breakdown. Features 5 time period filters, KPI cards with growth indicators, Recharts visualizations (line/bar/pie charts), top products analysis, and mobile-responsive dual-view layouts. All monetary values display in seller's Stripe account currency.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
