@@ -1293,7 +1293,10 @@ export default function Checkout() {
                             <FormLabel>Country</FormLabel>
                             <CountrySelect
                               value={field.value}
-                              onValueChange={handleShippingCountryChange}
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                handleShippingCountryChange(value);
+                              }}
                               data-testid="select-shipping-country"
                             />
                             <FormMessage />
@@ -1510,7 +1513,10 @@ export default function Checkout() {
                                 <FormLabel>Country</FormLabel>
                                 <CountrySelect
                                   value={field.value}
-                                  onValueChange={handleBillingCountryChange}
+                                  onValueChange={(value) => {
+                                    field.onChange(value);
+                                    handleBillingCountryChange(value);
+                                  }}
                                   data-testid="select-billing-country"
                                 />
                                 <FormMessage />
