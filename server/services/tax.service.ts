@@ -93,15 +93,22 @@ export class TaxService {
       }
 
       // Build ship_from_details address using seller's warehouse (required for origin-based tax)
+      // Check new fields first, fallback to old fields (backward compatibility)
+      const warehouseStreet = seller.warehouseAddressLine1 || seller.warehouseStreet;
+      const warehouseCity = seller.warehouseAddressCity || seller.warehouseCity;
+      const warehouseState = seller.warehouseAddressState || seller.warehouseState;
+      const warehousePostalCode = seller.warehouseAddressPostalCode || seller.warehousePostalCode;
+      const warehouseCountry = seller.warehouseAddressCountryCode || seller.warehouseCountry;
+      
       const shipFromDetails: Stripe.Tax.CalculationCreateParams.ShipFromDetails | undefined = 
-        seller.warehouseStreet && seller.warehouseCity && seller.warehouseCountry
+        warehouseStreet && warehouseCity && warehouseCountry
           ? {
               address: {
-                line1: seller.warehouseStreet,
-                city: seller.warehouseCity,
-                state: seller.warehouseState || undefined,
-                postal_code: seller.warehousePostalCode || undefined,
-                country: seller.warehouseCountry,
+                line1: warehouseStreet,
+                city: warehouseCity,
+                state: warehouseState || undefined,
+                postal_code: warehousePostalCode || undefined,
+                country: warehouseCountry,
               },
             }
           : undefined;

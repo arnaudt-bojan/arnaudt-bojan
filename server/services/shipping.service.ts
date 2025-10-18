@@ -393,19 +393,25 @@ export class ShippingService {
         throw new Error("Seller not found");
       }
 
-      // Validate warehouse address is configured
-      if (!seller.warehouseStreet || !seller.warehouseCity || !seller.warehousePostalCode || !seller.warehouseCountry) {
+      // Validate warehouse address is configured (check new fields first, fallback to old fields)
+      const warehouseStreet = seller.warehouseAddressLine1 || seller.warehouseStreet;
+      const warehouseCity = seller.warehouseAddressCity || seller.warehouseCity;
+      const warehouseState = seller.warehouseAddressState || seller.warehouseState;
+      const warehousePostalCode = seller.warehouseAddressPostalCode || seller.warehousePostalCode;
+      const warehouseCountry = seller.warehouseAddressCountryCode || seller.warehouseCountry;
+      
+      if (!warehouseStreet || !warehouseCity || !warehousePostalCode || !warehouseCountry) {
         throw new ConfigurationError("Warehouse address not configured. Please set up your warehouse address in Settings > Warehouse to enable shipping calculations.");
       }
 
       const addressFrom = {
         name: seller.firstName + ' ' + seller.lastName,
         company: seller.companyName || '',
-        street1: seller.warehouseStreet,
-        city: seller.warehouseCity,
-        state: seller.warehouseState || '',
-        zip: seller.warehousePostalCode,
-        country: seller.warehouseCountry,
+        street1: warehouseStreet,
+        city: warehouseCity,
+        state: warehouseState || '',
+        zip: warehousePostalCode,
+        country: warehouseCountry,
       };
 
       // Convert country name to ISO code for Shippo

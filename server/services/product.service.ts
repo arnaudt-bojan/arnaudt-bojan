@@ -456,11 +456,12 @@ export class ProductService {
    * @returns Validation result with valid flag and optional error message
    */
   private validateWarehouseAddress(user: User): { valid: boolean; error?: string } {
+    // Check new fields first, fallback to old fields (backward compatibility)
     const requiredFields = {
-      warehouseStreet: user.warehouseStreet,
-      warehouseCity: user.warehouseCity,
-      warehousePostalCode: user.warehousePostalCode,
-      warehouseCountry: user.warehouseCountry,
+      warehouseStreet: user.warehouseAddressLine1 || user.warehouseStreet,
+      warehouseCity: user.warehouseAddressCity || user.warehouseCity,
+      warehousePostalCode: user.warehouseAddressPostalCode || user.warehousePostalCode,
+      warehouseCountry: user.warehouseAddressCountryCode || user.warehouseCountry,
     };
 
     const missingFields = Object.entries(requiredFields)

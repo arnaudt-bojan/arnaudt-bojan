@@ -3873,21 +3873,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // Check new fields first, fallback to old fields (backward compatibility)
       const hasWarehouse = !!(
-        user.warehouseStreet &&
-        user.warehouseCity &&
-        user.warehousePostalCode &&
-        user.warehouseCountry
+        (user.warehouseAddressLine1 || user.warehouseStreet) &&
+        (user.warehouseAddressCity || user.warehouseCity) &&
+        (user.warehouseAddressPostalCode || user.warehousePostalCode) &&
+        (user.warehouseAddressCountryCode || user.warehouseCountry)
       );
 
       res.json({
         hasWarehouse,
         warehouseAddress: hasWarehouse ? {
-          street: user.warehouseStreet,
-          city: user.warehouseCity,
-          state: user.warehouseState,
-          postalCode: user.warehousePostalCode,
-          country: user.warehouseCountry,
+          street: user.warehouseAddressLine1 || user.warehouseStreet,
+          city: user.warehouseAddressCity || user.warehouseCity,
+          state: user.warehouseAddressState || user.warehouseState,
+          postalCode: user.warehouseAddressPostalCode || user.warehousePostalCode,
+          country: user.warehouseAddressCountryCode || user.warehouseCountry,
         } : null,
       });
     } catch (error: any) {
@@ -4747,7 +4748,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/user/warehouse", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { warehouseStreet, warehouseCity, warehouseState, warehousePostalCode, warehouseCountry } = req.body;
+      const { 
+        warehouseAddressLine1, 
+        warehouseAddressLine2, 
+        warehouseAddressCity, 
+        warehouseAddressState, 
+        warehouseAddressPostalCode, 
+        warehouseAddressCountryCode,
+        warehouseAddressCountryName
+      } = req.body;
 
       const user = await storage.getUser(userId);
       if (!user) {
@@ -4755,17 +4764,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate country code is 2 letters
-      if (warehouseCountry && warehouseCountry.length !== 2) {
+      if (warehouseAddressCountryCode && warehouseAddressCountryCode.length !== 2) {
         return res.status(400).json({ error: "Country code must be 2 letters (e.g., US, GB, CA)" });
       }
 
       const updatedUser = await storage.upsertUser({
         ...user,
-        warehouseStreet: warehouseStreet || null,
-        warehouseCity: warehouseCity || null,
-        warehouseState: warehouseState || null,
-        warehousePostalCode: warehousePostalCode || null,
-        warehouseCountry: warehouseCountry ? warehouseCountry.toUpperCase() : null,
+        // New standardized fields (primary)
+        warehouseAddressLine1: warehouseAddressLine1 || null,
+        warehouseAddressLine2: warehouseAddressLine2 || null,
+        warehouseAddressCity: warehouseAddressCity || null,
+        warehouseAddressState: warehouseAddressState || null,
+        warehouseAddressPostalCode: warehouseAddressPostalCode || null,
+        warehouseAddressCountryCode: warehouseAddressCountryCode ? warehouseAddressCountryCode.toUpperCase() : null,
+        warehouseAddressCountryName: warehouseAddressCountryName || null,
+        
+        // Old fields (for backward compatibility - temporary)
+        warehouseStreet: warehouseAddressLine1 || null,
+        warehouseCity: warehouseAddressCity || null,
+        warehouseState: warehouseAddressState || null,
+        warehousePostalCode: warehouseAddressPostalCode || null,
+        warehouseCountry: warehouseAddressCountryCode ? warehouseAddressCountryCode.toUpperCase() : null,
       });
 
       res.json({ message: "Warehouse address updated successfully", user: updatedUser });

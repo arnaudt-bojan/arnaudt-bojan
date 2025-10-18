@@ -360,28 +360,56 @@ export class StripeConnectService {
         ? account.business_profile.support_phone 
         : user.businessPhone;
 
-      // Auto-populate warehouse address
+      // Auto-populate warehouse address (check new fields first, fallback to old fields)
       const stripeAddress = account.individual?.address || account.company?.address;
+      
+      // Check if warehouse is already configured (either new or old fields)
+      const hasWarehouse = !!(
+        user.warehouseAddressLine1 || user.warehouseStreet ||
+        user.warehouseAddressCity || user.warehouseCity
+      );
 
       logger.info(`[Stripe] Warehouse auto-population check for account ${account.id}`, {
-        currentWarehouseStreet: user.warehouseStreet ?? 'empty',
+        currentWarehouseStreet: user.warehouseAddressLine1 || user.warehouseStreet || 'empty',
         stripeAddressAvailable: !!stripeAddress,
         stripeAddressLine1: stripeAddress?.line1 ?? 'none',
+        hasWarehouse,
       });
 
-      const warehouseStreet = !user.warehouseStreet && stripeAddress?.line1 ? stripeAddress.line1 : (user.warehouseStreet || undefined);
-      const warehouseCity = !user.warehouseCity && stripeAddress?.city ? stripeAddress.city : (user.warehouseCity || undefined);
-      const warehouseState = !user.warehouseState && stripeAddress?.state ? stripeAddress.state : (user.warehouseState || undefined);
-      const warehousePostalCode = !user.warehousePostalCode && stripeAddress?.postal_code ? stripeAddress.postal_code : (user.warehousePostalCode || undefined);
-      const warehouseCountry = !user.warehouseCountry && stripeAddress?.country ? stripeAddress.country : (user.warehouseCountry || undefined);
+      // Only auto-populate if warehouse is not configured
+      const shouldAutoPopulate = !hasWarehouse && !!stripeAddress?.line1;
+      
+      // New standardized fields (primary)
+      const warehouseAddressLine1 = shouldAutoPopulate && stripeAddress?.line1 
+        ? stripeAddress.line1 
+        : (user.warehouseAddressLine1 || undefined);
+      const warehouseAddressCity = shouldAutoPopulate && stripeAddress?.city 
+        ? stripeAddress.city 
+        : (user.warehouseAddressCity || undefined);
+      const warehouseAddressState = shouldAutoPopulate && stripeAddress?.state 
+        ? stripeAddress.state 
+        : (user.warehouseAddressState || undefined);
+      const warehouseAddressPostalCode = shouldAutoPopulate && stripeAddress?.postal_code 
+        ? stripeAddress.postal_code 
+        : (user.warehouseAddressPostalCode || undefined);
+      const warehouseAddressCountryCode = shouldAutoPopulate && stripeAddress?.country 
+        ? stripeAddress.country 
+        : (user.warehouseAddressCountryCode || undefined);
 
-      if (!user.warehouseStreet && stripeAddress?.line1) {
+      // Old fields (for backward compatibility)
+      const warehouseStreet = warehouseAddressLine1 || user.warehouseStreet || undefined;
+      const warehouseCity = warehouseAddressCity || user.warehouseCity || undefined;
+      const warehouseState = warehouseAddressState || user.warehouseState || undefined;
+      const warehousePostalCode = warehouseAddressPostalCode || user.warehousePostalCode || undefined;
+      const warehouseCountry = warehouseAddressCountryCode || user.warehouseCountry || undefined;
+
+      if (shouldAutoPopulate) {
         logger.info(`[Stripe] Auto-populating warehouse address from Stripe account ${account.id}`, {
-          warehouseStreet,
-          warehouseCity,
-          warehouseState,
-          warehousePostalCode,
-          warehouseCountry,
+          warehouseAddressLine1,
+          warehouseAddressCity,
+          warehouseAddressState,
+          warehouseAddressPostalCode,
+          warehouseAddressCountryCode,
         });
       }
 
@@ -395,6 +423,13 @@ export class StripeConnectService {
         companyName,
         businessType,
         businessPhone,
+        // New standardized fields
+        warehouseAddressLine1,
+        warehouseAddressCity,
+        warehouseAddressState,
+        warehouseAddressPostalCode,
+        warehouseAddressCountryCode,
+        // Old fields (backward compatibility)
         warehouseStreet,
         warehouseCity,
         warehouseState,

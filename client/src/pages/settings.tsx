@@ -30,6 +30,9 @@ import { UniversalImageUpload } from "@/components/universal-image-upload";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { SubscriptionPricingDialog } from "@/components/subscription-pricing-dialog";
 import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-manager";
+import { CountrySelect } from "@/components/CountrySelect";
+import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
+import { getCountryName, getCountryCode } from "../../../shared/countries";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -116,11 +119,13 @@ const shippingSchema = z.object({
 });
 
 const warehouseSchema = z.object({
-  warehouseStreet: z.string().min(1, "Street address is required"),
-  warehouseCity: z.string().min(1, "City is required"),
-  warehouseState: z.string().optional().or(z.literal("")),
-  warehousePostalCode: z.string().min(1, "Postal code is required"),
-  warehouseCountry: z.string().min(2, "Country is required").max(2, "Use 2-letter country code"),
+  warehouseAddressLine1: z.string().min(1, "Street address is required"),
+  warehouseAddressLine2: z.string().optional().or(z.literal("")),
+  warehouseAddressCity: z.string().min(1, "City is required"),
+  warehouseAddressState: z.string().min(1, "State/Province is required"),
+  warehouseAddressPostalCode: z.string().min(1, "Postal code is required"),
+  warehouseAddressCountryCode: z.string().length(2, "Country code is required"),
+  warehouseAddressCountryName: z.string().min(1, "Country name is required"),
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -1659,11 +1664,14 @@ export default function Settings() {
   const warehouseForm = useForm<z.infer<typeof warehouseSchema>>({
     resolver: zodResolver(warehouseSchema),
     defaultValues: {
-      warehouseStreet: user?.warehouseStreet || "",
-      warehouseCity: user?.warehouseCity || "",
-      warehouseState: user?.warehouseState || "",
-      warehousePostalCode: user?.warehousePostalCode || "",
-      warehouseCountry: user?.warehouseCountry || "",
+      // Try new fields first, fallback to old fields (backward compatibility)
+      warehouseAddressLine1: user?.warehouseAddressLine1 || user?.warehouseStreet || "",
+      warehouseAddressLine2: user?.warehouseAddressLine2 || "",
+      warehouseAddressCity: user?.warehouseAddressCity || user?.warehouseCity || "",
+      warehouseAddressState: user?.warehouseAddressState || user?.warehouseState || "",
+      warehouseAddressPostalCode: user?.warehouseAddressPostalCode || user?.warehousePostalCode || "",
+      warehouseAddressCountryCode: user?.warehouseAddressCountryCode || (user?.warehouseCountry && getCountryCode(user.warehouseCountry)) || "US",
+      warehouseAddressCountryName: user?.warehouseAddressCountryName || user?.warehouseCountry || "United States",
     },
   });
 
@@ -1671,14 +1679,17 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       warehouseForm.reset({
-        warehouseStreet: user.warehouseStreet || "",
-        warehouseCity: user.warehouseCity || "",
-        warehouseState: user.warehouseState || "",
-        warehousePostalCode: user.warehousePostalCode || "",
-        warehouseCountry: user.warehouseCountry || "",
+        // Try new fields first, fallback to old fields (backward compatibility)
+        warehouseAddressLine1: user.warehouseAddressLine1 || user.warehouseStreet || "",
+        warehouseAddressLine2: user.warehouseAddressLine2 || "",
+        warehouseAddressCity: user.warehouseAddressCity || user.warehouseCity || "",
+        warehouseAddressState: user.warehouseAddressState || user.warehouseState || "",
+        warehouseAddressPostalCode: user.warehouseAddressPostalCode || user.warehousePostalCode || "",
+        warehouseAddressCountryCode: user.warehouseAddressCountryCode || (user.warehouseCountry && getCountryCode(user.warehouseCountry)) || "US",
+        warehouseAddressCountryName: user.warehouseAddressCountryName || user.warehouseCountry || "United States",
       });
     }
-  }, [user?.warehouseStreet, user?.warehouseCity, user?.warehouseState, user?.warehousePostalCode, user?.warehouseCountry]);
+  }, [user?.warehouseAddressLine1, user?.warehouseAddressLine2, user?.warehouseAddressCity, user?.warehouseAddressState, user?.warehouseAddressPostalCode, user?.warehouseAddressCountryCode, user?.warehouseAddressCountryName, user?.warehouseStreet, user?.warehouseCity, user?.warehouseState, user?.warehousePostalCode, user?.warehouseCountry]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileForm) => {
@@ -3424,14 +3435,67 @@ export default function Settings() {
                 <CardContent>
                   <Form {...warehouseForm}>
                     <form onSubmit={warehouseForm.handleSubmit((data) => updateWarehouseMutation.mutate(data))} className="space-y-4">
+                      {/* Country First */}
                       <FormField
                         control={warehouseForm.control}
-                        name="warehouseStreet"
+                        name="warehouseAddressCountryCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country</FormLabel>
+                            <CountrySelect
+                              value={field.value}
+                              onChange={(code) => {
+                                field.onChange(code);
+                                warehouseForm.setValue("warehouseAddressCountryName", getCountryName(code) || "");
+                              }}
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Address Autocomplete */}
+                      <FormItem>
+                        <FormLabel>Search Address</FormLabel>
+                        <AddressAutocompleteInput
+                          value={warehouseForm.watch("warehouseAddressLine1") || ""}
+                          onChange={(value) => warehouseForm.setValue("warehouseAddressLine1", value)}
+                          onSelectAddress={(address) => {
+                            if (address.line1) warehouseForm.setValue("warehouseAddressLine1", address.line1);
+                            if (address.line2) warehouseForm.setValue("warehouseAddressLine2", address.line2 || "");
+                            if (address.city) warehouseForm.setValue("warehouseAddressCity", address.city);
+                            if (address.state) warehouseForm.setValue("warehouseAddressState", address.state);
+                            if (address.postalCode) warehouseForm.setValue("warehouseAddressPostalCode", address.postalCode);
+                          }}
+                          countryCode={warehouseForm.watch("warehouseAddressCountryCode")}
+                        />
+                        <FormDescription>
+                          Start typing to search for your address
+                        </FormDescription>
+                      </FormItem>
+
+                      {/* Manual Fields */}
+                      <FormField
+                        control={warehouseForm.control}
+                        name="warehouseAddressLine1"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Street Address</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="123 Main Street" data-testid="input-warehouse-street" />
+                              <Input {...field} placeholder="123 Main Street" data-testid="input-warehouse-address-line1" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={warehouseForm.control}
+                        name="warehouseAddressLine2"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Apartment/Suite (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Suite 4B" data-testid="input-warehouse-address-line2" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -3440,12 +3504,12 @@ export default function Settings() {
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={warehouseForm.control}
-                          name="warehouseCity"
+                          name="warehouseAddressCity"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>City</FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="San Francisco" data-testid="input-warehouse-city" />
+                                <Input {...field} placeholder="San Francisco" data-testid="input-warehouse-address-city" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -3453,47 +3517,31 @@ export default function Settings() {
                         />
                         <FormField
                           control={warehouseForm.control}
-                          name="warehouseState"
+                          name="warehouseAddressState"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>State/Province (optional)</FormLabel>
+                              <FormLabel>State/Province</FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="CA" data-testid="input-warehouse-state" />
+                                <Input {...field} placeholder="CA" data-testid="input-warehouse-address-state" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={warehouseForm.control}
-                          name="warehousePostalCode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Postal Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="94117" data-testid="input-warehouse-postal-code" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={warehouseForm.control}
-                          name="warehouseCountry"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Country Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="US" data-testid="input-warehouse-country" maxLength={2} />
-                              </FormControl>
-                              <FormDescription>2-letter ISO code (e.g., US, GB, CA)</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                      <FormField
+                        control={warehouseForm.control}
+                        name="warehouseAddressPostalCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postal Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="94117" data-testid="input-warehouse-address-postal-code" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <div className="flex gap-2 justify-end pt-4">
                         <Button 
                           type="button" 

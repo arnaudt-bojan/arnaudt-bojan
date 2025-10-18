@@ -47,6 +47,10 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { requiresState, isValidState } from "@shared/shipping-validation";
 import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 import { formatVariant } from "@shared/variant-formatter";
+import { CountrySelect } from "@/components/CountrySelect";
+import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
+import { getCountryName } from "@shared/countries";
+import type { Address } from "@shared/schema";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -58,7 +62,8 @@ const checkoutSchema = z.object({
   city: z.string().min(2, "City required"),
   state: z.string().optional(),
   postalCode: z.string().min(3, "ZIP/Postal code required"),
-  country: z.string().min(2, "Country required"),
+  country: z.string().length(2, "Country code must be 2 letters"),
+  countryName: z.string().optional(),
   phone: z.string().min(10, "Phone number required"),
   billingSameAsShipping: z.boolean().default(true),
   billingName: z.string().min(2, "Name required"),
@@ -69,7 +74,8 @@ const checkoutSchema = z.object({
   billingCity: z.string().min(2, "City required"),
   billingState: z.string().optional(),
   billingPostalCode: z.string().min(3, "Postal code required"),
-  billingCountry: z.string().min(2, "Country required"),
+  billingCountry: z.string().length(2, "Country code must be 2 letters"),
+  billingCountryName: z.string().optional(),
 }).superRefine((data, ctx) => {
   // Require state for countries that need it (shipping)
   if (requiresState(data.country)) {
@@ -210,6 +216,7 @@ function PaymentForm({
             state: billingDetails.state || '',
             postalCode: billingDetails.postalCode,
             country: billingDetails.country,
+            countryName: billingDetails.countryName || getCountryName(billingDetails.country) || billingDetails.country,
           },
           items: items.map((item: any) => ({
             productId: item.id,
@@ -661,7 +668,8 @@ export default function Checkout() {
       city: "",
       state: "",
       postalCode: "",
-      country: "United States",
+      country: "US",
+      countryName: "United States",
       phone: "",
       billingSameAsShipping: true,
       billingName: "",
@@ -672,9 +680,60 @@ export default function Checkout() {
       billingCity: "",
       billingState: "",
       billingPostalCode: "",
-      billingCountry: "United States",
+      billingCountry: "US",
+      billingCountryName: "United States",
     },
   });
+
+  // Handle address autocomplete selection for shipping address
+  const handleShippingAddressSelect = (address: Partial<Address>) => {
+    if (address.line1) form.setValue("addressLine1", address.line1);
+    if (address.line2) form.setValue("addressLine2", address.line2);
+    if (address.city) form.setValue("city", address.city);
+    if (address.state) form.setValue("state", address.state);
+    if (address.postalCode) form.setValue("postalCode", address.postalCode);
+    if (address.country) {
+      form.setValue("country", address.country);
+      const countryName = getCountryName(address.country);
+      if (countryName) form.setValue("countryName", countryName);
+      // Trigger re-validation of state field when country changes
+      form.trigger('state');
+    }
+  };
+
+  // Handle address autocomplete selection for billing address
+  const handleBillingAddressSelect = (address: Partial<Address>) => {
+    if (address.line1) form.setValue("billingAddressLine1", address.line1);
+    if (address.line2) form.setValue("billingAddressLine2", address.line2);
+    if (address.city) form.setValue("billingCity", address.city);
+    if (address.state) form.setValue("billingState", address.state);
+    if (address.postalCode) form.setValue("billingPostalCode", address.postalCode);
+    if (address.country) {
+      form.setValue("billingCountry", address.country);
+      const countryName = getCountryName(address.country);
+      if (countryName) form.setValue("billingCountryName", countryName);
+      // Trigger re-validation of billing state when country changes
+      form.trigger('billingState');
+    }
+  };
+
+  // Handle country change for shipping address
+  const handleShippingCountryChange = (countryCode: string) => {
+    form.setValue("country", countryCode);
+    const countryName = getCountryName(countryCode);
+    if (countryName) form.setValue("countryName", countryName);
+    // Trigger re-validation of state field when country changes
+    form.trigger('state');
+  };
+
+  // Handle country change for billing address
+  const handleBillingCountryChange = (countryCode: string) => {
+    form.setValue("billingCountry", countryCode);
+    const countryName = getCountryName(countryCode);
+    if (countryName) form.setValue("billingCountryName", countryName);
+    // Trigger re-validation of billing state when country changes
+    form.trigger('billingState');
+  };
 
   // Watch shipping address fields for backend pricing API
   const watchedCountry = form.watch("country");
@@ -695,6 +754,7 @@ export default function Checkout() {
   const shippingState = form.watch("state");
   const shippingPostalCode = form.watch("postalCode");
   const shippingCountry = form.watch("country");
+  const shippingCountryName = form.watch("countryName");
   
   // Sync billing address to shipping address when checkbox is checked
   useEffect(() => {
@@ -708,6 +768,7 @@ export default function Checkout() {
       form.setValue("billingState", shippingState || "");
       form.setValue("billingPostalCode", shippingPostalCode || "");
       form.setValue("billingCountry", shippingCountry || "");
+      form.setValue("billingCountryName", shippingCountryName || "");
     }
   }, [
     billingSameAsShipping,
@@ -720,6 +781,7 @@ export default function Checkout() {
     shippingState,
     shippingPostalCode,
     shippingCountry,
+    shippingCountryName,
     form
   ]);
 
@@ -1219,6 +1281,40 @@ export default function Checkout() {
                     <div className="space-y-4">
                       <h3 className="font-medium text-sm text-muted-foreground">Shipping Address</h3>
                       
+                      {/* Country (First) */}
+                      <FormField
+                        control={form.control}
+                        name="country"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country</FormLabel>
+                            <CountrySelect
+                              value={field.value}
+                              onChange={handleShippingCountryChange}
+                              disabled={checkoutStep === 'payment'}
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Address Autocomplete */}
+                      <FormItem>
+                        <FormLabel>Search Address</FormLabel>
+                        <AddressAutocompleteInput
+                          value={form.watch("addressLine1")}
+                          onChange={(value) => form.setValue("addressLine1", value)}
+                          onSelectAddress={handleShippingAddressSelect}
+                          countryCode={form.watch("country")}
+                          disabled={checkoutStep === 'payment'}
+                          placeholder="Start typing to search for your address"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Start typing to search for your address, or enter manually below
+                        </p>
+                      </FormItem>
+                      
+                      {/* Street Address (Line 1) */}
                       <FormField
                         control={form.control}
                         name="addressLine1"
@@ -1229,7 +1325,8 @@ export default function Checkout() {
                               <Input
                                 placeholder="123 Main Street"
                                 {...field}
-                                data-testid="input-address-line1"
+                                disabled={checkoutStep === 'payment'}
+                                data-testid="input-line1"
                               />
                             </FormControl>
                             <FormMessage />
@@ -1237,6 +1334,7 @@ export default function Checkout() {
                         )}
                       />
 
+                      {/* Line 2 (Apartment/Suite) */}
                       <FormField
                         control={form.control}
                         name="addressLine2"
@@ -1247,7 +1345,8 @@ export default function Checkout() {
                               <Input
                                 placeholder="Apt 4B"
                                 {...field}
-                                data-testid="input-address-line2"
+                                disabled={checkoutStep === 'payment'}
+                                data-testid="input-line2"
                               />
                             </FormControl>
                             <FormMessage />
@@ -1255,6 +1354,7 @@ export default function Checkout() {
                         )}
                       />
 
+                      {/* City, State, Postal Code */}
                       <div className="grid md:grid-cols-3 gap-4">
                         <FormField
                           control={form.control}
@@ -1266,6 +1366,7 @@ export default function Checkout() {
                                 <Input
                                   placeholder="New York"
                                   {...field}
+                                  disabled={checkoutStep === 'payment'}
                                   data-testid="input-city"
                                 />
                               </FormControl>
@@ -1284,6 +1385,7 @@ export default function Checkout() {
                                 <Input
                                   placeholder="NY"
                                   {...field}
+                                  disabled={checkoutStep === 'payment'}
                                   data-testid="input-state"
                                 />
                               </FormControl>
@@ -1302,7 +1404,8 @@ export default function Checkout() {
                                 <Input
                                   placeholder="10001"
                                   {...field}
-                                  data-testid="input-postal-code"
+                                  disabled={checkoutStep === 'payment'}
+                                  data-testid="input-postalCode"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -1310,29 +1413,6 @@ export default function Checkout() {
                           )}
                         />
                       </div>
-
-                      <FormField
-                        control={form.control}
-                        name="country"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Country</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="United States"
-                                {...field}
-                                onChange={(e) => {
-                                  field.onChange(e);
-                                  // Trigger re-validation of state field when country changes
-                                  form.trigger('state');
-                                }}
-                                data-testid="input-country"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     </div>
 
                     <Separator />
@@ -1424,6 +1504,38 @@ export default function Checkout() {
                             )}
                           />
 
+                          {/* Country (First) */}
+                          <FormField
+                            control={form.control}
+                            name="billingCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Country</FormLabel>
+                                <CountrySelect
+                                  value={field.value}
+                                  onChange={handleBillingCountryChange}
+                                />
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Address Autocomplete */}
+                          <FormItem>
+                            <FormLabel>Search Address</FormLabel>
+                            <AddressAutocompleteInput
+                              value={form.watch("billingAddressLine1")}
+                              onChange={(value) => form.setValue("billingAddressLine1", value)}
+                              onSelectAddress={handleBillingAddressSelect}
+                              countryCode={form.watch("billingCountry")}
+                              placeholder="Start typing to search for your address"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Start typing to search for your address, or enter manually below
+                            </p>
+                          </FormItem>
+
+                          {/* Street Address (Line 1) */}
                           <FormField
                             control={form.control}
                             name="billingAddressLine1"
@@ -1434,7 +1546,7 @@ export default function Checkout() {
                                   <Input
                                     placeholder="123 Main Street"
                                     {...field}
-                                    data-testid="input-billing-addressline1"
+                                    data-testid="input-line1"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1442,6 +1554,7 @@ export default function Checkout() {
                             )}
                           />
 
+                          {/* Line 2 (Apartment/Suite) */}
                           <FormField
                             control={form.control}
                             name="billingAddressLine2"
@@ -1452,7 +1565,7 @@ export default function Checkout() {
                                   <Input
                                     placeholder="Apt 4B"
                                     {...field}
-                                    data-testid="input-billing-addressline2"
+                                    data-testid="input-line2"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1460,6 +1573,7 @@ export default function Checkout() {
                             )}
                           />
 
+                          {/* City, State, Postal Code */}
                           <div className="grid md:grid-cols-3 gap-4">
                             <FormField
                               control={form.control}
@@ -1471,7 +1585,7 @@ export default function Checkout() {
                                     <Input
                                       placeholder="New York"
                                       {...field}
-                                      data-testid="input-billing-city"
+                                      data-testid="input-city"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1489,7 +1603,7 @@ export default function Checkout() {
                                     <Input
                                       placeholder="NY"
                                       {...field}
-                                      data-testid="input-billing-state"
+                                      data-testid="input-state"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1507,7 +1621,7 @@ export default function Checkout() {
                                     <Input
                                       placeholder="10001"
                                       {...field}
-                                      data-testid="input-billing-postalcode"
+                                      data-testid="input-postalCode"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -1515,29 +1629,6 @@ export default function Checkout() {
                               )}
                             />
                           </div>
-
-                          <FormField
-                            control={form.control}
-                            name="billingCountry"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Country</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="United States"
-                                    {...field}
-                                    onChange={(e) => {
-                                      field.onChange(e);
-                                      // Trigger re-validation of billing state when country changes
-                                      form.trigger('billingState');
-                                    }}
-                                    data-testid="input-billing-country"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
                         </CollapsibleContent>
                       </Collapsible>
                     </div>
