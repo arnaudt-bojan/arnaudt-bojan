@@ -122,6 +122,12 @@ import {
   type InsertWholesalePaymentIntent,
   type WholesaleShippingMetadata,
   type InsertWholesaleShippingMetadata,
+  type ShippingLabel,
+  type InsertShippingLabel,
+  type ShippingLabelRefund,
+  type InsertShippingLabelRefund,
+  type SellerCreditLedger,
+  type InsertSellerCreditLedger,
   users,
   products,
   orders,
@@ -185,6 +191,9 @@ import {
   wholesaleCarts,
   wholesalePaymentIntents,
   wholesaleShippingMetadata,
+  shippingLabels,
+  shippingLabelRefunds,
+  sellerCreditLedgers,
   bulkUploadJobs,
   bulkUploadItems,
   InsertBulkUploadJob,
@@ -677,6 +686,27 @@ export interface IStorage {
   createShippingZone(zone: InsertShippingZone): Promise<ShippingZone>;
   updateShippingZone(id: string, zone: Partial<InsertShippingZone>): Promise<ShippingZone | undefined>;
   deleteShippingZone(id: string): Promise<boolean>;
+  
+  // Shipping Labels (Shippo Integration)
+  getShippingLabel(id: string): Promise<ShippingLabel | undefined>;
+  getShippingLabelsByOrderId(orderId: string): Promise<ShippingLabel[]>;
+  getShippingLabelsBySellerId(sellerId: string): Promise<ShippingLabel[]>;
+  createShippingLabel(label: InsertShippingLabel): Promise<ShippingLabel>;
+  updateShippingLabel(id: string, label: Partial<InsertShippingLabel>): Promise<ShippingLabel | undefined>;
+  
+  // Shipping Label Refunds
+  getShippingLabelRefund(id: string): Promise<ShippingLabelRefund | undefined>;
+  getPendingShippingLabelRefunds(): Promise<ShippingLabelRefund[]>;
+  createShippingLabelRefund(refund: InsertShippingLabelRefund): Promise<ShippingLabelRefund>;
+  updateShippingLabelRefund(id: string, refund: Partial<InsertShippingLabelRefund>): Promise<ShippingLabelRefund | undefined>;
+  
+  // Seller Credit Ledger
+  getSellerCreditLedgersBySellerId(sellerId: string): Promise<SellerCreditLedger[]>;
+  createSellerCreditLedger(ledger: InsertSellerCreditLedger): Promise<SellerCreditLedger>;
+  
+  // User Update
+  updateUser(userId: string, data: Partial<UpsertUser>): Promise<User | undefined>;
+  
   
   // Invoices
   getInvoicesByOrderId(orderId: string): Promise<Invoice[]>;
@@ -3896,6 +3926,109 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     await this.db.delete(shippingZones).where(eq(shippingZones.id, id));
     return true;
+  }
+
+  // Shipping Label Methods (Shippo Integration)
+  async getShippingLabel(id: string): Promise<ShippingLabel | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(shippingLabels)
+      .where(eq(shippingLabels.id, id));
+    return result[0];
+  }
+
+  async getShippingLabelsByOrderId(orderId: string): Promise<ShippingLabel[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(shippingLabels)
+      .where(eq(shippingLabels.orderId, orderId));
+  }
+
+  async getShippingLabelsBySellerId(sellerId: string): Promise<ShippingLabel[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(shippingLabels)
+      .where(eq(shippingLabels.sellerId, sellerId));
+  }
+
+  async createShippingLabel(label: InsertShippingLabel): Promise<ShippingLabel> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(shippingLabels).values(label).returning();
+    return result[0];
+  }
+
+  async updateShippingLabel(id: string, label: Partial<InsertShippingLabel>): Promise<ShippingLabel | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(shippingLabels)
+      .set(label)
+      .where(eq(shippingLabels.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Shipping Label Refund Methods
+  async getShippingLabelRefund(id: string): Promise<ShippingLabelRefund | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(shippingLabelRefunds)
+      .where(eq(shippingLabelRefunds.id, id));
+    return result[0];
+  }
+
+  async getPendingShippingLabelRefunds(): Promise<ShippingLabelRefund[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(shippingLabelRefunds)
+      .where(inArray(shippingLabelRefunds.status, ['queued', 'pending']));
+  }
+
+  async createShippingLabelRefund(refund: InsertShippingLabelRefund): Promise<ShippingLabelRefund> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(shippingLabelRefunds).values(refund).returning();
+    return result[0];
+  }
+
+  async updateShippingLabelRefund(id: string, refund: Partial<InsertShippingLabelRefund>): Promise<ShippingLabelRefund | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(shippingLabelRefunds)
+      .set(refund)
+      .where(eq(shippingLabelRefunds.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Seller Credit Ledger Methods
+  async getSellerCreditLedgersBySellerId(sellerId: string): Promise<SellerCreditLedger[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(sellerCreditLedgers)
+      .where(eq(sellerCreditLedgers.sellerId, sellerId))
+      .orderBy(desc(sellerCreditLedgers.createdAt));
+  }
+
+  async createSellerCreditLedger(ledger: InsertSellerCreditLedger): Promise<SellerCreditLedger> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(sellerCreditLedgers).values(ledger).returning();
+    return result[0];
+  }
+
+  // User Update Method
+  async updateUser(userId: string, data: Partial<UpsertUser>): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
   }
 
   // Invoice Methods

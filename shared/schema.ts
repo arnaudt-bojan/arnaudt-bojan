@@ -644,6 +644,9 @@ export const orders = pgTable("orders", {
   shippingLocked: integer("shipping_locked").default(0), // 0 = can change address, 1 = locked (after shipping)
   pricingVersion: integer("pricing_version").default(1), // Pricing structure version (1 = old, 2 = deposit-only)
   
+  // Shippo Label System - Track purchased shipping label
+  shippingLabelId: varchar("shipping_label_id").references(() => shippingLabels.id), // Foreign key to shipping_labels table
+  
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -1291,6 +1294,10 @@ export const users = pgTable("users", {
   warehouseState: varchar("warehouse_state"), // DEPRECATED: Use warehouseAddressState
   warehousePostalCode: varchar("warehouse_postal_code"), // DEPRECATED: Use warehouseAddressPostalCode
   warehouseCountry: varchar("warehouse_country"), // DEPRECATED: Use warehouseAddressCountryCode
+  
+  // Shippo Label System - Sender Address Management
+  shippoAddressObjectId: varchar("shippo_address_object_id"), // Cached Shippo Address object_id for this seller (reusable)
+  pendingLabelCreditUsd: decimal("pending_label_credit_usd", { precision: 10, scale: 2 }).default("0"), // Pending credit from label refunds
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2371,6 +2378,142 @@ export const shippingZones = pgTable("shipping_zones", {
 export const insertShippingZoneSchema = createInsertSchema(shippingZones).omit({ id: true });
 export type InsertShippingZone = z.infer<typeof insertShippingZoneSchema>;
 export type ShippingZone = typeof shippingZones.$inferSelect;
+
+// Shippo Label System - Label status enum
+export const shippingLabelStatusPgEnum = pgEnum("shipping_label_status", [
+  "pending",
+  "purchased",
+  "void_requested",
+  "voided",
+  "failed"
+]);
+
+// Shippo Shipping Labels - tracks all purchased labels from Shippo
+export const shippingLabels = pgTable("shipping_labels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // References orders.id
+  sellerId: varchar("seller_id").notNull(), // References users.id (seller who owns this label)
+  
+  // Shippo API references
+  shippoTransactionId: varchar("shippo_transaction_id").unique(), // Shippo Transaction object_id
+  shippoRateId: varchar("shippo_rate_id"), // Shippo Rate object_id that was purchased
+  
+  // Pricing (Architecture 3: server-side calculations only)
+  baseCostUsd: decimal("base_cost_usd", { precision: 10, scale: 2 }).notNull(), // Actual Shippo cost in USD
+  markupPercent: decimal("markup_percent", { precision: 5, scale: 2 }).default("20.00"), // Markup percentage (default 20%)
+  totalChargedUsd: decimal("total_charged_usd", { precision: 10, scale: 2 }).notNull(), // Total charged to buyer (baseCost * (1 + markup))
+  
+  // Label details
+  labelUrl: text("label_url"), // PDF download URL from Shippo
+  trackingNumber: varchar("tracking_number"), // Carrier tracking number
+  carrier: varchar("carrier"), // Carrier name (USPS, FedEx, etc.)
+  serviceLevelName: varchar("service_level_name"), // Service level (Priority Mail, Ground, etc.)
+  
+  // Status tracking
+  status: shippingLabelStatusPgEnum("status").notNull().default("pending"), // Label lifecycle status
+  purchasedAt: timestamp("purchased_at"), // When label was purchased from Shippo
+  voidedAt: timestamp("voided_at"), // When label was voided/refunded
+  
+  // Multi-currency support
+  currency: varchar("currency", { length: 3 }).default("USD"), // Currency code (ISO 4217)
+  exchangeRateApplied: decimal("exchange_rate_applied", { precision: 12, scale: 6 }), // Exchange rate at time of purchase
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("shipping_labels_order_id_idx").on(table.orderId),
+    sellerIdIdx: index("shipping_labels_seller_id_idx").on(table.sellerId),
+    statusIdx: index("shipping_labels_status_idx").on(table.status),
+  };
+});
+
+export const insertShippingLabelSchema = createInsertSchema(shippingLabels).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShippingLabel = z.infer<typeof insertShippingLabelSchema>;
+export type ShippingLabel = typeof shippingLabels.$inferSelect;
+
+// Shippo Label Refund status enum
+export const shippingLabelRefundStatusPgEnum = pgEnum("shipping_label_refund_status", [
+  "queued",
+  "pending",
+  "success",
+  "rejected"
+]);
+
+// Shippo Shipping Label Refunds - tracks refund requests for cancelled labels
+export const shippingLabelRefunds = pgTable("shipping_label_refunds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  labelId: varchar("label_id").notNull(), // References shipping_labels.id
+  
+  // Shippo API reference
+  shippoRefundId: varchar("shippo_refund_id").unique(), // Shippo Refund object_id
+  
+  // Refund tracking
+  status: shippingLabelRefundStatusPgEnum("status").notNull().default("queued"), // Refund status from Shippo
+  requestedAt: timestamp("requested_at").notNull().defaultNow(), // When refund was requested
+  resolvedAt: timestamp("resolved_at"), // When refund was approved/rejected
+  rejectionReason: text("rejection_reason"), // Reason if refund was rejected (e.g., "label already scanned")
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    labelIdIdx: index("shipping_label_refunds_label_id_idx").on(table.labelId),
+    statusIdx: index("shipping_label_refunds_status_idx").on(table.status),
+  };
+});
+
+export const insertShippingLabelRefundSchema = createInsertSchema(shippingLabelRefunds).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertShippingLabelRefund = z.infer<typeof insertShippingLabelRefundSchema>;
+export type ShippingLabelRefund = typeof shippingLabelRefunds.$inferSelect;
+
+// Seller Credit Ledger type enum
+export const sellerCreditLedgerTypePgEnum = pgEnum("seller_credit_ledger_type", [
+  "debit",
+  "credit",
+  "adjustment"
+]);
+
+// Seller Credit Ledger source enum
+export const sellerCreditLedgerSourcePgEnum = pgEnum("seller_credit_ledger_source", [
+  "label_refund",
+  "manual",
+  "settlement_fix"
+]);
+
+// Seller Credit Ledgers - tracks all credits/debits from label refunds and adjustments
+export const sellerCreditLedgers = pgTable("seller_credit_ledgers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(), // References users.id
+  
+  // Related entities (optional - for traceability)
+  labelId: varchar("label_id"), // References shipping_labels.id (if credit from label refund)
+  orderId: varchar("order_id"), // References orders.id (for context)
+  
+  // Transaction details
+  type: sellerCreditLedgerTypePgEnum("type").notNull(), // debit, credit, adjustment
+  amountUsd: decimal("amount_usd", { precision: 10, scale: 2 }).notNull(), // Amount in USD
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(), // Running balance after this transaction
+  
+  // Source tracking
+  source: sellerCreditLedgerSourcePgEnum("source").notNull(), // Where credit came from
+  metadata: jsonb("metadata"), // Additional context (e.g., admin notes, refund details)
+  
+  // Multi-currency support
+  currency: varchar("currency", { length: 3 }).default("USD"), // Currency code
+  exchangeRate: decimal("exchange_rate", { precision: 12, scale: 6 }), // Exchange rate if converted
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: index("seller_credit_ledgers_seller_id_idx").on(table.sellerId),
+    createdAtIdx: index("seller_credit_ledgers_created_at_idx").on(table.createdAt),
+  };
+});
+
+export const insertSellerCreditLedgerSchema = createInsertSchema(sellerCreditLedgers).omit({ id: true, createdAt: true });
+export type InsertSellerCreditLedger = z.infer<typeof insertSellerCreditLedgerSchema>;
+export type SellerCreditLedger = typeof sellerCreditLedgers.$inferSelect;
 
 // Notifications (unified email + in-app)
 export const notificationTypeEnum = z.enum([
