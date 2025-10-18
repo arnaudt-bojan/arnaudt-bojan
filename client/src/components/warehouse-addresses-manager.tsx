@@ -327,7 +327,7 @@ export function WarehouseAddressesManager() {
                     <FormLabel>Country</FormLabel>
                     <CountrySelect
                       value={field.value}
-                      onChange={(code) => field.onChange(code)}
+                      onValueChange={(code: string) => field.onChange(code)}
                     />
                     <FormMessage />
                   </FormItem>

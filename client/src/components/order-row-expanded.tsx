@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Package, User, MapPin, CreditCard, Truck, CalendarClock, Edit2, Check, X, FileText, Download, XCircle, AlertCircle } from "lucide-react";
+import { Package, User, MapPin, CreditCard, Truck, CalendarClock, Edit2, Check, X, FileText, Download, XCircle, AlertCircle, Plus, Warehouse } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +31,10 @@ import { updateCustomerDetailsSchema } from "@shared/schema";
 import { getPaymentStatusLabel } from "@/lib/format-status";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
+import { CountrySelect } from "@/components/CountrySelect";
+import { getCountryName } from "@shared/countries";
+import { z } from "zod";
 
 interface OrderRowExpandedProps {
   orderId: string;
@@ -71,11 +77,41 @@ interface LabelRefund {
   rejectionReason?: string;
 }
 
+interface WarehouseAddress {
+  id: string;
+  sellerId: string;
+  name: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string | null;
+  postalCode: string;
+  countryCode: string;
+  phone: string | null;
+  isDefault: number;
+  shippoAddressObjectId: string | null;
+}
+
+const warehouseAddressSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  addressLine1: z.string().min(1, "Street address is required"),
+  addressLine2: z.string().optional().or(z.literal("")),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State/Province is required"),
+  postalCode: z.string().min(1, "Postal code is required"),
+  countryCode: z.string().length(2, "Country code is required"),
+  phone: z.string().optional().or(z.literal("")),
+});
+
+type WarehouseAddressFormData = z.infer<typeof warehouseAddressSchema>;
+
 export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newDeliveryDate, setNewDeliveryDate] = useState<Date | undefined>(undefined);
   const [isEditingCustomerDetails, setIsEditingCustomerDetails] = useState(false);
   const [cancelingLabelId, setCancelingLabelId] = useState<string | null>(null);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
+  const [showAddWarehouseDialog, setShowAddWarehouseDialog] = useState(false);
   const { toast } = useToast();
 
   const { data, isLoading } = useQuery<OrderDetailsResponse>({
@@ -87,6 +123,19 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     queryKey: [`/api/orders/${orderId}/labels`],
     enabled: !!data?.order?.shippingLabelId,
   });
+
+  // Fetch warehouse addresses for label purchase
+  const { data: warehouseAddresses = [], isLoading: warehouseLoading } = useQuery<WarehouseAddress[]>({
+    queryKey: ["/api/seller/warehouse-addresses"],
+  });
+
+  // Set default warehouse when addresses load
+  useEffect(() => {
+    if (warehouseAddresses.length > 0 && !selectedWarehouseId) {
+      const defaultAddress = warehouseAddresses.find(addr => addr.isDefault === 1);
+      setSelectedWarehouseId(defaultAddress?.id || warehouseAddresses[0].id);
+    }
+  }, [warehouseAddresses, selectedWarehouseId]);
 
   // Mutation to update delivery date
   const updateDeliveryDateMutation = useMutation({
@@ -188,10 +237,54 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     },
   });
 
-  // Mutation to purchase shipping label
+  // Warehouse address form
+  const warehouseForm = useForm<WarehouseAddressFormData>({
+    resolver: zodResolver(warehouseAddressSchema),
+    defaultValues: {
+      name: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      countryCode: "US",
+      phone: "",
+    },
+  });
+
+  // Mutation to create warehouse address
+  const createWarehouseMutation = useMutation({
+    mutationFn: async (data: WarehouseAddressFormData) => {
+      const response = await apiRequest("POST", "/api/seller/warehouse-addresses", data);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add warehouse address");
+      }
+      return response.json();
+    },
+    onSuccess: (newAddress: WarehouseAddress) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/warehouse-addresses"] });
+      setSelectedWarehouseId(newAddress.id);
+      setShowAddWarehouseDialog(false);
+      warehouseForm.reset();
+      toast({ 
+        title: "Warehouse address added", 
+        description: "You can now use this address for shipping labels" 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to add warehouse address", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Mutation to purchase shipping label (with warehouse address ID)
   const purchaseLabelMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/labels`, {});
+    mutationFn: async (warehouseAddressId: string) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/labels`, { warehouseAddressId });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to purchase shipping label");
@@ -654,23 +747,79 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
            order.paymentStatus !== "pending" && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Ready to Purchase Shipping Label</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Warehouse className="h-4 w-4" />
+                  Purchase Shipping Label
+                </CardTitle>
+                <CardDescription>
+                  Select a warehouse address to ship from
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">Shipping Address:</p>
-                  <div className="ml-4">
+                  <p className="text-muted-foreground">Shipping To:</p>
+                  <div className="ml-4 text-sm">
                     <p>{order.shippingCity}, {order.shippingState}</p>
                     <p>{order.shippingPostalCode}, {order.shippingCountry}</p>
                   </div>
                 </div>
-                <Button 
-                  onClick={() => purchaseLabelMutation.mutate()}
-                  disabled={purchaseLabelMutation.isPending}
-                  data-testid="button-purchase-label"
-                >
-                  {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
-                </Button>
+
+                {warehouseAddresses.length === 0 ? (
+                  <div className="p-4 border rounded-lg space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      You need to add a warehouse address before purchasing a shipping label.
+                    </p>
+                    <Button
+                      onClick={() => setShowAddWarehouseDialog(true)}
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-add-first-warehouse-inline"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Warehouse Address
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Ship From Warehouse</label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={selectedWarehouseId}
+                          onValueChange={setSelectedWarehouseId}
+                        >
+                          <SelectTrigger data-testid="select-warehouse">
+                            <SelectValue placeholder="Select warehouse..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {warehouseAddresses.map((addr) => (
+                              <SelectItem key={addr.id} value={addr.id} data-testid={`option-warehouse-${addr.id}`}>
+                                {addr.name} - {addr.city}, {addr.state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={() => setShowAddWarehouseDialog(true)}
+                          variant="outline"
+                          size="icon"
+                          data-testid="button-add-warehouse-inline"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={() => purchaseLabelMutation.mutate(selectedWarehouseId)}
+                      disabled={purchaseLabelMutation.isPending || !selectedWarehouseId}
+                      data-testid="button-purchase-label"
+                      className="w-full"
+                    >
+                      {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
@@ -1149,6 +1298,172 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
       <div className="border-t pt-6">
         <OrderTimeline events={events} />
       </div>
+
+      {/* Add Warehouse Dialog */}
+      <Dialog open={showAddWarehouseDialog} onOpenChange={setShowAddWarehouseDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Warehouse Address</DialogTitle>
+            <DialogDescription>
+              Add a new warehouse address for shipping
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...warehouseForm}>
+            <form onSubmit={warehouseForm.handleSubmit((data) => createWarehouseMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={warehouseForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Warehouse Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g., Main Warehouse, NYC Location" data-testid="input-warehouse-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={warehouseForm.control}
+                name="countryCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <CountrySelect
+                      value={field.value}
+                      onValueChange={(code: string) => field.onChange(code)}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormItem>
+                <FormLabel>Search Address</FormLabel>
+                <AddressAutocompleteInput
+                  value={warehouseForm.watch("addressLine1") || ""}
+                  onChange={(value: any) => warehouseForm.setValue("addressLine1", value)}
+                  onSelectAddress={(address: any) => {
+                    if (address.line1) warehouseForm.setValue("addressLine1", address.line1);
+                    if (address.line2) warehouseForm.setValue("addressLine2", address.line2 || "");
+                    if (address.city) warehouseForm.setValue("city", address.city);
+                    if (address.state) warehouseForm.setValue("state", address.state);
+                    if (address.postalCode) warehouseForm.setValue("postalCode", address.postalCode);
+                  }}
+                  countryCode={warehouseForm.watch("countryCode")}
+                />
+              </FormItem>
+
+              <FormField
+                control={warehouseForm.control}
+                name="addressLine1"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street Address</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="123 Main Street" data-testid="input-address-line1" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={warehouseForm.control}
+                name="addressLine2"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Apartment/Suite (optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Suite 4B" data-testid="input-address-line2" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={warehouseForm.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="San Francisco" data-testid="input-city" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={warehouseForm.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State/Province</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="CA" data-testid="input-state" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={warehouseForm.control}
+                name="postalCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Postal Code</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="94117" data-testid="input-postal-code" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={warehouseForm.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone (optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="+1 (555) 123-4567" data-testid="input-phone" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddWarehouseDialog(false);
+                    warehouseForm.reset();
+                  }}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createWarehouseMutation.isPending}
+                  data-testid="button-save"
+                >
+                  {createWarehouseMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
