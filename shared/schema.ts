@@ -290,9 +290,13 @@ export const products = pgTable("products", {
   
   // Product visibility and status
   status: text("status").default("draft"), // "active", "draft", "coming-soon", "paused", "out-of-stock", "archived"
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-const baseInsertProductSchema = createInsertSchema(products).omit({ id: true }).extend({
+const baseInsertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   name: z.string().min(1, "Product name is required").max(200, "Name must be 200 characters or less"),
   description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
   price: z.string().min(1, "Price is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),

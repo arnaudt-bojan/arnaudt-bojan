@@ -1112,7 +1112,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const effectiveSellerId = user.sellerId || userId;
       
       const allProducts = await storage.getAllProducts();
-      const sellerProducts = allProducts.filter(p => p.sellerId === effectiveSellerId);
+      const sellerProducts = allProducts
+        .filter(p => p.sellerId === effectiveSellerId)
+        .sort((a, b) => {
+          // Sort by createdAt DESC (newest first)
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
       res.json(sellerProducts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch products" });
@@ -1190,10 +1197,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const allProducts = await storage.getAllProducts();
       // Filter to only show active and coming-soon products for public storefronts
-      const sellerProducts = allProducts.filter(p => 
-        p.sellerId === sellerId && 
-        (p.status === "active" || p.status === "coming-soon")
-      );
+      const sellerProducts = allProducts
+        .filter(p => 
+          p.sellerId === sellerId && 
+          (p.status === "active" || p.status === "coming-soon")
+        )
+        .sort((a, b) => {
+          // Sort by createdAt DESC (newest first)
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
       
       // CRITICAL FIX: Explicitly ensure sellerId is included in response (required for cart validation)
       const productsWithCurrency = sellerProducts.map(p => ({

@@ -117,7 +117,10 @@ export default function SellerStorefront() {
           return b.name.localeCompare(a.name);
         case "newest":
         default:
-          return 0;
+          // Sort by createdAt DESC (newest first)
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
       }
     });
 

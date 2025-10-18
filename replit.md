@@ -45,7 +45,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 
 **Technical Implementations:**
 -   **Backend:** Service layer pattern with dependency injection.
--   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import.
+-   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import. Products are consistently ordered by creation date (newest first) across all seller and buyer-facing interfaces, with `createdAt` and `updatedAt` timestamp tracking.
 -   **Shipping:** Centralized `ShippingService` integrating Free Shipping, Flat Rate, Matrix Shipping, and real-time API rates.
 -   **Shopping & Checkout:** Features slide-over cart, guest checkout, server-side shipping cost calculation, and single-seller per cart.
 -   **Authentication & Authorization:** Email-based with dual-token system and capability-based authorization.
