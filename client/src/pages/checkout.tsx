@@ -1291,7 +1291,6 @@ export default function Checkout() {
                             <CountrySelect
                               value={field.value}
                               onChange={handleShippingCountryChange}
-                              disabled={checkoutStep === 'payment'}
                             />
                             <FormMessage />
                           </FormItem>
@@ -1306,7 +1305,6 @@ export default function Checkout() {
                           onChange={(value) => form.setValue("addressLine1", value)}
                           onSelectAddress={handleShippingAddressSelect}
                           countryCode={form.watch("country")}
-                          disabled={checkoutStep === 'payment'}
                           placeholder="Start typing to search for your address"
                         />
                         <p className="text-xs text-muted-foreground mt-1">
@@ -1325,7 +1323,6 @@ export default function Checkout() {
                               <Input
                                 placeholder="123 Main Street"
                                 {...field}
-                                disabled={checkoutStep === 'payment'}
                                 data-testid="input-line1"
                               />
                             </FormControl>
@@ -1345,7 +1342,6 @@ export default function Checkout() {
                               <Input
                                 placeholder="Apt 4B"
                                 {...field}
-                                disabled={checkoutStep === 'payment'}
                                 data-testid="input-line2"
                               />
                             </FormControl>
@@ -1366,7 +1362,6 @@ export default function Checkout() {
                                 <Input
                                   placeholder="New York"
                                   {...field}
-                                  disabled={checkoutStep === 'payment'}
                                   data-testid="input-city"
                                 />
                               </FormControl>
@@ -1385,7 +1380,6 @@ export default function Checkout() {
                                 <Input
                                   placeholder="NY"
                                   {...field}
-                                  disabled={checkoutStep === 'payment'}
                                   data-testid="input-state"
                                 />
                               </FormControl>
@@ -1404,7 +1398,6 @@ export default function Checkout() {
                                 <Input
                                   placeholder="10001"
                                   {...field}
-                                  disabled={checkoutStep === 'payment'}
                                   data-testid="input-postalCode"
                                 />
                               </FormControl>
