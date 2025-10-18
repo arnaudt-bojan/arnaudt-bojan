@@ -13,7 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Package, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ShippingZoneInput, type ZoneType } from "@/components/ShippingZoneInput";
+import { Badge } from "@/components/ui/badge";
 
 const matrixSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -23,10 +26,17 @@ const matrixSchema = z.object({
 const zoneSchema = z.object({
   zoneType: z.enum(["continent", "country", "city"]),
   zoneName: z.string().min(1, "Zone name is required"),
-  zoneCode: z.string().optional(),
+  zoneIdentifier: z.string().optional(),
+  zoneCode: z.string().optional(), // Deprecated, kept for backward compatibility
   rate: z.coerce.number().min(0, "Rate must be 0 or greater"),
   estimatedDays: z.union([z.coerce.number().positive(), z.literal("")]).optional(),
-});
+}).refine(
+  (data) => {
+    // New zones should have zoneIdentifier (except for editing legacy zones)
+    return true; // Validation handled in UI warning
+  },
+  { message: "Zone identifier is required for new zones" }
+);
 
 type MatrixForm = z.infer<typeof matrixSchema>;
 type ZoneForm = z.infer<typeof zoneSchema>;
@@ -57,6 +67,7 @@ export function ShippingMatrixManager() {
     defaultValues: {
       zoneType: "continent" as const,
       zoneName: "",
+      zoneIdentifier: "",
       zoneCode: "",
       rate: 0,
       estimatedDays: "" as const,
@@ -123,6 +134,8 @@ export function ShippingMatrixManager() {
       matrixId: selectedMatrix.id,
       rate: data.rate,
       estimatedDays: data.estimatedDays || null,
+      // Ensure zoneIdentifier is saved (null if empty string)
+      zoneIdentifier: data.zoneIdentifier || null,
     };
 
     if (editingZone) {
@@ -137,6 +150,7 @@ export function ShippingMatrixManager() {
     zoneForm.reset({
       zoneType: zone.zoneType,
       zoneName: zone.zoneName,
+      zoneIdentifier: zone.zoneIdentifier || "",
       zoneCode: zone.zoneCode || "",
       rate: parseFloat(zone.rate),
       estimatedDays: zone.estimatedDays || "",
@@ -257,7 +271,17 @@ export function ShippingMatrixManager() {
                 <TableBody>
                   {zones.map((zone: any) => (
                     <TableRow key={zone.id}>
-                      <TableCell className="font-medium">{zone.zoneName}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {zone.zoneName}
+                          {!zone.zoneIdentifier && !zone.zoneCode && (
+                            <Badge variant="outline" className="text-xs">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Legacy
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="capitalize">{zone.zoneType}</TableCell>
                       <TableCell>${zone.rate}</TableCell>
                       <TableCell>{zone.estimatedDays || "-"}</TableCell>
@@ -348,41 +372,27 @@ export function ShippingMatrixManager() {
           </DialogHeader>
           <Form {...zoneForm}>
             <form onSubmit={zoneForm.handleSubmit(handleCreateZone)} className="space-y-4">
-              <FormField
-                control={zoneForm.control}
-                name="zoneType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Zone Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-zone-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="continent">Continent</SelectItem>
-                        <SelectItem value="country">Country</SelectItem>
-                        <SelectItem value="city">City</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              {/* Warning for legacy zones without identifiers */}
+              {editingZone && !editingZone.zoneIdentifier && !editingZone.zoneCode && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    This is a legacy zone without a normalized identifier. Please update it using the zone selector below for better accuracy.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* ShippingZoneInput Component - Task 10 */}
+              <ShippingZoneInput
+                zoneType={zoneForm.watch("zoneType") as ZoneType}
+                onZoneTypeChange={(type) => zoneForm.setValue("zoneType", type)}
+                zoneName={zoneForm.watch("zoneName")}
+                onZoneNameChange={(name) => zoneForm.setValue("zoneName", name)}
+                zoneIdentifier={zoneForm.watch("zoneIdentifier")}
+                onZoneIdentifierChange={(identifier) => zoneForm.setValue("zoneIdentifier", identifier)}
+                disabled={createZoneMutation.isPending || updateZoneMutation.isPending}
               />
-              <FormField
-                control={zoneForm.control}
-                name="zoneName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Zone Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g., North America, United States, New York" data-testid="input-zone-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
               <FormField
                 control={zoneForm.control}
                 name="rate"

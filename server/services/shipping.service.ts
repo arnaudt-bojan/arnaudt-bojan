@@ -5,10 +5,11 @@
  */
 
 import type { IStorage } from "../storage";
-import type { Product } from "@shared/schema";
+import type { Product, ShippingZone, Address } from "@shared/schema";
 import { requiresState, isValidState } from "@shared/shipping-validation";
 import { ConfigurationError } from "../errors";
 import { logger } from "../logger";
+import { getContinentFromCountry } from "@shared/continents";
 
 export interface ShippingRate {
   zone: string;
@@ -161,6 +162,288 @@ export class ShippingService {
 
 
   /**
+   * Task 8: Zone Matching Algorithm
+   * 
+   * Matches buyer's address to shipping zones with precedence: city > country > continent
+   * 
+   * @param zones - Available shipping zones for the matrix
+   * @param destination - Buyer's destination address
+   * @returns Matched shipping zone or null if no match found
+   */
+  private matchShippingZone(
+    zones: ShippingZone[],
+    destination: {
+      country: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+    }
+  ): ShippingZone | null {
+    logger.info('[ZoneMatching] Starting zone match algorithm', {
+      totalZones: zones.length,
+      destinationCountry: destination.country,
+      destinationCity: destination.city || 'none',
+      destinationState: destination.state || 'none'
+    });
+
+    // Extract buyer location data
+    const buyerCountryISO = destination.country.toUpperCase().trim();
+    const buyerContinent = getContinentFromCountry(buyerCountryISO);
+    const buyerCity = destination.city?.toLowerCase().trim();
+
+    logger.debug('[ZoneMatching] Extracted buyer location data', {
+      buyerCountryISO,
+      buyerContinent: buyerContinent || 'unknown',
+      buyerCity: buyerCity || 'none'
+    });
+
+    // Priority 1: City matching (highest priority)
+    // Match by zoneIdentifier (placeId format) OR fallback to city name + country match
+    if (buyerCity) {
+      logger.debug('[ZoneMatching] Attempting city-level match', {
+        buyerCity,
+        cityZonesCount: zones.filter(z => z.zoneType === 'city').length
+      });
+
+      const cityZone = zones.find(z => {
+        if (z.zoneType !== 'city') return false;
+
+        // Modern match: Compare zoneIdentifier (placeId from LocationIQ)
+        if (z.zoneIdentifier) {
+          // City identifier format: "city:{lat},{lon}" or raw placeId
+          // For now, we can't match placeId without the buyer's placeId
+          // This would require geocoding the buyer address first
+          // So we skip identifier matching for cities and rely on name match
+          logger.debug('[ZoneMatching] City zone has identifier, skipping for now', {
+            zoneName: z.zoneName,
+            zoneIdentifier: z.zoneIdentifier
+          });
+        }
+
+        // Legacy/Fallback match: City name + country match
+        const zoneCityName = z.zoneName.toLowerCase().trim();
+        const isNameMatch = zoneCityName.includes(buyerCity) || buyerCity.includes(zoneCityName);
+        
+        // Check metadata for country match if available
+        let isCountryMatch = true;
+        if (z.metadata) {
+          try {
+            const metadata = JSON.parse(z.metadata);
+            if (metadata.countryCode) {
+              isCountryMatch = metadata.countryCode.toUpperCase() === buyerCountryISO;
+            }
+          } catch (e) {
+            // Invalid JSON, skip metadata check
+          }
+        }
+
+        const matches = isNameMatch && isCountryMatch;
+        
+        logger.debug('[ZoneMatching] City zone check', {
+          zoneName: z.zoneName,
+          buyerCity,
+          isNameMatch,
+          isCountryMatch,
+          matches
+        });
+
+        return matches;
+      });
+
+      if (cityZone) {
+        logger.info('[ZoneMatching] ✅ City match found!', {
+          zoneName: cityZone.zoneName,
+          zoneIdentifier: cityZone.zoneIdentifier || 'legacy',
+          rate: cityZone.rate
+        });
+        return cityZone;
+      }
+    }
+
+    // Priority 2: Country matching
+    logger.debug('[ZoneMatching] Attempting country-level match', {
+      buyerCountryISO,
+      countryZonesCount: zones.filter(z => z.zoneType === 'country').length
+    });
+
+    const countryZone = zones.find(z => {
+      if (z.zoneType !== 'country') return false;
+
+      // Modern match: Compare zoneIdentifier with buyer's country ISO code
+      if (z.zoneIdentifier) {
+        const match = z.zoneIdentifier.toUpperCase() === buyerCountryISO;
+        logger.debug('[ZoneMatching] Country zone identifier check', {
+          zoneIdentifier: z.zoneIdentifier,
+          buyerCountryISO,
+          match
+        });
+        return match;
+      }
+
+      // Legacy match: Fall back to zoneCode (deprecated field)
+      if (z.zoneCode) {
+        const match = z.zoneCode.toUpperCase() === buyerCountryISO;
+        logger.debug('[ZoneMatching] Country zone legacy zoneCode check', {
+          zoneCode: z.zoneCode,
+          buyerCountryISO,
+          match
+        });
+        return match;
+      }
+
+      // Last resort: Fuzzy match on zoneName
+      const zoneName = z.zoneName.toLowerCase().trim();
+      const countryName = this.getCountryNameFromISO(buyerCountryISO);
+      if (countryName) {
+        const match = zoneName === countryName.toLowerCase() || 
+                     zoneName.includes(countryName.toLowerCase()) ||
+                     countryName.toLowerCase().includes(zoneName);
+        logger.debug('[ZoneMatching] Country zone name fuzzy match', {
+          zoneName: z.zoneName,
+          countryName,
+          match
+        });
+        return match;
+      }
+
+      return false;
+    });
+
+    if (countryZone) {
+      logger.info('[ZoneMatching] ✅ Country match found!', {
+        zoneName: countryZone.zoneName,
+        zoneIdentifier: countryZone.zoneIdentifier || countryZone.zoneCode || 'legacy-name-match',
+        rate: countryZone.rate
+      });
+      return countryZone;
+    }
+
+    // Priority 3: Continent matching
+    if (buyerContinent) {
+      logger.debug('[ZoneMatching] Attempting continent-level match', {
+        buyerContinent,
+        continentZonesCount: zones.filter(z => z.zoneType === 'continent').length
+      });
+
+      const continentZone = zones.find(z => {
+        if (z.zoneType !== 'continent') return false;
+
+        // Modern match: Compare zoneIdentifier with buyer's continent code
+        if (z.zoneIdentifier) {
+          const match = z.zoneIdentifier.toLowerCase() === buyerContinent.toLowerCase();
+          logger.debug('[ZoneMatching] Continent zone identifier check', {
+            zoneIdentifier: z.zoneIdentifier,
+            buyerContinent,
+            match
+          });
+          return match;
+        }
+
+        // Legacy match: Fuzzy match on zoneName
+        const normalizeZoneName = (name: string): string => {
+          return name
+            .toLowerCase()
+            .replace(/\s*\(continent\)\s*/gi, '')
+            .replace(/\s*\(country\)\s*/gi, '')
+            .replace(/\s*\(city\)\s*/gi, '')
+            .trim();
+        };
+
+        const normalizedZoneName = normalizeZoneName(z.zoneName);
+        const normalizedContinent = buyerContinent.replace(/-/g, ' ').toLowerCase();
+        
+        const match = normalizedZoneName === normalizedContinent ||
+                     normalizedZoneName.includes(normalizedContinent) ||
+                     normalizedContinent.includes(normalizedZoneName);
+
+        logger.debug('[ZoneMatching] Continent zone name fuzzy match', {
+          zoneName: z.zoneName,
+          normalizedZoneName,
+          buyerContinent,
+          normalizedContinent,
+          match
+        });
+
+        return match;
+      });
+
+      if (continentZone) {
+        logger.info('[ZoneMatching] ✅ Continent match found!', {
+          zoneName: continentZone.zoneName,
+          zoneIdentifier: continentZone.zoneIdentifier || 'legacy-name-match',
+          rate: continentZone.rate
+        });
+        return continentZone;
+      }
+    }
+
+    // No match found
+    logger.warn('[ZoneMatching] ❌ No matching zone found', {
+      buyerCountryISO,
+      buyerContinent: buyerContinent || 'unknown',
+      buyerCity: buyerCity || 'none',
+      availableZones: zones.map(z => `${z.zoneName} (${z.zoneType})`).join(', ')
+    });
+
+    return null;
+  }
+
+  /**
+   * Helper: Get country name from ISO code for legacy matching
+   */
+  private getCountryNameFromISO(isoCode: string): string | null {
+    const countryMap: Record<string, string> = {
+      'US': 'United States',
+      'GB': 'United Kingdom',
+      'CA': 'Canada',
+      'AU': 'Australia',
+      'FR': 'France',
+      'DE': 'Germany',
+      'IT': 'Italy',
+      'ES': 'Spain',
+      'NL': 'Netherlands',
+      'BE': 'Belgium',
+      'CH': 'Switzerland',
+      'AT': 'Austria',
+      'SE': 'Sweden',
+      'NO': 'Norway',
+      'DK': 'Denmark',
+      'FI': 'Finland',
+      'PL': 'Poland',
+      'IE': 'Ireland',
+      'PT': 'Portugal',
+      'GR': 'Greece',
+      'CZ': 'Czech Republic',
+      'JP': 'Japan',
+      'CN': 'China',
+      'KR': 'South Korea',
+      'SG': 'Singapore',
+      'HK': 'Hong Kong',
+      'IN': 'India',
+      'TH': 'Thailand',
+      'MY': 'Malaysia',
+      'ID': 'Indonesia',
+      'PH': 'Philippines',
+      'VN': 'Vietnam',
+      'NZ': 'New Zealand',
+      'BR': 'Brazil',
+      'MX': 'Mexico',
+      'AR': 'Argentina',
+      'CL': 'Chile',
+      'CO': 'Colombia',
+      'ZA': 'South Africa',
+      'NG': 'Nigeria',
+      'EG': 'Egypt',
+      'KE': 'Kenya',
+      'AE': 'United Arab Emirates',
+      'SA': 'Saudi Arabia',
+      'IL': 'Israel',
+      'TR': 'Turkey',
+    };
+    return countryMap[isoCode.toUpperCase()] || null;
+  }
+
+  /**
    * Calculate shipping using matrix with zone matching
    * Priority: city > country > continent
    */
@@ -175,12 +458,11 @@ export class ShippingService {
       line2?: string;
     }
   ): Promise<ShippingCalculation> {
-    logger.info('[ShippingService] calculateMatrixShipping - Starting zone matching', {
+    logger.info('[ShippingService] calculateMatrixShipping - Starting', {
       matrixId,
       destinationCountry: destination.country,
       destinationCity: destination.city || 'none',
-      destinationState: destination.state || 'none',
-      destinationPostalCode: destination.postalCode || 'none'
+      destinationState: destination.state || 'none'
     });
 
     // Get all zones for this matrix
@@ -188,172 +470,47 @@ export class ShippingService {
     
     logger.info('[ShippingService] Available shipping zones', {
       zoneCount: zones.length,
-      zonesInfo: JSON.stringify(zones.map(z => ({
+      zonesInfo: zones.map(z => ({
         id: z.id,
         zoneName: z.zoneName,
         zoneType: z.zoneType,
-        zoneCode: z.zoneCode,
+        zoneIdentifier: z.zoneIdentifier || z.zoneCode || 'legacy',
         rate: z.rate
-      })))
+      }))
     });
     
     if (zones.length === 0) {
-      throw new Error("No shipping zones configured for this matrix");
-    }
-
-    // Priority 1: Try to match by city (highest priority) - using state field as city indicator
-    // Note: For city-level matching to work properly, destination.state should contain city or zone code
-    if (destination.state) {
-      const stateValue = destination.state.toLowerCase();
-      const cityZone = zones.find(z => 
-        z.zoneType === 'city' && 
-        (z.zoneCode?.toUpperCase() === destination.state?.toUpperCase() ||
-         z.zoneName.toLowerCase().includes(stateValue))
+      throw new ConfigurationError(
+        "No shipping zones configured for this shipping matrix. Please add shipping zones in Settings > Shipping."
       );
-      
-      if (cityZone) {
-        return {
-          cost: parseFloat(cityZone.rate),
-          method: "matrix",
-          zone: cityZone.zoneName,
-          estimatedDays: cityZone.estimatedDays?.toString(),
-          carrier: "Matrix Shipping",
-          details: this.formatShippingDetails(
-            cityZone.zoneName,
-            cityZone.estimatedDays?.toString()
-          )
-        };
-      }
     }
 
-    // Priority 2: Try to match by country (most common)
-    logger.info('[ShippingService] Priority 2: Attempting country match', {
-      destinationCountry: destination.country.toUpperCase(),
-      countryZonesCount: zones.filter(z => z.zoneType === 'country').length,
-      countryZonesInfo: JSON.stringify(zones.filter(z => z.zoneType === 'country').map(z => ({
-        zoneName: z.zoneName,
-        zoneCode: z.zoneCode
-      })))
-    });
-
-    const countryZone = zones.find(z => 
-      z.zoneType === 'country' && 
-      z.zoneCode?.toUpperCase() === destination.country.toUpperCase()
-    );
+    // Task 9: Use new zone matching algorithm
+    const matchedZone = this.matchShippingZone(zones, destination);
     
-    if (countryZone) {
-      logger.info('[ShippingService] ✅ Country match found!', {
-        matchedZone: countryZone.zoneName,
-        zoneCode: countryZone.zoneCode || 'none',
-        rate: countryZone.rate
-      });
-      return {
-        cost: parseFloat(countryZone.rate),
-        method: "matrix",
-        zone: countryZone.zoneName,
-        estimatedDays: countryZone.estimatedDays?.toString(),
-        carrier: "Matrix Shipping",
-        details: this.formatShippingDetails(
-          countryZone.zoneName,
-          countryZone.estimatedDays?.toString()
-        )
-      };
+    if (!matchedZone) {
+      // No match found - throw specific error (Architecture 3: no silent fallbacks)
+      const buyerContinent = getContinentFromCountry(destination.country.toUpperCase());
+      
+      throw new ConfigurationError(
+        `No shipping zone configured for ${destination.country}${destination.city ? ` (${destination.city})` : ''}. ` +
+        `Available zones: ${zones.map(z => z.zoneName).join(', ')}. ` +
+        `Please contact the seller for shipping options.`
+      );
     }
 
-    logger.info('[ShippingService] ❌ No country match found, trying continent matching');
-
-    // Priority 3: Try to match by continent using country-to-continent mapping
-    const continentMap: Record<string, string[]> = {
-      'North America': ['US', 'CA', 'MX'],
-      'Europe': ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'CH', 'AT', 'SE', 'NO', 'DK', 'FI', 'PL', 'IE'],
-      'Asia': ['JP', 'CN', 'KR', 'IN', 'SG', 'TH', 'MY', 'ID', 'PH', 'VN'],
-      'Oceania': ['AU', 'NZ'],
-      'South America': ['BR', 'AR', 'CL', 'CO', 'PE'],
-      'Africa': ['ZA', 'NG', 'EG', 'KE']
+    // Return shipping calculation with matched zone
+    return {
+      cost: parseFloat(matchedZone.rate),
+      method: "matrix",
+      zone: matchedZone.zoneName,
+      estimatedDays: matchedZone.estimatedDays?.toString(),
+      carrier: "Matrix Shipping",
+      details: this.formatShippingDetails(
+        matchedZone.zoneName,
+        matchedZone.estimatedDays?.toString()
+      )
     };
-    
-    // Find the continent for this country
-    const destinationContinent = Object.entries(continentMap).find(([_, countries]) =>
-      countries.includes(destination.country.toUpperCase())
-    )?.[0];
-    
-    logger.info('[ShippingService] Priority 3: Continent lookup result', {
-      destinationCountry: destination.country.toUpperCase(),
-      foundContinent: destinationContinent || 'none',
-      continentMapKeys: Object.keys(continentMap).join(', '),
-      continentZonesAvailable: zones.filter(z => z.zoneType === 'continent').map(z => z.zoneName).join(', ')
-    });
-
-    if (destinationContinent) {
-      logger.info('[ShippingService] Found destination continent, searching for matching zone', {
-        destinationContinent,
-        lookingFor: `zoneType='continent' AND zoneName contains '${destinationContinent}' (case-insensitive)`
-      });
-
-      // Normalize zone names for more flexible matching
-      // This handles cases like "Europe (Continent)" matching "Europe"
-      const normalizeZoneName = (name: string): string => {
-        return name
-          .toLowerCase()
-          .replace(/\s*\(continent\)\s*/gi, '')
-          .replace(/\s*\(country\)\s*/gi, '')
-          .replace(/\s*\(city\)\s*/gi, '')
-          .trim();
-      };
-
-      const normalizedDestinationContinent = normalizeZoneName(destinationContinent);
-
-      const continentZone = zones.find(z => 
-        z.zoneType === 'continent' && 
-        normalizeZoneName(z.zoneName) === normalizedDestinationContinent
-      );
-      
-      if (continentZone) {
-        logger.info('[ShippingService] ✅ Continent match found!', {
-          matchedZone: continentZone.zoneName,
-          normalizedMatch: `"${normalizeZoneName(continentZone.zoneName)}" === "${normalizedDestinationContinent}"`,
-          rate: continentZone.rate
-        });
-        return {
-          cost: parseFloat(continentZone.rate),
-          method: "matrix",
-          zone: continentZone.zoneName,
-          estimatedDays: continentZone.estimatedDays?.toString(),
-          carrier: "Matrix Shipping",
-          details: this.formatShippingDetails(
-            continentZone.zoneName,
-            continentZone.estimatedDays?.toString()
-          )
-        };
-      } else {
-        logger.warn('[ShippingService] ❌ Continent found but no matching zone in matrix', {
-          destinationContinent,
-          normalizedSearch: normalizedDestinationContinent,
-          availableZonesCount: zones.filter(z => z.zoneType === 'continent').length,
-          availableZonesInfo: JSON.stringify(zones.filter(z => z.zoneType === 'continent').map(z => ({
-            original: z.zoneName,
-            normalized: normalizeZoneName(z.zoneName)
-          })))
-        });
-      }
-    } else {
-      logger.warn('[ShippingService] ❌ Country not found in continent mapping', {
-        destinationCountry: destination.country.toUpperCase(),
-        availableContinents: Object.keys(continentMap).join(', ')
-      });
-    }
-
-    // No match found - throw error instead of using fallback
-    logger.error('[ShippingService] ❌ No shipping zone configured for destination', {
-      reason: 'No city, country, or continent match found',
-      destinationCountry: destination.country,
-      destinationContinent: destinationContinent || 'Unknown',
-      availableZones: zones.map(z => `${z.zoneName} (${z.zoneType})`).join(', ')
-    });
-
-    throw new ConfigurationError(
-      `No shipping zone configured for country: ${destination.country}. Please contact support.`
-    );
   }
 
   /**

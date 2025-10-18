@@ -3317,6 +3317,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task 11: Migrate Legacy Shipping Zones
+  app.post("/api/admin/migrate-shipping-zones", requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const sellerId = user.sellerId || user.id;
+
+      logger.info('[ZoneMigration] Starting migration for seller', { sellerId });
+
+      // Get all matrices for this seller
+      const matrices = await storage.getShippingMatricesBySellerId(sellerId);
+      
+      const migrationReport = {
+        totalZones: 0,
+        migratedZones: 0,
+        skippedZones: 0,
+        manualActionRequired: 0,
+        details: [] as Array<{
+          zoneId: string;
+          zoneName: string;
+          zoneType: string;
+          status: 'migrated' | 'skipped' | 'manual_required';
+          oldIdentifier: string | null;
+          newIdentifier: string | null;
+          message: string;
+        }>
+      };
+
+      // Process all zones across all matrices
+      for (const matrix of matrices) {
+        const zones = await storage.getShippingZonesByMatrixId(matrix.id);
+        
+        for (const zone of zones) {
+          migrationReport.totalZones++;
+
+          // Skip zones that already have zoneIdentifier
+          if (zone.zoneIdentifier) {
+            migrationReport.skippedZones++;
+            migrationReport.details.push({
+              zoneId: zone.id,
+              zoneName: zone.zoneName,
+              zoneType: zone.zoneType,
+              status: 'skipped',
+              oldIdentifier: zone.zoneIdentifier,
+              newIdentifier: zone.zoneIdentifier,
+              message: 'Already has zoneIdentifier, no migration needed'
+            });
+            continue;
+          }
+
+          // Attempt migration based on zoneType
+          let newIdentifier: string | null = null;
+          let migrationStatus: 'migrated' | 'skipped' | 'manual_required' = 'manual_required';
+          let message = '';
+
+          if (zone.zoneType === 'country') {
+            // Country zones: Use zoneCode if available
+            if (zone.zoneCode) {
+              newIdentifier = zone.zoneCode.toUpperCase();
+              migrationStatus = 'migrated';
+              message = `Migrated using existing zoneCode: ${zone.zoneCode}`;
+            } else {
+              // Try to extract country code from zoneName
+              const { getCountryCode } = await import("../shared/countries");
+              const extractedCode = getCountryCode(zone.zoneName);
+              if (extractedCode) {
+                newIdentifier = extractedCode;
+                migrationStatus = 'migrated';
+                message = `Migrated by extracting country code from zoneName: ${zone.zoneName} → ${extractedCode}`;
+              } else {
+                migrationStatus = 'manual_required';
+                message = `Could not determine country code from zoneName: "${zone.zoneName}". Please update manually.`;
+              }
+            }
+          } else if (zone.zoneType === 'continent') {
+            // Continent zones: Fuzzy match on zoneName to continent list
+            const { CONTINENTS } = await import("../shared/continents");
+            
+            const normalizeZoneName = (name: string): string => {
+              return name
+                .toLowerCase()
+                .replace(/\s*\(continent\)\s*/gi, '')
+                .replace(/\s*\(country\)\s*/gi, '')
+                .replace(/\s*\(city\)\s*/gi, '')
+                .trim();
+            };
+
+            const normalizedZoneName = normalizeZoneName(zone.zoneName);
+            
+            // Find matching continent
+            const matchedContinent = CONTINENTS.find(continent => {
+              const normalizedContinentName = continent.name.toLowerCase();
+              const normalizedContinentCode = continent.code.replace(/-/g, ' ').toLowerCase();
+              
+              return normalizedZoneName === normalizedContinentName ||
+                     normalizedZoneName === normalizedContinentCode ||
+                     normalizedZoneName.includes(normalizedContinentName) ||
+                     normalizedContinentName.includes(normalizedZoneName);
+            });
+
+            if (matchedContinent) {
+              newIdentifier = matchedContinent.code;
+              migrationStatus = 'migrated';
+              message = `Migrated by matching zoneName to continent: "${zone.zoneName}" → ${matchedContinent.code}`;
+            } else {
+              migrationStatus = 'manual_required';
+              message = `Could not match zoneName to any continent: "${zone.zoneName}". Please update manually.`;
+            }
+          } else if (zone.zoneType === 'city') {
+            // City zones: Cannot auto-migrate without geocoding data
+            migrationStatus = 'manual_required';
+            message = `City zones require manual re-entry using city search. Please edit "${zone.zoneName}" to select it from the city search dropdown.`;
+          }
+
+          // Update zone if migration successful
+          if (migrationStatus === 'migrated' && newIdentifier) {
+            await storage.updateShippingZone(zone.id, {
+              zoneIdentifier: newIdentifier
+            });
+            migrationReport.migratedZones++;
+            logger.info('[ZoneMigration] Migrated zone', {
+              zoneId: zone.id,
+              zoneName: zone.zoneName,
+              oldIdentifier: zone.zoneCode || null,
+              newIdentifier
+            });
+          } else {
+            migrationReport.manualActionRequired++;
+          }
+
+          migrationReport.details.push({
+            zoneId: zone.id,
+            zoneName: zone.zoneName,
+            zoneType: zone.zoneType,
+            status: migrationStatus,
+            oldIdentifier: zone.zoneCode || null,
+            newIdentifier,
+            message
+          });
+        }
+      }
+
+      logger.info('[ZoneMigration] Migration complete', {
+        sellerId,
+        totalZones: migrationReport.totalZones,
+        migratedZones: migrationReport.migratedZones,
+        skippedZones: migrationReport.skippedZones,
+        manualActionRequired: migrationReport.manualActionRequired
+      });
+
+      res.json(migrationReport);
+    } catch (error) {
+      logger.error('[ZoneMigration] Migration failed', error);
+      res.status(500).json({ error: "Failed to migrate shipping zones" });
+    }
+  });
+
   app.patch("/api/orders/:id/status", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
