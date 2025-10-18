@@ -151,7 +151,7 @@ export class PricingCalculationService {
           zone: shippingCalculation.zone
         });
       } catch (shippingError: any) {
-        logger.error(`[PricingCalculationService] ❌ SHIPPING CALCULATION FAILED - USING FALLBACK`, {
+        logger.error(`[PricingCalculationService] ❌ SHIPPING CALCULATION FAILED`, {
           error: shippingError.message,
           errorDetails: shippingError.toString(),
           destination: {
@@ -164,15 +164,8 @@ export class PricingCalculationService {
           itemCount: items.length
         });
         
-        // Use seller's flat shipping as fallback
-        shippingCost = seller.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
-        
-        logger.warn(`[PricingCalculationService] ⚠️ USING FALLBACK SHIPPING: ${currency} ${shippingCost}`, {
-          reason: 'Shipping calculation error',
-          errorMessage: shippingError.message,
-          fallbackSource: seller.shippingPrice ? 'seller default' : 'zero (FREE)',
-          recommendation: shippingCost === 0 ? 'CHECK SHIPPING CONFIGURATION - Customer getting FREE shipping due to error!' : 'Using seller default rate'
-        });
+        // Re-throw the error to prevent silent fallback to free shipping
+        throw shippingError;
       }
     } else {
       // No destination provided, use seller's default shipping
@@ -339,12 +332,8 @@ export class PricingCalculationService {
       } catch (shippingError: any) {
         logger.error(`[PricingCalculationService] Shipping calculation failed:`, shippingError);
         
-        // Use seller's flat shipping as fallback if sellerId provided
-        if (sellerId) {
-          const seller = await this.storage.getUser(sellerId);
-          shippingCost = seller?.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
-          logger.info(`[PricingCalculationService] Using fallback shipping: ${shippingCost}`);
-        }
+        // Re-throw the error to prevent silent fallback to free shipping
+        throw shippingError;
       }
     } else if (sellerId) {
       // No destination provided, use seller's default shipping

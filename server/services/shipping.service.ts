@@ -343,42 +343,17 @@ export class ShippingService {
       });
     }
 
-    // Improved fallback: Prioritize continent zones over other types
-    // This provides more sensible defaults when no exact match is found
-    logger.warn('[ShippingService] ⚠️ No match found, selecting fallback zone', {
+    // No match found - throw error instead of using fallback
+    logger.error('[ShippingService] ❌ No shipping zone configured for destination', {
       reason: 'No city, country, or continent match found',
       destinationCountry: destination.country,
-      destinationContinent: destinationContinent || 'Unknown'
+      destinationContinent: destinationContinent || 'Unknown',
+      availableZones: zones.map(z => `${z.zoneName} (${z.zoneType})`).join(', ')
     });
 
-    // Try to find a continent zone as fallback (better than random first zone)
-    let fallbackZone = zones.find(z => z.zoneType === 'continent');
-    
-    if (!fallbackZone) {
-      // If no continent zone, use first zone
-      fallbackZone = zones[0];
-      logger.warn('[ShippingService] No continent zones available, using first zone as fallback', {
-        fallbackZone: fallbackZone.zoneName,
-        fallbackType: fallbackZone.zoneType
-      });
-    } else {
-      logger.info('[ShippingService] Using first continent zone as fallback', {
-        fallbackZone: fallbackZone.zoneName,
-        fallbackRate: fallbackZone.rate
-      });
-    }
-
-    return {
-      cost: parseFloat(fallbackZone.rate),
-      method: "matrix",
-      zone: fallbackZone.zoneName,
-      estimatedDays: fallbackZone.estimatedDays?.toString(),
-      carrier: "Matrix Shipping",
-      details: this.formatShippingDetails(
-        fallbackZone.zoneName,
-        fallbackZone.estimatedDays?.toString()
-      )
-    };
+    throw new ConfigurationError(
+      `No shipping zone configured for country: ${destination.country}. Please contact support.`
+    );
   }
 
   /**
@@ -656,9 +631,9 @@ export class ShippingService {
       return uppercased;
     }
     
-    // Fallback: log warning and use first 2 characters (THIS WAS THE BUG!)
-    logger.warn(`[ShippingService] ⚠️ Unknown country "${country}", using fallback "${uppercased.substring(0, 2)}". This may cause Shippo API errors!`);
-    return uppercased.substring(0, 2);
+    // Throw error for unknown country (no more silent fallbacks!)
+    logger.error(`[ShippingService] ❌ Unknown country code: "${country}"`);
+    throw new ConfigurationError(`Invalid country code: ${country}. Please select a valid country from the dropdown.`);
   }
 
   /**

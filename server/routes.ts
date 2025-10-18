@@ -53,7 +53,7 @@ import { WholesalePricingService } from "./services/wholesale-pricing.service";
 import { StripeWebhookService } from "./services/stripe-webhook.service";
 import { MetaIntegrationService } from "./services/meta-integration.service";
 import { BalancePaymentService } from "./services/balance-payment.service";
-import { ConfigurationError } from "./errors";
+import { ConfigurationError, ValidationError } from "./errors";
 import { PlatformAnalyticsService } from "./services/platform-analytics.service";
 import { CheckoutService } from "./services/checkout.service";
 import { CreateFlowService } from "./services/workflows/create-flow.service";
@@ -3851,7 +3851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(pricingBreakdown);
     } catch (error: any) {
-      if (error instanceof ConfigurationError) {
+      if (error instanceof ConfigurationError || error instanceof ValidationError) {
         return res.status(400).json({ error: error.message });
       }
       logger.error("[Pricing API] Error calculating pricing:", error);
