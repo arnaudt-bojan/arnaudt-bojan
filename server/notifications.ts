@@ -123,6 +123,11 @@ export interface NotificationService {
   
   // Customer Details Update Email
   sendOrderCustomerDetailsUpdated(order: Order, seller: User, previousDetails: any, newDetails: any): Promise<void>;
+  
+  // Shippo Label Purchase Notifications (CRITICAL - Architecture 3)
+  sendLabelPurchasedToSeller(order: Order, seller: User, labelResult: { labelId: string; labelUrl: string; trackingNumber: string; carrier: string; baseCostUsd: number; totalChargedUsd: number }): Promise<void>;
+  sendLabelCreatedToBuyer(order: Order, labelResult: { trackingNumber: string; carrier: string; labelUrl: string }): Promise<void>;
+  sendLabelCostDeduction(seller: User, totalChargedUsd: number, orderId: string): Promise<void>;
 }
 
 export interface SendNewsletterParams {
@@ -5151,6 +5156,382 @@ ${order.billingCountry}
       footer: await generateSellerFooter(seller),
       darkModeSafe: true
     });
+  }
+
+  /**
+   * CRITICAL: Send label purchased confirmation to seller (Upfirst → Seller)
+   * Notifies seller when a shipping label is purchased via Shippo
+   */
+  async sendLabelPurchasedToSeller(
+    order: Order, 
+    seller: User, 
+    labelResult: { 
+      labelId: string; 
+      labelUrl: string; 
+      trackingNumber: string; 
+      carrier: string; 
+      baseCostUsd: number; 
+      totalChargedUsd: number;
+    }
+  ): Promise<void> {
+    try {
+      const orderShortId = order.id.slice(-8).toUpperCase();
+      
+      // Generate email HTML
+      const content = `
+        <div>
+          <h2 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">
+            Shipping Label Purchased
+          </h2>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            A shipping label has been successfully purchased for Order #${orderShortId}.
+          </p>
+          
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">
+              Label Details
+            </h3>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px;">
+              <tr>
+                <td style="padding: 8px 0; color: #718096;">Order ID:</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500; text-align: right;">#${orderShortId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #718096;">Tracking Number:</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500; text-align: right;">${labelResult.trackingNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #718096;">Carrier:</td>
+                <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500; text-align: right;">${labelResult.carrier}</td>
+              </tr>
+              <tr style="border-top: 1px solid #e5e7eb;">
+                <td style="padding: 8px 0; padding-top: 16px; color: #718096;">Base Cost:</td>
+                <td style="padding: 8px 0; padding-top: 16px; color: #1a1a1a; text-align: right;">$${labelResult.baseCostUsd.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #718096;">Platform Fee (20%):</td>
+                <td style="padding: 8px 0; color: #1a1a1a; text-align: right;">$${(labelResult.totalChargedUsd - labelResult.baseCostUsd).toFixed(2)}</td>
+              </tr>
+              <tr style="border-top: 2px solid #1a1a1a;">
+                <td style="padding: 12px 0; padding-top: 16px; color: #1a1a1a; font-weight: 600;">Total Charged:</td>
+                <td style="padding: 12px 0; padding-top: 16px; color: #1a1a1a; font-weight: 700; font-size: 16px; text-align: right;">$${labelResult.totalChargedUsd.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          
+          ${generateCTAButton(labelResult.labelUrl, 'Download Label')}
+          
+          <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
+            The label cost has been charged to your account. Please download and print the label to ship this order.
+          </p>
+        </div>
+      `;
+
+      const emailHtml = generateEmailBaseLayout({
+        header: generateUpfirstHeader(),
+        content,
+        footer: generateUpfirstFooter(),
+        preheader: `Shipping label purchased for Order #${orderShortId}`,
+        darkModeSafe: true
+      });
+
+      const subject = `Shipping Label Purchased for Order #${orderShortId}`;
+
+      const result = await this.sendEmail({
+        to: seller.email!,
+        from: 'UPPFIRST <noreply@upfirst.io>',
+        replyTo: this.emailConfig.getSupportEmail(),
+        subject: subject,
+        html: emailHtml,
+      });
+
+      // Create in-app notification for seller
+      await this.createNotification({
+        userId: seller.id,
+        type: 'label_purchased',
+        title: subject,
+        message: `Label purchased for $${labelResult.totalChargedUsd.toFixed(2)} - Tracking: ${labelResult.trackingNumber}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: {
+          orderId: order.id,
+          labelId: labelResult.labelId,
+          trackingNumber: labelResult.trackingNumber,
+          carrier: labelResult.carrier,
+          totalChargedUsd: labelResult.totalChargedUsd
+        },
+      });
+
+      logger.info('[Notifications] Label purchased notification sent to seller', {
+        sellerId: seller.id,
+        orderId: order.id,
+        labelId: labelResult.labelId,
+        success: result.success
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send label purchased notification to seller', {
+        sellerId: seller.id,
+        orderId: order.id,
+        error: error.message
+      });
+      // Don't throw - notification failures shouldn't break label purchase
+    }
+  }
+
+  /**
+   * CRITICAL: Send label created notification to buyer (Seller → Buyer)
+   * Notifies buyer their order has a shipping label and tracking
+   */
+  async sendLabelCreatedToBuyer(
+    order: Order,
+    labelResult: { 
+      trackingNumber: string; 
+      carrier: string; 
+      labelUrl: string;
+    }
+  ): Promise<void> {
+    try {
+      // Get seller information
+      if (!order.sellerId) {
+        logger.error('[Notifications] Cannot send label created to buyer - order has no sellerId');
+        return;
+      }
+
+      const seller = await this.storage.getUser(order.sellerId);
+      if (!seller) {
+        logger.error('[Notifications] Cannot send label created to buyer - seller not found');
+        return;
+      }
+
+      const orderShortId = order.id.slice(-8).toUpperCase();
+      
+      // Generate magic link for buyer auto-login
+      const sellerContext = seller.username || seller.id;
+      const magicLink = await this.generateMagicLinkForEmail(
+        order.customerEmail, 
+        `/orders/${order.id}`, 
+        sellerContext
+      );
+
+      // Calculate estimated delivery (simplified - could be enhanced with carrier-specific logic)
+      const estimatedDeliveryDate = new Date();
+      estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 5); // Default 5 days
+      const formattedDeliveryDate = format(estimatedDeliveryDate, 'MMMM d, yyyy');
+
+      // Generate tracking URL (carrier-specific)
+      let trackingUrl = labelResult.labelUrl;
+      if (labelResult.carrier.toLowerCase().includes('usps')) {
+        trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${labelResult.trackingNumber}`;
+      } else if (labelResult.carrier.toLowerCase().includes('ups')) {
+        trackingUrl = `https://www.ups.com/track?tracknum=${labelResult.trackingNumber}`;
+      } else if (labelResult.carrier.toLowerCase().includes('fedex')) {
+        trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${labelResult.trackingNumber}`;
+      }
+
+      // Generate email HTML
+      const content = `
+        <div>
+          <h2 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">
+            Your Order Has Been Shipped!
+          </h2>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            Great news! Your order #${orderShortId} has been shipped and is on its way to you.
+          </p>
+          
+          <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #166534;">
+              Shipping Information
+            </h3>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px;">
+              <tr>
+                <td style="padding: 8px 0; color: #4d7c0f;">Carrier:</td>
+                <td style="padding: 8px 0; color: #166534; font-weight: 500; text-align: right;">${labelResult.carrier}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #4d7c0f;">Tracking Number:</td>
+                <td style="padding: 8px 0; color: #166534; font-weight: 500; text-align: right;">${labelResult.trackingNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #4d7c0f;">Estimated Delivery:</td>
+                <td style="padding: 8px 0; color: #166534; font-weight: 500; text-align: right;">${formattedDeliveryDate}</td>
+              </tr>
+            </table>
+          </div>
+          
+          ${generateCTAButton(trackingUrl, 'Track Your Package')}
+          
+          ${generateMagicLinkButton(magicLink, `View Order #${orderShortId}`)}
+          
+          <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 24px 0 0 0;">
+            You'll receive another email when your order is delivered. Questions? Reply to this email and we'll be happy to help.
+          </p>
+        </div>
+      `;
+
+      const emailHtml = await generateEmailBaseLayout({
+        header: generateSellerHeader(seller),
+        content,
+        footer: await generateSellerFooter(seller),
+        preheader: `Your order has been shipped - Track: ${labelResult.trackingNumber}`,
+        darkModeSafe: true
+      });
+
+      // Get email metadata using EmailMetadataService
+      const fromName = await this.emailMetadata.getFromName(seller);
+      const replyTo = await this.emailMetadata.getReplyToEmail(seller);
+      const subject = `Your Order #${orderShortId} Has Been Shipped`;
+
+      const result = await this.sendEmail({
+        to: order.customerEmail,
+        from: `${fromName} <noreply@upfirst.io>`,
+        replyTo: replyTo || undefined,
+        subject: subject,
+        html: emailHtml,
+      });
+
+      // Log email event to order_events table
+      if (result.success) {
+        try {
+          await this.storage.createOrderEvent({
+            orderId: order.id,
+            eventType: 'label_created',
+            description: `Shipping label created notification sent to ${order.customerEmail}`,
+            payload: JSON.stringify({
+              emailType: 'label_created',
+              recipientEmail: order.customerEmail,
+              subject: subject,
+              trackingNumber: labelResult.trackingNumber,
+              carrier: labelResult.carrier,
+              sellerName: seller.firstName || seller.username || 'Store',
+            }),
+            performedBy: null,
+          });
+        } catch (error) {
+          logger.error("[Notifications] Failed to log label created event:", error);
+        }
+      }
+
+      logger.info('[Notifications] Label created notification sent to buyer', {
+        orderId: order.id,
+        buyerEmail: order.customerEmail,
+        trackingNumber: labelResult.trackingNumber,
+        success: result.success
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send label created notification to buyer', {
+        orderId: order.id,
+        error: error.message
+      });
+      // Don't throw - notification failures shouldn't break label purchase
+    }
+  }
+
+  /**
+   * CRITICAL: Send label cost deduction notification to seller (Upfirst → Seller)
+   * Notifies seller about the charge for the shipping label
+   */
+  async sendLabelCostDeduction(
+    seller: User,
+    totalChargedUsd: number,
+    orderId: string
+  ): Promise<void> {
+    try {
+      const orderShortId = orderId.slice(-8).toUpperCase();
+      
+      // Get current balance (if available)
+      const currentBalance = parseFloat(seller.pendingLabelCreditUsd || '0');
+      const newBalance = currentBalance; // Label purchases don't affect credit balance - they're charged separately
+      
+      // Generate email HTML
+      const content = `
+        <div>
+          <h2 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">
+            Label Cost Charged
+          </h2>
+          
+          <p style="font-size: 16px; line-height: 24px; color: #4a5568; margin: 0 0 24px 0;">
+            A shipping label charge has been processed for Order #${orderShortId}.
+          </p>
+          
+          <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #92400e;">
+              Charge Details
+            </h3>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px;">
+              <tr>
+                <td style="padding: 8px 0; color: #92400e;">Order ID:</td>
+                <td style="padding: 8px 0; color: #92400e; font-weight: 500; text-align: right;">#${orderShortId}</td>
+              </tr>
+              <tr style="border-top: 2px solid #92400e;">
+                <td style="padding: 12px 0; padding-top: 16px; color: #92400e; font-weight: 600;">Amount Charged:</td>
+                <td style="padding: 12px 0; padding-top: 16px; color: #92400e; font-weight: 700; font-size: 18px; text-align: right;">$${totalChargedUsd.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          
+          ${currentBalance > 0 ? `
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+            <p style="font-size: 14px; color: #718096; margin: 0;">
+              <strong style="color: #1a1a1a;">Available Label Credit:</strong> $${currentBalance.toFixed(2)}
+            </p>
+          </div>
+          ` : ''}
+          
+          <p style="font-size: 14px; line-height: 20px; color: #718096; margin: 0;">
+            This charge includes the base shipping cost plus a 20% platform fee. The amount has been charged to your payment method on file.
+          </p>
+        </div>
+      `;
+
+      const emailHtml = generateEmailBaseLayout({
+        header: generateUpfirstHeader(),
+        content,
+        footer: generateUpfirstFooter(),
+        preheader: `Label cost charged: $${totalChargedUsd.toFixed(2)} for Order #${orderShortId}`,
+        darkModeSafe: true
+      });
+
+      const subject = `Label Cost Charged: $${totalChargedUsd.toFixed(2)} for Order #${orderShortId}`;
+
+      const result = await this.sendEmail({
+        to: seller.email!,
+        from: 'UPPFIRST <noreply@upfirst.io>',
+        replyTo: this.emailConfig.getSupportEmail(),
+        subject: subject,
+        html: emailHtml,
+      });
+
+      // Create in-app notification for seller
+      await this.createNotification({
+        userId: seller.id,
+        type: 'label_cost_charged',
+        title: subject,
+        message: `Shipping label charge: $${totalChargedUsd.toFixed(2)} for Order #${orderShortId}`,
+        emailSent: result.success ? 1 : 0,
+        emailId: result.emailId,
+        metadata: {
+          orderId: orderId,
+          totalChargedUsd: totalChargedUsd,
+          currentBalance: currentBalance
+        },
+      });
+
+      logger.info('[Notifications] Label cost deduction notification sent to seller', {
+        sellerId: seller.id,
+        orderId: orderId,
+        totalChargedUsd: totalChargedUsd,
+        success: result.success
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send label cost deduction notification', {
+        sellerId: seller.id,
+        orderId: orderId,
+        error: error.message
+      });
+      // Don't throw - notification failures shouldn't break label purchase
+    }
   }
 
   /**

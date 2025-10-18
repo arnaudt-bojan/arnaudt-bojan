@@ -279,7 +279,7 @@ const balancePaymentService = new BalancePaymentService(
 );
 
 // Initialize Shippo Label service for shipping label management (Architecture 3)
-const shippoLabelService = new ShippoLabelService(storage);
+const shippoLabelService = new ShippoLabelService(storage, notificationService);
 
 // Initialize Meta Integration service for Meta OAuth callback logic
 const redirectUri = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/meta-auth/callback`;

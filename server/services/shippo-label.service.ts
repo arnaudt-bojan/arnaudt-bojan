@@ -13,6 +13,7 @@
 
 import type { IStorage } from "../storage";
 import type { Order, User } from "@shared/schema";
+import type { NotificationService } from "../notifications";
 import { logger } from "../logger";
 
 export interface LabelPurchaseResult {
@@ -34,7 +35,10 @@ export interface LabelRefundResult {
 export class ShippoLabelService {
   private readonly MARKUP_PERCENT = 20; // 20% platform markup
   
-  constructor(private storage: IStorage) {}
+  constructor(
+    private storage: IStorage,
+    private notificationService: NotificationService
+  ) {}
 
   /**
    * Task 5: Ensure Sender Address
@@ -291,7 +295,7 @@ export class ShippoLabelService {
         throw new Error('Failed to get transaction object ID from Shippo');
       }
 
-      return {
+      const labelResult = {
         labelId: label.id,
         labelUrl: transaction.labelUrl || '',
         trackingNumber: transaction.trackingNumber || '',
@@ -300,6 +304,54 @@ export class ShippoLabelService {
         totalChargedUsd,
         shippoTransactionId: transaction.objectId
       };
+
+      // CRITICAL: Send all three notifications (Architecture 3)
+      // Notifications are fire-and-forget - errors are logged but don't fail label purchase
+      try {
+        const seller = await this.storage.getUser(order.sellerId);
+        
+        if (seller) {
+          // 1. Notify seller about label purchase (Upfirst → Seller)
+          await this.notificationService.sendLabelPurchasedToSeller(
+            order,
+            seller,
+            labelResult
+          );
+
+          // 2. Notify seller about label cost charge (Upfirst → Seller)
+          await this.notificationService.sendLabelCostDeduction(
+            seller,
+            totalChargedUsd,
+            orderId
+          );
+
+          // 3. Notify buyer about shipment (Seller → Buyer)
+          await this.notificationService.sendLabelCreatedToBuyer(
+            order,
+            labelResult
+          );
+
+          logger.info('[ShippoLabelService] All label purchase notifications sent', {
+            orderId,
+            labelId: label.id,
+            sellerId: seller.id
+          });
+        } else {
+          logger.error('[ShippoLabelService] Cannot send notifications - seller not found', {
+            orderId,
+            sellerId: order.sellerId
+          });
+        }
+      } catch (notificationError: any) {
+        // Log but don't fail - label purchase was successful
+        logger.error('[ShippoLabelService] Failed to send label purchase notifications', {
+          orderId,
+          labelId: label.id,
+          error: notificationError.message
+        });
+      }
+
+      return labelResult;
     } catch (error: any) {
       logger.error('[ShippoLabelService] Label purchase failed', {
         orderId,

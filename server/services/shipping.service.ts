@@ -544,31 +544,35 @@ export class ShippingService {
         apiKeyHeader: process.env.SHIPPO_API_KEY
       });
 
-      // Get seller's warehouse address (origin address for shipping)
+      // Get seller's warehouse address from warehouse_addresses table (new multi-warehouse system)
       const seller = await this.storage.getUser(product.sellerId);
       if (!seller) {
         throw new Error("Seller not found");
       }
 
-      // Validate warehouse address is configured (check new fields first, fallback to old fields)
-      const warehouseStreet = seller.warehouseAddressLine1 || seller.warehouseStreet;
-      const warehouseCity = seller.warehouseAddressCity || seller.warehouseCity;
-      const warehouseState = seller.warehouseAddressState || seller.warehouseState;
-      const warehousePostalCode = seller.warehouseAddressPostalCode || seller.warehousePostalCode;
-      const warehouseCountry = seller.warehouseAddressCountryCode || seller.warehouseCountry;
-      
-      if (!warehouseStreet || !warehouseCity || !warehousePostalCode || !warehouseCountry) {
+      // Get warehouse address from warehouse_addresses table
+      const warehouseAddresses = await this.storage.getWarehouseAddressesBySellerId(product.sellerId);
+      if (warehouseAddresses.length === 0) {
         throw new ConfigurationError("Warehouse address not configured. Please set up your warehouse address in Settings > Warehouse to enable shipping calculations.");
       }
 
+      // Use default warehouse or first available
+      const warehouse = warehouseAddresses.find(w => w.isDefault === 1) || warehouseAddresses[0];
+
+      // Validate warehouse has all required fields
+      if (!warehouse.addressLine1 || !warehouse.city || !warehouse.postalCode || !warehouse.countryCode) {
+        throw new ConfigurationError("Warehouse address incomplete. Please ensure all required fields are filled in Settings > Warehouse.");
+      }
+
       const addressFrom = {
-        name: seller.firstName + ' ' + seller.lastName,
+        name: warehouse.name,
         company: seller.companyName || '',
-        street1: warehouseStreet,
-        city: warehouseCity,
-        state: warehouseState || '',
-        zip: warehousePostalCode,
-        country: warehouseCountry,
+        street1: warehouse.addressLine1,
+        street2: warehouse.addressLine2 || '',
+        city: warehouse.city,
+        state: warehouse.state || '',
+        zip: warehouse.postalCode,
+        country: warehouse.countryCode,
       };
 
       // Convert country name to ISO code for Shippo
