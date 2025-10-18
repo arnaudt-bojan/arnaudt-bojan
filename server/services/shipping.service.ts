@@ -638,6 +638,12 @@ export class ShippingService {
       });
 
       // Create shipment to get rates
+      logger.info('[ShippingService] Calling Shippo API to create shipment', {
+        from: `${addressFrom.city}, ${addressFrom.country}`,
+        to: `${addressTo.city}, ${addressTo.country}`,
+        parcel: `${parcel.weight}lb, ${parcel.length}x${parcel.width}x${parcel.height}in`
+      });
+      
       const shipment = await shippo.shipments.create({
         addressFrom: addressFrom,
         addressTo: addressTo,
@@ -645,10 +651,35 @@ export class ShippingService {
         async: false,
       });
 
+      // Check for errors in shipment response
+      if (shipment.status === 'ERROR') {
+        logger.error('[ShippingService] Shippo shipment validation failed', {
+          messages: shipment.messages,
+          addressFrom: JSON.stringify(addressFrom),
+          addressTo: JSON.stringify(addressTo)
+        });
+        throw new Error(`Shippo validation failed: ${JSON.stringify(shipment.messages)}`);
+      }
+
       // Get the rates
       const rates = shipment.rates || [];
       
+      logger.info('[ShippingService] Shippo returned rates', {
+        rateCount: rates.length,
+        rates: rates.map(r => ({
+          carrier: r.provider,
+          service: r.servicelevel?.name,
+          amount: r.amount,
+          currency: r.currency
+        }))
+      });
+      
       if (rates.length === 0) {
+        logger.error('[ShippingService] No shipping rates available', {
+          shipmentId: shipment.objectId,
+          status: shipment.status,
+          addressTo: JSON.stringify(addressTo)
+        });
         throw new Error("No shipping rates available for this destination");
       }
 

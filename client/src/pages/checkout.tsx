@@ -671,8 +671,8 @@ export default function Checkout() {
       city: "",
       state: "",
       postalCode: "",
-      country: "US",
-      countryName: "United States",
+      country: "",
+      countryName: "",
       phone: "",
       billingSameAsShipping: true,
       billingName: "",
@@ -683,8 +683,8 @@ export default function Checkout() {
       billingCity: "",
       billingState: "",
       billingPostalCode: "",
-      billingCountry: "US",
-      billingCountryName: "United States",
+      billingCountry: "",
+      billingCountryName: "",
     },
   });
 
@@ -1878,7 +1878,7 @@ export default function Checkout() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     <span data-testid="text-shipping">
-                      {isPricingLoading ? (
+                      {isPricingLoading || !pricingData || pricingError ? (
                         <span className="text-muted-foreground">Calculating...</span>
                       ) : (
                         paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)
