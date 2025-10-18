@@ -22,6 +22,7 @@ import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCi
 import { SiInstagram } from "react-icons/si";
 import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
+import { WarehouseAddressesManager } from "@/components/warehouse-addresses-manager";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeOnboardingModal } from "@/components/stripe-onboarding-modal";
@@ -3426,141 +3427,14 @@ export default function Settings() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    Warehouse Address
+                    Warehouse Addresses
                   </CardTitle>
                   <CardDescription>
-                    Configure where you ship products from. Required for Shippo real-time shipping rates.
+                    Manage your warehouse addresses. Required for shipping label generation.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Form {...warehouseForm}>
-                    <form onSubmit={warehouseForm.handleSubmit((data) => updateWarehouseMutation.mutate(data))} className="space-y-4">
-                      {/* Country First */}
-                      <FormField
-                        control={warehouseForm.control}
-                        name="warehouseAddressCountryCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Country</FormLabel>
-                            <CountrySelect
-                              value={field.value}
-                              onChange={(code) => {
-                                field.onChange(code);
-                                warehouseForm.setValue("warehouseAddressCountryName", getCountryName(code) || "");
-                              }}
-                            />
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {/* Address Autocomplete */}
-                      <FormItem>
-                        <FormLabel>Search Address</FormLabel>
-                        <AddressAutocompleteInput
-                          value={warehouseForm.watch("warehouseAddressLine1") || ""}
-                          onChange={(value) => warehouseForm.setValue("warehouseAddressLine1", value)}
-                          onSelectAddress={(address) => {
-                            if (address.line1) warehouseForm.setValue("warehouseAddressLine1", address.line1);
-                            if (address.line2) warehouseForm.setValue("warehouseAddressLine2", address.line2 || "");
-                            if (address.city) warehouseForm.setValue("warehouseAddressCity", address.city);
-                            if (address.state) warehouseForm.setValue("warehouseAddressState", address.state);
-                            if (address.postalCode) warehouseForm.setValue("warehouseAddressPostalCode", address.postalCode);
-                          }}
-                          countryCode={warehouseForm.watch("warehouseAddressCountryCode")}
-                        />
-                        <FormDescription>
-                          Start typing to search for your address
-                        </FormDescription>
-                      </FormItem>
-
-                      {/* Manual Fields */}
-                      <FormField
-                        control={warehouseForm.control}
-                        name="warehouseAddressLine1"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Street Address</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="123 Main Street" data-testid="input-warehouse-address-line1" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={warehouseForm.control}
-                        name="warehouseAddressLine2"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Apartment/Suite (optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Suite 4B" data-testid="input-warehouse-address-line2" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={warehouseForm.control}
-                          name="warehouseAddressCity"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>City</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="San Francisco" data-testid="input-warehouse-address-city" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={warehouseForm.control}
-                          name="warehouseAddressState"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>State/Province</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="CA" data-testid="input-warehouse-address-state" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <FormField
-                        control={warehouseForm.control}
-                        name="warehouseAddressPostalCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Postal Code</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="94117" data-testid="input-warehouse-address-postal-code" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="flex gap-2 justify-end pt-4">
-                        <Button 
-                          type="button" 
-                          variant="outline"
-                          onClick={() => warehouseForm.reset()}
-                          data-testid="button-discard-warehouse"
-                        >
-                          Discard changes
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          disabled={updateWarehouseMutation.isPending}
-                          data-testid="button-save-warehouse"
-                        >
-                          {updateWarehouseMutation.isPending ? "Saving..." : "Save"}
-                        </Button>
-                      </div>
-                    </form>
-                  </Form>
+                  <WarehouseAddressesManager />
                 </CardContent>
               </Card>
             </TabsContent>
