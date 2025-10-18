@@ -247,8 +247,20 @@ export class ShippoLabelService {
       const markupMultiplier = 1 + (this.MARKUP_PERCENT / 100); // 1.20 for 20%
       const totalChargedUsd = baseCostUsd * markupMultiplier;
 
+      logger.info('[ShippoLabelService] About to check wallet balance', {
+        sellerId: order.sellerId,
+        totalChargedUsd,
+        hasLedgerService: !!this.creditLedgerService
+      });
+
       // CRITICAL: Check wallet balance BEFORE calling Shippo
       const currentBalance = await this.creditLedgerService.getSellerBalance(order.sellerId);
+      
+      logger.info('[ShippoLabelService] Wallet balance retrieved', {
+        sellerId: order.sellerId,
+        currentBalance,
+        requiredAmount: totalChargedUsd
+      });
       
       if (currentBalance < totalChargedUsd) {
         logger.warn('[ShippoLabelService] Insufficient wallet balance', {
