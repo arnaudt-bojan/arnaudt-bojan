@@ -415,6 +415,14 @@ export class ShippoLabelService {
 
       return labelResult;
     } catch (error: any) {
+      // DEBUGGING: Print full error to console for inspection
+      console.error('═══════════════════════════════════════════════════');
+      console.error('[SHIPPO ERROR] Full error object:');
+      console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.error('[SHIPPO ERROR] Error message:', error.message);
+      console.error('[SHIPPO ERROR] Error stack:', error.stack);
+      console.error('═══════════════════════════════════════════════════');
+      
       logger.error('[ShippoLabelService] Label purchase failed', {
         orderId,
         errorMessage: error.message,
