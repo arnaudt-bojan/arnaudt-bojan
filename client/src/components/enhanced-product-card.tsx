@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Eye, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Product } from "@shared/schema";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatPrice } from "@/lib/currency-utils";
 import { useState } from "react";
 
 interface EnhancedProductCardProps {
@@ -22,7 +22,6 @@ const productTypeColors = {
 };
 
 export function EnhancedProductCard({ product, onAddToCart, onQuickView, index }: EnhancedProductCardProps) {
-  const { formatPrice } = useCurrency();
   const [isHovered, setIsHovered] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
 
@@ -155,7 +154,7 @@ export function EnhancedProductCard({ product, onAddToCart, onQuickView, index }
                 className="text-2xl font-bold"
                 data-testid={`text-price-${product.id}`}
               >
-                {formatPrice(parseFloat(product.price))}
+                {formatPrice(parseFloat(product.price), (product as any).currency)}
               </div>
 
               <Button

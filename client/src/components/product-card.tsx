@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ProductTypeBadge } from "./product-type-badge";
 import type { Product } from "@shared/schema";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatPrice } from "@/lib/currency-utils";
 import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
 
 interface ProductCardProps {
@@ -15,7 +15,6 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps) {
-  const { formatPrice } = useCurrency();
   const { sellerUsername } = useSellerContext();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
@@ -109,10 +108,10 @@ export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps
               <>
                 <span className="text-sm text-muted-foreground">Deposit</span>
                 <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
-                  {formatPrice(parseFloat(product.depositAmount))}
+                  {formatPrice(parseFloat(product.depositAmount), (product as any).currency)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Total: {formatPrice(parseFloat(product.price))}
+                  Total: {formatPrice(parseFloat(product.price), (product as any).currency)}
                 </span>
               </>
             ) : (
@@ -121,19 +120,19 @@ export function ProductCard({ product, onAddToCart, disabled }: ProductCardProps
                   <>
                     <div className="flex items-center gap-2">
                       <span className="text-xl font-bold text-red-600 dark:text-red-400" data-testid={`text-product-price-${product.id}`}>
-                        {formatPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100))}
+                        {formatPrice(parseFloat(product.price) * (1 - parseFloat(product.discountPercentage) / 100), (product as any).currency)}
                       </span>
                       <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">
                         -{product.discountPercentage}%
                       </span>
                     </div>
                     <span className="text-sm text-muted-foreground line-through">
-                      {formatPrice(parseFloat(product.price))}
+                      {formatPrice(parseFloat(product.price), (product as any).currency)}
                     </span>
                   </>
                 ) : (
                   <span className="text-xl font-bold" data-testid={`text-product-price-${product.id}`}>
-                    {formatPrice(parseFloat(product.price))}
+                    {formatPrice(parseFloat(product.price), (product as any).currency)}
                   </span>
                 )}
               </div>
