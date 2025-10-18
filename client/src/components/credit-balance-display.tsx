@@ -60,12 +60,13 @@ export function CreditBalanceDisplay() {
 
   return (
     <>
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setShowLedger(true)}
-        className="w-full px-3 py-2 rounded-md hover-elevate active-elevate-2 text-left"
+        className="w-full justify-start h-auto px-3 py-2"
         data-testid="button-credit-balance"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Label Credit</span>
@@ -74,7 +75,7 @@ export function CreditBalanceDisplay() {
             ${balance.toFixed(2)}
           </span>
         </div>
-      </button>
+      </Button>
 
       <Dialog open={showLedger} onOpenChange={setShowLedger}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

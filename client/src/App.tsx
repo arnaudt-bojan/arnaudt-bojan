@@ -261,6 +261,15 @@ function AppContent() {
                   </ProtectedRoute>
                 )}
               </Route>
+              <Route path="/dashboard/orders">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <WholesaleLayout>
+                      <SellerOrdersPage />
+                    </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
               <Route path="/seller/create-product">
                 {() => (
                   <ProtectedRoute requireSeller>
