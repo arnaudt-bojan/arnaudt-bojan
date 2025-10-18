@@ -122,6 +122,8 @@ import {
   type InsertWholesalePaymentIntent,
   type WholesaleShippingMetadata,
   type InsertWholesaleShippingMetadata,
+  type WarehouseAddress,
+  type InsertWarehouseAddress,
   type ShippingLabel,
   type InsertShippingLabel,
   type ShippingLabelRefund,
@@ -191,6 +193,7 @@ import {
   wholesaleCarts,
   wholesalePaymentIntents,
   wholesaleShippingMetadata,
+  warehouseAddresses,
   shippingLabels,
   shippingLabelRefunds,
   sellerCreditLedgers,
@@ -686,6 +689,15 @@ export interface IStorage {
   createShippingZone(zone: InsertShippingZone): Promise<ShippingZone>;
   updateShippingZone(id: string, zone: Partial<InsertShippingZone>): Promise<ShippingZone | undefined>;
   deleteShippingZone(id: string): Promise<boolean>;
+  
+  // Warehouse Addresses - Multi-warehouse management
+  getWarehouseAddress(id: string): Promise<WarehouseAddress | undefined>;
+  getWarehouseAddressesBySellerId(sellerId: string): Promise<WarehouseAddress[]>;
+  getDefaultWarehouseAddress(sellerId: string): Promise<WarehouseAddress | undefined>;
+  createWarehouseAddress(address: InsertWarehouseAddress): Promise<WarehouseAddress>;
+  updateWarehouseAddress(id: string, address: Partial<InsertWarehouseAddress>): Promise<WarehouseAddress | undefined>;
+  deleteWarehouseAddress(id: string): Promise<boolean>;
+  setDefaultWarehouseAddress(sellerId: string, warehouseId: string): Promise<boolean>;
   
   // Shipping Labels (Shippo Integration)
   getShippingLabel(id: string): Promise<ShippingLabel | undefined>;
@@ -3925,6 +3937,86 @@ export class DatabaseStorage implements IStorage {
   async deleteShippingZone(id: string): Promise<boolean> {
     await this.ensureInitialized();
     await this.db.delete(shippingZones).where(eq(shippingZones.id, id));
+    return true;
+  }
+
+  // Warehouse Address Methods - Multi-warehouse management
+  async getWarehouseAddress(id: string): Promise<WarehouseAddress | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(warehouseAddresses)
+      .where(eq(warehouseAddresses.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getWarehouseAddressesBySellerId(sellerId: string): Promise<WarehouseAddress[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(warehouseAddresses)
+      .where(eq(warehouseAddresses.sellerId, sellerId))
+      .orderBy(desc(warehouseAddresses.isDefault), desc(warehouseAddresses.createdAt));
+  }
+
+  async getDefaultWarehouseAddress(sellerId: string): Promise<WarehouseAddress | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .select()
+      .from(warehouseAddresses)
+      .where(
+        and(
+          eq(warehouseAddresses.sellerId, sellerId),
+          eq(warehouseAddresses.isDefault, 1)
+        )
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async createWarehouseAddress(address: InsertWarehouseAddress): Promise<WarehouseAddress> {
+    await this.ensureInitialized();
+    const result = await this.db.insert(warehouseAddresses).values(address).returning();
+    return result[0];
+  }
+
+  async updateWarehouseAddress(id: string, address: Partial<InsertWarehouseAddress>): Promise<WarehouseAddress | undefined> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .update(warehouseAddresses)
+      .set({ ...address, updatedAt: new Date() })
+      .where(eq(warehouseAddresses.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteWarehouseAddress(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    await this.db.delete(warehouseAddresses).where(eq(warehouseAddresses.id, id));
+    return true;
+  }
+
+  async setDefaultWarehouseAddress(sellerId: string, warehouseId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    
+    // First, unset all existing defaults for this seller
+    await this.db
+      .update(warehouseAddresses)
+      .set({ isDefault: 0, updatedAt: new Date() })
+      .where(eq(warehouseAddresses.sellerId, sellerId));
+    
+    // Then set the new default
+    await this.db
+      .update(warehouseAddresses)
+      .set({ isDefault: 1, updatedAt: new Date() })
+      .where(
+        and(
+          eq(warehouseAddresses.id, warehouseId),
+          eq(warehouseAddresses.sellerId, sellerId)
+        )
+      );
+    
     return true;
   }
 

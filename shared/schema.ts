@@ -2379,6 +2379,59 @@ export const insertShippingZoneSchema = createInsertSchema(shippingZones).omit({
 export type InsertShippingZone = z.infer<typeof insertShippingZoneSchema>;
 export type ShippingZone = typeof shippingZones.$inferSelect;
 
+// ============================================================================
+// Warehouse Addresses - Multi-warehouse management for sellers
+// ============================================================================
+
+// Warehouse Addresses - allows sellers to manage multiple warehouse/sender addresses
+export const warehouseAddresses = pgTable("warehouse_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(), // References users.id
+  
+  // Display name for this warehouse
+  name: text("name").notNull(), // e.g., "Main Warehouse", "LA Distribution Center", "Brooklyn Studio"
+  
+  // Full address (follows canonical Address schema)
+  addressLine1: varchar("address_line1").notNull(), // Street address
+  addressLine2: varchar("address_line2"), // Apartment/suite (optional)
+  city: varchar("city").notNull(),
+  state: varchar("state").notNull(), // State/province/region
+  postalCode: varchar("postal_code").notNull(),
+  countryCode: varchar("country_code", { length: 2 }).notNull(), // ISO 3166-1 alpha-2
+  countryName: varchar("country_name").notNull(),
+  
+  // Contact information
+  phone: varchar("phone"), // Required for shipping labels
+  
+  // Address validation metadata
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  validatedSource: varchar("validated_source", { length: 20 }), // 'locationiq' | 'manual'
+  validatedAt: timestamp("validated_at"),
+  
+  // Shippo integration
+  shippoAddressObjectId: varchar("shippo_address_object_id"), // Cached Shippo Address object_id (reusable)
+  
+  // Default warehouse flag
+  isDefault: integer("is_default").notNull().default(0), // 1 = default warehouse, 0 = not default
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    sellerIdIdx: index("warehouse_addresses_seller_id_idx").on(table.sellerId),
+    isDefaultIdx: index("warehouse_addresses_is_default_idx").on(table.isDefault),
+  };
+});
+
+export const insertWarehouseAddressSchema = createInsertSchema(warehouseAddresses).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertWarehouseAddress = z.infer<typeof insertWarehouseAddressSchema>;
+export type WarehouseAddress = typeof warehouseAddresses.$inferSelect;
+
+// ============================================================================
+// Shippo Label System
+// ============================================================================
+
 // Shippo Label System - Label status enum
 export const shippingLabelStatusPgEnum = pgEnum("shipping_label_status", [
   "pending",
