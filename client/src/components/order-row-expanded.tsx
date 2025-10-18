@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Package, User, MapPin, CreditCard, Truck, CalendarClock, Edit2, Check, X } from "lucide-react";
+import { Package, User, MapPin, CreditCard, Truck, CalendarClock, Edit2, Check, X, FileText, Download, XCircle, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,17 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { OrderActionBar } from "@/components/order-action-bar";
 import { OrderTimeline } from "@/components/order-timeline";
 import type { Order, OrderItem, UpdateCustomerDetails } from "@shared/schema";
@@ -31,14 +42,50 @@ interface OrderDetailsResponse {
   refunds: any[];
 }
 
+interface ShippingLabel {
+  id: string;
+  orderId: string;
+  sellerId: string;
+  shippoTransactionId: string;
+  baseCostUsd: string;
+  markupPercent: string;
+  totalChargedUsd: string;
+  labelUrl: string;
+  trackingNumber: string;
+  carrier: string;
+  serviceLevelName: string;
+  status: string;
+  purchasedAt: string;
+  voidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface LabelRefund {
+  id: string;
+  labelId: string;
+  shippoRefundId: string;
+  status: string;
+  requestedAt: string;
+  resolvedAt?: string;
+  rejectionReason?: string;
+}
+
 export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newDeliveryDate, setNewDeliveryDate] = useState<Date | undefined>(undefined);
   const [isEditingCustomerDetails, setIsEditingCustomerDetails] = useState(false);
+  const [cancelingLabelId, setCancelingLabelId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data, isLoading } = useQuery<OrderDetailsResponse>({
     queryKey: [`/api/seller/orders/${orderId}`],
+  });
+
+  // Fetch shipping labels if order has a label
+  const { data: labelsData, isLoading: labelsLoading } = useQuery<{ labels: ShippingLabel[]; refunds: LabelRefund[] }>({
+    queryKey: [`/api/orders/${orderId}/labels`],
+    enabled: !!data?.order?.shippingLabelId,
   });
 
   // Mutation to update delivery date
@@ -135,6 +182,63 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     onError: (error: Error) => {
       toast({
         title: "Failed to update customer details",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to purchase shipping label
+  const purchaseLabelMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/labels`, {});
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to purchase shipping label");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${orderId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/labels`] });
+      toast({
+        title: "Shipping label purchased",
+        description: "Label has been purchased successfully and is ready to download",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to purchase label",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to cancel shipping label
+  const cancelLabelMutation = useMutation({
+    mutationFn: async (labelId: string) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/labels/${labelId}/cancel`, {});
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to cancel shipping label");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${orderId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/labels`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/credit-ledger"] });
+      setCancelingLabelId(null);
+      toast({
+        title: "Label cancelled",
+        description: "Shipping label has been cancelled. Refund is being processed.",
+      });
+    },
+    onError: (error: Error) => {
+      setCancelingLabelId(null);
+      toast({
+        title: "Failed to cancel label",
         description: error.message,
         variant: "destructive",
       });
@@ -532,6 +636,229 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
           ))}
         </div>
       </div>
+
+      {/* Shipping Label Section */}
+      {data?.order && (
+        <div className="border-t pt-6">
+          <div className="flex items-center gap-2 text-sm font-semibold mb-4">
+            <FileText className="h-4 w-4" />
+            <span>Shipping Label</span>
+          </div>
+
+          {/* Label Purchase Section - Show when ready to ship and no label exists */}
+          {!order.shippingLabelId && 
+           order.shippingStreet && 
+           order.shippingCity && 
+           order.shippingPostalCode && 
+           order.shippingCountry && 
+           order.paymentStatus !== "pending" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Ready to Purchase Shipping Label</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 text-sm">
+                  <p className="text-muted-foreground">Shipping Address:</p>
+                  <div className="ml-4">
+                    <p>{order.shippingCity}, {order.shippingState}</p>
+                    <p>{order.shippingPostalCode}, {order.shippingCountry}</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => purchaseLabelMutation.mutate()}
+                  disabled={purchaseLabelMutation.isPending}
+                  data-testid="button-purchase-label"
+                >
+                  {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Label Details Section - Show when label exists */}
+          {order.shippingLabelId && (
+            <div className="space-y-4">
+              {labelsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              ) : labelsData && labelsData.labels.length > 0 ? (
+                labelsData.labels.map((label) => {
+                  const refund = labelsData.refunds.find(r => r.labelId === label.id);
+                  const markupPercent = parseFloat(label.markupPercent || "20");
+                  
+                  return (
+                    <Card key={label.id}>
+                      <CardContent className="pt-6 space-y-4">
+                        {/* Label Info Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Carrier</p>
+                            <p className="font-medium">{label.carrier}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Service Level</p>
+                            <p className="font-medium">{label.serviceLevelName}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Tracking Number</p>
+                            <p className="font-medium" data-testid="text-tracking-number">
+                              {label.trackingNumber}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Status</p>
+                            <Badge variant="outline">
+                              {label.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Pricing Breakdown */}
+                        <div className="border-t pt-4 space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Base Cost:</span>
+                            <span data-testid="text-base-cost">
+                              ${parseFloat(label.baseCostUsd).toFixed(2)} USD
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Platform Markup ({markupPercent}%):</span>
+                            <span>
+                              ${(parseFloat(label.baseCostUsd) * (markupPercent / 100)).toFixed(2)} USD
+                            </span>
+                          </div>
+                          <div className="flex justify-between font-semibold border-t pt-2">
+                            <span>Total Charged:</span>
+                            <span data-testid="text-total-cost">
+                              ${parseFloat(label.totalChargedUsd).toFixed(2)} USD
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Timestamps */}
+                        <div className="text-sm text-muted-foreground">
+                          <p>Created: {format(new Date(label.createdAt), "PPP p")}</p>
+                          {label.purchasedAt && (
+                            <p>Purchased: {format(new Date(label.purchasedAt), "PPP p")}</p>
+                          )}
+                          {label.voidedAt && (
+                            <p>Voided: {format(new Date(label.voidedAt), "PPP p")}</p>
+                          )}
+                        </div>
+
+                        {/* Refund Status */}
+                        {refund && (
+                          <div className="border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 p-3 rounded-md">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5" />
+                              <div className="flex-1 text-sm">
+                                <p className="font-medium text-orange-900 dark:text-orange-100">
+                                  Refund Status: {refund.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                                </p>
+                                {refund.rejectionReason && (
+                                  <p className="text-orange-700 dark:text-orange-300 mt-1">
+                                    Reason: {refund.rejectionReason}
+                                  </p>
+                                )}
+                                <p className="text-orange-600 dark:text-orange-400 mt-1">
+                                  Requested: {format(new Date(refund.requestedAt), "PPP p")}
+                                </p>
+                                {refund.resolvedAt && (
+                                  <p className="text-orange-600 dark:text-orange-400">
+                                    Resolved: {format(new Date(refund.resolvedAt), "PPP p")}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(label.labelUrl, "_blank")}
+                            data-testid="button-download-label"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Label PDF
+                          </Button>
+                          {label.status === "purchased" && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setCancelingLabelId(label.id)}
+                              disabled={cancelLabelMutation.isPending}
+                              data-testid="button-cancel-label"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Cancel Label
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">No labels found</p>
+              )}
+            </div>
+          )}
+
+          {/* No Label Section - when not ready */}
+          {!order.shippingLabelId && 
+           (!order.shippingStreet || !order.shippingCity || !order.shippingPostalCode || !order.shippingCountry) && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                  <p>Complete shipping address required before purchasing a label</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!order.shippingLabelId && order.paymentStatus === "pending" && order.shippingStreet && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                  <p>Payment required before purchasing a shipping label</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Cancel Label Confirmation Dialog */}
+      <AlertDialog open={!!cancelingLabelId} onOpenChange={(open) => !open && setCancelingLabelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Shipping Label?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this shipping label? This action will request a refund from the carrier.
+              The refund may take several days to process and may be rejected if the label has already been scanned.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (cancelingLabelId) {
+                  cancelLabelMutation.mutate(cancelingLabelId);
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Yes, Cancel Label
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Customer Details with Edit Capability */}
       <div className="border-t pt-6">

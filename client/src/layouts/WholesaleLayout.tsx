@@ -19,6 +19,7 @@ import {
 import { useBusinessMode } from "@/contexts/business-mode-context";
 import { NotificationBell } from "@/components/notification-bell";
 import { PlatformSwitcher } from "@/components/platform-switcher";
+import { CreditBalanceDisplay } from "@/components/credit-balance-display";
 
 interface WholesaleLayoutProps {
   children: React.ReactNode;
@@ -202,6 +203,13 @@ export function WholesaleLayout({ children }: WholesaleLayoutProps) {
 
           {/* Sidebar Footer */}
           <div className="space-y-2 pt-4 mt-4 border-t">
+            {/* Credit Balance Display - Only show in B2C mode */}
+            {mode === 'b2c' && (
+              <div className="mb-3">
+                <CreditBalanceDisplay />
+              </div>
+            )}
+            
             <div className="flex items-center justify-between px-3 mb-2">
               <span className="text-sm font-medium">Notifications</span>
               <NotificationBell />
