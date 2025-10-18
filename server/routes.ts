@@ -3861,6 +3861,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // Warehouse Addresses - Multi-warehouse management
+  // ============================================================================
+
+  // GET /api/seller/warehouse-addresses (Architecture 3)
+  // Get all warehouse addresses for authenticated seller
+  app.get("/api/seller/warehouse-addresses", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addresses = await storage.getWarehouseAddressesBySellerId(userId);
+      res.json(addresses);
+    } catch (error: any) {
+      logger.error("[WarehouseAddress] Get addresses error", { error: error.message });
+      res.status(500).json({ error: "Failed to fetch warehouse addresses" });
+    }
+  });
+
+  // POST /api/seller/warehouse-addresses (Architecture 3)
+  // Create new warehouse address for seller
+  app.post("/api/seller/warehouse-addresses", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addressData = req.body;
+
+      // If this is the first warehouse address, make it default
+      const existingAddresses = await storage.getWarehouseAddressesBySellerId(userId);
+      const isFirst = existingAddresses.length === 0;
+
+      const newAddress = await storage.createWarehouseAddress({
+        ...addressData,
+        sellerId: userId,
+        isDefault: isFirst ? 1 : (addressData.isDefault ? 1 : 0)
+      });
+
+      // If setting as default, unset other defaults
+      if (addressData.isDefault && !isFirst) {
+        await storage.setDefaultWarehouseAddress(userId, newAddress.id);
+      }
+
+      res.json(newAddress);
+    } catch (error: any) {
+      logger.error("[WarehouseAddress] Create address error", { error: error.message });
+      res.status(500).json({ error: "Failed to create warehouse address" });
+    }
+  });
+
+  // PATCH /api/seller/warehouse-addresses/:id (Architecture 3)
+  // Update warehouse address
+  app.patch("/api/seller/warehouse-addresses/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const updates = req.body;
+
+      // Verify ownership
+      const existing = await storage.getWarehouseAddress(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Warehouse address not found" });
+      }
+      if (existing.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Update address
+      const updated = await storage.updateWarehouseAddress(id, updates);
+
+      // If setting as default, unset other defaults
+      if (updates.isDefault) {
+        await storage.setDefaultWarehouseAddress(userId, id);
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      logger.error("[WarehouseAddress] Update address error", { error: error.message });
+      res.status(500).json({ error: "Failed to update warehouse address" });
+    }
+  });
+
+  // DELETE /api/seller/warehouse-addresses/:id (Architecture 3)
+  // Delete warehouse address
+  app.delete("/api/seller/warehouse-addresses/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Verify ownership
+      const existing = await storage.getWarehouseAddress(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Warehouse address not found" });
+      }
+      if (existing.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Prevent deleting the only warehouse address
+      const allAddresses = await storage.getWarehouseAddressesBySellerId(userId);
+      if (allAddresses.length === 1) {
+        return res.status(400).json({ error: "Cannot delete your only warehouse address" });
+      }
+
+      // Delete
+      await storage.deleteWarehouseAddress(id);
+
+      // If this was the default, set first remaining as default
+      if (existing.isDefault) {
+        const remaining = await storage.getWarehouseAddressesBySellerId(userId);
+        if (remaining.length > 0) {
+          await storage.setDefaultWarehouseAddress(userId, remaining[0].id);
+        }
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error("[WarehouseAddress] Delete address error", { error: error.message });
+      res.status(500).json({ error: "Failed to delete warehouse address" });
+    }
+  });
+
+  // POST /api/seller/warehouse-addresses/:id/set-default (Architecture 3)
+  // Set warehouse address as default
+  app.post("/api/seller/warehouse-addresses/:id/set-default", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Verify ownership
+      const existing = await storage.getWarehouseAddress(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Warehouse address not found" });
+      }
+      if (existing.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await storage.setDefaultWarehouseAddress(userId, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error("[WarehouseAddress] Set default error", { error: error.message });
+      res.status(500).json({ error: "Failed to set default warehouse address" });
+    }
+  });
+
+  // ============================================================================
+  // Shipping Labels (Shippo Integration)
+  // ============================================================================
+
   // POST /api/orders/:orderId/labels (Architecture 3)
   // Purchase shipping label from Shippo with 20% markup
   app.post("/api/orders/:orderId/labels", requireAuth, async (req: any, res) => {
