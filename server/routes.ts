@@ -6935,6 +6935,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // Analytics Routes (Architecture 3 - Service Layer)
+  // ========================================
+  
+  app.get("/api/analytics/overview", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const period = (req.query.period as string) || '30days';
+      
+      // Import analytics service
+      const { AnalyticsService } = await import("./services/analytics.service");
+      
+      // Calculate time range from period
+      const timeRange = AnalyticsService.calculateTimeRange(period);
+      
+      // Call all analytics service methods in parallel (Architecture 3)
+      const [revenue, orders, products, customers, platforms] = await Promise.all([
+        AnalyticsService.getRevenueAnalytics(userId, timeRange),
+        AnalyticsService.getOrderAnalytics(userId, timeRange),
+        AnalyticsService.getProductAnalytics(userId, timeRange),
+        AnalyticsService.getCustomerAnalytics(userId, timeRange),
+        AnalyticsService.getPlatformBreakdown(userId, timeRange)
+      ]);
+      
+      res.json({ 
+        revenue, 
+        orders, 
+        products, 
+        customers, 
+        platforms,
+        period,
+        timeRange: {
+          startDate: timeRange.startDate.toISOString(),
+          endDate: timeRange.endDate.toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error('[Analytics] Error fetching overview:', error);
+      res.status(500).json({ error: "Failed to fetch analytics overview" });
+    }
+  });
+  
+  app.get("/api/analytics/revenue", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const period = (req.query.period as string) || '30days';
+      
+      const { AnalyticsService } = await import("./services/analytics.service");
+      const timeRange = AnalyticsService.calculateTimeRange(period);
+      const revenue = await AnalyticsService.getRevenueAnalytics(userId, timeRange);
+      
+      res.json({ revenue, period });
+    } catch (error) {
+      logger.error('[Analytics] Error fetching revenue analytics:', error);
+      res.status(500).json({ error: "Failed to fetch revenue analytics" });
+    }
+  });
+  
+  app.get("/api/analytics/orders", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const period = (req.query.period as string) || '30days';
+      
+      const { AnalyticsService } = await import("./services/analytics.service");
+      const timeRange = AnalyticsService.calculateTimeRange(period);
+      const orderAnalytics = await AnalyticsService.getOrderAnalytics(userId, timeRange);
+      
+      res.json({ orders: orderAnalytics, period });
+    } catch (error) {
+      logger.error('[Analytics] Error fetching order analytics:', error);
+      res.status(500).json({ error: "Failed to fetch order analytics" });
+    }
+  });
+  
+  app.get("/api/analytics/products", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const period = (req.query.period as string) || '30days';
+      
+      const { AnalyticsService } = await import("./services/analytics.service");
+      const timeRange = AnalyticsService.calculateTimeRange(period);
+      const productAnalytics = await AnalyticsService.getProductAnalytics(userId, timeRange);
+      
+      res.json({ products: productAnalytics, period });
+    } catch (error) {
+      logger.error('[Analytics] Error fetching product analytics:', error);
+      res.status(500).json({ error: "Failed to fetch product analytics" });
+    }
+  });
+  
+  app.get("/api/analytics/customers", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const period = (req.query.period as string) || '30days';
+      
+      const { AnalyticsService } = await import("./services/analytics.service");
+      const timeRange = AnalyticsService.calculateTimeRange(period);
+      const customerAnalytics = await AnalyticsService.getCustomerAnalytics(userId, timeRange);
+      
+      res.json({ customers: customerAnalytics, period });
+    } catch (error) {
+      logger.error('[Analytics] Error fetching customer analytics:', error);
+      res.status(500).json({ error: "Failed to fetch customer analytics" });
+    }
+  });
+  
+  app.get("/api/analytics/platforms", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const period = (req.query.period as string) || '30days';
+      
+      const { AnalyticsService } = await import("./services/analytics.service");
+      const timeRange = AnalyticsService.calculateTimeRange(period);
+      const platforms = await AnalyticsService.getPlatformBreakdown(userId, timeRange);
+      
+      res.json({ platforms, period });
+    } catch (error) {
+      logger.error('[Analytics] Error fetching platform analytics:', error);
+      res.status(500).json({ error: "Failed to fetch platform analytics" });
+    }
+  });
+
+  // ========================================
   // Newsletter Routes (Architecture 3 - Service Layer)
   // ========================================
   
