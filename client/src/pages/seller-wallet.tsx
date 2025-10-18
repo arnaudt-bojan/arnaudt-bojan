@@ -188,14 +188,20 @@ export default function SellerWallet() {
     }).format(num);
   };
 
-  const getSourceLabel = (source: string) => {
+  const getSourceLabel = (source: string, metadata: any) => {
+    // Check if this is a rollback (credit with note containing "rollback" or "failure")
+    const isRollback = metadata?.note && 
+      (metadata.note.toLowerCase().includes('rollback') || 
+       metadata.note.toLowerCase().includes('failure'));
+    
     switch (source) {
       case 'label_purchase':
         return 'Shipping Label';
       case 'label_refund':
         return 'Label Refund';
       case 'manual':
-        return 'Wallet Top-Up';
+        // If it's a rollback credit, show as refund, not top-up
+        return isRollback ? 'Refund' : 'Wallet Top-Up';
       case 'settlement_fix':
         return 'Adjustment';
       default:
@@ -362,21 +368,33 @@ export default function SellerWallet() {
                             {format(new Date(entry.createdAt), 'MMM dd, yyyy h:mm a')}
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant={entry.type === 'credit' ? 'default' : 'secondary'}
-                              className="gap-1"
-                            >
-                              {entry.type === 'credit' ? (
-                                <ArrowUpCircle className="h-3 w-3" />
-                              ) : (
-                                <ArrowDownCircle className="h-3 w-3" />
-                              )}
-                              {entry.type === 'credit' ? 'Credit' : 'Debit'}
-                            </Badge>
+                            {(() => {
+                              const isRollback = metadata?.note && 
+                                (metadata.note.toLowerCase().includes('rollback') || 
+                                 metadata.note.toLowerCase().includes('failure'));
+                              
+                              return (
+                                <Badge
+                                  variant={
+                                    isRollback 
+                                      ? 'outline'  // Use outline variant for rollbacks
+                                      : entry.type === 'credit' ? 'default' : 'secondary'
+                                  }
+                                  className="gap-1"
+                                >
+                                  {entry.type === 'credit' ? (
+                                    <ArrowUpCircle className="h-3 w-3" />
+                                  ) : (
+                                    <ArrowDownCircle className="h-3 w-3" />
+                                  )}
+                                  {isRollback ? 'Refund' : entry.type === 'credit' ? 'Credit' : 'Debit'}
+                                </Badge>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">
-                              {getSourceLabel(entry.source)}
+                              {getSourceLabel(entry.source, metadata)}
                               {metadata?.note && (
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {metadata.note}
