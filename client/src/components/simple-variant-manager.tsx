@@ -217,8 +217,8 @@ export function SimpleVariantManager({
             <div className="space-y-2">
               {sizes.map((sizeVariant, index) => (
                 <Card key={index} className="p-4">
-                  <div className="flex gap-3 items-start">
-                    <div className="flex-1 grid grid-cols-3 gap-3">
+                  <div className="flex flex-col md:flex-row gap-3 items-start">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
                       <div>
                         <Label className="text-xs">Size</Label>
                         <Input
@@ -376,8 +376,8 @@ export function SimpleVariantManager({
                     ) : (
                       <div className="space-y-2">
                         {color.sizes.map((sizeVariant, sizeIndex) => (
-                          <div key={sizeIndex} className="flex gap-3 items-center">
-                            <div className="flex-1 grid grid-cols-3 gap-3">
+                          <div key={sizeIndex} className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
                               <Input
                                 placeholder="Size (e.g., S, M, L)"
                                 value={sizeVariant.size}
@@ -439,7 +439,7 @@ export function SimpleVariantManager({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Color Name</Label>
                 <Input

@@ -787,7 +787,8 @@ export default function BulkProductUpload() {
                         </Alert>
                       )}
 
-                      <div className="rounded-md border">
+                      {/* Desktop: Table View */}
+                      <div className="hidden md:block rounded-md border">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -835,6 +836,57 @@ export default function BulkProductUpload() {
                             ))}
                           </TableBody>
                         </Table>
+                      </div>
+
+                      {/* Mobile: Card View */}
+                      <div className="block md:hidden space-y-3">
+                        {validationResults.map((item) => (
+                          <div
+                            key={item.id}
+                            className="border rounded-lg p-4 space-y-3"
+                            data-testid={`card-validation-${item.id}`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {item.rowData.name || 'N/A'}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Row {item.rowNumber}
+                                </p>
+                              </div>
+                              {item.validationStatus === 'valid' && (
+                                <Badge variant="default" className="bg-green-600 dark:bg-green-900/30 shrink-0">
+                                  <CheckCircle className="mr-1 h-3 w-3" />
+                                  Valid
+                                </Badge>
+                              )}
+                              {item.validationStatus === 'warning' && (
+                                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 shrink-0">
+                                  <AlertCircle className="mr-1 h-3 w-3" />
+                                  Warning
+                                </Badge>
+                              )}
+                              {item.validationStatus === 'error' && (
+                                <Badge variant="destructive" className="shrink-0">
+                                  <XCircle className="mr-1 h-3 w-3" />
+                                  Error
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {item.validationMessages.length > 0 && (
+                              <div className="border-t pt-2">
+                                <p className="text-xs text-muted-foreground mb-1">Messages:</p>
+                                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                                  {item.validationMessages.map((msg, idx) => (
+                                    <li key={idx}>{msg}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </CardContent>
                   </Card>
@@ -895,68 +947,136 @@ export default function BulkProductUpload() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : jobHistory && jobHistory.length > 0 ? (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>File Name</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Products</TableHead>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {jobHistory.map((job) => (
-                          <TableRow key={job.id} data-testid={`row-job-${job.id}`}>
-                            <TableCell className="font-medium">{job.fileName}</TableCell>
-                            <TableCell>{getStatusBadge(job.status)}</TableCell>
-                            <TableCell>
-                              {job.status === 'completed' ? (
-                                <div className="flex items-center gap-2">
-                                  <span data-testid={`text-success-count-${job.id}`}>{job.successCount} imported</span>
-                                  {job.successCount === 0 && job.errorCount > 0 && (
-                                    <Badge variant="destructive" className="text-xs">
-                                      {job.errorCount} errors
-                                    </Badge>
+                  <>
+                    {/* Desktop: Table View */}
+                    <div className="hidden md:block rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>File Name</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Products</TableHead>
+                            <TableHead>Created</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {jobHistory.map((job) => (
+                            <TableRow key={job.id} data-testid={`row-job-${job.id}`}>
+                              <TableCell className="font-medium">{job.fileName}</TableCell>
+                              <TableCell>{getStatusBadge(job.status)}</TableCell>
+                              <TableCell>
+                                {job.status === 'completed' ? (
+                                  <div className="flex items-center gap-2">
+                                    <span data-testid={`text-success-count-${job.id}`}>{job.successCount} imported</span>
+                                    {job.successCount === 0 && job.errorCount > 0 && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        {job.errorCount} errors
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span>{job.totalRows} rows</span>
+                                )}
+                              </TableCell>
+                              <TableCell>{formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setCurrentJobId(job.id);
+                                      setActiveTab("validate");
+                                    }}
+                                    data-testid={`button-view-${job.id}`}
+                                  >
+                                    View
+                                  </Button>
+                                  {job.status === 'completed' && job.successCount > 0 && (
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => handleRollback(job.id)}
+                                      disabled={rollbackMutation.isPending}
+                                      data-testid={`button-rollback-${job.id}`}
+                                    >
+                                      Rollback
+                                    </Button>
                                   )}
                                 </div>
-                              ) : (
-                                <span>{job.totalRows} rows</span>
-                              )}
-                            </TableCell>
-                            <TableCell>{formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setCurrentJobId(job.id);
-                                    setActiveTab("validate");
-                                  }}
-                                  data-testid={`button-view-${job.id}`}
-                                >
-                                  View
-                                </Button>
-                                {job.status === 'completed' && job.successCount > 0 && (
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => handleRollback(job.id)}
-                                    disabled={rollbackMutation.isPending}
-                                    data-testid={`button-rollback-${job.id}`}
-                                  >
-                                    Rollback
-                                  </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Mobile: Card View */}
+                    <div className="block md:hidden space-y-3">
+                      {jobHistory.map((job) => (
+                        <div
+                          key={job.id}
+                          className="border rounded-lg p-4 space-y-3"
+                          data-testid={`card-job-${job.id}`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{job.fileName}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+                              </p>
+                            </div>
+                            {getStatusBadge(job.status)}
+                          </div>
+
+                          <div className="border-t pt-2">
+                            <p className="text-sm text-muted-foreground">Products</p>
+                            {job.status === 'completed' ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-medium" data-testid={`text-success-count-${job.id}`}>
+                                  {job.successCount} imported
+                                </span>
+                                {job.successCount === 0 && job.errorCount > 0 && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    {job.errorCount} errors
+                                  </Badge>
                                 )}
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                            ) : (
+                              <p className="font-medium mt-1">{job.totalRows} rows</p>
+                            )}
+                          </div>
+
+                          <div className="border-t pt-3 flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => {
+                                setCurrentJobId(job.id);
+                                setActiveTab("validate");
+                              }}
+                              data-testid={`button-view-${job.id}`}
+                            >
+                              View
+                            </Button>
+                            {job.status === 'completed' && job.successCount > 0 && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleRollback(job.id)}
+                                disabled={rollbackMutation.isPending}
+                                data-testid={`button-rollback-${job.id}`}
+                              >
+                                Rollback
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />

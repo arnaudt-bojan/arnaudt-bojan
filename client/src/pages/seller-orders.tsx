@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Order } from "@shared/schema";
 import { getPaymentStatusLabel, getOrderStatusLabel, getProductTypeLabel } from "@/lib/format-status";
 
@@ -170,7 +171,8 @@ export default function SellerOrdersPage() {
         </p>
       </div>
 
-      <div className="border rounded-lg">
+      {/* Desktop: Table View */}
+      <div className="hidden md:block border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -280,6 +282,102 @@ export default function SellerOrdersPage() {
             })}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile: Card View */}
+      <div className="block md:hidden space-y-3">
+        {sortedOrders.map((order) => {
+          const isExpanded = expandedOrders.has(order.id);
+          const productType = getOrderProductType(order);
+
+          return (
+            <Card key={order.id} className="overflow-hidden" data-testid={`card-order-${order.id}`}>
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-base truncate" data-testid={`text-order-id-mobile-${order.id}`}>
+                      Order #{order.id.slice(0, 8).toUpperCase()}
+                    </CardTitle>
+                    <CardDescription className="text-xs" data-testid={`text-date-mobile-${order.id}`}>
+                      {format(new Date(order.createdAt), 'MMM d, yyyy')}
+                    </CardDescription>
+                  </div>
+                  <Badge 
+                    className={`${getStatusColor(order.status)} shrink-0`}
+                    data-testid={`badge-status-mobile-${order.id}`}
+                  >
+                    {getOrderStatusLabel(order.status)}
+                  </Badge>
+                </div>
+                {productType && productType !== 'wholesale' && (
+                  <Badge 
+                    variant="outline" 
+                    className={`${getProductTypeColor(productType)} w-fit mt-2`}
+                    data-testid={`badge-product-type-mobile-${order.id}`}
+                  >
+                    {getProductTypeLabel(productType)}
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardContent className="pb-3 pt-0 space-y-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Customer:</span>
+                  <span className="font-medium truncate ml-2" data-testid={`text-customer-mobile-${order.id}`}>
+                    {order.customerName}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Email:</span>
+                  <span className="text-xs truncate ml-2">
+                    {order.userId ? order.customerEmail : `${order.customerEmail} (Guest)`}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Total:</span>
+                  <span className="font-semibold" data-testid={`text-total-mobile-${order.id}`}>
+                    {order.currency} {parseFloat(order.total).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2 items-center">
+                  <span className="text-muted-foreground">Payment:</span>
+                  <Badge 
+                    variant="outline" 
+                    className={`${getPaymentStatusColor(order.paymentStatus || "pending")} text-xs`}
+                    data-testid={`badge-payment-mobile-${order.id}`}
+                  >
+                    {getPaymentStatusLabel(order.paymentStatus || "pending")}
+                  </Badge>
+                </div>
+              </CardContent>
+              <CardFooter className="pt-3 pb-3 border-t flex-col gap-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full min-h-11"
+                  onClick={() => toggleOrder(order.id)}
+                  data-testid={`button-expand-mobile-${order.id}`}
+                >
+                  {isExpanded ? (
+                    <>
+                      Hide Details
+                      <ChevronDown className="ml-2 h-4 w-4 rotate-180" />
+                    </>
+                  ) : (
+                    <>
+                      View Details
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+                {isExpanded && (
+                  <div className="w-full pt-3 border-t">
+                    <OrderRowExpanded orderId={order.id} />
+                  </div>
+                )}
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

@@ -345,77 +345,144 @@ export default function SellerWallet() {
                 <p className="text-sm mt-1">Add funds to get started</p>
               </div>
             ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ledgerData.ledgerEntries.map((entry) => {
-                      const metadata = typeof entry.metadata === 'string' 
-                        ? JSON.parse(entry.metadata) 
-                        : entry.metadata;
-                      
-                      return (
-                        <TableRow key={entry.id} data-testid={`row-transaction-${entry.id}`}>
-                          <TableCell className="text-sm">
-                            {format(new Date(entry.createdAt), 'MMM dd, yyyy h:mm a')}
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              const isRollback = metadata?.note && 
-                                (metadata.note.toLowerCase().includes('rollback') || 
-                                 metadata.note.toLowerCase().includes('failure'));
-                              
-                              return (
-                                <Badge
-                                  variant={
-                                    isRollback 
-                                      ? 'outline'  // Use outline variant for rollbacks
-                                      : entry.type === 'credit' ? 'default' : 'secondary'
-                                  }
-                                  className="gap-1"
-                                >
-                                  {entry.type === 'credit' ? (
-                                    <ArrowUpCircle className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDownCircle className="h-3 w-3" />
-                                  )}
-                                  {isRollback ? 'Refund' : entry.type === 'credit' ? 'Credit' : 'Debit'}
-                                </Badge>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
+              <>
+                {/* Desktop: Table View */}
+                <div className="hidden md:block rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ledgerData.ledgerEntries.map((entry) => {
+                        const metadata = typeof entry.metadata === 'string' 
+                          ? JSON.parse(entry.metadata) 
+                          : entry.metadata;
+                        
+                        return (
+                          <TableRow key={entry.id} data-testid={`row-transaction-${entry.id}`}>
+                            <TableCell className="text-sm">
+                              {format(new Date(entry.createdAt), 'MMM dd, yyyy h:mm a')}
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const isRollback = metadata?.note && 
+                                  (metadata.note.toLowerCase().includes('rollback') || 
+                                   metadata.note.toLowerCase().includes('failure'));
+                                
+                                return (
+                                  <Badge
+                                    variant={
+                                      isRollback 
+                                        ? 'outline'  // Use outline variant for rollbacks
+                                        : entry.type === 'credit' ? 'default' : 'secondary'
+                                    }
+                                    className="gap-1"
+                                  >
+                                    {entry.type === 'credit' ? (
+                                      <ArrowUpCircle className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDownCircle className="h-3 w-3" />
+                                    )}
+                                    {isRollback ? 'Refund' : entry.type === 'credit' ? 'Credit' : 'Debit'}
+                                  </Badge>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                {getSourceLabel(entry.source, metadata)}
+                                {metadata?.note && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {metadata.note}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              <span className={entry.type === 'credit' ? 'text-green-600' : 'text-red-600'}>
+                                {entry.type === 'credit' ? '+' : '-'}{formatAmount(entry.amountUsd)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right text-sm text-muted-foreground">
+                              {formatAmount(entry.balanceAfter)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile: Card View */}
+                <div className="block md:hidden space-y-3">
+                  {ledgerData.ledgerEntries.map((entry) => {
+                    const metadata = typeof entry.metadata === 'string' 
+                      ? JSON.parse(entry.metadata) 
+                      : entry.metadata;
+                    const isRollback = metadata?.note && 
+                      (metadata.note.toLowerCase().includes('rollback') || 
+                       metadata.note.toLowerCase().includes('failure'));
+                    
+                    return (
+                      <div 
+                        key={entry.id} 
+                        className="border rounded-lg p-4 space-y-3"
+                        data-testid={`card-transaction-${entry.id}`}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">
                               {getSourceLabel(entry.source, metadata)}
-                              {metadata?.note && (
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {metadata.note}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            <span className={entry.type === 'credit' ? 'text-green-600' : 'text-red-600'}>
-                              {entry.type === 'credit' ? '+' : '-'}{formatAmount(entry.amountUsd)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {formatAmount(entry.balanceAfter)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {format(new Date(entry.createdAt), 'MMM dd, yyyy h:mm a')}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              isRollback 
+                                ? 'outline' 
+                                : entry.type === 'credit' ? 'default' : 'secondary'
+                            }
+                            className="gap-1 shrink-0"
+                          >
+                            {entry.type === 'credit' ? (
+                              <ArrowUpCircle className="h-3 w-3" />
+                            ) : (
+                              <ArrowDownCircle className="h-3 w-3" />
+                            )}
+                            {isRollback ? 'Refund' : entry.type === 'credit' ? 'Credit' : 'Debit'}
+                          </Badge>
+                        </div>
+
+                        {metadata?.note && (
+                          <p className="text-xs text-muted-foreground border-t pt-2">
+                            {metadata.note}
+                          </p>
+                        )}
+
+                        <div className="flex justify-between items-center border-t pt-2">
+                          <span className="text-sm text-muted-foreground">Amount</span>
+                          <span className={`text-lg font-semibold ${entry.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                            {entry.type === 'credit' ? '+' : '-'}{formatAmount(entry.amountUsd)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Balance After</span>
+                          <span className="font-medium">{formatAmount(entry.balanceAfter)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
