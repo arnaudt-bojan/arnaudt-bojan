@@ -94,15 +94,21 @@ export default function SellerWallet() {
       return await res.json();
     },
     onSuccess: (data: { checkoutUrl: string }) => {
-      // Open Stripe Checkout in new tab (Replit webview blocks same-window external navigation)
-      window.open(data.checkoutUrl, '_blank');
+      // Try to open in new window first
+      const newWindow = window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer');
       
-      // Show feedback that checkout opened
-      toast({
-        title: "Checkout opened",
-        description: "Complete payment in the new tab. Your balance will update automatically.",
-        variant: "default",
-      });
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Pop-up blocked - redirect current page instead
+        // Success/cancel URLs will bring user back to /seller/wallet
+        window.location.href = data.checkoutUrl;
+      } else {
+        // New window opened successfully
+        toast({
+          title: "Checkout opened",
+          description: "Complete payment in the new window. Your balance will update automatically.",
+          variant: "default",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
