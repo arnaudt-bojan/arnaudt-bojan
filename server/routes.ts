@@ -10451,6 +10451,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // City Search API - For shipping zone configuration (city-level only, no street addresses)
+  app.get("/api/cities/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      const countryCode = req.query.countryCode as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+
+      // Validate request
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: "Query parameter 'q' is required" });
+      }
+
+      // Check if LocationIQ is available
+      if (!locationIQService.isAvailable()) {
+        return res.status(503).json({ 
+          error: "City search service not available",
+          message: "LocationIQ API key not configured" 
+        });
+      }
+
+      // Search cities
+      const results = await locationIQService.searchCities(
+        query,
+        countryCode,
+        limit
+      );
+
+      res.json(results);
+
+    } catch (error: any) {
+      logger.error("[API] City search failed:", error);
+      res.status(500).json({ 
+        error: "City search failed",
+        message: error.message 
+      });
+    }
+  });
+
   app.post("/api/addresses/validate", async (req, res) => {
     try {
       const address = req.body;

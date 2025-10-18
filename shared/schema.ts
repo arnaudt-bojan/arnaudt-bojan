@@ -2360,10 +2360,12 @@ export const shippingZones = pgTable("shipping_zones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   matrixId: varchar("matrix_id").notNull(), // References shipping_matrices.id
   zoneType: text("zone_type").notNull(), // "continent", "country", "city"
-  zoneName: text("zone_name").notNull(), // e.g., "North America", "United States", "New York"
-  zoneCode: varchar("zone_code"), // Optional: ISO code (US, CA, NY, etc.)
+  zoneName: text("zone_name").notNull(), // Display name (e.g., "North America", "United States", "New York")
+  zoneIdentifier: text("zone_identifier"), // Normalized identifier for matching: ISO code (country), continent code (continent), or LocationIQ place_id (city). Nullable for backward compatibility with legacy zones.
+  zoneCode: varchar("zone_code"), // DEPRECATED: Legacy field, use zoneIdentifier instead
   rate: decimal("rate", { precision: 10, scale: 2 }).notNull(), // Shipping cost
   estimatedDays: integer("estimated_days"), // Optional delivery estimate
+  metadata: text("metadata"), // Optional JSON metadata (e.g., {"coordinates": {...}, "countryCode": "US"})
 });
 
 export const insertShippingZoneSchema = createInsertSchema(shippingZones).omit({ id: true });
