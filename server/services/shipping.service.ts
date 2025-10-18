@@ -40,7 +40,15 @@ export class ShippingService {
       postalCode?: string;
     }
   ): Promise<ShippingCalculation> {
+    console.log('[ShippingService] calculateShipping called', {
+      itemCount: items.length,
+      destination: destination.country,
+      destinationState: destination.state,
+      destinationCity: destination.city
+    });
+
     if (items.length === 0) {
+      console.log('[ShippingService] No items, returning free shipping');
       return { cost: 0, method: "free" };
     }
 
@@ -49,6 +57,14 @@ export class ShippingService {
     if (!firstProduct) {
       throw new Error("Product not found");
     }
+
+    console.log('[ShippingService] Product shipping configuration', {
+      productId: firstProduct.id,
+      productName: firstProduct.name,
+      shippingType: firstProduct.shippingType,
+      flatRate: firstProduct.flatShippingRate,
+      matrixId: firstProduct.shippingMatrixId
+    });
 
     // Validate all items are from the same seller
     const sellerId = firstProduct.sellerId;
@@ -64,10 +80,19 @@ export class ShippingService {
 
     // Get shipping configuration from product (or seller in future enhancement)
     const shippingType = firstProduct.shippingType || "flat";
+    
+    console.log('[ShippingService] Determined shipping method:', {
+      shippingType,
+      isDefault: !firstProduct.shippingType
+    });
 
     // Handle different shipping types
     switch (shippingType) {
       case "free":
+        console.log('[ShippingService] Returning FREE shipping', {
+          cost: 0,
+          country: destination.country
+        });
         return { 
           cost: 0, 
           method: "free",
@@ -78,6 +103,11 @@ export class ShippingService {
 
       case "flat":
         const flatRate = parseFloat(firstProduct.flatShippingRate || "0");
+        console.log('[ShippingService] Returning FLAT rate shipping', {
+          cost: flatRate,
+          country: destination.country,
+          rawRate: firstProduct.flatShippingRate
+        });
         return { 
           cost: flatRate, 
           method: "flat",
@@ -100,14 +130,28 @@ export class ShippingService {
 
       case "shippo":
         // Shippo real-time rates
+        console.log('[ShippingService] Calculating SHIPPO shipping', {
+          productId: firstProduct.id,
+          destination: destination.country
+        });
         const shippoResult = await this.calculateShippoShipping(
           firstProduct,
           destination,
           items
         );
+        console.log('[ShippingService] Shippo result:', {
+          cost: shippoResult.cost,
+          method: shippoResult.method,
+          carrier: shippoResult.carrier,
+          zone: shippoResult.zone
+        });
         return shippoResult;
 
       default:
+        console.log('[ShippingService] Unknown shipping type, defaulting to FREE', {
+          shippingType,
+          country: destination.country
+        });
         return { cost: 0, method: "free" };
     }
   }

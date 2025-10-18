@@ -3859,6 +3859,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // **WAREHOUSE STATUS API** - Check if warehouse address is configured (ISSUE #1 FIX)
+  app.get("/api/seller/warehouse-status", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const hasWarehouse = !!(
+        user.warehouseStreet &&
+        user.warehouseCity &&
+        user.warehousePostalCode &&
+        user.warehouseCountry
+      );
+
+      res.json({
+        hasWarehouse,
+        warehouseAddress: hasWarehouse ? {
+          street: user.warehouseStreet,
+          city: user.warehouseCity,
+          state: user.warehouseState,
+          postalCode: user.warehousePostalCode,
+          country: user.warehouseCountry,
+        } : null,
+      });
+    } catch (error: any) {
+      logger.error("[Warehouse Status API] Error checking warehouse status:", error);
+      res.status(500).json({ error: "Failed to check warehouse status" });
+    }
+  });
+
   // Checkout - B2C checkout using CheckoutWorkflowOrchestrator (Architecture 3)
   // Simplified orchestrator with direct sequential flow and rollback capabilities
   app.post('/api/checkout/initiate', async (req, res) => {

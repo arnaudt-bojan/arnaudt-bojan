@@ -21,6 +21,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Plus, X, Upload, Package, Clock, Hammer, Building2, Check, Star, Image as ImageIcon, MoveUp, GripVertical, Truck, Eye, EyeOff, Archive, AlertCircle, Sparkles, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -174,7 +175,15 @@ export function ProductFormFields({
   const { data: shippingMatrices = [] } = useQuery<any[]>({
     queryKey: ["/api/shipping-matrices"],
   });
+
+  // ISSUE #1 FIX: Fetch warehouse status for Shippo validation
+  const { data: warehouseStatus } = useQuery<{ hasWarehouse: boolean; warehouseAddress: any }>({
+    queryKey: ["/api/seller/warehouse-status"],
+    enabled: !!mode || mode === "retail", // Only for retail products
+  });
+
   const selectedType = form.watch("productType");
+  const selectedShippingType = form.watch("shippingType");
   
   // Handle package preset selection
   const handlePresetChange = (value: string) => {
@@ -910,6 +919,29 @@ export function ProductFormFields({
 
           {form.watch("shippingType") === "shippo" && (
             <>
+              {/* ISSUE #1 FIX: Warehouse Address Warning */}
+              {warehouseStatus && !warehouseStatus.hasWarehouse && (
+                <Alert variant="destructive" data-testid="alert-warehouse-missing">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Warehouse Address Required</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      You need to configure your warehouse address before using Shippo shipping. 
+                      The server will reject product creation without a valid warehouse address.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.href = '/seller/settings'}
+                      data-testid="button-go-to-settings"
+                    >
+                      Go to Settings → Warehouse
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">Package Dimensions</p>

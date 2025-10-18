@@ -92,16 +92,32 @@ export class ProductService {
         return { success: false, error: error.message };
       }
 
-      // Step 4: Generate SKUs using SKU service
+      // Step 4: Validate Shippo shipping requirements (ISSUE #1 FIX)
+      // If shippingType is "shippo", validate warehouse address is configured
+      if (validationResult.data.shippingType === 'shippo') {
+        const warehouseValid = this.validateWarehouseAddress(user);
+        if (!warehouseValid.valid) {
+          logger.warn('[ProductService] Shippo product creation blocked - no warehouse address', {
+            sellerId,
+            productName: validationResult.data.name
+          });
+          return { 
+            success: false, 
+            error: 'Warehouse address required for Shippo shipping. Please configure your warehouse address in Settings > Warehouse before creating products with Shippo shipping.'
+          };
+        }
+      }
+
+      // Step 5: Generate SKUs using SKU service
       const productDataWithSKU = await this.generateSKUs(validationResult.data, sellerId);
 
-      // Step 5: Sync stock from variants
+      // Step 6: Sync stock from variants
       const syncedProductData = syncProductStockFromVariants(productDataWithSKU);
 
-      // Step 6: Create product
+      // Step 7: Create product
       const product = await this.storage.createProduct(syncedProductData);
 
-      // Step 7: Send notifications (don't fail if notifications fail)
+      // Step 8: Send notifications (don't fail if notifications fail)
       await this.sendProductListingNotifications(product, user).catch(error => {
         logger.error('[ProductService] Failed to send notifications:', error);
       });
@@ -190,6 +206,27 @@ export class ProductService {
 
       if (product.sellerId !== sellerId) {
         return { success: false, error: 'Unauthorized' };
+      }
+
+      // Validate Shippo shipping requirements if changing to Shippo (ISSUE #1 FIX)
+      if (updates.shippingType === 'shippo') {
+        const user = await this.storage.getUser(sellerId);
+        if (!user) {
+          return { success: false, error: 'User not found' };
+        }
+
+        const warehouseValid = this.validateWarehouseAddress(user);
+        if (!warehouseValid.valid) {
+          logger.warn('[ProductService] Shippo product update blocked - no warehouse address', {
+            sellerId,
+            productId,
+            productName: product.name
+          });
+          return { 
+            success: false, 
+            error: 'Warehouse address required for Shippo shipping. Please configure your warehouse address in Settings > Warehouse before updating products to use Shippo shipping.'
+          };
+        }
       }
 
       // Sync stock from variants if variants are being updated
@@ -410,5 +447,33 @@ export class ProductService {
       userId: user.id, 
       productId: product.id 
     });
+  }
+
+  /**
+   * Validate warehouse address for Shippo shipping (ISSUE #1 FIX)
+   * 
+   * @param user - The seller user object
+   * @returns Validation result with valid flag and optional error message
+   */
+  private validateWarehouseAddress(user: User): { valid: boolean; error?: string } {
+    const requiredFields = {
+      warehouseStreet: user.warehouseStreet,
+      warehouseCity: user.warehouseCity,
+      warehousePostalCode: user.warehousePostalCode,
+      warehouseCountry: user.warehouseCountry,
+    };
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value)
+      .map(([field]) => field);
+
+    if (missingFields.length > 0) {
+      return {
+        valid: false,
+        error: `Warehouse address incomplete. Missing: ${missingFields.join(', ')}`,
+      };
+    }
+
+    return { valid: true };
   }
 }
