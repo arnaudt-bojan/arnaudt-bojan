@@ -18,7 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShippingZoneInput, type ZoneType } from "@/components/ShippingZoneInput";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatPrice as formatCurrency } from "@/lib/currency-utils";
 
 const matrixSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -46,7 +46,6 @@ type ZoneForm = z.infer<typeof zoneSchema>;
 export function ShippingMatrixManager() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { formatPrice } = useCurrency();
   const [selectedMatrix, setSelectedMatrix] = useState<any | null>(null);
   const [showMatrixDialog, setShowMatrixDialog] = useState(false);
   const [showZoneDialog, setShowZoneDialog] = useState(false);
@@ -297,7 +296,7 @@ export function ShippingMatrixManager() {
                         </div>
                       </TableCell>
                       <TableCell className="capitalize">{zone.zoneType}</TableCell>
-                      <TableCell>{formatPrice(parseFloat(zone.rate), sellerCurrency)}</TableCell>
+                      <TableCell>{formatCurrency(parseFloat(zone.rate), sellerCurrency)}</TableCell>
                       <TableCell>{zone.estimatedDays || "-"}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
