@@ -417,9 +417,15 @@ export class ShippoLabelService {
     } catch (error: any) {
       logger.error('[ShippoLabelService] Label purchase failed', {
         orderId,
-        error: error.message
+        errorMessage: error.message,
+        errorStack: error.stack,
+        errorName: error.name,
+        fullError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
       });
-      throw new Error(`Failed to purchase label: ${error.message}`);
+      
+      // Return detailed error message
+      const detailedMessage = error.message || 'Unknown error occurred';
+      throw new Error(`Failed to purchase label: ${detailedMessage}`);
     }
   }
 
