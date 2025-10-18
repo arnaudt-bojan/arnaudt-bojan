@@ -8,6 +8,7 @@ import type { IStorage } from "../storage";
 import type { Product } from "@shared/schema";
 import { requiresState, isValidState } from "@shared/shipping-validation";
 import { ConfigurationError } from "../errors";
+import { logger } from "../logger";
 
 export interface ShippingRate {
   zone: string;
@@ -40,7 +41,7 @@ export class ShippingService {
       postalCode?: string;
     }
   ): Promise<ShippingCalculation> {
-    console.log('[ShippingService] calculateShipping called', {
+    logger.debug('[ShippingService] calculateShipping called', {
       itemCount: items.length,
       destination: destination.country,
       destinationState: destination.state,
@@ -48,7 +49,7 @@ export class ShippingService {
     });
 
     if (items.length === 0) {
-      console.log('[ShippingService] No items, returning free shipping');
+      logger.debug('[ShippingService] No items, returning free shipping');
       return { cost: 0, method: "free" };
     }
 
@@ -58,7 +59,7 @@ export class ShippingService {
       throw new Error("Product not found");
     }
 
-    console.log('[ShippingService] Product shipping configuration', {
+    logger.debug('[ShippingService] Product shipping configuration', {
       productId: firstProduct.id,
       productName: firstProduct.name,
       shippingType: firstProduct.shippingType,
@@ -81,7 +82,7 @@ export class ShippingService {
     // Get shipping configuration from product (or seller in future enhancement)
     const shippingType = firstProduct.shippingType || "flat";
     
-    console.log('[ShippingService] Determined shipping method:', {
+    logger.info('[ShippingService] Determined shipping method:', {
       shippingType,
       isDefault: !firstProduct.shippingType
     });
@@ -89,7 +90,7 @@ export class ShippingService {
     // Handle different shipping types
     switch (shippingType) {
       case "free":
-        console.log('[ShippingService] Returning FREE shipping', {
+        logger.info('[ShippingService] Returning FREE shipping', {
           cost: 0,
           country: destination.country
         });
@@ -103,7 +104,7 @@ export class ShippingService {
 
       case "flat":
         const flatRate = parseFloat(firstProduct.flatShippingRate || "0");
-        console.log('[ShippingService] Returning FLAT rate shipping', {
+        logger.info('[ShippingService] Returning FLAT rate shipping', {
           cost: flatRate,
           country: destination.country,
           rawRate: firstProduct.flatShippingRate
@@ -130,7 +131,7 @@ export class ShippingService {
 
       case "shippo":
         // Shippo real-time rates
-        console.log('[ShippingService] Calculating SHIPPO shipping', {
+        logger.info('[ShippingService] Calculating SHIPPO shipping', {
           productId: firstProduct.id,
           destination: destination.country
         });
@@ -139,7 +140,7 @@ export class ShippingService {
           destination,
           items
         );
-        console.log('[ShippingService] Shippo result:', {
+        logger.info('[ShippingService] Shippo result:', {
           cost: shippoResult.cost,
           method: shippoResult.method,
           carrier: shippoResult.carrier,
@@ -148,7 +149,7 @@ export class ShippingService {
         return shippoResult;
 
       default:
-        console.log('[ShippingService] Unknown shipping type, defaulting to FREE', {
+        logger.warn('[ShippingService] Unknown shipping type, defaulting to FREE', {
           shippingType,
           country: destination.country
         });
@@ -390,7 +391,7 @@ export class ShippingService {
         )
       };
     } catch (error: any) {
-      console.error('Shippo API error:', error);
+      logger.error('Shippo API error:', error);
       throw new Error(`Shippo shipping calculation failed: ${error.message}`);
     }
   }

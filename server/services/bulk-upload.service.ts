@@ -289,8 +289,8 @@ export class BulkUploadService {
       hasColors,
       variants,
       stock: variants ? undefined : this.parseStock(rowData['stock']),
-      // Shipping fields - default to 'free' for bulk uploads when not specified
-      shippingType: (rowData['shippingType']?.toString().trim() as any) || 'free',
+      // Shipping fields - default to 'flat' for bulk uploads when not specified
+      shippingType: (rowData['shippingType']?.toString().trim() as any) || 'flat',
       flatShippingRate: rowData['flatShippingRate']?.toString().trim() || undefined,
       shippoWeight: rowData['shippoWeight']?.toString().trim() || undefined,
       shippoLength: rowData['shippoLength']?.toString().trim() || undefined,

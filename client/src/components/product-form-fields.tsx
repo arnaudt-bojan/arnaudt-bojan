@@ -176,14 +176,15 @@ export function ProductFormFields({
     queryKey: ["/api/shipping-matrices"],
   });
 
-  // ISSUE #1 FIX: Fetch warehouse status for Shippo validation
-  const { data: warehouseStatus } = useQuery<{ hasWarehouse: boolean; warehouseAddress: any }>({
-    queryKey: ["/api/seller/warehouse-status"],
-    enabled: !!mode || mode === "retail", // Only for retail products
-  });
-
+  // Watch form values
   const selectedType = form.watch("productType");
   const selectedShippingType = form.watch("shippingType");
+
+  // Fetch warehouse status only when Shippo shipping is selected
+  const { data: warehouseStatus } = useQuery<{ hasWarehouse: boolean; warehouseAddress: any }>({
+    queryKey: ["/api/seller/warehouse-status"],
+    enabled: selectedShippingType === 'shippo', // Only fetch when Shippo selected
+  });
   
   // Handle package preset selection
   const handlePresetChange = (value: string) => {
