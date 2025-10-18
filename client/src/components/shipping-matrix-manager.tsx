@@ -93,6 +93,13 @@ export function ShippingMatrixManager() {
       zoneForm.reset();
       toast({ title: "Success", description: "Shipping zone added successfully" });
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to create shipping zone",
+        variant: "destructive"
+      });
+    },
   });
 
   const updateZoneMutation = useMutation({

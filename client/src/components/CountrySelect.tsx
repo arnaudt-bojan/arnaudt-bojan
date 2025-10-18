@@ -4,16 +4,18 @@ import { COUNTRIES } from "../../../shared/countries";
 
 interface CountrySelectProps {
   value: string;
-  onChange: (value: string) => void;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
   disabled?: boolean;
+  "data-testid"?: string;
 }
 
-export function CountrySelect({ value, onChange, disabled }: CountrySelectProps) {
+export function CountrySelect({ value, onValueChange, placeholder, disabled, "data-testid": dataTestId }: CountrySelectProps) {
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <FormControl>
-        <SelectTrigger data-testid="select-country">
-          <SelectValue placeholder="Select country" />
+        <SelectTrigger data-testid={dataTestId || "select-country"}>
+          <SelectValue placeholder={placeholder || "Select country"} />
         </SelectTrigger>
       </FormControl>
       <SelectContent>

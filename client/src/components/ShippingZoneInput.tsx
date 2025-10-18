@@ -3,6 +3,8 @@ import { ContinentSelect } from "@/components/ContinentSelect";
 import { CityAutocompleteInput, type CityResult } from "@/components/CityAutocompleteInput";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getContinentByCode } from "@shared/continents";
+import { getCountryName } from "@shared/countries";
 
 export type ZoneType = "continent" | "country" | "city";
 
@@ -52,13 +54,11 @@ export function ShippingZoneInput({
       onZoneIdentifierChange(continentCode);
     }
     
-    // Update zone name from continents list
-    import("@shared/continents").then(({ getContinentByCode }) => {
-      const continent = getContinentByCode(continentCode);
-      if (continent) {
-        onZoneNameChange(continent.displayName);
-      }
-    });
+    // Update zone name from continents list (synchronous)
+    const continent = getContinentByCode(continentCode);
+    if (continent) {
+      onZoneNameChange(continent.displayName);
+    }
   };
 
   const handleCountryChange = (countryCode: string) => {
@@ -67,13 +67,11 @@ export function ShippingZoneInput({
       onZoneIdentifierChange(countryCode);
     }
     
-    // Update zone name from countries list
-    import("@shared/countries").then(({ getCountryName }) => {
-      const countryName = getCountryName(countryCode);
-      if (countryName) {
-        onZoneNameChange(countryName);
-      }
-    });
+    // Update zone name from countries list (synchronous)
+    const countryName = getCountryName(countryCode);
+    if (countryName) {
+      onZoneNameChange(countryName);
+    }
   };
 
   return (
