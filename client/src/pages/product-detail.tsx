@@ -617,55 +617,109 @@ export default function ProductDetail() {
             )}
 
             {/* Only show Add to Cart / Buy Now for buyers (not sellers/collaborators) */}
+            {/* Desktop: inline buttons, Mobile: sticky bottom bar */}
             {canAddToCart && (
-              <div className="grid grid-cols-2 gap-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="gap-2"
-                      onClick={handleAddToCart}
-                      disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
-                      data-testid="button-add-to-cart"
-                    >
-                      <ShoppingCart className="h-5 w-5" />
-                      {isLoadingStock 
-                        ? "Checking..." 
-                        : !isProductAvailable() && product?.productType === "in-stock" 
-                          ? "Sold Out" 
-                          : "Add to Cart"}
-                    </Button>
-                  </TooltipTrigger>
-                  {isCartLoading && (
-                    <TooltipContent>
-                      <p>Loading cart...</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="lg"
-                      className="gap-2"
-                      onClick={handleBuyNow}
-                      disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
-                      data-testid="button-buy-now"
-                    >
-                      {isLoadingStock 
-                        ? "Checking..." 
-                        : !isProductAvailable() && product?.productType === "in-stock" 
-                          ? "Unavailable" 
-                          : "Buy Now"}
-                    </Button>
-                  </TooltipTrigger>
-                  {isCartLoading && (
-                    <TooltipContent>
-                      <p>Loading cart...</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </div>
+              <>
+                {/* Desktop version: normal inline buttons */}
+                <div className="hidden sm:grid grid-cols-2 gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={handleAddToCart}
+                        disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
+                        data-testid="button-add-to-cart"
+                      >
+                        <ShoppingCart className="h-5 w-5" />
+                        {isLoadingStock 
+                          ? "Checking..." 
+                          : !isProductAvailable() && product?.productType === "in-stock" 
+                            ? "Sold Out" 
+                            : "Add to Cart"}
+                      </Button>
+                    </TooltipTrigger>
+                    {isCartLoading && (
+                      <TooltipContent>
+                        <p>Loading cart...</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="lg"
+                        className="gap-2"
+                        onClick={handleBuyNow}
+                        disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
+                        data-testid="button-buy-now"
+                      >
+                        {isLoadingStock 
+                          ? "Checking..." 
+                          : !isProductAvailable() && product?.productType === "in-stock" 
+                            ? "Unavailable" 
+                            : "Buy Now"}
+                      </Button>
+                    </TooltipTrigger>
+                    {isCartLoading && (
+                      <TooltipContent>
+                        <p>Loading cart...</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
+
+                {/* Mobile version: sticky bottom bar */}
+                <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-50 grid grid-cols-2 gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={handleAddToCart}
+                        disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
+                        data-testid="button-add-to-cart-mobile"
+                      >
+                        <ShoppingCart className="h-5 w-5" />
+                        {isLoadingStock 
+                          ? "..." 
+                          : !isProductAvailable() && product?.productType === "in-stock" 
+                            ? "Sold Out" 
+                            : "Cart"}
+                      </Button>
+                    </TooltipTrigger>
+                    {isCartLoading && (
+                      <TooltipContent>
+                        <p>Loading cart...</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="lg"
+                        className="gap-2"
+                        onClick={handleBuyNow}
+                        disabled={!isProductAvailable() || isLoadingStock || isCartLoading}
+                        data-testid="button-buy-now-mobile"
+                      >
+                        {isLoadingStock 
+                          ? "..." 
+                          : !isProductAvailable() && product?.productType === "in-stock" 
+                            ? "Unavailable" 
+                            : "Buy Now"}
+                      </Button>
+                    </TooltipTrigger>
+                    {isCartLoading && (
+                      <TooltipContent>
+                        <p>Loading cart...</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
+              </>
             )}
 
             <Accordion type="multiple" defaultValue={["description", "details"]} className="w-full">
