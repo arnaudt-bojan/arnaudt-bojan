@@ -465,46 +465,6 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
             )}
           </div>
         </div>
-
-        {/* Customer Information */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <User className="h-4 w-4" />
-            <span>Customer Information</span>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">Name:</span>
-              <div className="font-medium">{order.customerName}</div>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Email:</span>
-              <div className="font-medium">{order.customerEmail}</div>
-            </div>
-            <div>
-              <span className="text-muted-foreground flex items-start gap-1">
-                <MapPin className="h-4 w-4 mt-0.5" />
-                Billing Address:
-              </span>
-              <div className="font-medium whitespace-pre-line ml-5 text-muted-foreground" data-testid="text-billing-address">
-                {order.billingStreet 
-                  ? `${order.billingName}\n${order.billingStreet}\n${order.billingCity}, ${order.billingState} ${order.billingPostalCode}\n${order.billingCountry}`
-                  : order.customerAddress}
-              </div>
-            </div>
-            <div>
-              <span className="text-muted-foreground flex items-start gap-1">
-                <MapPin className="h-4 w-4 mt-0.5" />
-                Shipping Address:
-              </span>
-              <div className="font-medium whitespace-pre-line ml-5 text-muted-foreground" data-testid="text-shipping-address">
-                {order.shippingStreet
-                  ? `${order.shippingStreet}\n${order.shippingCity}, ${order.shippingState} ${order.shippingPostalCode}\n${order.shippingCountry}`
-                  : order.customerAddress}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Payment Status */}
