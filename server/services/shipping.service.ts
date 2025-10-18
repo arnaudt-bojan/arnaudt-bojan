@@ -428,7 +428,20 @@ export class ShippingService {
       };
 
       // Convert country name to ISO code for Shippo
+      logger.info('[ShippingService] Converting country for Shippo API', {
+        rawCountry: destination.country,
+        destinationCity: destination.city,
+        destinationState: destination.state,
+        destinationPostalCode: destination.postalCode
+      });
+      
       const countryISO = this.convertCountryToISO(destination.country);
+      
+      logger.info('[ShippingService] Country code converted for Shippo', {
+        input: destination.country,
+        output: countryISO,
+        isValidLength: countryISO.length === 2 || countryISO.length === 3
+      });
       
       const addressTo = {
         name: 'Customer',
@@ -448,6 +461,27 @@ export class ShippingService {
         weight: product.shippoWeight.toString(),
         massUnit: 'lb' as const,
       };
+
+      logger.info('[ShippingService] Calling Shippo API with payload', {
+        addressFrom: JSON.stringify({
+          country: addressFrom.country,
+          city: addressFrom.city,
+          state: addressFrom.state,
+          zip: addressFrom.zip
+        }),
+        addressTo: JSON.stringify({
+          country: addressTo.country,
+          city: addressTo.city,
+          state: addressTo.state,
+          zip: addressTo.zip
+        }),
+        parcel: JSON.stringify({
+          weight: parcel.weight,
+          length: parcel.length,
+          width: parcel.width,
+          height: parcel.height
+        })
+      });
 
       // Create shipment to get rates
       const shipment = await shippo.shipments.create({
@@ -531,69 +565,88 @@ export class ShippingService {
 
   /**
    * Convert country name to ISO code for Shippo API
+   * CASE-INSENSITIVE to prevent bugs like "United Kingdom" → "UN"
    */
   private convertCountryToISO(country: string): string {
     const countryMap: Record<string, string> = {
       // North America
-      'United States': 'US',
-      'USA': 'US',
-      'Canada': 'CA',
-      'Mexico': 'MX',
+      'united states': 'US',
+      'usa': 'US',
+      'canada': 'CA',
+      'mexico': 'MX',
       
       // Europe
-      'United Kingdom': 'GB',
-      'UK': 'GB',
-      'Germany': 'DE',
-      'France': 'FR',
-      'Italy': 'IT',
-      'Spain': 'ES',
-      'Netherlands': 'NL',
-      'Belgium': 'BE',
-      'Switzerland': 'CH',
-      'Austria': 'AT',
-      'Sweden': 'SE',
-      'Norway': 'NO',
-      'Denmark': 'DK',
-      'Finland': 'FI',
-      'Poland': 'PL',
-      'Portugal': 'PT',
-      'Ireland': 'IE',
-      'Greece': 'GR',
-      'Czech Republic': 'CZ',
+      'united kingdom': 'GB',
+      'uk': 'GB',
+      'gb': 'GB',
+      'germany': 'DE',
+      'france': 'FR',
+      'italy': 'IT',
+      'spain': 'ES',
+      'netherlands': 'NL',
+      'belgium': 'BE',
+      'switzerland': 'CH',
+      'austria': 'AT',
+      'sweden': 'SE',
+      'norway': 'NO',
+      'denmark': 'DK',
+      'finland': 'FI',
+      'poland': 'PL',
+      'portugal': 'PT',
+      'ireland': 'IE',
+      'greece': 'GR',
+      'czech republic': 'CZ',
       
       // Asia Pacific
-      'Australia': 'AU',
-      'New Zealand': 'NZ',
-      'Japan': 'JP',
-      'China': 'CN',
-      'South Korea': 'KR',
-      'Singapore': 'SG',
-      'Hong Kong': 'HK',
-      'India': 'IN',
-      'Thailand': 'TH',
-      'Malaysia': 'MY',
-      'Indonesia': 'ID',
-      'Philippines': 'PH',
-      'Vietnam': 'VN',
+      'australia': 'AU',
+      'new zealand': 'NZ',
+      'japan': 'JP',
+      'china': 'CN',
+      'south korea': 'KR',
+      'singapore': 'SG',
+      'hong kong': 'HK',
+      'india': 'IN',
+      'thailand': 'TH',
+      'malaysia': 'MY',
+      'indonesia': 'ID',
+      'philippines': 'PH',
+      'vietnam': 'VN',
       
       // South America
-      'Brazil': 'BR',
-      'Argentina': 'AR',
-      'Chile': 'CL',
-      'Colombia': 'CO',
+      'brazil': 'BR',
+      'argentina': 'AR',
+      'chile': 'CL',
+      'colombia': 'CO',
       
       // Middle East & Africa
-      'United Arab Emirates': 'AE',
-      'UAE': 'AE',
-      'Saudi Arabia': 'SA',
-      'Israel': 'IL',
-      'South Africa': 'ZA',
-      'Egypt': 'EG',
-      'Turkey': 'TR',
+      'united arab emirates': 'AE',
+      'uae': 'AE',
+      'saudi arabia': 'SA',
+      'israel': 'IL',
+      'south africa': 'ZA',
+      'egypt': 'EG',
+      'turkey': 'TR',
     };
 
-    // Return ISO code if found, otherwise return country as-is (it might already be ISO)
-    return countryMap[country] || country.toUpperCase().substring(0, 2);
+    const normalized = country.trim().toLowerCase();
+    const isoCode = countryMap[normalized];
+    
+    if (isoCode) {
+      logger.debug(`[ShippingService] Country code conversion: "${country}" → "${isoCode}"`);
+      return isoCode;
+    }
+    
+    // If not found in map, assume it's already an ISO code (e.g., "US", "GB")
+    // Only use the raw value if it's already 2-3 characters (valid ISO format)
+    const uppercased = country.trim().toUpperCase();
+    if (uppercased.length === 2 || uppercased.length === 3) {
+      logger.debug(`[ShippingService] Country already in ISO format: "${country}" → "${uppercased}"`);
+      return uppercased;
+    }
+    
+    // Fallback: log warning and use first 2 characters (THIS WAS THE BUG!)
+    logger.warn(`[ShippingService] ⚠️ Unknown country "${country}", using fallback "${uppercased.substring(0, 2)}". This may cause Shippo API errors!`);
+    return uppercased.substring(0, 2);
   }
 
   /**

@@ -149,10 +149,28 @@ export class PricingCalculationService {
           zone: shippingCalculation.zone
         });
       } catch (shippingError: any) {
-        logger.error(`[PricingCalculationService] Shipping calculation failed:`, shippingError);
+        logger.error(`[PricingCalculationService] ❌ SHIPPING CALCULATION FAILED - USING FALLBACK`, {
+          error: shippingError.message,
+          errorDetails: shippingError.toString(),
+          destination: {
+            country: destination.country,
+            city: destination.city,
+            state: destination.state,
+            postalCode: destination.postalCode
+          },
+          sellerId: sellerId,
+          itemCount: items.length
+        });
+        
         // Use seller's flat shipping as fallback
         shippingCost = seller.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
-        logger.info(`[PricingCalculationService] Using fallback shipping: ${currency} ${shippingCost}`);
+        
+        logger.warn(`[PricingCalculationService] ⚠️ USING FALLBACK SHIPPING: ${currency} ${shippingCost}`, {
+          reason: 'Shipping calculation error',
+          errorMessage: shippingError.message,
+          fallbackSource: seller.shippingPrice ? 'seller default' : 'zero (FREE)',
+          recommendation: shippingCost === 0 ? 'CHECK SHIPPING CONFIGURATION - Customer getting FREE shipping due to error!' : 'Using seller default rate'
+        });
       }
     } else {
       // No destination provided, use seller's default shipping
