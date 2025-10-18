@@ -14,6 +14,7 @@
 import type { IStorage } from "../storage";
 import type { Order, User } from "@shared/schema";
 import type { NotificationService } from "../notifications";
+import { CreditLedgerService } from "./credit-ledger.service";
 import { logger } from "../logger";
 
 export interface LabelPurchaseResult {
@@ -34,11 +35,14 @@ export interface LabelRefundResult {
 
 export class ShippoLabelService {
   private readonly MARKUP_PERCENT = 20; // 20% platform markup
+  private creditLedgerService: CreditLedgerService;
   
   constructor(
     private storage: IStorage,
     private notificationService: NotificationService
-  ) {}
+  ) {
+    this.creditLedgerService = new CreditLedgerService(storage);
+  }
 
   /**
    * Task 5: Ensure Sender Address
@@ -238,30 +242,79 @@ export class ShippoLabelService {
           , rates[0]);
       }
 
-      // Purchase label
-      const transaction = await shippo.transactions.create({
-        rate: selectedRate.objectId,
-        labelFileType: 'PDF' as const,
-        async: false
-      });
-
-      if (transaction.status !== 'SUCCESS') {
-        // Shippo returns messages as an array of objects
-        const errorMessage = transaction.messages 
-          ? JSON.stringify(transaction.messages, null, 2)
-          : 'Unknown error';
-        logger.error('[ShippoLabelService] Transaction failed', {
-          orderId,
-          status: transaction.status,
-          messages: transaction.messages
-        });
-        throw new Error(`Label purchase failed: ${errorMessage}`);
-      }
-
-      // Architecture 3: Calculate markup server-side
+      // Architecture 3: Calculate markup server-side (BEFORE purchasing)
       const baseCostUsd = parseFloat(selectedRate.amount);
       const markupMultiplier = 1 + (this.MARKUP_PERCENT / 100); // 1.20 for 20%
       const totalChargedUsd = baseCostUsd * markupMultiplier;
+
+      // CRITICAL: Check wallet balance BEFORE calling Shippo
+      const currentBalance = await this.creditLedgerService.getSellerBalance(order.sellerId);
+      
+      if (currentBalance < totalChargedUsd) {
+        logger.warn('[ShippoLabelService] Insufficient wallet balance', {
+          sellerId: order.sellerId,
+          orderId,
+          currentBalance,
+          requiredAmount: totalChargedUsd,
+          shortfall: totalChargedUsd - currentBalance
+        });
+        throw new Error("Insufficient wallet balance. Please add funds to purchase labels.");
+      }
+
+      // Debit wallet BEFORE calling Shippo (will be rolled back if Shippo fails)
+      await this.creditLedgerService.debitLabelPurchase(
+        order.sellerId,
+        totalChargedUsd,
+        orderId,
+        'pending' // Temporary labelId - will be updated after label creation
+      );
+
+      logger.info('[ShippoLabelService] Wallet debited, proceeding with Shippo transaction', {
+        sellerId: order.sellerId,
+        orderId,
+        amount: totalChargedUsd,
+        newBalance: currentBalance - totalChargedUsd
+      });
+
+      // Purchase label from Shippo (wrap in try/catch for rollback)
+      let transaction;
+      try {
+        transaction = await shippo.transactions.create({
+          rate: selectedRate.objectId,
+          labelFileType: 'PDF' as const,
+          async: false
+        });
+
+        if (transaction.status !== 'SUCCESS') {
+          // Shippo returns messages as an array of objects
+          const errorMessage = transaction.messages 
+            ? JSON.stringify(transaction.messages, null, 2)
+            : 'Unknown error';
+          logger.error('[ShippoLabelService] Transaction failed', {
+            orderId,
+            status: transaction.status,
+            messages: transaction.messages
+          });
+          throw new Error(`Label purchase failed: ${errorMessage}`);
+        }
+      } catch (shippoError: any) {
+        // CRITICAL: Rollback the wallet debit since Shippo failed
+        logger.error('[ShippoLabelService] Shippo transaction failed, rolling back debit', {
+          orderId,
+          sellerId: order.sellerId,
+          amount: totalChargedUsd,
+          error: shippoError.message
+        });
+
+        await this.creditLedgerService.rollbackLabelPurchase(
+          order.sellerId,
+          totalChargedUsd,
+          'rollback', // Placeholder labelId for rollback
+          orderId
+        );
+
+        throw shippoError; // Re-throw to fail the purchase
+      }
 
       // Store label in database
       const labelData = {
@@ -461,7 +514,7 @@ export class ShippoLabelService {
    * Task 8: Apply Seller Credit
    * 
    * Credits seller's account when a label refund succeeds.
-   * Architecture 3: All credit calculations happen server-side.
+   * Architecture 3: All credit calculations happen server-side via unified ledger.
    * 
    * @param sellerId - Seller's user ID
    * @param amountUsd - Amount to credit (in USD)
@@ -479,41 +532,18 @@ export class ShippoLabelService {
       throw new Error("Seller not found");
     }
 
-    // Calculate new balance
-    const currentBalance = parseFloat(seller.pendingLabelCreditUsd || '0');
+    // Use unified credit ledger service
     const creditAmount = parseFloat(amountUsd);
-    const newBalance = currentBalance + creditAmount;
-
-    // Create ledger entry
-    const ledgerData = {
-      sellerId,
-      labelId: labelId || null,
-      orderId: orderId || null,
-      type: 'credit' as const,
-      amountUsd: creditAmount.toFixed(2),
-      balanceAfter: newBalance.toFixed(2),
-      source: 'label_refund' as const,
-      metadata: {
-        description: `Label refund credit: $${creditAmount.toFixed(2)}`,
-        labelId,
-        orderId,
-        timestamp: new Date().toISOString()
-      },
-      currency: 'USD',
-      exchangeRate: null
-    };
-
-    await this.storage.createSellerCreditLedger(ledgerData);
-
-    // Update seller's pending credit balance
-    await this.storage.updateUser(sellerId, {
-      pendingLabelCreditUsd: newBalance.toFixed(2)
-    });
-
-    logger.info('[ShippoLabelService] Seller credit applied', {
+    await this.creditLedgerService.creditLabelRefund(
       sellerId,
       creditAmount,
-      newBalance,
+      labelId || 'unknown',
+      orderId
+    );
+
+    logger.info('[ShippoLabelService] Seller credit applied via ledger', {
+      sellerId,
+      amount: creditAmount,
       labelId,
       orderId
     });

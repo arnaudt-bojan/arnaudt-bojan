@@ -2530,6 +2530,7 @@ export const sellerCreditLedgerTypePgEnum = pgEnum("seller_credit_ledger_type", 
 // Seller Credit Ledger source enum
 export const sellerCreditLedgerSourcePgEnum = pgEnum("seller_credit_ledger_source", [
   "label_refund",
+  "label_purchase",
   "manual",
   "settlement_fix"
 ]);

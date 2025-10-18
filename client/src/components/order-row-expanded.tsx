@@ -124,6 +124,11 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     enabled: !!data?.order?.shippingLabelId,
   });
 
+  // Fetch seller wallet balance
+  const { data: walletBalance, isLoading: balanceLoading } = useQuery<{ balance: number; currency: string }>({
+    queryKey: ["/api/seller/wallet/balance"],
+  });
+
   // Fetch warehouse addresses for label purchase
   const { data: warehouseAddresses = [], isLoading: warehouseLoading } = useQuery<WarehouseAddress[]>({
     queryKey: ["/api/seller/warehouse-addresses"],
@@ -294,6 +299,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/seller/orders/${orderId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/labels`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/seller/wallet/balance"] });
       toast({
         title: "Shipping label purchased",
         description: "Label has been purchased successfully and is ready to download",
@@ -810,14 +816,49 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                       </div>
                     </div>
 
+                    {/* Wallet Balance Display */}
+                    <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Wallet Balance:</span>
+                        {balanceLoading ? (
+                          <Skeleton className="h-5 w-16" />
+                        ) : (
+                          <span className="font-semibold" data-testid="text-wallet-balance">
+                            ${walletBalance?.balance?.toFixed(2) || '0.00'}
+                          </span>
+                        )}
+                      </div>
+                      {walletBalance && walletBalance.balance < 10 && (
+                        <div className="flex items-start gap-2 text-xs text-orange-600 dark:text-orange-400">
+                          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p>Low balance. Shipping labels typically cost $10-$25.</p>
+                            <a 
+                              href="/seller/wallet" 
+                              className="underline font-medium hover:text-orange-700 dark:hover:text-orange-300"
+                              data-testid="link-add-funds"
+                            >
+                              Add funds to wallet
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <Button 
                       onClick={() => purchaseLabelMutation.mutate(selectedWarehouseId)}
-                      disabled={purchaseLabelMutation.isPending || !selectedWarehouseId}
+                      disabled={purchaseLabelMutation.isPending || !selectedWarehouseId || (walletBalance && walletBalance.balance < 1)}
                       data-testid="button-purchase-label"
                       className="w-full"
                     >
                       {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
                     </Button>
+                    
+                    {walletBalance && walletBalance.balance < 1 && (
+                      <p className="text-xs text-center text-destructive" data-testid="text-insufficient-funds">
+                        Insufficient wallet balance. Please add funds to continue.
+                      </p>
+                    )}
                   </>
                 )}
               </CardContent>

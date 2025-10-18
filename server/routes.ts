@@ -1512,6 +1512,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get seller wallet balance (unified credit ledger)
+  app.get("/api/seller/wallet/balance", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { CreditLedgerService } = await import("./services/credit-ledger.service");
+      const creditLedgerService = new CreditLedgerService(storage);
+      
+      const balance = await creditLedgerService.getSellerBalance(userId);
+      
+      res.json({
+        balance,
+        currency: 'USD'
+      });
+    } catch (error: any) {
+      logger.error("[SellerWallet] Failed to get balance", { userId: req.user.claims.sub, error: error.message });
+      res.status(500).json({ error: "Failed to retrieve wallet balance" });
+    }
+  });
+
   // Seller-specific orders (only orders for products owned by this seller or their store)
   app.get("/api/seller/orders", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
@@ -4073,6 +4092,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       logger.error("[ShippoLabel] Purchase label error", { orderId: req.params.orderId, error: error.message });
+      
+      // Check for insufficient funds (402 Payment Required)
+      if (error.message.includes("Insufficient wallet balance")) {
+        return res.status(402).json({ 
+          error: error.message,
+          code: "INSUFFICIENT_FUNDS"
+        });
+      }
       
       // Distinguish validation errors from API errors
       if (error.message.includes("not configured") || 
