@@ -41,6 +41,7 @@ import { generateCSVTemplate, generateInstructionsText, CSV_TEMPLATE_FIELDS } fr
 import { LegacyStripeCheckoutService } from "./services/legacy-stripe-checkout.service";
 import { StripeConnectService } from "./services/stripe-connect.service";
 import { SubscriptionService } from "./services/subscription.service";
+import { PaymentMethodsService } from "./services/payment-methods.service";
 import { WholesaleService } from "./services/wholesale.service";
 import { WholesaleOrderService } from "./services/wholesale-order.service";
 import { WholesaleInvitationEnhancedService } from "./services/wholesale-invitation-enhanced.service";
@@ -226,6 +227,12 @@ const stripeConnectService = new StripeConnectService(
 
 // Initialize Subscription service (Architecture 3 migration)
 const subscriptionService = new SubscriptionService(
+  storage,
+  stripe || null
+);
+
+// Initialize Payment Methods service for saved payment methods and addresses (Architecture 3)
+const paymentMethodsService = new PaymentMethodsService(
   storage,
   stripe || null
 );
@@ -11265,6 +11272,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("Cart validation error", error);
       res.status(500).json({ error: "Failed to validate cart" });
+    }
+  });
+
+  // ============================================================================
+  // SAVED PAYMENT METHODS & SHIPPING ADDRESSES API - Architecture 3
+  // ============================================================================
+  // PCI-compliant payment method and address management
+  // - All Stripe operations server-side
+  // - Only stores Stripe Payment Method IDs (not raw card data)
+  // - Authenticated routes only
+
+  // List saved payment methods
+  app.get("/api/payment-methods", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const paymentMethods = await paymentMethodsService.listPaymentMethods(userId);
+      res.json(paymentMethods);
+    } catch (error: any) {
+      logger.error("[PaymentMethods API] Error listing payment methods:", error);
+      res.status(500).json({ error: "Failed to list payment methods" });
+    }
+  });
+
+  // Save new payment method
+  app.post("/api/payment-methods", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { stripePaymentMethodId, isDefault } = req.body;
+
+      // Validate request
+      if (!stripePaymentMethodId) {
+        return res.status(400).json({ error: "stripePaymentMethodId is required" });
+      }
+
+      const savedPaymentMethod = await paymentMethodsService.savePaymentMethod(
+        userId,
+        stripePaymentMethodId,
+        isDefault || false
+      );
+
+      res.status(201).json(savedPaymentMethod);
+    } catch (error: any) {
+      logger.error("[PaymentMethods API] Error saving payment method:", error);
+      res.status(500).json({ error: error.message || "Failed to save payment method" });
+    }
+  });
+
+  // Set default payment method
+  app.patch("/api/payment-methods/:id/set-default", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      await paymentMethodsService.setDefaultPaymentMethod(userId, id);
+      res.json({ success: true, message: "Default payment method updated" });
+    } catch (error: any) {
+      logger.error("[PaymentMethods API] Error setting default:", error);
+      res.status(500).json({ error: error.message || "Failed to set default payment method" });
+    }
+  });
+
+  // Delete payment method
+  app.delete("/api/payment-methods/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      await paymentMethodsService.deletePaymentMethod(userId, id);
+      res.json({ success: true, message: "Payment method deleted" });
+    } catch (error: any) {
+      logger.error("[PaymentMethods API] Error deleting payment method:", error);
+      res.status(500).json({ error: error.message || "Failed to delete payment method" });
+    }
+  });
+
+  // List saved shipping addresses
+  app.get("/api/shipping-addresses", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const addresses = await paymentMethodsService.listShippingAddresses(userId);
+      res.json(addresses);
+    } catch (error: any) {
+      logger.error("[ShippingAddresses API] Error listing addresses:", error);
+      res.status(500).json({ error: "Failed to list shipping addresses" });
+    }
+  });
+
+  // Save new shipping address
+  app.post("/api/shipping-addresses", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { label, fullName, addressLine1, addressLine2, city, state, postalCode, country, phone, isDefault } = req.body;
+
+      // Validate required fields
+      if (!fullName || !addressLine1 || !city || !state || !postalCode || !country) {
+        return res.status(400).json({ error: "Missing required address fields" });
+      }
+
+      const savedAddress = await paymentMethodsService.saveShippingAddress(
+        userId,
+        {
+          label,
+          fullName,
+          addressLine1,
+          addressLine2,
+          city,
+          state,
+          postalCode,
+          country,
+          phone,
+        },
+        isDefault || false
+      );
+
+      res.status(201).json(savedAddress);
+    } catch (error: any) {
+      logger.error("[ShippingAddresses API] Error saving address:", error);
+      res.status(500).json({ error: error.message || "Failed to save shipping address" });
+    }
+  });
+
+  // Set default shipping address
+  app.patch("/api/shipping-addresses/:id/set-default", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      await paymentMethodsService.setDefaultShippingAddress(userId, id);
+      res.json({ success: true, message: "Default shipping address updated" });
+    } catch (error: any) {
+      logger.error("[ShippingAddresses API] Error setting default:", error);
+      res.status(500).json({ error: error.message || "Failed to set default shipping address" });
+    }
+  });
+
+  // Delete shipping address
+  app.delete("/api/shipping-addresses/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      await paymentMethodsService.deleteShippingAddress(userId, id);
+      res.json({ success: true, message: "Shipping address deleted" });
+    } catch (error: any) {
+      logger.error("[ShippingAddresses API] Error deleting address:", error);
+      res.status(500).json({ error: error.message || "Failed to delete shipping address" });
     }
   });
 
