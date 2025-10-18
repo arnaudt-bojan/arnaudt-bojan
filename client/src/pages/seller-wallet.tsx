@@ -94,8 +94,15 @@ export default function SellerWallet() {
       return await res.json();
     },
     onSuccess: (data: { checkoutUrl: string }) => {
-      // Redirect to Stripe Checkout
-      window.location.href = data.checkoutUrl;
+      // Open Stripe Checkout in new tab (Replit webview blocks same-window external navigation)
+      window.open(data.checkoutUrl, '_blank');
+      
+      // Show feedback that checkout opened
+      toast({
+        title: "Checkout opened",
+        description: "Complete payment in the new tab. Your balance will update automatically.",
+        variant: "default",
+      });
     },
     onError: (error: any) => {
       toast({
