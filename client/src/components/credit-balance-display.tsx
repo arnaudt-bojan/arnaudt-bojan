@@ -29,7 +29,7 @@ interface CreditLedgerEntry {
 export function CreditBalanceDisplay() {
   const [showLedger, setShowLedger] = useState(false);
 
-  const { data, isLoading } = useQuery<{ entries: CreditLedgerEntry[]; currentBalance: string }>({
+  const { data, isLoading } = useQuery<{ ledgerEntries: CreditLedgerEntry[]; currentBalanceUsd: string | number }>({
     queryKey: ["/api/seller/credit-ledger"],
   });
 
@@ -41,11 +41,13 @@ export function CreditBalanceDisplay() {
     );
   }
 
-  if (!data) {
+  if (!data || !data.ledgerEntries) {
     return null;
   }
 
-  const balance = parseFloat(data.currentBalance || "0");
+  const balance = typeof data.currentBalanceUsd === 'string' 
+    ? parseFloat(data.currentBalanceUsd || "0")
+    : data.currentBalanceUsd || 0;
 
   const getSourceDescription = (entry: CreditLedgerEntry) => {
     if (entry.source === "label_refund") {
@@ -100,14 +102,14 @@ export function CreditBalanceDisplay() {
             {/* Transaction History */}
             <div>
               <h3 className="text-sm font-semibold mb-3">Transaction History</h3>
-              {data.entries.length === 0 ? (
+              {data.ledgerEntries.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>No transactions yet</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {data.entries.map((entry) => (
+                  {data.ledgerEntries.map((entry: CreditLedgerEntry) => (
                     <div
                       key={entry.id}
                       className="border rounded-lg p-3"
