@@ -920,23 +920,34 @@ export function ProductFormFields({
 
           {form.watch("shippingType") === "shippo" && (
             <>
-              {/* ISSUE #1 FIX: Warehouse Address Warning */}
+              {/* Warehouse Address Warning - Architecture 3 */}
               {warehouseStatus && !warehouseStatus.hasWarehouse && (
-                <Alert variant="destructive" data-testid="alert-warehouse-missing">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Warehouse Address Required</AlertTitle>
-                  <AlertDescription className="space-y-2">
-                    <p>
-                      You need to configure your warehouse address before using Shippo shipping. 
-                      The server will reject product creation without a valid warehouse address.
+                <Alert variant="destructive" className="border-2" data-testid="alert-warehouse-missing">
+                  <AlertCircle className="h-5 w-5" />
+                  <AlertTitle className="text-base font-semibold">Warehouse Address Required</AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p className="text-sm">
+                      Shippo requires a warehouse address to calculate real-time shipping rates. 
+                      Product creation is <strong>disabled</strong> until you add a valid warehouse address.
                     </p>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm font-medium">What you need to do:</p>
+                      <ol className="text-sm list-decimal list-inside space-y-1 ml-2">
+                        <li>Click the button below to go to Settings</li>
+                        <li>Navigate to the "Warehouse" section</li>
+                        <li>Add your complete warehouse address (street, city, postal code, country)</li>
+                        <li>Return here to create your product</li>
+                      </ol>
+                    </div>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="sm"
                       onClick={() => window.location.href = '/seller/settings'}
                       data-testid="button-go-to-settings"
+                      className="mt-2"
                     >
+                      <Building2 className="h-4 w-4 mr-2" />
                       Go to Settings → Warehouse
                     </Button>
                   </AlertDescription>
