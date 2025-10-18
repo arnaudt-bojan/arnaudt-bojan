@@ -51,31 +51,9 @@ export default function SellerWallet() {
   const { toast } = useToast();
   const [customAmount, setCustomAmount] = useState<string>("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
-  // Get query params for success/cancel feedback
-  const searchParams = new URLSearchParams(window.location.search);
-  const topupStatus = searchParams.get('topup');
-
-  // Show success/cancel toast on redirect
-  useEffect(() => {
-    if (topupStatus === 'success') {
-      toast({
-        title: "Top-up successful!",
-        description: "Your wallet has been credited. It may take a few moments to reflect.",
-        variant: "default",
-      });
-      // Clean up URL
-      window.history.replaceState({}, '', '/seller/wallet');
-    } else if (topupStatus === 'cancelled') {
-      toast({
-        title: "Top-up cancelled",
-        description: "You cancelled the payment. No charges were made.",
-        variant: "destructive",
-      });
-      // Clean up URL
-      window.history.replaceState({}, '', '/seller/wallet');
-    }
-  }, [topupStatus, toast]);
+  // Note: Success/cancel handling is done via postMessage from popup pages
 
   // Fetch wallet balance
   const { data: balanceData, isLoading: isLoadingBalance, error: balanceError } = useQuery<WalletBalance>({
@@ -87,37 +65,73 @@ export default function SellerWallet() {
     queryKey: ['/api/seller/credit-ledger'],
   });
 
-  // Create checkout session mutation
-  const createCheckoutMutation = useMutation({
-    mutationFn: async (amount: number) => {
+  // Handle popup checkout flow (same pattern as Meta Ads OAuth)
+  const handleCheckoutPopup = async (amount: number) => {
+    setIsProcessingCheckout(true);
+    
+    try {
+      // Create checkout session
       const res = await apiRequest('POST', '/api/seller/wallet/checkout', { amount });
-      return await res.json();
-    },
-    onSuccess: (data: { checkoutUrl: string }) => {
-      // Try to open in new window first
-      const newWindow = window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer');
+      const data = await res.json();
       
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        // Pop-up blocked - redirect current page instead
-        // Success/cancel URLs will bring user back to /seller/wallet
-        window.location.href = data.checkoutUrl;
-      } else {
-        // New window opened successfully
-        toast({
-          title: "Checkout opened",
-          description: "Complete payment in the new window. Your balance will update automatically.",
-          variant: "default",
-        });
-      }
-    },
-    onError: (error: any) => {
+      // Open Stripe Checkout in centered popup
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      const popup = window.open(
+        data.checkoutUrl,
+        "Stripe Checkout",
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
+      );
+      
+      // Listen for message from popup (success/cancel pages will post message)
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data.type === "STRIPE_CHECKOUT_SUCCESS") {
+          setIsProcessingCheckout(false);
+          toast({
+            title: "Top-up successful!",
+            description: "Your wallet has been credited. It may take a few moments to reflect.",
+            variant: "default",
+          });
+          // Refresh balance and ledger
+          queryClient.invalidateQueries({ queryKey: ['/api/seller/wallet/balance'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/seller/credit-ledger'] });
+          popup?.close();
+          window.removeEventListener("message", handleMessage);
+        } else if (event.data.type === "STRIPE_CHECKOUT_CANCELLED") {
+          setIsProcessingCheckout(false);
+          toast({
+            title: "Top-up cancelled",
+            description: "You cancelled the payment. No charges were made.",
+            variant: "destructive",
+          });
+          popup?.close();
+          window.removeEventListener("message", handleMessage);
+        }
+      };
+      
+      window.addEventListener("message", handleMessage);
+      
+      // Check if popup was closed without completing
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          setIsProcessingCheckout(false);
+          window.removeEventListener("message", handleMessage);
+        }
+      }, 1000);
+      
+    } catch (error: any) {
+      setIsProcessingCheckout(false);
       toast({
         title: "Error",
         description: error.message || "Failed to create checkout session",
         variant: "destructive",
       });
-    },
-  });
+    }
+  };
 
   const handleAddFunds = () => {
     const amount = selectedAmount || parseFloat(customAmount);
@@ -149,7 +163,7 @@ export default function SellerWallet() {
       return;
     }
 
-    createCheckoutMutation.mutate(amount);
+    handleCheckoutPopup(amount);
   };
 
   const formatAmount = (amount: string) => {
@@ -270,11 +284,11 @@ export default function SellerWallet() {
                   </div>
                   <Button
                     onClick={handleAddFunds}
-                    disabled={createCheckoutMutation.isPending || (!selectedAmount && !customAmount)}
+                    disabled={isProcessingCheckout || (!selectedAmount && !customAmount)}
                     data-testid="button-add-funds"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    {createCheckoutMutation.isPending ? "Processing..." : "Add Funds"}
+                    {isProcessingCheckout ? "Opening checkout..." : "Add Funds"}
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">

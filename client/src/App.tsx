@@ -53,6 +53,8 @@ import SellerStorefront from "@/pages/seller-storefront";
 import AdminDashboard from "@/pages/admin-dashboard";
 import SubscriptionSuccess from "@/pages/subscription-success";
 import MetaOAuthSuccess from "@/pages/meta-oauth-success";
+import StripeCheckoutSuccess from "@/pages/stripe-checkout-success";
+import StripeCheckoutCancelled from "@/pages/stripe-checkout-cancelled";
 import Help from "@/pages/help";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
@@ -423,6 +425,10 @@ function AppContent() {
                   </ProtectedRoute>
                 )}
               </Route>
+              
+              {/* Stripe Checkout success/cancel pages (post message to opener) */}
+              <Route path="/stripe-checkout-success" component={StripeCheckoutSuccess} />
+              <Route path="/stripe-checkout-cancelled" component={StripeCheckoutCancelled} />
               
               {/* Wholesale dashboard and management routes with WholesaleLayout */}
               <Route path="/wholesale/dashboard">
