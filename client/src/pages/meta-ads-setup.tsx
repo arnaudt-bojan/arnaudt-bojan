@@ -117,7 +117,7 @@ export default function MetaAdsSetup() {
 
         {/* Connection Status */}
         <Card className="p-6 mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                 isConnected ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"
@@ -145,7 +145,7 @@ export default function MetaAdsSetup() {
               <Button
                 variant="outline"
                 onClick={handleDisconnect}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
                 data-testid="button-disconnect"
               >
                 <Unlink className="h-4 w-4" />
@@ -155,7 +155,7 @@ export default function MetaAdsSetup() {
               <Button
                 onClick={handleConnectFacebook}
                 disabled={connecting}
-                className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90"
+                className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90 w-full sm:w-auto"
                 data-testid="button-connect-facebook"
               >
                 <SiFacebook className="h-4 w-4" />

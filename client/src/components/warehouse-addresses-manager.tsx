@@ -302,7 +302,7 @@ export function WarehouseAddressesManager() {
           form.reset();
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAddress ? "Edit Warehouse Address" : "Add Warehouse Address"}</DialogTitle>
             <DialogDescription>

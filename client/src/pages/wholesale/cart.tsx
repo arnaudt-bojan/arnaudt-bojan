@@ -190,9 +190,10 @@ export default function WholesaleCartPage() {
           <div className="lg:col-span-2 space-y-4">
             {itemsWithDetails.map((item, index) => (
               <Card key={`${item.productId}-${JSON.stringify(item.variant)}`}>
-                <CardContent className="p-6">
-                  <div className="flex gap-6">
-                    <div className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-lg">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    {/* Product Image */}
+                    <div className="w-full sm:w-24 h-24 flex-shrink-0 overflow-hidden rounded-lg">
                       <img
                         src={item.productImage}
                         alt={item.productName}
@@ -201,14 +202,16 @@ export default function WholesaleCartPage() {
                       />
                     </div>
 
+                    {/* Product Details */}
                     <div className="flex-1 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-lg" data-testid={`text-item-name-${index}`}>
+                      {/* Title and Remove Button */}
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base md:text-lg truncate" data-testid={`text-item-name-${index}`}>
                             {item.productName}
                           </h3>
                           {item.variant && (
-                            <p className="text-sm text-muted-foreground" data-testid={`text-item-variant-${index}`}>
+                            <p className="text-xs md:text-sm text-muted-foreground" data-testid={`text-item-variant-${index}`}>
                               {item.variant.size && `Size: ${item.variant.size}`}
                               {item.variant.size && item.variant.color && " | "}
                               {item.variant.color && `Color: ${item.variant.color}`}
@@ -225,35 +228,38 @@ export default function WholesaleCartPage() {
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <label className="text-sm text-muted-foreground">Quantity:</label>
+                      {/* Quantity and MOQ - Mobile Friendly */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                        <div className="flex items-center gap-2 flex-1">
+                          <label className="text-sm text-muted-foreground whitespace-nowrap">Quantity:</label>
                           <Input
                             type="number"
                             min="0"
                             value={item.quantity}
                             onChange={(e) => handleQuantityChange(item, parseInt(e.target.value) || 0)}
-                            className="w-24"
+                            className="w-20"
                             data-testid={`input-quantity-${index}`}
                           />
                         </div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs md:text-sm text-muted-foreground">
                           MOQ: {item.moq} units
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm text-muted-foreground">
+                      {/* Price Information - Mobile Stacked */}
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <div className="text-xs md:text-sm text-muted-foreground">
                           Unit Price: {formatCurrencyFromCents(item.unitPriceCents, currency)}
                         </div>
-                        <div className="text-lg font-semibold" data-testid={`text-item-subtotal-${index}`}>
+                        <div className="text-base md:text-lg font-semibold" data-testid={`text-item-subtotal-${index}`}>
                           {formatCurrencyFromCents(item.subtotalCents, currency)}
                         </div>
                       </div>
 
+                      {/* MOQ Error Warning */}
                       {item.quantity < item.moq && (
-                        <div className="flex items-center gap-2 text-destructive text-sm">
-                          <AlertCircle className="h-4 w-4" />
+                        <div className="flex items-center gap-2 text-destructive text-xs md:text-sm">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
                           <span data-testid={`text-moq-error-${index}`}>
                             Quantity is below MOQ of {item.moq}
                           </span>
@@ -266,8 +272,9 @@ export default function WholesaleCartPage() {
             ))}
           </div>
 
+          {/* Order Summary - Sticky on Desktop, Full Width on Mobile */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-6">
+            <Card className="lg:sticky lg:top-6">
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
@@ -283,7 +290,7 @@ export default function WholesaleCartPage() {
 
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">Total</span>
-                  <span className="text-2xl font-bold" data-testid="text-total">
+                  <span className="text-xl md:text-2xl font-bold" data-testid="text-total">
                     {formatCurrencyFromCents(subtotal, currency)}
                   </span>
                 </div>
@@ -292,9 +299,9 @@ export default function WholesaleCartPage() {
                   <div className="p-4 bg-destructive/10 rounded-lg space-y-2">
                     <div className="flex items-center gap-2 text-destructive font-semibold">
                       <AlertCircle className="h-4 w-4" />
-                      <span>Validation Errors</span>
+                      <span className="text-sm md:text-base">Validation Errors</span>
                     </div>
-                    <ul className="text-sm text-destructive space-y-1">
+                    <ul className="text-xs md:text-sm text-destructive space-y-1">
                       {validationErrors.map((error, i) => (
                         <li key={i} data-testid={`text-validation-error-${i}`}>
                           • {error}

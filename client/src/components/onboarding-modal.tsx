@@ -28,7 +28,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md" data-testid="dialog-onboarding">
+      <DialogContent className="w-[95vw] max-w-md" data-testid="dialog-onboarding">
         <DialogHeader>
           <DialogTitle>Set Up Your Store URL</DialogTitle>
           <DialogDescription>

@@ -153,43 +153,78 @@ export default function WholesaleBuyers() {
               </p>
             </div>
           ) : (
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Sent Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invitations.map((invitation) => (
-                    <TableRow key={invitation.id} data-testid={`row-invitation-${invitation.id}`}>
-                      <TableCell className="font-medium" data-testid={`text-email-${invitation.id}`}>
-                        {invitation.buyerEmail}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(invitation.status)}
-                      </TableCell>
-                      <TableCell data-testid={`text-date-${invitation.id}`}>
-                        {invitation.createdAt ? format(new Date(invitation.createdAt), "MMM d, yyyy") : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={invitation.status !== "pending"}
-                          data-testid={`button-revoke-${invitation.id}`}
-                        >
-                          Revoke
-                        </Button>
-                      </TableCell>
+            <>
+              {/* Desktop: Table View */}
+              <div className="hidden md:block border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Sent Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {invitations.map((invitation) => (
+                      <TableRow key={invitation.id} data-testid={`row-invitation-${invitation.id}`}>
+                        <TableCell className="font-medium" data-testid={`text-email-${invitation.id}`}>
+                          {invitation.buyerEmail}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(invitation.status)}
+                        </TableCell>
+                        <TableCell data-testid={`text-date-${invitation.id}`}>
+                          {invitation.createdAt ? format(new Date(invitation.createdAt), "MMM d, yyyy") : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={invitation.status !== "pending"}
+                            data-testid={`button-revoke-${invitation.id}`}
+                          >
+                            Revoke
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: Card View */}
+              <div className="block md:hidden space-y-3">
+                {invitations.map((invitation) => (
+                  <Card key={invitation.id} data-testid={`card-invitation-${invitation.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base truncate" data-testid={`text-email-${invitation.id}`}>
+                            {invitation.buyerEmail}
+                          </CardTitle>
+                          <CardDescription className="text-xs mt-1" data-testid={`text-date-${invitation.id}`}>
+                            {invitation.createdAt ? format(new Date(invitation.createdAt), "MMM d, yyyy") : "N/A"}
+                          </CardDescription>
+                        </div>
+                        {getStatusBadge(invitation.status)}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-3 pt-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={invitation.status !== "pending"}
+                        data-testid={`button-revoke-${invitation.id}`}
+                      >
+                        Revoke Invitation
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -215,38 +250,67 @@ export default function WholesaleBuyers() {
               </p>
             </div>
           ) : (
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Buyer Email</TableHead>
-                    <TableHead>Join Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {buyers.map((buyer) => (
-                    <TableRow key={buyer.id} data-testid={`row-buyer-${buyer.id}`}>
-                      <TableCell className="font-medium" data-testid={`text-buyer-email-${buyer.id}`}>
-                        {buyer.buyerEmail}
-                      </TableCell>
-                      <TableCell data-testid={`text-join-date-${buyer.id}`}>
-                        {buyer.createdAt ? format(new Date(buyer.createdAt), "MMM d, yyyy") : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          data-testid={`button-view-${buyer.id}`}
-                        >
-                          View
-                        </Button>
-                      </TableCell>
+            <>
+              {/* Desktop: Table View */}
+              <div className="hidden md:block border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Buyer Email</TableHead>
+                      <TableHead>Join Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {buyers.map((buyer) => (
+                      <TableRow key={buyer.id} data-testid={`row-buyer-${buyer.id}`}>
+                        <TableCell className="font-medium" data-testid={`text-buyer-email-${buyer.id}`}>
+                          {buyer.buyerEmail}
+                        </TableCell>
+                        <TableCell data-testid={`text-join-date-${buyer.id}`}>
+                          {buyer.createdAt ? format(new Date(buyer.createdAt), "MMM d, yyyy") : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-testid={`button-view-${buyer.id}`}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: Card View */}
+              <div className="block md:hidden space-y-3">
+                {buyers.map((buyer) => (
+                  <Card key={buyer.id} data-testid={`card-buyer-${buyer.id}`}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base" data-testid={`text-buyer-email-${buyer.id}`}>
+                        {buyer.buyerEmail}
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1" data-testid={`text-join-date-${buyer.id}`}>
+                        Joined {buyer.createdAt ? format(new Date(buyer.createdAt), "MMM d, yyyy") : "N/A"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-3 pt-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        data-testid={`button-view-${buyer.id}`}
+                      >
+                        View Details
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

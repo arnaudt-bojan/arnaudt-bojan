@@ -85,7 +85,7 @@ export function CountrySelectorDialog({ isOpen, onClose, onConfirm }: CountrySel
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md" data-testid="dialog-country-selector">
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-country-selector">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
@@ -125,13 +125,14 @@ export function CountrySelectorDialog({ isOpen, onClose, onConfirm }: CountrySel
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose} data-testid="button-cancel">
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto" data-testid="button-cancel">
             Cancel
           </Button>
           <Button 
             onClick={handleConfirm} 
             disabled={!selectedCountry}
+            className="w-full sm:w-auto"
             data-testid="button-confirm-country"
           >
             Continue

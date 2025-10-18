@@ -182,7 +182,7 @@ export function PurchaseShippingLabelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" data-testid="dialog-purchase-shipping-label">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-purchase-shipping-label">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -286,11 +286,12 @@ export function PurchaseShippingLabelDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={purchaseLabelMutation.isPending}
+            className="w-full sm:w-auto"
             data-testid="button-cancel-purchase"
           >
             Cancel
@@ -298,6 +299,7 @@ export function PurchaseShippingLabelDialog({
           <Button
             onClick={handlePurchase}
             disabled={purchaseLabelMutation.isPending || !selectedWarehouseId || insufficientFunds || warehouseAddresses.length === 0}
+            className="w-full sm:w-auto"
             data-testid="button-purchase-label"
           >
             {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
@@ -330,7 +332,7 @@ export function ShippingLabelSuccessDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" data-testid="dialog-shipping-label-success">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-shipping-label-success">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
             <CheckCircle className="h-5 w-5" />
@@ -400,6 +402,7 @@ export function ShippingLabelSuccessDialog({
           <Button
             onClick={() => onOpenChange(false)}
             variant="outline"
+            className="w-full sm:w-auto"
             data-testid="button-close-success"
           >
             Close
@@ -469,7 +472,7 @@ export function ShippingLabelDetailsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-shipping-label-details">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-shipping-label-details">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -567,11 +570,12 @@ export function ShippingLabelDetailsDialog({
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2 flex-wrap pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                 <Button
                   variant="default"
                   size="sm"
                   onClick={() => handleDownloadPDF(label.labelUrl)}
+                  className="w-full"
                   data-testid="button-details-download-label"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -581,6 +585,7 @@ export function ShippingLabelDetailsDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => handlePrintLabel(label.labelUrl)}
+                  className="w-full"
                   data-testid="button-details-print-label"
                 >
                   <Printer className="h-4 w-4 mr-2" />
@@ -590,6 +595,7 @@ export function ShippingLabelDetailsDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => handleTrackShipment(label.trackingNumber, label.carrier)}
+                  className="w-full"
                   data-testid="button-details-track-shipment"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
@@ -601,6 +607,7 @@ export function ShippingLabelDetailsDialog({
                     size="sm"
                     onClick={() => setCancelingLabelId(label.id)}
                     disabled={cancelLabelMutation.isPending}
+                    className="w-full sm:col-span-2"
                     data-testid="button-details-cancel-label"
                   >
                     <XCircle className="h-4 w-4 mr-2" />
@@ -619,6 +626,7 @@ export function ShippingLabelDetailsDialog({
             <Button
               onClick={() => onOpenChange(false)}
               variant="outline"
+              className="w-full sm:w-auto"
               data-testid="button-close-details"
             >
               Close
@@ -629,7 +637,7 @@ export function ShippingLabelDetailsDialog({
 
       {/* Cancel Label Confirmation Dialog */}
       <AlertDialog open={!!cancelingLabelId} onOpenChange={(open) => !open && setCancelingLabelId(null)}>
-        <AlertDialogContent data-testid="dialog-cancel-label-confirm">
+        <AlertDialogContent className="w-[95vw] max-w-md" data-testid="dialog-cancel-label-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Shipping Label?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -637,15 +645,15 @@ export function ShippingLabelDetailsDialog({
               The refund may take several days to process and may be rejected if the label has already been scanned.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-cancel">Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto" data-testid="button-cancel-cancel">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (cancelingLabelId) {
                   cancelLabelMutation.mutate(cancelingLabelId);
                 }
               }}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto"
               data-testid="button-confirm-cancel"
             >
               Yes, Cancel Label

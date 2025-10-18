@@ -223,7 +223,7 @@ export function SavedPaymentMethodsManager() {
               Add Card
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Payment Method</DialogTitle>
               <DialogDescription>

@@ -278,7 +278,7 @@ export function RefundDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-refund">
+      <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-refund">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
@@ -614,7 +614,7 @@ export function RefundDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={() => {
@@ -622,6 +622,7 @@ export function RefundDialog({
               resetForm();
             }}
             disabled={processRefundMutation.isPending}
+            className="w-full sm:w-auto"
             data-testid="button-cancel-refund"
           >
             Cancel
@@ -629,6 +630,7 @@ export function RefundDialog({
           <Button
             onClick={() => processRefundMutation.mutate()}
             disabled={!canRefund || refundAmount <= 0 || !isCustomAmountValid || processRefundMutation.isPending}
+            className="w-full sm:w-auto"
             data-testid="button-confirm-refund"
           >
             {processRefundMutation.isPending ? "Processing..." : `Refund ${getCurrencySymbol(currency)}${refundAmount.toFixed(2)}`}

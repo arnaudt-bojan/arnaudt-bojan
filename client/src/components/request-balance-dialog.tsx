@@ -69,7 +69,7 @@ export function RequestBalanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md" data-testid="dialog-request-balance">
+      <DialogContent className="w-[95vw] sm:max-w-md" data-testid="dialog-request-balance">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
@@ -137,11 +137,12 @@ export function RequestBalanceDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={handleClose}
             disabled={requestMutation.isPending}
+            className="w-full sm:w-auto"
             data-testid="button-cancel-request"
           >
             Cancel
@@ -149,6 +150,7 @@ export function RequestBalanceDialog({
           <Button
             onClick={() => requestMutation.mutate()}
             disabled={requestMutation.isPending || success}
+            className="w-full sm:w-auto"
             data-testid="button-confirm-request"
           >
             {requestMutation.isPending ? "Sending..." : "Send Payment Request"}

@@ -205,7 +205,7 @@ export function SavedAddressesManager() {
               Add Address
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingAddress ? "Edit Address" : "Add New Address"}</DialogTitle>
               <DialogDescription>

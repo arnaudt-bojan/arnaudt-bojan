@@ -3,7 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -31,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PlusCircle, Search, Pencil, Trash2, Package } from "lucide-react";
+import { PlusCircle, Search, Pencil, Trash2, Package, MoreVertical } from "lucide-react";
 import type { WholesaleProduct } from "@shared/schema";
 import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 
@@ -127,7 +129,7 @@ export default function WholesaleProducts() {
         </Select>
       </div>
 
-      {/* Products Table */}
+      {/* Products - Loading State */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
@@ -153,79 +155,152 @@ export default function WholesaleProducts() {
           )}
         </div>
       ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Wholesale Price</TableHead>
-                <TableHead className="text-center">MOQ</TableHead>
-                <TableHead className="text-center">Stock</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="h-12 w-12 rounded-md object-cover"
-                        data-testid={`img-product-${product.id}`}
-                      />
-                      <div>
-                        <div className="font-medium" data-testid={`text-product-name-${product.id}`}>
-                          {product.name}
-                        </div>
-                        <div className="text-sm text-muted-foreground line-clamp-1">
-                          {product.description}
+        <>
+          {/* Desktop: Table View */}
+          <div className="hidden md:block border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Wholesale Price</TableHead>
+                  <TableHead className="text-center">MOQ</TableHead>
+                  <TableHead className="text-center">Stock</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-12 w-12 rounded-md object-cover"
+                          data-testid={`img-product-${product.id}`}
+                        />
+                        <div>
+                          <div className="font-medium" data-testid={`text-product-name-${product.id}`}>
+                            {product.name}
+                          </div>
+                          <div className="text-sm text-muted-foreground line-clamp-1">
+                            {product.description}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell data-testid={`text-category-${product.id}`}>
-                    {product.category}
-                  </TableCell>
-                  <TableCell data-testid={`text-price-${product.id}`}>
-                    {formatCurrency(parseFloat(product.wholesalePrice), currency)}
-                  </TableCell>
-                  <TableCell className="text-center" data-testid={`text-moq-${product.id}`}>
-                    {product.moq}
-                  </TableCell>
-                  <TableCell className="text-center" data-testid={`text-stock-${product.id}`}>
-                    <span className={product.stock && product.stock > 0 ? "" : "text-destructive"}>
-                      {product.stock || 0}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/wholesale/products/${product.id}/edit`}>
+                    </TableCell>
+                    <TableCell data-testid={`text-category-${product.id}`}>
+                      {product.category}
+                    </TableCell>
+                    <TableCell data-testid={`text-price-${product.id}`}>
+                      {formatCurrency(parseFloat(product.wholesalePrice), currency)}
+                    </TableCell>
+                    <TableCell className="text-center" data-testid={`text-moq-${product.id}`}>
+                      {product.moq}
+                    </TableCell>
+                    <TableCell className="text-center" data-testid={`text-stock-${product.id}`}>
+                      <span className={product.stock && product.stock > 0 ? "" : "text-destructive"}>
+                        {product.stock || 0}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/wholesale/products/${product.id}/edit`}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            data-testid={`button-edit-${product.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Link>
                         <Button
                           variant="ghost"
                           size="icon"
-                          data-testid={`button-edit-${product.id}`}
+                          onClick={() => setDeleteProductId(product.id)}
+                          data-testid={`button-delete-${product.id}`}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteProductId(product.id)}
-                        data-testid={`button-delete-${product.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile: Card View */}
+          <div className="block md:hidden space-y-3">
+            {filteredProducts.map((product) => (
+              <Card key={product.id} data-testid={`card-product-${product.id}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex gap-3">
+                    <div className="w-16 h-16 rounded-md overflow-hidden bg-muted shrink-0">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        data-testid={`img-product-${product.id}`}
+                      />
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate" data-testid={`text-product-name-${product.id}`}>
+                        {product.name}
+                      </CardTitle>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          MOQ: {product.moq}
+                        </Badge>
+                        <Badge className="text-xs" data-testid={`text-price-${product.id}`}>
+                          {formatCurrency(parseFloat(product.wholesalePrice), currency)}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-3 pt-0 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Category:</span>
+                    <span data-testid={`text-category-${product.id}`}>{product.category}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Stock:</span>
+                    <span 
+                      className={product.stock && product.stock > 0 ? "font-medium" : "text-destructive font-medium"}
+                      data-testid={`text-stock-${product.id}`}
+                    >
+                      {product.stock || 0}
+                    </span>
+                  </div>
+                  {product.depositPercentage && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Deposit:</span>
+                      <span className="font-medium">{product.depositPercentage}%</span>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="pt-3 border-t gap-2">
+                  <Link href={`/wholesale/products/${product.id}/edit`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full" data-testid={`button-edit-${product.id}`}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setDeleteProductId(product.id)}
+                    data-testid={`button-delete-${product.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

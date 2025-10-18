@@ -543,13 +543,14 @@ export default function TradeQuotationBuilder() {
 
             {/* Line Items Grid */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <CardTitle>Line Items</CardTitle>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleAddRow}
+                  className="w-full sm:w-auto"
                   data-testid="button-add-row"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -557,7 +558,8 @@ export default function TradeQuotationBuilder() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -650,6 +652,98 @@ export default function TradeQuotationBuilder() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} data-testid={`card-line-item-${index}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base">
+                            Item #{index + 1}
+                          </CardTitle>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveRow(index)}
+                            disabled={fields.length === 1}
+                            data-testid={`button-delete-row-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.description`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  {...field}
+                                  placeholder="Item description"
+                                  className="min-h-[60px]"
+                                  data-testid={`input-description-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.unitPrice`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Unit Price</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    {...field}
+                                    data-testid={`input-unit-price-${index}`}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Quantity</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    {...field}
+                                    data-testid={`input-quantity-${index}`}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="pt-3 border-t">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Line Total:</span>
+                            <span className="text-lg font-semibold" data-testid={`text-line-total-${index}`}>
+                              {currency} {calculations.lineTotals[index]?.toFixed(2) || "0.00"}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </CardContent>
             </Card>

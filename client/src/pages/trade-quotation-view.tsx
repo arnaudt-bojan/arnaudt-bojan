@@ -437,7 +437,9 @@ export default function TradeQuotationView() {
             {/* Line Items Table - B2B Best Practice: No per-item tax/shipping */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4">Line Items</h3>
-              <div className="border rounded-md overflow-auto">
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block border rounded-md overflow-auto">
                 <Table data-testid="table-line-items">
                   <TableHeader>
                     <TableRow>
@@ -464,6 +466,45 @@ export default function TradeQuotationView() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {quotation.items.map((item) => (
+                  <Card key={item.id} data-testid={`card-line-item-${item.lineNumber}`}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">
+                        Line #{item.lineNumber}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Description</span>
+                        <p className="font-medium">{item.description}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-xs text-muted-foreground">Unit Price</span>
+                          <p className="font-medium">
+                            {formatCurrency(item.unitPrice, quotation.currency)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground">Quantity</span>
+                          <p className="font-medium">{item.quantity}</p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Line Total:</span>
+                          <span className="text-lg font-semibold">
+                            {formatCurrency(item.lineTotal, quotation.currency)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
 

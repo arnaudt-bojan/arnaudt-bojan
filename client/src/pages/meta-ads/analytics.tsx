@@ -593,85 +593,157 @@ export default function MetaAdsAnalytics() {
               <p className="text-muted-foreground">No campaign performance data available</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="cursor-pointer hover-elevate" onClick={() => {
-                      setSortField("campaignName");
-                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                    }}>
-                      Campaign Name
-                    </TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="cursor-pointer hover-elevate text-right" onClick={() => {
-                      setSortField("totalImpressions");
-                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                    }}>
-                      Impressions
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover-elevate text-right" onClick={() => {
-                      setSortField("totalClicks");
-                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                    }}>
-                      Clicks
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover-elevate text-right" onClick={() => {
-                      setSortField("totalSpend");
-                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                    }}>
-                      Spend
-                    </TableHead>
-                    <TableHead className="text-right">CTR</TableHead>
-                    <TableHead className="text-right">ROAS</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedPerformances.map((perf) => {
-                    const campaign = campaigns.find((c) => c.id === perf.campaignId);
-                    return (
-                      <TableRow key={perf.campaignId} data-testid={`row-campaign-${perf.campaignId}`}>
-                        <TableCell className="font-medium" data-testid={`text-campaign-name-${perf.campaignId}`}>
+            <>
+              {/* Desktop: Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="cursor-pointer hover-elevate" onClick={() => {
+                        setSortField("campaignName");
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      }}>
+                        Campaign Name
+                      </TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="cursor-pointer hover-elevate text-right" onClick={() => {
+                        setSortField("totalImpressions");
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      }}>
+                        Impressions
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover-elevate text-right" onClick={() => {
+                        setSortField("totalClicks");
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      }}>
+                        Clicks
+                      </TableHead>
+                      <TableHead className="cursor-pointer hover-elevate text-right" onClick={() => {
+                        setSortField("totalSpend");
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      }}>
+                        Spend
+                      </TableHead>
+                      <TableHead className="text-right">CTR</TableHead>
+                      <TableHead className="text-right">ROAS</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedPerformances.map((perf) => {
+                      const campaign = campaigns.find((c) => c.id === perf.campaignId);
+                      return (
+                        <TableRow key={perf.campaignId} data-testid={`row-campaign-${perf.campaignId}`}>
+                          <TableCell className="font-medium" data-testid={`text-campaign-name-${perf.campaignId}`}>
+                            {perf.campaignName}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(campaign?.status || "unknown")} data-testid={`badge-status-${perf.campaignId}`}>
+                              {campaign?.status.toUpperCase() || "UNKNOWN"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right" data-testid={`text-impressions-${perf.campaignId}`}>
+                            {perf.totalImpressions.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right" data-testid={`text-clicks-${perf.campaignId}`}>
+                            {perf.totalClicks.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right" data-testid={`text-spend-${perf.campaignId}`}>
+                            ${parseFloat(perf.totalSpend).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right" data-testid={`text-ctr-${perf.campaignId}`}>
+                            {perf.avgCtr}%
+                          </TableCell>
+                          <TableCell className="text-right" data-testid={`text-roas-${perf.campaignId}`}>
+                            {perf.roas}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLocation("/meta-ads/dashboard")}
+                              data-testid={`button-back-to-dashboard-${perf.campaignId}`}
+                            >
+                              Back to Dashboard
+                              <ArrowRight className="h-4 w-4 ml-2" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: Performance Cards */}
+              <div className="block md:hidden space-y-3">
+                {sortedPerformances.map((perf) => {
+                  const campaign = campaigns.find((c) => c.id === perf.campaignId);
+                  return (
+                    <Card key={perf.campaignId} className="p-4" data-testid={`card-mobile-campaign-${perf.campaignId}`}>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <h4 className="font-semibold text-base flex-1 min-w-0 truncate" data-testid={`text-mobile-campaign-name-${perf.campaignId}`}>
                           {perf.campaignName}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(campaign?.status || "unknown")} data-testid={`badge-status-${perf.campaignId}`}>
-                            {campaign?.status.toUpperCase() || "UNKNOWN"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right" data-testid={`text-impressions-${perf.campaignId}`}>
-                          {perf.totalImpressions.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right" data-testid={`text-clicks-${perf.campaignId}`}>
-                          {perf.totalClicks.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right" data-testid={`text-spend-${perf.campaignId}`}>
-                          ${parseFloat(perf.totalSpend).toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right" data-testid={`text-ctr-${perf.campaignId}`}>
-                          {perf.avgCtr}%
-                        </TableCell>
-                        <TableCell className="text-right" data-testid={`text-roas-${perf.campaignId}`}>
-                          {perf.roas}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setLocation("/meta-ads/dashboard")}
-                            data-testid={`button-back-to-dashboard-${perf.campaignId}`}
-                          >
-                            Back to Dashboard
-                            <ArrowRight className="h-4 w-4 ml-2" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                        </h4>
+                        <Badge className={getStatusColor(campaign?.status || "unknown")} data-testid={`badge-mobile-status-${perf.campaignId}`}>
+                          {campaign?.status.toUpperCase() || "UNKNOWN"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">Impressions</p>
+                          <p className="font-semibold" data-testid={`text-mobile-impressions-${perf.campaignId}`}>
+                            {perf.totalImpressions.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">Clicks</p>
+                          <p className="font-semibold" data-testid={`text-mobile-clicks-${perf.campaignId}`}>
+                            {perf.totalClicks.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">Spend</p>
+                          <p className="font-semibold" data-testid={`text-mobile-spend-${perf.campaignId}`}>
+                            ${parseFloat(perf.totalSpend).toFixed(2)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">CTR</p>
+                          <p className="font-semibold" data-testid={`text-mobile-ctr-${perf.campaignId}`}>
+                            {perf.avgCtr}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">CPM</p>
+                          <p className="font-semibold" data-testid={`text-mobile-cpm-${perf.campaignId}`}>
+                            ${perf.avgCpm}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs mb-1">ROAS</p>
+                          <p className="font-semibold" data-testid={`text-mobile-roas-${perf.campaignId}`}>
+                            {perf.roas}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={() => setLocation("/meta-ads/dashboard")}
+                        data-testid={`button-mobile-view-dashboard-${perf.campaignId}`}
+                      >
+                        View in Dashboard
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
           )}
         </Card>
       </div>

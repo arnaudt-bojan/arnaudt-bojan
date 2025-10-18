@@ -394,7 +394,7 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="flex-1"
+            className="w-full sm:flex-1"
             disabled={isPolling}
             data-testid="button-cancel"
           >
@@ -403,7 +403,7 @@ export function SubscriptionPricingDialog({ open, onOpenChange, activateStoreAft
           <Button
             onClick={handleSubscribe}
             disabled={createSubscriptionMutation.isPending || isPolling}
-            className="flex-1"
+            className="w-full sm:flex-1"
             data-testid="button-start-subscription"
           >
             {createSubscriptionMutation.isPending ? (

@@ -672,7 +672,7 @@ export default function CreateAdWizard() {
               </Card>
 
               <div className="flex justify-end">
-                <Button type="submit" size="lg" data-testid="button-next-step-1">
+                <Button type="submit" size="lg" className="w-full sm:w-auto" data-testid="button-next-step-1">
                   Next Step
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -774,11 +774,12 @@ export default function CreateAdWizard() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-between">
+            <div className="flex flex-col sm:flex-row justify-between gap-3">
               <Button
                 variant="outline"
                 size="lg"
                 onClick={() => setCurrentStep(1)}
+                className="w-full sm:w-auto"
                 data-testid="button-back-step-2"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -787,6 +788,7 @@ export default function CreateAdWizard() {
               <Button
                 size="lg"
                 onClick={() => setCurrentStep(3)}
+                className="w-full sm:w-auto"
                 data-testid="button-next-step-2"
               >
                 Next Step
@@ -897,12 +899,13 @@ export default function CreateAdWizard() {
 
               {/* Payment Section */}
               {!clientSecret && (
-                <div className="flex justify-between">
+                <div className="flex flex-col sm:flex-row justify-between gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     size="lg"
                     onClick={() => setCurrentStep(2)}
+                    className="w-full sm:w-auto"
                     data-testid="button-back-step-3"
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -912,6 +915,7 @@ export default function CreateAdWizard() {
                     type="submit"
                     size="lg"
                     disabled={purchaseBudgetMutation.isPending}
+                    className="w-full sm:w-auto"
                     data-testid="button-proceed-payment"
                   >
                     {purchaseBudgetMutation.isPending ? (
@@ -960,6 +964,7 @@ export default function CreateAdWizard() {
                   <div className="mt-4">
                     <Button
                       variant="outline"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setClientSecret("");
                         setStep3Data(null);

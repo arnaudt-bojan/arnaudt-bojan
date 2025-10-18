@@ -171,7 +171,7 @@ export function ImageEditor({ imageUrl, isOpen, onClose, onSave, aspectRatio = 4
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-image-editor">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-image-editor">
         <DialogHeader>
           <DialogTitle>Edit Image</DialogTitle>
         </DialogHeader>
@@ -370,14 +370,14 @@ export function ImageEditor({ imageUrl, isOpen, onClose, onSave, aspectRatio = 4
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={resetAll} data-testid="button-reset-all">
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={resetAll} className="w-full sm:w-auto" data-testid="button-reset-all">
             Reset All
           </Button>
-          <Button variant="outline" onClick={onClose} data-testid="button-cancel">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto" data-testid="button-cancel">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-edited">
+          <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto" data-testid="button-save-edited">
             {isSaving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>

@@ -593,12 +593,13 @@ export default function MetaAdsDashboard() {
                 META ADS DASHBOARD
               </h1>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Button 
                 variant="outline"
                 onClick={() => setLocation("/meta-ads/analytics")}
                 data-testid="button-view-analytics"
                 size="lg"
+                className="w-full sm:w-auto"
               >
                 <TrendingUp className="h-4 w-4 mr-2" />
                 Analytics
@@ -607,6 +608,7 @@ export default function MetaAdsDashboard() {
                 onClick={() => setLocation("/meta-ads/create")}
                 data-testid="button-create-ad"
                 size="lg"
+                className="w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Ad

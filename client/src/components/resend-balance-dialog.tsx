@@ -90,7 +90,7 @@ export function ResendBalanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md" data-testid="dialog-resend-balance">
+      <DialogContent className="w-[95vw] sm:max-w-md" data-testid="dialog-resend-balance">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="w-5 h-5" />
@@ -159,11 +159,12 @@ export function ResendBalanceDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={handleClose}
             disabled={resendMutation.isPending}
+            className="w-full sm:w-auto"
             data-testid="button-cancel-resend"
           >
             Cancel
@@ -171,6 +172,7 @@ export function ResendBalanceDialog({
           <Button
             onClick={() => resendMutation.mutate()}
             disabled={resendMutation.isPending || success}
+            className="w-full sm:w-auto"
             data-testid="button-confirm-resend"
           >
             {resendMutation.isPending ? "Sending..." : "Resend Request"}

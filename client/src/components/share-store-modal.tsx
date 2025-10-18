@@ -81,7 +81,7 @@ export function ShareStoreModal({ open, onOpenChange }: ShareStoreModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" data-testid="modal-share-store">
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto" data-testid="modal-share-store">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Share Your Store!</DialogTitle>
           <DialogDescription>

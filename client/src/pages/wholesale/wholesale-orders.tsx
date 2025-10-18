@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -93,7 +94,7 @@ export default function WholesaleOrders() {
         </Select>
       </div>
 
-      {/* Orders Table */}
+      {/* Orders - Loading State */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
@@ -111,88 +112,176 @@ export default function WholesaleOrders() {
           </p>
         </div>
       ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order Number</TableHead>
-                <TableHead>Buyer</TableHead>
-                <TableHead>Order Date</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Payment Status</TableHead>
-                <TableHead>Shipping</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => {
-                // Determine payment status
-                const hasDeposit = order.depositAmountCents > 0;
-                const hasBalance = order.balanceAmountCents > 0;
-                const isDepositPaid = ["deposit_paid", "awaiting_balance", "ready_to_release", "in_production", "fulfilled"].includes(order.status);
-                const isBalancePaid = ["ready_to_release", "in_production", "fulfilled"].includes(order.status);
-                const isBalanceOverdue = order.status === "balance_overdue";
+        <>
+          {/* Desktop: Table View */}
+          <div className="hidden md:block border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order Number</TableHead>
+                  <TableHead>Buyer</TableHead>
+                  <TableHead>Order Date</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Payment Status</TableHead>
+                  <TableHead>Shipping</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => {
+                  // Determine payment status
+                  const hasDeposit = order.depositAmountCents > 0;
+                  const hasBalance = order.balanceAmountCents > 0;
+                  const isDepositPaid = ["deposit_paid", "awaiting_balance", "ready_to_release", "in_production", "fulfilled"].includes(order.status);
+                  const isBalancePaid = ["ready_to_release", "in_production", "fulfilled"].includes(order.status);
+                  const isBalanceOverdue = order.status === "balance_overdue";
 
-                return (
-                  <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                    <TableCell className="font-medium" data-testid={`text-order-number-${order.id}`}>
-                      {order.orderNumber}
-                    </TableCell>
-                    <TableCell data-testid={`text-buyer-${order.id}`}>
-                      <div>
-                        <div className="font-medium">{order.buyerCompanyName || "N/A"}</div>
-                        <div className="text-sm text-muted-foreground">{order.buyerEmail}</div>
+                  return (
+                    <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                      <TableCell className="font-medium" data-testid={`text-order-number-${order.id}`}>
+                        {order.orderNumber}
+                      </TableCell>
+                      <TableCell data-testid={`text-buyer-${order.id}`}>
+                        <div>
+                          <div className="font-medium">{order.buyerCompanyName || "N/A"}</div>
+                          <div className="text-sm text-muted-foreground">{order.buyerEmail}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell data-testid={`text-date-${order.id}`}>
+                        {order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "N/A"}
+                      </TableCell>
+                      <TableCell data-testid={`text-total-${order.id}`}>
+                        {formatCurrencyFromCents(order.totalCents, currency)}
+                      </TableCell>
+                      <TableCell data-testid={`payment-status-${order.id}`}>
+                        <div className="flex gap-1">
+                          {hasDeposit && (
+                            isDepositPaid ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" aria-label="Deposit Paid" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-yellow-600" aria-label="Deposit Pending" />
+                            )
+                          )}
+                          {hasBalance && (
+                            isBalancePaid ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" aria-label="Balance Paid" />
+                            ) : isBalanceOverdue ? (
+                              <AlertCircle className="h-4 w-4 text-red-600" aria-label="Balance Overdue" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-orange-600" aria-label="Balance Due" />
+                            )
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell data-testid={`shipping-type-${order.id}`}>
+                        <span className="text-muted-foreground">View Details</span>
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(order.status)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setLocation(`/wholesale/orders/${order.id}`)}
+                          data-testid={`button-view-${order.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile: Card View */}
+          <div className="block md:hidden space-y-3">
+            {filteredOrders.map((order) => {
+              // Determine payment status
+              const hasDeposit = order.depositAmountCents > 0;
+              const hasBalance = order.balanceAmountCents > 0;
+              const isDepositPaid = ["deposit_paid", "awaiting_balance", "ready_to_release", "in_production", "fulfilled"].includes(order.status);
+              const isBalancePaid = ["ready_to_release", "in_production", "fulfilled"].includes(order.status);
+              const isBalanceOverdue = order.status === "balance_overdue";
+
+              return (
+                <Card key={order.id} data-testid={`card-order-${order.id}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-base truncate" data-testid={`text-order-number-${order.id}`}>
+                          {order.orderNumber}
+                        </CardTitle>
+                        <CardDescription className="text-xs mt-1" data-testid={`text-buyer-${order.id}`}>
+                          {order.buyerCompanyName || order.buyerEmail}
+                        </CardDescription>
                       </div>
-                    </TableCell>
-                    <TableCell data-testid={`text-date-${order.id}`}>
-                      {order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "N/A"}
-                    </TableCell>
-                    <TableCell data-testid={`text-total-${order.id}`}>
-                      {formatCurrencyFromCents(order.totalCents, currency)}
-                    </TableCell>
-                    <TableCell data-testid={`payment-status-${order.id}`}>
-                      <div className="flex gap-1">
-                        {hasDeposit && (
-                          isDepositPaid ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" aria-label="Deposit Paid" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-yellow-600" aria-label="Deposit Pending" />
-                          )
-                        )}
-                        {hasBalance && (
-                          isBalancePaid ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" aria-label="Balance Paid" />
-                          ) : isBalanceOverdue ? (
-                            <AlertCircle className="h-4 w-4 text-red-600" aria-label="Balance Overdue" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-orange-600" aria-label="Balance Due" />
-                          )
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid={`shipping-type-${order.id}`}>
-                      <span className="text-muted-foreground">View Details</span>
-                    </TableCell>
-                    <TableCell>
                       {getStatusBadge(order.status)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setLocation(`/wholesale/orders/${order.id}`)}
-                        data-testid={`button-view-${order.id}`}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-3 pt-0 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Order Date:</span>
+                      <span data-testid={`text-date-${order.id}`}>
+                        {order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total:</span>
+                      <span className="font-semibold" data-testid={`text-total-${order.id}`}>
+                        {formatCurrencyFromCents(order.totalCents, currency)}
+                      </span>
+                    </div>
+                    {(hasDeposit || hasBalance) && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Payment:</span>
+                        <div className="flex gap-1" data-testid={`payment-status-${order.id}`}>
+                          {hasDeposit && (
+                            <div className="flex items-center gap-1">
+                              {isDepositPaid ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" aria-label="Deposit Paid" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-yellow-600" aria-label="Deposit Pending" />
+                              )}
+                              <span className="text-xs">Dep</span>
+                            </div>
+                          )}
+                          {hasBalance && (
+                            <div className="flex items-center gap-1">
+                              {isBalancePaid ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" aria-label="Balance Paid" />
+                              ) : isBalanceOverdue ? (
+                                <AlertCircle className="h-4 w-4 text-red-600" aria-label="Balance Overdue" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-orange-600" aria-label="Balance Due" />
+                              )}
+                              <span className="text-xs">Bal</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="pt-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setLocation(`/wholesale/orders/${order.id}`)}
+                      data-testid={`button-view-${order.id}`}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Details
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

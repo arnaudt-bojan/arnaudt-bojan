@@ -207,59 +207,115 @@ export default function WholesaleInvitations() {
             </Button>
           </Card>
         ) : (
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Buyer Email</TableHead>
-                  <TableHead>Buyer Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Accepted</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invitations.map((invitation) => (
-                  <TableRow key={invitation.id} data-testid={`row-invitation-${invitation.id}`}>
-                    <TableCell className="font-medium">{invitation.buyerEmail}</TableCell>
-                    <TableCell>{invitation.buyerName || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(invitation.status)}</TableCell>
-                    <TableCell>
-                      {new Date(invitation.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {invitation.acceptedAt
-                        ? new Date(invitation.acceptedAt).toLocaleDateString()
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {invitation.status === "pending" && (
+          <>
+            {/* Desktop: Table View */}
+            <Card className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Buyer Email</TableHead>
+                    <TableHead>Buyer Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Accepted</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invitations.map((invitation) => (
+                    <TableRow key={invitation.id} data-testid={`row-invitation-${invitation.id}`}>
+                      <TableCell className="font-medium">{invitation.buyerEmail}</TableCell>
+                      <TableCell>{invitation.buyerName || "-"}</TableCell>
+                      <TableCell>{getStatusBadge(invitation.status)}</TableCell>
+                      <TableCell>
+                        {new Date(invitation.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {invitation.acceptedAt
+                          ? new Date(invitation.acceptedAt).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {invitation.status === "pending" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => copyInvitationLink(invitation.token)}
+                              data-testid={`button-copy-${invitation.id}`}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => copyInvitationLink(invitation.token)}
-                            data-testid={`button-copy-${invitation.id}`}
+                            onClick={() => setDeleteId(invitation.id)}
+                            data-testid={`button-delete-${invitation.id}`}
                           >
-                            <Copy className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+
+            {/* Mobile: Card View */}
+            <div className="block md:hidden space-y-3">
+              {invitations.map((invitation) => (
+                <Card key={invitation.id} data-testid={`card-invitation-${invitation.id}`}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{invitation.buyerEmail}</div>
+                        {invitation.buyerName && (
+                          <div className="text-sm text-muted-foreground">{invitation.buyerName}</div>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteId(invitation.id)}
-                          data-testid={`button-delete-${invitation.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                      {getStatusBadge(invitation.status)}
+                    </div>
+                    <div className="space-y-2 text-sm mb-4">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Created:</span>
+                        <span>{new Date(invitation.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {invitation.acceptedAt && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Accepted:</span>
+                          <span>{new Date(invitation.acceptedAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {invitation.status === "pending" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => copyInvitationLink(invitation.token)}
+                          data-testid={`button-copy-${invitation.id}`}
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy Link
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteId(invitation.id)}
+                        data-testid={`button-delete-${invitation.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
 
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
