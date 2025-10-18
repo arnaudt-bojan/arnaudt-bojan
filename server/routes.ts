@@ -66,6 +66,7 @@ import { SKUService } from "./services/sku.service";
 import { RefundService } from "./services/refund.service";
 import { CheckoutWorkflowOrchestrator } from "./services/checkout-workflow-orchestrator.service";
 import { WholesaleCheckoutWorkflowOrchestrator, type WholesaleCheckoutData } from "./services/wholesale-checkout-workflow-orchestrator.service";
+import { LocationIQAddressService } from "./services/locationiq-address.service";
 
 // Import Newsletter Services (Architecture 3)
 import { CampaignService } from "./services/newsletter/campaign.service";
@@ -104,6 +105,9 @@ const cartReservationService = new CartReservationService(storage, inventoryServ
 
 // Initialize SKU service for product SKU generation
 const skuService = new SKUService(storage);
+
+// Initialize LocationIQ address service for address autocomplete and validation
+const locationIQService = new LocationIQAddressService();
 
 // Reference: javascript_stripe integration
 // Initialize Stripe with secret key when available
@@ -10388,7 +10392,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Order API - Backend order processing with server-side shipping and tax calculation
+  // ============================================================================
+  // ADDRESS AUTOCOMPLETE & VALIDATION API - LocationIQ Integration
+  // ============================================================================
+
+  // Address Autocomplete API - LocationIQ Integration
+  app.post("/api/addresses/search", async (req, res) => {
+    try {
+      const { query, countryCode, limit } = req.body;
+
+      // Validate request
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: "Query string is required" });
+      }
+
+      // Check if LocationIQ is available
+      if (!locationIQService.isAvailable()) {
+        return res.status(503).json({ 
+          error: "Address autocomplete service not available",
+          message: "LocationIQ API key not configured" 
+        });
+      }
+
+      // Search addresses
+      const results = await locationIQService.searchAddress(
+        query,
+        countryCode,
+        limit || 5
+      );
+
+      res.json({ results });
+
+    } catch (error: any) {
+      logger.error("[API] Address search failed:", error);
+      res.status(500).json({ 
+        error: "Address search failed",
+        message: error.message 
+      });
+    }
+  });
+
+  app.post("/api/addresses/validate", async (req, res) => {
+    try {
+      const address = req.body;
+
+      // Validate required fields
+      if (!address || !address.line1 || !address.city || !address.country) {
+        return res.status(400).json({ 
+          error: "Incomplete address. Required: line1, city, country" 
+        });
+      }
+
+      // Check if LocationIQ is available
+      if (!locationIQService.isAvailable()) {
+        // Return address as-is if service not available (manual validation)
+        return res.json({ 
+          address: {
+            ...address,
+            validatedSource: 'manual',
+            validatedAt: new Date()
+          },
+          validated: false,
+          message: "LocationIQ not available - address not validated"
+        });
+      }
+
+      // Validate address
+      const validated = await locationIQService.validateAddress(address);
+
+      if (!validated) {
+        return res.status(422).json({ 
+          error: "Address validation failed",
+          message: "Could not validate this address. Please check and try again."
+        });
+      }
+
+      res.json({ 
+        address: validated,
+        validated: true 
+      });
+
+    } catch (error: any) {
+      logger.error("[API] Address validation failed:", error);
+      res.status(500).json({ 
+        error: "Address validation failed",
+        message: error.message 
+      });
+    }
+  });
+
+  // ============================================================================
+  // ORDER API - Backend order processing with server-side shipping and tax calculation
+  // ============================================================================
   app.post("/api/orders/calculate", async (req: any, res) => {
     try {
       const { items, destination } = req.body;
