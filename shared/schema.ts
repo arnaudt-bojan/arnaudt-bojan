@@ -1,7 +1,48 @@
 import { sql } from "drizzle-orm";
-import { pgTable, pgEnum, text, varchar, decimal, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, varchar, decimal, integer, timestamp, jsonb, index, uniqueIndex, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// ============================================================================
+// Canonical Address Type and Validation
+// ============================================================================
+// Standardized address structure used across the platform for all address fields.
+// This ensures consistency in address handling, validation, and geocoding.
+
+export interface Address {
+  line1: string;              // Street address (required)
+  line2?: string;             // Apartment/suite (optional)
+  city: string;               // City (required)
+  state: string;              // State/province/region (required for most countries)
+  postalCode: string;         // ZIP/postal code (required)
+  country: string;            // ISO 3166-1 alpha-2 code (GB, US, FR, etc.) (required)
+  countryName: string;        // Full country name for display (United Kingdom, United States, etc.)
+  latitude?: number;          // For future features (optional)
+  longitude?: number;         // For future features (optional)
+  validatedSource?: 'locationiq' | 'manual';  // How was this address validated
+  validatedAt?: Date;         // When was this address validated
+}
+
+// Address validation schema
+export const addressSchema = z.object({
+  line1: z.string().min(1, "Street address is required"),
+  line2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State/Province is required"),
+  postalCode: z.string().min(1, "Postal code is required"),
+  country: z.string().length(2, "Country code must be ISO 3166-1 alpha-2 (2 letters)"),
+  countryName: z.string().min(1, "Country name is required"),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  validatedSource: z.enum(['locationiq', 'manual']).optional(),
+  validatedAt: z.date().optional(),
+});
+
+export type AddressInput = z.infer<typeof addressSchema>;
+
+// ============================================================================
+// Product and Order Enums
+// ============================================================================
 
 export const productTypeEnum = z.enum(["in-stock", "pre-order", "made-to-order", "wholesale"]);
 export type ProductType = z.infer<typeof productTypeEnum>;
@@ -1230,12 +1271,26 @@ export const users = pgTable("users", {
   termsPdfUrl: varchar("terms_pdf_url"), // URL to custom Terms & Conditions PDF
   termsSource: varchar("terms_source").default('platform_default'), // "custom_pdf" or "platform_default" - defaults to platform
   
-  // Warehouse/Fulfillment Address - origin address for Shippo shipping calculations
-  warehouseStreet: varchar("warehouse_street"), // Warehouse street address
-  warehouseCity: varchar("warehouse_city"), // Warehouse city
-  warehouseState: varchar("warehouse_state"), // Warehouse state/province
-  warehousePostalCode: varchar("warehouse_postal_code"), // Warehouse postal/ZIP code
-  warehouseCountry: varchar("warehouse_country"), // Warehouse country (ISO 2-letter code)
+  // NEW standardized warehouse address fields (follows canonical Address schema)
+  warehouseAddressLine1: varchar("warehouse_address_line1"),
+  warehouseAddressLine2: varchar("warehouse_address_line2"),
+  warehouseAddressCity: varchar("warehouse_address_city"),
+  warehouseAddressState: varchar("warehouse_address_state"),
+  warehouseAddressPostalCode: varchar("warehouse_address_postal_code"),
+  warehouseAddressCountryCode: varchar("warehouse_address_country_code", { length: 2 }),  // ISO 3166-1 alpha-2 code
+  warehouseAddressCountryName: varchar("warehouse_address_country_name"),
+  warehouseAddressLatitude: real("warehouse_address_latitude"),
+  warehouseAddressLongitude: real("warehouse_address_longitude"),
+  warehouseAddressValidatedSource: varchar("warehouse_address_validated_source", { length: 20 }),
+  warehouseAddressValidatedAt: timestamp("warehouse_address_validated_at"),
+  
+  // DEPRECATED: Legacy warehouse fields - kept for backward compatibility
+  // Use warehouseAddress* fields instead for new implementations
+  warehouseStreet: varchar("warehouse_street"), // DEPRECATED: Use warehouseAddressLine1
+  warehouseCity: varchar("warehouse_city"), // DEPRECATED: Use warehouseAddressCity
+  warehouseState: varchar("warehouse_state"), // DEPRECATED: Use warehouseAddressState
+  warehousePostalCode: varchar("warehouse_postal_code"), // DEPRECATED: Use warehouseAddressPostalCode
+  warehouseCountry: varchar("warehouse_country"), // DEPRECATED: Use warehouseAddressCountryCode
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
