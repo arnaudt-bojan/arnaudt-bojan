@@ -150,6 +150,9 @@ function PaymentForm({
     setPaymentError(null);
 
     try {
+      // CRITICAL FIX: Use correct billing address based on billingSameAsShipping flag
+      const useBillingAddress = !billingDetails.billingSameAsShipping;
+      
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         redirect: "if_required",
@@ -157,16 +160,16 @@ function PaymentForm({
           return_url: window.location.origin + '/checkout/complete',
           payment_method_data: {
             billing_details: {
-              email: billingDetails.customerEmail,
-              name: billingDetails.customerName,
-              phone: billingDetails.phone,
+              email: useBillingAddress ? billingDetails.billingEmail : billingDetails.customerEmail,
+              name: useBillingAddress ? billingDetails.billingName : billingDetails.customerName,
+              phone: useBillingAddress ? billingDetails.billingPhone : billingDetails.phone,
               address: {
-                line1: billingDetails.addressLine1,
-                line2: billingDetails.addressLine2 || undefined,
-                city: billingDetails.city,
-                state: billingDetails.state,
-                postal_code: billingDetails.postalCode,
-                country: billingDetails.country,
+                line1: useBillingAddress ? billingDetails.billingAddressLine1 : billingDetails.addressLine1,
+                line2: useBillingAddress ? (billingDetails.billingAddressLine2 || undefined) : (billingDetails.addressLine2 || undefined),
+                city: useBillingAddress ? billingDetails.billingCity : billingDetails.city,
+                state: useBillingAddress ? billingDetails.billingState : billingDetails.state,
+                postal_code: useBillingAddress ? billingDetails.billingPostalCode : billingDetails.postalCode,
+                country: useBillingAddress ? billingDetails.billingCountry : billingDetails.country,
               },
             },
           },
