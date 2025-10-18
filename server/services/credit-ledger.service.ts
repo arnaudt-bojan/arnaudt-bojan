@@ -266,4 +266,65 @@ export class CreditLedgerService {
       throw new Error('Failed to rollback label purchase debit');
     }
   }
+
+  /**
+   * Credit seller's wallet for manual top-up (Stripe payment).
+   * 
+   * Creates a credit entry when seller adds funds via Stripe Checkout.
+   * This is the primary way sellers add balance to their wallet.
+   * 
+   * @param sellerId - Seller's user ID
+   * @param amount - Amount to credit in USD (positive number)
+   * @param stripeSessionId - Optional Stripe session ID for traceability
+   * @returns New balance after credit
+   */
+  async creditWalletTopup(
+    sellerId: string,
+    amount: number,
+    stripeSessionId?: string
+  ): Promise<number> {
+    try {
+      // Get current balance
+      const currentBalance = await this.getSellerBalance(sellerId);
+      
+      // Calculate new balance (credit increases balance)
+      const newBalance = currentBalance + amount;
+      
+      // Create credit entry
+      await this.storage.createSellerCreditLedger({
+        sellerId,
+        labelId: null,
+        orderId: null,
+        type: 'credit',
+        amountUsd: amount.toFixed(2),
+        balanceAfter: newBalance.toFixed(2),
+        source: 'manual',
+        metadata: JSON.stringify({
+          note: 'Wallet top-up via Stripe',
+          stripeSessionId: stripeSessionId || null,
+          timestamp: new Date().toISOString()
+        }),
+        currency: 'USD',
+        exchangeRate: null
+      });
+
+      logger.info('[CreditLedgerService] Credited seller wallet for top-up', {
+        sellerId,
+        amount,
+        currentBalance,
+        newBalance,
+        stripeSessionId
+      });
+
+      return newBalance;
+    } catch (error: any) {
+      logger.error('[CreditLedgerService] Failed to credit wallet top-up', {
+        sellerId,
+        amount,
+        stripeSessionId,
+        error: error.message
+      });
+      throw new Error('Failed to credit wallet for top-up');
+    }
+  }
 }

@@ -14,6 +14,7 @@ import {
   BarChart3,
   Mail,
   Megaphone,
+  Wallet,
   LogOut
 } from "lucide-react";
 import { useBusinessMode } from "@/contexts/business-mode-context";
@@ -62,6 +63,12 @@ const b2cNavigation = [
       href: "/meta-ads/dashboard",
       icon: Megaphone,
       testId: "link-meta-ads",
+    },
+    {
+      name: "Wallet",
+      href: "/seller/wallet",
+      icon: Wallet,
+      testId: "link-seller-wallet",
     },
     {
       name: "Settings",

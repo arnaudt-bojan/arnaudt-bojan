@@ -97,13 +97,50 @@ export class StripeWebhookService {
 
   /**
    * Handle checkout.session.completed event
-   * Processes subscription creation and payment method saving
+   * Processes subscription creation, wallet top-ups, and payment method saving
    */
   private async handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void> {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.metadata?.userId;
     const plan = session.metadata?.plan;
+    const type = session.metadata?.type;
+    const sellerId = session.metadata?.sellerId;
 
+    // Handle wallet top-up
+    if (type === 'wallet_topup' && sellerId && session.payment_status === 'paid') {
+      // SECURITY: Use Stripe's amount_total as source of truth (prevents metadata tampering)
+      const amountCents = session.amount_total || 0;
+      const amount = amountCents / 100; // Convert cents to dollars
+      
+      // Validate currency (enforce USD only)
+      if (session.currency !== 'usd') {
+        logger.error('[Webhook] Wallet top-up rejected - non-USD currency', {
+          sellerId,
+          currency: session.currency,
+          sessionId: session.id
+        });
+        return;
+      }
+      
+      if (amount > 0) {
+        // CRITICAL: Do NOT catch errors - let them bubble up so webhook retries
+        // If we mark event processed without crediting, seller loses money!
+        const { CreditLedgerService } = await import('./credit-ledger.service');
+        const creditLedgerService = new CreditLedgerService(this.storage);
+        
+        await creditLedgerService.creditWalletTopup(sellerId, amount, session.id);
+        
+        logger.info('[Webhook] Wallet top-up credited', {
+          sellerId,
+          amount,
+          currency: session.currency,
+          sessionId: session.id
+        });
+      }
+      return;
+    }
+
+    // Handle subscription checkout
     if (userId && plan && session.subscription) {
       const user = await this.storage.getUser(userId);
       if (user) {

@@ -35,6 +35,7 @@ import CreateAdWizard from "@/pages/meta-ads/create";
 import MetaAdsAnalytics from "@/pages/meta-ads/analytics";
 import SellerOrdersPage from "@/pages/seller-orders";
 import SellerAnalytics from "@/pages/seller-analytics";
+import SellerWallet from "@/pages/seller-wallet";
 import Newsletter from "@/pages/newsletter";
 import Campaigns from "@/pages/campaigns";
 import SellerNewsletterPage from "@/pages/seller-newsletter";
@@ -303,6 +304,13 @@ function AppContent() {
                     <WholesaleLayout>
                       <SellerOrdersPage />
                     </WholesaleLayout>
+                  </ProtectedRoute>
+                )}
+              </Route>
+              <Route path="/seller/wallet">
+                {() => (
+                  <ProtectedRoute requireSeller>
+                    <SellerWallet />
                   </ProtectedRoute>
                 )}
               </Route>

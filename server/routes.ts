@@ -1531,6 +1531,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create Stripe Checkout session for wallet top-up
+  app.post("/api/seller/wallet/checkout", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(500).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user.claims.sub;
+      const { amount } = req.body;
+
+      // Validate amount
+      if (!amount || typeof amount !== 'number' || amount <= 0) {
+        return res.status(400).json({ error: "Invalid amount. Must be a positive number." });
+      }
+
+      // Minimum top-up amount (to cover Stripe fees)
+      if (amount < 5) {
+        return res.status(400).json({ error: "Minimum top-up amount is $5" });
+      }
+
+      // Maximum top-up amount (safety limit)
+      if (amount > 10000) {
+        return res.status(400).json({ error: "Maximum top-up amount is $10,000" });
+      }
+
+      // Get user details for the checkout session
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Construct reliable base URL (req.headers.origin is unreliable in some environments)
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      
+      // Create Stripe Checkout session
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Wallet Top-Up',
+              description: 'Add funds to your seller wallet for Meta Ads and shipping labels',
+            },
+            unit_amount: Math.round(amount * 100), // Convert to cents
+          },
+          quantity: 1,
+        }],
+        success_url: `${baseUrl}/seller/wallet?topup=success`,
+        cancel_url: `${baseUrl}/seller/wallet?topup=cancelled`,
+        metadata: {
+          type: 'wallet_topup',
+          sellerId: userId,
+          // Note: amount in metadata is informational only. Webhook uses session.amount_total as source of truth.
+          amount: amount.toString(),
+        },
+        customer_email: user.email || undefined,
+      });
+
+      logger.info('[SellerWallet] Created checkout session for top-up', {
+        userId,
+        amount,
+        sessionId: session.id
+      });
+
+      res.json({
+        checkoutUrl: session.url
+      });
+    } catch (error: any) {
+      logger.error("[SellerWallet] Failed to create checkout session", {
+        userId: req.user.claims.sub,
+        error: error.message
+      });
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
   // Seller-specific orders (only orders for products owned by this seller or their store)
   app.get("/api/seller/orders", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {
