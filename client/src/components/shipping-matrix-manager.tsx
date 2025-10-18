@@ -17,6 +17,8 @@ import { Plus, Edit, Trash2, Package, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShippingZoneInput, type ZoneType } from "@/components/ShippingZoneInput";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/use-auth";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const matrixSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -43,6 +45,8 @@ type ZoneForm = z.infer<typeof zoneSchema>;
 
 export function ShippingMatrixManager() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [selectedMatrix, setSelectedMatrix] = useState<any | null>(null);
   const [showMatrixDialog, setShowMatrixDialog] = useState(false);
   const [showZoneDialog, setShowZoneDialog] = useState(false);
@@ -56,6 +60,9 @@ export function ShippingMatrixManager() {
     queryKey: ["/api/shipping-matrices", selectedMatrix?.id, "zones"],
     enabled: !!selectedMatrix?.id,
   });
+
+  // Get seller's listing currency
+  const sellerCurrency = user?.listingCurrency || 'USD';
 
   const matrixForm = useForm<MatrixForm>({
     resolver: zodResolver(matrixSchema),
@@ -290,7 +297,7 @@ export function ShippingMatrixManager() {
                         </div>
                       </TableCell>
                       <TableCell className="capitalize">{zone.zoneType}</TableCell>
-                      <TableCell>${zone.rate}</TableCell>
+                      <TableCell>{formatPrice(parseFloat(zone.rate), sellerCurrency)}</TableCell>
                       <TableCell>{zone.estimatedDays || "-"}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -405,7 +412,7 @@ export function ShippingMatrixManager() {
                 name="rate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Shipping Rate ($)</FormLabel>
+                    <FormLabel>Shipping Rate ({sellerCurrency})</FormLabel>
                     <FormControl>
                       <Input {...field} type="number" step="0.01" min="0" placeholder="0.00" data-testid="input-zone-rate" />
                     </FormControl>

@@ -40,7 +40,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 **Technical Implementations:**
 -   **Backend:** Service layer pattern with dependency injection for business logic.
 -   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import with job tracking.
--   **Shipping:** Centralized `ShippingService` integrating Free Shipping, Flat Rate, Matrix Shipping, and real-time API rates.
+-   **Shipping:** Centralized `ShippingService` integrating Free Shipping, Flat Rate, Matrix Shipping, and real-time API rates. All shipping rates are stored and displayed in the seller's listing currency (multi-currency support).
 -   **Shopping & Checkout:** Features slide-over cart, guest checkout, server-side shipping cost calculation, single-seller per cart, and optimized performance.
 -   **Authentication & Authorization:** Email-based with dual-token system and capability-based authorization for various roles.
 -   **Payment Processing:** Integrated with Stripe Connect for multi-seller payments, supporting various methods and PCI-DSS compliance.
