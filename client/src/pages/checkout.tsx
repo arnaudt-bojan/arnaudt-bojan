@@ -720,21 +720,19 @@ export default function Checkout() {
     }
   };
 
-  // Handle country change for shipping address
+  // Handle country change for shipping address (country value set by field.onChange)
   const handleShippingCountryChange = (countryCode: string) => {
-    form.setValue("country", countryCode);
+    // Set country name and trigger validation (country code is set by field.onChange)
     const countryName = getCountryName(countryCode);
     if (countryName) form.setValue("countryName", countryName);
-    // Trigger re-validation of state field when country changes
     form.trigger('state');
   };
 
-  // Handle country change for billing address
+  // Handle country change for billing address (country value set by field.onChange)
   const handleBillingCountryChange = (countryCode: string) => {
-    form.setValue("billingCountry", countryCode);
+    // Set country name and trigger validation (country code is set by field.onChange)
     const countryName = getCountryName(countryCode);
     if (countryName) form.setValue("billingCountryName", countryName);
-    // Trigger re-validation of billing state when country changes
     form.trigger('billingState');
   };
 
