@@ -80,14 +80,16 @@ export default function SellerWallet() {
     }
   }, [topupStatus, toast]);
 
-  // Fetch wallet balance
+  // Fetch wallet balance (with auto-refresh every 10 seconds to catch webhook updates)
   const { data: balanceData, isLoading: isLoadingBalance, error: balanceError } = useQuery<WalletBalance>({
     queryKey: ['/api/seller/wallet/balance'],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // Fetch transaction history
+  // Fetch transaction history (with auto-refresh every 10 seconds to catch new transactions)
   const { data: ledgerData, isLoading: isLoadingLedger, error: ledgerError } = useQuery<LedgerResponse>({
     queryKey: ['/api/seller/credit-ledger'],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
   // Create checkout session mutation
@@ -97,9 +99,16 @@ export default function SellerWallet() {
       return await res.json();
     },
     onSuccess: (data: { checkoutUrl: string }) => {
-      // Direct redirect to Stripe Checkout (like subscription flow)
-      // Success/cancel URLs will bring user back to /seller/wallet
-      window.location.href = data.checkoutUrl;
+      // Open Stripe Checkout in new browser tab (not Replit preview)
+      // Success/cancel URLs will bring user back to /seller/wallet in that tab
+      window.open(data.checkoutUrl, '_blank');
+      
+      // Show feedback
+      toast({
+        title: "Checkout opened",
+        description: "Complete payment in the new tab. Return here to see your updated balance.",
+        variant: "default",
+      });
     },
     onError: (error: any) => {
       toast({
