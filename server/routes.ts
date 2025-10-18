@@ -4034,10 +4034,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied - you do not own this order" });
       }
 
-      // Validate order is ready to ship
-      if (order.status !== "ready_to_ship") {
+      // Validate order can have label purchased
+      // Order must be fully paid and not already shipped/cancelled
+      if (order.paymentStatus !== "fully_paid") {
         return res.status(400).json({ 
-          error: "Order must be in 'ready_to_ship' status to purchase a label",
+          error: "Order must be fully paid before purchasing a shipping label",
+          currentStatus: order.status,
+          paymentStatus: order.paymentStatus
+        });
+      }
+      
+      if (order.status === "shipped" || order.status === "delivered") {
+        return res.status(400).json({ 
+          error: "Cannot purchase label - order already shipped",
+          currentStatus: order.status 
+        });
+      }
+      
+      if (order.status === "cancelled") {
+        return res.status(400).json({ 
+          error: "Cannot purchase label for cancelled order",
           currentStatus: order.status 
         });
       }
