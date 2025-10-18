@@ -2552,6 +2552,7 @@ export const sellerCreditLedgers = pgTable("seller_credit_ledgers", {
   // Source tracking
   source: sellerCreditLedgerSourcePgEnum("source").notNull(), // Where credit came from
   metadata: jsonb("metadata"), // Additional context (e.g., admin notes, refund details)
+  stripeSessionId: varchar("stripe_session_id"), // Stripe checkout session ID for wallet top-ups (idempotency)
   
   // Multi-currency support
   currency: varchar("currency", { length: 3 }).default("USD"), // Currency code

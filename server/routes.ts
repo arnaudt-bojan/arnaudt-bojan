@@ -1580,7 +1580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           quantity: 1,
         }],
-        success_url: `${baseUrl}/seller/wallet?topup=success`,
+        success_url: `${baseUrl}/seller/wallet?topup=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/seller/wallet?topup=cancelled`,
         metadata: {
           type: 'wallet_topup',
@@ -1606,6 +1606,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: error.message
       });
       res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  // Sync wallet balance from Stripe (fallback when webhook not configured)
+  // Architecture 3: Server-side sync - client triggers, server does all the work
+  app.post("/api/seller/wallet/sync", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.body;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: "Missing session_id" });
+      }
+
+      logger.info('[SellerWallet] Syncing wallet balance from Stripe', { 
+        userId, 
+        sessionId 
+      });
+
+      // Fetch session from Stripe to get payment details
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      // Verify this session belongs to this user
+      if (session.metadata?.sellerId !== userId) {
+        logger.error('[SellerWallet] Session sellerId mismatch', {
+          userId,
+          sessionSellerId: session.metadata?.sellerId
+        });
+        return res.status(403).json({ error: "Session does not belong to this user" });
+      }
+
+      // Verify this is a wallet top-up session
+      if (session.metadata?.type !== 'wallet_topup') {
+        logger.error('[SellerWallet] Invalid session type', {
+          sessionType: session.metadata?.type
+        });
+        return res.status(400).json({ error: "Invalid session type" });
+      }
+
+      // Check if payment was successful
+      if (session.payment_status !== 'paid') {
+        logger.warn('[SellerWallet] Payment not completed', {
+          sessionId,
+          paymentStatus: session.payment_status
+        });
+        return res.status(400).json({ error: "Payment not completed" });
+      }
+
+      // Check if we already processed this session (idempotency)
+      const existingEntry = await storage.getCreditLedgerEntryByStripeSession(sessionId);
+      if (existingEntry) {
+        logger.info('[SellerWallet] Session already processed (idempotent)', {
+          sessionId,
+          existingEntryId: existingEntry.id
+        });
+        
+        // Return success - already credited (get balance from service)
+        const { CreditLedgerService } = await import("./services/credit-ledger.service");
+        const creditLedgerServiceInstance = new CreditLedgerService(storage);
+        const balance = await creditLedgerServiceInstance.getSellerBalance(userId);
+        
+        return res.json({
+          success: true,
+          alreadyProcessed: true,
+          balance,
+          currency: 'USD'
+        });
+      }
+
+      // Get amount from session (source of truth, not metadata)
+      const amountUsd = session.amount_total! / 100; // Convert from cents
+
+      // Credit wallet (server-side only - Architecture 3)
+      const result = await creditLedgerService.creditWalletTopup({
+        sellerId: userId,
+        amountUsd,
+        stripeSessionId: sessionId,
+      });
+
+      if (!result.success) {
+        logger.error('[SellerWallet] Failed to credit wallet', {
+          sellerId: userId,
+          error: result.error
+        });
+        return res.status(500).json({ error: result.error || "Failed to credit wallet" });
+      }
+
+      logger.info('[SellerWallet] Wallet credited successfully via sync', {
+        sellerId: userId,
+        amountUsd,
+        newBalance: result.data.newBalance
+      });
+
+      res.json({
+        success: true,
+        balance: result.data.newBalance,
+        currency: 'USD'
+      });
+    } catch (error: any) {
+      logger.error("[SellerWallet] Wallet sync failed", {
+        userId: req.user.claims.sub,
+        error: error.message
+      });
+      res.status(500).json({ error: "Failed to sync wallet balance" });
     }
   });
 

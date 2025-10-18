@@ -55,20 +55,48 @@ export default function SellerWallet() {
   // Get query params for success/cancel feedback
   const searchParams = new URLSearchParams(window.location.search);
   const topupStatus = searchParams.get('topup');
+  const sessionId = searchParams.get('session_id');
 
-  // Show success/cancel toast on redirect back from Stripe
+  // Sync wallet balance from Stripe on success (Architecture 3: server-side sync)
   useEffect(() => {
-    if (topupStatus === 'success') {
-      toast({
-        title: "Top-up successful!",
-        description: "Your wallet has been credited. It may take a few moments to reflect.",
-        variant: "default",
-      });
-      // Refresh balance and ledger
-      queryClient.invalidateQueries({ queryKey: ['/api/seller/wallet/balance'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/seller/credit-ledger'] });
-      // Clean up URL
-      window.history.replaceState({}, '', '/seller/wallet');
+    if (topupStatus === 'success' && sessionId) {
+      // Call server-side sync endpoint to credit wallet
+      const syncWallet = async () => {
+        try {
+          const res = await apiRequest('POST', '/api/seller/wallet/sync', { sessionId });
+          const data = await res.json();
+          
+          if (data.success) {
+            toast({
+              title: "Top-up successful!",
+              description: `Your wallet has been credited. New balance: $${data.balance.toFixed(2)}`,
+              variant: "default",
+            });
+            // Refresh balance and ledger
+            queryClient.invalidateQueries({ queryKey: ['/api/seller/wallet/balance'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/seller/credit-ledger'] });
+          } else {
+            toast({
+              title: "Top-up processing",
+              description: data.alreadyProcessed 
+                ? "This payment was already processed." 
+                : "Payment is being processed. Your balance will update shortly.",
+              variant: "default",
+            });
+          }
+        } catch (error: any) {
+          toast({
+            title: "Error processing top-up",
+            description: error.message || "Failed to sync wallet balance",
+            variant: "destructive",
+          });
+        } finally {
+          // Clean up URL
+          window.history.replaceState({}, '', '/seller/wallet');
+        }
+      };
+      
+      syncWallet();
     } else if (topupStatus === 'cancelled') {
       toast({
         title: "Top-up cancelled",
@@ -78,7 +106,7 @@ export default function SellerWallet() {
       // Clean up URL
       window.history.replaceState({}, '', '/seller/wallet');
     }
-  }, [topupStatus, toast]);
+  }, [topupStatus, sessionId, toast]);
 
   // Fetch wallet balance (with auto-refresh every 10 seconds to catch webhook updates)
   const { data: balanceData, isLoading: isLoadingBalance, error: balanceError } = useQuery<WalletBalance>({

@@ -4106,6 +4106,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sellerCreditLedgers.createdAt));
   }
 
+  async getCreditLedgerEntryByStripeSession(stripeSessionId: string): Promise<SellerCreditLedger | undefined> {
+    await this.ensureInitialized();
+    const results = await this.db
+      .select()
+      .from(sellerCreditLedgers)
+      .where(eq(sellerCreditLedgers.stripeSessionId, stripeSessionId))
+      .limit(1);
+    return results[0];
+  }
+
   async createSellerCreditLedger(ledger: InsertSellerCreditLedger): Promise<SellerCreditLedger> {
     await this.ensureInitialized();
     const result = await this.db.insert(sellerCreditLedgers).values(ledger).returning();
