@@ -86,6 +86,17 @@ export default function SellerWallet() {
         `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
       );
       
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        setIsProcessingCheckout(false);
+        toast({
+          title: "Pop-up blocked",
+          description: "Please allow pop-ups for this site and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Listen for message from popup (success/cancel pages will post message)
       const handleMessage = (event: MessageEvent) => {
         if (event.data.type === "STRIPE_CHECKOUT_SUCCESS") {
@@ -114,12 +125,32 @@ export default function SellerWallet() {
       
       window.addEventListener("message", handleMessage);
       
+      // Timeout after 5 minutes (in case popup never responds)
+      const timeout = setTimeout(() => {
+        if (!popup.closed) {
+          setIsProcessingCheckout(false);
+          toast({
+            title: "Still waiting for payment",
+            description: "Complete payment in the popup window. Your balance will update automatically when done.",
+          });
+        }
+        clearInterval(checkClosed);
+        window.removeEventListener("message", handleMessage);
+      }, 5 * 60 * 1000); // 5 minutes
+      
       // Check if popup was closed without completing
       const checkClosed = setInterval(() => {
         if (popup?.closed) {
           clearInterval(checkClosed);
+          clearTimeout(timeout);
           setIsProcessingCheckout(false);
           window.removeEventListener("message", handleMessage);
+          
+          toast({
+            title: "Checkout closed",
+            description: "The checkout window was closed. No charges were made if you didn't complete payment.",
+            variant: "destructive",
+          });
         }
       }, 1000);
       
