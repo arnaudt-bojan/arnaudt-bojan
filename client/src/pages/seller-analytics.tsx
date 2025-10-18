@@ -104,6 +104,7 @@ interface AnalyticsData {
   products: ProductAnalytics;
   customers: CustomerAnalytics;
   platforms: PlatformBreakdown;
+  currency: string;
   period: string;
   timeRange: {
     startDate: string;
@@ -115,10 +116,10 @@ interface AnalyticsData {
 // Helper Functions
 // ============================================================================
 
-function formatCurrency(amount: number): string {
+function formatCurrency(amount: number, currency: string = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(amount);
 }
 
@@ -240,7 +241,7 @@ export default function SellerAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-revenue">
-              {formatCurrency(analytics.revenue.totalRevenue)}
+              {formatCurrency(analytics.revenue.totalRevenue, analytics.currency)}
             </div>
             <p className="text-xs text-muted-foreground" data-testid="text-revenue-growth">
               {formatGrowth(analytics.revenue.revenueGrowth)} from last period
@@ -272,7 +273,7 @@ export default function SellerAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-avg-order-value">
-              {formatCurrency(analytics.revenue.averageOrderValue)}
+              {formatCurrency(analytics.revenue.averageOrderValue, analytics.currency)}
             </div>
             <p className="text-xs text-muted-foreground">
               {analytics.orders.totalOrders} orders total
@@ -316,7 +317,7 @@ export default function SellerAnalytics() {
               />
               <YAxis tickFormatter={(value) => `$${value}`} />
               <Tooltip 
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value: number) => formatCurrency(value, analytics.currency)}
                 labelFormatter={formatDate}
               />
               <Legend />
@@ -347,7 +348,7 @@ export default function SellerAnalytics() {
                 <XAxis dataKey="platform" />
                 <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
                 <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value: number) => formatCurrency(value, analytics.currency)} />
                 <Legend />
                 <Bar yAxisId="left" dataKey="revenue" fill="#8884d8" name="Revenue ($)" />
                 <Bar yAxisId="right" dataKey="orders" fill="#82ca9d" name="Orders" />
@@ -427,8 +428,8 @@ export default function SellerAnalytics() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">{product.unitsSold}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(product.revenue)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(product.avgPrice)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(product.revenue, analytics.currency)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(product.avgPrice, analytics.currency)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -457,11 +458,11 @@ export default function SellerAnalytics() {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Revenue:</span>
-                              <div className="font-medium">{formatCurrency(product.revenue)}</div>
+                              <div className="font-medium">{formatCurrency(product.revenue, analytics.currency)}</div>
                             </div>
                             <div className="col-span-2">
                               <span className="text-muted-foreground">Avg Price:</span>
-                              <div className="font-medium">{formatCurrency(product.avgPrice)}</div>
+                              <div className="font-medium">{formatCurrency(product.avgPrice, analytics.currency)}</div>
                             </div>
                           </div>
                         </div>

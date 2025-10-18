@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { WholesaleLayout } from "@/layouts/WholesaleLayout";
 import { Wallet, Plus, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle } from "lucide-react";
@@ -49,6 +50,7 @@ const PRESET_AMOUNTS = [25, 50, 100, 250];
 export default function SellerWallet() {
   const [location] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [customAmount, setCustomAmount] = useState<string>("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
 
@@ -182,9 +184,10 @@ export default function SellerWallet() {
 
   const formatAmount = (amount: string) => {
     const num = parseFloat(amount);
+    const currency = user?.listingCurrency || 'USD';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
     }).format(num);
   };
 

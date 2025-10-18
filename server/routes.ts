@@ -6943,6 +6943,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const period = (req.query.period as string) || '30days';
       
+      // Fetch seller's currency from their Stripe account
+      const seller = await storage.getUser(userId);
+      const currency = seller?.listingCurrency || 'USD';
+      
       // Import analytics service
       const { AnalyticsService } = await import("./services/analytics.service");
       
@@ -6964,6 +6968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         products, 
         customers, 
         platforms,
+        currency,
         period,
         timeRange: {
           startDate: timeRange.startDate.toISOString(),
