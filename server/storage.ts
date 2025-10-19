@@ -1,6 +1,7 @@
 import { 
   type User, 
   type UpsertUser, 
+  type InsertUser,
   type Product, 
   type InsertProduct,
   type Order,
@@ -130,105 +131,33 @@ import {
   type InsertShippingLabelRefund,
   type SellerCreditLedger,
   type InsertSellerCreditLedger,
-  users,
-  products,
-  orders,
-  orderItems,
-  orderEvents,
-  orderBalancePayments,
-  balanceRequests,
-  orderAddressChanges,
-  refunds,
-  refundLineItems,
-  stockReservations,
-  invitations,
-  metaSettings,
-  tiktokSettings,
-  xSettings,
-  subscriberGroups,
-  subscribers,
-  subscriberGroupMemberships,
-  newsletters,
-  newsletterTemplates,
-  newsletterAnalytics,
-  newsletterEvents,
-  newsletterSegments,
-  newsletterSchedule,
-  newsletterABTests,
-  nftMints,
-  wholesaleProducts,
-  wholesaleInvitations,
-  categories,
-  notifications,
-  authTokens,
-  shippingMatrices,
-  shippingZones,
-  invoices,
-  packingSlips,
-  savedAddresses,
-  savedPaymentMethods,
-  sellerHomepages,
-  homepageCtaOptions,
-  homepageMediaAssets,
-  musicTracks,
-  userStoreRoles,
-  userStoreMemberships,
-  wholesaleAccessGrants,
-  teamInvitations,
-  storeInvitations,
-  paymentIntents,
-  webhookEvents,
-  failedWebhookEvents,
-  carts,
-  cartSessions,
-  orderWorkflows,
-  orderWorkflowEvents,
-  wholesaleOrders,
-  wholesaleOrderItems,
-  wholesalePayments,
-  wholesaleShippingDetails,
-  wholesaleOrderEvents,
-  warehouseLocations,
-  buyerProfiles,
-  wholesaleCarts,
-  wholesalePaymentIntents,
-  wholesaleShippingMetadata,
-  warehouseAddresses,
-  shippingLabels,
-  shippingLabelRefunds,
-  sellerCreditLedgers,
-  bulkUploadJobs,
-  bulkUploadItems,
-  InsertBulkUploadJob,
-  BulkUploadJob,
-  InsertBulkUploadItem,
-  BulkUploadItem,
-  MetaAdAccount,
-  InsertMetaAdAccount,
-  MetaCampaign,
-  InsertMetaCampaign,
-  MetaCampaignFinance,
-  InsertMetaCampaignFinance,
-  MetaCampaignMetricsDaily,
-  InsertMetaCampaignMetricsDaily,
-  BackgroundJobRun,
-  InsertBackgroundJobRun,
-  metaAdAccounts,
-  metaCampaigns,
-  metaCampaignFinance,
-  metaCampaignMetricsDaily,
-  backgroundJobRuns,
-  DomainConnection,
-  InsertDomainConnection,
-  domainConnections
-} from "@shared/schema";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, desc, sql, and, or, lt, lte, gte, asc, inArray, like, ilike } from "drizzle-orm";
-import ws from "ws";
+  type BulkUploadJob,
+  type InsertBulkUploadJob,
+  type BulkUploadItem,
+  type InsertBulkUploadItem,
+  type MetaAdAccount,
+  type InsertMetaAdAccount,
+  type MetaCampaign,
+  type InsertMetaCampaign,
+  type MetaCampaignFinance,
+  type InsertMetaCampaignFinance,
+  type MetaCampaignMetricsDaily,
+  type InsertMetaCampaignMetricsDaily,
+  type BackgroundJobRun,
+  type InsertBackgroundJobRun,
+  type DomainConnection,
+  type InsertDomainConnection,
+  type NewsletterWorkflow,
+  type InsertNewsletterWorkflow,
+  type AutomationExecution,
+  type InsertAutomationExecution,
+  type AnalyticsEvent,
+  type InsertAnalyticsEvent,
+  type TradeQuotation,
+  type InsertTradeQuotation
+} from "@shared/prisma-types";
+import { prisma } from './prisma';
 import { logger } from './logger';
-
-neonConfig.webSocketConstructor = ws;
 
 // Product Search Filters (B2C)
 export interface ProductSearchFilters {
@@ -857,335 +786,306 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  public db; // Made public for import queue access
-  private initialized: Promise<void>;
-  private initError: Error | null = null;
-
+  // Prisma client is imported from ./prisma.ts and already initialized
+  // No need for manual pool/client initialization
+  
   constructor() {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is required");
-    }
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    this.db = drizzle(pool);
-    
-    this.initialized = this.init();
+    // Prisma client initialization is handled in ./prisma.ts
+    // DATABASE_URL is automatically read by Prisma from environment
   }
 
-  private async init(): Promise<void> {
-    try {
-      // Seed products removed - test users can create their own products
-      // await this.seedProducts();
-    } catch (err) {
-      console.error("Failed to initialize database:", err);
-      this.initError = err instanceof Error ? err : new Error(String(err));
-    }
-  }
-
+  // ensureInitialized is no longer needed with Prisma
+  // Prisma client is ready immediately upon import
   private async ensureInitialized() {
-    await this.initialized;
-    if (this.initError) {
-      throw this.initError;
-    }
+    // No-op for Prisma - kept for backward compatibility with existing code
   }
 
   async getUser(id: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.users.findUnique({ where: { id } });
+    return result ?? undefined;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
     await this.ensureInitialized();
     
-    // Check if user exists by email or ID
-    let existingUser: User | undefined;
+    // Prisma upsert requires a unique constraint to upsert on
+    // First try by email (which is unique), then fallback to ID-based logic
     if (userData.email) {
-      const byEmail = await this.db.select().from(users).where(eq(users.email, userData.email)).limit(1);
-      existingUser = byEmail[0];
-    }
-    if (!existingUser && userData.id) {
-      const byId = await this.db.select().from(users).where(eq(users.id, userData.id)).limit(1);
-      existingUser = byId[0];
-    }
-
-    if (existingUser) {
-      // Update existing user
-      const result = await this.db
-        .update(users)
-        .set({
+      return await prisma.users.upsert({
+        where: { email: userData.email },
+        create: userData,
+        update: {
           ...userData,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, existingUser.id))
-        .returning();
-      return result[0];
+          updatedAt: new Date()
+        }
+      });
+    } else if (userData.id) {
+      // If no email but has ID, try to update or create
+      const existingUser = await prisma.users.findUnique({ where: { id: userData.id } });
+      if (existingUser) {
+        return await prisma.users.update({
+          where: { id: userData.id },
+          data: {
+            ...userData,
+            updatedAt: new Date()
+          }
+        });
+      } else {
+        return await prisma.users.create({
+          data: userData
+        });
+      }
     } else {
-      // Insert new user
-      const result = await this.db
-        .insert(users)
-        .values(userData)
-        .returning();
-      return result[0];
+      // No email or ID, just create
+      return await prisma.users.create({
+        data: userData
+      });
     }
   }
 
   async getAllProducts(): Promise<Product[]> {
-    await this.ensureInitialized();
-    const results = await this.db.select().from(products);
-    
-    // CRITICAL FIX: Ensure sellerId is always mapped correctly from seller_id column
-    // Drizzle should handle this, but this failsafe ensures it's never undefined
-    return results.map(product => ({
-      ...product,
-      sellerId: product.sellerId || (product as any).seller_id,
-    }));
+    return await prisma.products.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    await this.ensureInitialized();
-    const result = await this.db.select().from(products).where(eq(products.id, id)).limit(1);
-    
-    // CRITICAL FIX: Ensure sellerId is always mapped correctly from seller_id column
-    if (result[0]) {
-      return {
-        ...result[0],
-        sellerId: result[0].sellerId || (result[0] as any).seller_id,
-      };
-    }
-    
-    return result[0];
+    const result = await prisma.products.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getProductsByIds(ids: string[]): Promise<Product[]> {
-    await this.ensureInitialized();
-    
-    // Handle empty array case
     if (!ids || ids.length === 0) {
       return [];
     }
     
-    const results = await this.db
-      .select()
-      .from(products)
-      .where(inArray(products.id, ids));
-    
-    // CRITICAL FIX: Ensure sellerId is always mapped correctly from seller_id column
-    return results.map(product => ({
-      ...product,
-      sellerId: product.sellerId || (product as any).seller_id,
-    }));
+    return await prisma.products.findMany({
+      where: {
+        id: { in: ids }
+      }
+    });
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    await this.ensureInitialized();
-    const result = await this.db.insert(products).values([{
-      ...insertProduct,
-      image: insertProduct.image || ''
-    }]).returning();
-    return result[0];
+    return await prisma.products.create({
+      data: {
+        ...insertProduct,
+        image: insertProduct.image || ''
+      }
+    });
   }
 
   async getAllOrders(): Promise<Order[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(orders).orderBy(desc(orders.createdAt));
+    return await prisma.orders.findMany({
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async getOrdersByUserId(userId: string): Promise<Order[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
+    return await prisma.orders.findMany({
+      where: { userId },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(orders).where(eq(orders.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.orders.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getOrderByPaymentIntent(paymentIntentId: string): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(orders).where(eq(orders.stripePaymentIntentId, paymentIntentId)).limit(1);
-    return result[0];
+    const result = await prisma.orders.findFirst({
+      where: { stripePaymentIntentId: paymentIntentId }
+    });
+    return result ?? undefined;
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orders).values(insertOrder).returning();
-    return result[0];
+    return await prisma.orders.create({
+      data: insertOrder
+    });
   }
 
   async updateOrder(id: string, updates: Partial<Order>): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orders).set(updates).where(eq(orders.id, id)).returning();
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id },
+        data: updates
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product | undefined> {
-    await this.ensureInitialized();
-    const result = await this.db.update(products).set(updates).where(eq(products.id, id)).returning();
-    return result[0];
+    try {
+      const result = await prisma.products.update({
+        where: { id },
+        data: updates
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    await this.ensureInitialized();
-    const result = await this.db.delete(products).where(eq(products.id, id)).returning();
-    return result.length > 0;
+    try {
+      await prisma.products.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Product Search & Filtering (B2C)
   async searchProducts(filters: ProductSearchFilters): Promise<ProductSearchResult> {
-    await this.ensureInitialized();
-    
-    const conditions: any[] = [];
+    const where: any = {};
     
     // Text search (name, description, SKU)
     if (filters.search) {
-      conditions.push(
-        or(
-          ilike(products.name, `%${filters.search}%`),
-          ilike(products.description, `%${filters.search}%`),
-          ilike(products.sku, `%${filters.search}%`)
-        )
-      );
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { sku: { contains: filters.search, mode: 'insensitive' } }
+      ];
     }
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      conditions.push(eq(products.categoryLevel1Id, filters.categoryLevel1Id));
+      where.categoryLevel1Id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      conditions.push(eq(products.categoryLevel2Id, filters.categoryLevel2Id));
+      where.categoryLevel2Id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      conditions.push(eq(products.categoryLevel3Id, filters.categoryLevel3Id));
+      where.categoryLevel3Id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents)
-    if (filters.minPrice !== undefined) {
-      const minPriceCents = Math.round(filters.minPrice * 100);
-      conditions.push(gte(sql`CAST(${products.price} AS DECIMAL)`, minPriceCents.toString()));
-    }
-    if (filters.maxPrice !== undefined) {
-      const maxPriceCents = Math.round(filters.maxPrice * 100);
-      conditions.push(lte(sql`CAST(${products.price} AS DECIMAL)`, maxPriceCents.toString()));
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.price = {};
+      if (filters.minPrice !== undefined) {
+        const minPriceCents = Math.round(filters.minPrice * 100).toString();
+        where.price.gte = minPriceCents;
+      }
+      if (filters.maxPrice !== undefined) {
+        const maxPriceCents = Math.round(filters.maxPrice * 100).toString();
+        where.price.lte = maxPriceCents;
+      }
     }
     
     // Seller filter
     if (filters.sellerId) {
-      conditions.push(eq(products.sellerId, filters.sellerId));
+      where.sellerId = filters.sellerId;
     }
     
     // Product type filter
     if (filters.productType) {
-      conditions.push(eq(products.productType, filters.productType));
+      where.productType = filters.productType;
     }
     
     // Status filter (supports both single status and array of statuses)
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      conditions.push(inArray(products.status, statuses));
-    }
-    
-    // Build query
-    let query = this.db.select().from(products);
-    
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      where.status = { in: statuses };
     }
     
     // Sorting
     const sortBy = filters.sortBy || 'createdAt';
     const sortOrder = filters.sortOrder || 'desc';
-    const sortColumn = products[sortBy as keyof typeof products];
-    
-    if (sortColumn) {
-      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn as any) : desc(sortColumn as any)) as any;
-    }
+    const orderBy = { [sortBy]: sortOrder };
     
     // Pagination
-    const limit = filters.limit || 20;
-    const offset = filters.offset || 0;
+    const take = filters.limit || 20;
+    const skip = filters.offset || 0;
     
-    const results = await query.limit(limit).offset(offset);
-    
-    // Map results to ensure sellerId is correct
-    const mappedProducts = results.map(product => ({
-      ...product,
-      sellerId: product.sellerId || (product as any).seller_id,
-    }));
+    // Execute query
+    const products = await prisma.products.findMany({
+      where,
+      orderBy,
+      take,
+      skip
+    });
     
     // Get total count
     const total = await this.countProducts(filters);
     
     return {
-      products: mappedProducts,
+      products,
       total,
-      limit,
-      offset,
+      limit: take,
+      offset: skip,
     };
   }
 
   async countProducts(filters: ProductSearchFilters): Promise<number> {
-    await this.ensureInitialized();
-    
-    const conditions: any[] = [];
+    const where: any = {};
     
     // Text search (name, description, SKU)
     if (filters.search) {
-      conditions.push(
-        or(
-          ilike(products.name, `%${filters.search}%`),
-          ilike(products.description, `%${filters.search}%`),
-          ilike(products.sku, `%${filters.search}%`)
-        )
-      );
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { sku: { contains: filters.search, mode: 'insensitive' } }
+      ];
     }
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      conditions.push(eq(products.categoryLevel1Id, filters.categoryLevel1Id));
+      where.categoryLevel1Id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      conditions.push(eq(products.categoryLevel2Id, filters.categoryLevel2Id));
+      where.categoryLevel2Id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      conditions.push(eq(products.categoryLevel3Id, filters.categoryLevel3Id));
+      where.categoryLevel3Id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents)
-    if (filters.minPrice !== undefined) {
-      const minPriceCents = Math.round(filters.minPrice * 100);
-      conditions.push(gte(sql`CAST(${products.price} AS DECIMAL)`, minPriceCents.toString()));
-    }
-    if (filters.maxPrice !== undefined) {
-      const maxPriceCents = Math.round(filters.maxPrice * 100);
-      conditions.push(lte(sql`CAST(${products.price} AS DECIMAL)`, maxPriceCents.toString()));
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.price = {};
+      if (filters.minPrice !== undefined) {
+        const minPriceCents = Math.round(filters.minPrice * 100).toString();
+        where.price.gte = minPriceCents;
+      }
+      if (filters.maxPrice !== undefined) {
+        const maxPriceCents = Math.round(filters.maxPrice * 100).toString();
+        where.price.lte = maxPriceCents;
+      }
     }
     
     // Seller filter
     if (filters.sellerId) {
-      conditions.push(eq(products.sellerId, filters.sellerId));
+      where.sellerId = filters.sellerId;
     }
     
     // Product type filter
     if (filters.productType) {
-      conditions.push(eq(products.productType, filters.productType));
+      where.productType = filters.productType;
     }
     
     // Status filter (supports both single status and array of statuses)
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      conditions.push(inArray(products.status, statuses));
+      where.status = { in: statuses };
     }
     
-    // Build count query
-    let countQuery = this.db.select({ count: sql<number>`count(*)` }).from(products);
-    
-    if (conditions.length > 0) {
-      countQuery = countQuery.where(and(...conditions)) as any;
-    }
-    
-    const result = await countQuery;
-    return Number(result[0]?.count || 0);
+    return await prisma.products.count({ where });
   }
 
   // Inventory Management - Stock Reservations
@@ -1690,30 +1590,53 @@ export class DatabaseStorage implements IStorage {
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id },
+        data: { status }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderTracking(id: string, trackingNumber: string, trackingLink: string): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orders).set({ 
-      trackingNumber, 
-      trackingLink 
-    }).where(eq(orders.id, id)).returning();
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id },
+        data: {
+          trackingNumber,
+          trackingLink
+        }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderBalancePaymentIntent(id: string, paymentIntentId: string): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orders).set({ stripeBalancePaymentIntentId: paymentIntentId }).where(eq(orders.id, id)).returning();
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id },
+        data: { stripeBalancePaymentIntentId: paymentIntentId }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderFulfillmentStatus(orderId: string): Promise<Order | undefined> {
     await this.ensureInitialized();
     
     // Get all items for this order
-    const items = await this.db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    const items = await prisma.order_items.findMany({
+      where: { orderId }
+    });
     
     if (items.length === 0) {
       return undefined;
@@ -1734,37 +1657,49 @@ export class DatabaseStorage implements IStorage {
       fulfillmentStatus = 'partially_fulfilled';
     }
     
-    const result = await this.db.update(orders)
-      .set({ fulfillmentStatus })
-      .where(eq(orders.id, orderId))
-      .returning();
-    
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id: orderId },
+        data: { fulfillmentStatus }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Order Items methods
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(orderItems.createdAt);
+    return await prisma.order_items.findMany({
+      where: { orderId },
+      orderBy: { created_at: 'asc' }
+    });
   }
 
   async getOrderItemById(itemId: string): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(orderItems).where(eq(orderItems.id, itemId)).limit(1);
-    return result[0];
+    const result = await prisma.order_items.findUnique({
+      where: { id: itemId }
+    });
+    return result ?? undefined;
   }
 
   async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orderItems).values(item).returning();
-    return result[0];
+    return await prisma.order_items.create({
+      data: item
+    });
   }
 
   async createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]> {
     await this.ensureInitialized();
     if (items.length === 0) return [];
-    const result = await this.db.insert(orderItems).values(items).returning();
-    return result;
+    
+    const created = await Promise.all(
+      items.map(item => prisma.order_items.create({ data: item }))
+    );
+    return created;
   }
 
   async updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined> {
@@ -1781,30 +1716,36 @@ export class DatabaseStorage implements IStorage {
       updateData.deliveredAt = new Date();
     }
     
-    const result = await this.db.update(orderItems)
-      .set(updateData)
-      .where(eq(orderItems.id, itemId))
-      .returning();
-    
-    return result[0];
+    try {
+      const result = await prisma.order_items.update({
+        where: { id: itemId },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderItemTracking(itemId: string, trackingNumber: string, trackingCarrier?: string, trackingUrl?: string): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orderItems)
-      .set({ 
-        trackingNumber,
-        trackingCarrier: trackingCarrier || null,
-        trackingUrl: trackingUrl || null,
-        trackingLink: trackingUrl || null, // Legacy field for backward compatibility
-        itemStatus: 'shipped',
-        shippedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(orderItems.id, itemId))
-      .returning();
-    
-    return result[0];
+    try {
+      const result = await prisma.order_items.update({
+        where: { id: itemId },
+        data: {
+          trackingNumber,
+          trackingCarrier: trackingCarrier || null,
+          trackingUrl: trackingUrl || null,
+          trackingLink: trackingUrl || null,
+          itemStatus: 'shipped',
+          shippedAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined> {
@@ -1823,12 +1764,15 @@ export class DatabaseStorage implements IStorage {
       updateData.refundedAt = new Date();
     }
     
-    const result = await this.db.update(orderItems)
-      .set(updateData)
-      .where(eq(orderItems.id, itemId))
-      .returning();
-    
-    return result[0];
+    try {
+      const result = await prisma.order_items.update({
+        where: { id: itemId },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderItemDeliveryDate(itemId: string, preOrderDate: Date | null, madeToOrderLeadTime: number | null): Promise<OrderItem | undefined> {
@@ -1847,64 +1791,88 @@ export class DatabaseStorage implements IStorage {
       updateData.madeToOrderLeadTime = madeToOrderLeadTime;
     }
 
-    const result = await this.db.update(orderItems)
-      .set(updateData)
-      .where(eq(orderItems.id, itemId))
-      .returning();
-    
-    return result[0];
+    try {
+      const result = await prisma.order_items.update({
+        where: { id: itemId },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderCustomerDetails(orderId: string, details: { customerName: string; shippingStreet: string; shippingCity: string; shippingState: string; shippingPostalCode: string; shippingCountry: string; billingStreet: string; billingCity: string; billingState: string; billingPostalCode: string; billingCountry: string }): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orders)
-      .set({
-        customerName: details.customerName,
-        shippingStreet: details.shippingStreet,
-        shippingCity: details.shippingCity,
-        shippingState: details.shippingState,
-        shippingPostalCode: details.shippingPostalCode,
-        shippingCountry: details.shippingCountry,
-        billingStreet: details.billingStreet,
-        billingCity: details.billingCity,
-        billingState: details.billingState,
-        billingPostalCode: details.billingPostalCode,
-        billingCountry: details.billingCountry,
-      })
-      .where(eq(orders.id, orderId))
-      .returning();
-    
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id: orderId },
+        data: {
+          customerName: details.customerName,
+          shippingStreet: details.shippingStreet,
+          shippingCity: details.shippingCity,
+          shippingState: details.shippingState,
+          shippingPostalCode: details.shippingPostalCode,
+          shippingCountry: details.shippingCountry,
+          billingStreet: details.billingStreet,
+          billingCity: details.billingCity,
+          billingState: details.billingState,
+          billingPostalCode: details.billingPostalCode,
+          billingCountry: details.billingCountry
+        }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteOrder(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    const result = await this.db.delete(orders).where(eq(orders.id, id)).returning();
-    return result.length > 0;
+    try {
+      await prisma.orders.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async deleteOrderItems(orderId: string): Promise<boolean> {
     await this.ensureInitialized();
-    const result = await this.db.delete(orderItems).where(eq(orderItems.orderId, orderId)).returning();
-    return result.length > 0;
+    try {
+      await prisma.order_items.deleteMany({
+        where: { orderId }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Refund methods
   async createRefund(refund: InsertRefund): Promise<Refund> {
     await this.ensureInitialized();
-    const result = await this.db.insert(refunds).values(refund).returning();
-    return result[0];
+    return await prisma.refunds.create({
+      data: refund
+    });
   }
 
   async getRefund(id: string): Promise<Refund | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(refunds).where(eq(refunds.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.refunds.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getRefundsByOrderId(orderId: string): Promise<Refund[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(refunds).where(eq(refunds.orderId, orderId)).orderBy(desc(refunds.createdAt));
+    return await prisma.refunds.findMany({
+      where: { orderId },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async updateRefundStatus(id: string, status: string, stripeRefundId?: string): Promise<Refund | undefined> {
@@ -1913,35 +1881,52 @@ export class DatabaseStorage implements IStorage {
     if (stripeRefundId) {
       updateData.stripeRefundId = stripeRefundId;
     }
-    const result = await this.db.update(refunds).set(updateData).where(eq(refunds.id, id)).returning();
-    return result[0];
+    try {
+      const result = await prisma.refunds.update({
+        where: { id },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<Order | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orders).set({ paymentStatus }).where(eq(orders.id, orderId)).returning();
-    return result[0];
+    try {
+      const result = await prisma.orders.update({
+        where: { id: orderId },
+        data: { paymentStatus }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Refund Line Items methods
   async createRefundLineItem(lineItem: InsertRefundLineItem): Promise<RefundLineItem> {
     await this.ensureInitialized();
-    const result = await this.db.insert(refundLineItems).values(lineItem).returning();
-    return result[0];
+    return await prisma.refund_line_items.create({
+      data: lineItem
+    });
   }
 
   async createRefundLineItems(lineItems: InsertRefundLineItem[]): Promise<RefundLineItem[]> {
     await this.ensureInitialized();
-    const result = await this.db.insert(refundLineItems).values(lineItems).returning();
-    return result;
+    const created = await Promise.all(
+      lineItems.map(item => prisma.refund_line_items.create({ data: item }))
+    );
+    return created;
   }
 
   async getRefundLineItems(refundId: string): Promise<RefundLineItem[]> {
     await this.ensureInitialized();
-    return await this.db.select()
-      .from(refundLineItems)
-      .where(eq(refundLineItems.refundId, refundId))
-      .orderBy(desc(refundLineItems.createdAt));
+    return await prisma.refund_line_items.findMany({
+      where: { refundId },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   // Refund Calculations & Validation methods
@@ -2092,40 +2077,41 @@ export class DatabaseStorage implements IStorage {
   // Order Events methods - track email and status history
   async getOrderEvents(orderId: string): Promise<OrderEvent[]> {
     await this.ensureInitialized();
-    return await this.db.select()
-      .from(orderEvents)
-      .where(eq(orderEvents.orderId, orderId))
-      .orderBy(desc(orderEvents.occurredAt));
+    return await prisma.order_events.findMany({
+      where: { orderId },
+      orderBy: { occurred_at: 'desc' }
+    });
   }
 
   async createOrderEvent(event: InsertOrderEvent): Promise<OrderEvent> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orderEvents).values(event).returning();
-    return result[0];
+    return await prisma.order_events.create({
+      data: event
+    });
   }
 
   // Order Balance Payments methods - track deposit/balance lifecycle
   async getBalancePaymentsByOrderId(orderId: string): Promise<OrderBalancePayment[]> {
     await this.ensureInitialized();
-    return await this.db.select()
-      .from(orderBalancePayments)
-      .where(eq(orderBalancePayments.orderId, orderId))
-      .orderBy(desc(orderBalancePayments.createdAt));
+    return await prisma.order_balance_payments.findMany({
+      where: { orderId },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async getBalancePayment(id: string): Promise<OrderBalancePayment | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(orderBalancePayments)
-      .where(eq(orderBalancePayments.id, id))
-      .limit(1);
-    return result[0];
+    const result = await prisma.order_balance_payments.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async createBalancePayment(payment: InsertOrderBalancePayment): Promise<OrderBalancePayment> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orderBalancePayments).values(payment).returning();
-    return result[0];
+    return await prisma.order_balance_payments.create({
+      data: payment
+    });
   }
 
   async updateBalancePayment(id: string, data: Partial<OrderBalancePayment>): Promise<OrderBalancePayment | undefined> {
@@ -2137,46 +2123,48 @@ export class DatabaseStorage implements IStorage {
         updateData[key] = value;
       }
     });
-    const result = await this.db.update(orderBalancePayments)
-      .set(updateData)
-      .where(eq(orderBalancePayments.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.order_balance_payments.update({
+        where: { id },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Balance Requests methods - Architecture 3 balance payment sessions
   async getBalanceRequest(id: string): Promise<BalanceRequest | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(balanceRequests)
-      .where(eq(balanceRequests.id, id))
-      .limit(1);
-    return result[0];
+    const result = await prisma.balance_requests.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getBalanceRequestByOrderId(orderId: string): Promise<BalanceRequest | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(balanceRequests)
-      .where(eq(balanceRequests.orderId, orderId))
-      .orderBy(desc(balanceRequests.createdAt))
-      .limit(1);
-    return result[0];
+    const result = await prisma.balance_requests.findFirst({
+      where: { orderId },
+      orderBy: { created_at: 'desc' }
+    });
+    return result ?? undefined;
   }
 
   async getBalanceRequestByToken(tokenHash: string): Promise<BalanceRequest | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(balanceRequests)
-      .where(eq(balanceRequests.sessionTokenHash, tokenHash))
-      .limit(1);
-    return result[0];
+    const result = await prisma.balance_requests.findFirst({
+      where: { sessionTokenHash: tokenHash }
+    });
+    return result ?? undefined;
   }
 
   async createBalanceRequest(request: InsertBalanceRequest): Promise<BalanceRequest> {
     await this.ensureInitialized();
-    const result = await this.db.insert(balanceRequests).values(request).returning();
-    return result[0];
+    return await prisma.balance_requests.create({
+      data: request
+    });
   }
 
   async updateBalanceRequest(id: string, data: Partial<BalanceRequest>): Promise<BalanceRequest | undefined> {
@@ -2188,60 +2176,63 @@ export class DatabaseStorage implements IStorage {
         updateData[key] = value;
       }
     });
-    const result = await this.db.update(balanceRequests)
-      .set(updateData)
-      .where(eq(balanceRequests.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.balance_requests.update({
+        where: { id },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Order Address Changes methods - audit trail for shipping address modifications
   async getOrderAddressChanges(orderId: string): Promise<OrderAddressChange[]> {
     await this.ensureInitialized();
-    return await this.db.select()
-      .from(orderAddressChanges)
-      .where(eq(orderAddressChanges.orderId, orderId))
-      .orderBy(desc(orderAddressChanges.createdAt));
+    return await prisma.order_address_changes.findMany({
+      where: { orderId },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async createOrderAddressChange(change: InsertOrderAddressChange): Promise<OrderAddressChange> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orderAddressChanges).values(change).returning();
-    return result[0];
+    return await prisma.order_address_changes.create({
+      data: change
+    });
   }
 
   // Order Workflow methods - orchestration and state management
   async createWorkflow(workflow: InsertOrderWorkflow): Promise<OrderWorkflow> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orderWorkflows).values(workflow).returning();
-    return result[0];
+    return await prisma.order_workflows.create({
+      data: workflow
+    });
   }
 
   async getWorkflow(id: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(orderWorkflows)
-      .where(eq(orderWorkflows.id, id))
-      .limit(1);
-    return result[0];
+    const result = await prisma.order_workflows.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getWorkflowByCheckoutSession(checkoutSessionId: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(orderWorkflows)
-      .where(eq(orderWorkflows.checkoutSessionId, checkoutSessionId))
-      .limit(1);
-    return result[0];
+    const result = await prisma.order_workflows.findFirst({
+      where: { checkoutSessionId }
+    });
+    return result ?? undefined;
   }
 
   async getWorkflowByPaymentIntent(paymentIntentId: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select()
-      .from(orderWorkflows)
-      .where(eq(orderWorkflows.paymentIntentId, paymentIntentId))
-      .limit(1);
-    return result[0];
+    const result = await prisma.order_workflows.findFirst({
+      where: { paymentIntentId }
+    });
+    return result ?? undefined;
   }
 
   async updateWorkflowState(id: string, state: string, data?: any): Promise<OrderWorkflow | undefined> {
@@ -2253,11 +2244,15 @@ export class DatabaseStorage implements IStorage {
     if (data !== undefined) {
       updateData.data = data;
     }
-    const result = await this.db.update(orderWorkflows)
-      .set(updateData)
-      .where(eq(orderWorkflows.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.order_workflows.update({
+        where: { id },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateWorkflowStatus(id: string, status: string, error?: string, errorCode?: string): Promise<OrderWorkflow | undefined> {
@@ -2272,112 +2267,147 @@ export class DatabaseStorage implements IStorage {
     if (errorCode !== undefined) {
       updateData.errorCode = errorCode;
     }
-    const result = await this.db.update(orderWorkflows)
-      .set(updateData)
-      .where(eq(orderWorkflows.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.order_workflows.update({
+        where: { id },
+        data: updateData
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async createWorkflowEvent(event: InsertOrderWorkflowEvent): Promise<OrderWorkflowEvent> {
     await this.ensureInitialized();
-    const result = await this.db.insert(orderWorkflowEvents).values(event).returning();
-    return result[0];
+    return await prisma.order_workflow_events.create({
+      data: event
+    });
   }
 
   async getWorkflowEvents(workflowId: string): Promise<OrderWorkflowEvent[]> {
     await this.ensureInitialized();
-    return await this.db.select()
-      .from(orderWorkflowEvents)
-      .where(eq(orderWorkflowEvents.workflowId, workflowId))
-      .orderBy(desc(orderWorkflowEvents.occurredAt));
+    return await prisma.order_workflow_events.findMany({
+      where: { workflowId },
+      orderBy: { occurred_at: 'desc' }
+    });
   }
 
   async updateWorkflowOrderId(id: string, orderId: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orderWorkflows)
-      .set({ orderId, updatedAt: new Date() })
-      .where(eq(orderWorkflows.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.order_workflows.update({
+        where: { id },
+        data: { orderId, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateWorkflowPaymentIntentId(id: string, paymentIntentId: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orderWorkflows)
-      .set({ paymentIntentId, updatedAt: new Date() })
-      .where(eq(orderWorkflows.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.order_workflows.update({
+        where: { id },
+        data: { paymentIntentId, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateWorkflowRetry(id: string, retryCount: number): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(orderWorkflows)
-      .set({ retryCount, lastRetryAt: new Date(), updatedAt: new Date() })
-      .where(eq(orderWorkflows.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.order_workflows.update({
+        where: { id },
+        data: { retryCount, lastRetryAt: new Date(), updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
-    return result[0];
+    const result = await prisma.users.findUnique({ where: { email } });
+    return result ?? undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
-    return result[0];
+    const result = await prisma.users.findUnique({ where: { username } });
+    return result ?? undefined;
   }
 
   async updateUserRole(userId: string, role: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
-    return result[0];
+    const result = await prisma.users.update({
+      where: { id: userId },
+      data: { role, updatedAt: new Date() }
+    });
+    return result ?? undefined;
   }
 
   async updateWelcomeEmailSent(userId: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.update(users).set({ welcomeEmailSent: 1, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
-    return result[0];
+    const result = await prisma.users.update({
+      where: { id: userId },
+      data: { welcomeEmailSent: 1, updatedAt: new Date() }
+    });
+    return result ?? undefined;
   }
 
   async getAllUsers(): Promise<User[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(users).orderBy(desc(users.createdAt));
+    return await prisma.users.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId)).limit(1);
-    return result[0];
+    const result = await prisma.users.findFirst({ where: { stripeCustomerId } });
+    return result ?? undefined;
   }
 
   async getTeamMembersBySellerId(sellerId: string): Promise<User[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(users).where(eq(users.sellerId, sellerId)).orderBy(desc(users.createdAt));
+    return await prisma.users.findMany({
+      where: { sellerId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async deleteTeamMember(userId: string, sellerId: string): Promise<boolean> {
     await this.ensureInitialized();
     // Only delete if the user belongs to this seller
-    const result = await this.db
-      .delete(users)
-      .where(and(eq(users.id, userId), eq(users.sellerId, sellerId)))
-      .returning();
-    return result.length > 0;
+    try {
+      await prisma.users.delete({
+        where: {
+          id: userId,
+          sellerId: sellerId
+        }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async getUserStoreRole(userId: string, storeOwnerId: string): Promise<UserStoreRole | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(userStoreRoles)
-      .where(and(eq(userStoreRoles.userId, userId), eq(userStoreRoles.storeOwnerId, storeOwnerId)))
-      .limit(1);
-    return result[0];
+    const result = await prisma.user_store_roles.findFirst({
+      where: {
+        userId,
+        storeOwnerId
+      }
+    });
+    return result ?? undefined;
   }
 
   async setUserStoreRole(userId: string, storeOwnerId: string, role: "buyer" | "seller" | "owner"): Promise<UserStoreRole> {
@@ -2385,106 +2415,104 @@ export class DatabaseStorage implements IStorage {
     // Upsert: update if exists, insert if not
     const existing = await this.getUserStoreRole(userId, storeOwnerId);
     if (existing) {
-      const result = await this.db
-        .update(userStoreRoles)
-        .set({ role })
-        .where(and(eq(userStoreRoles.userId, userId), eq(userStoreRoles.storeOwnerId, storeOwnerId)))
-        .returning();
-      return result[0];
+      return await prisma.user_store_roles.update({
+        where: { id: existing.id },
+        data: { role }
+      });
     } else {
-      const result = await this.db
-        .insert(userStoreRoles)
-        .values({ userId, storeOwnerId, role })
-        .returning();
-      return result[0];
+      return await prisma.user_store_roles.create({
+        data: { userId, storeOwnerId, role }
+      });
     }
   }
 
   async getUserStoreRoles(userId: string): Promise<UserStoreRole[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(userStoreRoles)
-      .where(eq(userStoreRoles.userId, userId));
+    return await prisma.user_store_roles.findMany({
+      where: { userId }
+    });
   }
 
   // New Auth System - User Store Memberships
   async getUserStoreMembership(userId: string, storeOwnerId: string): Promise<UserStoreMembership | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(userStoreMemberships)
-      .where(and(
-        eq(userStoreMemberships.userId, userId),
-        eq(userStoreMemberships.storeOwnerId, storeOwnerId)
-      ))
-      .limit(1);
-    return result[0];
+    const result = await prisma.user_store_memberships.findFirst({
+      where: {
+        userId,
+        storeOwnerId
+      }
+    });
+    return result ?? undefined;
   }
 
   async getUserStoreMembershipsByStore(storeOwnerId: string): Promise<UserStoreMembership[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(userStoreMemberships)
-      .where(eq(userStoreMemberships.storeOwnerId, storeOwnerId));
+    return await prisma.user_store_memberships.findMany({
+      where: { storeOwnerId }
+    });
   }
 
   async getUserStoreMembershipsByUser(userId: string): Promise<UserStoreMembership[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(userStoreMemberships)
-      .where(eq(userStoreMemberships.userId, userId));
+    return await prisma.user_store_memberships.findMany({
+      where: { userId }
+    });
   }
 
   async createUserStoreMembership(membership: InsertUserStoreMembership): Promise<UserStoreMembership> {
     await this.ensureInitialized();
-    const result = await this.db
-      .insert(userStoreMemberships)
-      .values(membership)
-      .returning();
-    return result[0];
+    return await prisma.user_store_memberships.create({
+      data: membership
+    });
   }
 
   async updateUserStoreMembership(id: string, updates: Partial<UserStoreMembership>): Promise<UserStoreMembership | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(userStoreMemberships)
-      .set(updates)
-      .where(eq(userStoreMemberships.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.user_store_memberships.update({
+        where: { id },
+        data: updates
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteUserStoreMembership(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    const result = await this.db
-      .delete(userStoreMemberships)
-      .where(eq(userStoreMemberships.id, id))
-      .returning();
-    return result.length > 0;
+    try {
+      await prisma.user_store_memberships.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async getUserStoreMembershipById(id: string): Promise<UserStoreMembership | undefined> {
     await this.ensureInitialized();
-    const [membership] = await this.db.select().from(userStoreMemberships).where(eq(userStoreMemberships.id, id));
-    return membership || undefined;
+    const membership = await prisma.user_store_memberships.findUnique({
+      where: { id }
+    });
+    return membership ?? undefined;
   }
 
   async getStoreCollaborators(storeOwnerId: string): Promise<UserStoreMembership[]> {
     await this.ensureInitialized();
-    const memberships = await this.db
-      .select()
-      .from(userStoreMemberships)
-      .leftJoin(users, eq(users.id, userStoreMemberships.userId))
-      .where(and(
-        eq(userStoreMemberships.storeOwnerId, storeOwnerId),
-        eq(userStoreMemberships.status, 'active')
-      ));
+    const memberships = await prisma.user_store_memberships.findMany({
+      where: {
+        storeOwnerId,
+        status: 'active'
+      },
+      include: {
+        users: true
+      }
+    });
     
     return memberships.map(m => ({
-      ...m.user_store_memberships,
+      ...m,
       user: m.users!
     })) as any;
   }
@@ -2492,40 +2520,34 @@ export class DatabaseStorage implements IStorage {
   // New Auth System - Wholesale Access Grants
   async getWholesaleAccessGrant(buyerId: string, sellerId: string): Promise<WholesaleAccessGrant | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(wholesaleAccessGrants)
-      .where(and(
-        eq(wholesaleAccessGrants.buyerId, buyerId),
-        eq(wholesaleAccessGrants.sellerId, sellerId)
-      ))
-      .limit(1);
-    return result[0];
+    const result = await prisma.wholesale_access_grants.findFirst({
+      where: {
+        buyerId,
+        sellerId
+      }
+    });
+    return result ?? undefined;
   }
 
   async getWholesaleAccessGrantsBySeller(sellerId: string): Promise<WholesaleAccessGrant[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(wholesaleAccessGrants)
-      .where(eq(wholesaleAccessGrants.sellerId, sellerId));
+    return await prisma.wholesale_access_grants.findMany({
+      where: { sellerId }
+    });
   }
 
   async getWholesaleAccessGrantsByBuyer(buyerId: string): Promise<WholesaleAccessGrant[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(wholesaleAccessGrants)
-      .where(eq(wholesaleAccessGrants.buyerId, buyerId));
+    return await prisma.wholesale_access_grants.findMany({
+      where: { buyerId }
+    });
   }
 
   async createWholesaleAccessGrant(grant: InsertWholesaleAccessGrant): Promise<WholesaleAccessGrant> {
     await this.ensureInitialized();
-    const result = await this.db
-      .insert(wholesaleAccessGrants)
-      .values(grant)
-      .returning();
-    return result[0];
+    return await prisma.wholesale_access_grants.create({
+      data: grant
+    });
   }
 
   async updateWholesaleAccessGrant(id: string, status: string): Promise<WholesaleAccessGrant | undefined> {
@@ -2534,12 +2556,15 @@ export class DatabaseStorage implements IStorage {
     if (status === 'revoked') {
       updates.revokedAt = new Date();
     }
-    const result = await this.db
-      .update(wholesaleAccessGrants)
-      .set(updates)
-      .where(eq(wholesaleAccessGrants.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_access_grants.update({
+        where: { id },
+        data: updates
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // New Auth System - Team Invitations
@@ -2634,78 +2659,91 @@ export class DatabaseStorage implements IStorage {
   // New Auth System - Wholesale Invitations
   async getWholesaleInvitation(id: string): Promise<WholesaleInvitation | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(wholesaleInvitations)
-      .where(eq(wholesaleInvitations.id, id))
-      .limit(1);
-    return result[0];
+    const result = await prisma.wholesale_invitations.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getWholesaleInvitationByToken(token: string): Promise<WholesaleInvitation | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(wholesaleInvitations)
-      .where(eq(wholesaleInvitations.token, token))
-      .limit(1);
-    return result[0];
+    const result = await prisma.wholesale_invitations.findFirst({
+      where: { token }
+    });
+    return result ?? undefined;
   }
 
   async getWholesaleInvitationsBySeller(sellerId: string): Promise<WholesaleInvitation[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(wholesaleInvitations)
-      .where(eq(wholesaleInvitations.sellerId, sellerId));
+    return await prisma.wholesale_invitations.findMany({
+      where: { sellerId }
+    });
   }
 
   async createWholesaleInvitation(invitation: InsertWholesaleInvitation): Promise<WholesaleInvitation> {
     await this.ensureInitialized();
-    const result = await this.db
-      .insert(wholesaleInvitations)
-      .values(invitation)
-      .returning();
-    return result[0];
+    return await prisma.wholesale_invitations.create({
+      data: invitation
+    });
   }
 
   async updateWholesaleInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<WholesaleInvitation | undefined> {
     await this.ensureInitialized();
     const updates: any = { status };
     if (acceptedAt) updates.acceptedAt = acceptedAt;
-    const result = await this.db
-      .update(wholesaleInvitations)
-      .set(updates)
-      .where(eq(wholesaleInvitations.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_invitations.update({
+        where: { id },
+        data: updates
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Legacy wholesale invitation methods (for backwards compatibility)
   async getAllWholesaleInvitations(): Promise<WholesaleInvitation[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesaleInvitations).orderBy(desc(wholesaleInvitations.createdAt));
+    return await prisma.wholesale_invitations.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesaleInvitations).where(eq(wholesaleInvitations.sellerId, sellerId)).orderBy(desc(wholesaleInvitations.createdAt));
+    return await prisma.wholesale_invitations.findMany({
+      where: { sellerId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async acceptWholesaleInvitation(token: string, buyerUserId: string): Promise<WholesaleInvitation | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleInvitations)
-      .set({ status: "accepted", acceptedAt: new Date() })
-      .where(eq(wholesaleInvitations.token, token))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_invitations.update({
+        where: { token },
+        data: { 
+          status: "accepted", 
+          acceptedAt: new Date() 
+        }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteWholesaleInvitation(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    await this.db.delete(wholesaleInvitations).where(eq(wholesaleInvitations.id, id));
-    return true;
+    try {
+      await prisma.wholesale_invitations.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async createInvitation(insertInvitation: InsertInvitation): Promise<Invitation> {
@@ -3200,449 +3238,526 @@ export class DatabaseStorage implements IStorage {
 
   // Wholesale Products Methods
   async getAllWholesaleProducts(): Promise<WholesaleProduct[]> {
-    await this.ensureInitialized();
-    return await this.db.select().from(wholesaleProducts).orderBy(desc(wholesaleProducts.createdAt));
+    return await prisma.wholesale_products.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getWholesaleProductsBySellerId(sellerId: string): Promise<WholesaleProduct[]> {
-    await this.ensureInitialized();
-    return await this.db.select().from(wholesaleProducts).where(eq(wholesaleProducts.sellerId, sellerId)).orderBy(desc(wholesaleProducts.createdAt));
+    return await prisma.wholesale_products.findMany({
+      where: { sellerId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getWholesaleProduct(id: string): Promise<WholesaleProduct | undefined> {
-    await this.ensureInitialized();
-    const result = await this.db.select().from(wholesaleProducts).where(eq(wholesaleProducts.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.wholesale_products.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async createWholesaleProduct(product: InsertWholesaleProduct): Promise<WholesaleProduct> {
-    await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleProducts).values([{
-      ...product,
-      image: product.image || ''
-    }]).returning();
-    return result[0];
+    return await prisma.wholesale_products.create({
+      data: {
+        ...product,
+        image: product.image || ''
+      }
+    });
   }
 
   async updateWholesaleProduct(id: string, product: Partial<InsertWholesaleProduct>): Promise<WholesaleProduct | undefined> {
-    await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleProducts)
-      .set({ ...product, updatedAt: new Date() })
-      .where(eq(wholesaleProducts.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_products.update({
+        where: { id },
+        data: {
+          ...product,
+          updatedAt: new Date()
+        }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteWholesaleProduct(id: string): Promise<boolean> {
-    await this.ensureInitialized();
-    await this.db.delete(wholesaleProducts).where(eq(wholesaleProducts.id, id));
-    return true;
+    try {
+      await prisma.wholesale_products.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Wholesale Product Search & Filtering (B2B)
   async searchWholesaleProducts(filters: WholesaleProductSearchFilters): Promise<WholesaleProductSearchResult> {
-    await this.ensureInitialized();
-    
-    const conditions: any[] = [];
+    const where: any = {};
     
     // Text search (name, description, SKU)
     if (filters.search) {
-      conditions.push(
-        or(
-          ilike(wholesaleProducts.name, `%${filters.search}%`),
-          ilike(wholesaleProducts.description, `%${filters.search}%`),
-          ilike(wholesaleProducts.sku, `%${filters.search}%`)
-        )
-      );
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { sku: { contains: filters.search, mode: 'insensitive' } }
+      ];
     }
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      conditions.push(eq(wholesaleProducts.categoryLevel1Id, filters.categoryLevel1Id));
+      where.categoryLevel1Id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      conditions.push(eq(wholesaleProducts.categoryLevel2Id, filters.categoryLevel2Id));
+      where.categoryLevel2Id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      conditions.push(eq(wholesaleProducts.categoryLevel3Id, filters.categoryLevel3Id));
+      where.categoryLevel3Id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents for wholesalePrice)
-    if (filters.minPrice !== undefined) {
-      const minPriceCents = Math.round(filters.minPrice * 100);
-      conditions.push(gte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, minPriceCents.toString()));
-    }
-    if (filters.maxPrice !== undefined) {
-      const maxPriceCents = Math.round(filters.maxPrice * 100);
-      conditions.push(lte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, maxPriceCents.toString()));
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.wholesalePrice = {};
+      if (filters.minPrice !== undefined) {
+        const minPriceCents = Math.round(filters.minPrice * 100).toString();
+        where.wholesalePrice.gte = minPriceCents;
+      }
+      if (filters.maxPrice !== undefined) {
+        const maxPriceCents = Math.round(filters.maxPrice * 100).toString();
+        where.wholesalePrice.lte = maxPriceCents;
+      }
     }
     
     // Seller filter
     if (filters.sellerId) {
-      conditions.push(eq(wholesaleProducts.sellerId, filters.sellerId));
+      where.sellerId = filters.sellerId;
     }
     
     // MOQ filters (Minimum Order Quantity)
-    if (filters.minMoq !== undefined) {
-      conditions.push(gte(wholesaleProducts.moq, filters.minMoq));
-    }
-    if (filters.maxMoq !== undefined) {
-      conditions.push(lte(wholesaleProducts.moq, filters.maxMoq));
+    if (filters.minMoq !== undefined || filters.maxMoq !== undefined) {
+      where.moq = {};
+      if (filters.minMoq !== undefined) {
+        where.moq.gte = filters.minMoq;
+      }
+      if (filters.maxMoq !== undefined) {
+        where.moq.lte = filters.maxMoq;
+      }
     }
     
     // Status filter (supports both single status and array of statuses)
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      conditions.push(inArray(wholesaleProducts.status, statuses));
-    }
-    
-    // Build query
-    let query = this.db.select().from(wholesaleProducts);
-    
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      where.status = { in: statuses };
     }
     
     // Sorting
     const sortBy = filters.sortBy || 'createdAt';
     const sortOrder = filters.sortOrder || 'desc';
-    const sortColumn = wholesaleProducts[sortBy as keyof typeof wholesaleProducts];
-    
-    if (sortColumn) {
-      query = query.orderBy(sortOrder === 'asc' ? asc(sortColumn as any) : desc(sortColumn as any)) as any;
-    }
+    const orderBy = { [sortBy]: sortOrder };
     
     // Pagination
-    const limit = filters.limit || 20;
-    const offset = filters.offset || 0;
+    const take = filters.limit || 20;
+    const skip = filters.offset || 0;
     
-    const results = await query.limit(limit).offset(offset);
+    // Execute query
+    const products = await prisma.wholesale_products.findMany({
+      where,
+      orderBy,
+      take,
+      skip
+    });
     
     // Get total count
     const total = await this.countWholesaleProducts(filters);
     
     return {
-      products: results,
+      products,
       total,
-      limit,
-      offset,
+      limit: take,
+      offset: skip,
     };
   }
 
   async countWholesaleProducts(filters: WholesaleProductSearchFilters): Promise<number> {
-    await this.ensureInitialized();
-    
-    const conditions: any[] = [];
+    const where: any = {};
     
     // Text search (name, description, SKU)
     if (filters.search) {
-      conditions.push(
-        or(
-          ilike(wholesaleProducts.name, `%${filters.search}%`),
-          ilike(wholesaleProducts.description, `%${filters.search}%`),
-          ilike(wholesaleProducts.sku, `%${filters.search}%`)
-        )
-      );
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { sku: { contains: filters.search, mode: 'insensitive' } }
+      ];
     }
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      conditions.push(eq(wholesaleProducts.categoryLevel1Id, filters.categoryLevel1Id));
+      where.categoryLevel1Id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      conditions.push(eq(wholesaleProducts.categoryLevel2Id, filters.categoryLevel2Id));
+      where.categoryLevel2Id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      conditions.push(eq(wholesaleProducts.categoryLevel3Id, filters.categoryLevel3Id));
+      where.categoryLevel3Id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents for wholesalePrice)
-    if (filters.minPrice !== undefined) {
-      const minPriceCents = Math.round(filters.minPrice * 100);
-      conditions.push(gte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, minPriceCents.toString()));
-    }
-    if (filters.maxPrice !== undefined) {
-      const maxPriceCents = Math.round(filters.maxPrice * 100);
-      conditions.push(lte(sql`CAST(${wholesaleProducts.wholesalePrice} AS DECIMAL)`, maxPriceCents.toString()));
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.wholesalePrice = {};
+      if (filters.minPrice !== undefined) {
+        const minPriceCents = Math.round(filters.minPrice * 100).toString();
+        where.wholesalePrice.gte = minPriceCents;
+      }
+      if (filters.maxPrice !== undefined) {
+        const maxPriceCents = Math.round(filters.maxPrice * 100).toString();
+        where.wholesalePrice.lte = maxPriceCents;
+      }
     }
     
     // Seller filter
     if (filters.sellerId) {
-      conditions.push(eq(wholesaleProducts.sellerId, filters.sellerId));
+      where.sellerId = filters.sellerId;
     }
     
     // MOQ filters (Minimum Order Quantity)
-    if (filters.minMoq !== undefined) {
-      conditions.push(gte(wholesaleProducts.moq, filters.minMoq));
-    }
-    if (filters.maxMoq !== undefined) {
-      conditions.push(lte(wholesaleProducts.moq, filters.maxMoq));
+    if (filters.minMoq !== undefined || filters.maxMoq !== undefined) {
+      where.moq = {};
+      if (filters.minMoq !== undefined) {
+        where.moq.gte = filters.minMoq;
+      }
+      if (filters.maxMoq !== undefined) {
+        where.moq.lte = filters.maxMoq;
+      }
     }
     
     // Status filter (supports both single status and array of statuses)
     if (filters.status) {
       const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-      conditions.push(inArray(wholesaleProducts.status, statuses));
+      where.status = { in: statuses };
     }
     
-    // Build count query
-    let countQuery = this.db.select({ count: sql<number>`count(*)` }).from(wholesaleProducts);
-    
-    if (conditions.length > 0) {
-      countQuery = countQuery.where(and(...conditions)) as any;
-    }
-    
-    const result = await countQuery;
-    return Number(result[0]?.count || 0);
+    return await prisma.wholesale_products.count({ where });
   }
 
   // Wholesale Orders Methods
   async createWholesaleOrder(order: InsertWholesaleOrder): Promise<WholesaleOrder> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleOrders).values(order).returning();
-    return result[0];
+    return await prisma.wholesale_orders.create({
+      data: order
+    });
   }
 
   async getWholesaleOrder(id: string): Promise<WholesaleOrder | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.wholesale_orders.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getWholesaleOrderByNumber(orderNumber: string): Promise<WholesaleOrder | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.orderNumber, orderNumber)).limit(1);
-    return result[0];
+    const result = await prisma.wholesale_orders.findFirst({
+      where: { orderNumber }
+    });
+    return result ?? undefined;
   }
 
   async getWholesaleOrdersBySellerId(sellerId: string): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.sellerId, sellerId)).orderBy(desc(wholesaleOrders.createdAt));
+    return await prisma.wholesale_orders.findMany({
+      where: { sellerId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getWholesaleOrdersByBuyerId(buyerId: string): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesaleOrders).where(eq(wholesaleOrders.buyerId, buyerId)).orderBy(desc(wholesaleOrders.createdAt));
+    return await prisma.wholesale_orders.findMany({
+      where: { buyerId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getOrdersWithBalanceDueSoon(dueDate: Date): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(wholesaleOrders)
-      .where(
-        and(
-          or(
-            eq(wholesaleOrders.status, 'deposit_paid'),
-            eq(wholesaleOrders.status, 'awaiting_balance')
-          ),
-          lte(wholesaleOrders.balancePaymentDueDate, dueDate)
-        )
-      )
-      .orderBy(asc(wholesaleOrders.balancePaymentDueDate));
+    return await prisma.wholesale_orders.findMany({
+      where: {
+        status: {
+          in: ['deposit_paid', 'awaiting_balance']
+        },
+        balancePaymentDueDate: {
+          lte: dueDate
+        }
+      },
+      orderBy: { balancePaymentDueDate: 'asc' }
+    });
   }
 
   async updateWholesaleOrder(id: string, updates: Partial<WholesaleOrder>): Promise<WholesaleOrder | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleOrders)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(wholesaleOrders.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_orders.update({
+        where: { id },
+        data: { ...updates, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteWholesaleOrder(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    await this.db.delete(wholesaleOrders).where(eq(wholesaleOrders.id, id));
-    return true;
+    try {
+      await prisma.wholesale_orders.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Wholesale Order Items Methods
   async createWholesaleOrderItem(item: InsertWholesaleOrderItem): Promise<WholesaleOrderItem> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleOrderItems).values(item).returning();
-    return result[0];
+    return await prisma.wholesale_order_items.create({
+      data: item
+    });
   }
 
   async getWholesaleOrderItems(wholesaleOrderId: string): Promise<WholesaleOrderItem[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesaleOrderItems).where(eq(wholesaleOrderItems.wholesaleOrderId, wholesaleOrderId));
+    return await prisma.wholesale_order_items.findMany({
+      where: { wholesaleOrderId }
+    });
   }
 
   async getWholesaleOrderItem(id: string): Promise<WholesaleOrderItem | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(wholesaleOrderItems).where(eq(wholesaleOrderItems.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.wholesale_order_items.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async updateWholesaleOrderItem(id: string, updates: Partial<WholesaleOrderItem>): Promise<WholesaleOrderItem | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleOrderItems)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(wholesaleOrderItems.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_order_items.update({
+        where: { id },
+        data: { ...updates, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async updateWholesaleOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmountCents: number): Promise<WholesaleOrderItem | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleOrderItems)
-      .set({
-        refundedQuantity,
-        refundedAmountCents,
-        updatedAt: new Date(),
-      })
-      .where(eq(wholesaleOrderItems.id, itemId))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_order_items.update({
+        where: { id: itemId },
+        data: {
+          refundedQuantity,
+          refundedAmountCents,
+          updatedAt: new Date(),
+        }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteWholesaleOrderItem(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    await this.db.delete(wholesaleOrderItems).where(eq(wholesaleOrderItems.id, id));
-    return true;
+    try {
+      await prisma.wholesale_order_items.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Wholesale Payments Methods
   async createWholesalePayment(payment: InsertWholesalePayment): Promise<WholesalePayment> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesalePayments).values(payment).returning();
-    return result[0];
+    return await prisma.wholesale_payments.create({
+      data: payment
+    });
   }
 
   async getWholesalePayment(id: string): Promise<WholesalePayment | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(wholesalePayments).where(eq(wholesalePayments.id, id)).limit(1);
-    return result[0];
+    const result = await prisma.wholesale_payments.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getWholesalePaymentsByOrderId(wholesaleOrderId: string): Promise<WholesalePayment[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesalePayments).where(eq(wholesalePayments.wholesaleOrderId, wholesaleOrderId)).orderBy(desc(wholesalePayments.createdAt));
+    return await prisma.wholesale_payments.findMany({
+      where: { wholesaleOrderId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async updateWholesalePayment(id: string, updates: Partial<WholesalePayment>): Promise<WholesalePayment | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesalePayments)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(wholesalePayments.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_payments.update({
+        where: { id },
+        data: { ...updates, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteWholesalePayment(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    await this.db.delete(wholesalePayments).where(eq(wholesalePayments.id, id));
-    return true;
+    try {
+      await prisma.wholesale_payments.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Wholesale Payment Intents Methods (Stripe Integration)
   async createPaymentIntent(data: InsertWholesalePaymentIntent): Promise<WholesalePaymentIntent> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesalePaymentIntents).values(data).returning();
-    return result[0];
+    return await prisma.wholesale_payment_intents.create({
+      data: data
+    });
   }
 
   async getPaymentIntentsByOrderId(orderId: string): Promise<WholesalePaymentIntent[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(wholesalePaymentIntents)
-      .where(eq(wholesalePaymentIntents.orderId, orderId))
-      .orderBy(desc(wholesalePaymentIntents.createdAt));
+    return await prisma.wholesale_payment_intents.findMany({
+      where: { orderId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async getPaymentIntentByStripeId(stripePaymentIntentId: string): Promise<WholesalePaymentIntent | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(wholesalePaymentIntents)
-      .where(eq(wholesalePaymentIntents.stripePaymentIntentId, stripePaymentIntentId))
-      .limit(1);
-    return result[0];
+    const result = await prisma.wholesale_payment_intents.findFirst({
+      where: { stripePaymentIntentId }
+    });
+    return result ?? undefined;
   }
 
   async updateWholesalePaymentIntentStatus(id: string, status: string): Promise<WholesalePaymentIntent | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesalePaymentIntents)
-      .set({ status: status as any, updatedAt: new Date() })
-      .where(eq(wholesalePaymentIntents.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_payment_intents.update({
+        where: { id },
+        data: { status: status as any, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Wholesale Shipping Metadata Methods
   async createShippingMetadata(data: InsertWholesaleShippingMetadata): Promise<WholesaleShippingMetadata> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleShippingMetadata).values(data).returning();
-    return result[0];
+    return await prisma.wholesale_shipping_metadata.create({
+      data: data
+    });
   }
 
   async getShippingMetadataByOrderId(orderId: string): Promise<WholesaleShippingMetadata | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(wholesaleShippingMetadata)
-      .where(eq(wholesaleShippingMetadata.orderId, orderId))
-      .limit(1);
-    return result[0];
+    const result = await prisma.wholesale_shipping_metadata.findFirst({
+      where: { orderId }
+    });
+    return result ?? undefined;
   }
 
   async updateShippingMetadata(id: string, data: Partial<InsertWholesaleShippingMetadata>): Promise<WholesaleShippingMetadata | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleShippingMetadata)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(wholesaleShippingMetadata.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_shipping_metadata.update({
+        where: { id },
+        data: { ...data, updatedAt: new Date() }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   // Wholesale Shipping Details Methods
   async createWholesaleShippingDetails(details: InsertWholesaleShippingDetail): Promise<WholesaleShippingDetail> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleShippingDetails).values(details).returning();
-    return result[0];
+    return await prisma.wholesale_shipping_details.create({
+      data: details
+    });
   }
 
   async getWholesaleShippingDetails(wholesaleOrderId: string): Promise<WholesaleShippingDetail | undefined> {
     await this.ensureInitialized();
-    const result = await this.db.select().from(wholesaleShippingDetails).where(eq(wholesaleShippingDetails.wholesaleOrderId, wholesaleOrderId)).limit(1);
-    return result[0];
+    const result = await prisma.wholesale_shipping_details.findFirst({
+      where: { wholesaleOrderId }
+    });
+    return result ?? undefined;
   }
 
   async updateWholesaleShippingDetails(wholesaleOrderId: string, updates: Partial<WholesaleShippingDetail>): Promise<WholesaleShippingDetail | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(wholesaleShippingDetails)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(wholesaleShippingDetails.wholesaleOrderId, wholesaleOrderId))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.wholesale_shipping_details.updateMany({
+        where: { wholesaleOrderId },
+        data: { ...updates, updatedAt: new Date() }
+      });
+      if (result.count > 0) {
+        return await this.getWholesaleShippingDetails(wholesaleOrderId);
+      }
+      return undefined;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteWholesaleShippingDetails(wholesaleOrderId: string): Promise<boolean> {
     await this.ensureInitialized();
-    await this.db.delete(wholesaleShippingDetails).where(eq(wholesaleShippingDetails.wholesaleOrderId, wholesaleOrderId));
-    return true;
+    try {
+      await prisma.wholesale_shipping_details.deleteMany({
+        where: { wholesaleOrderId }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // Wholesale Order Events Methods
   async createWholesaleOrderEvent(event: InsertWholesaleOrderEvent): Promise<WholesaleOrderEvent> {
     await this.ensureInitialized();
-    const result = await this.db.insert(wholesaleOrderEvents).values(event).returning();
-    return result[0];
+    return await prisma.wholesale_order_events.create({
+      data: event
+    });
   }
 
   async getWholesaleOrderEvents(wholesaleOrderId: string): Promise<WholesaleOrderEvent[]> {
     await this.ensureInitialized();
-    return await this.db.select().from(wholesaleOrderEvents).where(eq(wholesaleOrderEvents.wholesaleOrderId, wholesaleOrderId)).orderBy(desc(wholesaleOrderEvents.occurredAt));
+    return await prisma.wholesale_order_events.findMany({
+      where: { wholesaleOrderId },
+      orderBy: { occurredAt: 'desc' }
+    });
   }
 
   // Warehouse Locations Methods
@@ -3827,47 +3942,53 @@ export class DatabaseStorage implements IStorage {
   // Auth Token Methods
   async createAuthToken(token: InsertAuthToken): Promise<AuthToken> {
     await this.ensureInitialized();
-    const result = await this.db.insert(authTokens).values(token).returning();
-    return result[0];
+    return await prisma.auth_tokens.create({
+      data: token
+    });
   }
 
   async getAuthTokenByToken(token: string): Promise<AuthToken | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(authTokens)
-      .where(eq(authTokens.token, token))
-      .limit(1);
-    return result[0];
+    const result = await prisma.auth_tokens.findUnique({
+      where: { token }
+    });
+    return result ?? undefined;
   }
 
   async getAuthTokenByCode(email: string, code: string): Promise<AuthToken | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .select()
-      .from(authTokens)
-      .where(and(eq(authTokens.email, email), eq(authTokens.code, code)))
-      .limit(1);
-    return result[0];
+    const result = await prisma.auth_tokens.findFirst({
+      where: {
+        email,
+        code
+      }
+    });
+    return result ?? undefined;
   }
 
   async markAuthTokenAsUsed(id: string): Promise<AuthToken | undefined> {
     await this.ensureInitialized();
-    const result = await this.db
-      .update(authTokens)
-      .set({ used: 1 })
-      .where(eq(authTokens.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await prisma.auth_tokens.update({
+        where: { id },
+        data: { used: 1 }
+      });
+      return result;
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async deleteExpiredAuthTokens(): Promise<number> {
     await this.ensureInitialized();
-    const result = await this.db
-      .delete(authTokens)
-      .where(lt(authTokens.expiresAt, new Date()))
-      .returning();
-    return result.length;
+    const result = await prisma.auth_tokens.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date()
+        }
+      }
+    });
+    return result.count;
   }
 
   // Shipping Matrix Methods
