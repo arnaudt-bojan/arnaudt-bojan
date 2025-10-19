@@ -529,6 +529,9 @@ type Cart {
   """Number of items in cart"""
   itemCount: Int!
   
+  """Pricing totals with tax breakdown"""
+  totals: CartTotals
+  
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -556,6 +559,22 @@ type CartSession {
   cart: Cart!
   
   lastSeen: DateTime!
+}
+
+"""Cart pricing totals breakdown"""
+type CartTotals {
+  subtotal: Decimal!
+  tax: Decimal!
+  total: Decimal!
+  currency: String!
+}
+
+"""Exchange rate between two currencies"""
+type ExchangeRate {
+  from: String!
+  to: String!
+  rate: Float!
+  timestamp: DateTime!
 }
 
 """Checkout session with pricing and payment"""
@@ -626,6 +645,10 @@ type Order {
   taxAmount: Decimal!
   totalAmount: Decimal!
   currency: Currency!
+  
+  """Calculated pricing fields (via PricingService)"""
+  calculatedTotal: Decimal!
+  calculatedTax: Decimal!
   
   """Deposit payment (if required)"""
   depositAmount: Decimal
@@ -988,6 +1011,10 @@ type WholesaleOrder {
   balanceRequestedAt: DateTime
   balancePaidAt: DateTime
   
+  """Calculated pricing fields (via PricingService)"""
+  calculatedDepositAmount: Decimal!
+  calculatedBalanceAmount: Decimal!
+  
   """Payment terms"""
   paymentTerms: String!
   
@@ -1181,6 +1208,10 @@ type Quotation {
   shippingAmount: Decimal!
   total: Decimal!
   currency: Currency!
+  
+  """Calculated pricing fields (via PricingService)"""
+  calculatedGrandTotal: Decimal!
+  calculatedSubtotal: Decimal!
   
   """Payment schedule"""
   depositAmount: Decimal!
@@ -2345,6 +2376,16 @@ type Query {
   
   """Get checkout session"""
   getCheckoutSession(id: ID!): CheckoutSession
+  
+  # ========================================
+  # Pricing & Currency
+  # ========================================
+  
+  """Get exchange rate between two currencies"""
+  getExchangeRate(from: String!, to: String!): ExchangeRate!
+  
+  """Calculate price in a different currency"""
+  calculatePrice(amount: Float!, fromCurrency: String!, toCurrency: String!): Float!
   
   # ========================================
   # Module 4: Orders & Payments

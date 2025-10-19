@@ -10,6 +10,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { WholesaleModule } from './modules/wholesale/wholesale.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { WebSocketModule } from './modules/websocket/websocket.module';
     ProductsModule,
     AuthModule,
     IdentityModule,
+    PricingModule,
     CartModule,
     OrdersModule,
     WholesaleModule,

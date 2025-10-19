@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { DataloaderModule } from '../../common/dataloaders/dataloader.module';
+import { PricingModule } from '../pricing/pricing.module';
 import { 
   WholesaleInvitationResolver,
   WholesaleAccessGrantResolver,
@@ -12,7 +13,7 @@ import {
 import { WholesaleService } from './wholesale.service';
 
 @Module({
-  imports: [PrismaModule, DataloaderModule],
+  imports: [PrismaModule, DataloaderModule, PricingModule],
   providers: [
     WholesaleService,
     WholesaleInvitationResolver,

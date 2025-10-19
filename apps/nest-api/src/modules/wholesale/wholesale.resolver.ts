@@ -9,6 +9,7 @@ import {
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { WholesaleService } from './wholesale.service';
+import { PricingService } from '../pricing/pricing.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
@@ -53,7 +54,10 @@ export class WholesaleAccessGrantResolver {
 
 @Resolver('WholesaleOrder')
 export class WholesaleOrderResolver {
-  constructor(private wholesaleService: WholesaleService) {}
+  constructor(
+    private wholesaleService: WholesaleService,
+    private pricingService: PricingService,
+  ) {}
 
   @ResolveField('seller')
   async seller(@Parent() order: any, @Context() context: GraphQLContext) {
@@ -83,6 +87,24 @@ export class WholesaleOrderResolver {
   @ResolveField('packingSlip')
   async packingSlip(@Parent() order: any) {
     return null;
+  }
+
+  @ResolveField('calculatedDepositAmount')
+  async calculatedDepositAmount(@Parent() order: any): Promise<number> {
+    const items = await this.wholesaleService.getWholesaleOrderItems(order.id);
+    const mappedItems = items.map(item => ({
+      price: item.unitPrice,
+      quantity: item.quantity,
+    }));
+    return this.pricingService.calculateWholesaleDeposit(
+      mappedItems,
+      order.depositPercentage || 50
+    );
+  }
+
+  @ResolveField('calculatedBalanceAmount')
+  async calculatedBalanceAmount(@Parent() order: any): Promise<number> {
+    return this.pricingService.calculateWholesaleBalance(order.id);
   }
 }
 

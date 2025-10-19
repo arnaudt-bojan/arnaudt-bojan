@@ -9,13 +9,17 @@ import {
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { CartService } from './cart.service';
+import { PricingService } from '../pricing/pricing.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Resolver('Cart')
 export class CartResolver {
-  constructor(private cartService: CartService) {}
+  constructor(
+    private cartService: CartService,
+    private pricingService: PricingService,
+  ) {}
 
   @Query('getCart')
   async getCart(@Args('id') id: string) {
@@ -80,5 +84,14 @@ export class CartResolver {
       unitPrice: item.price,
       lineTotal: (parseFloat(item.price) * item.quantity).toFixed(2),
     }));
+  }
+
+  @ResolveField('totals')
+  async totals(@Parent() cart: any) {
+    try {
+      return await this.pricingService.calculateCartTotals(cart.id);
+    } catch (error) {
+      return null;
+    }
   }
 }

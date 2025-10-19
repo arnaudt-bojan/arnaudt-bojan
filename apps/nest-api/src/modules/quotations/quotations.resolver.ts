@@ -9,6 +9,7 @@ import {
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { QuotationsService } from './quotations.service';
+import { PricingService } from '../pricing/pricing.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
@@ -17,7 +18,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Resolver('Quotation')
 export class QuotationsResolver {
-  constructor(private quotationsService: QuotationsService) {}
+  constructor(
+    private quotationsService: QuotationsService,
+    private pricingService: PricingService,
+  ) {}
 
   @Query('getQuotation')
   @UseGuards(GqlAuthGuard, UserTypeGuard)
@@ -110,5 +114,15 @@ export class QuotationsResolver {
   @ResolveField('order')
   async order(@Parent() quotation: any) {
     return null;
+  }
+
+  @ResolveField('calculatedGrandTotal')
+  async calculatedGrandTotal(@Parent() quotation: any): Promise<number> {
+    return this.pricingService.calculateQuotationGrandTotal(quotation.id);
+  }
+
+  @ResolveField('calculatedSubtotal')
+  async calculatedSubtotal(@Parent() quotation: any): Promise<number> {
+    return this.pricingService.calculateQuotationSubtotal(quotation.id);
   }
 }

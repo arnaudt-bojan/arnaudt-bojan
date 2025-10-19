@@ -9,6 +9,7 @@ import {
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { PricingService } from '../pricing/pricing.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
@@ -17,7 +18,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Resolver('Order')
 export class OrdersResolver {
-  constructor(private ordersService: OrdersService) {}
+  constructor(
+    private ordersService: OrdersService,
+    private pricingService: PricingService,
+  ) {}
 
   @Query('getOrder')
   @UseGuards(GqlAuthGuard)
@@ -118,5 +122,15 @@ export class OrdersResolver {
   @ResolveField('refunds')
   async refunds(@Parent() order: any) {
     return [];
+  }
+
+  @ResolveField('calculatedTotal')
+  async calculatedTotal(@Parent() order: any): Promise<number> {
+    return this.pricingService.calculateOrderTotal(order.id);
+  }
+
+  @ResolveField('calculatedTax')
+  async calculatedTax(@Parent() order: any): Promise<number> {
+    return this.pricingService.calculateTaxForOrder(order.id);
   }
 }
