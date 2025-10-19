@@ -2,6 +2,50 @@
 
 ## Recent Changes
 
+### Phase 3B: NestJS Product Resolvers (October 19, 2025)
+**Status**: ✅ Complete - GraphQL product module with queries, mutations, and dataloaders
+
+**What Was Done:**
+- Implemented comprehensive Product module with full CRUD operations via GraphQL
+- Added GraphQL code generation (TypeScript + Resolvers plugins) producing 220KB of types
+- Created dataloader infrastructure for N+1 prevention (request-scoped SellerLoader)
+- Implemented Relay-style cursor pagination with filtering and sorting
+- Added slug field to products table with [seller_id, slug] index for efficient lookups
+- Fixed GraphQL camelCase → Prisma snake_case field mappings for all operations
+
+**Product Queries:**
+- `getProduct(id)` - Fetch single product by ID
+- `getProductBySlug(sellerId, slug)` - Fetch by slug (uses indexed lookup)
+- `listProducts(filter, sort, first, after)` - Relay pagination with:
+  - Filtering: sellerId, category, status, inStock, search, priceMin/Max
+  - Sorting: by NAME, PRICE, CREATED_AT, STOCK (asc/desc)
+  - Base64-encoded cursors, PageInfo with hasNext/hasPrevious
+
+**Product Mutations:**
+- `createProduct(input)` - Create with auto-generated slug and validation
+- `updateProduct(id, input)` - Update with ownership check and slug regeneration
+- `deleteProduct(id)` - Delete with ownership check
+
+**Dataloader Architecture:**
+- `DataloaderModule` - Shared module for all dataloader providers
+- `SellerLoader` - Request-scoped batching for User lookups
+- `Product.seller` field resolver uses dataloader to prevent N+1 queries
+- GraphQL context injection for all resolvers
+
+**Authentication (Stubbed for POC):**
+- Mutations use hardcoded seller ID `'e2e-seller1'` for proof-of-concept
+- TODO comments for Phase 3C JWT guards implementation
+- Ownership validation implemented (seller must own product)
+
+**File Structure:**
+- `apps/nest-api/src/modules/products/` - Product resolver, service, module
+- `apps/nest-api/src/common/dataloaders/` - Dataloader infrastructure
+- `apps/nest-api/src/types/generated/graphql.ts` - 220KB generated types
+- `apps/nest-api/codegen.ts` - GraphQL Code Generator config
+- `prisma/schema.prisma` - Added slug field with index
+
+**Next Phase:** Phase 3C will implement JWT authentication guards and expand to remaining domain modules
+
 ### Phase 3A: NestJS GraphQL Foundation (October 19, 2025)
 **Status**: ✅ Complete - NestJS application operational with GraphQL schema-first architecture
 
@@ -18,8 +62,6 @@
 - GraphQL playground at `http://localhost:4000/graphql`
 - Express proxy middleware ready to route traffic based on feature flags
 - Shared Prisma client (no dual database connections)
-
-**Next Phase:** Phase 3B will implement product resolvers with dataloaders for N+1 prevention
 
 **File Structure:**
 - `apps/nest-api/src/main.ts` - NestJS entry point
