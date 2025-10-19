@@ -9,6 +9,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { CartValidationModule } from './modules/cart-validation/cart-validation.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { WholesaleModule } from './modules/wholesale/wholesale.module';
+import { WholesaleRulesModule } from './modules/wholesale-rules/wholesale-rules.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
 import { PricingModule } from './modules/pricing/pricing.module';
@@ -25,6 +26,7 @@ import { PricingModule } from './modules/pricing/pricing.module';
     CartValidationModule,
     CartModule,
     OrdersModule,
+    WholesaleRulesModule,
     WholesaleModule,
     QuotationsModule,
     WebSocketModule,

@@ -1,11 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../../../../generated/prisma';
+import { WholesaleRulesService } from '../wholesale-rules/wholesale-rules.service';
 
 @Injectable()
 export class WholesaleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => WholesaleRulesService))
+    private readonly wholesaleRulesService: WholesaleRulesService,
+  ) {}
 
   async createWholesaleInvitation(input: any, sellerId: string) {
     const token = this.generateToken();
@@ -184,6 +189,21 @@ export class WholesaleService {
       });
     }
 
+    const invitation = await this.prisma.wholesale_invitations.findFirst({
+      where: {
+        buyer_id: buyerId,
+        seller_id: sellerId,
+        status: 'accepted',
+      },
+      orderBy: { accepted_at: 'desc' },
+    });
+
+    if (!invitation) {
+      throw new GraphQLError('Wholesale invitation not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
     let subtotalCents = 0;
     const orderItems = [];
 
@@ -224,7 +244,26 @@ export class WholesaleService {
       });
     }
 
-    const depositPercentage = 50;
+    const validationItems = items.map((item: any) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+    }));
+
+    const validation = await this.wholesaleRulesService.validateWholesaleOrder(
+      invitation.id,
+      validationItems,
+      paymentTerms || 'Net 30',
+    );
+
+    if (!validation.valid) {
+      throw new GraphQLError(
+        `Wholesale order validation failed: ${validation.errors.join('; ')}`,
+        { extensions: { code: 'WHOLESALE_VALIDATION_FAILED', validation } },
+      );
+    }
+
+    const depositPercentage = validation.depositCalculation.depositPercentage;
     const depositAmountCents = Math.round(subtotalCents * (depositPercentage / 100));
     const balanceAmountCents = subtotalCents - depositAmountCents;
 

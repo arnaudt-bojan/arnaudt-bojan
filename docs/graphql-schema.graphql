@@ -1215,6 +1215,79 @@ type WholesaleInvitationConnection {
 }
 
 # ============================================================================
+# Module 5.1: Wholesale Rules & Validation
+# ============================================================================
+
+"""Deposit calculation for wholesale orders"""
+type DepositCalculation {
+  orderValue: Float!
+  depositPercentage: Float!
+  depositAmount: Float!
+  balanceAmount: Float!
+}
+
+"""Balance calculation for wholesale orders"""
+type BalanceCalculation {
+  orderValue: Float!
+  depositPaid: Float!
+  balanceRemaining: Float!
+  balancePercentage: Float!
+}
+
+"""MOQ failure item details"""
+type MOQFailureItem {
+  productId: String!
+  productName: String!
+  requiredQuantity: Int!
+  providedQuantity: Int!
+}
+
+"""MOQ validation result"""
+type MOQValidationResult {
+  valid: Boolean!
+  errors: [String!]!
+  itemsFailingMOQ: [MOQFailureItem!]!
+}
+
+"""Payment terms validation"""
+type PaymentTermsValidation {
+  valid: Boolean!
+  allowedTerms: [String!]!
+  requestedTerm: String!
+  error: String
+}
+
+"""Minimum order value validation"""
+type MinimumValueValidation {
+  met: Boolean!
+  minimumValue: Float!
+  currentValue: Float!
+  shortfall: Float!
+}
+
+"""Wholesale pricing details"""
+type WholesalePricing {
+  productId: String!
+  basePrice: Float!
+  wholesalePrice: Float!
+  discount: Float!
+  quantity: Int!
+  total: Float!
+}
+
+"""Comprehensive wholesale order validation"""
+type WholesaleOrderValidation {
+  valid: Boolean!
+  errors: [String!]!
+  warnings: [String!]!
+  moqValidation: MOQValidationResult!
+  paymentTermsValidation: PaymentTermsValidation!
+  minimumValueValidation: MinimumValueValidation!
+  depositCalculation: DepositCalculation!
+  totalValue: Float!
+}
+
+# ============================================================================
 # Module 6: Quotations (Trade)
 # ============================================================================
 
@@ -2224,7 +2297,6 @@ input PlaceWholesaleOrderInput {
 input WholesaleOrderItemInput {
   productId: ID!
   quantity: Int!
-  unitPrice: Decimal
 }
 
 input CreateQuotationInput {
@@ -2484,6 +2556,18 @@ type Query {
   
   """Get wholesale invitation by token"""
   getWholesaleInvitation(token: String!): WholesaleInvitation
+  
+  """Calculate wholesale deposit amount"""
+  calculateWholesaleDeposit(orderValue: Float!, depositPercentage: Float!): DepositCalculation!
+  
+  """Calculate wholesale balance amount"""
+  calculateWholesaleBalance(orderValue: Float!, depositPaid: Float!): BalanceCalculation!
+  
+  """Validate wholesale order comprehensively"""
+  validateWholesaleOrder(invitationId: String!, items: [WholesaleOrderItemInput!]!, paymentTerms: String!): WholesaleOrderValidation!
+  
+  """Calculate payment due date based on terms"""
+  calculatePaymentDueDate(orderDate: String!, paymentTerms: String!): String!
   
   # ========================================
   # Module 6: Quotations (Trade)

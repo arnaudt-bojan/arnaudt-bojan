@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { DataloaderModule } from '../../common/dataloaders/dataloader.module';
 import { PricingModule } from '../pricing/pricing.module';
+import { WholesaleRulesModule } from '../wholesale-rules/wholesale-rules.module';
 import { 
   WholesaleInvitationResolver,
   WholesaleAccessGrantResolver,
@@ -13,7 +14,12 @@ import {
 import { WholesaleService } from './wholesale.service';
 
 @Module({
-  imports: [PrismaModule, DataloaderModule, PricingModule],
+  imports: [
+    PrismaModule, 
+    DataloaderModule, 
+    PricingModule,
+    forwardRef(() => WholesaleRulesModule),
+  ],
   providers: [
     WholesaleService,
     WholesaleInvitationResolver,
