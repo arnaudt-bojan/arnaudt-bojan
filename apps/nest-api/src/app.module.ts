@@ -6,6 +6,7 @@ import { ProductsModule } from './modules/products/product.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { CartModule } from './modules/cart/cart.module';
+import { CartValidationModule } from './modules/cart-validation/cart-validation.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { WholesaleModule } from './modules/wholesale/wholesale.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
@@ -21,6 +22,7 @@ import { PricingModule } from './modules/pricing/pricing.module';
     AuthModule,
     IdentityModule,
     PricingModule,
+    CartValidationModule,
     CartModule,
     OrdersModule,
     WholesaleModule,

@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { CartValidationService } from '../cart-validation/cart-validation.service';
 
 interface CartItem {
-  id: string;
+  product_id: string;
   name: string;
   price: string;
   originalPrice?: string;
@@ -17,7 +18,7 @@ interface CartItem {
   sellerId: string;
   images?: string[];
   promotionActive?: number;
-  variantId?: string;
+  variant_id?: string;
   variant?: {
     size?: string;
     color?: string;
@@ -37,7 +38,10 @@ interface Cart {
 export class CartService {
   constructor(
     private prisma: PrismaService,
-    private websocketGateway: AppWebSocketGateway,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly websocketGateway: AppWebSocketGateway,
+    @Inject(forwardRef(() => CartValidationService))
+    private readonly cartValidationService: CartValidationService,
   ) {}
 
   /**
@@ -63,7 +67,7 @@ export class CartService {
       const validItems: CartItem[] = [];
       for (const item of items) {
         const product = await this.prisma.products.findUnique({
-          where: { id: item.id },
+          where: { id: item.product_id },
         });
         if (product) {
           validItems.push(item);
@@ -139,10 +143,17 @@ export class CartService {
     try {
       const { sellerId, productId, variantId, quantity } = input;
 
-      // Validate quantity
+      // Early validation of input quantity
       if (quantity < 1 || quantity > 10000) {
         throw new GraphQLError('Invalid quantity. Must be between 1 and 10000', {
           extensions: { code: 'BAD_REQUEST' },
+        });
+      }
+
+      // Defensive check for CartValidationService
+      if (!this.cartValidationService) {
+        throw new GraphQLError('CartValidationService not available', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
         });
       }
 
@@ -233,14 +244,35 @@ export class CartService {
       // Check if item already exists
       const itemKey = variantId ? `${productId}-${variantId}` : productId;
       const existingItem = items.find((item: any) => {
-        const existingKey = item.variantId
-          ? `${item.id}-${item.variantId}`
-          : item.id;
+        const existingKey = item.variant_id
+          ? `${item.product_id}-${item.variant_id}`
+          : item.product_id;
         return existingKey === itemKey;
       });
 
+      // Calculate final quantity (existing + new)
+      const finalQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+
+      // Validate the FINAL quantity (not just the incremental quantity)
+      // This prevents overselling and MOQ bypass issues
+      const validation = await this.cartValidationService.validateCartItem(
+        productId,
+        variantId || null,
+        finalQuantity,
+      );
+
+      if (!validation.valid) {
+        throw new GraphQLError(
+          `Cannot add to cart: ${validation.errors.join('; ')}`,
+          {
+            extensions: { code: 'CART_VALIDATION_FAILED' },
+          },
+        );
+      }
+
       if (existingItem) {
-        existingItem.quantity += quantity;
+        // Update existing item with validated final quantity
+        existingItem.quantity = finalQuantity;
       } else {
         // Calculate price with discount
         const originalPrice = parseFloat(String(product.price));
@@ -260,20 +292,20 @@ export class CartService {
         }
 
         const cartItem: CartItem = {
-          id: product.id,
+          product_id: product.id,
           name: product.name,
           price: actualPrice,
           originalPrice: String(product.price),
           discountPercentage: product.discount_percentage ? String(product.discount_percentage) : undefined,
           discountAmount: discountAmount !== '0' ? discountAmount : undefined,
-          quantity,
+          quantity: finalQuantity,
           productType: product.product_type,
           depositAmount: product.deposit_amount ? String(product.deposit_amount) : undefined,
           requiresDeposit: product.requires_deposit || undefined,
           sellerId: product.seller_id,
           images: product.images || [product.image],
           promotionActive: product.promotion_active || undefined,
-          variantId,
+          variant_id: variantId,
           variant,
           productSku: product.sku || undefined,
           variantSku: variantSku || undefined,
@@ -340,9 +372,9 @@ export class CartService {
       const itemKey = variantId ? `${productId}-${variantId}` : productId;
 
       const item = items.find((item: any) => {
-        const existingKey = item.variantId
-          ? `${item.id}-${item.variantId}`
-          : item.id;
+        const existingKey = item.variant_id
+          ? `${item.product_id}-${item.variant_id}`
+          : item.product_id;
         return existingKey === itemKey;
       });
 
@@ -350,6 +382,29 @@ export class CartService {
         throw new GraphQLError('Item not found in cart', {
           extensions: { code: 'NOT_FOUND' },
         });
+      }
+
+      // Defensive check for CartValidationService
+      if (!this.cartValidationService) {
+        throw new GraphQLError('CartValidationService not available', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+
+      // Validate using CartValidationService before updating
+      const validation = await this.cartValidationService.validateCartItem(
+        productId,
+        variantId || null,
+        quantity,
+      );
+
+      if (!validation.valid) {
+        throw new GraphQLError(
+          `Cart validation failed: ${validation.errors.join('; ')}`,
+          {
+            extensions: { code: 'VALIDATION_ERROR' },
+          },
+        );
       }
 
       item.quantity = quantity;
@@ -407,9 +462,9 @@ export class CartService {
       const itemKey = variantId ? `${productId}-${variantId}` : productId;
 
       const newItems = items.filter((item: any) => {
-        const existingKey = item.variantId
-          ? `${item.id}-${item.variantId}`
-          : item.id;
+        const existingKey = item.variant_id
+          ? `${item.product_id}-${item.variant_id}`
+          : item.product_id;
         return existingKey !== itemKey;
       });
 

@@ -569,6 +569,41 @@ type CartTotals {
   currency: String!
 }
 
+"""Cart item validation result"""
+type CartItemValidation {
+  valid: Boolean!
+  errors: [String!]!
+  warnings: [String!]!
+  stockAvailable: Boolean!
+  moqMet: Boolean!
+}
+
+"""Cart validation result"""
+type CartValidation {
+  valid: Boolean!
+  errors: [String!]!
+  warnings: [String!]!
+  items: [CartItemValidation!]!
+  totalItems: Int!
+  allItemsInStock: Boolean!
+  allMOQsMet: Boolean!
+}
+
+"""Wholesale cart validation result"""
+type WholesaleCartValidation {
+  valid: Boolean!
+  errors: [String!]!
+  warnings: [String!]!
+  items: [CartItemValidation!]!
+  totalItems: Int!
+  allItemsInStock: Boolean!
+  allMOQsMet: Boolean!
+  wholesaleRulesMet: Boolean!
+  depositRequired: Float!
+  minimumOrderValue: Float!
+  currentOrderValue: Float!
+}
+
 """Exchange rate between two currencies"""
 type ExchangeRate {
   from: String!
@@ -2376,6 +2411,12 @@ type Query {
   
   """Get checkout session"""
   getCheckoutSession(id: ID!): CheckoutSession
+  
+  """Validate cart items"""
+  validateCart(cartId: ID!): CartValidation!
+  
+  """Validate wholesale cart"""
+  validateWholesaleCart(cartId: ID!): WholesaleCartValidation!
   
   # ========================================
   # Pricing & Currency
