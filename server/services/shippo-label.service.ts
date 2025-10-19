@@ -163,9 +163,14 @@ export class ShippoLabelService {
    * 
    * @param orderId - Order ID to estimate shipping for
    * @param warehouseAddressId - Optional warehouse address ID to use as sender (defaults to default warehouse)
+   * @param dimensionOverrides - Optional dimension overrides (weight, length, width, height)
    * @returns Shipping rate estimate with markup
    */
-  async getRateEstimate(orderId: string, warehouseAddressId?: string): Promise<ShippingRateEstimate> {
+  async getRateEstimate(
+    orderId: string, 
+    warehouseAddressId?: string,
+    dimensionOverrides?: { weight?: number; length?: number; width?: number; height?: number }
+  ): Promise<ShippingRateEstimate> {
     const order = await this.storage.getOrder(orderId);
     if (!order) {
       throw new Error("Order not found");
@@ -195,9 +200,71 @@ export class ShippoLabelService {
       throw new Error("Product not found");
     }
 
-    // Validate product has Shippo dimensions configured
-    if (!product.shippoWeight || !product.shippoLength || !product.shippoWidth || !product.shippoHeight) {
-      throw new Error("Product does not have shipping dimensions configured");
+    // Determine which dimensions to use: overrides or product defaults
+    let weight: number;
+    let length: number;
+    let width: number;
+    let height: number;
+    let dimensionSource: string;
+
+    if (dimensionOverrides && 
+        dimensionOverrides.weight !== undefined &&
+        dimensionOverrides.length !== undefined &&
+        dimensionOverrides.width !== undefined &&
+        dimensionOverrides.height !== undefined) {
+      // Use overrides if all dimensions are provided
+      weight = dimensionOverrides.weight;
+      length = dimensionOverrides.length;
+      width = dimensionOverrides.width;
+      height = dimensionOverrides.height;
+      dimensionSource = 'override';
+
+      // Validate override dimensions are positive numbers
+      if (weight <= 0 || length <= 0 || width <= 0 || height <= 0) {
+        throw new Error("All dimensions must be positive numbers");
+      }
+
+      logger.info('[ShippoLabelService] Using dimension overrides', {
+        orderId,
+        productId: product.id,
+        weight,
+        length,
+        width,
+        height,
+        source: 'override'
+      });
+    } else {
+      // Use product dimensions
+      if (!product.shippoWeight || !product.shippoLength || !product.shippoWidth || !product.shippoHeight) {
+        logger.error('[ShippoLabelService] Missing shipping dimensions', {
+          orderId,
+          productId: product.id,
+          productName: product.name,
+          hasWeight: !!product.shippoWeight,
+          hasLength: !!product.shippoLength,
+          hasWidth: !!product.shippoWidth,
+          hasHeight: !!product.shippoHeight,
+          hasOverrides: !!dimensionOverrides
+        });
+        throw new Error("Product does not have shipping dimensions configured. Please enter dimensions manually.");
+      }
+
+      weight = Number(product.shippoWeight);
+      length = Number(product.shippoLength);
+      width = Number(product.shippoWidth);
+      height = Number(product.shippoHeight);
+      dimensionSource = 'product';
+
+      logger.info('[ShippoLabelService] Using product dimensions', {
+        orderId,
+        productId: product.id,
+        productName: product.name,
+        weight,
+        length,
+        width,
+        height,
+        source: 'product'
+      });
     }
 
     const { Shippo } = await import('shippo');
@@ -206,7 +273,7 @@ export class ShippoLabelService {
     });
 
     try {
-      // Create shipment to get rates
+      // Create shipment to get rates using determined dimensions
       const shipment = await shippo.shipments.create({
         addressFrom: senderAddressId,
         addressTo: {
@@ -218,11 +285,11 @@ export class ShippoLabelService {
           country: order.shippingCountry
         },
         parcels: [{
-          length: product.shippoLength.toString(),
-          width: product.shippoWidth.toString(),
-          height: product.shippoHeight.toString(),
+          length: length.toString(),
+          width: width.toString(),
+          height: height.toString(),
           distanceUnit: 'in' as const,
-          weight: product.shippoWeight.toString(),
+          weight: weight.toString(),
           massUnit: 'lb' as const
         }],
         async: false

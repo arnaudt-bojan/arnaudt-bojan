@@ -4374,13 +4374,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Shipping Labels (Shippo Integration)
   // ============================================================================
 
-  // GET /api/orders/:orderId/shipping-rate (Architecture 3)
-  // Get shipping rate estimate without purchasing
-  app.get("/api/orders/:orderId/shipping-rate", requireAuth, async (req: any, res) => {
+  // GET /api/orders/:orderId/shipping-dimensions (Architecture 3)
+  // Get product shipping dimensions for an order
+  app.get("/api/orders/:orderId/shipping-dimensions", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { orderId } = req.params;
-      const { warehouseAddressId } = req.query;
 
       // Get order
       const order = await storage.getOrder(orderId);
@@ -4393,8 +4392,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied - you do not own this order" });
       }
 
+      // Get first product from order
+      const orderItems = await storage.getOrderItems(orderId);
+      if (!orderItems || orderItems.length === 0) {
+        return res.status(404).json({ error: "Order has no items" });
+      }
+
+      const firstItem = orderItems[0];
+      const product = await storage.getProduct(firstItem.productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Return product dimensions (may be null if not configured)
+      res.json({
+        productId: product.id,
+        productName: product.name,
+        weight: product.shippoWeight,
+        length: product.shippoLength,
+        width: product.shippoWidth,
+        height: product.shippoHeight
+      });
+    } catch (error: any) {
+      logger.error("[ShippoLabel] Get shipping dimensions error", { orderId: req.params.orderId, error: error.message });
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/orders/:orderId/shipping-rate (Architecture 3)
+  // Get shipping rate estimate without purchasing
+  app.get("/api/orders/:orderId/shipping-rate", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      const { warehouseAddressId, weight, length, width, height } = req.query;
+
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Authorization: seller must own the order
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied - you do not own this order" });
+      }
+
+      // Parse dimension overrides if provided
+      let dimensionOverrides;
+      if (weight || length || width || height) {
+        dimensionOverrides = {
+          weight: weight ? parseFloat(weight as string) : undefined,
+          length: length ? parseFloat(length as string) : undefined,
+          width: width ? parseFloat(width as string) : undefined,
+          height: height ? parseFloat(height as string) : undefined
+        };
+      }
+
       // Get rate estimate via service
-      const estimate = await shippoLabelService.getRateEstimate(orderId, warehouseAddressId);
+      const estimate = await shippoLabelService.getRateEstimate(orderId, warehouseAddressId, dimensionOverrides);
 
       res.json({
         success: true,

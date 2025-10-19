@@ -120,6 +120,15 @@ interface ShippingRateEstimate {
   estimatedDays: number | null;
 }
 
+interface ProductDimensions {
+  productId: string;
+  productName: string;
+  weight: string | null;
+  length: string | null;
+  width: string | null;
+  height: string | null;
+}
+
 export function PurchaseShippingLabelDialog({
   open,
   onOpenChange,
@@ -128,6 +137,11 @@ export function PurchaseShippingLabelDialog({
   onSuccess,
 }: PurchaseShippingLabelDialogProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
+  const [weight, setWeight] = useState<string>("");
+  const [length, setLength] = useState<string>("");
+  const [width, setWidth] = useState<string>("");
+  const [height, setHeight] = useState<string>("");
+  const [dimensionsInitialized, setDimensionsInitialized] = useState<boolean>(false);
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -147,10 +161,34 @@ export function PurchaseShippingLabelDialog({
     enabled: open,
   });
 
-  // Fetch shipping rate estimate when warehouse is selected
+  // Fetch product dimensions
+  const { data: productDimensions, isLoading: dimensionsLoading } = useQuery<ProductDimensions>({
+    queryKey: ["/api/orders", orderId, "shipping-dimensions"],
+    enabled: open,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: Infinity,
+  });
+
+  // Build query params for rate estimate including dimensions
+  const buildRateQueryParams = () => {
+    const params: Record<string, string> = {};
+    if (selectedWarehouseId) {
+      params.warehouseAddressId = selectedWarehouseId;
+    }
+    if (weight) params.weight = weight;
+    if (length) params.length = length;
+    if (width) params.width = width;
+    if (height) params.height = height;
+    return new URLSearchParams(params).toString();
+  };
+
+  // Fetch shipping rate estimate when warehouse and dimensions are available
+  const rateQueryParams = buildRateQueryParams();
   const { data: rateEstimate, isLoading: rateLoading, error: rateError } = useQuery<ShippingRateEstimate>({
-    queryKey: ["/api/orders", orderId, "shipping-rate", selectedWarehouseId],
-    enabled: open && !!selectedWarehouseId,
+    queryKey: ["/api/orders", orderId, "shipping-rate", rateQueryParams],
+    enabled: open && !!selectedWarehouseId && !!weight && !!length && !!width && !!height,
     retry: false, // Don't retry on address validation errors
   });
 
@@ -161,6 +199,28 @@ export function PurchaseShippingLabelDialog({
       setSelectedWarehouseId(defaultAddress?.id || warehouseAddresses[0].id);
     }
   }, [warehouseAddresses, selectedWarehouseId]);
+
+  // Populate dimension fields when product dimensions load (only once)
+  useEffect(() => {
+    if (productDimensions && !dimensionsInitialized) {
+      setWeight(productDimensions.weight || "");
+      setLength(productDimensions.length || "");
+      setWidth(productDimensions.width || "");
+      setHeight(productDimensions.height || "");
+      setDimensionsInitialized(true);
+    }
+  }, [productDimensions, dimensionsInitialized]);
+
+  // Reset dimensions when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setDimensionsInitialized(false);
+      setWeight("");
+      setLength("");
+      setWidth("");
+      setHeight("");
+    }
+  }, [open]);
 
   // Purchase label mutation
   const purchaseLabelMutation = useMutation({
@@ -272,8 +332,100 @@ export function PurchaseShippingLabelDialog({
             </div>
           )}
 
-          {/* Shipping Cost Estimate */}
+          {/* Package Dimensions Form */}
           {selectedWarehouseId && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Package Dimensions</label>
+                {dimensionsLoading && (
+                  <span className="text-xs text-muted-foreground">Loading dimensions...</span>
+                )}
+              </div>
+              
+              {productDimensions && (
+                <p className="text-xs text-muted-foreground">
+                  Product: {productDimensions.productName}
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="weight" className="text-xs font-medium text-muted-foreground">
+                    Weight (lbs) *
+                  </label>
+                  <input
+                    id="weight"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    placeholder="0.00"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="input-weight"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="length" className="text-xs font-medium text-muted-foreground">
+                    Length (in) *
+                  </label>
+                  <input
+                    id="length"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={length}
+                    onChange={(e) => setLength(e.target.value)}
+                    placeholder="0.00"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="input-length"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="width" className="text-xs font-medium text-muted-foreground">
+                    Width (in) *
+                  </label>
+                  <input
+                    id="width"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={width}
+                    onChange={(e) => setWidth(e.target.value)}
+                    placeholder="0.00"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="input-width"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="height" className="text-xs font-medium text-muted-foreground">
+                    Height (in) *
+                  </label>
+                  <input
+                    id="height"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    placeholder="0.00"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="input-height"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                * All dimensions are required. Edit these values to calculate shipping cost for different package sizes.
+              </p>
+            </div>
+          )}
+
+          {/* Shipping Cost Estimate */}
+          {selectedWarehouseId && weight && length && width && height && (
             <div className="p-4 border rounded-lg space-y-3">
               {rateLoading ? (
                 <div className="space-y-2">
@@ -286,7 +438,33 @@ export function PurchaseShippingLabelDialog({
                   <div>
                     <p className="font-medium">Unable to calculate shipping cost</p>
                     <p className="text-xs mt-1" data-testid="text-rate-error">
-                      {(rateError as any)?.message || "Please check the shipping address"}
+                      {(() => {
+                        const errorMessage = (rateError as any)?.message || "Please check the shipping address";
+                        
+                        // Parse error message: "500: {\"error\":\"message\"}" -> "message"
+                        try {
+                          const match = errorMessage.match(/^\d+:\s*(.+)$/);
+                          if (match) {
+                            const responseBody = match[1];
+                            
+                            // Check if it's HTML (starts with < or DOCTYPE)
+                            if (responseBody.trim().startsWith('<') || responseBody.includes('DOCTYPE')) {
+                              return "Unable to calculate shipping cost. Please ensure your product has shipping dimensions configured and the order has a valid shipping address.";
+                            }
+                            
+                            // Try to parse as JSON
+                            const parsed = JSON.parse(responseBody);
+                            return parsed.error || errorMessage;
+                          }
+                        } catch {
+                          // If parsing fails and contains HTML-like content, show generic message
+                          if (errorMessage.includes('DOCTYPE') || errorMessage.includes('<!')) {
+                            return "Unable to calculate shipping cost. Please ensure your product has shipping dimensions configured and the order has a valid shipping address.";
+                          }
+                        }
+                        
+                        return errorMessage;
+                      })()}
                     </p>
                   </div>
                 </div>
