@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { FileText, DollarSign, Send, CheckCircle, Eye, Calendar } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { FileText, DollarSign, Send, CheckCircle, Eye, Calendar, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { formatPrice } from "@/lib/currency-utils";
 import { format } from "date-fns";
@@ -121,6 +122,28 @@ export default function TradeDashboard() {
           Overview of your professional trade quotations
         </p>
       </div>
+
+      {/* Stripe Connection Alert */}
+      {user && (!user.stripeConnectedAccountId || !user.stripeChargesEnabled) && (
+        <Alert variant="destructive" data-testid="alert-stripe-not-connected-trade">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Payment Setup Required</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>
+              You must connect a payment provider before accepting trade orders. 
+              Without this, customers won't be able to complete payment for quotations.
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setLocation("/settings?tab=payment")}
+              data-testid="button-setup-payments"
+            >
+              Setup Payments
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card data-testid="card-stat-total-quotations">

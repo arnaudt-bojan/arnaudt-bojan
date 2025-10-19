@@ -2,12 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Package, Users, ShoppingCart, DollarSign, PlusCircle } from "lucide-react";
-import { Link } from "wouter";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Package, Users, ShoppingCart, DollarSign, PlusCircle, AlertTriangle } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
 
 export default function WholesaleDashboard() {
   const currency = getCurrentCurrency();
+  const [, setLocation] = useLocation();
+  
+  const { data: user } = useQuery<any>({ 
+    queryKey: ["/api/auth/user"] 
+  });
   
   const { data: stats, isLoading } = useQuery<{
     totalProducts: number;
@@ -63,6 +69,28 @@ export default function WholesaleDashboard() {
           Overview of your B2B wholesale operations
         </p>
       </div>
+
+      {/* Stripe Connection Alert */}
+      {user && (!user.stripeConnectedAccountId || !user.stripeChargesEnabled) && (
+        <Alert variant="destructive" data-testid="alert-stripe-not-connected-wholesale">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Payment Setup Required</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>
+              You must connect a payment provider before accepting wholesale orders. 
+              Without this, buyers won't be able to complete checkout.
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setLocation("/settings?tab=payment")}
+              data-testid="button-setup-payments"
+            >
+              Setup Payments
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

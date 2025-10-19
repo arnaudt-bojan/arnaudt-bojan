@@ -37,7 +37,8 @@ import {
   Loader2,
   Lock,
   ArrowLeft,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import type { InsertOrder } from "@shared/schema";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -764,6 +765,23 @@ export default function Checkout() {
       setLocation("/");
     }
   }, [isSeller, isCollaborator, setLocation, toast]);
+
+  // Check if seller has Stripe connected - block checkout if not
+  useEffect(() => {
+    if (seller && (!seller.stripeConnectedAccountId || !seller.stripeChargesEnabled)) {
+      toast({
+        title: "Store Not Ready",
+        description: "This store hasn't completed payment setup yet. Please contact the seller.",
+        variant: "destructive",
+      });
+      // Redirect back to storefront
+      if (effectiveSellerUsername) {
+        setLocation(`/${effectiveSellerUsername}`);
+      } else {
+        setLocation("/");
+      }
+    }
+  }, [seller, effectiveSellerUsername, setLocation, toast]);
   
   // Get buyer's selected currency and conversion functions
   const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();

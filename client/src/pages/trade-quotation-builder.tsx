@@ -35,7 +35,8 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Plus, Trash2, Send, Save, DollarSign, Calendar, Ship, Upload, FileText, X, Download } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Plus, Trash2, Send, Save, DollarSign, Calendar, Ship, Upload, FileText, X, Download, AlertTriangle } from "lucide-react";
 import { z } from "zod";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import type { UploadResult } from "@uppy/core";
@@ -94,6 +95,10 @@ export default function TradeQuotationBuilder() {
   
   const isEditMode = !!params?.id;
   const quotationId = params?.id;
+
+  const { data: user } = useQuery<any>({ 
+    queryKey: ["/api/auth/user"] 
+  });
 
   // Fetch existing quotation if editing
   const { data: existingQuotation, isLoading: isLoadingQuotation } = useQuery({
@@ -385,6 +390,28 @@ export default function TradeQuotationBuilder() {
               : "Create a new quotation for your buyer"}
           </p>
         </div>
+
+        {/* Stripe Connection Alert */}
+        {user && (!user.stripeConnectedAccountId || !user.stripeChargesEnabled) && (
+          <Alert variant="destructive" className="mb-6" data-testid="alert-stripe-not-connected">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Payment Setup Required</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>
+                You must connect a payment provider before sending quotations to buyers. 
+                Without this, buyers won't be able to complete payment for accepted quotations.
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setLocation("/settings?tab=payment")}
+                data-testid="button-setup-payments"
+              >
+                Setup Payments
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Form {...form}>
           <form className="space-y-8">
@@ -951,8 +978,18 @@ export default function TradeQuotationBuilder() {
               <Button
                 type="button"
                 onClick={form.handleSubmit(onSaveAndSend)}
-                disabled={saveMutation.isPending || sendMutation.isPending}
+                disabled={
+                  saveMutation.isPending || 
+                  sendMutation.isPending || 
+                  !user?.stripeConnectedAccountId || 
+                  !user?.stripeChargesEnabled
+                }
                 data-testid="button-save-send"
+                title={
+                  !user?.stripeConnectedAccountId || !user?.stripeChargesEnabled
+                    ? "Please set up payment provider before sending quotations"
+                    : ""
+                }
               >
                 <Send className="h-4 w-4 mr-2" />
                 {saveMutation.isPending && isSending ? "Sending..." : "Save & Send"}

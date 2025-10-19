@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AlertTriangle, ShoppingCart } from "lucide-react";
 import { formatCurrencyFromCents, getCurrentCurrency } from "@/lib/currency";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -96,6 +99,7 @@ export default function WholesaleCheckout() {
   const currency = getCurrentCurrency();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
+  const hasCheckedStripe = useRef(false);
 
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -149,6 +153,35 @@ export default function WholesaleCheckout() {
     },
     enabled: !!cart?.items && cart.items.length > 0,
   });
+
+  // Get seller ID from first product (all products in cart must be from same seller)
+  const sellerId = productDetails && productDetails.length > 0 ? productDetails[0].sellerId : null;
+
+  // Fetch seller info to check Stripe status - only when sellerId exists and products are loaded
+  const { data: seller } = useQuery<any>({
+    queryKey: ["/api/users", sellerId],
+    enabled: !!sellerId && !productsLoading,
+  });
+
+  // Check if seller has Stripe connected - redirect if not (only once)
+  useEffect(() => {
+    // Only check once products are loaded and we have seller info
+    if (productsLoading || !seller || hasCheckedStripe.current) {
+      return;
+    }
+
+    // Check seller's Stripe status
+    if (!seller.stripeConnectedAccountId || !seller.stripeChargesEnabled) {
+      hasCheckedStripe.current = true; // Mark as checked to prevent repeats
+      
+      toast({
+        title: "Store Not Ready",
+        description: "This seller hasn't completed payment setup yet. Please contact them.",
+        variant: "destructive",
+      });
+      setLocation("/wholesale");
+    }
+  }, [seller, productsLoading, setLocation, toast]);
 
   // Fetch pricing breakdown with deposit/balance calculations
   const { data: pricingBreakdown, isLoading: pricingLoading } = useQuery<PricingBreakdown>({
@@ -236,22 +269,73 @@ export default function WholesaleCheckout() {
     }
   };
 
-  if (isLoading) {
+  // Show loading state while fetching product details
+  if (productsLoading || !productDetails) {
     return (
       <div className="min-h-screen py-12">
         <div className="container mx-auto px-4">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-muted rounded w-1/4" />
-            <div className="h-64 bg-muted rounded" />
+          <div className="max-w-4xl mx-auto space-y-6">
+            <Skeleton className="h-8 w-64 mb-4" />
+            <div className="space-y-4">
+              <Skeleton className="h-40" />
+              <Skeleton className="h-40" />
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // Handle empty cart gracefully
   if (!cart?.items || cart.items.length === 0) {
-    setLocation("/wholesale/cart");
-    return null;
+    return (
+      <div className="min-h-screen py-12">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-md mx-auto">
+            <ShoppingCart className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-4" data-testid="text-empty-cart-title">
+              Your wholesale cart is empty
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Browse our wholesale products and add items to your cart to continue with checkout.
+            </p>
+            <Button 
+              onClick={() => setLocation("/wholesale/products")}
+              data-testid="button-browse-products"
+            >
+              Browse Products
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show alert if seller's Stripe not connected (should have been redirected, but show as backup)
+  if (seller && (!seller.stripeConnectedAccountId || !seller.stripeChargesEnabled)) {
+    return (
+      <div className="min-h-screen py-12">
+        <div className="container mx-auto px-4">
+          <Alert variant="destructive" data-testid="alert-stripe-not-connected">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Store Not Ready</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>
+                This seller hasn't completed payment setup yet. Please contact them to complete their store setup before placing an order.
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setLocation("/wholesale")}
+                data-testid="button-back-to-wholesale"
+              >
+                Back to Wholesale
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
   }
 
   return (
