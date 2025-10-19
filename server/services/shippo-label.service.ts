@@ -33,6 +33,15 @@ export interface LabelRefundResult {
   rejectionReason?: string;
 }
 
+export interface ShippingRateEstimate {
+  carrier: string;
+  serviceLevelName: string;
+  baseCostUsd: number;
+  markupPercent: number;
+  totalChargedUsd: number;
+  estimatedDays: number | null;
+}
+
 export class ShippoLabelService {
   private readonly MARKUP_PERCENT = 20; // 20% platform markup
   private creditLedgerService: CreditLedgerService;
@@ -143,6 +152,119 @@ export class ShippoLabelService {
         error: error.message
       });
       throw new Error(`Failed to create shipping address: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get Shipping Rate Estimate
+   * 
+   * Gets shipping rate estimate from Shippo without purchasing a label.
+   * Architecture 3: All pricing calculations happen server-side.
+   * 
+   * @param orderId - Order ID to estimate shipping for
+   * @param warehouseAddressId - Optional warehouse address ID to use as sender (defaults to default warehouse)
+   * @returns Shipping rate estimate with markup
+   */
+  async getRateEstimate(orderId: string, warehouseAddressId?: string): Promise<ShippingRateEstimate> {
+    const order = await this.storage.getOrder(orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Validate order has shipping address
+    if (!order.shippingStreet || !order.shippingCity || !order.shippingPostalCode || !order.shippingCountry) {
+      throw new Error("Order does not have a complete shipping address");
+    }
+
+    if (!order.sellerId) {
+      throw new Error("Order does not have a seller ID");
+    }
+
+    // Get seller's Shippo address (from specified warehouse or default)
+    const senderAddressId = await this.ensureSenderAddress(order.sellerId, warehouseAddressId);
+
+    // Get first product to determine package dimensions
+    const orderItems = await this.storage.getOrderItems(orderId);
+    if (!orderItems || orderItems.length === 0) {
+      throw new Error("Order has no items");
+    }
+
+    const firstItem = orderItems[0];
+    const product = await this.storage.getProduct(firstItem.productId);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    // Validate product has Shippo dimensions configured
+    if (!product.shippoWeight || !product.shippoLength || !product.shippoWidth || !product.shippoHeight) {
+      throw new Error("Product does not have shipping dimensions configured");
+    }
+
+    const { Shippo } = await import('shippo');
+    const shippo = new Shippo({
+      apiKeyHeader: process.env.SHIPPO_API_KEY
+    });
+
+    try {
+      // Create shipment to get rates
+      const shipment = await shippo.shipments.create({
+        addressFrom: senderAddressId,
+        addressTo: {
+          name: order.customerName,
+          street1: order.shippingStreet,
+          city: order.shippingCity,
+          state: order.shippingState || '',
+          zip: order.shippingPostalCode,
+          country: order.shippingCountry
+        },
+        parcels: [{
+          length: product.shippoLength.toString(),
+          width: product.shippoWidth.toString(),
+          height: product.shippoHeight.toString(),
+          distanceUnit: 'in' as const,
+          weight: product.shippoWeight.toString(),
+          massUnit: 'lb' as const
+        }],
+        async: false
+      });
+
+      const rates = shipment.rates || [];
+      if (rates.length === 0) {
+        throw new Error("No shipping rates available for this destination");
+      }
+
+      // Select cheapest rate (or use template if specified)
+      let selectedRate = rates[0];
+      if (product.shippoTemplate) {
+        const templateRate = rates.find(r => r.servicelevel?.token === product.shippoTemplate);
+        if (templateRate) {
+          selectedRate = templateRate;
+        }
+      } else {
+        selectedRate = rates.reduce((cheapest, rate) =>
+          parseFloat(rate.amount) < parseFloat(cheapest.amount) ? rate : cheapest
+          , rates[0]);
+      }
+
+      // Architecture 3: Calculate markup server-side
+      const baseCostUsd = parseFloat(selectedRate.amount);
+      const markupMultiplier = 1 + (this.MARKUP_PERCENT / 100); // 1.20 for 20%
+      const totalChargedUsd = baseCostUsd * markupMultiplier;
+
+      return {
+        carrier: selectedRate.provider || 'Unknown',
+        serviceLevelName: selectedRate.servicelevel?.name || 'Standard',
+        baseCostUsd,
+        markupPercent: this.MARKUP_PERCENT,
+        totalChargedUsd,
+        estimatedDays: selectedRate.estimatedDays || null
+      };
+    } catch (error: any) {
+      logger.error('[ShippoLabelService] Failed to get rate estimate', {
+        orderId,
+        error: error.message
+      });
+      throw new Error(`Failed to get shipping rate: ${error.message}`);
     }
   }
 

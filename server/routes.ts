@@ -4374,6 +4374,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Shipping Labels (Shippo Integration)
   // ============================================================================
 
+  // GET /api/orders/:orderId/shipping-rate (Architecture 3)
+  // Get shipping rate estimate without purchasing
+  app.get("/api/orders/:orderId/shipping-rate", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orderId } = req.params;
+      const { warehouseAddressId } = req.query;
+
+      // Get order
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Authorization: seller must own the order
+      if (order.sellerId !== userId) {
+        return res.status(403).json({ error: "Access denied - you do not own this order" });
+      }
+
+      // Get rate estimate via service
+      const estimate = await shippoLabelService.getRateEstimate(orderId, warehouseAddressId);
+
+      res.json({
+        success: true,
+        ...estimate
+      });
+    } catch (error: any) {
+      logger.error("[ShippoLabel] Get rate estimate error", { orderId: req.params.orderId, error: error.message });
+      
+      // Parse Shippo error messages if present
+      let userFriendlyMessage = error.message;
+      try {
+        // Check if error message contains Shippo's JSON error format
+        if (error.message.includes('[') && error.message.includes('"source"')) {
+          const jsonMatch = error.message.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            const errors = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(errors) && errors.length > 0) {
+              const firstError = errors[0];
+              userFriendlyMessage = firstError.text || firstError.code || error.message;
+            }
+          }
+        }
+      } catch (parseError) {
+        // If parsing fails, use original message
+      }
+      
+      res.status(500).json({ error: userFriendlyMessage });
+    }
+  });
+
   // POST /api/orders/:orderId/labels (Architecture 3)
   // Purchase shipping label from Shippo with 20% markup
   app.post("/api/orders/:orderId/labels", requireAuth, async (req: any, res) => {
@@ -4448,7 +4499,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.message });
       }
       
-      res.status(500).json({ error: error.message || "Failed to purchase shipping label" });
+      // Parse Shippo error messages for user-friendly display
+      let userFriendlyMessage = error.message || "Failed to purchase shipping label";
+      try {
+        // Check if error message contains Shippo's JSON error format
+        if (error.message.includes('[') && error.message.includes('"source"')) {
+          const jsonMatch = error.message.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            const errors = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(errors) && errors.length > 0) {
+              const firstError = errors[0];
+              // Create user-friendly message from Shippo error
+              const source = firstError.source || 'Shipping carrier';
+              const text = firstError.text || firstError.code || 'Unknown error';
+              userFriendlyMessage = `${source}: ${text}`;
+            }
+          }
+        }
+      } catch (parseError) {
+        // If parsing fails, use original message
+      }
+      
+      res.status(500).json({ error: userFriendlyMessage });
     }
   });
 

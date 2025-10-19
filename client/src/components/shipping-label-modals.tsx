@@ -21,7 +21,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
-import { getCurrencySymbol } from "@/lib/currency-utils";
 
 // Interfaces
 interface ShippingLabel {
@@ -112,6 +111,15 @@ interface PurchaseShippingLabelDialogProps {
   onSuccess: (labelData: LabelPurchaseResult) => void;
 }
 
+interface ShippingRateEstimate {
+  carrier: string;
+  serviceLevelName: string;
+  baseCostUsd: number;
+  markupPercent: number;
+  totalChargedUsd: number;
+  estimatedDays: number | null;
+}
+
 export function PurchaseShippingLabelDialog({
   open,
   onOpenChange,
@@ -123,9 +131,9 @@ export function PurchaseShippingLabelDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Get seller's currency
-  const currency = user?.listingCurrency || 'USD';
-  const currencySymbol = getCurrencySymbol(currency);
+  // Wallet and shipping labels are ALWAYS in USD (backend Architecture 3)
+  const walletCurrency = 'USD';
+  const walletCurrencySymbol = '$';
 
   // Fetch warehouse addresses
   const { data: warehouseAddresses = [], isLoading: warehouseLoading } = useQuery<WarehouseAddress[]>({
@@ -137,6 +145,13 @@ export function PurchaseShippingLabelDialog({
   const { data: walletBalance, isLoading: balanceLoading } = useQuery<{ balance: number; currency: string }>({
     queryKey: ["/api/seller/wallet/balance"],
     enabled: open,
+  });
+
+  // Fetch shipping rate estimate when warehouse is selected
+  const { data: rateEstimate, isLoading: rateLoading, error: rateError } = useQuery<ShippingRateEstimate>({
+    queryKey: ["/api/orders", orderId, "shipping-rate", selectedWarehouseId],
+    enabled: open && !!selectedWarehouseId,
+    retry: false, // Don't retry on address validation errors
   });
 
   // Set default warehouse when addresses load
@@ -185,7 +200,7 @@ export function PurchaseShippingLabelDialog({
     purchaseLabelMutation.mutate(selectedWarehouseId);
   };
 
-  const insufficientFunds = walletBalance && walletBalance.balance < 1;
+  const insufficientFunds = rateEstimate && walletBalance && walletBalance.balance < rateEstimate.totalChargedUsd;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -257,40 +272,88 @@ export function PurchaseShippingLabelDialog({
             </div>
           )}
 
+          {/* Shipping Cost Estimate */}
+          {selectedWarehouseId && (
+            <div className="p-4 border rounded-lg space-y-3">
+              {rateLoading ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Calculating shipping cost...</p>
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : rateError ? (
+                <div className="flex items-start gap-2 text-sm text-destructive">
+                  <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Unable to calculate shipping cost</p>
+                    <p className="text-xs mt-1" data-testid="text-rate-error">
+                      {(rateError as any)?.message || "Please check the shipping address"}
+                    </p>
+                  </div>
+                </div>
+              ) : rateEstimate ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Estimated Label Cost:</span>
+                    <span className="text-2xl font-bold text-primary" data-testid="text-label-cost">
+                      ${rateEstimate.totalChargedUsd.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="flex justify-between">
+                      <span>Carrier:</span>
+                      <span data-testid="text-carrier">{rateEstimate.carrier} - {rateEstimate.serviceLevelName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Base Cost:</span>
+                      <span>${rateEstimate.baseCostUsd.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Platform Fee ({rateEstimate.markupPercent}%):</span>
+                      <span>${(rateEstimate.totalChargedUsd - rateEstimate.baseCostUsd).toFixed(2)}</span>
+                    </div>
+                    {rateEstimate.estimatedDays && (
+                      <div className="flex justify-between">
+                        <span>Estimated Delivery:</span>
+                        <span>{rateEstimate.estimatedDays} {rateEstimate.estimatedDays === 1 ? 'day' : 'days'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Wallet Balance Display */}
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Wallet Balance:</span>
+              <span className="text-muted-foreground">Wallet Balance (USD):</span>
               {balanceLoading ? (
                 <Skeleton className="h-5 w-20" />
               ) : (
                 <span className="font-semibold text-base" data-testid="text-wallet-balance">
-                  {currencySymbol}{walletBalance?.balance?.toFixed(2) || '0.00'}
+                  {walletCurrencySymbol}{walletBalance?.balance?.toFixed(2) || '0.00'}
                 </span>
               )}
             </div>
-            {walletBalance && walletBalance.balance < 10 && (
-              <div className="flex items-start gap-2 text-xs text-orange-600 dark:text-orange-400">
+            {rateEstimate && walletBalance && walletBalance.balance < rateEstimate.totalChargedUsd && (
+              <div className="flex items-start gap-2 text-xs text-destructive">
                 <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p>Low balance. Shipping labels typically cost {currencySymbol}10-{currencySymbol}25.</p>
-                  <a 
-                    href="/seller/wallet" 
-                    className="underline font-medium hover:text-orange-700 dark:hover:text-orange-300"
-                    data-testid="link-add-funds"
-                  >
-                    Add funds to wallet
-                  </a>
+                  <p className="font-medium">Insufficient funds</p>
+                  <p>
+                    You need {walletCurrencySymbol}{(rateEstimate.totalChargedUsd - walletBalance.balance).toFixed(2)} more.{' '}
+                    <a 
+                      href="/seller/wallet" 
+                      className="underline font-medium hover:text-destructive/80"
+                      data-testid="link-add-funds"
+                    >
+                      Add funds to wallet
+                    </a>
+                  </p>
                 </div>
               </div>
             )}
           </div>
-
-          {insufficientFunds && (
-            <p className="text-sm text-center text-destructive" data-testid="text-insufficient-funds">
-              Insufficient wallet balance. Please add funds to continue.
-            </p>
-          )}
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -305,11 +368,21 @@ export function PurchaseShippingLabelDialog({
           </Button>
           <Button
             onClick={handlePurchase}
-            disabled={purchaseLabelMutation.isPending || !selectedWarehouseId || insufficientFunds || warehouseAddresses.length === 0}
+            disabled={
+              purchaseLabelMutation.isPending || 
+              !selectedWarehouseId || 
+              insufficientFunds || 
+              warehouseAddresses.length === 0 ||
+              rateLoading ||
+              !!rateError ||
+              !rateEstimate
+            }
             className="w-full sm:w-auto"
             data-testid="button-purchase-label"
           >
-            {purchaseLabelMutation.isPending ? "Purchasing..." : "Purchase Shipping Label"}
+            {purchaseLabelMutation.isPending ? "Purchasing..." : 
+             rateLoading ? "Calculating..." :
+             "Purchase Shipping Label"}
           </Button>
         </DialogFooter>
       </DialogContent>
