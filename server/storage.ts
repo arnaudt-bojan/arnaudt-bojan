@@ -217,7 +217,10 @@ import {
   metaCampaigns,
   metaCampaignFinance,
   metaCampaignMetricsDaily,
-  backgroundJobRuns
+  backgroundJobRuns,
+  DomainConnection,
+  InsertDomainConnection,
+  domainConnections
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -838,6 +841,16 @@ export interface IStorage {
   getRecentBackgroundJobRuns(jobName: string, limit: number): Promise<BackgroundJobRun[]>;
   createBackgroundJobRun(job: InsertBackgroundJobRun): Promise<string>;
   updateBackgroundJobRun(id: string, updates: Partial<BackgroundJobRun>): Promise<BackgroundJobRun | undefined>;
+  
+  // Custom Domain Connections (Dual-Strategy: Cloudflare + Manual)
+  getAllDomainConnections(): Promise<DomainConnection[]>;
+  getDomainConnectionById(id: string): Promise<DomainConnection | undefined>;
+  getDomainConnectionByDomain(domain: string): Promise<DomainConnection | undefined>;
+  getDomainConnectionsBySellerId(sellerId: string): Promise<DomainConnection[]>;
+  getDomainConnectionByCloudflareId(cloudflareId: string): Promise<DomainConnection | undefined>;
+  createDomainConnection(connection: InsertDomainConnection): Promise<DomainConnection>;
+  updateDomainConnection(id: string, updates: Partial<DomainConnection>): Promise<DomainConnection | undefined>;
+  deleteDomainConnection(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5026,6 +5039,96 @@ export class DatabaseStorage implements IStorage {
       .where(eq(backgroundJobRuns.id, id))
       .returning();
     return result;
+  }
+
+  // ===== DOMAIN CONNECTIONS METHODS (CUSTOM DOMAINS SYSTEM) =====
+  
+  async getAllDomainConnections(): Promise<DomainConnection[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(domainConnections)
+      .orderBy(desc(domainConnections.createdAt));
+  }
+
+  async getDomainConnectionById(id: string): Promise<DomainConnection | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getDomainConnectionByDomain(domain: string): Promise<DomainConnection | undefined> {
+    await this.ensureInitialized();
+    // Normalize domain to lowercase for case-insensitive lookup
+    const normalizedDomain = domain.toLowerCase();
+    const [result] = await this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.normalizedDomain, normalizedDomain))
+      .limit(1);
+    return result;
+  }
+
+  async getDomainConnectionsBySellerId(sellerId: string): Promise<DomainConnection[]> {
+    await this.ensureInitialized();
+    return await this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.sellerId, sellerId))
+      .orderBy(desc(domainConnections.isPrimary), desc(domainConnections.createdAt));
+  }
+
+  async getDomainConnectionByCloudflareId(cloudflareId: string): Promise<DomainConnection | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.cloudflareCustomHostnameId, cloudflareId))
+      .limit(1);
+    return result;
+  }
+
+  async createDomainConnection(connection: InsertDomainConnection): Promise<DomainConnection> {
+    await this.ensureInitialized();
+    // Auto-generate normalizedDomain from domain
+    const normalizedDomain = connection.domain.toLowerCase();
+    const [result] = await this.db
+      .insert(domainConnections)
+      .values({
+        ...connection,
+        normalizedDomain,
+      })
+      .returning();
+    return result;
+  }
+
+  async updateDomainConnection(id: string, updates: Partial<DomainConnection>): Promise<DomainConnection | undefined> {
+    await this.ensureInitialized();
+    // If domain is being updated, also update normalizedDomain
+    const updateData = { ...updates };
+    if (updates.domain) {
+      updateData.normalizedDomain = updates.domain.toLowerCase();
+    }
+    updateData.updatedAt = new Date();
+    
+    const [result] = await this.db
+      .update(domainConnections)
+      .set(updateData)
+      .where(eq(domainConnections.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteDomainConnection(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await this.db
+      .delete(domainConnections)
+      .where(eq(domainConnections.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 

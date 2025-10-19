@@ -4041,3 +4041,120 @@ export const insertBackgroundJobRunSchema = createInsertSchema(backgroundJobRuns
 });
 export type InsertBackgroundJobRun = z.infer<typeof insertBackgroundJobRunSchema>;
 export type BackgroundJobRun = typeof backgroundJobRuns.$inferSelect;
+
+// ============================================================================
+// Custom Domain System - Dual-Strategy Architecture
+// ============================================================================
+// Enables sellers to connect custom domains (e.g., shop.seller.com) to their
+// Upfirst storefronts with two strategies:
+// 1. Cloudflare for SaaS (automatic SSL via Cloudflare API)
+// 2. Manual CNAME + Caddy (universal DNS provider support with Let's Encrypt)
+
+// PostgreSQL enums for Custom Domain System
+export const domainStrategyPgEnum = pgEnum("domain_strategy", [
+  "cloudflare", // Automatic setup via Cloudflare for SaaS API
+  "manual"      // Manual CNAME setup with Caddy on-demand TLS
+]);
+
+export const domainStatusPgEnum = pgEnum("domain_status", [
+  "pending_verification",  // Domain added, awaiting DNS verification
+  "dns_verified",          // DNS records verified, ready for SSL provisioning
+  "ssl_provisioning",      // SSL certificate being issued
+  "active",                // Domain fully active with valid SSL
+  "error",                 // Setup failed (DNS/SSL issue)
+  "deactivated"            // Domain temporarily deactivated by seller
+]);
+
+// Zod enums for TypeScript
+export const domainStrategyEnum = z.enum(["cloudflare", "manual"]);
+export type DomainStrategy = z.infer<typeof domainStrategyEnum>;
+
+export const domainStatusEnum = z.enum([
+  "pending_verification",
+  "dns_verified",
+  "ssl_provisioning",
+  "active",
+  "error",
+  "deactivated"
+]);
+export type DomainStatus = z.infer<typeof domainStatusEnum>;
+
+// Domain Connections - Seller custom domains with dual-strategy support
+export const domainConnections = pgTable("domain_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerId: varchar("seller_id").notNull(), // References users.id (seller who owns this domain)
+  
+  // Domain information
+  domain: varchar("domain", { length: 255 }).notNull(), // Custom domain (e.g., shop.seller.com)
+  normalizedDomain: varchar("normalized_domain", { length: 255 }).notNull(), // Lowercase for lookups
+  
+  // Strategy and status
+  strategy: domainStrategyPgEnum("strategy").notNull().default("cloudflare"),
+  status: domainStatusPgEnum("status").notNull().default("pending_verification"),
+  
+  // Verification
+  verificationToken: varchar("verification_token", { length: 64 }).notNull(), // For domain ownership verification
+  
+  // DNS instructions (varies by strategy)
+  dnsInstructions: jsonb("dns_instructions"), // { type: "CNAME", host: "@", value: "fallback.upfirst.app", ... }
+  
+  // Strategy-specific IDs
+  cloudflareCustomHostnameId: varchar("cloudflare_custom_hostname_id"), // Cloudflare API custom hostname ID
+  caddySiteId: varchar("caddy_site_id"), // Caddy dynamic site ID (for manual strategy)
+  
+  // SSL certificate tracking
+  sslStatus: varchar("ssl_status"), // "pending", "issued", "renewing", "expired", "failed"
+  sslProvider: varchar("ssl_provider"), // "cloudflare", "letsencrypt"
+  sslRenewAt: timestamp("ssl_renew_at"), // When SSL certificate needs renewal
+  sslIssuedAt: timestamp("ssl_issued_at"), // When SSL was first issued
+  sslExpiresAt: timestamp("ssl_expires_at"), // SSL certificate expiration date
+  
+  // Verification and health
+  lastCheckedAt: timestamp("last_checked_at"), // Last DNS/SSL verification check
+  lastVerifiedAt: timestamp("last_verified_at"), // When domain was last successfully verified
+  failureReason: text("failure_reason"), // Human-readable error message if status is "error"
+  failureCode: varchar("failure_code"), // Machine-readable error code
+  retryCount: integer("retry_count").default(0).notNull(), // Number of verification retry attempts
+  
+  // Domain settings
+  isPrimary: integer("is_primary").default(0).notNull(), // 1 if this is the seller's primary domain, 0 otherwise
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    // Primary lookups
+    domainIdx: uniqueIndex("domain_connections_domain_idx").on(table.normalizedDomain), // Unique domain constraint
+    sellerIdIdx: index("domain_connections_seller_id_idx").on(table.sellerId),
+    
+    // Strategy and status queries
+    strategyStatusIdx: index("domain_connections_strategy_status_idx").on(table.strategy, table.status),
+    statusIdx: index("domain_connections_status_idx").on(table.status),
+    
+    // Cloudflare lookups
+    cloudflareHostnameIdx: index("domain_connections_cloudflare_hostname_idx").on(table.cloudflareCustomHostnameId),
+    
+    // Verification and health checks
+    lastCheckedIdx: index("domain_connections_last_checked_idx").on(table.lastCheckedAt),
+    sslRenewIdx: index("domain_connections_ssl_renew_idx").on(table.sslRenewAt),
+  };
+});
+
+export const insertDomainConnectionSchema = createInsertSchema(domainConnections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+}).extend({
+  domain: z.string()
+    .min(1, "Domain is required")
+    .max(255, "Domain must be 255 characters or less")
+    .regex(
+      /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i,
+      "Invalid domain format (e.g., shop.example.com)"
+    ),
+  strategy: domainStrategyEnum.default("cloudflare"),
+});
+
+export type InsertDomainConnection = z.infer<typeof insertDomainConnectionSchema>;
+export type DomainConnection = typeof domainConnections.$inferSelect;
