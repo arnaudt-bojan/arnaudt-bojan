@@ -186,8 +186,9 @@ export function PurchaseShippingLabelDialog({
 
   // Fetch shipping rate estimate when warehouse and dimensions are available
   const rateQueryParams = buildRateQueryParams();
+  const rateQueryUrl = `/api/orders/${orderId}/shipping-rate${rateQueryParams ? `?${rateQueryParams}` : ''}`;
   const { data: rateEstimate, isLoading: rateLoading, error: rateError } = useQuery<ShippingRateEstimate>({
-    queryKey: ["/api/orders", orderId, "shipping-rate", rateQueryParams],
+    queryKey: [rateQueryUrl],
     enabled: open && !!selectedWarehouseId && !!weight && !!length && !!width && !!height,
     retry: false, // Don't retry on address validation errors
   });

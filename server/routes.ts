@@ -4421,7 +4421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET /api/orders/:orderId/shipping-rate (Architecture 3)
   // Get shipping rate estimate without purchasing
-  app.get("/api/orders/:orderId/shipping-rate", requireAuth, async (req: any, res) => {
+  app.get("/api/orders/:orderId/shipping-rate", requireAuth, async (req: any, res, next) => {
     try {
       const userId = req.user.claims.sub;
       const { orderId } = req.params;
@@ -4470,7 +4470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dimensionOverrides
       );
 
-      res.json({
+      return res.json({
         success: true,
         ...estimate
       });
@@ -4495,7 +4495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If parsing fails, use original message
       }
       
-      res.status(500).json({ error: userFriendlyMessage });
+      return res.status(500).json({ error: userFriendlyMessage });
     }
   });
 
