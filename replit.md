@@ -2,6 +2,42 @@
 
 ## Recent Changes
 
+### Phase 3C: NestJS Authentication Guards (October 19, 2025)
+**Status**: ✅ Complete - GraphQL API secured with session-based authentication and authorization
+
+**What Was Done:**
+- Created AuthModule with guards and decorators for GraphQL authentication
+- Integrated with existing Express session-based authentication (Passport.js)
+- Implemented role-based access control via UserTypeGuard
+- Replaced hardcoded seller IDs with real authenticated user IDs in all Product mutations
+- Added test query (`whoami`) for authentication verification
+
+**Authentication Infrastructure:**
+- `GqlAuthGuard` - Validates Express session authentication for GraphQL requests
+- `UserTypeGuard` - Enforces user type requirements (seller/buyer/collaborator)
+- `@CurrentUser()` decorator - Extracts authenticated user ID from session
+- `@RequireUserType()` decorator - Declares required user types for resolvers
+
+**Security Implementation:**
+- All Product mutations require authenticated seller users
+- Unauthenticated requests → 401 Unauthorized
+- Non-seller users → 403 Forbidden
+- Guards execute in order: Authentication → Authorization
+- User type validated via Prisma database lookup
+
+**Session Integration:**
+- Reuses existing Passport.js authentication from Express
+- Extracts user from `req.user.claims.sub` (session-based, not JWT)
+- Supports multiple auth providers: OIDC (Replit), Email magic links, Local/Test
+- No token generation needed - leverages Express sessions
+
+**File Structure:**
+- `apps/nest-api/src/modules/auth/` - Auth module, guards, decorators
+- `apps/nest-api/src/modules/auth/guards/` - GqlAuthGuard, UserTypeGuard
+- `apps/nest-api/src/modules/auth/decorators/` - CurrentUser, RequireUserType
+
+**Next Phase:** Phase 3D will expand GraphQL resolvers to remaining domain modules (Cart, Orders, Wholesale, Quotations)
+
 ### Phase 3B: NestJS Product Resolvers (October 19, 2025)
 **Status**: ✅ Complete - GraphQL product module with queries, mutations, and dataloaders
 
@@ -32,19 +68,12 @@
 - `Product.seller` field resolver uses dataloader to prevent N+1 queries
 - GraphQL context injection for all resolvers
 
-**Authentication (Stubbed for POC):**
-- Mutations use hardcoded seller ID `'e2e-seller1'` for proof-of-concept
-- TODO comments for Phase 3C JWT guards implementation
-- Ownership validation implemented (seller must own product)
-
 **File Structure:**
 - `apps/nest-api/src/modules/products/` - Product resolver, service, module
 - `apps/nest-api/src/common/dataloaders/` - Dataloader infrastructure
 - `apps/nest-api/src/types/generated/graphql.ts` - 220KB generated types
 - `apps/nest-api/codegen.ts` - GraphQL Code Generator config
 - `prisma/schema.prisma` - Added slug field with index
-
-**Next Phase:** Phase 3C will implement JWT authentication guards and expand to remaining domain modules
 
 ### Phase 3A: NestJS GraphQL Foundation (October 19, 2025)
 **Status**: ✅ Complete - NestJS application operational with GraphQL schema-first architecture
