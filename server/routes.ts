@@ -4427,6 +4427,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId } = req.params;
       const { warehouseAddressId, weight, length, width, height } = req.query;
 
+      logger.info("[ShippoLabel] Calculating shipping rate", {
+        orderId,
+        warehouseAddressId,
+        weight,
+        length,
+        width,
+        height,
+        hasWeight: !!weight,
+        hasLength: !!length,
+        hasWidth: !!width,
+        hasHeight: !!height
+      });
+
       // Get order
       const order = await storage.getOrder(orderId);
       if (!order) {
@@ -4447,10 +4460,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           width: width ? parseFloat(width as string) : undefined,
           height: height ? parseFloat(height as string) : undefined
         };
+        logger.info("[ShippoLabel] Using dimension overrides", dimensionOverrides);
       }
 
       // Get rate estimate via service
-      const estimate = await shippoLabelService.getRateEstimate(orderId, warehouseAddressId, dimensionOverrides);
+      const estimate = await shippoLabelService.getRateEstimate(
+        orderId, 
+        warehouseAddressId as string | undefined, 
+        dimensionOverrides
+      );
 
       res.json({
         success: true,
