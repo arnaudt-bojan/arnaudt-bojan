@@ -1,0 +1,124 @@
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  ResolveField,
+  Parent,
+  Context,
+} from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { OrdersService } from './orders.service';
+import { GraphQLContext } from '../../types/context';
+import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
+import { UserTypeGuard } from '../auth/guards/user-type.guard';
+import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+
+@Resolver('Order')
+export class OrdersResolver {
+  constructor(private ordersService: OrdersService) {}
+
+  @Query('getOrder')
+  @UseGuards(GqlAuthGuard)
+  async getOrder(
+    @Args('id') id: string,
+    @CurrentUser() userId: string,
+  ) {
+    return this.ordersService.getOrder(id);
+  }
+
+  @Query('listOrders')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
+  async listOrders(
+    @Args('filter') filter?: any,
+    @Args('sort') sort?: any,
+    @Args('first') first?: number,
+    @Args('after') after?: string,
+    @CurrentUser() userId?: string,
+  ) {
+    const sellerId = filter?.sellerId || userId;
+    const buyerId = filter?.buyerId;
+    const status = filter?.status;
+
+    return this.ordersService.listOrders({
+      sellerId,
+      buyerId,
+      status,
+      first,
+      after,
+    });
+  }
+
+  @Query('getOrdersByBuyer')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async getOrdersByBuyer(@CurrentUser() userId: string) {
+    return this.ordersService.getOrdersByBuyer(userId);
+  }
+
+  @Query('getOrdersBySeller')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
+  async getOrdersBySeller(@CurrentUser() userId: string) {
+    return this.ordersService.getOrdersBySeller(userId);
+  }
+
+  @Mutation('createOrder')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async createOrder(
+    @Args('input') input: any,
+    @CurrentUser() userId: string,
+  ) {
+    return this.ordersService.createOrder(input, userId);
+  }
+
+  @Mutation('updateFulfillment')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
+  async updateFulfillment(
+    @Args('input') input: any,
+    @CurrentUser() userId: string,
+  ) {
+    return this.ordersService.updateOrderFulfillment(input, userId);
+  }
+
+  @Mutation('issueRefund')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
+  async issueRefund(
+    @Args('input') input: any,
+    @CurrentUser() userId: string,
+  ) {
+    return this.ordersService.issueRefund(input, userId);
+  }
+
+  @ResolveField('seller')
+  async seller(@Parent() order: any, @Context() context: GraphQLContext) {
+    if (!order.sellerId) return null;
+    return context.sellerLoader.load(order.sellerId);
+  }
+
+  @ResolveField('buyer')
+  async buyer(@Parent() order: any, @Context() context: GraphQLContext) {
+    if (!order.buyerId) return null;
+    return context.sellerLoader.load(order.buyerId);
+  }
+
+  @ResolveField('items')
+  async items(@Parent() order: any) {
+    return this.ordersService.getOrderItems(order.id);
+  }
+
+  @ResolveField('events')
+  async events(@Parent() order: any) {
+    return [];
+  }
+
+  @ResolveField('refunds')
+  async refunds(@Parent() order: any) {
+    return [];
+  }
+}

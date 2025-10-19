@@ -5,6 +5,7 @@ import { GraphQLConfigModule } from './modules/graphql/graphql.module';
 import { ProductsModule } from './modules/products/product.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CartModule } from './modules/cart/cart.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CartModule } from './modules/cart/cart.module';
     ProductsModule,
     AuthModule,
     CartModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}
