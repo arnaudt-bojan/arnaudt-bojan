@@ -1331,20 +1331,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter to only show active and coming-soon products for public storefronts
       const sellerProducts = allProducts
         .filter(p => 
-          p.sellerId === sellerId && 
+          p.seller_id === sellerId && 
           (p.status === "active" || p.status === "coming-soon")
         )
         .sort((a, b) => {
-          // Sort by createdAt DESC (newest first)
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          // Sort by created_at DESC (newest first)
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
           return dateB - dateA;
         });
       
       // CRITICAL FIX: Explicitly ensure sellerId is included in response (required for cart validation)
       const productsWithCurrency = sellerProducts.map(p => ({
         ...p,
-        sellerId: p.sellerId, // Explicit field inclusion for cart validation
+        sellerId: p.seller_id, // Explicit field inclusion for cart validation
         currency,
       }));
       
@@ -1363,7 +1363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if user is authenticated and is the product owner
       const isAuthenticated = req.isAuthenticated() && req.user?.claims?.sub;
-      const isOwner = isAuthenticated && req.user.claims.sub === product.sellerId;
+      const isOwner = isAuthenticated && req.user.claims.sub === product.seller_id;
       
       // If not owner, only show active and coming-soon products
       if (!isOwner && product.status !== "active" && product.status !== "coming-soon") {
@@ -1371,7 +1371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get seller's currency to include in response
-      const seller = await storage.getUser(product.sellerId);
+      const seller = await storage.getUser(product.seller_id);
       const currency = seller?.listingCurrency || 'USD';
       
       // ARCHITECTURE 3: Get variant requirements from backend

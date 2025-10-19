@@ -4170,7 +4170,16 @@ export class DatabaseStorage implements IStorage {
   async createAuthToken(token: InsertAuthToken): Promise<AuthToken> {
     await this.ensureInitialized();
     return await prisma.auth_tokens.create({
-      data: token
+      data: {
+        token: token.token,
+        email: token.email,
+        code: token.code,
+        type: token.type,
+        expires_at: token.expiresAt,
+        used: token.used ?? false,
+        seller_context: token.sellerContext,
+        return_url: token.returnUrl
+      }
     });
   }
 
