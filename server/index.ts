@@ -94,6 +94,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint (for Docker/Kubernetes probes)
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 (async () => {
   app.use(domainMiddleware);
 
@@ -229,7 +238,7 @@ app.use((req, res, next) => {
     // Poll Shippo refund status every 15 minutes
     // Only initialize if Shippo API key is configured
     if (process.env.SHIPPO_API_KEY) {
-      const shippoLabelService = new ShippoLabelService(storage);
+      const shippoLabelService = new ShippoLabelService(storage, notificationService);
       
       // Run immediately on startup
       (async () => {
