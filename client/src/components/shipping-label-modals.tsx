@@ -20,6 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
+import { getCurrencySymbol } from "@/lib/currency-utils";
 
 // Interfaces
 interface ShippingLabel {
@@ -119,6 +121,11 @@ export function PurchaseShippingLabelDialog({
 }: PurchaseShippingLabelDialogProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Get seller's currency
+  const currency = user?.listingCurrency || 'USD';
+  const currencySymbol = getCurrencySymbol(currency);
 
   // Fetch warehouse addresses
   const { data: warehouseAddresses = [], isLoading: warehouseLoading } = useQuery<WarehouseAddress[]>({
@@ -258,7 +265,7 @@ export function PurchaseShippingLabelDialog({
                 <Skeleton className="h-5 w-20" />
               ) : (
                 <span className="font-semibold text-base" data-testid="text-wallet-balance">
-                  ${walletBalance?.balance?.toFixed(2) || '0.00'}
+                  {currencySymbol}{walletBalance?.balance?.toFixed(2) || '0.00'}
                 </span>
               )}
             </div>
@@ -266,7 +273,7 @@ export function PurchaseShippingLabelDialog({
               <div className="flex items-start gap-2 text-xs text-orange-600 dark:text-orange-400">
                 <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p>Low balance. Shipping labels typically cost $10-$25.</p>
+                  <p>Low balance. Shipping labels typically cost {currencySymbol}10-{currencySymbol}25.</p>
                   <a 
                     href="/seller/wallet" 
                     className="underline font-medium hover:text-orange-700 dark:hover:text-orange-300"

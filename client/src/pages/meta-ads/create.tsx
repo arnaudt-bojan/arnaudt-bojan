@@ -48,6 +48,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Product } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
+import { getCurrencySymbol } from "@/lib/currency-utils";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
 
@@ -67,7 +69,7 @@ const step3Schema = z.object({
   endDate: z.date().min(new Date(), "End date must be in the future"),
   totalBudget: z.string()
     .min(1, "Budget is required")
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= 5, "Minimum budget is $5"),
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 5, "Minimum budget is 5"),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
@@ -415,9 +417,14 @@ function PaymentForm({
 export default function CreateAdWizard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
   const [step3Data, setStep3Data] = useState<Step3Data | null>(null);
+  
+  // Get seller's currency
+  const currency = user?.listingCurrency || 'USD';
+  const currencySymbol = getCurrencySymbol(currency);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [clientSecret, setClientSecret] = useState<string>("");
 
@@ -1024,11 +1031,11 @@ export default function CreateAdWizard() {
                     name="totalBudget"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Total Budget (USD)</FormLabel>
+                        <FormLabel>Total Budget ({currency})</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                              $
+                              {currencySymbol}
                             </span>
                             <Input
                               {...field}
@@ -1042,7 +1049,7 @@ export default function CreateAdWizard() {
                           </div>
                         </FormControl>
                         <FormDescription>
-                          Minimum budget is $5.00
+                          Minimum budget is {currencySymbol}5.00
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1055,7 +1062,7 @@ export default function CreateAdWizard() {
                       <div className="flex justify-between items-center">
                         <span className="font-medium">Total to pay now:</span>
                         <span className="text-2xl font-bold" data-testid="text-total-amount">
-                          ${Number(step3Form.watch("totalBudget")).toFixed(2)}
+                          {currencySymbol}{Number(step3Form.watch("totalBudget")).toFixed(2)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">

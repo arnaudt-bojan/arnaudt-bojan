@@ -53,6 +53,8 @@ import type { MetaCampaign, MetaAdAccount } from "@shared/schema";
 import { format } from "date-fns";
 import { MetaAdsOnboardingWizard } from "@/components/meta-ads-onboarding-wizard";
 import { MetaAdAccountSelector } from "@/components/meta-ad-account-selector";
+import { useAuth } from "@/hooks/use-auth";
+import { getCurrencySymbol } from "@/lib/currency-utils";
 
 const getStatusBadgeVariant = (status: string) => {
   switch (status) {
@@ -90,7 +92,12 @@ const getStatusColor = (status: string) => {
 function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isPerformanceOpen, setIsPerformanceOpen] = useState(false);
+  
+  // Get seller's currency
+  const currency = user?.listingCurrency || 'USD';
+  const currencySymbol = getCurrencySymbol(currency);
 
   const pauseCampaignMutation = useMutation({
     mutationFn: async () => apiRequest("POST", `/api/meta/campaigns/${campaign.id}/pause`),
@@ -223,7 +230,7 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
             <p className="text-sm text-muted-foreground">Budget Remaining</p>
           </div>
           <p className="text-lg font-bold" data-testid={`text-budget-${campaign.id}`}>
-            ${budgetRemaining.toFixed(2)} (OUT OF ${lifetimeBudget.toFixed(2)} TOTAL)
+            {currencySymbol}{budgetRemaining.toFixed(2)} (OUT OF {currencySymbol}{lifetimeBudget.toFixed(2)} TOTAL)
           </p>
           <div className="w-full bg-muted rounded-full h-2">
             <div 
@@ -232,7 +239,7 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            $0.00 spent ({budgetPercentage}%)
+            {currencySymbol}0.00 spent ({budgetPercentage}%)
           </p>
         </div>
 
@@ -285,7 +292,7 @@ function CampaignCard({ campaign }: { campaign: MetaCampaign }) {
                   Cost/Conv
                 </p>
                 <p className="text-lg font-bold" data-testid={`text-cpc-${campaign.id}`}>
-                  $0.00
+                  {currencySymbol}0.00
                 </p>
               </div>
             </div>

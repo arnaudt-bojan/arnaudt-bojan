@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getCurrencySymbol } from "@/lib/currency-utils";
 
 interface WalletBalance {
   balance: number;
@@ -53,6 +54,10 @@ export default function SellerWallet() {
   const { user } = useAuth();
   const [customAmount, setCustomAmount] = useState<string>("");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  
+  // Get seller's currency
+  const currency = user?.listingCurrency || 'USD';
+  const currencySymbol = getCurrencySymbol(currency);
 
   // Get query params for success/cancel feedback
   const searchParams = new URLSearchParams(window.location.search);
@@ -71,7 +76,7 @@ export default function SellerWallet() {
           if (data.success) {
             toast({
               title: "Top-up successful!",
-              description: `Your wallet has been credited. New balance: $${data.balance.toFixed(2)}`,
+              description: `Your wallet has been credited. New balance: ${formatAmount(data.balance.toString())}`,
               variant: "default",
             });
             // Refresh balance and ledger
@@ -155,7 +160,7 @@ export default function SellerWallet() {
     if (!amount || amount <= 0) {
       toast({
         title: "Invalid amount",
-        description: "Please enter a valid amount greater than $0",
+        description: `Please enter a valid amount greater than ${currencySymbol}0`,
         variant: "destructive",
       });
       return;
@@ -164,7 +169,7 @@ export default function SellerWallet() {
     if (amount < 5) {
       toast({
         title: "Amount too low",
-        description: "Minimum top-up amount is $5",
+        description: `Minimum top-up amount is ${currencySymbol}5`,
         variant: "destructive",
       });
       return;
@@ -173,7 +178,7 @@ export default function SellerWallet() {
     if (amount > 10000) {
       toast({
         title: "Amount too high",
-        description: "Maximum top-up amount is $10,000",
+        description: `Maximum top-up amount is ${currencySymbol}10,000`,
         variant: "destructive",
       });
       return;
@@ -277,7 +282,7 @@ export default function SellerWallet() {
                       }}
                       data-testid={`button-preset-${amount}`}
                     >
-                      ${amount}
+                      {currencySymbol}{amount}
                     </Button>
                   ))}
                 </div>
@@ -288,7 +293,7 @@ export default function SellerWallet() {
                 <Label htmlFor="custom-amount">Or enter custom amount</Label>
                 <div className="flex gap-2 mt-2">
                   <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{currencySymbol}</span>
                     <Input
                       id="custom-amount"
                       type="number"
@@ -315,7 +320,7 @@ export default function SellerWallet() {
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Minimum: $5 • Maximum: $10,000
+                  Minimum: {currencySymbol}5 • Maximum: {currencySymbol}10,000
                 </p>
               </div>
             </div>
