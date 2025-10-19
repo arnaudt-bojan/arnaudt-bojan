@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 interface CartItem {
   id: string;
@@ -34,7 +35,10 @@ interface Cart {
 
 @Injectable()
 export class CartService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private websocketGateway: AppWebSocketGateway,
+  ) {}
 
   /**
    * Get cart by session ID
@@ -284,7 +288,7 @@ export class CartService {
         data: { items: items as any, updated_at: new Date() },
       });
 
-      return {
+      const result = {
         id: updatedCart.id,
         sellerId: updatedCart.seller_id,
         buyerId: updatedCart.buyer_id,
@@ -295,6 +299,12 @@ export class CartService {
         createdAt: updatedCart.created_at,
         updatedAt: updatedCart.updated_at,
       };
+
+      if (updatedCart.buyer_id) {
+        this.websocketGateway.emitCartUpdate(updatedCart.buyer_id, result);
+      }
+
+      return result;
     } catch (error: any) {
       if (error instanceof GraphQLError) throw error;
       throw new GraphQLError('Failed to add to cart', {
@@ -349,7 +359,7 @@ export class CartService {
         data: { items: items as any, updated_at: new Date() },
       });
 
-      return {
+      const result = {
         id: updatedCart.id,
         sellerId: updatedCart.seller_id,
         buyerId: updatedCart.buyer_id,
@@ -360,6 +370,12 @@ export class CartService {
         createdAt: updatedCart.created_at,
         updatedAt: updatedCart.updated_at,
       };
+
+      if (updatedCart.buyer_id) {
+        this.websocketGateway.emitCartUpdate(updatedCart.buyer_id, result);
+      }
+
+      return result;
     } catch (error: any) {
       if (error instanceof GraphQLError) throw error;
       throw new GraphQLError('Failed to update cart item', {
@@ -402,7 +418,7 @@ export class CartService {
         data: { items: newItems as any, updated_at: new Date() },
       });
 
-      return {
+      const result = {
         id: updatedCart.id,
         sellerId: updatedCart.seller_id,
         buyerId: updatedCart.buyer_id,
@@ -413,6 +429,12 @@ export class CartService {
         createdAt: updatedCart.created_at,
         updatedAt: updatedCart.updated_at,
       };
+
+      if (updatedCart.buyer_id) {
+        this.websocketGateway.emitCartUpdate(updatedCart.buyer_id, result);
+      }
+
+      return result;
     } catch (error: any) {
       if (error instanceof GraphQLError) throw error;
       throw new GraphQLError('Failed to remove from cart', {
@@ -426,10 +448,24 @@ export class CartService {
    */
   async clearCart(cartId: string): Promise<boolean> {
     try {
-      await this.prisma.carts.update({
+      const cart = await this.prisma.carts.update({
         where: { id: cartId },
         data: { items: [] as any, updated_at: new Date() },
       });
+
+      if (cart.buyer_id) {
+        this.websocketGateway.emitCartUpdate(cart.buyer_id, {
+          id: cart.id,
+          sellerId: cart.seller_id,
+          buyerId: cart.buyer_id,
+          items: [],
+          status: cart.status || 'active',
+          subtotal: '0.00',
+          itemCount: 0,
+          createdAt: cart.created_at,
+          updatedAt: cart.updated_at,
+        });
+      }
 
       return true;
     } catch (error: any) {

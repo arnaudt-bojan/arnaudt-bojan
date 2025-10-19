@@ -9,6 +9,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { WholesaleModule } from './modules/wholesale/wholesale.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
+import { WebSocketModule } from './modules/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { QuotationsModule } from './modules/quotations/quotations.module';
     OrdersModule,
     WholesaleModule,
     QuotationsModule,
+    WebSocketModule,
   ],
 })
 export class AppModule {}

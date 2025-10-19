@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private websocketGateway: AppWebSocketGateway,
+  ) {}
 
   async getOrder(orderId: string) {
     const order = await this.prisma.orders.findUnique({
@@ -174,7 +178,12 @@ export class OrdersService {
       },
     });
 
-    return this.mapOrderToGraphQL(order);
+    const graphqlOrder = this.mapOrderToGraphQL(order);
+
+    this.websocketGateway.emitOrderUpdate(userId, graphqlOrder);
+    this.websocketGateway.emitOrderUpdate(cart.seller_id, graphqlOrder);
+
+    return graphqlOrder;
   }
 
   async updateOrderFulfillment(input: any, sellerId: string) {
@@ -219,7 +228,11 @@ export class OrdersService {
       });
     }
 
-    return this.mapOrderToGraphQL(updatedOrder);
+    const graphqlOrder = this.mapOrderToGraphQL(updatedOrder);
+
+    this.websocketGateway.emitOrderUpdate(updatedOrder.user_id, graphqlOrder);
+
+    return graphqlOrder;
   }
 
   async issueRefund(input: any, sellerId: string) {
@@ -253,7 +266,12 @@ export class OrdersService {
       },
     });
 
-    return this.mapOrderToGraphQL(updatedOrder);
+    const graphqlOrder = this.mapOrderToGraphQL(updatedOrder);
+
+    this.websocketGateway.emitOrderUpdate(updatedOrder.user_id, graphqlOrder);
+    this.websocketGateway.emitOrderUpdate(updatedOrder.seller_id, graphqlOrder);
+
+    return graphqlOrder;
   }
 
   async getOrderItems(orderId: string) {
