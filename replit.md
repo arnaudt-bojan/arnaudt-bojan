@@ -1,7 +1,7 @@
 # Upfirst - E-Commerce Platform
 
 ## Overview
-Upfirst is a D2C e-commerce platform empowering creators and brands with individual, subdomain-based storefronts. It supports various product types (in-stock, pre-order, made-to-order, wholesale) and offers features like product management, shopping cart, authenticated checkout, a robust seller dashboard, and AI-optimized social media advertising integration. The platform includes B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and a comprehensive tax system. Upfirst aims to be a scalable, secure, and modern D2C solution with significant market potential.
+Upfirst is a D2C e-commerce platform designed to empower creators and brands with individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates essential e-commerce functionalities such as product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform features B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system. Upfirst's ambition is to provide a scalable, secure, and modern direct-to-consumer solution with significant market potential.
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -11,92 +11,45 @@ Upfirst is a D2C e-commerce platform empowering creators and brands with individ
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
 ## System Architecture
-Upfirst utilizes a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend, with an Express.js Node.js backend, PostgreSQL (Neon), and Drizzle ORM.
+Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; an Express.js Node.js backend; PostgreSQL (Neon) as the database; and Drizzle ORM for database interactions.
 
-**Core Architectural Principle: Three Parallel Platforms**
-Upfirst is architected as three distinct, parallel platforms:
-1.  **B2C Platform** (Retail/Direct-to-Consumer): Individual storefronts, shopping cart, checkout, order management, and a dedicated seller dashboard.
-2.  **B2B Platform** (Wholesale): Invitation-based buyer access, MOQ enforcement, deposit/balance payments, and a separate dashboard.
+**Core Architectural Principle: Three Parallel Platforms with Server-Side Business Logic**
+The platform is structured into three distinct, parallel platforms, with all business logic strictly implemented server-side (Architecture 3):
+1.  **B2C Platform** (Retail/Direct-to-Consumer): Dedicated storefronts, shopping cart, checkout, order management, and a seller dashboard.
+2.  **B2B Platform** (Wholesale): Invitation-based buyer access, Minimum Order Quantity (MOQ) enforcement, deposit/balance payments, and a separate dashboard.
 3.  **Trade Platform** (Professional Quotations): Excel-like quotation builder, token-based buyer access, status tracking, and its own dashboard.
 
-All business logic follows a server-side-only approach (Architecture 3).
-
 **Mandatory Architectural Principles:**
-
-**Architecture 3: Server-Side Business Logic Only**
-- All calculations, business logic, and data transformations MUST occur server-side.
-- Client displays server-provided data without performing calculations.
-- Zero client-side arithmetic for business-critical operations.
-
-**Mobile-First Design Standards (Mandatory)**
-All new pages, popups, components, forms, and features MUST follow these mobile-first design rules, ensuring responsiveness across devices. Key patterns include:
-1.  **Table-to-Card Conversion Pattern (Dual-View)**: Tables for desktop, cards for mobile, displaying identical data.
-2.  **Dialog/Modal Responsive Pattern**: Dialogs must be scrollable, use responsive widths, and have stacking footers/full-width buttons on mobile.
-3.  **Form Responsive Layouts**: Forms use single-column layouts on mobile, expanding to multiple columns on larger screens.
-4.  **Button Groups & Action Buttons**: Buttons stack vertically and become full-width on mobile.
-5.  **Breakpoint Standards**: Consistent use of Tailwind's `sm:`, `md:`, `lg:` for responsive design.
-6.  **Grid Layouts**: Flexible grids adapting to screen size, preventing horizontal scroll.
-7.  **Typography & Spacing**: Responsive text sizes and padding for touch-friendly interfaces.
-8.  **Data Display Rules**: Complex data uses dual-view patterns; images are full-width on mobile.
-9.  **Navigation Patterns**: Hamburger menus or collapsible sidebars for mobile; expanded navigation for desktop.
+-   **Architecture 3: Server-Side Business Logic Only**: All calculations, business logic, and data transformations must occur server-side. The client displays server-provided data without performing critical business calculations.
+-   **Mobile-First Design Standards**: All new UI components and features must be designed mobile-first, ensuring responsiveness across devices. This includes dual-view patterns (table-to-card), responsive dialogs, single-column forms on mobile, and adaptive grid layouts.
 
 **UI/UX Decisions:**
-The design system supports dark/light mode, uses the Inter font, and emphasizes consistent spacing, typography, and a mobile-first responsive approach. Navigation is dashboard-centric, and storefronts are customizable with seller branding.
+The design system supports dark/light modes, uses the Inter font, emphasizes consistent spacing and typography, and prioritizes a mobile-first responsive approach. Navigation is dashboard-centric, and storefronts offer customizable seller branding.
 
 **Technical Implementations:**
--   **Backend:** Service layer pattern with dependency injection.
--   **Product Management:** Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import. Products are consistently ordered by creation date (newest first) across all seller and buyer-facing interfaces, with `createdAt` and `updatedAt` timestamp tracking.
--   **Shipping:** Centralized `ShippingService` integrating Free Shipping, Flat Rate, Matrix Shipping, and real-time API rates.
--   **Shopping & Checkout:** Features slide-over cart, guest checkout, server-side shipping cost calculation, and single-seller per cart.
--   **Authentication & Authorization:** Email-based with dual-token system and capability-based authorization.
--   **Payment Processing:** Integrated with Stripe Connect for multi-seller payments.
--   **Subscription System:** Monthly/annual seller subscriptions managed via Stripe, including a 30-day trial.
--   **Multi-Currency Support:** IP-based detection with user-selectable currency and real-time exchange rates. Strict separation between seller-side and buyer-side: seller pages (Analytics, Wallet, Dashboard, Products, Wholesale, Trade) display all monetary values in the seller's Stripe account currency (`listingCurrency` from users table), while buyer-facing pages (Product Detail, Cart, Checkout, Wholesale Catalog) convert prices to buyer's selected currency using real-time exchange rates.
--   **Wholesale B2B System:** Invitation-based access, variant-level MOQ, percentage deposit system, Net 30/60/90 payment terms, multi-image product galleries, 3-level category hierarchy, SKU auto-generation, dual readiness options, and comprehensive order lifecycle management.
--   **Trade Quotation System:** Customizable quotation numbers, professional invoice structure, 8 standard Incoterms, data sheet/T&C document uploads, excel-like line item builder, server-side pricing validation, deposit/balance payment flows, and secure token-based buyer access.
--   **Social Ads System:** Multi-platform (Meta, TikTok, X) social advertising with AI optimization.
--   **Inventory Management:** Production-ready transaction-based stock reservation with atomic operations and PostgreSQL row-level locking.
--   **Cart Reservation System:** Enterprise-grade "soft hold" system with PostgreSQL row-level locking, 30-minute expiry, and server-side business logic.
--   **Order Management System:** Comprehensive order lifecycle management with status tracking, refunds, balance payments, and real-time updates.
--   **Delivery Date Display & Reminder System:** Displays delivery dates for pre-order/made-to-order products and automated email reminders for sellers.
--   **Bulk Product Upload System:** Shopify-class bulk upload with CSV import, job tracking, validation, and rollback.
--   **AI-Powered Field Mapping:** Google Gemini AI integration for intelligent CSV column mapping.
--   **Newsletter System:** Enterprise-grade email marketing platform with campaign management, subscriber handling, segmentation, and multi-ESP support.
--   **Meta Ads B2C Platform:** Self-service social advertising system for Meta campaigns, integrating with Meta Marketing API, Gemini AI, and Stripe for payments. Features popup-based OAuth, AI-powered ad copy, Advantage+ optimization, credit-based budget system, and real-time analytics.
--   **AI-Optimized Landing Page:** World-class marketing landing page at `/experience` route featuring platform overview, parallel platform deep-dives, pricing tiers, FAQ, and comparison matrix. Includes custom SEO hooks, structured data, Open Graph/Twitter Card tags, smooth scroll animations, and mobile-responsive navigation.
--   **Analytics Dashboard:** Comprehensive seller analytics system with server-side calculations (Architecture 3) displaying revenue metrics, order analytics, product performance, customer insights, and B2C vs B2B platform breakdown. Features 5 time period filters, KPI cards with growth indicators, Recharts visualizations (line/bar/pie charts), top products analysis, and mobile-responsive dual-view layouts. All monetary values display in seller's Stripe account currency.
--   **E2E Testing Authentication Bypass:** Test-only authentication endpoint (`POST /api/test/auth/session`) that allows Playwright E2E tests to authenticate without email confirmation. Blocked in production (NODE_ENV === 'production'), enabled in development/test environments. See server/routes.ts for implementation.
--   **Custom Domain System:** Production-ready custom domain management allowing sellers to connect root domains (e.g., shop.example.com) to their storefronts. Implements dual-strategy approach (Cloudflare SaaS primary, Manual DNS fallback) with DNS verification, SSL provisioning, domain routing, and status tracking.
-    -   **Frontend (100% Complete):**
-        -   **Domain Management UI:** Settings → Domains tab with dual-view responsive layout (desktop table, mobile cards)
-        -   **Primary Domain Toggle:** Single primary domain enforcement with optimistic UI updates
-        -   **Strategy Switching:** Cloudflare ↔ Manual strategy conversion with automatic DNS instruction updates
-        -   **Status Progression:** Visual timeline showing pending_verification → dns_verified → ssl_provisioning → active
-        -   **DNS Instructions:** Strategy-specific setup guides with copy-to-clipboard functionality for CNAME, TXT, A records
-        -   **Accessibility:** Full ARIA labels, screen reader support, keyboard navigation
-        -   **Mobile-First Design:** Touch-friendly controls (≥44px), responsive dialogs, card-based mobile layouts
-    -   **Backend Infrastructure (Fully Operational):**
-        -   **Database:** `domain_connections` table with seller isolation, verification tokens, strategy tracking, SSL status
-        -   **API Routes:** Full CRUD operations at `/api/domains` and `/api/seller/domains` endpoints
-        -   **DNS Verification Service:** Node.js DNS resolver checking TXT records (_upfirst-verify.domain) and CNAME records
-        -   **Cloudflare SaaS SSL:** CloudflareService with custom hostname creation, SSL status monitoring, and automatic provisioning
-        -   **Domain Routing Middleware:** server/middleware/domain.ts detects custom domains, attaches seller context to requests
-        -   **Background Jobs:** Domain status checker (2-minute intervals) monitors ssl_provisioning → active transitions
-        -   **Service Layer:** DomainOrchestratorService coordinating DNS verification, SSL provisioning, and status management
-    -   **Production Requirements:**
-        -   **Cloudflare Credentials:** Set `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_ACCOUNT_ID` for automatic SSL
-        -   **DNS Setup:** Point domains to your server/Cloudflare zone for routing to work
-        -   **Optional:** Caddy server for manual DNS strategy (future enhancement)
-    -   **How It Works:**
-        1. Seller adds domain (e.g., shop.example.com) and gets DNS instructions
-        2. Seller adds TXT record for verification + CNAME to upfirst servers
-        3. Seller clicks "Verify" → DNS verification checks TXT record
-        4. If verified → status updates to dns_verified
-        5. If Cloudflare strategy → SSL provisioning starts automatically
-        6. Background job monitors SSL status every 2 minutes
-        7. When SSL active → domain status updates to active
-        8. Domain routing middleware serves seller's storefront at their custom domain
-        9. Both custom domain and username.upfirst.io (subdomain) work simultaneously
+-   **Backend**: Service layer pattern with dependency injection.
+-   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import. Products are ordered by creation date (newest first) and track `createdAt`/`updatedAt` timestamps.
+-   **Shipping**: Centralized `ShippingService` integrating Free Shipping, Flat Rate, Matrix Shipping, and real-time API rates.
+-   **Shopping & Checkout**: Features a slide-over cart, guest checkout, server-side shipping cost calculation, and single-seller per cart.
+-   **Authentication & Authorization**: Email-based with a dual-token system and capability-based authorization.
+-   **Payment Processing**: Integrated with Stripe Connect for multi-seller payments.
+-   **Subscription System**: Monthly/annual seller subscriptions via Stripe, including a 30-day trial.
+-   **Multi-Currency Support**: IP-based detection with user-selectable currency and real-time exchange rates. Seller-facing pages display values in the seller's Stripe account currency, while buyer-facing pages convert to the buyer's selected currency.
+-   **Wholesale B2B System**: Invitation-based access, variant-level MOQ, percentage deposit system, Net 30/60/90 payment terms, multi-image product galleries, 3-level category hierarchy, SKU auto-generation, and comprehensive order lifecycle management.
+-   **Trade Quotation System**: Customizable quotation numbers, professional invoice structure, 8 standard Incoterms, document uploads, Excel-like line item builder, server-side pricing validation, deposit/balance payment flows, and secure token-based buyer access.
+-   **Social Ads System**: Multi-platform (Meta, TikTok, X) social advertising with AI optimization.
+-   **Inventory Management**: Production-ready transaction-based stock reservation with atomic operations and PostgreSQL row-level locking.
+-   **Cart Reservation System**: Enterprise-grade "soft hold" with PostgreSQL row-level locking, 30-minute expiry, and server-side business logic.
+-   **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, balance payments, and real-time updates.
+-   **Delivery Date Display & Reminder System**: Displays delivery dates for pre-order/made-to-order products and automated email reminders.
+-   **Bulk Product Upload System**: Shopify-class bulk upload with CSV import, job tracking, validation, and rollback.
+-   **AI-Powered Field Mapping**: Google Gemini AI integration for intelligent CSV column mapping.
+-   **Newsletter System**: Enterprise-grade email marketing platform with campaign management, subscriber handling, segmentation, and multi-ESP support.
+-   **Meta Ads B2C Platform**: Self-service social advertising system for Meta campaigns, integrating with Meta Marketing API, Gemini AI, and Stripe. Features popup-based OAuth, AI-powered ad copy, Advantage+ optimization, credit-based budgeting, and real-time analytics.
+-   **AI-Optimized Landing Page**: A marketing landing page at `/experience` route, featuring platform overview, parallel platform deep-dives, pricing tiers, FAQ, comparison matrix, custom SEO, structured data, Open Graph/Twitter Card tags, and smooth scroll animations.
+-   **Analytics Dashboard**: Comprehensive seller analytics with server-side calculations (Architecture 3) for revenue, order, product, and customer insights, including B2C vs B2B breakdowns. Features 5 time period filters, KPI cards, Recharts visualizations, and mobile-responsive layouts. Monetary values display in the seller's Stripe account currency.
+-   **E2E Testing Authentication Bypass**: A test-only authentication endpoint (`POST /api/test/auth/session`) for Playwright E2E tests, blocked in production.
+-   **Custom Domain System**: Allows sellers to connect custom domains (e.g., `shop.example.com`) to their storefronts. Implements a dual-strategy approach (Cloudflare SaaS primary, Manual DNS fallback) with DNS verification, SSL provisioning, domain routing, and status tracking.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
