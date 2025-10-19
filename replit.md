@@ -1,5 +1,28 @@
 # Upfirst - E-Commerce Platform
 
+## Recent Changes
+
+### Drizzle ORM Removal (October 19, 2025)
+**Status**: ✅ Complete - Drizzle ORM packages removed, 100% Prisma architecture
+
+**What Was Done:**
+- Uninstalled all Drizzle packages: `drizzle-orm`, `drizzle-kit`, `drizzle-zod`, `@neondatabase/serverless`
+- Removed `drizzle.config.ts` configuration file
+- Created new validation layer: `shared/validation-schemas.ts` with pure Zod schemas (no drizzle-zod)
+- Created compatibility layer: `shared/schema.ts` re-exports types and validations
+- Updated core imports in routes, services, and client components
+- Database operations now 100% Prisma-based
+
+**Known Limitations:**
+- Analytics queries (analytics.service.ts, quotation.service.ts) contain commented Drizzle queries needing Prisma migration
+- Import queue processor (server/index.ts) disabled pending Prisma migration
+- These features are non-critical and can be migrated incrementally
+
+**File Structure:**
+- `shared/prisma-types.ts` - All Prisma type exports
+- `shared/validation-schemas.ts` - Pure Zod validation schemas
+- `shared/schema.ts` - Compatibility layer (re-exports from above)
+
 ## Overview
 Upfirst is a D2C e-commerce platform empowering creators and brands with individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates essential e-commerce functionalities such as product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform features B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system. Upfirst's ambition is to provide a scalable, secure, and modern direct-to-consumer solution with significant market potential.
 
@@ -11,7 +34,7 @@ Upfirst is a D2C e-commerce platform empowering creators and brands with individ
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
 ## System Architecture
-Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; an Express.js Node.js backend; PostgreSQL (Neon) as the database; and a hybrid ORM architecture using Prisma ORM for primary data operations with Drizzle ORM retained for critical cart operations requiring PostgreSQL row-level locking.
+Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; an Express.js Node.js backend; PostgreSQL (Neon) as the database; and Prisma ORM for all database operations.
 
 **Core Architectural Principle: Three Parallel Platforms with Server-Side Business Logic**
 The platform is structured into three distinct, parallel platforms, with all business logic strictly implemented server-side (Architecture 3):
@@ -52,7 +75,7 @@ The design system supports dark/light modes, uses the Inter font, emphasizes con
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
--   **ORM**: Prisma ORM, Drizzle ORM
+-   **ORM**: Prisma ORM
 -   **Email Service**: Resend
 -   **Payment Gateway**: Stripe SDK
 -   **Shipping Service**: Shippo API

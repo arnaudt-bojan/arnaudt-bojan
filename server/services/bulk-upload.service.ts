@@ -8,7 +8,7 @@
 import { IStorage } from '../storage';
 import { logger } from '../logger';
 import { ProductService } from './product.service';
-import { frontendProductSchema } from '@shared/schema';
+import { frontendProductSchema } from '@shared/validation-schemas';
 import { fromZodError } from 'zod-validation-error';
 import { CSV_TEMPLATE_FIELDS } from '@shared/bulk-upload-template';
 

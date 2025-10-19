@@ -5,7 +5,6 @@ import { setupVite, serveStatic, log } from "./vite";
 import { importQueue } from "./import-queue";
 import { processShopifyImport } from "./adapters/shopify";
 import { importSources } from "@shared/schema";
-import { eq } from "drizzle-orm";
 import { 
   securityHeadersMiddleware, 
   rateLimitMiddleware, 
@@ -27,6 +26,7 @@ import { ShippoLabelService } from "./services/shippo-label.service";
 import { domainMiddleware } from "./middleware/domain";
 import { startDomainStatusChecker } from "./jobs/domain-status-checker";
 import Stripe from "stripe";
+import { prisma } from "./prisma";
 
 const app = express();
 
@@ -159,25 +159,19 @@ app.get('/api/health', (_req, res) => {
     
     // Register platform adapters
     importQueue.registerProcessor(async (job, signal) => {
-      const source = await storage.db
-        .select()
-        .from(importSources)
-        .where(eq(importSources.id, job.sourceId))
-        .limit(1);
-
-      if (!source[0]) {
+      const source = await prisma.import_sources.findUnique({
+        where: { id: job.sourceId },
+      });
+      
+      if (!source) {
         throw new Error(`Import source ${job.sourceId} not found`);
       }
-
-      const platform = source[0].platform;
-
+      
+      const platform = source.platform;
+      
       switch (platform) {
         case "shopify":
           return await processShopifyImport(job, signal);
-        // Future adapters will be added here:
-        // case "bigcommerce": return await processBigCommerceImport(job, signal);
-        // case "etsy": return await processEtsyImport(job, signal);
-        // case "woocommerce": return await processWooCommerceImport(job, signal);
         default:
           throw new Error(`Unsupported platform: ${platform}`);
       }

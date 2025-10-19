@@ -11,16 +11,7 @@ import {
   type ShopifyProduct 
 } from "../import-mappers";
 import type { ImportJob, ImportSource } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
-import { 
-  products, 
-  productSourceMappings, 
-  importJobs, 
-  importSources,
-  importJobErrors 
-} from "@shared/schema";
-
-const db = storage.db;
+import { prisma } from "../prisma";
 
 interface ShopifyCredentials {
   shopName: string; // e.g., "mystore" (not mystore.myshopify.com)
@@ -89,12 +80,14 @@ export class ShopifyAdapter {
             );
 
             // Log error to import_job_errors
-            await db.insert(importJobErrors).values({
-              jobId: job.id,
-              externalId: String(shopifyProduct.id),
-              stage: "transform",
-              errorCode: error.code || "UNKNOWN_ERROR",
-              errorMessage: error.message || "Unknown error",
+            await prisma.import_job_errors.create({
+              data: {
+                job_id: job.id,
+                external_id: String(shopifyProduct.id),
+                stage: "transform",
+                error_code: error.code || "UNKNOWN_ERROR",
+                error_message: error.message || "Unknown error",
+              }
             });
           }
         }
@@ -193,57 +186,52 @@ export class ShopifyAdapter {
     const canonical = mapShopifyProduct(shopifyProduct);
 
     // Check if product already exists (via mapping)
-    const existingMapping = await db
-      .select()
-      .from(productSourceMappings)
-      .where(
-        and(
-          eq(productSourceMappings.sourceId, this.source.id),
-          eq(productSourceMappings.externalProductId, canonical.externalId)
-        )
-      )
-      .limit(1);
+    const existingMapping = await prisma.product_source_mappings.findFirst({
+      where: {
+        source_id: this.source.id,
+        external_product_id: canonical.externalId,
+      }
+    });
 
-    if (existingMapping.length > 0) {
+    if (existingMapping) {
       // Update existing product
-      const mapping = existingMapping[0];
-      
-      await db
-        .update(products)
-        .set({
+      await prisma.products.update({
+        where: { id: existingMapping.product_id },
+        data: {
           ...canonical,
-          sellerId: this.source.sellerId,
-        })
-        .where(eq(products.id, mapping.productId));
+          seller_id: this.source.sellerId,
+        }
+      });
 
       // Update mapping
-      await db
-        .update(productSourceMappings)
-        .set({
-          lastSyncedAt: new Date(),
-          syncState: "active",
-        })
-        .where(eq(productSourceMappings.id, mapping.id));
+      await prisma.product_source_mappings.update({
+        where: { id: existingMapping.id },
+        data: {
+          last_synced_at: new Date(),
+          sync_state: "active",
+        }
+      });
 
-      console.log(`[ShopifyAdapter] Updated product ${mapping.productId} (external: ${canonical.externalId})`);
+      console.log(`[ShopifyAdapter] Updated product ${existingMapping.product_id} (external: ${canonical.externalId})`);
     } else {
       // Create new product
-      const [newProduct] = await db
-        .insert(products)
-        .values({
+      const newProduct = await prisma.products.create({
+        data: {
           ...canonical,
-          sellerId: this.source.sellerId,
-        })
-        .returning();
+          seller_id: this.source.sellerId,
+        }
+      });
 
       // Create mapping
-      await db.insert(productSourceMappings).values({
-        productId: newProduct.id,
-        sourceId: this.source.id,
-        externalProductId: canonical.externalId,
-        externalHandle: canonical.externalHandle,
-        lastSyncedAt: new Date(),
-        syncState: "active",
+      await prisma.product_source_mappings.create({
+        data: {
+          product_id: newProduct.id,
+          source_id: this.source.id,
+          external_product_id: canonical.externalId,
+          external_handle: canonical.externalHandle,
+          last_synced_at: new Date(),
+          sync_state: "active",
+        }
       });
 
       console.log(`[ShopifyAdapter] Created product ${newProduct.id} (external: ${canonical.externalId})`);
@@ -258,13 +246,13 @@ export class ShopifyAdapter {
     processedItems: number,
     checkpoint?: string
   ): Promise<void> {
-    await db
-      .update(importJobs)
-      .set({
-        processedItems,
-        lastCheckpoint: checkpoint || null,
-      })
-      .where(eq(importJobs.id, jobId));
+    await prisma.import_jobs.update({
+      where: { id: jobId },
+      data: {
+        processed_items: processedItems,
+        last_checkpoint: checkpoint || null,
+      }
+    });
   }
 }
 
@@ -277,11 +265,9 @@ export async function processShopifyImport(
   abortSignal: AbortSignal
 ): Promise<void> {
   // Fetch the import source
-  const [source] = await db
-    .select()
-    .from(importSources)
-    .where(eq(importSources.id, job.sourceId))
-    .limit(1);
+  const source = await prisma.import_sources.findUnique({
+    where: { id: job.sourceId }
+  });
 
   if (!source) {
     throw new Error(`Import source ${job.sourceId} not found`);
@@ -292,6 +278,6 @@ export async function processShopifyImport(
   }
 
   // Create adapter and run import
-  const adapter = new ShopifyAdapter(source);
+  const adapter = new ShopifyAdapter(source as any);
   await adapter.importProducts(job, abortSignal);
 }

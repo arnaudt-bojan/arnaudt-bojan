@@ -14,8 +14,8 @@ import { storage } from '../storage';
 import type { NotificationService } from '../notifications';
 import type { QuotationService } from './quotation.service';
 import type { TradeQuotation, TradeQuotationItem, User } from '@shared/schema';
-import { tradeQuotationEvents } from '@shared/schema';
 import { logger } from '../logger';
+import { prisma } from '../prisma';
 import {
   generateEmailBaseLayout,
   generateSellerHeader,
@@ -165,15 +165,16 @@ export class QuotationEmailService {
       }
 
       // 7. Log email_sent event
-      const db = storage.db;
-      await db.insert(tradeQuotationEvents).values({
-        quotationId,
-        eventType: 'email_sent',
-        performedBy: quotation.sellerId,
-        payload: {
-          emailType: 'quotation_sent',
-          recipientEmail: quotation.buyerEmail,
-          emailId: emailResult.emailId,
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: quotationId,
+          event_type: 'email_sent',
+          performed_by: quotation.sellerId,
+          payload: {
+            emailType: 'quotation_sent',
+            recipientEmail: quotation.buyerEmail,
+            emailId: emailResult.emailId,
+          },
         },
       });
 
@@ -220,15 +221,16 @@ export class QuotationEmailService {
         return { success: false, error: emailResult.error };
       }
 
-      const db = storage.db;
-      await db.insert(tradeQuotationEvents).values({
-        quotationId,
-        eventType: 'email_sent',
-        performedBy: quotation.sellerId,
-        payload: {
-          emailType: 'deposit_paid_notification',
-          recipientEmail: seller.email || '',
-          emailId: emailResult.emailId,
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: quotationId,
+          event_type: 'email_sent',
+          performed_by: quotation.sellerId,
+          payload: {
+            emailType: 'deposit_paid_notification',
+            recipientEmail: seller.email || '',
+            emailId: emailResult.emailId,
+          },
         },
       });
 
@@ -281,15 +283,16 @@ export class QuotationEmailService {
         return { success: false, error: emailResult.error };
       }
 
-      const db = storage.db;
-      await db.insert(tradeQuotationEvents).values({
-        quotationId,
-        eventType: 'email_sent',
-        performedBy: quotation.sellerId,
-        payload: {
-          emailType: 'balance_request',
-          recipientEmail: quotation.buyerEmail,
-          emailId: emailResult.emailId || '',
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: quotationId,
+          event_type: 'email_sent',
+          performed_by: quotation.sellerId,
+          payload: {
+            emailType: 'balance_request',
+            recipientEmail: quotation.buyerEmail,
+            emailId: emailResult.emailId || '',
+          },
         },
       });
 
@@ -335,15 +338,16 @@ export class QuotationEmailService {
         return { success: false, error: emailResult.error };
       }
 
-      const db = storage.db;
-      await db.insert(tradeQuotationEvents).values({
-        quotationId,
-        eventType: 'email_sent',
-        performedBy: quotation.sellerId,
-        payload: {
-          emailType: 'balance_paid_notification',
-          recipientEmail: seller.email || '',
-          emailId: emailResult.emailId || '',
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: quotationId,
+          event_type: 'email_sent',
+          performed_by: quotation.sellerId,
+          payload: {
+            emailType: 'balance_paid_notification',
+            recipientEmail: seller.email || '',
+            emailId: emailResult.emailId || '',
+          },
         },
       });
 
@@ -389,15 +393,16 @@ export class QuotationEmailService {
         return { success: false, error: emailResult.error };
       }
 
-      const db = storage.db;
-      await db.insert(tradeQuotationEvents).values({
-        quotationId,
-        eventType: 'email_sent',
-        performedBy: quotation.sellerId,
-        payload: {
-          emailType: 'quotation_expired',
-          recipientEmail: quotation.buyerEmail,
-          emailId: emailResult.emailId || '',
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: quotationId,
+          event_type: 'email_sent',
+          performed_by: quotation.sellerId,
+          payload: {
+            emailType: 'quotation_expired',
+            recipientEmail: quotation.buyerEmail,
+            emailId: emailResult.emailId || '',
+          },
         },
       });
 

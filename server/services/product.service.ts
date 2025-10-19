@@ -1,9 +1,9 @@
 import type { IStorage } from '../storage';
-import type { Product, InsertProduct, User } from '@shared/schema';
+import type { Product, InsertProduct, User } from '@shared/prisma-types';
 import type { NotificationService } from '../notifications';
 import type { SKUService } from './sku.service';
 import { logger } from '../logger';
-import { insertProductSchema } from '@shared/schema';
+import { insertProductSchema } from '@shared/validation-schemas';
 import { fromZodError } from 'zod-validation-error';
 import { syncProductStockFromVariants } from '../utils/calculate-stock';
 import type Stripe from 'stripe';

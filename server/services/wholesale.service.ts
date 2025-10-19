@@ -6,7 +6,7 @@ import type { NotificationService } from '../notifications';
 import type { WholesaleCartValidationService } from './wholesale-cart-validation.service';
 import type { CartReservationService } from './cart-reservation.service';
 import type { InventoryService } from './inventory.service';
-import { insertWholesaleProductSchema } from '@shared/schema';
+import { insertWholesaleProductSchema } from '@shared/validation-schemas';
 import { fromZodError } from 'zod-validation-error';
 
 interface BulkUploadInput {

@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { storage } from "./storage";
-import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema, updateCustomerDetailsSchema } from "@shared/schema";
+import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAddressSchema, checkoutInitiateRequestSchema, updateCustomerDetailsSchema } from "@shared/validation-schemas";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { computeDeliveryDate } from "@shared/order-utils";

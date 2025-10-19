@@ -27,8 +27,8 @@ import {
 import { OrderActionBar } from "@/components/order-action-bar";
 import { OrderTimeline } from "@/components/order-timeline";
 import { PurchaseShippingLabelDialog, ShippingLabelSuccessDialog, ShippingLabelDetailsDialog } from "@/components/shipping-label-modals";
-import type { Order, OrderItem, UpdateCustomerDetails } from "@shared/schema";
-import { updateCustomerDetailsSchema } from "@shared/schema";
+import type { Order, OrderItem } from "@shared/prisma-types";
+import { updateCustomerDetailsSchema, type UpdateCustomerDetails } from "@shared/validation-schemas";
 import { getPaymentStatusLabel } from "@/lib/format-status";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";

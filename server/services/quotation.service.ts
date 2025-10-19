@@ -11,10 +11,6 @@
 
 import { storage } from "../storage";
 import { 
-  tradeQuotations, 
-  tradeQuotationItems, 
-  tradeQuotationEvents, 
-  tradePaymentSchedules,
   type TradeQuotation,
   type InsertTradeQuotation,
   type TradeQuotationItem,
@@ -26,11 +22,9 @@ import {
   type TradeQuotationStatus,
   type TradeQuotationEventType,
 } from "@shared/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { logger } from "../logger";
 import { z } from "zod";
-
-const db = storage.db;
+import { prisma } from "../prisma";
 
 // ============================================================================
 // Types & Interfaces
@@ -154,41 +148,47 @@ export class QuotationService {
       const quotationNumber = data.quotationNumber || await this.generateQuotationNumber();
 
       // Create quotation and items in transaction
-      const quotation = await db.transaction(async (tx) => {
+      const quotation = await prisma.$transaction(async (tx) => {
         // Insert quotation with new B2B fields
-        const [newQuotation] = await tx.insert(tradeQuotations).values({
-          sellerId,
-          buyerEmail: data.buyerEmail,
-          buyerId: data.buyerId || null,
-          quotationNumber,
-          currency: data.currency || "USD",
-          subtotal: totals.subtotal.toFixed(2),
-          taxAmount: totals.taxAmount.toFixed(2),
-          shippingAmount: totals.shippingAmount.toFixed(2),
-          total: totals.total.toFixed(2),
-          depositAmount: depositAmount.toFixed(2),
-          depositPercentage,
-          balanceAmount: balanceAmount.toFixed(2),
-          status: "draft",
-          validUntil: data.validUntil || null,
-          deliveryTerms: data.deliveryTerms || null,
-          dataSheetUrl: data.dataSheetUrl || null,
-          termsAndConditionsUrl: data.termsAndConditionsUrl || null,
-          metadata: data.metadata || null,
-        }).returning();
+        const newQuotation = await tx.trade_quotations.create({
+          data: {
+            seller_id: sellerId,
+            buyer_email: data.buyerEmail,
+            buyer_id: data.buyerId || null,
+            quotation_number: quotationNumber,
+            currency: data.currency || "USD",
+            subtotal: totals.subtotal.toFixed(2),
+            tax_amount: totals.taxAmount.toFixed(2),
+            shipping_amount: totals.shippingAmount.toFixed(2),
+            total: totals.total.toFixed(2),
+            deposit_amount: depositAmount.toFixed(2),
+            deposit_percentage: depositPercentage,
+            balance_amount: balanceAmount.toFixed(2),
+            status: "draft",
+            valid_until: data.validUntil || null,
+            delivery_terms: data.deliveryTerms || null,
+            data_sheet_url: data.dataSheetUrl || null,
+            terms_and_conditions_url: data.termsAndConditionsUrl || null,
+            metadata: data.metadata || null,
+          },
+        });
 
         // Insert items (B2B best practice: no per-item tax/shipping)
-        const items = await tx.insert(tradeQuotationItems).values(
-          itemsWithTotals.map((item) => ({
-            quotationId: newQuotation.id,
-            lineNumber: item.lineNumber,
-            description: item.description,
-            productId: item.productId || null,
-            unitPrice: item.unitPrice.toFixed(2),
-            quantity: item.quantity,
-            lineTotal: item.lineTotal.toFixed(2),
-          }))
-        ).returning();
+        const items = [];
+        for (const item of itemsWithTotals) {
+          const createdItem = await tx.trade_quotation_items.create({
+            data: {
+              quotation_id: newQuotation.id,
+              line_number: item.lineNumber,
+              description: item.description,
+              product_id: item.productId || null,
+              unit_price: item.unitPrice.toFixed(2),
+              quantity: item.quantity,
+              line_total: item.lineTotal.toFixed(2),
+            },
+          });
+          items.push(createdItem);
+        }
 
         // Log creation event
         await this.logEvent(
@@ -199,7 +199,7 @@ export class QuotationService {
           { quotationNumber, itemCount: items.length }
         );
 
-        return { ...newQuotation, items };
+        return { ...newQuotation, items } as any;
       });
 
       logger.info("[QuotationService] Quotation created", {
@@ -223,23 +223,20 @@ export class QuotationService {
    */
   async getQuotation(id: string): Promise<QuotationWithItems | null> {
     try {
-      const [quotation] = await db
-        .select()
-        .from(tradeQuotations)
-        .where(eq(tradeQuotations.id, id))
-        .limit(1);
+      const quotation = await prisma.trade_quotations.findFirst({
+        where: { id }
+      });
 
       if (!quotation) {
         return null;
       }
 
-      const items = await db
-        .select()
-        .from(tradeQuotationItems)
-        .where(eq(tradeQuotationItems.quotationId, id))
-        .orderBy(tradeQuotationItems.lineNumber);
+      const items = await prisma.trade_quotation_items.findMany({
+        where: { quotation_id: id },
+        orderBy: { line_number: 'asc' }
+      });
 
-      return { ...quotation, items };
+      return { ...quotation, items } as any;
     } catch (error: any) {
       logger.error("[QuotationService] Failed to get quotation", {
         error: error.message,
@@ -260,32 +257,28 @@ export class QuotationService {
       const { status, buyerEmail, limit = 50, offset = 0 } = filters;
 
       // Build where conditions
-      const conditions = [eq(tradeQuotations.sellerId, sellerId)];
+      const where: any = { seller_id: sellerId };
       
       if (status) {
-        conditions.push(eq(tradeQuotations.status, status));
+        where.status = status;
       }
       
       if (buyerEmail) {
-        conditions.push(eq(tradeQuotations.buyerEmail, buyerEmail));
+        where.buyer_email = buyerEmail;
       }
 
       // Get quotations
-      const quotations = await db
-        .select()
-        .from(tradeQuotations)
-        .where(and(...conditions))
-        .orderBy(desc(tradeQuotations.createdAt))
-        .limit(limit)
-        .offset(offset);
+      const quotations = await prisma.trade_quotations.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        take: limit,
+        skip: offset,
+      });
 
       // Get total count
-      const [{ count }] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(tradeQuotations)
-        .where(and(...conditions));
+      const total = await prisma.trade_quotations.count({ where });
 
-      return { quotations, total: Number(count) };
+      return { quotations: quotations as any, total };
     } catch (error: any) {
       logger.error("[QuotationService] Failed to list quotations", {
         error: error.message,
@@ -319,13 +312,13 @@ export class QuotationService {
       }
 
       // Update quotation in transaction
-      const quotation = await db.transaction(async (tx) => {
+      const quotation = await prisma.$transaction(async (tx) => {
         // If items are being updated, recalculate totals
         if (data.items && data.items.length > 0) {
           // Delete existing items
-          await tx
-            .delete(tradeQuotationItems)
-            .where(eq(tradeQuotationItems.quotationId, id));
+          await tx.trade_quotation_items.deleteMany({
+            where: { quotation_id: id }
+          });
 
           // Calculate line totals (B2B best practice: no per-item tax/shipping)
           const itemsWithTotals = data.items.map((item, index) => ({
@@ -347,61 +340,63 @@ export class QuotationService {
           );
 
           // Update quotation with new totals and B2B fields
-          const [updated] = await tx
-            .update(tradeQuotations)
-            .set({
-              quotationNumber: data.quotationNumber || existing.quotationNumber,
-              buyerEmail: data.buyerEmail || existing.buyerEmail,
-              buyerId: data.buyerId !== undefined ? data.buyerId : existing.buyerId,
+          const updated = await tx.trade_quotations.update({
+            where: { id },
+            data: {
+              quotation_number: data.quotationNumber || existing.quotationNumber,
+              buyer_email: data.buyerEmail || existing.buyerEmail,
+              buyer_id: data.buyerId !== undefined ? data.buyerId : existing.buyerId,
               subtotal: totals.subtotal.toFixed(2),
-              taxAmount: totals.taxAmount.toFixed(2),
-              shippingAmount: totals.shippingAmount.toFixed(2),
+              tax_amount: totals.taxAmount.toFixed(2),
+              shipping_amount: totals.shippingAmount.toFixed(2),
               total: totals.total.toFixed(2),
-              depositAmount: depositAmount.toFixed(2),
-              depositPercentage,
-              balanceAmount: balanceAmount.toFixed(2),
-              validUntil: data.validUntil !== undefined ? data.validUntil : existing.validUntil,
-              deliveryTerms: data.deliveryTerms !== undefined ? data.deliveryTerms : existing.deliveryTerms,
-              dataSheetUrl: data.dataSheetUrl !== undefined ? data.dataSheetUrl : existing.dataSheetUrl,
-              termsAndConditionsUrl: data.termsAndConditionsUrl !== undefined ? data.termsAndConditionsUrl : existing.termsAndConditionsUrl,
+              deposit_amount: depositAmount.toFixed(2),
+              deposit_percentage: depositPercentage,
+              balance_amount: balanceAmount.toFixed(2),
+              valid_until: data.validUntil !== undefined ? data.validUntil : existing.validUntil,
+              delivery_terms: data.deliveryTerms !== undefined ? data.deliveryTerms : existing.deliveryTerms,
+              data_sheet_url: data.dataSheetUrl !== undefined ? data.dataSheetUrl : existing.dataSheetUrl,
+              terms_and_conditions_url: data.termsAndConditionsUrl !== undefined ? data.termsAndConditionsUrl : existing.termsAndConditionsUrl,
               metadata: data.metadata !== undefined ? data.metadata : existing.metadata,
-              updatedAt: new Date(),
-            })
-            .where(eq(tradeQuotations.id, id))
-            .returning();
+              updated_at: new Date(),
+            },
+          });
 
           // Insert new items (B2B best practice: no per-item tax/shipping)
-          const items = await tx.insert(tradeQuotationItems).values(
-            itemsWithTotals.map((item) => ({
-              quotationId: id,
-              lineNumber: item.lineNumber,
-              description: item.description,
-              productId: item.productId || null,
-              unitPrice: item.unitPrice.toFixed(2),
-              quantity: item.quantity,
-              lineTotal: item.lineTotal.toFixed(2),
-            }))
-          ).returning();
+          const items = [];
+          for (const item of itemsWithTotals) {
+            const createdItem = await tx.trade_quotation_items.create({
+              data: {
+                quotation_id: id,
+                line_number: item.lineNumber,
+                description: item.description,
+                product_id: item.productId || null,
+                unit_price: item.unitPrice.toFixed(2),
+                quantity: item.quantity,
+                line_total: item.lineTotal.toFixed(2),
+              },
+            });
+            items.push(createdItem);
+          }
 
           return { ...updated, items };
         } else {
           // Update quotation metadata only (including new B2B fields)
-          const [updated] = await tx
-            .update(tradeQuotations)
-            .set({
-              quotationNumber: data.quotationNumber || existing.quotationNumber,
-              buyerEmail: data.buyerEmail || existing.buyerEmail,
-              buyerId: data.buyerId !== undefined ? data.buyerId : existing.buyerId,
-              depositPercentage: data.depositPercentage || existing.depositPercentage,
-              validUntil: data.validUntil !== undefined ? data.validUntil : existing.validUntil,
-              deliveryTerms: data.deliveryTerms !== undefined ? data.deliveryTerms : existing.deliveryTerms,
-              dataSheetUrl: data.dataSheetUrl !== undefined ? data.dataSheetUrl : existing.dataSheetUrl,
-              termsAndConditionsUrl: data.termsAndConditionsUrl !== undefined ? data.termsAndConditionsUrl : existing.termsAndConditionsUrl,
+          const updated = await tx.trade_quotations.update({
+            where: { id },
+            data: {
+              quotation_number: data.quotationNumber || existing.quotationNumber,
+              buyer_email: data.buyerEmail || existing.buyerEmail,
+              buyer_id: data.buyerId !== undefined ? data.buyerId : existing.buyerId,
+              deposit_percentage: data.depositPercentage || existing.depositPercentage,
+              valid_until: data.validUntil !== undefined ? data.validUntil : existing.validUntil,
+              delivery_terms: data.deliveryTerms !== undefined ? data.deliveryTerms : existing.deliveryTerms,
+              data_sheet_url: data.dataSheetUrl !== undefined ? data.dataSheetUrl : existing.dataSheetUrl,
+              terms_and_conditions_url: data.termsAndConditionsUrl !== undefined ? data.termsAndConditionsUrl : existing.termsAndConditionsUrl,
               metadata: data.metadata !== undefined ? data.metadata : existing.metadata,
-              updatedAt: new Date(),
-            })
-            .where(eq(tradeQuotations.id, id))
-            .returning();
+              updated_at: new Date(),
+            },
+          });
 
           return { ...updated, items: existing.items };
         }
@@ -442,21 +437,21 @@ export class QuotationService {
       }
 
       // Delete in transaction
-      await db.transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         // Delete items
-        await tx
-          .delete(tradeQuotationItems)
-          .where(eq(tradeQuotationItems.quotationId, id));
+        await tx.trade_quotation_items.deleteMany({
+          where: { quotation_id: id }
+        });
 
         // Delete events
-        await tx
-          .delete(tradeQuotationEvents)
-          .where(eq(tradeQuotationEvents.quotationId, id));
+        await tx.trade_quotation_events.deleteMany({
+          where: { quotation_id: id }
+        });
 
         // Delete quotation
-        await tx
-          .delete(tradeQuotations)
-          .where(eq(tradeQuotations.id, id));
+        await tx.trade_quotations.delete({
+          where: { id }
+        });
       });
 
       logger.info("[QuotationService] Quotation deleted", {
@@ -566,18 +561,18 @@ export class QuotationService {
       );
 
       // Update quotation
-      await db
-        .update(tradeQuotations)
-        .set({
+      await prisma.trade_quotations.update({
+        where: { id: quotationId },
+        data: {
           subtotal: totals.subtotal.toFixed(2),
-          taxAmount: totals.taxAmount.toFixed(2),
-          shippingAmount: totals.shippingAmount.toFixed(2),
+          tax_amount: totals.taxAmount.toFixed(2),
+          shipping_amount: totals.shippingAmount.toFixed(2),
           total: totals.total.toFixed(2),
-          depositAmount: depositAmount.toFixed(2),
-          balanceAmount: balanceAmount.toFixed(2),
-          updatedAt: new Date(),
-        })
-        .where(eq(tradeQuotations.id, quotationId));
+          deposit_amount: depositAmount.toFixed(2),
+          balance_amount: balanceAmount.toFixed(2),
+          updated_at: new Date(),
+        },
+      });
 
       logger.info("[QuotationService] Quotation recalculated", {
         quotationId,
@@ -614,18 +609,17 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "sent");
 
       // Update status in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "sent", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "sent", updated_at: new Date() },
+        });
 
         await this.logEvent(tx, id, "sent", sellerId, {
           buyerEmail: quotation.buyerEmail,
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Quotation sent", {
@@ -657,18 +651,17 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "viewed");
 
       // Update status in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "viewed", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "viewed", updated_at: new Date() },
+        });
 
         await this.logEvent(tx, id, "viewed", viewedBy, {
           viewedAt: new Date().toISOString(),
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Quotation viewed", {
@@ -703,27 +696,26 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "accepted");
 
       // Update status in transaction
-      const [updated] = await db.transaction(async (tx) => {
+      const updated = await prisma.$transaction(async (tx) => {
         const updateData: any = {
           status: "accepted",
-          updatedAt: new Date(),
+          updated_at: new Date(),
         };
 
         if (buyerId) {
-          updateData.buyerId = buyerId;
+          updateData.buyer_id = buyerId;
         }
 
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set(updateData)
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: updateData,
+        });
 
         await this.logEvent(tx, id, "accepted", buyerId || quotation.buyerEmail, {
           acceptedAt: new Date().toISOString(),
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Quotation accepted", {
@@ -759,40 +751,42 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "deposit_paid");
 
       // Update status and create payment schedule in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "deposit_paid", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "deposit_paid", updated_at: new Date() },
+        });
 
         // Create/update payment schedule for deposit
-        await tx
-          .insert(tradePaymentSchedules)
-          .values({
-            quotationId: id,
-            paymentType: "deposit",
+        await tx.trade_payment_schedules.upsert({
+          where: {
+            quotation_id_payment_type: {
+              quotation_id: id,
+              payment_type: "deposit",
+            },
+          },
+          create: {
+            quotation_id: id,
+            payment_type: "deposit",
             amount: quotation.depositAmount,
             status: "paid",
-            stripePaymentIntentId: paymentIntentId,
-            paidAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: [tradePaymentSchedules.quotationId, tradePaymentSchedules.paymentType],
-            set: {
-              status: "paid",
-              stripePaymentIntentId: paymentIntentId,
-              paidAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
+            stripe_payment_intent_id: paymentIntentId,
+            paid_at: new Date(),
+          },
+          update: {
+            status: "paid",
+            stripe_payment_intent_id: paymentIntentId,
+            paid_at: new Date(),
+            updated_at: new Date(),
+          },
+        });
 
         await this.logEvent(tx, id, "deposit_paid", paidBy, {
           paymentIntentId,
           amount: quotation.depositAmount,
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Deposit paid", {
@@ -826,20 +820,21 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "balance_due");
 
       // Update status and create payment schedule in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "balance_due", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "balance_due", updated_at: new Date() },
+        });
 
         // Create payment schedule for balance
-        await tx.insert(tradePaymentSchedules).values({
-          quotationId: id,
-          paymentType: "balance",
-          amount: quotation.balanceAmount,
-          dueDate: dueDate || null,
-          status: "pending",
+        await tx.trade_payment_schedules.create({
+          data: {
+            quotation_id: id,
+            payment_type: "balance",
+            amount: quotation.balanceAmount,
+            due_date: dueDate || null,
+            status: "pending",
+          },
         });
 
         await this.logEvent(tx, id, "balance_paid", sellerId, {
@@ -847,7 +842,7 @@ export class QuotationService {
           amount: quotation.balanceAmount,
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Balance marked as due", {
@@ -883,35 +878,38 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "fully_paid");
 
       // Update status and payment schedule in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "fully_paid", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "fully_paid", updated_at: new Date() },
+        });
 
         // Update balance payment schedule
-        await tx
-          .update(tradePaymentSchedules)
-          .set({
-            status: "paid",
-            stripePaymentIntentId: paymentIntentId,
-            paidAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(tradePaymentSchedules.quotationId, id),
-              eq(tradePaymentSchedules.paymentType, "balance")
-            )
-          );
+        const balanceSchedule = await tx.trade_payment_schedules.findFirst({
+          where: {
+            quotation_id: id,
+            payment_type: "balance",
+          },
+        });
+
+        if (balanceSchedule) {
+          await tx.trade_payment_schedules.update({
+            where: { id: balanceSchedule.id },
+            data: {
+              status: "paid",
+              stripe_payment_intent_id: paymentIntentId,
+              paid_at: new Date(),
+              updated_at: new Date(),
+            },
+          });
+        }
 
         await this.logEvent(tx, id, "balance_paid", paidBy, {
           paymentIntentId,
           amount: quotation.balanceAmount,
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Fully paid", {
@@ -945,11 +943,10 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "completed");
 
       // Update status
-      const [updated] = await db
-        .update(tradeQuotations)
-        .set({ status: "completed", updatedAt: new Date() })
-        .where(eq(tradeQuotations.id, id))
-        .returning();
+      const updated = await prisma.trade_quotations.update({
+        where: { id },
+        data: { status: "completed", updated_at: new Date() },
+      });
 
       logger.info("[QuotationService] Quotation completed", {
         quotationId: id,
@@ -983,19 +980,18 @@ export class QuotationService {
       this.validateStatusTransition(quotation.status, "cancelled");
 
       // Update status in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "cancelled", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "cancelled", updated_at: new Date() },
+        });
 
         await this.logEvent(tx, id, "cancelled", cancelledBy, {
           reason,
           previousStatus: quotation.status,
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Quotation cancelled", {
@@ -1038,18 +1034,17 @@ export class QuotationService {
       }
 
       // Update status in transaction
-      const [updated] = await db.transaction(async (tx) => {
-        const [result] = await tx
-          .update(tradeQuotations)
-          .set({ status: "expired", updatedAt: new Date() })
-          .where(eq(tradeQuotations.id, id))
-          .returning();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.trade_quotations.update({
+          where: { id },
+          data: { status: "expired", updated_at: new Date() },
+        });
 
         await this.logEvent(tx, id, "expired", "system", {
           validUntil: validUntilDate.toISOString(),
         });
 
-        return [result];
+        return result;
       });
 
       logger.info("[QuotationService] Quotation expired", {
@@ -1117,17 +1112,15 @@ export class QuotationService {
    * Validate seller owns the quotation
    */
   async validateSellerOwnership(quotationId: string, sellerId: string): Promise<void> {
-    const [quotation] = await db
-      .select()
-      .from(tradeQuotations)
-      .where(eq(tradeQuotations.id, quotationId))
-      .limit(1);
+    const quotation = await prisma.trade_quotations.findFirst({
+      where: { id: quotationId }
+    });
 
     if (!quotation) {
       throw new Error("Quotation not found");
     }
 
-    if (quotation.sellerId !== sellerId) {
+    if (quotation.seller_id !== sellerId) {
       throw new Error("Unauthorized: You do not own this quotation");
     }
   }
@@ -1146,11 +1139,13 @@ export class QuotationService {
     performedBy: string,
     payload?: any
   ): Promise<void> {
-    await tx.insert(tradeQuotationEvents).values({
-      quotationId,
-      eventType,
-      performedBy,
-      payload: payload || null,
+    await tx.trade_quotation_events.create({
+      data: {
+        quotation_id: quotationId,
+        event_type: eventType,
+        performed_by: performedBy,
+        payload: payload || null,
+      },
     });
   }
 
@@ -1159,13 +1154,12 @@ export class QuotationService {
    */
   async getQuotationEvents(quotationId: string): Promise<TradeQuotationEvent[]> {
     try {
-      const events = await db
-        .select()
-        .from(tradeQuotationEvents)
-        .where(eq(tradeQuotationEvents.quotationId, quotationId))
-        .orderBy(desc(tradeQuotationEvents.createdAt));
+      const events = await prisma.trade_quotation_events.findMany({
+        where: { quotation_id: quotationId },
+        orderBy: { created_at: 'desc' }
+      });
 
-      return events;
+      return events as any;
     } catch (error: any) {
       logger.error("[QuotationService] Failed to get quotation events", {
         error: error.message,
@@ -1187,16 +1181,20 @@ export class QuotationService {
     const prefix = `QT-${year}-`;
 
     // Get the last quotation number for this year
-    const [lastQuotation] = await db
-      .select()
-      .from(tradeQuotations)
-      .where(sql`${tradeQuotations.quotationNumber} LIKE ${prefix + '%'}`)
-      .orderBy(desc(tradeQuotations.quotationNumber))
-      .limit(1);
+    const lastQuotation = await prisma.trade_quotations.findFirst({
+      where: {
+        quotation_number: {
+          startsWith: prefix
+        }
+      },
+      orderBy: {
+        quotation_number: 'desc'
+      }
+    });
 
     let nextNumber = 1;
     if (lastQuotation) {
-      const lastNumber = parseInt(lastQuotation.quotationNumber.split("-")[2]);
+      const lastNumber = parseInt(lastQuotation.quotation_number.split("-")[2]);
       nextNumber = lastNumber + 1;
     }
 
@@ -1209,13 +1207,12 @@ export class QuotationService {
    */
   async getPaymentSchedules(quotationId: string): Promise<TradePaymentSchedule[]> {
     try {
-      const schedules = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(eq(tradePaymentSchedules.quotationId, quotationId))
-        .orderBy(tradePaymentSchedules.paymentType);
+      const schedules = await prisma.trade_payment_schedules.findMany({
+        where: { quotation_id: quotationId },
+        orderBy: { payment_type: 'asc' }
+      });
 
-      return schedules;
+      return schedules as any;
     } catch (error: any) {
       logger.error("[QuotationService] Failed to get payment schedules", {
         error: error.message,
@@ -1232,17 +1229,18 @@ export class QuotationService {
   async findExpiredQuotations(): Promise<TradeQuotation[]> {
     try {
       const now = new Date();
-      const quotations = await db
-        .select()
-        .from(tradeQuotations)
-        .where(
-          and(
-            inArray(tradeQuotations.status, ["sent", "viewed"]),
-            sql`${tradeQuotations.validUntil} < ${now}`
-          )
-        );
+      const quotations = await prisma.trade_quotations.findMany({
+        where: {
+          status: {
+            in: ["sent", "viewed"]
+          },
+          valid_until: {
+            lt: now
+          }
+        }
+      });
 
-      return quotations;
+      return quotations as any;
     } catch (error: any) {
       logger.error("[QuotationService] Failed to find expired quotations", {
         error: error.message,

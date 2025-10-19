@@ -16,8 +16,7 @@ import type { QuotationEmailService } from './quotation-email.service';
 import type { StripeConnectService } from './stripe-connect.service';
 import type { NotificationService } from '../notifications';
 import type { TradePaymentSchedule, InsertTradePaymentSchedule } from '@shared/schema';
-import { tradePaymentSchedules, tradeQuotationEvents } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { prisma } from '../prisma';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -59,24 +58,18 @@ export class QuotationPaymentService {
         return { success: false, error: 'Stripe is not configured' };
       }
 
-      const db = storage.db;
-
       // 1. Check for existing pending deposit schedule
-      const [existingSchedule] = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(
-          and(
-            eq(tradePaymentSchedules.quotationId, quotationId),
-            eq(tradePaymentSchedules.paymentType, 'deposit')
-          )
-        )
-        .limit(1);
+      const existingSchedule = await prisma.trade_payment_schedules.findFirst({
+        where: {
+          quotation_id: quotationId,
+          payment_type: 'deposit'
+        }
+      });
 
-      if (existingSchedule && existingSchedule.status === 'pending' && existingSchedule.stripePaymentIntentId) {
+      if (existingSchedule && existingSchedule.status === 'pending' && existingSchedule.stripe_payment_intent_id) {
         // Return existing payment intent
         const existingIntent = await this.stripe.paymentIntents.retrieve(
-          existingSchedule.stripePaymentIntentId
+          existingSchedule.stripe_payment_intent_id
         );
 
         logger.info('[QuotationPaymentService] Returning existing deposit PaymentIntent', {
@@ -133,24 +126,26 @@ export class QuotationPaymentService {
 
       // 6. Create payment schedule record (or update if exists)
       if (existingSchedule) {
-        await db
-          .update(tradePaymentSchedules)
-          .set({
-            stripePaymentIntentId: paymentIntent.id,
+        await prisma.trade_payment_schedules.update({
+          where: { id: existingSchedule.id },
+          data: {
+            stripe_payment_intent_id: paymentIntent.id,
             amount: quotation.depositAmount,
-            dueDate: new Date(),
+            due_date: new Date(),
             status: 'pending',
-            updatedAt: new Date(),
-          })
-          .where(eq(tradePaymentSchedules.id, existingSchedule.id));
+            updated_at: new Date(),
+          },
+        });
       } else {
-        await db.insert(tradePaymentSchedules).values({
-          quotationId: quotation.id,
-          paymentType: 'deposit',
-          amount: quotation.depositAmount,
-          dueDate: new Date(),
-          status: 'pending',
-          stripePaymentIntentId: paymentIntent.id,
+        await prisma.trade_payment_schedules.create({
+          data: {
+            quotation_id: quotation.id,
+            payment_type: 'deposit',
+            amount: quotation.depositAmount,
+            due_date: new Date(),
+            status: 'pending',
+            stripe_payment_intent_id: paymentIntent.id,
+          },
         });
       }
 
@@ -183,24 +178,18 @@ export class QuotationPaymentService {
         return { success: false, error: 'Stripe is not configured' };
       }
 
-      const db = storage.db;
-
       // 1. Check for existing pending balance schedule
-      const [existingSchedule] = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(
-          and(
-            eq(tradePaymentSchedules.quotationId, quotationId),
-            eq(tradePaymentSchedules.paymentType, 'balance')
-          )
-        )
-        .limit(1);
+      const existingSchedule = await prisma.trade_payment_schedules.findFirst({
+        where: {
+          quotation_id: quotationId,
+          payment_type: 'balance'
+        }
+      });
 
-      if (existingSchedule && existingSchedule.status === 'pending' && existingSchedule.stripePaymentIntentId) {
+      if (existingSchedule && existingSchedule.status === 'pending' && existingSchedule.stripe_payment_intent_id) {
         // Return existing payment intent
         const existingIntent = await this.stripe.paymentIntents.retrieve(
-          existingSchedule.stripePaymentIntentId
+          existingSchedule.stripe_payment_intent_id
         );
 
         logger.info('[QuotationPaymentService] Returning existing balance PaymentIntent', {
@@ -257,24 +246,26 @@ export class QuotationPaymentService {
 
       // 6. Create payment schedule record (or update if exists)
       if (existingSchedule) {
-        await db
-          .update(tradePaymentSchedules)
-          .set({
-            stripePaymentIntentId: paymentIntent.id,
+        await prisma.trade_payment_schedules.update({
+          where: { id: existingSchedule.id },
+          data: {
+            stripe_payment_intent_id: paymentIntent.id,
             amount: quotation.balanceAmount,
-            dueDate: new Date(),
+            due_date: new Date(),
             status: 'pending',
-            updatedAt: new Date(),
-          })
-          .where(eq(tradePaymentSchedules.id, existingSchedule.id));
+            updated_at: new Date(),
+          },
+        });
       } else {
-        await db.insert(tradePaymentSchedules).values({
-          quotationId: quotation.id,
-          paymentType: 'balance',
-          amount: quotation.balanceAmount,
-          dueDate: new Date(),
-          status: 'pending',
-          stripePaymentIntentId: paymentIntent.id,
+        await prisma.trade_payment_schedules.create({
+          data: {
+            quotation_id: quotation.id,
+            payment_type: 'balance',
+            amount: quotation.balanceAmount,
+            due_date: new Date(),
+            status: 'pending',
+            stripe_payment_intent_id: paymentIntent.id,
+          },
         });
       }
 
@@ -303,19 +294,13 @@ export class QuotationPaymentService {
    */
   async handleDepositPaidWebhook(paymentIntentId: string): Promise<PaymentWebhookResult> {
     try {
-      const db = storage.db;
-
       // 1. Find payment schedule by stripePaymentIntentId
-      const [schedule] = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(
-          and(
-            eq(tradePaymentSchedules.stripePaymentIntentId, paymentIntentId),
-            eq(tradePaymentSchedules.paymentType, 'deposit')
-          )
-        )
-        .limit(1);
+      const schedule = await prisma.trade_payment_schedules.findFirst({
+        where: {
+          stripe_payment_intent_id: paymentIntentId,
+          payment_type: 'deposit'
+        }
+      });
 
       if (!schedule) {
         logger.warn('[QuotationPaymentService] Payment schedule not found for deposit webhook', {
@@ -325,35 +310,37 @@ export class QuotationPaymentService {
       }
 
       // 2. Mark schedule as paid
-      await db
-        .update(tradePaymentSchedules)
-        .set({ 
+      await prisma.trade_payment_schedules.update({
+        where: { id: schedule.id },
+        data: { 
           status: 'paid',
-          paidAt: new Date(),
-        })
-        .where(eq(tradePaymentSchedules.id, schedule.id));
+          paid_at: new Date(),
+        },
+      });
 
       // 3. Update quotation status to deposit_paid
-      await this.quotationService.markDepositPaid(schedule.quotationId, paymentIntentId, 'system');
+      await this.quotationService.markDepositPaid(schedule.quotation_id, paymentIntentId, 'system');
 
       // 4. Log event
-      await db.insert(tradeQuotationEvents).values({
-        quotationId: schedule.quotationId,
-        eventType: 'deposit_paid',
-        performedBy: 'system',
-        payload: {
-          paymentIntentId,
-          amount: schedule.amount,
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: schedule.quotation_id,
+          event_type: 'deposit_paid',
+          performed_by: 'system',
+          payload: {
+            paymentIntentId,
+            amount: schedule.amount,
+          },
         },
       });
 
       // 5. Send deposit paid email to seller (old method)
-      await this.emailService.sendDepositPaidEmail(schedule.quotationId);
+      await this.emailService.sendDepositPaidEmail(schedule.quotation_id);
 
       // 6. Send deposit received notifications to seller and buyer (new method)
       if (this.notificationService) {
         try {
-          const quotation = await this.quotationService.getQuotation(schedule.quotationId);
+          const quotation = await this.quotationService.getQuotation(schedule.quotation_id);
           if (quotation) {
             const seller = await this.storage.getUser(quotation.sellerId);
             if (seller) {
@@ -363,7 +350,7 @@ export class QuotationPaymentService {
                 { email: quotation.buyerEmail, name: quotation.buyerName || undefined }
               );
               logger.info('[QuotationPaymentService] Trade deposit received notifications sent', {
-                quotationId: schedule.quotationId,
+                quotationId: schedule.quotation_id,
                 sellerId: seller.id,
                 buyerEmail: quotation.buyerEmail
               });
@@ -372,13 +359,13 @@ export class QuotationPaymentService {
         } catch (notifError: any) {
           logger.error('[QuotationPaymentService] Failed to send deposit notifications', {
             error: notifError.message,
-            quotationId: schedule.quotationId
+            quotationId: schedule.quotation_id
           });
         }
       }
 
       logger.info('[QuotationPaymentService] Deposit payment processed', {
-        quotationId: schedule.quotationId,
+        quotationId: schedule.quotation_id,
         paymentIntentId,
         amount: schedule.amount,
       });
@@ -398,19 +385,13 @@ export class QuotationPaymentService {
    */
   async handleBalancePaidWebhook(paymentIntentId: string): Promise<PaymentWebhookResult> {
     try {
-      const db = storage.db;
-
       // 1. Find payment schedule by stripePaymentIntentId
-      const [schedule] = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(
-          and(
-            eq(tradePaymentSchedules.stripePaymentIntentId, paymentIntentId),
-            eq(tradePaymentSchedules.paymentType, 'balance')
-          )
-        )
-        .limit(1);
+      const schedule = await prisma.trade_payment_schedules.findFirst({
+        where: {
+          stripe_payment_intent_id: paymentIntentId,
+          payment_type: 'balance'
+        }
+      });
 
       if (!schedule) {
         logger.warn('[QuotationPaymentService] Payment schedule not found for balance webhook', {
@@ -420,35 +401,37 @@ export class QuotationPaymentService {
       }
 
       // 2. Mark schedule as paid
-      await db
-        .update(tradePaymentSchedules)
-        .set({ 
+      await prisma.trade_payment_schedules.update({
+        where: { id: schedule.id },
+        data: { 
           status: 'paid',
-          paidAt: new Date(),
-        })
-        .where(eq(tradePaymentSchedules.id, schedule.id));
+          paid_at: new Date(),
+        },
+      });
 
       // 3. Update quotation status to fully_paid
-      await this.quotationService.markFullyPaid(schedule.quotationId, paymentIntentId, 'system');
+      await this.quotationService.markFullyPaid(schedule.quotation_id, paymentIntentId, 'system');
 
       // 4. Log event
-      await db.insert(tradeQuotationEvents).values({
-        quotationId: schedule.quotationId,
-        eventType: 'balance_paid',
-        performedBy: 'system',
-        payload: {
-          paymentIntentId,
-          amount: schedule.amount,
+      await prisma.trade_quotation_events.create({
+        data: {
+          quotation_id: schedule.quotation_id,
+          event_type: 'balance_paid',
+          performed_by: 'system',
+          payload: {
+            paymentIntentId,
+            amount: schedule.amount,
+          },
         },
       });
 
       // 5. Send balance paid email to seller (old method)
-      await this.emailService.sendBalancePaidEmail(schedule.quotationId);
+      await this.emailService.sendBalancePaidEmail(schedule.quotation_id);
 
       // 6. Send balance received notifications to seller and buyer (new method)
       if (this.notificationService) {
         try {
-          const quotation = await this.quotationService.getQuotation(schedule.quotationId);
+          const quotation = await this.quotationService.getQuotation(schedule.quotation_id);
           if (quotation) {
             const seller = await this.storage.getUser(quotation.sellerId);
             if (seller) {
@@ -458,7 +441,7 @@ export class QuotationPaymentService {
                 { email: quotation.buyerEmail, name: quotation.buyerName || undefined }
               );
               logger.info('[QuotationPaymentService] Trade balance received notifications sent', {
-                quotationId: schedule.quotationId,
+                quotationId: schedule.quotation_id,
                 sellerId: seller.id,
                 buyerEmail: quotation.buyerEmail
               });
@@ -467,13 +450,13 @@ export class QuotationPaymentService {
         } catch (notifError: any) {
           logger.error('[QuotationPaymentService] Failed to send balance notifications', {
             error: notifError.message,
-            quotationId: schedule.quotationId
+            quotationId: schedule.quotation_id
           });
         }
       }
 
       logger.info('[QuotationPaymentService] Balance payment processed', {
-        quotationId: schedule.quotationId,
+        quotationId: schedule.quotation_id,
         paymentIntentId,
         amount: schedule.amount,
       });
@@ -493,15 +476,16 @@ export class QuotationPaymentService {
    */
   async getPaymentSchedules(quotationId: string): Promise<TradePaymentSchedule[]> {
     try {
-      const db = storage.db;
+      const schedules = await prisma.trade_payment_schedules.findMany({
+        where: {
+          quotation_id: quotationId
+        },
+        orderBy: {
+          created_at: 'asc'
+        }
+      });
 
-      const schedules = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(eq(tradePaymentSchedules.quotationId, quotationId))
-        .orderBy(tradePaymentSchedules.createdAt);
-
-      return schedules;
+      return schedules as any;
     } catch (error: any) {
       logger.error('[QuotationPaymentService] Failed to get payment schedules', {
         error: error.message,
@@ -516,19 +500,13 @@ export class QuotationPaymentService {
    */
   async isDepositPaid(quotationId: string): Promise<boolean> {
     try {
-      const db = storage.db;
-
-      const [schedule] = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(
-          and(
-            eq(tradePaymentSchedules.quotationId, quotationId),
-            eq(tradePaymentSchedules.paymentType, 'deposit'),
-            eq(tradePaymentSchedules.status, 'paid')
-          )
-        )
-        .limit(1);
+      const schedule = await prisma.trade_payment_schedules.findFirst({
+        where: {
+          quotation_id: quotationId,
+          payment_type: 'deposit',
+          status: 'paid'
+        }
+      });
 
       return !!schedule;
     } catch (error: any) {
@@ -545,19 +523,13 @@ export class QuotationPaymentService {
    */
   async isBalancePaid(quotationId: string): Promise<boolean> {
     try {
-      const db = storage.db;
-
-      const [schedule] = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(
-          and(
-            eq(tradePaymentSchedules.quotationId, quotationId),
-            eq(tradePaymentSchedules.paymentType, 'balance'),
-            eq(tradePaymentSchedules.status, 'paid')
-          )
-        )
-        .limit(1);
+      const schedule = await prisma.trade_payment_schedules.findFirst({
+        where: {
+          quotation_id: quotationId,
+          payment_type: 'balance',
+          status: 'paid'
+        }
+      });
 
       return !!schedule;
     } catch (error: any) {
