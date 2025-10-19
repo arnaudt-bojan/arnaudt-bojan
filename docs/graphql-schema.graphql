@@ -1,0 +1,2811 @@
+# ============================================================================
+# Upfirst Platform GraphQL Schema
+# ============================================================================
+# Comprehensive GraphQL API for the Upfirst e-commerce platform
+# Supports B2C retail, B2B wholesale, trade quotations, marketing, and more
+# Schema Design: Relay-style pagination, modular domain organization
+# ============================================================================
+
+# ============================================================================
+# Shared Scalars
+# ============================================================================
+
+"""ISO 8601 date-time string (e.g., "2025-10-19T19:22:00Z")"""
+scalar DateTime
+
+"""Arbitrary JSON data for flexible object storage"""
+scalar JSON
+
+"""Precise decimal values for currency and percentages (e.g., "19.99")"""
+scalar Decimal
+
+"""Validated URL string (e.g., "https://example.com")"""
+scalar URL
+
+# ============================================================================
+# Shared Enums
+# ============================================================================
+
+enum Currency {
+  USD
+  EUR
+  GBP
+  CAD
+  AUD
+  JPY
+  CNY
+  INR
+}
+
+enum OrderStatus {
+  PENDING
+  AWAITING_PAYMENT
+  DEPOSIT_PAID
+  AWAITING_BALANCE
+  BALANCE_OVERDUE
+  PAID
+  PROCESSING
+  IN_PRODUCTION
+  READY_TO_SHIP
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  REQUESTED
+  SUCCEEDED
+  PAID
+  FAILED
+  CANCELLED
+  OVERDUE
+  REFUNDED
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  IN_TRANSIT
+  DELIVERED
+}
+
+enum InventoryStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  BACKORDER
+  DISCONTINUED
+}
+
+enum WholesaleInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  DEPOSIT_PAID
+  BALANCE_DUE
+  FULLY_PAID
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_PAYMENT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum DomainStatus {
+  PENDING_VERIFICATION
+  DNS_VERIFIED
+  SSL_PROVISIONING
+  ACTIVE
+  ERROR
+  DEACTIVATED
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum BackgroundJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum UserType {
+  SELLER
+  BUYER
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+# ============================================================================
+# Relay-Style Pagination
+# ============================================================================
+
+"""Page information for cursor-based pagination"""
+type PageInfo {
+  """Indicates if there are more items after the current page"""
+  hasNextPage: Boolean!
+  
+  """Indicates if there are items before the current page"""
+  hasPreviousPage: Boolean!
+  
+  """Cursor of the first item in the current page"""
+  startCursor: String
+  
+  """Cursor of the last item in the current page"""
+  endCursor: String
+}
+
+# ============================================================================
+# Module 1: Identity & Access
+# ============================================================================
+
+"""Platform user account (buyer or seller)"""
+type User {
+  id: ID!
+  email: String!
+  username: String
+  fullName: String
+  userType: UserType!
+  profileImageUrl: URL
+  phoneNumber: String
+  
+  """Seller account details if user is a seller"""
+  sellerAccount: SellerAccount
+  
+  """Buyer profile details if user is a buyer"""
+  buyerProfile: BuyerProfile
+  
+  """Team memberships across different stores"""
+  teamMemberships: [TeamMembership!]!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Seller account with business information"""
+type SellerAccount {
+  id: ID!
+  userId: ID!
+  user: User!
+  
+  storeName: String!
+  storeSlug: String!
+  businessName: String
+  businessEmail: String
+  businessPhone: String
+  
+  """Stripe Connect account ID for payments"""
+  stripeAccountId: String
+  
+  """Current subscription tier"""
+  subscriptionTier: SubscriptionTier!
+  
+  """Store branding and customization"""
+  brandColor: String
+  logoUrl: URL
+  
+  """Homepage configuration"""
+  homepage: SellerHomepage
+  
+  """Connected custom domains"""
+  domains: [DomainConnection!]!
+  
+  """Notification preferences"""
+  notificationSettings: JSON
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Buyer profile for B2B wholesale customers"""
+type BuyerProfile {
+  id: ID!
+  userId: ID!
+  user: User!
+  
+  companyName: String
+  vatNumber: String
+  
+  billingAddress: Address
+  shippingAddress: Address
+  
+  """Default payment terms (e.g., "Net 30")"""
+  defaultPaymentTerms: String
+  
+  """Credit limit for wholesale purchases"""
+  creditLimit: Decimal
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Physical address"""
+type Address {
+  fullName: String
+  addressLine1: String!
+  addressLine2: String
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
+  phone: String
+}
+
+"""Seller homepage configuration"""
+type SellerHomepage {
+  id: ID!
+  sellerId: ID!
+  status: String!
+  templateKey: String!
+  
+  headline: String!
+  bodyCopy: String!
+  
+  heroMediaUrl: URL
+  heroMediaType: String
+  
+  ctaLabel: String
+  ctaUrl: URL
+  
+  musicEnabled: Boolean!
+  autoRedirectToHomepage: Boolean!
+  
+  lastPublishedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Authentication token for login"""
+type AuthToken {
+  id: ID!
+  email: String!
+  token: String!
+  code: String
+  tokenType: String
+  expiresAt: DateTime!
+  used: Boolean!
+  sellerContext: String
+  createdAt: DateTime!
+}
+
+"""Team membership granting access to a seller's store"""
+type TeamMembership {
+  id: ID!
+  userId: ID!
+  storeOwnerId: ID!
+  
+  """Store owner/seller"""
+  storeOwner: User!
+  
+  """Team member"""
+  teamMember: User!
+  
+  """Capabilities granted (JSON array)"""
+  capabilities: JSON!
+  
+  createdAt: DateTime!
+}
+
+# ============================================================================
+# Module 2: Catalog & Inventory
+# ============================================================================
+
+"""Product in a seller's catalog"""
+type Product {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  name: String!
+  description: String!
+  price: Decimal!
+  
+  """Primary product image"""
+  image: URL!
+  
+  """Additional product images"""
+  images: [URL!]!
+  
+  category: String!
+  productType: String!
+  status: ProductStatus!
+  
+  """SKU for inventory tracking"""
+  sku: String
+  
+  """Current stock level"""
+  stock: Int!
+  
+  """Product variants (sizes, colors, etc.)"""
+  variants: JSON
+  
+  """Deposit payment settings"""
+  requiresDeposit: Boolean!
+  depositAmount: Decimal
+  
+  """Made-to-order lead time in days"""
+  madeToOrderDays: Int
+  
+  """Pre-order availability date"""
+  preOrderDate: DateTime
+  
+  """Promotion settings"""
+  promotionActive: Boolean!
+  discountPercentage: Decimal
+  promotionEndDate: DateTime
+  
+  """Shipping configuration"""
+  shippingType: String
+  flatShippingRate: Decimal
+  
+  """Package dimensions for shipping"""
+  shippoWeight: Decimal
+  shippoLength: Decimal
+  shippoWidth: Decimal
+  shippoHeight: Decimal
+  
+  """Stock level information"""
+  inventoryStatus: InventoryStatus!
+  
+  """Active stock reservations"""
+  stockReservations: [StockReservation!]!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Product variant (size, color, etc.)"""
+type ProductVariant {
+  id: ID!
+  productId: ID!
+  product: Product!
+  
+  name: String!
+  sku: String
+  price: Decimal
+  stock: Int!
+  
+  """Variant attributes (e.g., {"size": "L", "color": "Blue"})"""
+  attributes: JSON!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Stock keeping unit for precise inventory tracking"""
+type SKU {
+  id: ID!
+  productId: ID!
+  variantId: ID
+  
+  skuCode: String!
+  
+  """Current quantity on hand"""
+  quantityOnHand: Int!
+  
+  """Quantity reserved for pending orders"""
+  quantityReserved: Int!
+  
+  """Available quantity for new orders"""
+  quantityAvailable: Int!
+  
+  """Reorder point for low stock alerts"""
+  reorderPoint: Int
+  
+  updatedAt: DateTime!
+}
+
+"""Product category for organization"""
+type Category {
+  id: ID!
+  name: String!
+  slug: String!
+  
+  """Parent category for hierarchical organization"""
+  parentId: ID
+  parent: Category
+  
+  """Nesting level (0 = top-level)"""
+  level: Int!
+  
+  """Child categories"""
+  children: [Category!]!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Temporary stock reservation for cart/checkout"""
+type StockReservation {
+  id: ID!
+  productId: ID!
+  product: Product!
+  
+  variantId: ID
+  quantity: Int!
+  
+  """Associated order if reservation is committed"""
+  orderId: ID
+  
+  """Session ID for cart reservations"""
+  sessionId: String
+  
+  """User ID for logged-in reservations"""
+  userId: ID
+  
+  status: String!
+  expiresAt: DateTime!
+  
+  createdAt: DateTime!
+  committedAt: DateTime
+  releasedAt: DateTime
+}
+
+"""Stock level snapshot"""
+type StockLevel {
+  productId: ID!
+  product: Product!
+  
+  totalStock: Int!
+  availableStock: Int!
+  reservedStock: Int!
+  
+  """Low stock threshold"""
+  lowStockThreshold: Int
+  
+  inventoryStatus: InventoryStatus!
+  
+  lastUpdated: DateTime!
+}
+
+# ============================================================================
+# Module 2: Pagination Types for Catalog
+# ============================================================================
+
+type ProductEdge {
+  node: Product!
+  cursor: String!
+}
+
+type ProductConnection {
+  edges: [ProductEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 3: Cart & Checkout
+# ============================================================================
+
+"""Shopping cart"""
+type Cart {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  """Buyer ID if logged in"""
+  buyerId: ID
+  buyer: User
+  
+  """Cart line items"""
+  items: [CartItem!]!
+  
+  """Cart status"""
+  status: String!
+  
+  """Current session associated with cart"""
+  currentSession: CartSession
+  
+  """Cart subtotal"""
+  subtotal: Decimal!
+  
+  """Number of items in cart"""
+  itemCount: Int!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Single item in shopping cart"""
+type CartItem {
+  productId: ID!
+  product: Product!
+  
+  variantId: ID
+  variant: ProductVariant
+  
+  quantity: Int!
+  unitPrice: Decimal!
+  lineTotal: Decimal!
+  
+  """Stock reservation for this cart item"""
+  reservation: StockReservation
+}
+
+"""Cart session for anonymous users"""
+type CartSession {
+  sessionId: ID!
+  cartId: ID!
+  cart: Cart!
+  
+  lastSeen: DateTime!
+}
+
+"""Checkout session with pricing and payment"""
+type CheckoutSession {
+  id: ID!
+  cartId: ID!
+  cart: Cart!
+  
+  """Pricing breakdown"""
+  subtotal: Decimal!
+  shippingCost: Decimal!
+  taxAmount: Decimal!
+  total: Decimal!
+  
+  """Currency for checkout"""
+  currency: Currency!
+  
+  """Shipping address"""
+  shippingAddress: Address
+  
+  """Billing address"""
+  billingAddress: Address
+  
+  """Payment intent for processing"""
+  paymentIntentId: ID
+  paymentIntent: PaymentIntent
+  
+  """Checkout session status"""
+  status: String!
+  
+  """Session expiration"""
+  expiresAt: DateTime!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============================================================================
+# Module 4: Orders & Payments
+# ============================================================================
+
+"""Customer order"""
+type Order {
+  id: ID!
+  orderNumber: String!
+  
+  sellerId: ID!
+  seller: User!
+  
+  buyerId: ID
+  buyer: User
+  
+  """Order line items"""
+  items: [OrderItem!]!
+  
+  """Order status"""
+  status: OrderStatus!
+  
+  """Fulfillment status"""
+  fulfillmentStatus: FulfillmentStatus!
+  
+  """Payment status"""
+  paymentStatus: PaymentStatus!
+  
+  """Pricing"""
+  subtotal: Decimal!
+  shippingCost: Decimal!
+  taxAmount: Decimal!
+  totalAmount: Decimal!
+  currency: Currency!
+  
+  """Deposit payment (if required)"""
+  depositAmount: Decimal
+  depositPercentage: Int
+  
+  """Balance payment"""
+  balanceDue: Decimal
+  balancePaymentStatus: PaymentStatus
+  balancePaidAt: DateTime
+  
+  """Customer details"""
+  customerName: String!
+  customerEmail: String!
+  customerPhone: String
+  
+  """Addresses"""
+  shippingAddress: Address!
+  billingAddress: Address
+  
+  """Shipping information"""
+  trackingNumber: String
+  carrier: String
+  shippingLabel: ShippingLabel
+  
+  """Payment information"""
+  paymentIntentId: ID
+  paymentIntent: PaymentIntent
+  
+  """Order events timeline"""
+  events: [OrderEvent!]!
+  
+  """Generated documents"""
+  invoice: Invoice
+  packingSlip: PackingSlip
+  
+  """Order notes"""
+  buyerNotes: String
+  sellerNotes: String
+  
+  """Refunds"""
+  refunds: [Refund!]!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  paidAt: DateTime
+}
+
+"""Line item in an order"""
+type OrderItem {
+  id: ID!
+  orderId: ID!
+  
+  productId: ID!
+  product: Product!
+  
+  variantId: ID
+  
+  """Item details at time of order"""
+  productName: String!
+  productImage: URL
+  variantDetails: JSON
+  
+  quantity: Int!
+  unitPrice: Decimal!
+  lineTotal: Decimal!
+  
+  """Fulfillment status for this item"""
+  fulfillmentStatus: FulfillmentStatus!
+  
+  createdAt: DateTime!
+}
+
+"""Payment intent for processing payments"""
+type PaymentIntent {
+  id: ID!
+  
+  """Payment provider (e.g., "stripe")"""
+  providerName: String!
+  
+  """Provider-specific intent ID"""
+  providerIntentId: String!
+  
+  amount: Int!
+  currency: Currency!
+  status: PaymentStatus!
+  
+  """Client secret for frontend payment confirmation"""
+  clientSecret: String
+  
+  """Additional metadata"""
+  metadata: JSON
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Refund for an order"""
+type Refund {
+  id: ID!
+  orderId: ID!
+  order: Order!
+  
+  """Refund line items"""
+  lineItems: [RefundLineItem!]!
+  
+  totalAmount: Decimal!
+  currency: Currency!
+  
+  reason: String
+  
+  """Stripe refund ID"""
+  stripeRefundId: String
+  
+  status: PaymentStatus!
+  
+  """Admin who processed refund"""
+  processedBy: ID!
+  processedByUser: User!
+  
+  createdAt: DateTime!
+}
+
+"""Line item in a refund"""
+type RefundLineItem {
+  id: ID!
+  refundId: ID!
+  
+  """Original order item being refunded"""
+  orderItemId: ID
+  orderItem: OrderItem
+  
+  """Type of refund (product, shipping, tax, adjustment)"""
+  type: String!
+  
+  """Quantity being refunded (for product refunds)"""
+  quantity: Int
+  
+  amount: Decimal!
+  description: String
+  
+  createdAt: DateTime!
+}
+
+"""Shipping label"""
+type ShippingLabel {
+  id: ID!
+  orderId: ID!
+  order: Order!
+  
+  sellerId: ID!
+  
+  """Shippo transaction ID"""
+  shippoTransactionId: String
+  shippoRateId: String
+  
+  """Label costs"""
+  baseCostUsd: Decimal!
+  markupPercent: Decimal
+  totalChargedUsd: Decimal!
+  
+  """Label details"""
+  labelUrl: URL
+  trackingNumber: String
+  carrier: String
+  serviceLevelName: String
+  
+  status: String!
+  
+  purchasedAt: DateTime
+  voidedAt: DateTime
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Shipment tracking information"""
+type Shipment {
+  id: ID!
+  orderId: ID!
+  order: Order!
+  
+  trackingNumber: String!
+  carrier: String!
+  
+  """Shipment status"""
+  status: String!
+  
+  """Tracking events"""
+  events: [ShipmentEvent!]!
+  
+  estimatedDeliveryDate: DateTime
+  actualDeliveryDate: DateTime
+  
+  shippedAt: DateTime
+  deliveredAt: DateTime
+}
+
+"""Shipment tracking event"""
+type ShipmentEvent {
+  timestamp: DateTime!
+  location: String
+  status: String!
+  description: String!
+}
+
+"""Order lifecycle event"""
+type OrderEvent {
+  id: ID!
+  orderId: ID!
+  
+  """Event type"""
+  eventType: String!
+  
+  """Event description"""
+  description: String!
+  
+  """Event metadata"""
+  metadata: JSON
+  
+  """User who triggered event"""
+  performedBy: ID
+  performedByUser: User
+  
+  createdAt: DateTime!
+}
+
+"""Fulfillment event for order processing"""
+type FulfillmentEvent {
+  id: ID!
+  orderId: ID!
+  order: Order!
+  
+  """Items being fulfilled"""
+  items: [OrderItem!]!
+  
+  status: FulfillmentStatus!
+  
+  """Tracking information"""
+  trackingNumber: String
+  carrier: String
+  
+  """Fulfillment notes"""
+  notes: String
+  
+  createdAt: DateTime!
+}
+
+"""Invoice document"""
+type Invoice {
+  id: ID!
+  orderId: ID!
+  order: Order!
+  
+  sellerId: ID!
+  invoiceNumber: String!
+  
+  """Document URL"""
+  documentUrl: URL!
+  documentType: String!
+  
+  """Order type (retail or wholesale)"""
+  orderType: String!
+  
+  """Invoice totals"""
+  totalAmount: Decimal!
+  taxAmount: Decimal!
+  currency: Currency!
+  
+  """B2B invoice fields"""
+  poNumber: String
+  vatNumber: String
+  incoterms: String
+  paymentTerms: String
+  
+  """Generation metadata"""
+  generatedBy: ID
+  generationTrigger: String!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Packing slip document"""
+type PackingSlip {
+  id: ID!
+  orderId: ID!
+  order: Order!
+  
+  sellerId: ID!
+  packingSlipNumber: String!
+  
+  """Document URL"""
+  documentUrl: URL!
+  
+  """Warehouse notes"""
+  warehouseNotes: String
+  giftMessage: String
+  
+  """Include pricing on slip"""
+  includesPricing: Boolean!
+  
+  """Generation metadata"""
+  generatedBy: ID
+  generationTrigger: String!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============================================================================
+# Module 4: Pagination Types for Orders
+# ============================================================================
+
+type OrderEdge {
+  node: Order!
+  cursor: String!
+}
+
+type OrderConnection {
+  edges: [OrderEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 5: Wholesale (B2B)
+# ============================================================================
+
+"""Wholesale B2B order"""
+type WholesaleOrder {
+  id: ID!
+  orderNumber: String!
+  
+  sellerId: ID!
+  seller: User!
+  
+  buyerId: ID!
+  buyer: User!
+  
+  """Order line items"""
+  items: [WholesaleOrderItem!]!
+  
+  status: OrderStatus!
+  paymentStatus: PaymentStatus!
+  
+  """Pricing"""
+  subtotal: Decimal!
+  shippingCost: Decimal!
+  taxAmount: Decimal!
+  totalAmount: Decimal!
+  currency: Currency!
+  
+  """Deposit payment"""
+  depositAmount: Decimal!
+  depositPercentage: Int!
+  depositPaidAt: DateTime
+  
+  """Balance payment"""
+  balanceDue: Decimal!
+  balanceRequestedAt: DateTime
+  balancePaidAt: DateTime
+  
+  """Payment terms"""
+  paymentTerms: String!
+  
+  """B2B specific fields"""
+  poNumber: String
+  vatNumber: String
+  incoterms: String
+  
+  """Addresses"""
+  shippingAddress: Address!
+  billingAddress: Address!
+  
+  """Shipping method"""
+  shippingType: String
+  
+  """Tracking"""
+  trackingNumber: String
+  carrier: String
+  
+  """Order events"""
+  events: [WholesaleOrderEvent!]!
+  
+  """Documents"""
+  invoice: Invoice
+  packingSlip: PackingSlip
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Line item in wholesale order"""
+type WholesaleOrderItem {
+  id: ID!
+  orderId: ID!
+  
+  productId: ID!
+  product: Product!
+  
+  """Wholesale-specific pricing"""
+  productName: String!
+  productSku: String
+  
+  quantity: Int!
+  unitPrice: Decimal!
+  lineTotal: Decimal!
+  
+  """Wholesale discount"""
+  discountPercentage: Decimal
+  
+  createdAt: DateTime!
+}
+
+"""Wholesale order event"""
+type WholesaleOrderEvent {
+  id: ID!
+  orderId: ID!
+  
+  eventType: String!
+  description: String
+  
+  """Event metadata"""
+  metadata: JSON
+  
+  performedBy: ID
+  performedByUser: User
+  
+  createdAt: DateTime!
+}
+
+"""Invitation to access wholesale products"""
+type WholesaleInvitation {
+  id: ID!
+  
+  sellerId: ID!
+  seller: User!
+  
+  buyerEmail: String!
+  
+  """Buyer ID once accepted"""
+  buyerId: ID
+  buyer: User
+  
+  status: WholesaleInvitationStatus!
+  
+  """Invitation token"""
+  token: String!
+  expiresAt: DateTime!
+  
+  acceptedAt: DateTime
+  rejectedAt: DateTime
+  
+  createdAt: DateTime!
+}
+
+"""Wholesale pricing tier for bulk discounts"""
+type WholesalePricingTier {
+  id: ID!
+  sellerId: ID!
+  
+  """Tier name"""
+  name: String!
+  
+  """Minimum order quantity"""
+  minQuantity: Int!
+  
+  """Discount percentage"""
+  discountPercentage: Decimal!
+  
+  """Applicable products"""
+  productIds: [ID!]!
+  
+  isActive: Boolean!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Wholesale access grant for buyer-seller relationship"""
+type WholesaleAccessGrant {
+  id: ID!
+  
+  sellerId: ID!
+  seller: User!
+  
+  buyerId: ID!
+  buyer: User!
+  
+  """Access status"""
+  isActive: Boolean!
+  
+  """Custom pricing tier"""
+  pricingTierId: ID
+  pricingTier: WholesalePricingTier
+  
+  grantedAt: DateTime!
+  revokedAt: DateTime
+}
+
+# ============================================================================
+# Module 5: Pagination Types for Wholesale
+# ============================================================================
+
+type WholesaleOrderEdge {
+  node: WholesaleOrder!
+  cursor: String!
+}
+
+type WholesaleOrderConnection {
+  edges: [WholesaleOrderEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type WholesaleInvitationEdge {
+  node: WholesaleInvitation!
+  cursor: String!
+}
+
+type WholesaleInvitationConnection {
+  edges: [WholesaleInvitationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 6: Quotations (Trade)
+# ============================================================================
+
+"""Trade quotation for custom pricing"""
+type Quotation {
+  id: ID!
+  quotationNumber: String!
+  
+  sellerId: ID!
+  seller: User!
+  
+  buyerEmail: String!
+  
+  """Buyer ID if accepted and registered"""
+  buyerId: ID
+  buyer: User
+  
+  status: QuotationStatus!
+  
+  """Line items"""
+  items: [QuotationLineItem!]!
+  
+  """Pricing"""
+  subtotal: Decimal!
+  taxAmount: Decimal!
+  shippingAmount: Decimal!
+  total: Decimal!
+  currency: Currency!
+  
+  """Payment schedule"""
+  depositAmount: Decimal!
+  depositPercentage: Int!
+  balanceAmount: Decimal!
+  
+  """Payment tracking"""
+  payments: [QuotationPayment!]!
+  
+  """Quotation validity"""
+  validUntil: DateTime
+  
+  """Trade terms"""
+  deliveryTerms: String
+  paymentTerms: String
+  
+  """Attached documents"""
+  dataSheetUrl: URL
+  termsAndConditionsUrl: URL
+  
+  """Activity log"""
+  activities: [QuotationActivity!]!
+  
+  """Associated order if accepted"""
+  orderId: ID
+  order: Order
+  
+  """Metadata"""
+  metadata: JSON
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Line item in a quotation"""
+type QuotationLineItem {
+  id: ID!
+  quotationId: ID!
+  
+  lineNumber: Int!
+  description: String!
+  
+  """Linked product (optional)"""
+  productId: ID
+  product: Product
+  
+  unitPrice: Decimal!
+  quantity: Int!
+  lineTotal: Decimal!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Payment for a quotation"""
+type QuotationPayment {
+  id: ID!
+  quotationId: ID!
+  quotation: Quotation!
+  
+  """Payment type (deposit or balance)"""
+  paymentType: String!
+  
+  amount: Decimal!
+  
+  """Due date"""
+  dueDate: DateTime
+  
+  status: PaymentStatus!
+  
+  """Stripe payment intent"""
+  stripePaymentIntentId: String
+  
+  paidAt: DateTime
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Activity event on a quotation"""
+type QuotationActivity {
+  id: ID!
+  quotationId: ID!
+  
+  eventType: String!
+  
+  """User who performed action"""
+  performedBy: ID!
+  performedByUser: User!
+  
+  """Event payload"""
+  payload: JSON
+  
+  createdAt: DateTime!
+}
+
+# ============================================================================
+# Module 6: Pagination Types for Quotations
+# ============================================================================
+
+type QuotationEdge {
+  node: Quotation!
+  cursor: String!
+}
+
+type QuotationConnection {
+  edges: [QuotationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 7: Subscriptions & Billing
+# ============================================================================
+
+"""Seller subscription plan"""
+type SellerSubscription {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  tier: SubscriptionTier!
+  
+  """Stripe subscription ID"""
+  stripeSubscriptionId: String
+  
+  """Subscription status"""
+  status: String!
+  
+  """Billing cycle"""
+  currentPeriodStart: DateTime!
+  currentPeriodEnd: DateTime!
+  
+  """Cancellation"""
+  cancelAtPeriodEnd: Boolean!
+  canceledAt: DateTime
+  
+  """Trial period"""
+  trialStart: DateTime
+  trialEnd: DateTime
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Subscription invoice"""
+type SubscriptionInvoice {
+  id: ID!
+  subscriptionId: ID!
+  subscription: SellerSubscription!
+  
+  """Stripe invoice ID"""
+  stripeInvoiceId: String!
+  
+  """Invoice details"""
+  amountDue: Decimal!
+  amountPaid: Decimal!
+  currency: Currency!
+  
+  status: String!
+  
+  """Invoice URLs"""
+  hostedInvoiceUrl: URL
+  invoicePdfUrl: URL
+  
+  """Billing period"""
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  
+  dueDate: DateTime
+  paidAt: DateTime
+  
+  createdAt: DateTime!
+}
+
+"""Stored payment method"""
+type StoredPaymentMethod {
+  id: ID!
+  userId: ID!
+  user: User!
+  
+  """Stripe payment method ID"""
+  stripePaymentMethodId: String!
+  
+  """Card details"""
+  cardBrand: String
+  cardLast4: String
+  cardExpMonth: Int
+  cardExpYear: Int
+  
+  """Default payment method"""
+  isDefault: Boolean!
+  
+  """User-friendly label"""
+  label: String
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Saved shipping/billing address"""
+type SavedAddress {
+  id: ID!
+  userId: ID!
+  user: User!
+  
+  """Address details"""
+  address: Address!
+  
+  """Default address"""
+  isDefault: Boolean!
+  
+  """User-friendly label"""
+  label: String
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============================================================================
+# Module 7: Pagination Types for Subscriptions
+# ============================================================================
+
+type SubscriptionInvoiceEdge {
+  node: SubscriptionInvoice!
+  cursor: String!
+}
+
+type SubscriptionInvoiceConnection {
+  edges: [SubscriptionInvoiceEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 8: Marketing (Meta Ads)
+# ============================================================================
+
+"""Meta (Facebook/Instagram) advertising campaign"""
+type MetaCampaign {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  """Meta campaign ID"""
+  metaCampaignId: String
+  
+  campaignName: String!
+  
+  """Campaign objective"""
+  objective: String!
+  
+  status: CampaignStatus!
+  
+  """Targeted products"""
+  productIds: [ID!]!
+  products: [Product!]!
+  
+  """Ad creative"""
+  adCopy: String!
+  headline: String!
+  callToAction: String!
+  
+  """Targeting"""
+  targetCountries: [String!]!
+  targetLanguages: [String!]!
+  targetAgeMin: Int
+  targetAgeMax: Int
+  targetGender: String
+  
+  """Advantage+ settings"""
+  advantagePlusEnabled: Boolean!
+  advantageAudience: Boolean!
+  advantagePlacements: Boolean!
+  
+  """Budget"""
+  dailyBudget: Decimal!
+  totalBudget: Decimal!
+  remainingBudget: Decimal!
+  
+  """Campaign schedule"""
+  startDate: DateTime!
+  endDate: DateTime
+  
+  """Financial tracking"""
+  amountCharged: Decimal!
+  metaSpend: Decimal!
+  platformFee: Decimal!
+  
+  """Performance metrics"""
+  metrics: MetaCampaignMetrics!
+  
+  """Daily performance data"""
+  dailyMetrics: [MetaDailyMetrics!]!
+  
+  """Ad sets"""
+  adSets: [MetaAdSet!]!
+  
+  """Stripe payment intent"""
+  stripePaymentIntentId: String
+  
+  """Sync status"""
+  lastSyncAt: DateTime
+  errorMessage: String
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Meta ad set within a campaign"""
+type MetaAdSet {
+  id: ID!
+  campaignId: ID!
+  campaign: MetaCampaign!
+  
+  """Meta ad set ID"""
+  metaAdSetId: String!
+  
+  name: String!
+  status: String!
+  
+  """Targeting configuration"""
+  targeting: JSON!
+  
+  """Budget allocation"""
+  budget: Decimal!
+  
+  """Creatives in this ad set"""
+  creatives: [MetaCreative!]!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Meta ad creative"""
+type MetaCreative {
+  id: ID!
+  adSetId: ID!
+  adSet: MetaAdSet!
+  
+  """Meta creative ID"""
+  metaCreativeId: String!
+  
+  """Creative content"""
+  imageUrl: URL
+  videoUrl: URL
+  adCopy: String!
+  headline: String!
+  callToAction: String!
+  
+  status: String!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Aggregated campaign metrics"""
+type MetaCampaignMetrics {
+  impressions: Int!
+  clicks: Int!
+  conversions: Int!
+  reach: Int!
+  
+  """Click-through rate"""
+  ctr: Decimal!
+  
+  """Cost per click"""
+  cpc: Decimal!
+  
+  """Cost per mille (1000 impressions)"""
+  cpm: Decimal!
+  
+  """Conversion rate"""
+  conversionRate: Decimal!
+  
+  """Total spend"""
+  spend: Decimal!
+  
+  """Revenue attributed to campaign"""
+  revenue: Decimal!
+  
+  """Return on ad spend"""
+  roas: Decimal!
+}
+
+"""Daily performance metrics"""
+type MetaDailyMetrics {
+  date: DateTime!
+  
+  impressions: Int!
+  clicks: Int!
+  conversions: Int!
+  reach: Int!
+  
+  """Engagement metrics"""
+  likes: Int!
+  comments: Int!
+  shares: Int!
+  saves: Int!
+  
+  """Link metrics"""
+  linkClicks: Int!
+  websiteVisits: Int!
+  
+  """Revenue metrics"""
+  purchases: Int!
+  revenue: Decimal!
+  
+  spend: Decimal!
+  cpm: Decimal!
+  cpc: Decimal!
+  
+  frequency: Decimal!
+}
+
+"""Marketing audience segment"""
+type MarketingAudience {
+  id: ID!
+  sellerId: ID!
+  
+  name: String!
+  description: String
+  
+  """Audience targeting criteria"""
+  criteria: JSON!
+  
+  """Estimated audience size"""
+  estimatedSize: Int
+  
+  """Campaigns using this audience"""
+  campaigns: [MetaCampaign!]!
+  
+  isActive: Boolean!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Meta ad account connection"""
+type MetaAdAccount {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  """Meta user ID"""
+  metaUserId: String!
+  
+  """Meta ad account ID"""
+  metaAdAccountId: String!
+  
+  """Access token"""
+  accessToken: String!
+  tokenExpiresAt: DateTime
+  
+  status: String!
+  
+  """Account details"""
+  businessName: String
+  currency: Currency
+  timezone: String
+  
+  """Spending totals"""
+  totalSpent: Decimal!
+  totalRevenue: Decimal!
+  
+  """Selected for use"""
+  isSelected: Boolean!
+  
+  lastSyncedAt: DateTime
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============================================================================
+# Module 8: Pagination Types for Marketing
+# ============================================================================
+
+type MetaCampaignEdge {
+  node: MetaCampaign!
+  cursor: String!
+}
+
+type MetaCampaignConnection {
+  edges: [MetaCampaignEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 9: Newsletter
+# ============================================================================
+
+"""Email newsletter campaign"""
+type NewsletterCampaign {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  name: String!
+  subject: String!
+  
+  """Email content"""
+  htmlContent: String!
+  textContent: String
+  
+  """Sender information"""
+  fromName: String!
+  fromEmail: String!
+  replyToEmail: String
+  
+  """Campaign status"""
+  status: String!
+  
+  """Scheduling"""
+  scheduledAt: DateTime
+  sentAt: DateTime
+  
+  """Recipient segments"""
+  segments: [Segment!]!
+  
+  """Campaign statistics"""
+  recipientCount: Int!
+  sentCount: Int!
+  deliveredCount: Int!
+  openCount: Int!
+  clickCount: Int!
+  bounceCount: Int!
+  unsubscribeCount: Int!
+  
+  """Calculated rates"""
+  openRate: Decimal!
+  clickRate: Decimal!
+  bounceRate: Decimal!
+  
+  """Template used"""
+  templateId: ID
+  template: NewsletterTemplate
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Newsletter subscriber"""
+type Subscriber {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  email: String!
+  name: String
+  
+  status: String!
+  
+  """Subscriber segments"""
+  segments: [Segment!]!
+  
+  """Engagement metrics"""
+  engagement: SubscriberEngagement
+  
+  """Custom fields"""
+  customFields: JSON
+  
+  subscribedAt: DateTime!
+  unsubscribedAt: DateTime
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Subscriber engagement metrics"""
+type SubscriberEngagement {
+  subscriberId: ID!
+  
+  """Engagement score (0-100)"""
+  engagementScore: Int!
+  
+  lastOpenedAt: DateTime
+  lastClickedAt: DateTime
+  
+  totalOpens: Int!
+  totalClicks: Int!
+  totalSent: Int!
+  
+  updatedAt: DateTime!
+}
+
+"""Audience segment for targeting"""
+type Segment {
+  id: ID!
+  sellerId: ID!
+  
+  name: String!
+  description: String
+  
+  """Segment criteria"""
+  criteria: JSON!
+  
+  """Subscribers in segment"""
+  subscribers: [Subscriber!]!
+  
+  """Subscriber count"""
+  subscriberCount: Int!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Newsletter email template"""
+type NewsletterTemplate {
+  id: ID!
+  sellerId: ID!
+  
+  name: String!
+  description: String
+  
+  """Template content"""
+  htmlContent: String!
+  textContent: String
+  
+  """Template variables"""
+  variables: [String!]!
+  
+  """Preview image"""
+  thumbnailUrl: URL
+  
+  isDefault: Boolean!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Automated email workflow"""
+type AutomationWorkflow {
+  id: ID!
+  sellerId: ID!
+  
+  name: String!
+  description: String
+  
+  """Trigger conditions"""
+  trigger: JSON!
+  
+  """Workflow actions"""
+  actions: JSON!
+  
+  status: String!
+  
+  """Execution history"""
+  executions: [AutomationExecution!]!
+  
+  isActive: Boolean!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Automation execution record"""
+type AutomationExecution {
+  id: ID!
+  workflowId: ID!
+  workflow: AutomationWorkflow!
+  
+  subscriberId: ID
+  subscriber: Subscriber
+  
+  subscriberEmail: String
+  
+  """Trigger data"""
+  triggerData: JSON
+  
+  status: String!
+  
+  """Actions performed"""
+  actionsTaken: JSON
+  
+  error: String
+  
+  executedAt: DateTime!
+}
+
+# ============================================================================
+# Module 9: Pagination Types for Newsletter
+# ============================================================================
+
+type NewsletterCampaignEdge {
+  node: NewsletterCampaign!
+  cursor: String!
+}
+
+type NewsletterCampaignConnection {
+  edges: [NewsletterCampaignEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type SubscriberEdge {
+  node: Subscriber!
+  cursor: String!
+}
+
+type SubscriberConnection {
+  edges: [SubscriberEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Module 10: Domain & Platform Ops
+# ============================================================================
+
+"""Custom domain connection"""
+type DomainConnection {
+  id: ID!
+  sellerId: ID!
+  seller: User!
+  
+  """Domain name"""
+  domain: String!
+  normalizedDomain: String!
+  
+  """Connection strategy"""
+  strategy: String!
+  
+  status: DomainStatus!
+  
+  """Verification"""
+  verificationToken: String!
+  dnsInstructions: JSON
+  lastVerifiedAt: DateTime
+  
+  """SSL certificate"""
+  sslStatus: String
+  sslProvider: String
+  sslIssuedAt: DateTime
+  sslExpiresAt: DateTime
+  sslRenewAt: DateTime
+  
+  """Cloudflare integration"""
+  cloudflareCustomHostnameId: String
+  
+  """Failure tracking"""
+  failureReason: String
+  failureCode: String
+  retryCount: Int!
+  
+  """Primary domain flag"""
+  isPrimary: Boolean!
+  
+  lastCheckedAt: DateTime
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Background job execution"""
+type BackgroundJobRun {
+  id: ID!
+  
+  """Job name"""
+  jobName: String!
+  
+  status: BackgroundJobStatus!
+  
+  """Timing"""
+  startedAt: DateTime
+  completedAt: DateTime
+  duration: Int
+  
+  """Processing stats"""
+  recordsProcessed: Int!
+  recordsFailed: Int!
+  
+  """Error details"""
+  errorMessage: String
+  errorStack: String
+  
+  """Retry tracking"""
+  retryCount: Int!
+  nextRetryAt: DateTime
+  
+  """Job metadata"""
+  metadata: JSON
+  
+  createdAt: DateTime!
+}
+
+"""Platform analytics snapshot"""
+type PlatformAnalytics {
+  date: DateTime!
+  
+  """User metrics"""
+  newSignups: Int!
+  newSellers: Int!
+  newBuyers: Int!
+  activeUsers: Int!
+  
+  """Product metrics"""
+  productsListed: Int!
+  
+  """Order metrics"""
+  ordersPlaced: Int!
+  revenue: Decimal!
+}
+
+"""Notification for users"""
+type Notification {
+  id: ID!
+  userId: ID!
+  user: User!
+  
+  """Notification content"""
+  title: String!
+  message: String!
+  
+  """Notification type"""
+  type: String!
+  
+  """Action URL"""
+  actionUrl: URL
+  
+  """Read status"""
+  isRead: Boolean!
+  readAt: DateTime
+  
+  """Related entity"""
+  relatedEntityType: String
+  relatedEntityId: ID
+  
+  createdAt: DateTime!
+}
+
+# ============================================================================
+# Module 10: Pagination Types for Platform Ops
+# ============================================================================
+
+type DomainConnectionEdge {
+  node: DomainConnection!
+  cursor: String!
+}
+
+type DomainConnectionConnection {
+  edges: [DomainConnectionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type BackgroundJobRunEdge {
+  node: BackgroundJobRun!
+  cursor: String!
+}
+
+type BackgroundJobRunConnection {
+  edges: [BackgroundJobRunEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type NotificationEdge {
+  node: Notification!
+  cursor: String!
+}
+
+type NotificationConnection {
+  edges: [NotificationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# ============================================================================
+# Input Types for Mutations
+# ============================================================================
+
+input CreateProductInput {
+  name: String!
+  description: String!
+  price: Decimal!
+  image: URL!
+  images: [URL!]
+  category: String!
+  productType: String!
+  stock: Int!
+  sku: String
+  variants: JSON
+  shippingType: String
+  flatShippingRate: Decimal
+}
+
+input UpdateProductInput {
+  name: String
+  description: String
+  price: Decimal
+  image: URL
+  images: [URL!]
+  category: String
+  stock: Int
+  status: ProductStatus
+}
+
+input AddToCartInput {
+  sellerId: ID!
+  productId: ID!
+  variantId: ID
+  quantity: Int!
+  sessionId: String
+}
+
+input UpdateCartItemInput {
+  productId: ID!
+  variantId: ID
+  quantity: Int!
+}
+
+input CreateCheckoutSessionInput {
+  cartId: ID!
+  shippingAddress: AddressInput!
+  billingAddress: AddressInput
+}
+
+input AddressInput {
+  fullName: String!
+  addressLine1: String!
+  addressLine2: String
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
+  phone: String
+}
+
+input CreateOrderInput {
+  cartId: ID!
+  shippingAddress: AddressInput!
+  billingAddress: AddressInput
+  paymentMethodId: String!
+  buyerNotes: String
+}
+
+input UpdateOrderFulfillmentInput {
+  orderId: ID!
+  status: FulfillmentStatus!
+  trackingNumber: String
+  carrier: String
+  notes: String
+}
+
+input IssueRefundInput {
+  orderId: ID!
+  lineItems: [RefundLineItemInput!]!
+  reason: String
+}
+
+input RefundLineItemInput {
+  orderItemId: ID
+  type: String!
+  quantity: Int
+  amount: Decimal!
+  description: String
+}
+
+input CreateWholesaleInvitationInput {
+  buyerEmail: String!
+  message: String
+}
+
+input PlaceWholesaleOrderInput {
+  sellerId: ID!
+  items: [WholesaleOrderItemInput!]!
+  shippingAddress: AddressInput!
+  billingAddress: AddressInput
+  poNumber: String
+  paymentTerms: String
+}
+
+input WholesaleOrderItemInput {
+  productId: ID!
+  quantity: Int!
+  unitPrice: Decimal
+}
+
+input CreateQuotationInput {
+  buyerEmail: String!
+  items: [QuotationLineItemInput!]!
+  depositPercentage: Int!
+  validUntil: DateTime
+  deliveryTerms: String
+  paymentTerms: String
+}
+
+input QuotationLineItemInput {
+  description: String!
+  productId: ID
+  unitPrice: Decimal!
+  quantity: Int!
+}
+
+input UpdateQuotationInput {
+  items: [QuotationLineItemInput!]
+  depositPercentage: Int
+  validUntil: DateTime
+}
+
+input LaunchMetaCampaignInput {
+  campaignName: String!
+  productIds: [ID!]!
+  adCopy: String!
+  headline: String!
+  targetCountries: [String!]!
+  dailyBudget: Decimal!
+  totalBudget: Decimal!
+  startDate: DateTime!
+  endDate: DateTime
+}
+
+input UpdateCampaignBudgetInput {
+  campaignId: ID!
+  dailyBudget: Decimal
+  totalBudget: Decimal
+}
+
+input CreateNewsletterCampaignInput {
+  name: String!
+  subject: String!
+  htmlContent: String!
+  fromName: String!
+  fromEmail: String!
+  segmentIds: [ID!]!
+  scheduledAt: DateTime
+}
+
+input AddSubscriberInput {
+  email: String!
+  name: String
+  customFields: JSON
+  segmentIds: [ID!]
+}
+
+input ConnectDomainInput {
+  domain: String!
+  isPrimary: Boolean
+}
+
+# ============================================================================
+# Filter and Sort Input Types
+# ============================================================================
+
+input ProductFilterInput {
+  sellerId: ID
+  category: String
+  status: ProductStatus
+  priceMin: Decimal
+  priceMax: Decimal
+  inStock: Boolean
+  search: String
+}
+
+input ProductSortInput {
+  field: ProductSortField!
+  direction: SortDirection!
+}
+
+enum ProductSortField {
+  NAME
+  PRICE
+  CREATED_AT
+  STOCK
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}
+
+input OrderFilterInput {
+  sellerId: ID
+  buyerId: ID
+  status: OrderStatus
+  paymentStatus: PaymentStatus
+  fulfillmentStatus: FulfillmentStatus
+  dateFrom: DateTime
+  dateTo: DateTime
+  search: String
+}
+
+input OrderSortInput {
+  field: OrderSortField!
+  direction: SortDirection!
+}
+
+enum OrderSortField {
+  ORDER_NUMBER
+  CREATED_AT
+  TOTAL_AMOUNT
+  STATUS
+}
+
+# ============================================================================
+# Query Root Type
+# ============================================================================
+
+type Query {
+  # ========================================
+  # Module 1: Identity & Access
+  # ========================================
+  
+  """Get currently authenticated user"""
+  getCurrentUser: User
+  
+  """Get user by ID"""
+  getUser(id: ID!): User
+  
+  """Get seller account by ID"""
+  getSeller(id: ID!): SellerAccount
+  
+  """Get seller account by slug"""
+  getStore(slug: String!): SellerAccount
+  
+  """Get buyer profile"""
+  getBuyerProfile(userId: ID!): BuyerProfile
+  
+  # ========================================
+  # Module 2: Catalog & Inventory
+  # ========================================
+  
+  """Get product by ID"""
+  getProduct(id: ID!): Product
+  
+  """Get product by slug"""
+  getProductBySlug(sellerId: ID!, slug: String!): Product
+  
+  """List products with filtering and pagination"""
+  listProducts(
+    filter: ProductFilterInput
+    sort: ProductSortInput
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): ProductConnection!
+  
+  """Get inventory status for a product"""
+  getInventory(productId: ID!): StockLevel
+  
+  """List categories"""
+  listCategories(parentId: ID, level: Int): [Category!]!
+  
+  """Get category by ID"""
+  getCategory(id: ID!): Category
+  
+  # ========================================
+  # Module 3: Cart & Checkout
+  # ========================================
+  
+  """Get cart by ID"""
+  getCart(id: ID!): Cart
+  
+  """Get cart by session"""
+  getCartBySession(sessionId: String!): Cart
+  
+  """Get checkout session"""
+  getCheckoutSession(id: ID!): CheckoutSession
+  
+  # ========================================
+  # Module 4: Orders & Payments
+  # ========================================
+  
+  """Get order by ID"""
+  getOrder(id: ID!): Order
+  
+  """Get order by order number"""
+  getOrderByNumber(orderNumber: String!): Order
+  
+  """List orders with filtering and pagination"""
+  listOrders(
+    filter: OrderFilterInput
+    sort: OrderSortInput
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): OrderConnection!
+  
+  """Get invoice by ID"""
+  getInvoice(id: ID!): Invoice
+  
+  """Get invoice by order ID"""
+  getInvoiceByOrder(orderId: ID!): Invoice
+  
+  """Get packing slip by order ID"""
+  getPackingSlip(orderId: ID!): PackingSlip
+  
+  """Get payment intent"""
+  getPaymentIntent(id: ID!): PaymentIntent
+  
+  # ========================================
+  # Module 5: Wholesale (B2B)
+  # ========================================
+  
+  """Get wholesale order by ID"""
+  getWholesaleOrder(id: ID!): WholesaleOrder
+  
+  """List wholesale orders"""
+  listWholesaleOrders(
+    filter: OrderFilterInput
+    first: Int
+    after: String
+  ): WholesaleOrderConnection!
+  
+  """List wholesale invitations"""
+  listWholesaleInvitations(
+    sellerId: ID
+    status: WholesaleInvitationStatus
+    first: Int
+    after: String
+  ): WholesaleInvitationConnection!
+  
+  """Get wholesale invitation by token"""
+  getWholesaleInvitation(token: String!): WholesaleInvitation
+  
+  # ========================================
+  # Module 6: Quotations (Trade)
+  # ========================================
+  
+  """Get quotation by ID"""
+  getQuotation(id: ID!): Quotation
+  
+  """Get quotation by number"""
+  getQuotationByNumber(quotationNumber: String!): Quotation
+  
+  """List quotations"""
+  listQuotations(
+    sellerId: ID
+    buyerEmail: String
+    status: QuotationStatus
+    first: Int
+    after: String
+  ): QuotationConnection!
+  
+  # ========================================
+  # Module 7: Subscriptions & Billing
+  # ========================================
+  
+  """Get seller subscription"""
+  getSubscription(sellerId: ID!): SellerSubscription
+  
+  """List subscription invoices"""
+  listInvoices(
+    subscriptionId: ID!
+    first: Int
+    after: String
+  ): SubscriptionInvoiceConnection!
+  
+  """List stored payment methods"""
+  listPaymentMethods(userId: ID!): [StoredPaymentMethod!]!
+  
+  """List saved addresses"""
+  listSavedAddresses(userId: ID!): [SavedAddress!]!
+  
+  # ========================================
+  # Module 8: Marketing (Meta Ads)
+  # ========================================
+  
+  """Get Meta campaign by ID"""
+  getCampaign(id: ID!): MetaCampaign
+  
+  """List Meta campaigns"""
+  listCampaigns(
+    sellerId: ID!
+    status: CampaignStatus
+    first: Int
+    after: String
+  ): MetaCampaignConnection!
+  
+  """Get campaign metrics"""
+  getCampaignMetrics(campaignId: ID!): MetaCampaignMetrics
+  
+  """Get campaign daily metrics"""
+  getCampaignDailyMetrics(
+    campaignId: ID!
+    dateFrom: DateTime!
+    dateTo: DateTime!
+  ): [MetaDailyMetrics!]!
+  
+  """List Meta ad accounts"""
+  listMetaAdAccounts(sellerId: ID!): [MetaAdAccount!]!
+  
+  # ========================================
+  # Module 9: Newsletter
+  # ========================================
+  
+  """Get newsletter campaign"""
+  getNewsletterCampaign(id: ID!): NewsletterCampaign
+  
+  """List newsletter campaigns"""
+  listNewsletterCampaigns(
+    sellerId: ID!
+    status: String
+    first: Int
+    after: String
+  ): NewsletterCampaignConnection!
+  
+  """List subscribers"""
+  listSubscribers(
+    sellerId: ID!
+    segmentId: ID
+    status: String
+    first: Int
+    after: String
+  ): SubscriberConnection!
+  
+  """Get newsletter analytics"""
+  getNewsletterAnalytics(sellerId: ID!, dateFrom: DateTime!, dateTo: DateTime!): JSON
+  
+  """List segments"""
+  listSegments(sellerId: ID!): [Segment!]!
+  
+  """List automation workflows"""
+  listAutomationWorkflows(sellerId: ID!): [AutomationWorkflow!]!
+  
+  # ========================================
+  # Module 10: Domain & Platform Ops
+  # ========================================
+  
+  """Get domain connection"""
+  getDomain(id: ID!): DomainConnection
+  
+  """List domains for seller"""
+  listDomains(
+    sellerId: ID!
+    status: DomainStatus
+    first: Int
+    after: String
+  ): DomainConnectionConnection!
+  
+  """Get background job run"""
+  getJobRun(id: ID!): BackgroundJobRun
+  
+  """List background job runs"""
+  listJobRuns(
+    jobName: String
+    status: BackgroundJobStatus
+    first: Int
+    after: String
+  ): BackgroundJobRunConnection!
+  
+  """Get platform analytics"""
+  getPlatformAnalytics(dateFrom: DateTime!, dateTo: DateTime!): [PlatformAnalytics!]!
+  
+  """List notifications for user"""
+  listNotifications(
+    userId: ID!
+    unreadOnly: Boolean
+    first: Int
+    after: String
+  ): NotificationConnection!
+}
+
+# ============================================================================
+# Mutation Root Type
+# ============================================================================
+
+type Mutation {
+  # ========================================
+  # Module 1: Identity & Access
+  # ========================================
+  
+  """Send login code via email"""
+  login(email: String!, sellerContext: String): AuthToken!
+  
+  """Verify login code and create session"""
+  verifyLoginCode(email: String!, code: String!): User!
+  
+  """Logout current user"""
+  logout: Boolean!
+  
+  """Update user profile"""
+  updateProfile(
+    fullName: String
+    username: String
+    phoneNumber: String
+    profileImageUrl: URL
+  ): User!
+  
+  """Update seller account"""
+  updateSellerAccount(
+    storeName: String
+    businessName: String
+    businessEmail: String
+    brandColor: String
+    logoUrl: URL
+  ): SellerAccount!
+  
+  # ========================================
+  # Module 2: Catalog & Inventory
+  # ========================================
+  
+  """Create new product"""
+  createProduct(input: CreateProductInput!): Product!
+  
+  """Update existing product"""
+  updateProduct(id: ID!, input: UpdateProductInput!): Product!
+  
+  """Delete product"""
+  deleteProduct(id: ID!): Boolean!
+  
+  """Reserve stock for cart/checkout"""
+  reserveStock(
+    productId: ID!
+    variantId: ID
+    quantity: Int!
+    sessionId: String
+  ): StockReservation!
+  
+  """Release stock reservation"""
+  releaseStock(reservationId: ID!): Boolean!
+  
+  # ========================================
+  # Module 3: Cart & Checkout
+  # ========================================
+  
+  """Add item to cart"""
+  addToCart(input: AddToCartInput!): Cart!
+  
+  """Update cart item quantity"""
+  updateCartItem(cartId: ID!, input: UpdateCartItemInput!): Cart!
+  
+  """Remove item from cart"""
+  removeFromCart(cartId: ID!, productId: ID!, variantId: ID): Cart!
+  
+  """Clear entire cart"""
+  clearCart(cartId: ID!): Boolean!
+  
+  """Create checkout session"""
+  createCheckoutSession(input: CreateCheckoutSessionInput!): CheckoutSession!
+  
+  # ========================================
+  # Module 4: Orders & Payments
+  # ========================================
+  
+  """Create order from cart"""
+  createOrder(input: CreateOrderInput!): Order!
+  
+  """Capture payment for order"""
+  capturePayment(orderId: ID!, paymentIntentId: ID!): Order!
+  
+  """Issue refund for order"""
+  issueRefund(input: IssueRefundInput!): Refund!
+  
+  """Update order fulfillment"""
+  updateFulfillment(input: UpdateOrderFulfillmentInput!): Order!
+  
+  """Generate invoice for order"""
+  generateInvoice(orderId: ID!): Invoice!
+  
+  """Generate packing slip for order"""
+  generatePackingSlip(orderId: ID!): PackingSlip!
+  
+  """Purchase shipping label"""
+  purchaseShippingLabel(orderId: ID!, rateId: String!): ShippingLabel!
+  
+  # ========================================
+  # Module 5: Wholesale (B2B)
+  # ========================================
+  
+  """Create wholesale invitation"""
+  createWholesaleInvitation(input: CreateWholesaleInvitationInput!): WholesaleInvitation!
+  
+  """Accept wholesale invitation"""
+  acceptInvitation(token: String!): WholesaleAccessGrant!
+  
+  """Reject wholesale invitation"""
+  rejectInvitation(token: String!): Boolean!
+  
+  """Place wholesale order"""
+  placeWholesaleOrder(input: PlaceWholesaleOrderInput!): WholesaleOrder!
+  
+  """Request balance payment for wholesale order"""
+  requestWholesaleBalance(orderId: ID!): WholesaleOrder!
+  
+  # ========================================
+  # Module 6: Quotations (Trade)
+  # ========================================
+  
+  """Create new quotation"""
+  createQuotation(input: CreateQuotationInput!): Quotation!
+  
+  """Update quotation"""
+  updateQuotation(id: ID!, input: UpdateQuotationInput!): Quotation!
+  
+  """Submit quotation to buyer"""
+  submitQuotation(id: ID!): Quotation!
+  
+  """Accept quotation (buyer)"""
+  acceptQuotation(id: ID!): Quotation!
+  
+  """Pay quotation deposit"""
+  payQuotationDeposit(id: ID!, paymentMethodId: String!): QuotationPayment!
+  
+  """Pay quotation balance"""
+  payQuotationBalance(id: ID!, paymentMethodId: String!): QuotationPayment!
+  
+  """Cancel quotation"""
+  cancelQuotation(id: ID!, reason: String): Quotation!
+  
+  # ========================================
+  # Module 7: Subscriptions & Billing
+  # ========================================
+  
+  """Create or update subscription"""
+  createSubscription(tier: SubscriptionTier!, paymentMethodId: String!): SellerSubscription!
+  
+  """Update payment method for subscription"""
+  updatePaymentMethod(subscriptionId: ID!, paymentMethodId: String!): SellerSubscription!
+  
+  """Cancel subscription"""
+  cancelSubscription(subscriptionId: ID!): SellerSubscription!
+  
+  """Save payment method"""
+  savePaymentMethod(paymentMethodId: String!, label: String, isDefault: Boolean): StoredPaymentMethod!
+  
+  """Delete payment method"""
+  deletePaymentMethod(id: ID!): Boolean!
+  
+  """Save address"""
+  saveAddress(address: AddressInput!, label: String, isDefault: Boolean): SavedAddress!
+  
+  """Delete address"""
+  deleteAddress(id: ID!): Boolean!
+  
+  # ========================================
+  # Module 8: Marketing (Meta Ads)
+  # ========================================
+  
+  """Launch new Meta campaign"""
+  launchMetaCampaign(input: LaunchMetaCampaignInput!): MetaCampaign!
+  
+  """Pause campaign"""
+  pauseCampaign(campaignId: ID!): MetaCampaign!
+  
+  """Resume campaign"""
+  resumeCampaign(campaignId: ID!): MetaCampaign!
+  
+  """Update campaign budget"""
+  updateBudget(input: UpdateCampaignBudgetInput!): MetaCampaign!
+  
+  """Cancel campaign"""
+  cancelCampaign(campaignId: ID!, reason: String): MetaCampaign!
+  
+  """Connect Meta ad account"""
+  connectMetaAdAccount(accessToken: String!, metaAdAccountId: String!): MetaAdAccount!
+  
+  """Disconnect Meta ad account"""
+  disconnectMetaAdAccount(id: ID!): Boolean!
+  
+  # ========================================
+  # Module 9: Newsletter
+  # ========================================
+  
+  """Create newsletter campaign"""
+  createNewsletterCampaign(input: CreateNewsletterCampaignInput!): NewsletterCampaign!
+  
+  """Send newsletter campaign"""
+  sendCampaign(campaignId: ID!): NewsletterCampaign!
+  
+  """Add subscriber"""
+  addSubscriber(input: AddSubscriberInput!): Subscriber!
+  
+  """Unsubscribe email"""
+  unsubscribe(email: String!): Boolean!
+  
+  """Create segment"""
+  createSegment(name: String!, description: String, criteria: JSON!): Segment!
+  
+  """Update segment"""
+  updateSegment(id: ID!, name: String, description: String, criteria: JSON): Segment!
+  
+  """Delete segment"""
+  deleteSegment(id: ID!): Boolean!
+  
+  # ========================================
+  # Module 10: Domain & Platform Ops
+  # ========================================
+  
+  """Connect custom domain"""
+  connectDomain(input: ConnectDomainInput!): DomainConnection!
+  
+  """Verify domain DNS"""
+  verifyDomain(id: ID!): DomainConnection!
+  
+  """Disconnect domain"""
+  disconnectDomain(id: ID!): Boolean!
+  
+  """Set primary domain"""
+  setPrimaryDomain(id: ID!): DomainConnection!
+  
+  """Mark notification as read"""
+  markNotificationRead(id: ID!): Notification!
+  
+  """Mark all notifications as read"""
+  markAllNotificationsRead: Boolean!
+}
+
+# ============================================================================
+# Subscription Root Type (Real-Time Updates)
+# ============================================================================
+
+type Subscription {
+  """Subscribe to order status updates"""
+  orderStatusUpdated(sellerId: ID, orderId: ID): Order!
+  
+  """Subscribe to cart synchronization"""
+  cartSynced(cartId: ID, sessionKey: String): Cart!
+  
+  """Subscribe to inventory threshold alerts"""
+  inventoryThresholdAlert(sellerId: ID!, productIds: [ID!]): StockLevel!
+  
+  """Subscribe to quotation status changes"""
+  quotationStatusChanged(sellerId: ID, buyerId: ID): Quotation!
+  
+  """Subscribe to Meta campaign status changes"""
+  metaCampaignStatusChanged(campaignId: ID!): MetaCampaign!
+  
+  """Subscribe to newsletter campaign progress"""
+  newsletterCampaignProgress(campaignId: ID!): NewsletterCampaign!
+  
+  """Subscribe to notifications"""
+  notificationReceived(userId: ID!): Notification!
+}
