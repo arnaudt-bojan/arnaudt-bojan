@@ -212,9 +212,10 @@ function StatusTimeline({ currentStatus, className = "" }: StatusTimelineProps) 
   ];
 
   const currentIndex = statuses.findIndex(s => s.key === currentStatus);
+  const currentStatusLabel = statuses.find(s => s.key === currentStatus)?.label || "Unknown";
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-2 ${className}`} role="status" aria-label={`Domain status: ${currentStatusLabel}`}>
       {statuses.map((status, index) => {
         const Icon = status.icon;
         const isActive = index === currentIndex;
@@ -556,6 +557,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                   variant="outline"
                   onClick={() => handleCopy(domain.domain, "Name")}
                   data-testid="button-copy-cname-name"
+                  aria-label="Copy CNAME name"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -570,6 +572,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                   variant="outline"
                   onClick={() => handleCopy(instructions.cnameTarget, "Target")}
                   data-testid="button-copy-cname-target"
+                  aria-label="Copy CNAME target"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -597,6 +600,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                     variant="outline"
                     onClick={() => handleCopy(instructions.verificationRecords.txtName, "TXT Name")}
                     data-testid="button-copy-txt-name"
+                    aria-label="Copy TXT name"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -615,6 +619,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                     variant="outline"
                     onClick={() => handleCopy(instructions.verificationRecords.txtValue, "TXT Value")}
                     data-testid="button-copy-txt-value"
+                    aria-label="Copy TXT value"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -646,6 +651,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                 variant="outline"
                 onClick={() => handleCopy(instructions.host, "Host")}
                 data-testid="button-copy-host"
+                aria-label="Copy host"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -660,6 +666,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                 variant="outline"
                 onClick={() => handleCopy(instructions.value, "Value")}
                 data-testid="button-copy-value"
+                aria-label="Copy value"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -691,6 +698,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                   variant="outline"
                   onClick={() => handleCopy(instructions.txtVerification.host, "TXT Host")}
                   data-testid="button-copy-txt-host"
+                  aria-label="Copy TXT host"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -709,6 +717,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                   variant="outline"
                   onClick={() => handleCopy(instructions.txtVerification.value, "TXT Value")}
                   data-testid="button-copy-txt-value"
+                  aria-label="Copy TXT value"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -734,6 +743,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                   variant="outline"
                   onClick={() => handleCopy(instructions.httpVerification.path, "HTTP Path")}
                   data-testid="button-copy-http-path"
+                  aria-label="Copy HTTP path"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -752,6 +762,7 @@ function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
                   variant="outline"
                   onClick={() => handleCopy(instructions.httpVerification.content, "HTTP Content")}
                   data-testid="button-copy-http-content"
+                  aria-label="Copy HTTP content"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -1205,6 +1216,7 @@ function DomainsTabContent() {
                                 disabled={verifyDomainMutation.isPending}
                                 data-testid={`button-verify-${domain.id}`}
                                 title="Verify domain"
+                                aria-label="Verify domain DNS and SSL"
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
@@ -1214,6 +1226,7 @@ function DomainsTabContent() {
                                 onClick={() => setSwitchStrategyDomain(domain)}
                                 data-testid={`button-switch-strategy-${domain.id}`}
                                 title="Switch strategy"
+                                aria-label="Switch connection strategy"
                               >
                                 <Globe className="h-4 w-4" />
                               </Button>
@@ -1224,6 +1237,7 @@ function DomainsTabContent() {
                                 disabled={deleteDomainMutation.isPending}
                                 data-testid={`button-delete-${domain.id}`}
                                 title="Delete domain"
+                                aria-label="Delete domain"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1297,6 +1311,7 @@ function DomainsTabContent() {
                               onClick={() => handleVerifyDomain(domain.id)}
                               disabled={verifyDomainMutation.isPending}
                               data-testid={`button-verify-mobile-${domain.id}`}
+                              aria-label="Verify domain DNS and SSL"
                             >
                               <RefreshCw className="h-4 w-4" />
                             </Button>
@@ -1305,6 +1320,7 @@ function DomainsTabContent() {
                               variant="outline"
                               onClick={() => setSwitchStrategyDomain(domain)}
                               data-testid={`button-switch-strategy-mobile-${domain.id}`}
+                              aria-label="Switch connection strategy"
                             >
                               <Globe className="h-4 w-4" />
                             </Button>
@@ -1314,6 +1330,7 @@ function DomainsTabContent() {
                               onClick={() => handleDeleteDomain(domain)}
                               disabled={deleteDomainMutation.isPending}
                               data-testid={`button-delete-mobile-${domain.id}`}
+                              aria-label="Delete domain"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
