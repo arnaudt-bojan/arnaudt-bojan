@@ -1,143 +1,7 @@
 # Upfirst - E-Commerce Platform
 
-## Recent Changes
-
-### Phase 3C: NestJS Authentication Guards (October 19, 2025)
-**Status**: ✅ Complete - GraphQL API secured with session-based authentication and authorization
-
-**What Was Done:**
-- Created AuthModule with guards and decorators for GraphQL authentication
-- Integrated with existing Express session-based authentication (Passport.js)
-- Implemented role-based access control via UserTypeGuard
-- Replaced hardcoded seller IDs with real authenticated user IDs in all Product mutations
-- Added test query (`whoami`) for authentication verification
-
-**Authentication Infrastructure:**
-- `GqlAuthGuard` - Validates Express session authentication for GraphQL requests
-- `UserTypeGuard` - Enforces user type requirements (seller/buyer/collaborator)
-- `@CurrentUser()` decorator - Extracts authenticated user ID from session
-- `@RequireUserType()` decorator - Declares required user types for resolvers
-
-**Security Implementation:**
-- All Product mutations require authenticated seller users
-- Unauthenticated requests → 401 Unauthorized
-- Non-seller users → 403 Forbidden
-- Guards execute in order: Authentication → Authorization
-- User type validated via Prisma database lookup
-
-**Session Integration:**
-- Reuses existing Passport.js authentication from Express
-- Extracts user from `req.user.claims.sub` (session-based, not JWT)
-- Supports multiple auth providers: OIDC (Replit), Email magic links, Local/Test
-- No token generation needed - leverages Express sessions
-
-**File Structure:**
-- `apps/nest-api/src/modules/auth/` - Auth module, guards, decorators
-- `apps/nest-api/src/modules/auth/guards/` - GqlAuthGuard, UserTypeGuard
-- `apps/nest-api/src/modules/auth/decorators/` - CurrentUser, RequireUserType
-
-**Next Phase:** Phase 3D will expand GraphQL resolvers to remaining domain modules (Cart, Orders, Wholesale, Quotations)
-
-### Phase 3B: NestJS Product Resolvers (October 19, 2025)
-**Status**: ✅ Complete - GraphQL product module with queries, mutations, and dataloaders
-
-**What Was Done:**
-- Implemented comprehensive Product module with full CRUD operations via GraphQL
-- Added GraphQL code generation (TypeScript + Resolvers plugins) producing 220KB of types
-- Created dataloader infrastructure for N+1 prevention (request-scoped SellerLoader)
-- Implemented Relay-style cursor pagination with filtering and sorting
-- Added slug field to products table with [seller_id, slug] index for efficient lookups
-- Fixed GraphQL camelCase → Prisma snake_case field mappings for all operations
-
-**Product Queries:**
-- `getProduct(id)` - Fetch single product by ID
-- `getProductBySlug(sellerId, slug)` - Fetch by slug (uses indexed lookup)
-- `listProducts(filter, sort, first, after)` - Relay pagination with:
-  - Filtering: sellerId, category, status, inStock, search, priceMin/Max
-  - Sorting: by NAME, PRICE, CREATED_AT, STOCK (asc/desc)
-  - Base64-encoded cursors, PageInfo with hasNext/hasPrevious
-
-**Product Mutations:**
-- `createProduct(input)` - Create with auto-generated slug and validation
-- `updateProduct(id, input)` - Update with ownership check and slug regeneration
-- `deleteProduct(id)` - Delete with ownership check
-
-**Dataloader Architecture:**
-- `DataloaderModule` - Shared module for all dataloader providers
-- `SellerLoader` - Request-scoped batching for User lookups
-- `Product.seller` field resolver uses dataloader to prevent N+1 queries
-- GraphQL context injection for all resolvers
-
-**File Structure:**
-- `apps/nest-api/src/modules/products/` - Product resolver, service, module
-- `apps/nest-api/src/common/dataloaders/` - Dataloader infrastructure
-- `apps/nest-api/src/types/generated/graphql.ts` - 220KB generated types
-- `apps/nest-api/codegen.ts` - GraphQL Code Generator config
-- `prisma/schema.prisma` - Added slug field with index
-
-### Phase 3A: NestJS GraphQL Foundation (October 19, 2025)
-**Status**: ✅ Complete - NestJS application operational with GraphQL schema-first architecture
-
-**What Was Done:**
-- Bootstrapped NestJS application in `apps/nest-api/` workspace (separate from Express)
-- Configured GraphQL module (schema-first) using existing 2,300-line SDL from `docs/graphql-schema.graphql`
-- Integrated shared Prisma client (reuses DATABASE_URL, graceful shutdown hooks)
-- Implemented health check endpoint: `GET http://localhost:4000/health`
-- Resolved Apollo Server version compatibility (Apollo Server 4 + @nestjs/apollo@13.1.0)
-- Created modular structure: Health module, Prisma module, GraphQL module
-
-**Architecture:**
-- NestJS runs on port 4000 (alongside Express on 5000)
-- GraphQL playground at `http://localhost:4000/graphql`
-- Express proxy middleware ready to route traffic based on feature flags
-- Shared Prisma client (no dual database connections)
-
-**File Structure:**
-- `apps/nest-api/src/main.ts` - NestJS entry point
-- `apps/nest-api/src/app.module.ts` - Root module
-- `apps/nest-api/src/modules/health/` - Health check
-- `apps/nest-api/src/modules/prisma/` - Prisma service
-- `apps/nest-api/src/modules/graphql/` - GraphQL configuration
-
-### Phase 2: Drizzle ORM Removal (October 19, 2025)
-**Status**: ✅ Complete - Drizzle ORM packages removed, 100% Prisma architecture
-
-**What Was Done:**
-- Uninstalled all Drizzle packages: `drizzle-orm`, `drizzle-kit`, `drizzle-zod`, `@neondatabase/serverless`
-- Removed `drizzle.config.ts` configuration file
-- Created new validation layer: `shared/validation-schemas.ts` with pure Zod schemas (no drizzle-zod)
-- Created compatibility layer: `shared/schema.ts` re-exports types and validations
-- Updated core imports in routes, services, and client components
-- Database operations now 100% Prisma-based
-
-**Known Limitations:**
-- Analytics queries (analytics.service.ts, quotation.service.ts) contain commented Drizzle queries needing Prisma migration
-- Import queue processor (server/index.ts) disabled pending Prisma migration
-- These features are non-critical and can be migrated incrementally
-
-**File Structure:**
-- `shared/prisma-types.ts` - All Prisma type exports
-- `shared/validation-schemas.ts` - Pure Zod validation schemas
-- `shared/schema.ts` - Compatibility layer (re-exports from above)
-
-### GraphQL Schema Design (October 19, 2025)
-**Status**: ✅ Complete - Comprehensive GraphQL schema + resolver mapping documentation
-
-**What Was Done:**
-- Designed 2,300-line GraphQL SDL schema covering 10 domain modules
-- Created 2,500-line resolver mapping documentation with contract test guidelines
-- Modules: Identity, Catalog, Cart, Orders, Wholesale, Quotations, Subscriptions, Marketing, Newsletter, Platform Ops
-- 40+ queries, 50+ mutations, 7 subscriptions
-- Built Express proxy layer with feature flag system for gradual NestJS cutover
-
-**File Structure:**
-- `docs/graphql-schema.graphql` - Complete SDL schema (2,300+ lines)
-- `docs/graphql-resolver-mapping.md` - Resolver mapping + contract tests (2,500 lines)
-- `config/feature-flags.json` - Feature flag configuration
-- `server/middleware/proxy.middleware.ts` - Express proxy with hot-reload
-
 ## Overview
-Upfirst is a D2C e-commerce platform empowering creators and brands with individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates essential e-commerce functionalities such as product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform features B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system. Upfirst's ambition is to provide a scalable, secure, and modern direct-to-consumer solution with significant market potential.
+Upfirst is a D2C e-commerce platform designed to empower creators and brands with individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates essential e-commerce functionalities such as product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform features B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system. Upfirst's ambition is to provide a scalable, secure, and modern direct-to-consumer solution with significant market potential.
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -147,7 +11,7 @@ Upfirst is a D2C e-commerce platform empowering creators and brands with individ
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
 ## System Architecture
-Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; an Express.js Node.js backend; PostgreSQL (Neon) as the database; and Prisma ORM for all database operations.
+Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; a NestJS/Express.js Node.js backend; PostgreSQL (Neon) as the database; and Prisma ORM for all database operations. The backend features a GraphQL API with Socket.IO for real-time updates and Docker for containerization.
 
 **Core Architectural Principle: Three Parallel Platforms with Server-Side Business Logic**
 The platform is structured into three distinct, parallel platforms, with all business logic strictly implemented server-side (Architecture 3):
@@ -163,28 +27,21 @@ The platform is structured into three distinct, parallel platforms, with all bus
 The design system supports dark/light modes, uses the Inter font, emphasizes consistent spacing and typography, and prioritizes a mobile-first responsive approach. Navigation is dashboard-centric, and storefronts offer customizable seller branding.
 
 **Technical Implementations:**
--   **Backend**: Service layer pattern with dependency injection.
--   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import.
--   **Shipping**: Centralized `ShippingService` integrating Free Shipping, Flat Rate, Matrix Shipping, and real-time API rates.
--   **Shopping & Checkout**: Features a slide-over cart, guest checkout, server-side shipping cost calculation, and single-seller per cart.
--   **Authentication & Authorization**: Email-based with a dual-token system and capability-based authorization.
--   **Payment Processing**: Integrated with Stripe Connect for multi-seller payments.
--   **Subscription System**: Monthly/annual seller subscriptions via Stripe, including a 30-day trial.
--   **Multi-Currency Support**: IP-based detection with user-selectable currency and real-time exchange rates.
+-   **Backend**: NestJS application for GraphQL API and Socket.IO, integrated with an existing Express.js server. Uses service layer pattern with dependency injection, authentication guards, and DataLoaders for N+1 query prevention.
+-   **GraphQL API**: Comprehensive schema with 10 domain modules (Identity, Catalog, Cart, Orders, Wholesale, Quotations, Subscriptions, Marketing, Newsletter, Platform Ops), including queries, mutations, and subscriptions. Secured with session-based authentication and role-based access control.
+-   **Real-time Features**: Socket.IO integration for real-time updates on orders, cart, and notifications, using user-specific and seller broadcast rooms.
+-   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import with AI-powered field mapping.
+-   **Cart & Inventory**: Enterprise-grade "soft hold" cart reservation with PostgreSQL row-level locking and transaction-based stock reservation.
+-   **Order Management**: Comprehensive order lifecycle management, fulfillment tracking, and refunds.
 -   **Wholesale B2B System**: Invitation-based access, variant-level MOQ, percentage deposit system, Net 30/60/90 payment terms, and comprehensive order lifecycle management.
--   **Trade Quotation System**: Customizable quotation numbers, professional invoice structure, 8 standard Incoterms, Excel-like line item builder, server-side pricing validation, and secure token-based buyer access.
--   **Social Ads System**: Multi-platform (Meta, TikTok, X) social advertising with AI optimization.
--   **Inventory Management**: Production-ready transaction-based stock reservation with atomic operations and PostgreSQL row-level locking.
--   **Cart Reservation System**: Enterprise-grade "soft hold" with PostgreSQL row-level locking, 30-minute expiry, and server-side business logic.
--   **Order Management System**: Comprehensive order lifecycle management with status tracking, refunds, and real-time updates.
--   **Bulk Product Upload System**: Shopify-class bulk upload with CSV import, job tracking, validation, and rollback.
--   **AI-Powered Field Mapping**: Google Gemini AI integration for intelligent CSV column mapping.
--   **Newsletter System**: Enterprise-grade email marketing platform with campaign management, subscriber handling, segmentation, and multi-ESP support.
--   **Meta Ads B2C Platform**: Self-service social advertising system for Meta campaigns, integrating with Meta Marketing API, Gemini AI, and Stripe.
--   **AI-Optimized Landing Page**: A marketing landing page at `/experience` route, featuring platform overview, parallel platform deep-dives, pricing tiers, FAQ, custom SEO, structured data, and Open Graph/Twitter Card tags.
--   **Analytics Dashboard**: Comprehensive seller analytics with server-side calculations (Architecture 3) for revenue, order, product, and customer insights, including B2C vs B2B breakdowns.
--   **Custom Domain System**: Allows sellers to connect custom domains to their storefronts, implementing a dual-strategy approach (Cloudflare SaaS primary, Manual DNS fallback) with DNS verification, SSL provisioning, and domain routing.
--   **Enterprise Email System**: Production-ready email infrastructure with 37+ transactional templates covering all platform workflows (B2C orders, B2B wholesale, trade quotations, seller notifications, subscriptions).
+-   **Trade Quotation System**: Customizable quotation numbers, professional invoice structure, Incoterms support, Excel-like line item builder, server-side pricing validation, and secure token-based buyer access.
+-   **Payments & Subscriptions**: Integrated with Stripe Connect for multi-seller payments and recurring seller subscriptions.
+-   **Multi-currency & Tax**: IP-based currency detection with user-selectable options and an advanced tax system.
+-   **Social Ads System**: Multi-platform (Meta, TikTok, X) social advertising with AI optimization via Google Gemini.
+-   **Email System**: Production-ready infrastructure with 37+ transactional templates covering all platform workflows and enterprise-grade newsletter capabilities.
+-   **Custom Domains**: Allows sellers to connect custom domains with DNS verification, SSL provisioning, and routing.
+-   **Analytics**: Comprehensive seller analytics dashboard with server-side calculations for various business insights.
+-   **Deployment**: Dockerized with multi-stage builds for NestJS API, Vite frontend, and Next.js frontend, orchestrated with `docker-compose` and Nginx reverse proxy.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
@@ -197,10 +54,11 @@ The design system supports dark/light modes, uses the Inter font, emphasizes con
 -   **UI Components**: Shadcn UI
 -   **Styling**: Tailwind CSS
 -   **State Management**: TanStack Query
--   **Routing**: Wouter
+-   **Routing**: Wouter, Next.js App Router
 -   **Forms**: React Hook Form
 -   **Validation**: Zod
 -   **CSV Parsing**: PapaParse, XLSX
 -   **Currency Exchange**: Fawazahmed0 Currency API
 -   **PDF Generation**: PDFKit
 -   **Rich Text Editor**: TinyMCE
+-   **WebSocket**: Socket.IO
