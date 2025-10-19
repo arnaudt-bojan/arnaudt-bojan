@@ -143,6 +143,17 @@ router.post('/invoices/generate', isAuthenticated, async (req: any, res) => {
         subtotal,
         shipping,
         paymentStatus: order.paymentStatus || 'pending',
+        billingName: order.billingName ?? undefined,
+        billingStreet: order.billingStreet ?? undefined,
+        billingCity: order.billingCity ?? undefined,
+        billingState: order.billingState ?? undefined,
+        billingPostalCode: order.billingPostalCode ?? undefined,
+        billingCountry: order.billingCountry ?? undefined,
+        shippingStreet: order.shippingStreet ?? undefined,
+        shippingCity: order.shippingCity ?? undefined,
+        shippingState: order.shippingState ?? undefined,
+        shippingPostalCode: order.shippingPostalCode ?? undefined,
+        shippingCountry: order.shippingCountry ?? undefined,
       },
       items: itemsWithSku,
       wholesale: data.orderType === 'wholesale' ? {
@@ -237,13 +248,16 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
       return res.status(404).json({ error: 'Seller not found' });
     }
 
-    // Check if packing slip already exists
+    // Check if packing slip already exists - always regenerate with new fixes
     const existingSlips = await storage.getPackingSlipsByOrderId(data.orderId);
     if (existingSlips.length > 0) {
-      return res.status(200).json({
-        message: 'Packing slip already exists',
-        packingSlip: existingSlips[0],
-      });
+      // Delete old packing slip to regenerate with latest fixes
+      const { neon } = await import('@neondatabase/serverless');
+      const sqlClient = neon(process.env.DATABASE_URL!);
+      
+      for (const slip of existingSlips) {
+        await sqlClient`DELETE FROM packing_slips WHERE id = ${slip.id}`;
+      }
     }
 
     // Get product SKUs for items - prioritize variant SKU over product SKU
@@ -295,6 +309,17 @@ router.post('/packing-slips/generate', isAuthenticated, async (req: any, res) =>
         id: order.id,
         orderNumber: order.id.substring(0, 8).toUpperCase(),
         date: new Date(order.createdAt),
+        billingName: order.billingName ?? undefined,
+        billingStreet: order.billingStreet ?? undefined,
+        billingCity: order.billingCity ?? undefined,
+        billingState: order.billingState ?? undefined,
+        billingPostalCode: order.billingPostalCode ?? undefined,
+        billingCountry: order.billingCountry ?? undefined,
+        shippingStreet: order.shippingStreet ?? undefined,
+        shippingCity: order.shippingCity ?? undefined,
+        shippingState: order.shippingState ?? undefined,
+        shippingPostalCode: order.shippingPostalCode ?? undefined,
+        shippingCountry: order.shippingCountry ?? undefined,
       },
       items: itemsWithSku,
       warehouseNotes: data.warehouseNotes,

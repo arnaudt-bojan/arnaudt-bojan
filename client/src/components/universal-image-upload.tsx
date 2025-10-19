@@ -49,23 +49,43 @@ export function UniversalImageUpload({
   const images = Array.isArray(value) ? value : value ? [value] : [];
   const isSingle = mode === "single";
 
+  // LOGGING: Track value prop on EVERY render
+  console.log('[UniversalImageUpload] RENDER', {
+    label,
+    mode,
+    valueReceived: value,
+    valueType: typeof value,
+    valueIsArray: Array.isArray(value),
+    imagesArray: images,
+    imagesLength: images.length,
+    isSingle,
+    aspectRatio
+  });
+
   const handleUrlAdd = () => {
+    console.log('[UniversalImageUpload] handleUrlAdd called', { urlInput });
     if (!urlInput.trim()) return;
 
     const urls = urlInput
       .split(/[\n,]/)
       .map(url => url.trim())
-      .filter(url => url.length > 0 && url.startsWith("http"));
+      .filter(url => url.length > 0 && (url.startsWith("http") || url.startsWith("data:")));
+
+    console.log('[UniversalImageUpload] handleUrlAdd parsed URLs', { urls, urlsLength: urls.length });
 
     if (urls.length > 0) {
       if (isSingle) {
+        console.log('[UniversalImageUpload] handleUrlAdd calling onChange (SINGLE mode) with:', urls[0]);
         onChange(urls[0]);
       } else {
         const newImages = [...images, ...urls].slice(0, maxImages);
+        console.log('[UniversalImageUpload] handleUrlAdd calling onChange (MULTIPLE mode) with:', newImages);
         onChange(newImages);
       }
       setUrlInput("");
       setShowUrlDialog(false);
+    } else {
+      console.log('[UniversalImageUpload] handleUrlAdd no valid URLs found');
     }
   };
 
@@ -266,14 +286,21 @@ export function UniversalImageUpload({
         "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
       )}>
         {/* Existing Images */}
-        {images.map((imageUrl, index) => (
-          <Card
-            key={index}
-            className={cn(
-              "relative group overflow-hidden hover-elevate",
-              heroSelection && index === heroIndex && "ring-2 ring-primary"
-            )}
-          >
+        {images.map((imageUrl, index) => {
+          // Skip rendering if URL is empty/invalid
+          if (!imageUrl || !imageUrl.trim()) {
+            console.log('[UniversalImageUpload] Skipping empty/invalid URL at index:', index);
+            return null;
+          }
+          
+          return (
+            <Card
+              key={index}
+              className={cn(
+                "relative group overflow-hidden hover-elevate",
+                heroSelection && index === heroIndex && "ring-2 ring-primary"
+              )}
+            >
             {/* Hero badge */}
             {heroSelection && !isSingle && index === heroIndex && (
               <div className="absolute z-10 top-1.5 left-1.5">
@@ -352,7 +379,8 @@ export function UniversalImageUpload({
               </Button>
             </div>
           </Card>
-        ))}
+          );
+        })}
 
         {/* Add Image Card */}
         {allowUpload && canAddMore && (

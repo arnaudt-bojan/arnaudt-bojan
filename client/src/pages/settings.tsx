@@ -3146,6 +3146,21 @@ export default function Settings() {
   const [pendingStripeAction, setPendingStripeAction] = useState<{ reset: boolean } | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'ipad' | 'iphone'>('iphone');
   
+  // LOGGING: Track form state on EVERY render
+  const currentStoreBanner = quickSetupForm.watch('storeBanner');
+  const currentStoreLogo = quickSetupForm.watch('storeLogo');
+  console.log('[Settings] RENDER - quickSetupForm state', {
+    storeBanner: currentStoreBanner,
+    storeBannerType: typeof currentStoreBanner,
+    storeLogo: currentStoreLogo,
+    storeLogoType: typeof currentStoreLogo,
+    formIsDirty: quickSetupForm.formState.isDirty,
+    formDirtyFields: quickSetupForm.formState.dirtyFields,
+    username: quickSetupForm.watch('username'),
+    userStoreBannerFromDB: user?.storeBanner,
+    userStoreLogoFromDB: user?.storeLogo
+  });
+  
   // Check if charges are enabled but payouts are not (progressive onboarding state)
   const canAcceptPayments = user?.stripeChargesEnabled === 1;
   const canReceivePayouts = user?.stripePayoutsEnabled === 1;
@@ -4033,25 +4048,34 @@ export default function Settings() {
                       <FormField
                         control={quickSetupForm.control}
                         name="storeBanner"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Store Banner (Optional)</FormLabel>
-                            <FormControl>
-                              <UniversalImageUpload
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                label=""
-                                mode="single"
-                                aspectRatio="banner"
-                                heroSelection={false}
-                                allowUrl={true}
-                                allowUpload={true}
-                              />
-                            </FormControl>
-                            <FormDescription>Hero image at the top of your store (1200×400px recommended)</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        render={({ field }) => {
+                          // LOGGING: Track field value inside FormField render
+                          console.log('[Settings] FormField storeBanner RENDER', {
+                            fieldValue: field.value,
+                            fieldValueType: typeof field.value,
+                            valuePassedToComponent: field.value || ""
+                          });
+                          
+                          return (
+                            <FormItem>
+                              <FormLabel>Store Banner (Optional)</FormLabel>
+                              <FormControl>
+                                <UniversalImageUpload
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  label=""
+                                  mode="single"
+                                  aspectRatio="banner"
+                                  heroSelection={false}
+                                  allowUrl={true}
+                                  allowUpload={true}
+                                />
+                              </FormControl>
+                              <FormDescription>Hero image at the top of your store (1200×400px recommended)</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
                     </form>
                   </Form>
