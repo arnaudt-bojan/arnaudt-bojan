@@ -65,7 +65,19 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **Meta Ads B2C Platform:** Self-service social advertising system for Meta campaigns, integrating with Meta Marketing API, Gemini AI, and Stripe for payments. Features popup-based OAuth, AI-powered ad copy, Advantage+ optimization, credit-based budget system, and real-time analytics.
 -   **AI-Optimized Landing Page:** World-class marketing landing page at `/experience` route featuring platform overview, parallel platform deep-dives, pricing tiers, FAQ, and comparison matrix. Includes custom SEO hooks, structured data, Open Graph/Twitter Card tags, smooth scroll animations, and mobile-responsive navigation.
 -   **Analytics Dashboard:** Comprehensive seller analytics system with server-side calculations (Architecture 3) displaying revenue metrics, order analytics, product performance, customer insights, and B2C vs B2B platform breakdown. Features 5 time period filters, KPI cards with growth indicators, Recharts visualizations (line/bar/pie charts), top products analysis, and mobile-responsive dual-view layouts. All monetary values display in seller's Stripe account currency.
--   **E2E Testing Authentication Bypass:** Test-only authentication endpoint (`POST /api/test/auth/session`) that allows Playwright E2E tests to authenticate without email confirmation. Strictly gated to test environment only (NODE_ENV === 'test' or ENABLE_TEST_AUTH === 'true'). Never affects production behavior. See server/routes.ts lines 641-773 for implementation.
+-   **E2E Testing Authentication Bypass:** Test-only authentication endpoint (`POST /api/test/auth/session`) that allows Playwright E2E tests to authenticate without email confirmation. Blocked in production (NODE_ENV === 'production'), enabled in development/test environments. See server/routes.ts for implementation.
+-   **Custom Domain System:** Production-ready custom domain management allowing sellers to connect root domains (xyz.com) to their storefronts. Implements dual-strategy approach (Cloudflare SaaS primary, Manual DNS fallback) with DNS verification, SSL provisioning, and status tracking. Features include:
+    -   **Domain Management UI:** Settings → Domains tab with dual-view responsive layout (desktop table, mobile cards)
+    -   **Primary Domain Toggle:** Single primary domain enforcement with optimistic UI updates
+    -   **Strategy Switching:** Cloudflare ↔ Manual strategy conversion with automatic DNS instruction updates
+    -   **Status Progression:** Visual timeline showing pending_verification → dns_verified → ssl_provisioning → active
+    -   **DNS Instructions:** Strategy-specific setup guides with copy-to-clipboard functionality for CNAME, TXT, A records
+    -   **Accessibility:** Full ARIA labels, screen reader support, keyboard navigation
+    -   **Mobile-First Design:** Touch-friendly controls (≥44px), responsive dialogs, card-based mobile layouts
+    -   **Database:** `domain_connections` table with seller isolation, verification tokens, strategy tracking
+    -   **API Routes:** Full CRUD operations at `/api/domains` and `/api/seller/domains` endpoints
+    -   **Service Layer:** DomainOrchestratorService coordinating CloudflareService for SaaS integration
+    -   **Manual Testing:** All components architect-approved and validated during development (automated E2E pending environment configuration)
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
