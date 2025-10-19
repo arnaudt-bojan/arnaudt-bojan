@@ -24,6 +24,8 @@ import { AnalyticsService } from "./services/meta/analytics.service";
 import { BudgetService } from "./services/meta/budget.service";
 import { MetaOAuthService } from "./services/meta/meta-oauth.service";
 import { ShippoLabelService } from "./services/shippo-label.service";
+import { domainMiddleware } from "./middleware/domain";
+import { startDomainStatusChecker } from "./jobs/domain-status-checker";
 import Stripe from "stripe";
 
 const app = express();
@@ -93,6 +95,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  app.use(domainMiddleware);
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -130,6 +134,7 @@ app.use((req, res, next) => {
   let deliveryReminderJob: DeliveryReminderService | null = null;
   let metaJobScheduler: MetaJobScheduler | null = null;
   let shippoRefundPollInterval: NodeJS.Timeout | null = null;
+  let domainStatusChecker: any = null;
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -185,6 +190,10 @@ app.use((req, res, next) => {
     const emailProvider = new ResendEmailProvider(process.env.RESEND_API_KEY);
     deliveryReminderJob = new DeliveryReminderService(storage, emailProvider);
     deliveryReminderJob.start();
+    
+    // Start domain status checker job
+    domainStatusChecker = startDomainStatusChecker();
+    log('[Server] Domain status checker job started (2 minute interval)');
     
     // Start Meta Ads background jobs (insights polling and budget monitoring)
     // Only initialize if Meta credentials are configured

@@ -1,5 +1,6 @@
 import { cloudflareDomainService } from './cloudflare.service';
 import { manualDomainService } from './manual.service';
+import { dnsVerificationService } from './dns-verification.service';
 import { storage } from '../../storage';
 import type { DomainConnection, InsertDomainConnection } from '@shared/schema';
 import { logger } from '../../logger';
@@ -240,60 +241,100 @@ export class DomainOrchestrator {
     }
 
     try {
-      const { verified, status } = await cloudflareDomainService.verifyDNS(
-        domain.cloudflareCustomHostnameId
+      const txtVerified = await dnsVerificationService.verifyTxtRecord(
+        domain.domain,
+        domain.verificationToken
       );
 
-      if (verified) {
+      if (!txtVerified) {
         await storage.updateDomainConnection(domain.id, {
-          status: 'active',
           lastCheckedAt: new Date(),
         });
-        return { verified: true, newStatus: 'active' };
+        return { 
+          verified: false, 
+          newStatus: domain.status,
+          error: 'TXT record not found or does not match. Please add the verification record to your DNS.'
+        };
       }
 
       await storage.updateDomainConnection(domain.id, {
+        status: 'dns_verified',
+        lastVerifiedAt: new Date(),
         lastCheckedAt: new Date(),
       });
 
-      return { verified: false, newStatus: domain.status };
+      await this.provisionSSL(domain);
+
+      return { verified: true, newStatus: 'ssl_provisioning' };
     } catch (error) {
       logger.error('Cloudflare verification failed', { error, domainId: domain.id });
+      await storage.updateDomainConnection(domain.id, {
+        failureReason: error instanceof Error ? error.message : 'Verification failed',
+        lastCheckedAt: new Date(),
+      });
       return { verified: false, error: error instanceof Error ? error.message : 'Verification failed' };
+    }
+  }
+
+  private async provisionSSL(domain: DomainConnection): Promise<void> {
+    if (!domain.cloudflareCustomHostnameId) {
+      throw new Error('Cloudflare hostname ID missing');
+    }
+
+    try {
+      logger.info('[Domain Orchestrator] Provisioning SSL', { domainId: domain.id, domain: domain.domain });
+
+      await storage.updateDomainConnection(domain.id, {
+        status: 'ssl_provisioning',
+      });
+
+      logger.info('[Domain Orchestrator] SSL provisioning initiated', { 
+        domainId: domain.id, 
+        cloudflareHostnameId: domain.cloudflareCustomHostnameId 
+      });
+    } catch (error) {
+      logger.error('[Domain Orchestrator] SSL provisioning failed', { error, domainId: domain.id });
+      await storage.updateDomainConnection(domain.id, {
+        status: 'error',
+        failureReason: error instanceof Error ? error.message : 'SSL provisioning failed',
+      });
+      throw error;
     }
   }
 
   private async verifyManual(domain: DomainConnection): Promise<VerificationResult> {
     try {
-      const ownershipResult = await manualDomainService.verifyOwnership(
+      const txtVerified = await dnsVerificationService.verifyTxtRecord(
         domain.domain,
         domain.verificationToken
       );
 
-      if (!ownershipResult.verified) {
+      if (!txtVerified) {
         await storage.updateDomainConnection(domain.id, {
           lastCheckedAt: new Date(),
-          failureReason: ownershipResult.error,
+          failureReason: 'TXT record not found or does not match',
         });
-        return { verified: false, error: ownershipResult.error };
+        return { 
+          verified: false, 
+          error: 'TXT record not found or does not match. Please add the verification record to your DNS.' 
+        };
       }
 
       await storage.updateDomainConnection(domain.id, {
         status: 'dns_verified',
+        lastVerifiedAt: new Date(),
         lastCheckedAt: new Date(),
       });
 
       const dnsInstructions = domain.dnsInstructions as any;
-      const expectedValue = dnsInstructions.value;
-      const recordType = dnsInstructions.recordType;
+      const cnameTarget = dnsInstructions.cnameTarget || process.env.FALLBACK_ORIGIN || 'app.upfirst.com';
 
-      const dnsResult = await manualDomainService.verifyDNS(
+      const cnameVerified = await dnsVerificationService.verifyCNAMERecord(
         domain.domain,
-        expectedValue,
-        recordType
+        cnameTarget
       );
 
-      if (dnsResult.verified) {
+      if (cnameVerified) {
         await storage.updateDomainConnection(domain.id, {
           status: 'ssl_provisioning',
         });
@@ -312,6 +353,10 @@ export class DomainOrchestrator {
       return { verified: false, newStatus: 'dns_verified' };
     } catch (error) {
       logger.error('Manual verification failed', { error, domainId: domain.id });
+      await storage.updateDomainConnection(domain.id, {
+        failureReason: error instanceof Error ? error.message : 'Verification failed',
+        lastCheckedAt: new Date(),
+      });
       return { verified: false, error: error instanceof Error ? error.message : 'Verification failed' };
     }
   }

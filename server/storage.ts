@@ -849,6 +849,8 @@ export interface IStorage {
   getDomainConnectionsBySellerId(sellerId: string): Promise<DomainConnection[]>;
   getDomainConnectionByCloudflareId(cloudflareId: string): Promise<DomainConnection | undefined>;
   getDomainConnectionByVerificationToken(token: string): Promise<DomainConnection | undefined>;
+  getDomainByName(domain: string): Promise<DomainConnection | null>;
+  getDomainsInProvisioning(sellerId?: string): Promise<DomainConnection[]>;
   createDomainConnection(connection: InsertDomainConnection): Promise<DomainConnection>;
   updateDomainConnection(id: string, updates: Partial<DomainConnection>): Promise<DomainConnection | undefined>;
   deleteDomainConnection(id: string): Promise<boolean>;
@@ -5140,6 +5142,36 @@ export class DatabaseStorage implements IStorage {
       .delete(domainConnections)
       .where(eq(domainConnections.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getDomainByName(domain: string): Promise<DomainConnection | null> {
+    await this.ensureInitialized();
+    const normalizedDomain = domain.toLowerCase();
+    const [result] = await this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.normalizedDomain, normalizedDomain))
+      .limit(1);
+    return result || null;
+  }
+
+  async getDomainsInProvisioning(sellerId?: string): Promise<DomainConnection[]> {
+    await this.ensureInitialized();
+    let query = this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.status, 'ssl_provisioning'));
+    
+    if (sellerId) {
+      query = query.where(
+        and(
+          eq(domainConnections.status, 'ssl_provisioning'),
+          eq(domainConnections.sellerId, sellerId)
+        )
+      );
+    }
+    
+    return await query;
   }
 }
 
