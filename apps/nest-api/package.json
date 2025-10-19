@@ -2,5 +2,8 @@
   "name": "nest-api",
   "version": "1.0.0",
   "type": "commonjs",
-  "private": true
+  "private": true,
+  "scripts": {
+    "codegen": "graphql-codegen --config codegen.ts"
+  }
 }

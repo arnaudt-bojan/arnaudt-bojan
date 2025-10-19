@@ -1077,9 +1077,12 @@ model products {
   status                  String?                   @default("draft")
   has_colors              Int?                      @default(0)
   sku                     String?
+  slug                    String?                   @db.VarChar
   created_at              DateTime                  @default(now()) @db.Timestamp(6)
   updated_at              DateTime                  @default(now()) @db.Timestamp(6)
   product_source_mappings product_source_mappings[]
+
+  @@index([seller_id, slug])
 }
 
 model refund_line_items {
