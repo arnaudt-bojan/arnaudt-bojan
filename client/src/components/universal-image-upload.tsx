@@ -99,13 +99,24 @@ export function UniversalImageUpload({
   };
 
   const handleSaveEdit = (editedImageUrl: string) => {
-    if (editingImage === null) return;
+    console.log('[UniversalImageUpload] handleSaveEdit called', {
+      editingImage,
+      editedImageUrl,
+      isSingle,
+      currentImages: images
+    });
+    if (editingImage === null) {
+      console.log('[UniversalImageUpload] editingImage is null, returning early');
+      return;
+    }
     
     if (isSingle) {
+      console.log('[UniversalImageUpload] Single mode, calling onChange with:', editedImageUrl);
       onChange(editedImageUrl);
     } else {
       const newImages = [...images];
       newImages[editingImage.index] = editedImageUrl;
+      console.log('[UniversalImageUpload] Multiple mode, calling onChange with:', newImages);
       onChange(newImages);
     }
     setEditingImage(null);

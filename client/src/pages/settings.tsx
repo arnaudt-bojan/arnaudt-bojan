@@ -2793,16 +2793,16 @@ export default function Settings() {
     },
   });
 
-  // Reset quick setup form when user data changes
+  // Reset quick setup form when user data changes (but not logo/banner to preserve unsaved edits)
   useEffect(() => {
-    if (user) {
+    if (user && !quickSetupForm.formState.isDirty) {
       quickSetupForm.reset({
         username: user.username || "",
         storeLogo: user.storeLogo || "",
         storeBanner: user.storeBanner || "",
       });
     }
-  }, [user?.username, user?.storeLogo, user?.storeBanner]);
+  }, [user?.username]);
 
   const customDomainForm = useForm<CustomDomainForm>({
     resolver: zodResolver(customDomainSchema),

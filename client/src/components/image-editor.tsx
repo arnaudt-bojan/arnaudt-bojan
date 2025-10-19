@@ -128,22 +128,59 @@ export function ImageEditor({ imageUrl, isOpen, onClose, onSave, aspectRatio = 4
   };
 
   const handleSave = async () => {
-    if (!croppedAreaPixels) return;
-
+    console.log('[ImageEditor] handleSave called', { 
+      imageUrl, 
+      croppedAreaPixels, 
+      hasTransformations: rotation !== 0 || flipHorizontal || flipVertical 
+    });
     setIsSaving(true);
     try {
-      const croppedImage = await getCroppedImg(
-        imageUrl,
-        croppedAreaPixels,
-        rotation,
-        flipHorizontal,
-        flipVertical,
-        filters
-      );
-      onSave(croppedImage);
-      onClose();
+      // Check if any transformations were made
+      const hasTransformations = 
+        rotation !== 0 || 
+        flipHorizontal || 
+        flipVertical ||
+        filters.brightness !== 100 ||
+        filters.contrast !== 100 ||
+        filters.saturate !== 100 ||
+        filters.blur !== 0 ||
+        filters.grayscale !== 0 ||
+        filters.sepia !== 0;
+
+      // If no crop area and no transformations, just return original image
+      if (!croppedAreaPixels && !hasTransformations) {
+        console.log('[ImageEditor] No edits made, saving original URL:', imageUrl);
+        onSave(imageUrl);
+        onClose();
+        return;
+      }
+
+      // If we have a crop area or transformations, process the image
+      if (croppedAreaPixels) {
+        console.log('[ImageEditor] Processing image with crop/transforms');
+        const croppedImage = await getCroppedImg(
+          imageUrl,
+          croppedAreaPixels,
+          rotation,
+          flipHorizontal,
+          flipVertical,
+          filters
+        );
+        console.log('[ImageEditor] Cropped image created, length:', croppedImage.length);
+        onSave(croppedImage);
+        onClose();
+      } else {
+        // No crop area but has transformations - save original
+        console.log('[ImageEditor] Has transformations but no crop, saving original URL');
+        onSave(imageUrl);
+        onClose();
+      }
     } catch (e) {
-      console.error("Error cropping image:", e);
+      console.error("Error processing image:", e);
+      // On error, still save the original image and close
+      console.log('[ImageEditor] Error occurred, saving original URL as fallback');
+      onSave(imageUrl);
+      onClose();
     } finally {
       setIsSaving(false);
     }
