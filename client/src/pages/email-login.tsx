@@ -63,11 +63,14 @@ export default function EmailLogin() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Set user data directly in cache instead of invalidating (prevents race condition)
+      queryClient.setQueryData(["/api/auth/user"], data.user);
+      
       toast({
         title: "Welcome!",
         description: `You're now logged in as ${data.user.email}`,
       });
+      
       // Redirect to URL provided by backend
       const redirectUrl = data.redirectUrl || '/';
       setLocation(redirectUrl);
