@@ -859,7 +859,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                 )}
 
                 {/* Refund Information */}
-                {item.refundedQuantity && item.refundedQuantity > 0 && (
+                {item.refundedQuantity > 0 && (
                   <div className="mt-2 text-sm text-orange-600 dark:text-orange-400">
                     Refunded: {item.refundedQuantity} × {order.currency} {parseFloat(item.refundedAmount || "0").toFixed(2)}
                   </div>
