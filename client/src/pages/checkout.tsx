@@ -754,6 +754,17 @@ export default function Checkout() {
   // Checkout step state: 'shipping' or 'payment'
   const checkoutStep = clientSecret ? 'payment' : 'shipping';
   
+  // Get buyer's selected currency and conversion functions
+  const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
+  
+  // Fetch seller data to get actual Stripe currency for payment
+  // CRITICAL FIX: Must declare seller BEFORE using it in useEffect below
+  // sellerId comes from useCart() hook above
+  const { data: seller } = useQuery<any>({
+    queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
+    enabled: !!sellerId,
+  });
+
   // Redirect sellers and collaborators away from checkout (they cannot buy)
   useEffect(() => {
     if (isSeller || isCollaborator) {
@@ -782,16 +793,6 @@ export default function Checkout() {
       }
     }
   }, [seller, effectiveSellerUsername, setLocation, toast]);
-  
-  // Get buyer's selected currency and conversion functions
-  const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
-  
-  // Fetch seller data to get actual Stripe currency for payment
-  // sellerId comes from useCart() hook above
-  const { data: seller } = useQuery<any>({
-    queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
-    enabled: !!sellerId,
-  });
   
   // Get seller's actual Stripe currency for payment processing
   // This is what the customer will be charged in (not the buyer's display currency)
@@ -1017,7 +1018,7 @@ export default function Checkout() {
 
   // Use backend pricing API for all calculations (includes shipping, tax, deposit/balance)
   const { data: pricingData, isLoading: isPricingLoading, error: pricingError } = usePricing({
-    sellerId,
+    sellerId: sellerId || undefined,
     items: pricingItems,
     destination,
     enabled: items.length > 0 && !!sellerId,
