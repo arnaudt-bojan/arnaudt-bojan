@@ -18,7 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText, Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, CheckCircle2, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText, Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
@@ -194,6 +194,264 @@ function PaymentSetupForm({ clientSecret, onSuccess }: { clientSecret: string; o
         {isProcessing ? "Processing..." : "Save Payment Method"}
       </Button>
     </form>
+  );
+}
+
+// DNS Instructions Display Component
+interface DnsInstructionsDisplayProps {
+  domain: any;
+}
+
+function DnsInstructionsDisplay({ domain }: DnsInstructionsDisplayProps) {
+  const { toast } = useToast();
+  const instructions = domain.dnsInstructions;
+
+  const handleCopy = async (text: string, label: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      toast({
+        title: "Copied!",
+        description: `${label} copied to clipboard`,
+      });
+    } else {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy manually",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!instructions) {
+    return <p className="text-sm text-muted-foreground">No DNS instructions available</p>;
+  }
+
+  if (instructions.type === 'cloudflare') {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg bg-muted p-4 space-y-3">
+          <h4 className="font-medium text-sm">Step 1: Add CNAME Record</h4>
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="text-muted-foreground mb-1">Type:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-background px-3 py-2 rounded border">CNAME</code>
+              </div>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Name:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-background px-3 py-2 rounded border">{domain.domain}</code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(domain.domain, "Name")}
+                  data-testid="button-copy-cname-name"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Target:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-background px-3 py-2 rounded border">{instructions.cnameTarget}</code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(instructions.cnameTarget, "Target")}
+                  data-testid="button-copy-cname-target"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted p-4 space-y-3">
+          <h4 className="font-medium text-sm">Step 2: Add TXT Verification Record</h4>
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="text-muted-foreground mb-1">Type:</p>
+              <code className="block bg-background px-3 py-2 rounded border">TXT</code>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Name:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-background px-3 py-2 rounded border break-all">
+                  {instructions.verificationRecords?.txtName || 'N/A'}
+                </code>
+                {instructions.verificationRecords?.txtName && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopy(instructions.verificationRecords.txtName, "TXT Name")}
+                    data-testid="button-copy-txt-name"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Value:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-background px-3 py-2 rounded border break-all text-xs">
+                  {instructions.verificationRecords?.txtValue || 'N/A'}
+                </code>
+                {instructions.verificationRecords?.txtValue && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopy(instructions.verificationRecords.txtValue, "TXT Value")}
+                    data-testid="button-copy-txt-value"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Manual strategy
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg bg-muted p-4 space-y-3">
+        <h4 className="font-medium text-sm">Step 1: Add {instructions.recordType} Record</h4>
+        <div className="space-y-2 text-sm">
+          <div>
+            <p className="text-muted-foreground mb-1">Type:</p>
+            <code className="block bg-background px-3 py-2 rounded border">{instructions.recordType}</code>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Host:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-background px-3 py-2 rounded border">{instructions.host}</code>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleCopy(instructions.host, "Host")}
+                data-testid="button-copy-host"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Value:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-background px-3 py-2 rounded border">{instructions.value}</code>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleCopy(instructions.value, "Value")}
+                data-testid="button-copy-value"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">TTL:</p>
+            <code className="block bg-background px-3 py-2 rounded border">{instructions.ttl}</code>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-muted p-4 space-y-3">
+        <h4 className="font-medium text-sm">Step 2: Add TXT Verification Record</h4>
+        <div className="space-y-2 text-sm">
+          <div>
+            <p className="text-muted-foreground mb-1">Type:</p>
+            <code className="block bg-background px-3 py-2 rounded border">TXT</code>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Host:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-background px-3 py-2 rounded border break-all">
+                {instructions.txtVerification?.host || 'N/A'}
+              </code>
+              {instructions.txtVerification?.host && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(instructions.txtVerification.host, "TXT Host")}
+                  data-testid="button-copy-txt-host"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Value:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-background px-3 py-2 rounded border break-all text-xs">
+                {instructions.txtVerification?.value || 'N/A'}
+              </code>
+              {instructions.txtVerification?.value && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(instructions.txtVerification.value, "TXT Value")}
+                  data-testid="button-copy-txt-value"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-muted p-4 space-y-3">
+        <h4 className="font-medium text-sm">Alternative: HTTP Verification</h4>
+        <p className="text-sm text-muted-foreground">Upload a file to your server with the following content:</p>
+        <div className="space-y-2 text-sm">
+          <div>
+            <p className="text-muted-foreground mb-1">Path:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-background px-3 py-2 rounded border break-all">
+                {instructions.httpVerification?.path || 'N/A'}
+              </code>
+              {instructions.httpVerification?.path && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(instructions.httpVerification.path, "HTTP Path")}
+                  data-testid="button-copy-http-path"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Content:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-background px-3 py-2 rounded border break-all">
+                {instructions.httpVerification?.content || 'N/A'}
+              </code>
+              {instructions.httpVerification?.content && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(instructions.httpVerification.content, "HTTP Content")}
+                  data-testid="button-copy-http-content"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -387,21 +645,29 @@ function AddDomainDialog({ open, onOpenChange, onSuccess }: AddDomainDialogProps
           </Form>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-lg bg-muted p-4">
-              <p className="text-sm font-medium mb-2">Domain Added:</p>
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <p className="font-medium">Domain Added Successfully!</p>
+              </div>
               <p className="text-lg font-semibold">{createdDomain?.domain}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Strategy: {createdDomain?.strategy}
+                Strategy: <span className="capitalize">{createdDomain?.strategy}</span>
               </p>
             </div>
 
             <div className="space-y-3">
-              <h4 className="font-medium">Next Steps:</h4>
-              <ol className="list-decimal list-inside space-y-2 text-sm">
-                <li>Configure your DNS settings as shown in the Domains tab</li>
+              <h4 className="font-medium">Configure DNS Settings:</h4>
+              <DnsInstructionsDisplay domain={createdDomain} />
+            </div>
+
+            <div className="rounded-lg bg-muted/50 p-4">
+              <h4 className="font-medium text-sm mb-2">What's Next?</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Add the DNS records shown above to your domain provider</li>
                 <li>Wait for DNS propagation (usually 5-60 minutes)</li>
-                <li>Click "Verify" to check your setup</li>
-                <li>Your custom domain will be active once verified</li>
+                <li>Return to the Domains tab and click "Verify" to check your setup</li>
+                <li>Your domain will be active once verification is complete</li>
               </ol>
             </div>
 
