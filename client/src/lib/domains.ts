@@ -76,6 +76,7 @@ interface DomainVerificationResponse {
 export function useDomains() {
   return useQuery<DomainConnection[]>({
     queryKey: ["/api/seller/domains"],
+    select: (data: any) => data.domains || [],
   });
 }
 

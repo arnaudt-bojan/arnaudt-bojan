@@ -44,9 +44,9 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Check if this is local auth or email auth (doesn't need token refresh)
-  if (user.access_token === 'local-auth' || user.access_token === 'email-auth') {
-    // Extend session for local/email auth users on each request
+  // Check if this is local auth, email auth, or test auth (doesn't need token refresh)
+  if (user.access_token === 'local-auth' || user.access_token === 'email-auth' || user.access_token === 'test-auth') {
+    // Extend session for local/email/test auth users on each request
     user.expires_at = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
     return next();
   }

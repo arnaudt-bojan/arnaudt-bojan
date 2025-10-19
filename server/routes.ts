@@ -635,6 +635,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email-based authentication routes
   app.use("/api/auth/email", emailAuthRoutes);
 
+  /**
+   * TEST-ONLY Authentication Bypass for Playwright E2E Testing
+   * 
+   * POST /api/test/auth/session
+   * 
+   * This endpoint allows E2E tests (Playwright) to authenticate without email confirmation.
+   * It creates a session directly by seeding the user and session data.
+   * 
+   * SECURITY:
+   * - BLOCKED only in production environment (NODE_ENV === 'production')
+   * - Enabled in development and test environments for E2E testing
+   * - Never affects production behavior
+   * - Works with run_test (which uses NODE_ENV=development)
+   * 
+   * Usage (Playwright):
+   * ```
+   * await request.post('/api/test/auth/session', {
+   *   data: {
+   *     sub: 'test-seller-domains',
+   *     email: 'seller-domains@test.com',
+   *     firstName: 'Test',
+   *     lastName: 'Seller',
+   *     role: 'admin',
+   *     userType: 'seller'
+   *   }
+   * });
+   * ```
+   */
+  app.post('/api/test/auth/session', async (req: any, res: any) => {
+    try {
+      // STRICT GUARD: Block only in production environment
+      if (process.env.NODE_ENV === 'production') {
+        logger.warn('[Test Auth] Production access attempt to test auth endpoint', {
+          nodeEnv: process.env.NODE_ENV
+        });
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      const { sub, email, firstName, lastName, role, userType } = req.body;
+
+      // Validate required fields
+      if (!sub || !email) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: sub and email are required' 
+        });
+      }
+
+      logger.info('[Test Auth] Creating test session', { 
+        sub, 
+        email, 
+        role: role || 'admin',
+        userType: userType || 'seller'
+      });
+
+      // Get or create user
+      let user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Create new test user
+        user = await storage.upsertUser({
+          id: sub, // Use provided sub as user ID for consistency
+          email: email,
+          role: role || 'admin',
+          userType: userType || 'seller',
+          firstName: firstName || null,
+          lastName: lastName || null,
+        });
+        
+        logger.info('[Test Auth] Created new test user', {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          userType: user.userType
+        });
+      } else {
+        logger.info('[Test Auth] Using existing test user', {
+          userId: user.id,
+          email: user.email,
+          role: user.role
+        });
+      }
+
+      // Create session compatible with isAuthenticated middleware
+      // Same format as email auth (see server/auth-email.ts line 253)
+      req.session.passport = {
+        user: {
+          id: user.id,
+          access_token: 'test-auth', // Marker for test-based auth
+          expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+          claims: {
+            sub: user.id,
+            email: user.email,
+            aud: 'authenticated',
+          },
+        },
+      };
+
+      // CRITICAL: Save session before responding
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      logger.info('[Test Auth] Test user authenticated successfully', { 
+        userId: user.id,
+        email: user.email 
+      });
+
+      // Return success response
+      res.json({
+        success: true,
+        message: 'Test session created successfully',
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          userType: user.userType,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+      });
+    } catch (error) {
+      logger.error('[Test Auth] Failed to create test session', error);
+      res.status(500).json({ 
+        error: 'Failed to create test session',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Magic link verification endpoint (JSON-based SPA flow)
   app.get('/api/auth/magic/verify', async (req: any, res: any) => {
     try {
