@@ -76,6 +76,41 @@ export class DNSVerificationService {
       return false;
     }
   }
+
+  async verifyARecord(domain: string, expectedIP: string): Promise<boolean> {
+    try {
+      logger.info('[DNS Verification] Querying A records', { domain, expectedIP });
+
+      const records = await dns.resolve4(domain);
+      
+      for (const record of records) {
+        if (record === expectedIP) {
+          logger.info('[DNS Verification] A record verified successfully', { domain, ip: record });
+          return true;
+        }
+      }
+
+      logger.warn('[DNS Verification] A record not found or mismatch', { 
+        domain, 
+        expectedIP,
+        foundRecords: records 
+      });
+      return false;
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === 'ENOTFOUND' || error.code === 'ENODATA') {
+          logger.info('[DNS Verification] A record not yet propagated', { domain });
+          return false;
+        }
+      }
+      
+      logger.error('[DNS Verification] A record verification failed', { 
+        domain, 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return false;
+    }
+  }
 }
 
 export const dnsVerificationService = new DNSVerificationService();

@@ -59,11 +59,11 @@ export class ManualDomainService {
         value: fallbackIp,
         ttl: 3600,
         txtVerification: {
-          host: `_upfirst-domain-verify.${domain}`,
+          host: `_upfirst-verify.${domain}`,
           value: verificationToken,
         },
         httpVerification: {
-          path: `/.well-known/upfirst-domain-verify/${verificationToken}`,
+          path: `/.well-known/upfirst-verify/${verificationToken}`,
           content: verificationToken,
         },
       };
@@ -75,11 +75,11 @@ export class ManualDomainService {
       value: this.fallbackOrigin,
       ttl: 3600,
       txtVerification: {
-        host: `_upfirst-domain-verify.${domain}`,
+        host: `_upfirst-verify.${domain}`,
         value: verificationToken,
       },
       httpVerification: {
-        path: `/.well-known/upfirst-domain-verify/${verificationToken}`,
+        path: `/.well-known/upfirst-verify/${verificationToken}`,
         content: verificationToken,
       },
     };
@@ -138,7 +138,7 @@ export class ManualDomainService {
     logger.info('Verifying TXT record for domain ownership', { domain });
 
     try {
-      const txtHost = `_upfirst-domain-verify.${domain}`;
+      const txtHost = `_upfirst-verify.${domain}`;
       const records = await dns.resolveTxt(txtHost);
       
       const flatRecords = records.flat();
@@ -165,7 +165,7 @@ export class ManualDomainService {
     logger.info('Verifying HTTP challenge for domain ownership', { domain });
 
     try {
-      const url = `http://${domain}/.well-known/upfirst-domain-verify/${expectedToken}`;
+      const url = `http://${domain}/.well-known/upfirst-verify/${expectedToken}`;
       const response = await fetch(url, {
         method: 'GET',
         redirect: 'follow',

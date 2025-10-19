@@ -327,14 +327,25 @@ export class DomainOrchestrator {
       });
 
       const dnsInstructions = domain.dnsInstructions as any;
-      const cnameTarget = dnsInstructions.cnameTarget || process.env.FALLBACK_ORIGIN || 'app.upfirst.io';
+      const recordType = dnsInstructions.recordType || 'CNAME';
+      
+      let dnsVerified = false;
+      
+      if (recordType === 'A') {
+        const expectedIP = dnsInstructions.value || process.env.FALLBACK_IP || '0.0.0.0';
+        dnsVerified = await dnsVerificationService.verifyARecord(
+          domain.domain,
+          expectedIP
+        );
+      } else {
+        const cnameTarget = dnsInstructions.value || process.env.FALLBACK_ORIGIN || 'app.upfirst.io';
+        dnsVerified = await dnsVerificationService.verifyCNAMERecord(
+          domain.domain,
+          cnameTarget
+        );
+      }
 
-      const cnameVerified = await dnsVerificationService.verifyCNAMERecord(
-        domain.domain,
-        cnameTarget
-      );
-
-      if (cnameVerified) {
+      if (dnsVerified) {
         await storage.updateDomainConnection(domain.id, {
           status: 'ssl_provisioning',
         });
