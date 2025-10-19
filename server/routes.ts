@@ -11175,14 +11175,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // CRITICAL FIX: Check for existing reservation to prevent duplicates
       let reservationId: string | undefined;
       
-      if (product.productType === 'in-stock') {
+      if (product.product_type === 'in-stock') {
         // Check for existing active reservation for this product/variant/session
         const sessionReservations = await storage.getStockReservationsBySession(sessionId);
         const existingReservation = sessionReservations.find(
           (r) =>
             r.status === 'active' &&
-            r.productId === productId &&
-            r.variantId === (finalVariantId || null)
+            r.product_id === productId &&
+            r.variant_id === (finalVariantId || null)
         );
 
         if (existingReservation) {
@@ -11196,7 +11196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const updateResult = await storage.updateReservationQuantityAtomic(
             existingReservation.id,
             existingReservation.quantity + quantity,
-            product.productType
+            product.product_type
           );
 
           if (!updateResult.success) {

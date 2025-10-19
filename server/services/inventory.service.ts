@@ -193,7 +193,7 @@ export class InventoryService {
           productId,
           variantId: options?.variantId,
           quantity,
-          expiresAt: (result.reservation!.expiresAt || result.reservation!.expires_at).toISOString(),
+          expiresAt: result.reservation!.expiresAt?.toISOString(),
         });
       } else {
         logger.warn('[InventoryService] Insufficient stock for reservation', {
@@ -211,11 +211,13 @@ export class InventoryService {
         variantId: options?.variantId,
         quantity,
         error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
       });
       
       return {
         success: false,
-        error: 'Failed to reserve stock due to system error',
+        error: `Failed to reserve stock: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

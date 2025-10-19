@@ -157,11 +157,13 @@ import {
   type InsertTradeQuotation
 } from "@shared/prisma-types";
 
-// Minimal Drizzle schema imports for saveCart() only
-// Note: saveCart() is the only remaining Drizzle method (deferred to Phase 2 due to row-level locking requirements)
+// Minimal Drizzle schema imports for saveCart() and atomicReserveStock()
+// Note: These methods require row-level locking (deferred to Phase 2 due to Prisma limitations)
 import {
   carts,
-  cartSessions
+  cartSessions,
+  products,
+  stockReservations
 } from "@shared/schema";
 
 // Minimal Drizzle setup for saveCart() only
