@@ -6177,66 +6177,95 @@ export class DatabaseStorage implements IStorage {
   async getMetaCampaignMetrics(campaignId: string, startDate?: Date, endDate?: Date): Promise<MetaCampaignMetricsDaily[]> {
     await this.ensureInitialized();
     
-    const conditions = [eq(metaCampaignMetricsDaily.campaignId, campaignId)];
+    const where: any = { campaign_id: campaignId };
     
-    if (startDate) {
-      conditions.push(sql`${metaCampaignMetricsDaily.date} >= ${startDate}`);
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        where.date.gte = startDate;
+      }
+      if (endDate) {
+        where.date.lte = endDate;
+      }
     }
     
-    if (endDate) {
-      conditions.push(sql`${metaCampaignMetricsDaily.date} <= ${endDate}`);
-    }
-    
-    return await this.db
-      .select()
-      .from(metaCampaignMetricsDaily)
-      .where(and(...conditions))
-      .orderBy(desc(metaCampaignMetricsDaily.date));
+    return await prisma.meta_campaign_metrics_daily.findMany({
+      where,
+      orderBy: { date: 'desc' }
+    });
   }
 
   async getMetaCampaignMetricsForDate(campaignId: string, date: Date): Promise<MetaCampaignMetricsDaily | undefined> {
     await this.ensureInitialized();
-    const [result] = await this.db
-      .select()
-      .from(metaCampaignMetricsDaily)
-      .where(
-        and(
-          eq(metaCampaignMetricsDaily.campaignId, campaignId),
-          sql`DATE(${metaCampaignMetricsDaily.date}) = DATE(${date})`
-        )
-      )
-      .limit(1);
-    return result;
+    
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const result = await prisma.meta_campaign_metrics_daily.findFirst({
+      where: {
+        campaign_id: campaignId,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay
+        }
+      }
+    });
+    return result ?? undefined;
   }
 
   async upsertMetaCampaignMetrics(metrics: InsertMetaCampaignMetricsDaily): Promise<string> {
     await this.ensureInitialized();
-    const [result] = await this.db
-      .insert(metaCampaignMetricsDaily)
-      .values(metrics)
-      .onConflictDoUpdate({
-        target: [metaCampaignMetricsDaily.campaignId, metaCampaignMetricsDaily.date],
-        set: {
-          impressions: metrics.impressions,
-          clicks: metrics.clicks,
-          reach: metrics.reach,
-          frequency: metrics.frequency,
-          likes: metrics.likes,
-          comments: metrics.comments,
-          shares: metrics.shares,
-          saves: metrics.saves,
-          linkClicks: metrics.linkClicks,
-          websiteVisits: metrics.websiteVisits,
-          purchases: metrics.purchases,
-          revenue: metrics.revenue,
-          spend: metrics.spend,
-          cpm: metrics.cpm,
-          cpc: metrics.cpc,
-          ctr: metrics.ctr,
-          roas: metrics.roas,
+    
+    const result = await prisma.meta_campaign_metrics_daily.upsert({
+      where: {
+        campaign_id_date: {
+          campaign_id: metrics.campaignId,
+          date: metrics.date
         }
-      })
-      .returning();
+      },
+      create: {
+        campaign_id: metrics.campaignId,
+        date: metrics.date,
+        impressions: metrics.impressions ?? 0,
+        clicks: metrics.clicks ?? 0,
+        reach: metrics.reach ?? 0,
+        frequency: metrics.frequency ?? 0,
+        likes: metrics.likes ?? 0,
+        comments: metrics.comments ?? 0,
+        shares: metrics.shares ?? 0,
+        saves: metrics.saves ?? 0,
+        link_clicks: metrics.linkClicks ?? 0,
+        website_visits: metrics.websiteVisits ?? 0,
+        purchases: metrics.purchases ?? 0,
+        revenue: metrics.revenue ?? 0,
+        spend: metrics.spend ?? 0,
+        cpm: metrics.cpm ?? 0,
+        cpc: metrics.cpc ?? 0,
+        ctr: metrics.ctr ?? 0,
+        roas: metrics.roas ?? 0,
+      },
+      update: {
+        impressions: metrics.impressions,
+        clicks: metrics.clicks,
+        reach: metrics.reach,
+        frequency: metrics.frequency,
+        likes: metrics.likes,
+        comments: metrics.comments,
+        shares: metrics.shares,
+        saves: metrics.saves,
+        link_clicks: metrics.linkClicks,
+        website_visits: metrics.websiteVisits,
+        purchases: metrics.purchases,
+        revenue: metrics.revenue,
+        spend: metrics.spend,
+        cpm: metrics.cpm,
+        cpc: metrics.cpc,
+        ctr: metrics.ctr,
+        roas: metrics.roas,
+      }
+    });
     return result.id;
   }
 
@@ -6244,31 +6273,27 @@ export class DatabaseStorage implements IStorage {
   
   async getBackgroundJobRun(id: string): Promise<BackgroundJobRun | undefined> {
     await this.ensureInitialized();
-    const [result] = await this.db
-      .select()
-      .from(backgroundJobRuns)
-      .where(eq(backgroundJobRuns.id, id))
-      .limit(1);
-    return result;
+    const result = await prisma.background_job_runs.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getBackgroundJobRunsByName(jobName: string): Promise<BackgroundJobRun[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(backgroundJobRuns)
-      .where(eq(backgroundJobRuns.jobName, jobName))
-      .orderBy(desc(backgroundJobRuns.createdAt));
+    return await prisma.background_job_runs.findMany({
+      where: { job_name: jobName },
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async getRecentBackgroundJobRuns(jobName: string, limit: number): Promise<BackgroundJobRun[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(backgroundJobRuns)
-      .where(eq(backgroundJobRuns.jobName, jobName))
-      .orderBy(desc(backgroundJobRuns.createdAt))
-      .limit(limit);
+    return await prisma.background_job_runs.findMany({
+      where: { job_name: jobName },
+      orderBy: { created_at: 'desc' },
+      take: limit
+    });
   }
 
   async createBackgroundJobRun(job: InsertBackgroundJobRun): Promise<string> {
@@ -6307,130 +6332,148 @@ export class DatabaseStorage implements IStorage {
   
   async getAllDomainConnections(): Promise<DomainConnection[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(domainConnections)
-      .orderBy(desc(domainConnections.createdAt));
+    return await prisma.domain_connections.findMany({
+      orderBy: { created_at: 'desc' }
+    });
   }
 
   async getDomainConnectionById(id: string): Promise<DomainConnection | undefined> {
     await this.ensureInitialized();
-    const [result] = await this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.id, id))
-      .limit(1);
-    return result;
+    const result = await prisma.domain_connections.findUnique({
+      where: { id }
+    });
+    return result ?? undefined;
   }
 
   async getDomainConnectionByDomain(domain: string): Promise<DomainConnection | undefined> {
     await this.ensureInitialized();
     // Normalize domain to lowercase for case-insensitive lookup
     const normalizedDomain = domain.toLowerCase();
-    const [result] = await this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.normalizedDomain, normalizedDomain))
-      .limit(1);
-    return result;
+    const result = await prisma.domain_connections.findUnique({
+      where: { normalized_domain: normalizedDomain }
+    });
+    return result ?? undefined;
   }
 
   async getDomainConnectionsBySellerId(sellerId: string): Promise<DomainConnection[]> {
     await this.ensureInitialized();
-    return await this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.sellerId, sellerId))
-      .orderBy(desc(domainConnections.isPrimary), desc(domainConnections.createdAt));
+    return await prisma.domain_connections.findMany({
+      where: { seller_id: sellerId },
+      orderBy: [
+        { is_primary: 'desc' },
+        { created_at: 'desc' }
+      ]
+    });
   }
 
   async getDomainConnectionByCloudflareId(cloudflareId: string): Promise<DomainConnection | undefined> {
     await this.ensureInitialized();
-    const [result] = await this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.cloudflareCustomHostnameId, cloudflareId))
-      .limit(1);
-    return result;
+    const result = await prisma.domain_connections.findFirst({
+      where: { cloudflare_custom_hostname_id: cloudflareId }
+    });
+    return result ?? undefined;
   }
 
   async getDomainConnectionByVerificationToken(token: string): Promise<DomainConnection | undefined> {
     await this.ensureInitialized();
-    const [result] = await this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.verificationToken, token))
-      .limit(1);
-    return result;
+    const result = await prisma.domain_connections.findFirst({
+      where: { verification_token: token }
+    });
+    return result ?? undefined;
   }
 
   async createDomainConnection(connection: InsertDomainConnection): Promise<DomainConnection> {
     await this.ensureInitialized();
     // Auto-generate normalizedDomain from domain
     const normalizedDomain = connection.domain.toLowerCase();
-    const [result] = await this.db
-      .insert(domainConnections)
-      .values({
-        ...connection,
-        normalizedDomain,
-      })
-      .returning();
-    return result;
+    
+    const data: any = {
+      seller_id: connection.sellerId,
+      domain: connection.domain,
+      normalized_domain: normalizedDomain,
+      strategy: connection.strategy ?? 'cloudflare',
+      status: connection.status ?? 'pending_verification',
+      verification_token: connection.verificationToken,
+    };
+    
+    if (connection.dnsInstructions !== undefined) data.dns_instructions = connection.dnsInstructions;
+    if (connection.cloudflareCustomHostnameId !== undefined) data.cloudflare_custom_hostname_id = connection.cloudflareCustomHostnameId;
+    if (connection.caddySiteId !== undefined) data.caddy_site_id = connection.caddySiteId;
+    if (connection.sslStatus !== undefined) data.ssl_status = connection.sslStatus;
+    if (connection.sslProvider !== undefined) data.ssl_provider = connection.sslProvider;
+    if (connection.sslRenewAt !== undefined) data.ssl_renew_at = connection.sslRenewAt;
+    if (connection.sslIssuedAt !== undefined) data.ssl_issued_at = connection.sslIssuedAt;
+    if (connection.sslExpiresAt !== undefined) data.ssl_expires_at = connection.sslExpiresAt;
+    if (connection.isPrimary !== undefined) data.is_primary = connection.isPrimary;
+    if (connection.lastVerificationAttempt !== undefined) data.last_verification_attempt = connection.lastVerificationAttempt;
+    if (connection.verificationAttempts !== undefined) data.verification_attempts = connection.verificationAttempts;
+    if (connection.lastError !== undefined) data.last_error = connection.lastError;
+    
+    return await prisma.domain_connections.create({ data });
   }
 
   async updateDomainConnection(id: string, updates: Partial<DomainConnection>): Promise<DomainConnection | undefined> {
     await this.ensureInitialized();
-    // If domain is being updated, also update normalizedDomain
-    const updateData = { ...updates };
-    if (updates.domain) {
-      updateData.normalizedDomain = updates.domain.toLowerCase();
-    }
-    updateData.updatedAt = new Date();
     
-    const [result] = await this.db
-      .update(domainConnections)
-      .set(updateData)
-      .where(eq(domainConnections.id, id))
-      .returning();
-    return result;
+    const data: any = { updated_at: new Date() };
+    
+    if (updates.domain !== undefined) {
+      data.domain = updates.domain;
+      data.normalized_domain = updates.domain.toLowerCase();
+    }
+    if (updates.strategy !== undefined) data.strategy = updates.strategy;
+    if (updates.status !== undefined) data.status = updates.status;
+    if (updates.verificationToken !== undefined) data.verification_token = updates.verificationToken;
+    if (updates.dnsInstructions !== undefined) data.dns_instructions = updates.dnsInstructions;
+    if (updates.cloudflareCustomHostnameId !== undefined) data.cloudflare_custom_hostname_id = updates.cloudflareCustomHostnameId;
+    if (updates.caddySiteId !== undefined) data.caddy_site_id = updates.caddySiteId;
+    if (updates.sslStatus !== undefined) data.ssl_status = updates.sslStatus;
+    if (updates.sslProvider !== undefined) data.ssl_provider = updates.sslProvider;
+    if (updates.sslRenewAt !== undefined) data.ssl_renew_at = updates.sslRenewAt;
+    if (updates.sslIssuedAt !== undefined) data.ssl_issued_at = updates.sslIssuedAt;
+    if (updates.sslExpiresAt !== undefined) data.ssl_expires_at = updates.sslExpiresAt;
+    if (updates.isPrimary !== undefined) data.is_primary = updates.isPrimary;
+    if (updates.lastVerificationAttempt !== undefined) data.last_verification_attempt = updates.lastVerificationAttempt;
+    if (updates.verificationAttempts !== undefined) data.verification_attempts = updates.verificationAttempts;
+    if (updates.lastError !== undefined) data.last_error = updates.lastError;
+    
+    const result = await prisma.domain_connections.update({
+      where: { id },
+      data
+    });
+    return result ?? undefined;
   }
 
   async deleteDomainConnection(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    const result = await this.db
-      .delete(domainConnections)
-      .where(eq(domainConnections.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    try {
+      await prisma.domain_connections.delete({
+        where: { id }
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async getDomainByName(domain: string): Promise<DomainConnection | null> {
     await this.ensureInitialized();
     const normalizedDomain = domain.toLowerCase();
-    const [result] = await this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.normalizedDomain, normalizedDomain))
-      .limit(1);
+    const result = await prisma.domain_connections.findUnique({
+      where: { normalized_domain: normalizedDomain }
+    });
     return result || null;
   }
 
   async getDomainsInProvisioning(sellerId?: string): Promise<DomainConnection[]> {
     await this.ensureInitialized();
-    let query = this.db
-      .select()
-      .from(domainConnections)
-      .where(eq(domainConnections.status, 'ssl_provisioning'));
     
+    const where: any = { status: 'ssl_provisioning' };
     if (sellerId) {
-      query = query.where(
-        and(
-          eq(domainConnections.status, 'ssl_provisioning'),
-          eq(domainConnections.sellerId, sellerId)
-        )
-      );
+      where.seller_id = sellerId;
     }
     
-    return await query;
+    return await prisma.domain_connections.findMany({ where });
   }
 }
 
