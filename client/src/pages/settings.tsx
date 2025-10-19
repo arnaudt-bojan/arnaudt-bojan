@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -812,7 +814,7 @@ function AddDomainDialog({ open, onOpenChange, onSuccess }: AddDomainDialogProps
   const onSubmit = async (data: AddDomainFormData) => {
     try {
       const result = await createDomainMutation.mutateAsync(data);
-      setCreatedDomain(result.domain);
+      setCreatedDomain(result.domainConnection);
       setShowInstructions(true);
       form.reset();
       toast({
@@ -1198,7 +1200,7 @@ function DomainsTabContent() {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-end gap-2">
-                              {domain.isPrimary !== 1 && domain.status === "active" && (
+                              {domain.isPrimary !== 1 && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1292,7 +1294,7 @@ function DomainsTabContent() {
                         </div>
 
                         <div className="flex flex-col gap-2 pt-2 border-t">
-                          {domain.isPrimary !== 1 && domain.status === "active" && (
+                          {domain.isPrimary !== 1 && (
                             <Button
                               size="sm"
                               variant="default"
