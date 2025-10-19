@@ -4135,6 +4135,9 @@ export const domainConnections = pgTable("domain_connections", {
     // Cloudflare lookups
     cloudflareHostnameIdx: index("domain_connections_cloudflare_hostname_idx").on(table.cloudflareCustomHostnameId),
     
+    // Verification token lookup (for public HTTP verification endpoint - CRITICAL for DoS prevention)
+    verificationTokenIdx: index("domain_connections_verification_token_idx").on(table.verificationToken),
+    
     // Verification and health checks
     lastCheckedIdx: index("domain_connections_last_checked_idx").on(table.lastCheckedAt),
     sslRenewIdx: index("domain_connections_ssl_renew_idx").on(table.sslRenewAt),
@@ -4156,5 +4159,30 @@ export const insertDomainConnectionSchema = createInsertSchema(domainConnections
   strategy: domainStrategyEnum.default("cloudflare"),
 });
 
+// API-specific validation schemas for domain management routes
+export const createDomainRequestSchema = z.object({
+  domain: z.string()
+    .trim()
+    .min(1, "Domain is required")
+    .max(255, "Domain too long")
+    .regex(
+      /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i,
+      "Invalid domain format. Must be a valid domain like shop.example.com"
+    ),
+  strategy: domainStrategyEnum,
+  isPrimary: z.boolean().optional().default(false),
+});
+
+export const updateDomainRequestSchema = z.object({
+  isPrimary: z.boolean().optional(),
+});
+
+export const switchStrategyRequestSchema = z.object({
+  newStrategy: domainStrategyEnum,
+});
+
 export type InsertDomainConnection = z.infer<typeof insertDomainConnectionSchema>;
 export type DomainConnection = typeof domainConnections.$inferSelect;
+export type CreateDomainRequest = z.infer<typeof createDomainRequestSchema>;
+export type UpdateDomainRequest = z.infer<typeof updateDomainRequestSchema>;
+export type SwitchStrategyRequest = z.infer<typeof switchStrategyRequestSchema>;

@@ -12726,6 +12726,296 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // ===== CUSTOM DOMAIN API ROUTES (Dual-Strategy: Cloudflare + Manual) =====
+  
+  // Domain ownership verification endpoint (public) - SECURITY: Uses indexed lookup to prevent DoS
+  app.get("/.well-known/upfirst-domain-verify/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      if (!token || token.length !== 64) {
+        return res.status(400).send('Invalid verification token');
+      }
+
+      // SECURITY: Use indexed lookup instead of full table scan to prevent DoS
+      const matchingDomain = await storage.getDomainConnectionByVerificationToken(token);
+
+      if (!matchingDomain) {
+        return res.status(404).send('Token not found');
+      }
+
+      res.type('text/plain').send(token);
+    } catch (error) {
+      logger.error('Domain verification endpoint error', { error });
+      res.status(500).send('Verification failed');
+    }
+  });
+
+  // Create new domain connection with Zod validation
+  app.post("/api/seller/domains", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      
+      // Validate request with Zod schema
+      const { createDomainRequestSchema } = await import('@shared/schema');
+      const validation = createDomainRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Validation failed',
+          details: validation.error.issues.map(i => i.message).join(', '),
+        });
+      }
+
+      const { domain, strategy, isPrimary } = validation.data;
+
+      const { domainOrchestrator } = await import('./services/domain/orchestrator.service');
+      
+      const result = await domainOrchestrator.initiateDomainSetup({
+        sellerId,
+        domain: domain.toLowerCase(),
+        strategy,
+        isPrimary,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: result.error,
+          userMessage: result.userMessage,
+        });
+      }
+
+      res.json({
+        success: true,
+        domainConnection: result.domainConnection,
+      });
+    } catch (error) {
+      logger.error('Domain creation failed', { error });
+      res.status(500).json({ 
+        error: 'Failed to create domain connection',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  // List seller's domains
+  app.get("/api/seller/domains", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      const domains = await storage.getDomainConnectionsBySellerId(sellerId);
+
+      res.json({
+        success: true,
+        domains,
+      });
+    } catch (error) {
+      logger.error('Failed to fetch domains', { error });
+      res.status(500).json({ error: 'Failed to fetch domains' });
+    }
+  });
+
+  // Get single domain details
+  app.get("/api/seller/domains/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      const { id } = req.params;
+
+      const domain = await storage.getDomainConnectionById(id);
+
+      if (!domain) {
+        return res.status(404).json({ error: 'Domain not found' });
+      }
+
+      if (domain.sellerId !== sellerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { domainOrchestrator } = await import('./services/domain/orchestrator.service');
+      const status = await domainOrchestrator.getDomainStatus(id);
+
+      res.json({
+        success: true,
+        domain,
+        status,
+      });
+    } catch (error) {
+      logger.error('Failed to fetch domain details', { error });
+      res.status(500).json({ error: 'Failed to fetch domain details' });
+    }
+  });
+
+  // Update domain (set as primary) with Zod validation
+  app.patch("/api/seller/domains/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      const { id } = req.params;
+      
+      // Validate request with Zod schema
+      const { updateDomainRequestSchema } = await import('@shared/schema');
+      const validation = updateDomainRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Validation failed',
+          details: validation.error.issues.map(i => i.message).join(', '),
+        });
+      }
+
+      const { isPrimary } = validation.data;
+
+      const domain = await storage.getDomainConnectionById(id);
+
+      if (!domain) {
+        return res.status(404).json({ error: 'Domain not found' });
+      }
+
+      if (domain.sellerId !== sellerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      if (isPrimary === true) {
+        const { domainOrchestrator } = await import('./services/domain/orchestrator.service');
+        const success = await domainOrchestrator.setPrimaryDomain(sellerId, id);
+
+        if (!success) {
+          return res.status(500).json({ error: 'Failed to set primary domain' });
+        }
+
+        const updatedDomain = await storage.getDomainConnectionById(id);
+        return res.json({ success: true, domain: updatedDomain });
+      }
+
+      res.json({ success: true, domain });
+    } catch (error) {
+      logger.error('Failed to update domain', { error });
+      res.status(500).json({ error: 'Failed to update domain' });
+    }
+  });
+
+  // Delete domain connection
+  app.delete("/api/seller/domains/:id", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      const { id } = req.params;
+
+      const domain = await storage.getDomainConnectionById(id);
+
+      if (!domain) {
+        return res.status(404).json({ error: 'Domain not found' });
+      }
+
+      if (domain.sellerId !== sellerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { domainOrchestrator } = await import('./services/domain/orchestrator.service');
+      const success = await domainOrchestrator.deleteDomain(id);
+
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to delete domain' });
+      }
+
+      const { domainRoutingCache } = await import('./services/domain/routing-cache');
+      domainRoutingCache.invalidate(domain.domain);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Failed to delete domain', { error });
+      res.status(500).json({ error: 'Failed to delete domain' });
+    }
+  });
+
+  // Manual verification trigger
+  app.post("/api/seller/domains/:id/verify", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      const { id } = req.params;
+
+      const domain = await storage.getDomainConnectionById(id);
+
+      if (!domain) {
+        return res.status(404).json({ error: 'Domain not found' });
+      }
+
+      if (domain.sellerId !== sellerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { domainVerificationJob } = await import('./services/domain/verification-job');
+      const result = await domainVerificationJob.verifyDomainNow(id);
+
+      if (!result.success) {
+        return res.status(500).json({ 
+          error: 'Verification failed',
+          message: result.error,
+        });
+      }
+
+      const updatedDomain = await storage.getDomainConnectionById(id);
+
+      res.json({
+        success: true,
+        verified: result.verified,
+        domain: updatedDomain,
+      });
+    } catch (error) {
+      logger.error('Manual verification failed', { error });
+      res.status(500).json({ error: 'Verification failed' });
+    }
+  });
+
+  // Switch domain strategy (Cloudflare ↔ Manual) with Zod validation
+  app.post("/api/seller/domains/:id/switch-strategy", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const sellerId = req.user.id;
+      const { id } = req.params;
+      
+      // Validate request with Zod schema
+      const { switchStrategyRequestSchema } = await import('@shared/schema');
+      const validation = switchStrategyRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Validation failed',
+          details: validation.error.issues.map(i => i.message).join(', '),
+        });
+      }
+
+      const { newStrategy } = validation.data;
+
+      const domain = await storage.getDomainConnectionById(id);
+
+      if (!domain) {
+        return res.status(404).json({ error: 'Domain not found' });
+      }
+
+      if (domain.sellerId !== sellerId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { domainOrchestrator } = await import('./services/domain/orchestrator.service');
+      const result = await domainOrchestrator.switchStrategy(id, newStrategy);
+
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: result.error,
+          userMessage: result.userMessage,
+        });
+      }
+
+      const { domainRoutingCache } = await import('./services/domain/routing-cache');
+      domainRoutingCache.invalidate(domain.domain);
+
+      res.json({
+        success: true,
+        domainConnection: result.domainConnection,
+      });
+    } catch (error) {
+      logger.error('Strategy switch failed', { error });
+      res.status(500).json({ error: 'Failed to switch strategy' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Initialize WebSocket for real-time order updates

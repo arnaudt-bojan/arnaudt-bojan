@@ -18,7 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText, Loader2 } from "lucide-react";
+import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText, Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import { getStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
@@ -34,6 +34,7 @@ import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-m
 import { CountrySelect } from "@/components/CountrySelect";
 import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
 import { getCountryName, getCountryCode } from "../../../shared/countries";
+import { useDomains, useDeleteDomain, useVerifyDomain, useUpdateDomain, getStatusBadgeVariant, getStatusText, copyToClipboard } from "@/lib/domains";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -193,6 +194,314 @@ function PaymentSetupForm({ clientSecret, onSuccess }: { clientSecret: string; o
         {isProcessing ? "Processing..." : "Save Payment Method"}
       </Button>
     </form>
+  );
+}
+
+// Domains Tab Content Component
+function DomainsTabContent() {
+  const { toast } = useToast();
+  
+  // All hooks must be called at the top level (Rules of Hooks)
+  const { data: domains = [], isLoading } = useDomains();
+  const deleteDomainMutation = useDeleteDomain();
+  const verifyDomainMutation = useVerifyDomain();
+  const updateDomainMutation = useUpdateDomain();
+  
+  const handleSetPrimary = async (id: string, domain: string) => {
+    try {
+      // Mutation hook called at top level, just pass data to mutateAsync
+      await updateDomainMutation.mutateAsync({ id, isPrimary: true });
+      toast({
+        title: "Primary Domain Updated",
+        description: `${domain} is now your primary domain`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to set primary domain",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCopyToken = async (token: string) => {
+    const success = await copyToClipboard(token);
+    if (success) {
+      toast({
+        title: "Copied!",
+        description: "Verification token copied to clipboard",
+      });
+    } else {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the token manually",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVerifyDomain = async (id: string) => {
+    try {
+      await verifyDomainMutation.mutateAsync(id);
+      toast({
+        title: "Verification Triggered",
+        description: "Checking domain DNS and SSL status...",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Failed to verify domain",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteDomain = async (id: string, domain: string) => {
+    if (window.confirm(`Are you sure you want to delete ${domain}? This action cannot be undone.`)) {
+      try {
+        await deleteDomainMutation.mutateAsync(id);
+        toast({
+          title: "Domain Deleted",
+          description: `${domain} has been removed from your account`,
+        });
+      } catch (error: any) {
+        toast({
+          title: "Delete Failed",
+          description: error.message || "Failed to delete domain",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card data-testid="card-domains">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Custom Domains
+          </CardTitle>
+          <CardDescription>
+            Connect your own domain to your storefront
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card data-testid="card-domains">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Custom Domains
+              </CardTitle>
+              <CardDescription>
+                Connect your own domain to your storefront for a professional branded experience
+              </CardDescription>
+            </div>
+            <Button data-testid="button-add-domain" disabled>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Domain
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {domains.length === 0 ? (
+            <div className="text-center py-12" data-testid="empty-state-domains">
+              <Globe className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Custom Domains Yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your own domain (e.g., shop.yourbrand.com) to create a professional branded storefront.
+              </p>
+              <Button disabled data-testid="button-add-first-domain">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Domain
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Desktop: Table View */}
+              <div className="hidden md:block">
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full" data-testid="table-domains">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-3 text-sm font-medium">Domain</th>
+                        <th className="text-left p-3 text-sm font-medium">Status</th>
+                        <th className="text-left p-3 text-sm font-medium">Strategy</th>
+                        <th className="text-left p-3 text-sm font-medium">SSL</th>
+                        <th className="text-right p-3 text-sm font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {domains.map((domain: any) => (
+                        <tr key={domain.id} className="border-t hover-elevate" data-testid={`row-domain-${domain.id}`}>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {domain.isPrimary === 1 && (
+                                <Badge variant="default" className="text-xs" data-testid={`badge-primary-${domain.id}`}>
+                                  Primary
+                                </Badge>
+                              )}
+                              <span className="font-medium" data-testid={`text-domain-${domain.id}`}>
+                                {domain.domain}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant={getStatusBadgeVariant(domain.status)} data-testid={`badge-status-${domain.id}`}>
+                              {getStatusText(domain.status)}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm capitalize" data-testid={`text-strategy-${domain.id}`}>
+                              {domain.strategy}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            {domain.sslStatus ? (
+                              <span className="text-sm text-muted-foreground capitalize" data-testid={`text-ssl-${domain.id}`}>
+                                {domain.sslStatus}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-end gap-2">
+                              {domain.isPrimary !== 1 && domain.status === "active" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSetPrimary(domain.id, domain.domain)}
+                                  disabled={updateDomainMutation.isPending}
+                                  data-testid={`button-set-primary-${domain.id}`}
+                                >
+                                  {updateDomainMutation.isPending ? "Setting..." : "Set Primary"}
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleVerifyDomain(domain.id)}
+                                disabled={verifyDomainMutation.isPending}
+                                data-testid={`button-verify-${domain.id}`}
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteDomain(domain.id, domain.domain)}
+                                disabled={deleteDomainMutation.isPending}
+                                data-testid={`button-delete-${domain.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile: Card View */}
+              <div className="md:hidden space-y-3">
+                {domains.map((domain: any) => (
+                  <Card key={domain.id} className="hover-elevate" data-testid={`card-domain-${domain.id}`}>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {domain.isPrimary === 1 && (
+                                <Badge variant="default" className="text-xs" data-testid={`badge-primary-mobile-${domain.id}`}>
+                                  Primary
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="font-medium text-sm break-all" data-testid={`text-domain-mobile-${domain.id}`}>
+                              {domain.domain}
+                            </p>
+                          </div>
+                          <Badge variant={getStatusBadgeVariant(domain.status)} data-testid={`badge-status-mobile-${domain.id}`}>
+                            {getStatusText(domain.status)}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Strategy</p>
+                            <p className="font-medium capitalize" data-testid={`text-strategy-mobile-${domain.id}`}>
+                              {domain.strategy}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">SSL</p>
+                            <p className="font-medium" data-testid={`text-ssl-mobile-${domain.id}`}>
+                              {domain.sslStatus ? domain.sslStatus : "-"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 pt-2 border-t">
+                          {domain.isPrimary !== 1 && domain.status === "active" && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="w-full"
+                              onClick={() => handleSetPrimary(domain.id, domain.domain)}
+                              disabled={updateDomainMutation.isPending}
+                              data-testid={`button-set-primary-mobile-${domain.id}`}
+                            >
+                              {updateDomainMutation.isPending ? "Setting..." : "Set as Primary Domain"}
+                            </Button>
+                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() => handleVerifyDomain(domain.id)}
+                              disabled={verifyDomainMutation.isPending}
+                              data-testid={`button-verify-mobile-${domain.id}`}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Verify
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteDomain(domain.id, domain.domain)}
+                              disabled={deleteDomainMutation.isPending}
+                              data-testid={`button-delete-mobile-${domain.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -2163,6 +2472,12 @@ export default function Settings() {
                       <span>Subscription</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="domains">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      <span>Domains</span>
+                    </div>
+                  </SelectItem>
                 </>
               )}
             </SelectContent>
@@ -2228,6 +2543,10 @@ export default function Settings() {
               <TabsTrigger value="subscription" data-testid="tab-subscription" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
                 <span>Subscription</span>
+              </TabsTrigger>
+              <TabsTrigger value="domains" data-testid="tab-domains" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <span>Domains</span>
               </TabsTrigger>
             </>
           )}
@@ -3688,6 +4007,13 @@ export default function Settings() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+        )}
+
+        {/* Domains Tab - Custom Domain Management */}
+        {isSeller && (
+          <TabsContent value="domains">
+            <DomainsTabContent />
           </TabsContent>
         )}
       </Tabs>

@@ -848,6 +848,7 @@ export interface IStorage {
   getDomainConnectionByDomain(domain: string): Promise<DomainConnection | undefined>;
   getDomainConnectionsBySellerId(sellerId: string): Promise<DomainConnection[]>;
   getDomainConnectionByCloudflareId(cloudflareId: string): Promise<DomainConnection | undefined>;
+  getDomainConnectionByVerificationToken(token: string): Promise<DomainConnection | undefined>;
   createDomainConnection(connection: InsertDomainConnection): Promise<DomainConnection>;
   updateDomainConnection(id: string, updates: Partial<DomainConnection>): Promise<DomainConnection | undefined>;
   deleteDomainConnection(id: string): Promise<boolean>;
@@ -5088,6 +5089,16 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(domainConnections)
       .where(eq(domainConnections.cloudflareCustomHostnameId, cloudflareId))
+      .limit(1);
+    return result;
+  }
+
+  async getDomainConnectionByVerificationToken(token: string): Promise<DomainConnection | undefined> {
+    await this.ensureInitialized();
+    const [result] = await this.db
+      .select()
+      .from(domainConnections)
+      .where(eq(domainConnections.verificationToken, token))
       .limit(1);
     return result;
   }
