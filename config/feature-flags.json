@@ -2,53 +2,53 @@
   "endpoints": {
     "/api/products": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/products/:id": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/orders": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/orders/:id": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/cart": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/seller/products": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/seller/orders": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/wholesale/cart": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     },
     "/api/wholesale/orders": {
       "useGraphQL": false,
-      "shadowTraffic": false,
+      "shadowTraffic": true,
       "rolloutPercentage": 0
     }
   },
   "globalSettings": {
     "nestJsServiceUrl": "http://localhost:4000/graphql",
-    "enableShadowTraffic": false,
+    "enableShadowTraffic": true,
     "defaultTimeout": 30000
   }
 }

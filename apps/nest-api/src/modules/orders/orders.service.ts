@@ -90,6 +90,12 @@ export class OrdersService {
       });
     }
 
+    if (cart.buyer_id !== userId) {
+      throw new GraphQLError('Unauthorized: Cart does not belong to the current user', {
+        extensions: { code: 'FORBIDDEN' },
+      });
+    }
+
     const items = (cart.items as any[]) || [];
     if (items.length === 0) {
       throw new GraphQLError('Cart is empty', {

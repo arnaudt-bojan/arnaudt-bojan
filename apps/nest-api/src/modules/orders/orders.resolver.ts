@@ -38,13 +38,11 @@ export class OrdersResolver {
     @Args('after') after?: string,
     @CurrentUser() userId?: string,
   ) {
-    const sellerId = filter?.sellerId || userId;
-    const buyerId = filter?.buyerId;
     const status = filter?.status;
 
     return this.ordersService.listOrders({
-      sellerId,
-      buyerId,
+      sellerId: userId,
+      buyerId: undefined,
       status,
       first,
       after,
@@ -104,7 +102,7 @@ export class OrdersResolver {
   @ResolveField('buyer')
   async buyer(@Parent() order: any, @Context() context: GraphQLContext) {
     if (!order.buyerId) return null;
-    return context.sellerLoader.load(order.buyerId);
+    return context.buyerLoader.load(order.buyerId);
   }
 
   @ResolveField('items')

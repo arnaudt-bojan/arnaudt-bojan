@@ -89,7 +89,7 @@ export class QuotationsResolver {
   @ResolveField('buyer')
   async buyer(@Parent() quotation: any, @Context() context: GraphQLContext) {
     if (!quotation.buyerId) return null;
-    return context.sellerLoader.load(quotation.buyerId);
+    return context.buyerLoader.load(quotation.buyerId);
   }
 
   @ResolveField('items')

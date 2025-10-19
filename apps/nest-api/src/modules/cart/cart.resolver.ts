@@ -68,7 +68,7 @@ export class CartResolver {
   @ResolveField('buyer')
   async buyer(@Parent() cart: any, @Context() context: GraphQLContext) {
     if (!cart.buyerId) return null;
-    return context.sellerLoader.load(cart.buyerId);
+    return context.buyerLoader.load(cart.buyerId);
   }
 
   @ResolveField('items')

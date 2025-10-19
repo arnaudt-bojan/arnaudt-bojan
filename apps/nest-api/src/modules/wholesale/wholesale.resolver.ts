@@ -27,7 +27,7 @@ export class WholesaleInvitationResolver {
   @ResolveField('buyer')
   async buyer(@Parent() invitation: any, @Context() context: GraphQLContext) {
     if (!invitation.buyerId) return null;
-    return context.sellerLoader.load(invitation.buyerId);
+    return context.buyerLoader.load(invitation.buyerId);
   }
 }
 
@@ -42,7 +42,7 @@ export class WholesaleAccessGrantResolver {
 
   @ResolveField('buyer')
   async buyer(@Parent() grant: any, @Context() context: GraphQLContext) {
-    return context.sellerLoader.load(grant.buyerId);
+    return context.buyerLoader.load(grant.buyerId);
   }
 
   @ResolveField('pricingTier')
@@ -62,7 +62,7 @@ export class WholesaleOrderResolver {
 
   @ResolveField('buyer')
   async buyer(@Parent() order: any, @Context() context: GraphQLContext) {
-    return context.sellerLoader.load(order.buyerId);
+    return context.buyerLoader.load(order.buyerId);
   }
 
   @ResolveField('items')

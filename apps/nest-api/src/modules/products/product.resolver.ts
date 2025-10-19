@@ -34,12 +34,6 @@ export class ProductResolver {
     return this.productService.listProducts({ filter, sort, first, after });
   }
 
-  @Query('whoami')
-  @UseGuards(GqlAuthGuard)
-  whoami(@CurrentUser() userId: string): string {
-    return `Authenticated as: ${userId}`;
-  }
-
   @Mutation('createProduct')
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
