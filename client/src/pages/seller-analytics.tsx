@@ -145,7 +145,7 @@ export default function SellerAnalytics() {
 
   // Fetch analytics data from backend (all calculations done server-side)
   const { data: analytics, isLoading } = useQuery<AnalyticsData>({
-    queryKey: ['/api/analytics/overview', period],
+    queryKey: [`/api/analytics/overview?period=${period}`],
     refetchOnWindowFocus: false,
     staleTime: 60000, // Cache for 1 minute
   });
