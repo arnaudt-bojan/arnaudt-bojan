@@ -90,14 +90,14 @@ export class InventoryService {
     const availableStock = Math.max(0, currentStock - reservedStock);
     
     // CRITICAL FIX: Pre-order and made-to-order products are always available regardless of stock
-    const isAvailable = (product.productType === 'pre-order' || product.productType === 'made-to-order')
+    const isAvailable = (product.product_type === 'pre-order' || product.product_type === 'made-to-order')
       ? true
       : availableStock >= quantity;
 
     logger.info('[InventoryService] Stock availability check', {
       productId,
       variantId,
-      productType: product.productType,
+      productType: product.product_type,
       currentStock,
       reservedStock,
       availableStock,
@@ -140,7 +140,7 @@ export class InventoryService {
       }
       
       // Step 2: Pre-order and made-to-order products skip stock validation (business logic)
-      const isPreOrderOrMadeToOrder = product.productType === 'pre-order' || product.productType === 'made-to-order';
+      const isPreOrderOrMadeToOrder = product.product_type === 'pre-order' || product.product_type === 'made-to-order';
       
       if (isPreOrderOrMadeToOrder) {
         // For pre-order/made-to-order, create reservation directly without stock check
@@ -149,22 +149,22 @@ export class InventoryService {
         const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
         
         const reservation = await this.storage.createStockReservation({
-          productId,
-          variantId: options?.variantId || null,
+          product_id: productId,
+          variant_id: options?.variantId || null,
           quantity,
-          sessionId,
-          userId: options?.userId || null,
+          session_id: sessionId,
+          user_id: options?.userId || null,
           status: 'active',
-          expiresAt,
-          orderId: null,
-          committedAt: null,
-          releasedAt: null,
+          expires_at: expiresAt,
+          order_id: null,
+          committed_at: null,
+          released_at: null,
         });
         
         logger.info('[InventoryService] Stock reserved for pre-order/made-to-order (no stock check)', {
           reservationId: reservation.id,
           productId,
-          productType: product.productType,
+          productType: product.product_type,
           variantId: options?.variantId,
           quantity,
         });
@@ -193,7 +193,7 @@ export class InventoryService {
           productId,
           variantId: options?.variantId,
           quantity,
-          expiresAt: result.reservation!.expiresAt.toISOString(),
+          expiresAt: (result.reservation!.expiresAt || result.reservation!.expires_at).toISOString(),
         });
       } else {
         logger.warn('[InventoryService] Insufficient stock for reservation', {
@@ -247,7 +247,7 @@ export class InventoryService {
     }
 
     // Get product to check type (business logic)
-    const product = await this.storage.getProduct(reservation.productId);
+    const product = await this.storage.getProduct(reservation.product_id);
     if (!product) {
       return {
         success: false,
@@ -256,7 +256,7 @@ export class InventoryService {
     }
 
     // CRITICAL: Pre-order and made-to-order products bypass stock validation
-    const isPreOrderOrMadeToOrder = product.productType === 'pre-order' || product.productType === 'made-to-order';
+    const isPreOrderOrMadeToOrder = product.product_type === 'pre-order' || product.product_type === 'made-to-order';
     
     if (isPreOrderOrMadeToOrder) {
       // Update quantity directly without stock check
@@ -273,9 +273,9 @@ export class InventoryService {
 
       logger.info('[InventoryService] Updated reservation for pre-order/made-to-order (no stock check)', {
         reservationId,
-        productId: reservation.productId,
-        productType: product.productType,
-        variantId: reservation.variantId ?? undefined,
+        productId: reservation.product_id,
+        productType: product.product_type,
+        variantId: reservation.variant_id ?? undefined,
         oldQuantity: reservation.quantity,
         newQuantity,
       });
@@ -306,8 +306,8 @@ export class InventoryService {
       reservationId,
       oldQuantity: reservation.quantity,
       newQuantity,
-      productId: reservation.productId,
-      variantId: reservation.variantId ?? undefined,
+      productId: reservation.product_id,
+      variantId: reservation.variant_id ?? undefined,
       availableStock: result.availability?.availableStock,
     });
 
@@ -335,12 +335,12 @@ export class InventoryService {
 
     await this.storage.updateStockReservation(reservationId, {
       status: 'released',
-      releasedAt: new Date(),
+      released_at: new Date(),
     });
 
     logger.info('[InventoryService] Reservation released', {
       reservationId,
-      productId: reservation.productId,
+      productId: reservation.product_id,
       quantity: reservation.quantity,
     });
   }
@@ -364,23 +364,23 @@ export class InventoryService {
     // Update reservation status and decrement stock
     await this.storage.updateStockReservation(reservationId, {
       status: 'committed',
-      committedAt: new Date(),
-      orderId,
+      committed_at: new Date(),
+      order_id: orderId,
     });
 
     // Decrement stock for in-stock products only
-    const product = await this.storage.getProduct(reservation.productId);
-    if (product && product.productType !== 'pre-order' && product.productType !== 'made-to-order') {
+    const product = await this.storage.getProduct(reservation.product_id);
+    if (product && product.product_type !== 'pre-order' && product.product_type !== 'made-to-order') {
       await this.decrementStock(
-        reservation.productId,
+        reservation.product_id,
         reservation.quantity,
-        reservation.variantId || undefined
+        reservation.variant_id || undefined
       );
     }
 
     logger.info('[InventoryService] Reservation committed', {
       reservationId,
-      productId: reservation.productId,
+      productId: reservation.product_id,
       quantity: reservation.quantity,
       orderId,
     });
@@ -441,24 +441,24 @@ export class InventoryService {
         }
 
         // First, increment stock back (reverse the decrement)
-        const product = await this.storage.getProduct(reservation.productId);
-        if (product && product.productType !== 'pre-order' && product.productType !== 'made-to-order') {
+        const product = await this.storage.getProduct(reservation.product_id);
+        if (product && product.product_type !== 'pre-order' && product.product_type !== 'made-to-order') {
           await this.incrementStock(
-            reservation.productId,
+            reservation.product_id,
             reservation.quantity,
-            reservation.variantId || undefined
+            reservation.variant_id || undefined
           );
         }
 
         // Then update reservation status to released
         await this.storage.updateStockReservation(reservationId, {
           status: 'released',
-          releasedAt: new Date(),
+          released_at: new Date(),
         });
 
         logger.info('[InventoryService] Reservation stock restored', {
           reservationId,
-          productId: reservation.productId,
+          productId: reservation.product_id,
           quantity: reservation.quantity,
         });
       } catch (error) {
@@ -582,7 +582,7 @@ export class InventoryService {
     for (const reservation of expiredReservations) {
       await this.storage.updateStockReservation(reservation.id, {
         status: 'expired',
-        releasedAt: now,
+        released_at: now,
       });
     }
 
@@ -608,12 +608,12 @@ export class InventoryService {
       // Only release active reservations for this user and variant
       if (
         reservation.status === 'active' &&
-        reservation.userId === userId &&
-        (variantId === undefined || reservation.variantId === variantId)
+        reservation.user_id === userId &&
+        (variantId === undefined || reservation.variant_id === variantId)
       ) {
         await this.storage.updateStockReservation(reservation.id, {
           status: 'released',
-          releasedAt: now,
+          released_at: now,
         });
         releasedCount++;
       }

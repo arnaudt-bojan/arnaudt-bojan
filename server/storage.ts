@@ -176,6 +176,823 @@ neonConfig.webSocketConstructor = ws;
 import { prisma } from './prisma';
 import { logger } from './logger';
 
+// ============================================================================
+// Prisma Field Mapping Utilities (snake_case → camelCase)
+// ============================================================================
+// These mappers convert Prisma's snake_case field names to camelCase for
+// compatibility with the existing API contract in routes.ts
+
+function mapUserFromPrisma(u: any): any {
+  if (!u) return u;
+  return {
+    ...u,
+    firstName: u.first_name,
+    lastName: u.last_name,
+    profileImageUrl: u.profile_image_url,
+    sellerId: u.seller_id,
+    invitedBy: u.invited_by,
+    storeBanner: u.store_banner,
+    storeLogo: u.store_logo,
+    paymentProvider: u.payment_provider,
+    stripeConnectedAccountId: u.stripe_connected_account_id,
+    stripeChargesEnabled: u.stripe_charges_enabled,
+    stripePayoutsEnabled: u.stripe_payouts_enabled,
+    stripeDetailsSubmitted: u.stripe_details_submitted,
+    listingCurrency: u.listing_currency,
+    stripeCustomerId: u.stripe_customer_id,
+    stripeSubscriptionId: u.stripe_subscription_id,
+    subscriptionStatus: u.subscription_status,
+    subscriptionPlan: u.subscription_plan,
+    trialEndsAt: u.trial_ends_at,
+    paypalMerchantId: u.paypal_merchant_id,
+    paypalPartnerId: u.paypal_partner_id,
+    customDomain: u.custom_domain,
+    customDomainVerified: u.custom_domain_verified,
+    instagramUserId: u.instagram_user_id,
+    instagramUsername: u.instagram_username,
+    instagramAccessToken: u.instagram_access_token,
+    shippingPrice: u.shipping_price,
+    storeActive: u.store_active,
+    shippingPolicy: u.shipping_policy,
+    returnsPolicy: u.returns_policy,
+    contactEmail: u.contact_email,
+    createdAt: u.created_at,
+    updatedAt: u.updated_at,
+    taxEnabled: u.tax_enabled,
+    taxNexusCountries: u.tax_nexus_countries,
+    taxNexusStates: u.tax_nexus_states,
+    taxProductCode: u.tax_product_code,
+    isPlatformAdmin: u.is_platform_admin,
+    aboutStory: u.about_story,
+    socialInstagram: u.social_instagram,
+    socialTwitter: u.social_twitter,
+    socialTiktok: u.social_tiktok,
+    socialSnapchat: u.social_snapchat,
+    socialWebsite: u.social_website,
+    welcomeEmailSent: u.welcome_email_sent,
+    userType: u.user_type,
+  };
+}
+
+function mapProductFromPrisma(p: any): Product {
+  if (!p) return p;
+  return {
+    ...p,
+    sellerId: p.seller_id,
+    categoryLevel1Id: p.category_level_1_id,
+    categoryLevel2Id: p.category_level_2_id,
+    categoryLevel3Id: p.category_level_3_id,
+    productType: p.product_type,
+    depositAmount: p.deposit_amount,
+    requiresDeposit: p.requires_deposit,
+    madeToOrderDays: p.made_to_order_days,
+    preOrderDate: p.pre_order_date,
+    discountPercentage: p.discount_percentage,
+    promotionActive: p.promotion_active,
+    promotionEndDate: p.promotion_end_date,
+    shippingType: p.shipping_type,
+    flatShippingRate: p.flat_shipping_rate,
+    shippingMatrixId: p.shipping_matrix_id,
+    shippoWeight: p.shippo_weight,
+    shippoLength: p.shippo_length,
+    shippoWidth: p.shippo_width,
+    shippoHeight: p.shippo_height,
+    shippoTemplate: p.shippo_template,
+    hasColors: p.has_colors,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  };
+}
+
+function mapOrderFromPrisma(o: any): any {
+  if (!o) return o;
+  return {
+    ...o,
+    userId: o.user_id,
+    customerName: o.customer_name,
+    customerEmail: o.customer_email,
+    customerAddress: o.customer_address,
+    amountPaid: o.amount_paid,
+    remainingBalance: o.remaining_balance,
+    paymentType: o.payment_type,
+    paymentStatus: o.payment_status,
+    stripePaymentIntentId: o.stripe_payment_intent_id,
+    stripeBalancePaymentIntentId: o.stripe_balance_payment_intent_id,
+    fulfillmentStatus: o.fulfillment_status,
+    trackingNumber: o.tracking_number,
+    trackingLink: o.tracking_link,
+    createdAt: o.created_at,
+    taxAmount: o.tax_amount,
+    taxCalculationId: o.tax_calculation_id,
+    taxBreakdown: o.tax_breakdown,
+    subtotalBeforeTax: o.subtotal_before_tax,
+    shippingCost: o.shipping_cost,
+    shippingMethod: o.shipping_method,
+    shippingZone: o.shipping_zone,
+    shippingCarrier: o.shipping_carrier,
+    shippingEstimatedDays: o.shipping_estimated_days,
+    shippingStreet: o.shipping_street,
+    shippingCity: o.shipping_city,
+    shippingState: o.shipping_state,
+    shippingPostalCode: o.shipping_postal_code,
+    shippingCountry: o.shipping_country,
+    depositAmountCents: o.deposit_amount_cents,
+    balanceDueCents: o.balance_due_cents,
+    balancePaidAt: o.balance_paid_at,
+    shippingLocked: o.shipping_locked,
+    pricingVersion: o.pricing_version,
+    sellerId: o.seller_id,
+    billingName: o.billing_name,
+    billingEmail: o.billing_email,
+    billingPhone: o.billing_phone,
+    billingStreet: o.billing_street,
+    billingCity: o.billing_city,
+    billingState: o.billing_state,
+    billingPostalCode: o.billing_postal_code,
+    billingCountry: o.billing_country,
+    shippingLabelId: o.shipping_label_id,
+  };
+}
+
+function mapOrderItemFromPrisma(i: any): any {
+  if (!i) return i;
+  return {
+    ...i,
+    orderId: i.order_id,
+    productId: i.product_id,
+    productName: i.product_name,
+    productImage: i.product_image,
+    unitPrice: i.unit_price,
+    preOrderDate: i.pre_order_date,
+    madeToOrderLeadTime: i.made_to_order_lead_time,
+    trackingNumber: i.tracking_number,
+    trackingCarrier: i.tracking_carrier,
+    trackingUrl: i.tracking_url,
+    fulfillmentStatus: i.fulfillment_status,
+    refundedQuantity: i.refunded_quantity,
+    refundedAmount: i.refunded_amount,
+    createdAt: i.created_at,
+    updatedAt: i.updated_at,
+  };
+}
+
+function mapAuthTokenFromPrisma(t: any): AuthToken {
+  if (!t) return t;
+  return {
+    ...t,
+    tokenType: t.token_type,
+    expiresAt: t.expires_at,
+    sellerContext: t.seller_context,
+    createdAt: t.created_at,
+    returnUrl: t.return_url,
+    loginContext: t.login_context,
+  };
+}
+
+function mapNotificationFromPrisma(n: any): any {
+  if (!n) return n;
+  return {
+    ...n,
+    userId: n.user_id,
+    notificationType: n.notification_type,
+    relatedEntityType: n.related_entity_type,
+    relatedEntityId: n.related_entity_id,
+    isRead: n.is_read,
+    createdAt: n.created_at,
+  };
+}
+
+function mapCartFromPrisma(c: any): any {
+  if (!c) return c;
+  return {
+    ...c,
+    sellerId: c.seller_id,
+    buyerId: c.buyer_id,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+  };
+}
+
+function mapCartSessionFromPrisma(cs: any): any {
+  if (!cs) return cs;
+  return {
+    ...cs,
+    sessionId: cs.session_id,
+    cartId: cs.cart_id,
+    lastSeen: cs.last_seen,
+  };
+}
+
+function mapStockReservationFromPrisma(sr: any): any {
+  if (!sr) return sr;
+  return {
+    ...sr,
+    productId: sr.product_id,
+    variantId: sr.variant_id,
+    orderId: sr.order_id,
+    sessionId: sr.session_id,
+    userId: sr.user_id,
+    expiresAt: sr.expires_at,
+    createdAt: sr.created_at,
+    committedAt: sr.committed_at,
+    releasedAt: sr.released_at,
+  };
+}
+
+function mapInvitationFromPrisma(inv: any): any {
+  if (!inv) return inv;
+  return {
+    ...inv,
+    invitedBy: inv.invited_by,
+    expiresAt: inv.expires_at,
+    createdAt: inv.created_at,
+  };
+}
+
+function mapTeamInvitationFromPrisma(ti: any): any {
+  if (!ti) return ti;
+  return {
+    ...ti,
+    storeOwnerId: ti.store_owner_id,
+    expiresAt: ti.expires_at,
+    createdAt: ti.created_at,
+    acceptedAt: ti.accepted_at,
+  };
+}
+
+function mapStoreInvitationFromPrisma(si: any): any {
+  if (!si) return si;
+  return {
+    ...si,
+    storeOwnerId: si.store_owner_id,
+    inviteeEmail: si.invitee_email,
+    invitedByUserId: si.invited_by_user_id,
+    expiresAt: si.expires_at,
+    acceptedAt: si.accepted_at,
+    createdAt: si.created_at,
+  };
+}
+
+function mapWholesaleInvitationFromPrisma(wi: any): any {
+  if (!wi) return wi;
+  return {
+    ...wi,
+    sellerId: wi.seller_id,
+    buyerId: wi.buyer_id,
+    buyerEmail: wi.buyer_email,
+    expiresAt: wi.expires_at,
+    createdAt: wi.created_at,
+    acceptedAt: wi.accepted_at,
+  };
+}
+
+function mapUserStoreMembershipFromPrisma(usm: any): any {
+  if (!usm) return usm;
+  return {
+    ...usm,
+    userId: usm.user_id,
+    storeOwnerId: usm.store_owner_id,
+    createdAt: usm.created_at,
+    updatedAt: usm.updated_at,
+  };
+}
+
+function mapWholesaleAccessGrantFromPrisma(wag: any): any {
+  if (!wag) return wag;
+  return {
+    ...wag,
+    buyerId: wag.buyer_id,
+    sellerId: wag.seller_id,
+    createdAt: wag.created_at,
+    updatedAt: wag.updated_at,
+  };
+}
+
+function mapWholesaleProductFromPrisma(wp: any): any {
+  if (!wp) return wp;
+  return {
+    ...wp,
+    sellerId: wp.seller_id,
+    categoryLevel1Id: wp.category_level_1_id,
+    categoryLevel2Id: wp.category_level_2_id,
+    categoryLevel3Id: wp.category_level_3_id,
+    wholesalePrice: wp.wholesale_price,
+    msrp: wp.msrp,
+    productType: wp.product_type,
+    madeToOrderDays: wp.made_to_order_days,
+    preOrderDate: wp.pre_order_date,
+    createdAt: wp.created_at,
+    updatedAt: wp.updated_at,
+  };
+}
+
+function mapWholesaleOrderFromPrisma(wo: any): any {
+  if (!wo) return wo;
+  return {
+    ...wo,
+    orderNumber: wo.order_number,
+    sellerId: wo.seller_id,
+    buyerId: wo.buyer_id,
+    buyerEmail: wo.buyer_email,
+    totalAmount: wo.total_amount,
+    depositAmount: wo.deposit_amount,
+    balanceAmount: wo.balance_amount,
+    depositPaid: wo.deposit_paid,
+    balancePaid: wo.balance_paid,
+    taxAmount: wo.tax_amount,
+    shippingCost: wo.shipping_cost,
+    createdAt: wo.created_at,
+    updatedAt: wo.updated_at,
+    paymentTerms: wo.payment_terms,
+    deliveryTerms: wo.delivery_terms,
+    estimatedDeliveryDate: wo.estimated_delivery_date,
+    poNumber: wo.po_number,
+    vatNumber: wo.vat_number,
+  };
+}
+
+function mapWholesaleOrderItemFromPrisma(woi: any): any {
+  if (!woi) return woi;
+  return {
+    ...woi,
+    orderId: woi.order_id,
+    productId: woi.product_id,
+    productName: woi.product_name,
+    unitPrice: woi.unit_price,
+    lineTotal: woi.line_total,
+    createdAt: woi.created_at,
+  };
+}
+
+function mapShippingMatrixFromPrisma(sm: any): any {
+  if (!sm) return sm;
+  return {
+    ...sm,
+    sellerId: sm.seller_id,
+    createdAt: sm.created_at,
+    updatedAt: sm.updated_at,
+  };
+}
+
+function mapShippingZoneFromPrisma(sz: any): any {
+  if (!sz) return sz;
+  return {
+    ...sz,
+    matrixId: sz.matrix_id,
+    zoneType: sz.zone_type,
+    zoneName: sz.zone_name,
+    zoneCode: sz.zone_code,
+    estimatedDays: sz.estimated_days,
+    zoneIdentifier: sz.zone_identifier,
+  };
+}
+
+function mapRefundFromPrisma(r: any): any {
+  if (!r) return r;
+  return {
+    ...r,
+    orderId: r.order_id,
+    totalAmount: r.total_amount,
+    stripeRefundId: r.stripe_refund_id,
+    processedBy: r.processed_by,
+    createdAt: r.created_at,
+    wholesaleOrderId: r.wholesale_order_id,
+    wholesalePaymentId: r.wholesale_payment_id,
+  };
+}
+
+function mapRefundLineItemFromPrisma(rli: any): any {
+  if (!rli) return rli;
+  return {
+    ...rli,
+    refundId: rli.refund_id,
+    orderItemId: rli.order_item_id,
+    createdAt: rli.created_at,
+  };
+}
+
+function mapInvoiceFromPrisma(inv: any): any {
+  if (!inv) return inv;
+  return {
+    ...inv,
+    orderId: inv.order_id,
+    sellerId: inv.seller_id,
+    invoiceNumber: inv.invoice_number,
+    documentUrl: inv.document_url,
+    documentType: inv.document_type,
+    orderType: inv.order_type,
+    totalAmount: inv.total_amount,
+    taxAmount: inv.tax_amount,
+    poNumber: inv.po_number,
+    vatNumber: inv.vat_number,
+    paymentTerms: inv.payment_terms,
+    generatedBy: inv.generated_by,
+    generationTrigger: inv.generation_trigger,
+    createdAt: inv.created_at,
+    updatedAt: inv.updated_at,
+  };
+}
+
+function mapPackingSlipFromPrisma(ps: any): any {
+  if (!ps) return ps;
+  return {
+    ...ps,
+    orderId: ps.order_id,
+    sellerId: ps.seller_id,
+    packingSlipNumber: ps.packing_slip_number,
+    documentUrl: ps.document_url,
+    documentType: ps.document_type,
+    warehouseNotes: ps.warehouse_notes,
+    giftMessage: ps.gift_message,
+    includesPricing: ps.includes_pricing,
+    generatedBy: ps.generated_by,
+    generationTrigger: ps.generation_trigger,
+    createdAt: ps.created_at,
+    updatedAt: ps.updated_at,
+  };
+}
+
+function mapOrderEventFromPrisma(oe: any): any {
+  if (!oe) return oe;
+  return {
+    ...oe,
+    orderId: oe.order_id,
+    eventType: oe.event_type,
+    createdAt: oe.created_at,
+  };
+}
+
+function mapOrderBalancePaymentFromPrisma(obp: any): any {
+  if (!obp) return obp;
+  return {
+    ...obp,
+    orderId: obp.order_id,
+    amountCents: obp.amount_cents,
+    paymentIntentId: obp.payment_intent_id,
+    createdAt: obp.created_at,
+    paidAt: obp.paid_at,
+  };
+}
+
+function mapBalanceRequestFromPrisma(br: any): any {
+  if (!br) return br;
+  return {
+    ...br,
+    orderId: br.order_id,
+    createdBy: br.created_by,
+    sessionTokenHash: br.session_token_hash,
+    expiresAt: br.expires_at,
+    pricingSnapshot: br.pricing_snapshot,
+    shippingSnapshot: br.shipping_snapshot,
+    paymentIntentId: br.payment_intent_id,
+    balanceDueCents: br.balance_due_cents,
+    emailSentAt: br.email_sent_at,
+    createdAt: br.created_at,
+    updatedAt: br.updated_at,
+  };
+}
+
+function mapOrderAddressChangeFromPrisma(oac: any): any {
+  if (!oac) return oac;
+  return {
+    ...oac,
+    orderId: oac.order_id,
+    changedBy: oac.changed_by,
+    oldAddress: oac.old_address,
+    newAddress: oac.new_address,
+    createdAt: oac.created_at,
+  };
+}
+
+function mapSavedAddressFromPrisma(sa: any): any {
+  if (!sa) return sa;
+  return {
+    ...sa,
+    userId: sa.user_id,
+    fullName: sa.full_name,
+    addressLine1: sa.address_line_1,
+    addressLine2: sa.address_line_2,
+    postalCode: sa.postal_code,
+    isDefault: sa.is_default,
+    createdAt: sa.created_at,
+    updatedAt: sa.updated_at,
+  };
+}
+
+function mapSavedPaymentMethodFromPrisma(spm: any): any {
+  if (!spm) return spm;
+  return {
+    ...spm,
+    userId: spm.user_id,
+    stripePaymentMethodId: spm.stripe_payment_method_id,
+    cardBrand: spm.card_brand,
+    cardLast4: spm.card_last4,
+    cardExpMonth: spm.card_exp_month,
+    cardExpYear: spm.card_exp_year,
+    isDefault: spm.is_default,
+    createdAt: spm.created_at,
+    updatedAt: spm.updated_at,
+  };
+}
+
+function mapPaymentIntentFromPrisma(pi: any): any {
+  if (!pi) return pi;
+  return {
+    ...pi,
+    providerName: pi.provider_name,
+    providerIntentId: pi.provider_intent_id,
+    clientSecret: pi.client_secret,
+    idempotencyKey: pi.idempotency_key,
+    createdAt: pi.created_at,
+    updatedAt: pi.updated_at,
+  };
+}
+
+function mapNewsletterFromPrisma(n: any): any {
+  if (!n) return n;
+  return {
+    ...n,
+    userId: n.user_id,
+    scheduledFor: n.scheduled_for,
+    sentAt: n.sent_at,
+    createdAt: n.created_at,
+    updatedAt: n.updated_at,
+  };
+}
+
+function mapNewsletterTemplateFromPrisma(nt: any): any {
+  if (!nt) return nt;
+  return {
+    ...nt,
+    userId: nt.user_id,
+    createdAt: nt.created_at,
+    updatedAt: nt.updated_at,
+  };
+}
+
+function mapNewsletterAnalyticsFromPrisma(na: any): any {
+  if (!na) return na;
+  return {
+    ...na,
+    newsletterId: na.newsletter_id,
+    totalSent: na.total_sent,
+    totalDelivered: na.total_delivered,
+    totalOpened: na.total_opened,
+    totalClicked: na.total_clicked,
+    totalBounced: na.total_bounced,
+    totalUnsubscribed: na.total_unsubscribed,
+    openRate: na.open_rate,
+    clickRate: na.click_rate,
+    bounceRate: na.bounce_rate,
+    unsubscribeRate: na.unsubscribe_rate,
+    createdAt: na.created_at,
+    updatedAt: na.updated_at,
+  };
+}
+
+function mapSubscriberFromPrisma(s: any): any {
+  if (!s) return s;
+  return {
+    ...s,
+    userId: s.user_id,
+    createdAt: s.created_at,
+  };
+}
+
+function mapSubscriberGroupFromPrisma(sg: any): any {
+  if (!sg) return sg;
+  return {
+    ...sg,
+    userId: sg.user_id,
+    createdAt: sg.created_at,
+  };
+}
+
+function mapUserStoreRoleFromPrisma(usr: any): any {
+  if (!usr) return usr;
+  return {
+    ...usr,
+    userId: usr.user_id,
+    storeOwnerId: usr.store_owner_id,
+    createdAt: usr.created_at,
+  };
+}
+
+function mapCategoryFromPrisma(c: any): any {
+  if (!c) return c;
+  return {
+    ...c,
+    parentId: c.parent_id,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+  };
+}
+
+function mapOrderWorkflowFromPrisma(ow: any): any {
+  if (!ow) return ow;
+  return {
+    ...ow,
+    sellerId: ow.seller_id,
+    buyerId: ow.buyer_id,
+    checkoutSessionId: ow.checkout_session_id,
+    paymentIntentId: ow.payment_intent_id,
+    orderId: ow.order_id,
+    retryCount: ow.retry_count,
+    errorCode: ow.error_code,
+    createdAt: ow.created_at,
+    updatedAt: ow.updated_at,
+  };
+}
+
+function mapOrderWorkflowEventFromPrisma(owe: any): any {
+  if (!owe) return owe;
+  return {
+    ...owe,
+    workflowId: owe.workflow_id,
+    eventType: owe.event_type,
+    createdAt: owe.created_at,
+  };
+}
+
+function mapWholesaleCartFromPrisma(wc: any): any {
+  if (!wc) return wc;
+  return {
+    ...wc,
+    sellerId: wc.seller_id,
+    buyerId: wc.buyer_id,
+    createdAt: wc.created_at,
+    updatedAt: wc.updated_at,
+  };
+}
+
+function mapBulkUploadJobFromPrisma(buj: any): any {
+  if (!buj) return buj;
+  return {
+    ...buj,
+    sellerId: buj.seller_id,
+    fileName: buj.file_name,
+    totalRows: buj.total_rows,
+    successCount: buj.success_count,
+    errorCount: buj.error_count,
+    warningCount: buj.warning_count,
+    errorMessage: buj.error_message,
+    processedRows: buj.processed_rows,
+    createdAt: buj.created_at,
+    completedAt: buj.completed_at,
+  };
+}
+
+function mapBulkUploadItemFromPrisma(bui: any): any {
+  if (!bui) return bui;
+  return {
+    ...bui,
+    jobId: bui.job_id,
+    rowNumber: bui.row_number,
+    rowData: bui.row_data,
+    validationStatus: bui.validation_status,
+    validationMessages: bui.validation_messages,
+    productId: bui.product_id,
+    createdAt: bui.created_at,
+  };
+}
+
+function mapMetaAdAccountFromPrisma(maa: any): any {
+  if (!maa) return maa;
+  return {
+    ...maa,
+    sellerId: maa.seller_id,
+    metaUserId: maa.meta_user_id,
+    metaAdAccountId: maa.meta_ad_account_id,
+    accessToken: maa.access_token,
+    tokenExpiresAt: maa.token_expires_at,
+    businessName: maa.business_name,
+    totalSpent: maa.total_spent,
+    totalRevenue: maa.total_revenue,
+    lastSyncedAt: maa.last_synced_at,
+    createdAt: maa.created_at,
+    updatedAt: maa.updated_at,
+    isSelected: maa.is_selected,
+  };
+}
+
+function mapMetaCampaignFromPrisma(mc: any): any {
+  if (!mc) return mc;
+  return {
+    ...mc,
+    sellerId: mc.seller_id,
+    adAccountId: mc.ad_account_id,
+    productId: mc.product_id,
+    metaCampaignId: mc.meta_campaign_id,
+    metaAdSetId: mc.meta_ad_set_id,
+    metaAdId: mc.meta_ad_id,
+    primaryText: mc.primary_text,
+    callToAction: mc.call_to_action,
+    dailyBudget: mc.daily_budget,
+    lifetimeBudget: mc.lifetime_budget,
+    startDate: mc.start_date,
+    endDate: mc.end_date,
+    useAdvantagePlus: mc.use_advantage_plus,
+    advantagePlusConfig: mc.advantage_plus_config,
+    alertEmail: mc.alert_email,
+    lowBudgetThreshold: mc.low_budget_threshold,
+    activatedAt: mc.activated_at,
+    pausedAt: mc.paused_at,
+    completedAt: mc.completed_at,
+    createdAt: mc.created_at,
+    updatedAt: mc.updated_at,
+  };
+}
+
+function mapMetaSettingsFromPrisma(ms: any): any {
+  if (!ms) return ms;
+  return {
+    ...ms,
+    userId: ms.user_id,
+    accessToken: ms.access_token,
+    adAccountId: ms.ad_account_id,
+    accountName: ms.account_name,
+    createdAt: ms.created_at,
+    updatedAt: ms.updated_at,
+  };
+}
+
+function mapTikTokSettingsFromPrisma(ts: any): any {
+  if (!ts) return ts;
+  return {
+    ...ts,
+    userId: ts.user_id,
+    accessToken: ts.access_token,
+    refreshToken: ts.refresh_token,
+    advertiserId: ts.advertiser_id,
+    advertiserName: ts.advertiser_name,
+    createdAt: ts.created_at,
+    updatedAt: ts.updated_at,
+  };
+}
+
+function mapXSettingsFromPrisma(xs: any): any {
+  if (!xs) return xs;
+  return {
+    ...xs,
+    userId: xs.user_id,
+    accessToken: xs.access_token,
+    accessTokenSecret: xs.access_token_secret,
+    accountId: xs.account_id,
+    accountName: xs.account_name,
+    createdAt: xs.created_at,
+    updatedAt: xs.updated_at,
+  };
+}
+
+function mapDomainConnectionFromPrisma(dc: any): any {
+  if (!dc) return dc;
+  return {
+    ...dc,
+    sellerId: dc.seller_id,
+    normalizedDomain: dc.normalized_domain,
+    verificationToken: dc.verification_token,
+    dnsInstructions: dc.dns_instructions,
+    cloudflareCustomHostnameId: dc.cloudflare_custom_hostname_id,
+    caddySiteId: dc.caddy_site_id,
+    sslStatus: dc.ssl_status,
+    sslProvider: dc.ssl_provider,
+    sslRenewAt: dc.ssl_renew_at,
+    sslIssuedAt: dc.ssl_issued_at,
+    sslExpiresAt: dc.ssl_expires_at,
+    lastCheckedAt: dc.last_checked_at,
+    lastVerifiedAt: dc.last_verified_at,
+    failureReason: dc.failure_reason,
+    failureCode: dc.failure_code,
+    retryCount: dc.retry_count,
+    isPrimary: dc.is_primary,
+    createdAt: dc.created_at,
+    updatedAt: dc.updated_at,
+  };
+}
+
+function mapTradeQuotationFromPrisma(tq: any): any {
+  if (!tq) return tq;
+  return {
+    ...tq,
+    sellerId: tq.seller_id,
+    buyerEmail: tq.buyer_email,
+    buyerId: tq.buyer_id,
+    quotationNumber: tq.quotation_number,
+    taxAmount: tq.tax_amount,
+    shippingAmount: tq.shipping_amount,
+    depositAmount: tq.deposit_amount,
+    depositPercentage: tq.deposit_percentage,
+    balanceAmount: tq.balance_amount,
+    validUntil: tq.valid_until,
+    createdAt: tq.created_at,
+    updatedAt: tq.updated_at,
+    orderId: tq.order_id,
+    deliveryTerms: tq.delivery_terms,
+    dataSheetUrl: tq.data_sheet_url,
+    termsAndConditionsUrl: tq.terms_and_conditions_url,
+  };
+}
+
 // Product Search Filters (B2C)
 export interface ProductSearchFilters {
   search?: string; // Search in name, description, SKU
@@ -830,7 +1647,7 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const result = await prisma.users.findUnique({ where: { id } });
-    return result ?? undefined;
+    return result ? mapUserFromPrisma(result) : undefined;
   }
 
   /**
@@ -903,7 +1720,7 @@ export class DatabaseStorage implements IStorage {
     // Prisma upsert requires a unique constraint to upsert on
     // First try by email (which is unique), then fallback to ID-based logic
     if (mappedData.email) {
-      return await prisma.users.upsert({
+      const result = await prisma.users.upsert({
         where: { email: mappedData.email },
         create: mappedData,
         update: {
@@ -911,41 +1728,46 @@ export class DatabaseStorage implements IStorage {
           updated_at: new Date()
         }
       });
+      return mapUserFromPrisma(result);
     } else if (mappedData.id) {
       // If no email but has ID, try to update or create
       const existingUser = await prisma.users.findUnique({ where: { id: mappedData.id } });
       if (existingUser) {
-        return await prisma.users.update({
+        const result = await prisma.users.update({
           where: { id: mappedData.id },
           data: {
             ...mappedData,
             updated_at: new Date()
           }
         });
+        return mapUserFromPrisma(result);
       } else {
-        return await prisma.users.create({
+        const result = await prisma.users.create({
           data: mappedData
         });
+        return mapUserFromPrisma(result);
       }
     } else {
       // No email or ID, just create
-      return await prisma.users.create({
+      const result = await prisma.users.create({
         data: mappedData
       });
+      return mapUserFromPrisma(result);
     }
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return await prisma.products.findMany({
+    const products = await prisma.products.findMany({
       orderBy: { created_at: 'desc' }
     });
+    return products.map(mapProductFromPrisma);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
     const result = await prisma.products.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapProductFromPrisma(result) : undefined;
   }
 
   async getProductsByIds(ids: string[]): Promise<Product[]> {
@@ -953,35 +1775,39 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
     
-    return await prisma.products.findMany({
+    const products = await prisma.products.findMany({
       where: {
         id: { in: ids }
       }
     });
+    return products.map(mapProductFromPrisma);
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    return await prisma.products.create({
+    const result = await prisma.products.create({
       data: {
         ...insertProduct,
         image: insertProduct.image || ''
       }
     });
+    return mapProductFromPrisma(result);
   }
 
   async getAllOrders(): Promise<Order[]> {
     await this.ensureInitialized();
-    return await prisma.orders.findMany({
+    const orders = await prisma.orders.findMany({
       orderBy: { created_at: 'desc' }
     });
+    return orders.map(mapOrderFromPrisma);
   }
 
   async getOrdersByUserId(userId: string): Promise<Order[]> {
     await this.ensureInitialized();
-    return await prisma.orders.findMany({
+    const orders = await prisma.orders.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
+    return orders.map(mapOrderFromPrisma);
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
@@ -989,7 +1815,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.orders.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapOrderFromPrisma(result) : undefined;
   }
 
   async getOrderByPaymentIntent(paymentIntentId: string): Promise<Order | undefined> {
@@ -997,14 +1823,15 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.orders.findFirst({
       where: { stripe_payment_intent_id: paymentIntentId }
     });
-    return result ?? undefined;
+    return result ? mapOrderFromPrisma(result) : undefined;
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     await this.ensureInitialized();
-    return await prisma.orders.create({
+    const result = await prisma.orders.create({
       data: insertOrder
     });
+    return mapOrderFromPrisma(result);
   }
 
   async updateOrder(id: string, updates: Partial<Order>): Promise<Order | undefined> {
@@ -1014,7 +1841,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: updates
       });
-      return result;
+      return mapOrderFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1026,7 +1853,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: updates
       });
-      return result;
+      return mapProductFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1117,7 +1944,7 @@ export class DatabaseStorage implements IStorage {
     const total = await this.countProducts(filters);
     
     return {
-      products,
+      products: products.map(mapProductFromPrisma),
       total,
       limit: take,
       offset: skip,
@@ -1185,31 +2012,34 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.stock_reservations.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapStockReservationFromPrisma(result) : undefined;
   }
 
   async getStockReservationsBySession(sessionId: string): Promise<StockReservation[]> {
     await this.ensureInitialized();
-    return await prisma.stock_reservations.findMany({
+    const results = await prisma.stock_reservations.findMany({
       where: { session_id: sessionId }
     });
+    return results.map(mapStockReservationFromPrisma);
   }
 
   async getStockReservationsByProduct(productId: string): Promise<StockReservation[]> {
     await this.ensureInitialized();
-    return await prisma.stock_reservations.findMany({
+    const results = await prisma.stock_reservations.findMany({
       where: { product_id: productId }
     });
+    return results.map(mapStockReservationFromPrisma);
   }
 
   async getExpiredStockReservations(now: Date): Promise<StockReservation[]> {
     await this.ensureInitialized();
-    return await prisma.stock_reservations.findMany({
+    const results = await prisma.stock_reservations.findMany({
       where: {
         status: 'active',
         expires_at: { lt: now }
       }
     });
+    return results.map(mapStockReservationFromPrisma);
   }
 
   async getReservedStock(productId: string, variantId?: string): Promise<number> {
@@ -1230,9 +2060,10 @@ export class DatabaseStorage implements IStorage {
 
   async createStockReservation(reservation: InsertStockReservation): Promise<StockReservation> {
     await this.ensureInitialized();
-    return await prisma.stock_reservations.create({
+    const result = await prisma.stock_reservations.create({
       data: reservation
     });
+    return mapStockReservationFromPrisma(result);
   }
 
   async updateStockReservation(id: string, data: Partial<StockReservation>): Promise<StockReservation | undefined> {
@@ -1242,7 +2073,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data
       });
-      return result;
+      return mapStockReservationFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1738,7 +2569,7 @@ export class DatabaseStorage implements IStorage {
     
     // Get all items for this order
     const items = await prisma.order_items.findMany({
-      where: { orderId }
+      where: { order_id: orderId }
     });
     
     if (items.length === 0) {
@@ -1774,10 +2605,11 @@ export class DatabaseStorage implements IStorage {
   // Order Items methods
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
     await this.ensureInitialized();
-    return await prisma.order_items.findMany({
+    const results = await prisma.order_items.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'asc' }
     });
+    return results.map(mapOrderItemFromPrisma);
   }
 
   async getOrderItemById(itemId: string): Promise<OrderItem | undefined> {
@@ -1785,14 +2617,15 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.order_items.findUnique({
       where: { id: itemId }
     });
-    return result ?? undefined;
+    return result ? mapOrderItemFromPrisma(result) : undefined;
   }
 
   async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
     await this.ensureInitialized();
-    return await prisma.order_items.create({
+    const result = await prisma.order_items.create({
       data: item
     });
+    return mapOrderItemFromPrisma(result);
   }
 
   async createOrderItems(items: InsertOrderItem[]): Promise<OrderItem[]> {
@@ -1802,7 +2635,7 @@ export class DatabaseStorage implements IStorage {
     const created = await Promise.all(
       items.map(item => prisma.order_items.create({ data: item }))
     );
-    return created;
+    return created.map(mapOrderItemFromPrisma);
   }
 
   async updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined> {
@@ -1824,7 +2657,7 @@ export class DatabaseStorage implements IStorage {
         where: { id: itemId },
         data: updateData
       });
-      return result;
+      return mapOrderItemFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1845,7 +2678,7 @@ export class DatabaseStorage implements IStorage {
           updated_at: new Date()
         }
       });
-      return result;
+      return mapOrderItemFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1872,7 +2705,7 @@ export class DatabaseStorage implements IStorage {
         where: { id: itemId },
         data: updateData
       });
-      return result;
+      return mapOrderItemFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1899,7 +2732,7 @@ export class DatabaseStorage implements IStorage {
         where: { id: itemId },
         data: updateData
       });
-      return result;
+      return mapOrderItemFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -1946,7 +2779,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     try {
       await prisma.order_items.deleteMany({
-        where: { orderId }
+        where: { order_id: orderId }
       });
       return true;
     } catch (error) {
@@ -2438,13 +3271,13 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const result = await prisma.users.findUnique({ where: { email } });
-    return result ?? undefined;
+    return result ? mapUserFromPrisma(result) : undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const result = await prisma.users.findUnique({ where: { username } });
-    return result ?? undefined;
+    return result ? mapUserFromPrisma(result) : undefined;
   }
 
   async updateUserRole(userId: string, role: string): Promise<User | undefined> {
@@ -2453,37 +3286,39 @@ export class DatabaseStorage implements IStorage {
       where: { id: userId },
       data: { role, updatedAt: new Date() }
     });
-    return result ?? undefined;
+    return mapUserFromPrisma(result);
   }
 
   async updateWelcomeEmailSent(userId: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const result = await prisma.users.update({
       where: { id: userId },
-      data: { welcomeEmailSent: 1, updatedAt: new Date() }
+      data: { welcome_email_sent: 1, updated_at: new Date() }
     });
-    return result ?? undefined;
+    return mapUserFromPrisma(result);
   }
 
   async getAllUsers(): Promise<User[]> {
     await this.ensureInitialized();
-    return await prisma.users.findMany({
+    const users = await prisma.users.findMany({
       orderBy: { created_at: 'desc' }
     });
+    return users.map(mapUserFromPrisma);
   }
 
   async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const result = await prisma.users.findFirst({ where: { stripe_customer_id: stripeCustomerId } });
-    return result ?? undefined;
+    return result ? mapUserFromPrisma(result) : undefined;
   }
 
   async getTeamMembersBySellerId(sellerId: string): Promise<User[]> {
     await this.ensureInitialized();
-    return await prisma.users.findMany({
+    const users = await prisma.users.findMany({
       where: { seller_id: sellerId },
       orderBy: { created_at: 'desc' }
     });
+    return users.map(mapUserFromPrisma);
   }
 
   async deleteTeamMember(userId: string, sellerId: string): Promise<boolean> {
@@ -2506,11 +3341,11 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await prisma.user_store_roles.findFirst({
       where: {
-        userId,
-        storeOwnerId
+        user_id: userId,
+        store_owner_id: storeOwnerId
       }
     });
-    return result ?? undefined;
+    return result ? mapUserStoreRoleFromPrisma(result) : undefined;
   }
 
   async setUserStoreRole(userId: string, storeOwnerId: string, role: "buyer" | "seller" | "owner"): Promise<UserStoreRole> {
@@ -2518,22 +3353,25 @@ export class DatabaseStorage implements IStorage {
     // Upsert: update if exists, insert if not
     const existing = await this.getUserStoreRole(userId, storeOwnerId);
     if (existing) {
-      return await prisma.user_store_roles.update({
+      const result = await prisma.user_store_roles.update({
         where: { id: existing.id },
         data: { role }
       });
+      return mapUserStoreRoleFromPrisma(result);
     } else {
-      return await prisma.user_store_roles.create({
-        data: { userId, storeOwnerId, role }
+      const result = await prisma.user_store_roles.create({
+        data: { user_id: userId, store_owner_id: storeOwnerId, role }
       });
+      return mapUserStoreRoleFromPrisma(result);
     }
   }
 
   async getUserStoreRoles(userId: string): Promise<UserStoreRole[]> {
     await this.ensureInitialized();
-    return await prisma.user_store_roles.findMany({
-      where: { userId }
+    const roles = await prisma.user_store_roles.findMany({
+      where: { user_id: userId }
     });
+    return roles.map(mapUserStoreRoleFromPrisma);
   }
 
   // New Auth System - User Store Memberships
@@ -2541,32 +3379,35 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await prisma.user_store_memberships.findFirst({
       where: {
-        userId,
-        storeOwnerId
+        user_id: userId,
+        store_owner_id: storeOwnerId
       }
     });
-    return result ?? undefined;
+    return result ? mapUserStoreMembershipFromPrisma(result) : undefined;
   }
 
   async getUserStoreMembershipsByStore(storeOwnerId: string): Promise<UserStoreMembership[]> {
     await this.ensureInitialized();
-    return await prisma.user_store_memberships.findMany({
-      where: { storeOwnerId }
+    const memberships = await prisma.user_store_memberships.findMany({
+      where: { store_owner_id: storeOwnerId }
     });
+    return memberships.map(mapUserStoreMembershipFromPrisma);
   }
 
   async getUserStoreMembershipsByUser(userId: string): Promise<UserStoreMembership[]> {
     await this.ensureInitialized();
-    return await prisma.user_store_memberships.findMany({
-      where: { userId }
+    const memberships = await prisma.user_store_memberships.findMany({
+      where: { user_id: userId }
     });
+    return memberships.map(mapUserStoreMembershipFromPrisma);
   }
 
   async createUserStoreMembership(membership: InsertUserStoreMembership): Promise<UserStoreMembership> {
     await this.ensureInitialized();
-    return await prisma.user_store_memberships.create({
+    const result = await prisma.user_store_memberships.create({
       data: membership
     });
+    return mapUserStoreMembershipFromPrisma(result);
   }
 
   async updateUserStoreMembership(id: string, updates: Partial<UserStoreMembership>): Promise<UserStoreMembership | undefined> {
@@ -2576,7 +3417,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: updates
       });
-      return result;
+      return mapUserStoreMembershipFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -2599,14 +3440,14 @@ export class DatabaseStorage implements IStorage {
     const membership = await prisma.user_store_memberships.findUnique({
       where: { id }
     });
-    return membership ?? undefined;
+    return membership ? mapUserStoreMembershipFromPrisma(membership) : undefined;
   }
 
   async getStoreCollaborators(storeOwnerId: string): Promise<UserStoreMembership[]> {
     await this.ensureInitialized();
     const memberships = await prisma.user_store_memberships.findMany({
       where: {
-        storeOwnerId,
+        store_owner_id: storeOwnerId,
         status: 'active'
       },
       include: {
@@ -2625,25 +3466,27 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await prisma.wholesale_access_grants.findFirst({
       where: {
-        buyerId,
-        sellerId
+        buyer_id: buyerId,
+        seller_id: sellerId
       }
     });
-    return result ?? undefined;
+    return result ? mapWholesaleAccessGrantFromPrisma(result) : undefined;
   }
 
   async getWholesaleAccessGrantsBySeller(sellerId: string): Promise<WholesaleAccessGrant[]> {
     await this.ensureInitialized();
-    return await prisma.wholesale_access_grants.findMany({
-      where: { sellerId }
+    const results = await prisma.wholesale_access_grants.findMany({
+      where: { seller_id: sellerId }
     });
+    return results.map(mapWholesaleAccessGrantFromPrisma);
   }
 
   async getWholesaleAccessGrantsByBuyer(buyerId: string): Promise<WholesaleAccessGrant[]> {
     await this.ensureInitialized();
-    return await prisma.wholesale_access_grants.findMany({
-      where: { buyerId }
+    const results = await prisma.wholesale_access_grants.findMany({
+      where: { buyer_id: buyerId }
     });
+    return results.map(mapWholesaleAccessGrantFromPrisma);
   }
 
   async createWholesaleAccessGrant(grant: InsertWholesaleAccessGrant): Promise<WholesaleAccessGrant> {
@@ -2849,9 +3692,10 @@ export class DatabaseStorage implements IStorage {
 
   async createInvitation(insertInvitation: InsertInvitation): Promise<Invitation> {
     await this.ensureInitialized();
-    return await prisma.invitations.create({
+    const result = await prisma.invitations.create({
       data: insertInvitation
     });
+    return mapInvitationFromPrisma(result);
   }
 
   async getInvitationByToken(token: string): Promise<Invitation | undefined> {
@@ -2859,7 +3703,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.invitations.findFirst({
       where: { token }
     });
-    return result ?? undefined;
+    return result ? mapInvitationFromPrisma(result) : undefined;
   }
 
   async updateInvitationStatus(token: string, status: string): Promise<Invitation | undefined> {
@@ -2871,19 +3715,20 @@ export class DatabaseStorage implements IStorage {
     const updated = await prisma.invitations.findFirst({
       where: { token }
     });
-    return updated ?? undefined;
+    return updated ? mapInvitationFromPrisma(updated) : undefined;
   }
 
   async getAllInvitations(): Promise<Invitation[]> {
     await this.ensureInitialized();
-    return await prisma.invitations.findMany({
+    const invitations = await prisma.invitations.findMany({
       orderBy: { created_at: 'desc' }
     });
+    return invitations.map(mapInvitationFromPrisma);
   }
 
   async saveMetaSettings(userId: string, settings: Partial<MetaSettings>): Promise<MetaSettings> {
     await this.ensureInitialized();
-    return await prisma.meta_settings.upsert({
+    const result = await prisma.meta_settings.upsert({
       where: { user_id: userId },
       update: {
         ...settings,
@@ -2896,6 +3741,7 @@ export class DatabaseStorage implements IStorage {
         connected: settings.connected ? 1 : 0
       }
     });
+    return mapMetaSettingsFromPrisma(result);
   }
 
   async getMetaSettings(userId: string): Promise<MetaSettings | undefined> {
@@ -2903,7 +3749,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.meta_settings.findUnique({
       where: { user_id: userId }
     });
-    return result ?? undefined;
+    return result ? mapMetaSettingsFromPrisma(result) : undefined;
   }
 
   async deleteMetaSettings(userId: string): Promise<boolean> {
@@ -2916,7 +3762,7 @@ export class DatabaseStorage implements IStorage {
 
   async saveTikTokSettings(userId: string, settings: Partial<TikTokSettings>): Promise<TikTokSettings> {
     await this.ensureInitialized();
-    return await prisma.tiktok_settings.upsert({
+    const result = await prisma.tiktok_settings.upsert({
       where: { user_id: userId },
       update: {
         ...settings,
@@ -2927,6 +3773,7 @@ export class DatabaseStorage implements IStorage {
         ...settings
       }
     });
+    return mapTikTokSettingsFromPrisma(result);
   }
 
   async getTikTokSettings(userId: string): Promise<TikTokSettings | undefined> {
@@ -2934,7 +3781,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.tiktok_settings.findUnique({
       where: { user_id: userId }
     });
-    return result ?? undefined;
+    return result ? mapTikTokSettingsFromPrisma(result) : undefined;
   }
 
   async deleteTikTokSettings(userId: string): Promise<boolean> {
@@ -2947,7 +3794,7 @@ export class DatabaseStorage implements IStorage {
 
   async saveXSettings(userId: string, settings: Partial<XSettings>): Promise<XSettings> {
     await this.ensureInitialized();
-    return await prisma.x_settings.upsert({
+    const result = await prisma.x_settings.upsert({
       where: { user_id: userId },
       update: {
         ...settings,
@@ -2958,6 +3805,7 @@ export class DatabaseStorage implements IStorage {
         ...settings
       }
     });
+    return mapXSettingsFromPrisma(result);
   }
 
   async getXSettings(userId: string): Promise<XSettings | undefined> {
@@ -2965,7 +3813,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.x_settings.findUnique({
       where: { user_id: userId }
     });
-    return result ?? undefined;
+    return result ? mapXSettingsFromPrisma(result) : undefined;
   }
 
   async deleteXSettings(userId: string): Promise<boolean> {
@@ -2979,10 +3827,11 @@ export class DatabaseStorage implements IStorage {
   // Subscriber Groups
   async getSubscriberGroupsByUserId(userId: string): Promise<SubscriberGroup[]> {
     await this.ensureInitialized();
-    return await prisma.subscriber_groups.findMany({
+    const results = await prisma.subscriber_groups.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapSubscriberGroupFromPrisma);
   }
 
   async getSubscriberGroup(id: string): Promise<SubscriberGroup | undefined> {
@@ -2990,7 +3839,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.subscriber_groups.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapSubscriberGroupFromPrisma(result) : undefined;
   }
 
   async getSubscriberGroupByName(userId: string, name: string): Promise<SubscriberGroup | undefined> {
@@ -3001,14 +3850,15 @@ export class DatabaseStorage implements IStorage {
         name: name
       }
     });
-    return result ?? undefined;
+    return result ? mapSubscriberGroupFromPrisma(result) : undefined;
   }
 
   async createSubscriberGroup(group: InsertSubscriberGroup): Promise<SubscriberGroup> {
     await this.ensureInitialized();
-    return await prisma.subscriber_groups.create({
+    const result = await prisma.subscriber_groups.create({
       data: group
     });
+    return mapSubscriberGroupFromPrisma(result);
   }
 
   async updateSubscriberGroup(id: string, data: Partial<SubscriberGroup>): Promise<SubscriberGroup | undefined> {
@@ -3017,7 +3867,7 @@ export class DatabaseStorage implements IStorage {
       where: { id },
       data: data
     });
-    return result ?? undefined;
+    return mapSubscriberGroupFromPrisma(result);
   }
 
   async deleteSubscriberGroup(id: string): Promise<boolean> {
@@ -3031,10 +3881,11 @@ export class DatabaseStorage implements IStorage {
   // Subscribers
   async getSubscribersByUserId(userId: string): Promise<Subscriber[]> {
     await this.ensureInitialized();
-    return await prisma.subscribers.findMany({
+    const results = await prisma.subscribers.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapSubscriberFromPrisma);
   }
 
   async getSubscribersByGroupId(userId: string, groupId: string): Promise<Subscriber[]> {
@@ -3048,7 +3899,8 @@ export class DatabaseStorage implements IStorage {
     
     return memberships
       .map(m => m.subscribers)
-      .filter(s => s.user_id === userId) as Subscriber[];
+      .filter(s => s.user_id === userId)
+      .map(mapSubscriberFromPrisma);
   }
 
   async getSubscriber(id: string): Promise<Subscriber | undefined> {
@@ -3056,7 +3908,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.subscribers.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapSubscriberFromPrisma(result) : undefined;
   }
 
   async getSubscriberByEmail(userId: string, email: string): Promise<Subscriber | undefined> {
@@ -3067,14 +3919,15 @@ export class DatabaseStorage implements IStorage {
         email: email
       }
     });
-    return result ?? undefined;
+    return result ? mapSubscriberFromPrisma(result) : undefined;
   }
 
   async createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber> {
     await this.ensureInitialized();
-    return await prisma.subscribers.create({
+    const result = await prisma.subscribers.create({
       data: subscriber
     });
+    return mapSubscriberFromPrisma(result);
   }
 
   async updateSubscriber(id: string, data: Partial<Subscriber>): Promise<Subscriber | undefined> {
@@ -3083,7 +3936,7 @@ export class DatabaseStorage implements IStorage {
       where: { id },
       data: data
     });
-    return result ?? undefined;
+    return mapSubscriberFromPrisma(result);
   }
 
   async deleteSubscriber(id: string): Promise<boolean> {
@@ -3096,12 +3949,13 @@ export class DatabaseStorage implements IStorage {
 
   async addSubscriberToGroup(subscriberId: string, groupId: string): Promise<SubscriberGroupMembership> {
     await this.ensureInitialized();
-    return await prisma.subscriber_group_memberships.create({
+    const result = await prisma.subscriber_group_memberships.create({
       data: {
         subscriber_id: subscriberId,
         group_id: groupId
       }
     });
+    return mapSubscriberGroupMembershipFromPrisma(result);
   }
 
   async removeSubscriberFromGroup(subscriberId: string, groupId: string): Promise<boolean> {
@@ -3118,10 +3972,11 @@ export class DatabaseStorage implements IStorage {
   // Newsletters
   async getNewslettersByUserId(userId: string): Promise<Newsletter[]> {
     await this.ensureInitialized();
-    return await prisma.newsletters.findMany({
+    const results = await prisma.newsletters.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapNewsletterFromPrisma);
   }
 
   async getNewsletter(id: string): Promise<Newsletter | undefined> {
@@ -3129,14 +3984,15 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletters.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterFromPrisma(result) : undefined;
   }
 
   async createNewsletter(newsletter: InsertNewsletter): Promise<Newsletter> {
     await this.ensureInitialized();
-    return await prisma.newsletters.create({
+    const result = await prisma.newsletters.create({
       data: newsletter
     });
+    return mapNewsletterFromPrisma(result);
   }
 
   async updateNewsletter(id: string, data: Partial<Newsletter>): Promise<Newsletter | undefined> {
@@ -3145,7 +4001,7 @@ export class DatabaseStorage implements IStorage {
       where: { id },
       data: data
     });
-    return result ?? undefined;
+    return mapNewsletterFromPrisma(result);
   }
 
   async deleteNewsletter(id: string): Promise<boolean> {
@@ -3159,10 +4015,11 @@ export class DatabaseStorage implements IStorage {
   // Newsletter Templates
   async getNewsletterTemplatesByUserId(userId: string): Promise<NewsletterTemplate[]> {
     await this.ensureInitialized();
-    return await prisma.newsletter_templates.findMany({
+    const results = await prisma.newsletter_templates.findMany({
       where: { user_id: userId },
       orderBy: { updated_at: 'desc' }
     });
+    return results.map(mapNewsletterTemplateFromPrisma);
   }
 
   async getNewsletterTemplate(id: string): Promise<NewsletterTemplate | undefined> {
@@ -3170,14 +4027,15 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletter_templates.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterTemplateFromPrisma(result) : undefined;
   }
 
   async createNewsletterTemplate(template: InsertNewsletterTemplate): Promise<NewsletterTemplate> {
     await this.ensureInitialized();
-    return await prisma.newsletter_templates.create({
+    const result = await prisma.newsletter_templates.create({
       data: template
     });
+    return mapNewsletterTemplateFromPrisma(result);
   }
 
   async updateNewsletterTemplate(id: string, data: Partial<NewsletterTemplate>): Promise<NewsletterTemplate | undefined> {
@@ -3189,7 +4047,7 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date()
       }
     });
-    return result ?? undefined;
+    return mapNewsletterTemplateFromPrisma(result);
   }
 
   async deleteNewsletterTemplate(id: string): Promise<boolean> {
@@ -3203,9 +4061,10 @@ export class DatabaseStorage implements IStorage {
   // Newsletter Segments
   async createNewsletterSegment(segment: InsertNewsletterSegment): Promise<NewsletterSegment> {
     await this.ensureInitialized();
-    return await prisma.newsletter_segments.create({
+    const result = await prisma.newsletter_segments.create({
       data: segment
     });
+    return mapNewsletterSegmentFromPrisma(result);
   }
 
   async getNewsletterSegment(id: string): Promise<NewsletterSegment | undefined> {
@@ -3213,23 +4072,25 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletter_segments.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterSegmentFromPrisma(result) : undefined;
   }
 
   async getNewsletterSegmentsByUserId(userId: string): Promise<NewsletterSegment[]> {
     await this.ensureInitialized();
-    return await prisma.newsletter_segments.findMany({
+    const results = await prisma.newsletter_segments.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapNewsletterSegmentFromPrisma);
   }
 
   // Newsletter Schedules
   async createNewsletterSchedule(schedule: InsertNewsletterSchedule): Promise<NewsletterSchedule> {
     await this.ensureInitialized();
-    return await prisma.newsletter_schedule.create({
+    const result = await prisma.newsletter_schedule.create({
       data: schedule
     });
+    return mapNewsletterScheduleFromPrisma(result);
   }
 
   async getNewsletterSchedule(id: string): Promise<NewsletterSchedule | undefined> {
@@ -3237,23 +4098,25 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletter_schedule.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterScheduleFromPrisma(result) : undefined;
   }
 
   async getScheduledCampaigns(): Promise<NewsletterSchedule[]> {
     await this.ensureInitialized();
-    return await prisma.newsletter_schedule.findMany({
+    const results = await prisma.newsletter_schedule.findMany({
       where: { status: 'scheduled' },
       orderBy: { scheduled_at: 'asc' }
     });
+    return results.map(mapNewsletterScheduleFromPrisma);
   }
 
   // Newsletter A/B Tests
   async createNewsletterABTest(test: InsertNewsletterABTest): Promise<NewsletterABTest> {
     await this.ensureInitialized();
-    return await prisma.newsletter_ab_tests.create({
+    const result = await prisma.newsletter_ab_tests.create({
       data: test
     });
+    return mapNewsletterABTestFromPrisma(result);
   }
 
   async getNewsletterABTest(id: string): Promise<NewsletterABTest | undefined> {
@@ -3261,7 +4124,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletter_ab_tests.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterABTestFromPrisma(result) : undefined;
   }
 
   // Newsletter Analytics
@@ -3270,18 +4133,19 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletter_analytics.findUnique({
       where: { newsletter_id: newsletterId }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterAnalyticsFromPrisma(result) : undefined;
   }
 
   async getNewsletterAnalyticsByUserId(userId: string): Promise<NewsletterAnalytics[]> {
     await this.ensureInitialized();
-    return await prisma.newsletter_analytics.findMany({
+    const results = await prisma.newsletter_analytics.findMany({
       where: { user_id: userId },
       include: {
         newsletters: true
       },
       orderBy: { created_at: 'desc' }
     }) as any;
+    return results.map(mapNewsletterAnalyticsFromPrisma);
   }
 
   async createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics> {
@@ -3291,15 +4155,16 @@ export class DatabaseStorage implements IStorage {
       const result = await prisma.newsletter_analytics.update({
         where: { newsletter_id: analytics.newsletterId },
         data: {
-          total_sent: (existing.total_sent || 0) + (analytics.totalSent || 0),
+          total_sent: (existing.totalSent || 0) + (analytics.totalSent || 0),
           last_updated: new Date()
         }
       });
-      return result;
+      return mapNewsletterAnalyticsFromPrisma(result);
     }
-    return await prisma.newsletter_analytics.create({
+    const result = await prisma.newsletter_analytics.create({
       data: analytics
     });
+    return mapNewsletterAnalyticsFromPrisma(result);
   }
 
   async updateNewsletterAnalytics(newsletterId: string, data: Partial<NewsletterAnalytics>): Promise<NewsletterAnalytics | undefined> {
@@ -3308,16 +4173,17 @@ export class DatabaseStorage implements IStorage {
       where: { newsletter_id: newsletterId },
       data: data
     });
-    return result ?? undefined;
+    return mapNewsletterAnalyticsFromPrisma(result);
   }
 
   // Newsletter Events
   async createNewsletterEvent(event: InsertNewsletterEvent): Promise<NewsletterEvent | null> {
     await this.ensureInitialized();
     try {
-      return await prisma.newsletter_events.create({
+      const result = await prisma.newsletter_events.create({
         data: event
       });
+      return mapNewsletterEventFromPrisma(result);
     } catch (error: any) {
       if (error.code === 'P2002' || error.code === '23505' || error.message?.includes('unique constraint')) {
         console.log('[Storage] Duplicate newsletter event, skipping:', event.eventType, event.recipientEmail);
@@ -3330,9 +4196,10 @@ export class DatabaseStorage implements IStorage {
 
   async getNewsletterEventsByNewsletterId(newsletterId: string): Promise<NewsletterEvent[]> {
     await this.ensureInitialized();
-    return await prisma.newsletter_events.findMany({
+    const results = await prisma.newsletter_events.findMany({
       where: { newsletter_id: newsletterId }
     });
+    return results.map(mapNewsletterEventFromPrisma);
   }
 
   async getNewsletterEventByWebhookId(webhookEventId: string): Promise<NewsletterEvent | undefined> {
@@ -3340,7 +4207,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.newsletter_events.findFirst({
       where: { webhook_event_id: webhookEventId }
     });
-    return result ?? undefined;
+    return result ? mapNewsletterEventFromPrisma(result) : undefined;
   }
 
   async createNftMint(nftMint: InsertNftMint): Promise<NftMint> {
@@ -3422,32 +4289,35 @@ export class DatabaseStorage implements IStorage {
 
   // Wholesale Products Methods
   async getAllWholesaleProducts(): Promise<WholesaleProduct[]> {
-    return await prisma.wholesale_products.findMany({
+    const results = await prisma.wholesale_products.findMany({
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapWholesaleProductFromPrisma);
   }
 
   async getWholesaleProductsBySellerId(sellerId: string): Promise<WholesaleProduct[]> {
-    return await prisma.wholesale_products.findMany({
+    const results = await prisma.wholesale_products.findMany({
       where: { seller_id: sellerId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapWholesaleProductFromPrisma);
   }
 
   async getWholesaleProduct(id: string): Promise<WholesaleProduct | undefined> {
     const result = await prisma.wholesale_products.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapWholesaleProductFromPrisma(result) : undefined;
   }
 
   async createWholesaleProduct(product: InsertWholesaleProduct): Promise<WholesaleProduct> {
-    return await prisma.wholesale_products.create({
+    const result = await prisma.wholesale_products.create({
       data: {
         ...product,
         image: product.image || ''
       }
     });
+    return mapWholesaleProductFromPrisma(result);
   }
 
   async updateWholesaleProduct(id: string, product: Partial<InsertWholesaleProduct>): Promise<WholesaleProduct | undefined> {
@@ -3459,7 +4329,7 @@ export class DatabaseStorage implements IStorage {
           updated_at: new Date()
         }
       });
-      return result;
+      return mapWholesaleProductFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -3545,7 +4415,7 @@ export class DatabaseStorage implements IStorage {
     const skip = filters.offset || 0;
     
     // Execute query
-    const products = await prisma.wholesale_products.findMany({
+    const results = await prisma.wholesale_products.findMany({
       where,
       orderBy,
       take,
@@ -3556,7 +4426,7 @@ export class DatabaseStorage implements IStorage {
     const total = await this.countWholesaleProducts(filters);
     
     return {
-      products,
+      products: results.map(mapWholesaleProductFromPrisma),
       total,
       limit: take,
       offset: skip,
@@ -3627,9 +4497,10 @@ export class DatabaseStorage implements IStorage {
   // Wholesale Orders Methods
   async createWholesaleOrder(order: InsertWholesaleOrder): Promise<WholesaleOrder> {
     await this.ensureInitialized();
-    return await prisma.wholesale_orders.create({
+    const result = await prisma.wholesale_orders.create({
       data: order
     });
+    return mapWholesaleOrderFromPrisma(result);
   }
 
   async getWholesaleOrder(id: string): Promise<WholesaleOrder | undefined> {
@@ -3637,7 +4508,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.wholesale_orders.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapWholesaleOrderFromPrisma(result) : undefined;
   }
 
   async getWholesaleOrderByNumber(orderNumber: string): Promise<WholesaleOrder | undefined> {
@@ -3645,28 +4516,30 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.wholesale_orders.findFirst({
       where: { order_number: orderNumber }
     });
-    return result ?? undefined;
+    return result ? mapWholesaleOrderFromPrisma(result) : undefined;
   }
 
   async getWholesaleOrdersBySellerId(sellerId: string): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
-    return await prisma.wholesale_orders.findMany({
+    const results = await prisma.wholesale_orders.findMany({
       where: { seller_id: sellerId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapWholesaleOrderFromPrisma);
   }
 
   async getWholesaleOrdersByBuyerId(buyerId: string): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
-    return await prisma.wholesale_orders.findMany({
+    const results = await prisma.wholesale_orders.findMany({
       where: { buyer_id: buyerId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapWholesaleOrderFromPrisma);
   }
 
   async getOrdersWithBalanceDueSoon(dueDate: Date): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
-    return await prisma.wholesale_orders.findMany({
+    const results = await prisma.wholesale_orders.findMany({
       where: {
         status: {
           in: ['deposit_paid', 'awaiting_balance']
@@ -3677,6 +4550,7 @@ export class DatabaseStorage implements IStorage {
       },
       orderBy: { balance_payment_due_date: 'asc' }
     });
+    return results.map(mapWholesaleOrderFromPrisma);
   }
 
   async updateWholesaleOrder(id: string, updates: Partial<WholesaleOrder>): Promise<WholesaleOrder | undefined> {
@@ -3686,7 +4560,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: { ...updates, updated_at: new Date() }
       });
-      return result;
+      return mapWholesaleOrderFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -3707,16 +4581,18 @@ export class DatabaseStorage implements IStorage {
   // Wholesale Order Items Methods
   async createWholesaleOrderItem(item: InsertWholesaleOrderItem): Promise<WholesaleOrderItem> {
     await this.ensureInitialized();
-    return await prisma.wholesale_order_items.create({
+    const result = await prisma.wholesale_order_items.create({
       data: item
     });
+    return mapWholesaleOrderItemFromPrisma(result);
   }
 
   async getWholesaleOrderItems(wholesaleOrderId: string): Promise<WholesaleOrderItem[]> {
     await this.ensureInitialized();
-    return await prisma.wholesale_order_items.findMany({
+    const results = await prisma.wholesale_order_items.findMany({
       where: { wholesale_order_id: wholesaleOrderId }
     });
+    return results.map(mapWholesaleOrderItemFromPrisma);
   }
 
   async getWholesaleOrderItem(id: string): Promise<WholesaleOrderItem | undefined> {
@@ -3724,7 +4600,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.wholesale_order_items.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapWholesaleOrderItemFromPrisma(result) : undefined;
   }
 
   async updateWholesaleOrderItem(id: string, updates: Partial<WholesaleOrderItem>): Promise<WholesaleOrderItem | undefined> {
@@ -3734,7 +4610,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: { ...updates, updated_at: new Date() }
       });
-      return result;
+      return mapWholesaleOrderItemFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -3751,7 +4627,7 @@ export class DatabaseStorage implements IStorage {
           updated_at: new Date(),
         }
       });
-      return result;
+      return mapWholesaleOrderItemFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -4128,9 +5004,10 @@ export class DatabaseStorage implements IStorage {
   // Notification Methods
   async createNotification(notification: InsertNotification): Promise<Notification> {
     await this.ensureInitialized();
-    return await prisma.notifications.create({
+    const result = await prisma.notifications.create({
       data: notification
     });
+    return mapNotificationFromPrisma(result);
   }
 
   async getNotification(id: string): Promise<Notification | undefined> {
@@ -4138,24 +5015,25 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.notifications.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapNotificationFromPrisma(result) : undefined;
   }
 
   async getNotificationsByUserId(userId: string): Promise<Notification[]> {
     await this.ensureInitialized();
-    return await prisma.notifications.findMany({
+    const notifications = await prisma.notifications.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
+    return notifications.map(mapNotificationFromPrisma);
   }
 
   async markNotificationAsRead(id: string): Promise<Notification | undefined> {
     await this.ensureInitialized();
     const result = await prisma.notifications.update({
       where: { id },
-      data: { read: 1 }
+      data: { is_read: 1 }
     });
-    return result ?? undefined;
+    return mapNotificationFromPrisma(result);
   }
 
   async deleteNotification(id: string): Promise<boolean> {
@@ -4169,18 +5047,20 @@ export class DatabaseStorage implements IStorage {
   // Auth Token Methods
   async createAuthToken(token: InsertAuthToken): Promise<AuthToken> {
     await this.ensureInitialized();
-    return await prisma.auth_tokens.create({
+    const result = await prisma.auth_tokens.create({
       data: {
         token: token.token,
         email: token.email,
         code: token.code,
-        type: token.type,
+        token_type: token.type,
         expires_at: token.expiresAt,
-        used: token.used ?? false,
+        used: token.used ?? 0,
         seller_context: token.sellerContext,
-        return_url: token.returnUrl
+        return_url: token.returnUrl,
+        login_context: token.loginContext
       }
     });
+    return mapAuthTokenFromPrisma(result);
   }
 
   async getAuthTokenByToken(token: string): Promise<AuthToken | undefined> {
@@ -4188,7 +5068,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.auth_tokens.findUnique({
       where: { token }
     });
-    return result ?? undefined;
+    return result ? mapAuthTokenFromPrisma(result) : undefined;
   }
 
   async getAuthTokenByCode(email: string, code: string): Promise<AuthToken | undefined> {
@@ -4199,7 +5079,7 @@ export class DatabaseStorage implements IStorage {
         code
       }
     });
-    return result ?? undefined;
+    return result ? mapAuthTokenFromPrisma(result) : undefined;
   }
 
   async markAuthTokenAsUsed(id: string): Promise<AuthToken | undefined> {
@@ -4209,7 +5089,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: { used: 1 }
       });
-      return result;
+      return mapAuthTokenFromPrisma(result);
     } catch (error) {
       return undefined;
     }
@@ -4230,10 +5110,11 @@ export class DatabaseStorage implements IStorage {
   // Shipping Matrix Methods
   async getShippingMatricesBySellerId(sellerId: string): Promise<ShippingMatrix[]> {
     await this.ensureInitialized();
-    return await prisma.shipping_matrices.findMany({
+    const matrices = await prisma.shipping_matrices.findMany({
       where: { seller_id: sellerId },
       orderBy: { created_at: 'desc' }
     });
+    return matrices.map(mapShippingMatrixFromPrisma);
   }
 
   async getShippingMatrix(id: string): Promise<ShippingMatrix | undefined> {
@@ -4241,14 +5122,15 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.shipping_matrices.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapShippingMatrixFromPrisma(result) : undefined;
   }
 
   async createShippingMatrix(matrix: InsertShippingMatrix): Promise<ShippingMatrix> {
     await this.ensureInitialized();
-    return await prisma.shipping_matrices.create({
+    const result = await prisma.shipping_matrices.create({
       data: matrix
     });
+    return mapShippingMatrixFromPrisma(result);
   }
 
   async updateShippingMatrix(id: string, matrix: Partial<InsertShippingMatrix>): Promise<ShippingMatrix | undefined> {
@@ -4260,7 +5142,7 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date()
       }
     });
-    return result ?? undefined;
+    return mapShippingMatrixFromPrisma(result);
   }
 
   async deleteShippingMatrix(id: string): Promise<boolean> {
@@ -4946,7 +5828,7 @@ export class DatabaseStorage implements IStorage {
       where: { id: sessionMap.cart_id }
     });
     
-    return cart ?? undefined;
+    return cart ? mapCartFromPrisma(cart) : undefined;
   }
 
   async getCartByUserId(userId: string): Promise<Cart | undefined> {
@@ -4955,7 +5837,7 @@ export class DatabaseStorage implements IStorage {
       where: { buyer_id: userId },
       orderBy: { updated_at: 'desc' }
     });
-    return result ?? undefined;
+    return result ? mapCartFromPrisma(result) : undefined;
   }
 
   /**
@@ -5122,7 +6004,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.meta_ad_accounts.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapMetaAdAccountFromPrisma(result) : undefined;
   }
 
   async getMetaAdAccountBySeller(sellerId: string): Promise<MetaAdAccount | undefined> {
@@ -5130,7 +6012,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.meta_ad_accounts.findFirst({
       where: { seller_id: sellerId }
     });
-    return result ?? undefined;
+    return result ? mapMetaAdAccountFromPrisma(result) : undefined;
   }
 
   async getMetaAdAccountByMetaAccountId(metaAdAccountId: string): Promise<MetaAdAccount | undefined> {
@@ -5138,7 +6020,7 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.meta_ad_accounts.findFirst({
       where: { meta_ad_account_id: metaAdAccountId }
     });
-    return result ?? undefined;
+    return result ? mapMetaAdAccountFromPrisma(result) : undefined;
   }
 
   async createMetaAdAccount(account: InsertMetaAdAccount): Promise<string> {
@@ -5155,15 +6037,16 @@ export class DatabaseStorage implements IStorage {
       where: { id },
       data: updates
     });
-    return result ?? undefined;
+    return mapMetaAdAccountFromPrisma(result);
   }
 
   async getAllMetaAdAccountsBySeller(sellerId: string): Promise<MetaAdAccount[]> {
     await this.ensureInitialized();
-    return await prisma.meta_ad_accounts.findMany({
+    const results = await prisma.meta_ad_accounts.findMany({
       where: { seller_id: sellerId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapMetaAdAccountFromPrisma);
   }
 
   async getSelectedMetaAdAccount(sellerId: string): Promise<MetaAdAccount | undefined> {
@@ -5174,7 +6057,7 @@ export class DatabaseStorage implements IStorage {
         is_selected: 1
       }
     });
-    return result ?? undefined;
+    return result ? mapMetaAdAccountFromPrisma(result) : undefined;
   }
 
   async selectMetaAdAccount(sellerId: string, accountId: string): Promise<boolean> {
@@ -5202,23 +6085,25 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.meta_campaigns.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapMetaCampaignFromPrisma(result) : undefined;
   }
 
   async getMetaCampaignsBySeller(sellerId: string): Promise<MetaCampaign[]> {
     await this.ensureInitialized();
-    return await prisma.meta_campaigns.findMany({
+    const results = await prisma.meta_campaigns.findMany({
       where: { seller_id: sellerId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapMetaCampaignFromPrisma);
   }
 
   async getMetaCampaignsByAdAccount(adAccountId: string): Promise<MetaCampaign[]> {
     await this.ensureInitialized();
-    return await prisma.meta_campaigns.findMany({
+    const results = await prisma.meta_campaigns.findMany({
       where: { ad_account_id: adAccountId },
       orderBy: { created_at: 'desc' }
     });
+    return results.map(mapMetaCampaignFromPrisma);
   }
 
   async createMetaCampaign(campaign: InsertMetaCampaign): Promise<string> {
@@ -5235,7 +6120,7 @@ export class DatabaseStorage implements IStorage {
       where: { id },
       data: updates
     });
-    return result ?? undefined;
+    return mapMetaCampaignFromPrisma(result);
   }
 
   // ===== META CAMPAIGN FINANCE METHODS =====
