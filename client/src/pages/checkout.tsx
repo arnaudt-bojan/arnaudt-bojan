@@ -733,7 +733,7 @@ function ExpressCheckout({
 }
 
 export default function Checkout() {
-  const { items, total, clearCart } = useCart();
+  const { items, total, clearCart, sellerId } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { isSeller, isCollaborator } = useAuth();
@@ -786,10 +786,8 @@ export default function Checkout() {
   // Get buyer's selected currency and conversion functions
   const { currency: buyerCurrency, convertPrice, formatPrice } = useCurrency();
   
-  // Get sellerId from cart items (all items are from same seller)
-  const sellerId = items.length > 0 ? items[0].sellerId : undefined;
-
   // Fetch seller data to get actual Stripe currency for payment
+  // sellerId comes from useCart() hook above
   const { data: seller } = useQuery<any>({
     queryKey: sellerId ? [`/api/sellers/id/${sellerId}`] : [],
     enabled: !!sellerId,

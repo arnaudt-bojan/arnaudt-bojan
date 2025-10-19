@@ -37,6 +37,7 @@ interface Cart {
 
 interface CartContextType {
   items: CartItem[];
+  sellerId: string | null;
   addItem: (product: Product, variant?: { size?: string; color?: string }) => Promise<{ success: boolean; error?: string }>;
   removeItem: (productId: string, variantIdOrVariant?: string | { size?: string; color?: string }) => void;
   updateQuantity: (productId: string, quantity: number, variantIdOrVariant?: string | { size?: string; color?: string }) => void;
@@ -283,6 +284,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        sellerId: cart?.sellerId || null,
         addItem,
         removeItem,
         updateQuantity,
