@@ -14,6 +14,7 @@ import { storage } from '../storage';
 import type { QuotationService } from './quotation.service';
 import type { QuotationEmailService } from './quotation-email.service';
 import type { StripeConnectService } from './stripe-connect.service';
+import type { NotificationService } from '../notifications';
 import type { TradePaymentSchedule, InsertTradePaymentSchedule } from '@shared/schema';
 import { tradePaymentSchedules, tradeQuotationEvents } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
@@ -45,7 +46,8 @@ export class QuotationPaymentService {
     private quotationService: QuotationService,
     private emailService: QuotationEmailService,
     private stripeConnectService: StripeConnectService,
-    private stripe?: Stripe
+    private stripe?: Stripe,
+    private notificationService?: NotificationService
   ) {}
 
   /**
@@ -345,8 +347,35 @@ export class QuotationPaymentService {
         },
       });
 
-      // 5. Send deposit paid email to seller
+      // 5. Send deposit paid email to seller (old method)
       await this.emailService.sendDepositPaidEmail(schedule.quotationId);
+
+      // 6. Send deposit received notifications to seller and buyer (new method)
+      if (this.notificationService) {
+        try {
+          const quotation = await this.quotationService.getQuotation(schedule.quotationId);
+          if (quotation) {
+            const seller = await this.storage.getUser(quotation.sellerId);
+            if (seller) {
+              await this.notificationService.sendTradeDepositReceived(
+                quotation,
+                seller,
+                { email: quotation.buyerEmail, name: quotation.buyerName || undefined }
+              );
+              logger.info('[QuotationPaymentService] Trade deposit received notifications sent', {
+                quotationId: schedule.quotationId,
+                sellerId: seller.id,
+                buyerEmail: quotation.buyerEmail
+              });
+            }
+          }
+        } catch (notifError: any) {
+          logger.error('[QuotationPaymentService] Failed to send deposit notifications', {
+            error: notifError.message,
+            quotationId: schedule.quotationId
+          });
+        }
+      }
 
       logger.info('[QuotationPaymentService] Deposit payment processed', {
         quotationId: schedule.quotationId,
@@ -413,8 +442,35 @@ export class QuotationPaymentService {
         },
       });
 
-      // 5. Send balance paid email to seller
+      // 5. Send balance paid email to seller (old method)
       await this.emailService.sendBalancePaidEmail(schedule.quotationId);
+
+      // 6. Send balance received notifications to seller and buyer (new method)
+      if (this.notificationService) {
+        try {
+          const quotation = await this.quotationService.getQuotation(schedule.quotationId);
+          if (quotation) {
+            const seller = await this.storage.getUser(quotation.sellerId);
+            if (seller) {
+              await this.notificationService.sendTradeBalanceReceived(
+                quotation,
+                seller,
+                { email: quotation.buyerEmail, name: quotation.buyerName || undefined }
+              );
+              logger.info('[QuotationPaymentService] Trade balance received notifications sent', {
+                quotationId: schedule.quotationId,
+                sellerId: seller.id,
+                buyerEmail: quotation.buyerEmail
+              });
+            }
+          }
+        } catch (notifError: any) {
+          logger.error('[QuotationPaymentService] Failed to send balance notifications', {
+            error: notifError.message,
+            quotationId: schedule.quotationId
+          });
+        }
+      }
 
       logger.info('[QuotationPaymentService] Balance payment processed', {
         quotationId: schedule.quotationId,

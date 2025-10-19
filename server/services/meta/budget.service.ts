@@ -2,6 +2,8 @@ import type Stripe from 'stripe';
 import type { IStorage } from '../../storage';
 import type { InsertMetaCampaignFinance, MetaCampaign } from '@shared/schema';
 import { logger } from '../../logger';
+import { MetaEmailTemplatesService } from './email-templates.service';
+import type { NotificationService } from '../../notifications';
 
 /**
  * Budget Service - Architecture 3
@@ -69,10 +71,15 @@ export interface RefundResult {
 }
 
 export class BudgetService {
+  private metaEmailService: MetaEmailTemplatesService;
+
   constructor(
     private storage: IStorage,
-    private stripe: Stripe | null
-  ) {}
+    private stripe: Stripe | null,
+    private notificationService?: NotificationService
+  ) {
+    this.metaEmailService = new MetaEmailTemplatesService();
+  }
 
   /**
    * Purchase credit via Stripe payment intent
@@ -231,6 +238,29 @@ export class BudgetService {
         metaTransactionId,
       });
 
+      // Check if campaign balance is now exhausted
+      const allTransactions = await this.storage.getMetaCampaignFinanceByCampaign(campaignId);
+      const currentBalance = allTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      
+      if (currentBalance <= 0 && this.notificationService) {
+        try {
+          const seller = await this.storage.getUser(campaign.sellerId);
+          if (seller && seller.email) {
+            await this.notificationService.sendCampaignBudgetExhausted(campaign, seller);
+            logger.info('[BudgetService] Budget exhausted notification sent', {
+              campaignId,
+              sellerId: seller.id,
+              balance: currentBalance
+            });
+          }
+        } catch (notifError: any) {
+          logger.error('[BudgetService] Failed to send budget exhausted notification', {
+            campaignId,
+            error: notifError.message
+          });
+        }
+      }
+
       return {
         success: true,
         adSpendTransactionId,
@@ -368,6 +398,33 @@ export class BudgetService {
           count: lowBalanceCampaigns.length,
           campaignCount: lowBalanceCampaigns.length,
         });
+
+        // Send low credit alert emails for each campaign
+        const seller = await this.storage.getUser(sellerId);
+        if (seller && seller.email) {
+          for (const lowBalanceCampaign of lowBalanceCampaigns) {
+            try {
+              const campaign = await this.storage.getMetaCampaign(lowBalanceCampaign.campaignId);
+              if (campaign) {
+                await this.metaEmailService.sendLowCreditAlert(
+                  campaign,
+                  lowBalanceCampaign,
+                  seller.email
+                );
+                logger.info('[BudgetService] Low credit alert sent', {
+                  campaignId: campaign.id,
+                  sellerEmail: seller.email,
+                  alertLevel: lowBalanceCampaign.alertLevel,
+                });
+              }
+            } catch (emailError: any) {
+              logger.error('[BudgetService] Failed to send low credit alert', {
+                campaignId: lowBalanceCampaign.campaignId,
+                error: emailError.message,
+              });
+            }
+          }
+        }
       }
 
       return lowBalanceCampaigns;

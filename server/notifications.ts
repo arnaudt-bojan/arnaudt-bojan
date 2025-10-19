@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import crypto from 'crypto';
 import { format } from 'date-fns';
-import type { User, Order, Product, Notification, InsertNotification, OrderItem, BalanceRequest } from '../shared/schema';
+import type { User, Order, Product, Notification, InsertNotification, OrderItem, BalanceRequest, MetaCampaign, TradeQuotation } from '../shared/schema';
 import { DocumentGenerator } from './services/document-generator';
 import { logger } from './logger';
 import { formatVariant } from '../shared/variant-formatter';
@@ -129,6 +129,14 @@ export interface NotificationService {
   sendLabelPurchasedToSeller(order: Order, seller: User, labelResult: { labelId: string; labelUrl: string; trackingNumber: string; carrier: string; baseCostUsd: number; totalChargedUsd: number }): Promise<void>;
   sendLabelCreatedToBuyer(order: Order, labelResult: { trackingNumber: string; carrier: string; labelUrl: string }): Promise<void>;
   sendLabelCostDeduction(seller: User, totalChargedUsd: number, orderId: string): Promise<void>;
+  
+  // Meta Ads Campaign Notifications (Phase 1A - Critical)
+  sendCampaignBudgetExhausted(campaign: MetaCampaign, seller: User): Promise<void>;
+  
+  // Trade Quotation Payment Notifications (Phase 1B - Critical)
+  sendTradeDepositReceived(quotation: TradeQuotation, seller: User, buyer: { email: string; name?: string }): Promise<void>;
+  sendTradeBalanceReceived(quotation: TradeQuotation, seller: User, buyer: { email: string; name?: string }): Promise<void>;
+  sendQuotationApproved(quotation: TradeQuotation, seller: User, buyer: { email: string; name?: string }): Promise<void>;
 }
 
 export interface SendNewsletterParams {
@@ -5577,6 +5585,523 @@ ${order.billingCountry}
       }
     }
     throw new Error("Could not determine seller ID from order");
+  }
+
+  /**
+   * Send campaign budget exhausted notification (Phase 1A.2)
+   * Alerts seller when Meta Ads campaign balance reaches $0
+   */
+  async sendCampaignBudgetExhausted(campaign: MetaCampaign, seller: User): Promise<void> {
+    try {
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : `http://localhost:${process.env.PORT || 5000}`;
+      const budgetUrl = `${baseUrl}/seller-dashboard/meta-ads/budget`;
+
+      const content = `
+        <!-- Critical Alert Banner -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 30px;">
+          <tr>
+            <td style="padding: 20px; background-color: #fee2e2 !important; border-left: 4px solid #dc2626; border-radius: 6px;">
+              <p style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                🚨 Campaign Budget Exhausted
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Main Message -->
+        <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Your Meta Ads campaign <strong>${safeText(campaign.name)}</strong> has run out of credit and has been paused.
+        </p>
+
+        <!-- Campaign Details -->
+        <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Campaign Details
+          </h3>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Campaign Name:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 14px; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${safeText(campaign.name)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Current Balance:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #dc2626 !important; font-size: 18px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                $0.00
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Action Required -->
+        <div style="background-color: #fffbeb !important; border: 1px solid #fbbf24; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            ⚠️ Action Required
+          </h3>
+          <p style="margin: 0; font-size: 14px; color: #92400e !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Your campaign will remain paused until you add more credit. Add credit now to resume your ads and continue reaching potential customers.
+          </p>
+        </div>
+
+        ${generateCTAButton('Add Credit Now', budgetUrl)}
+
+        <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Need help? Contact our support team at support@upfirst.io
+        </p>
+      `;
+
+      const emailHtml = generateEmailBaseLayout({
+        header: generateUpfirstHeader(),
+        content,
+        footer: generateUpfirstFooter(),
+        preheader: `Campaign ${safeText(campaign.name)} budget exhausted - add credit to resume`,
+        darkModeSafe: true
+      });
+
+      await this.sendEmail({
+        to: seller.email!,
+        from: 'UPPFIRST Ads <ads@upfirst.io>',
+        replyTo: 'support@upfirst.io',
+        subject: `🚨 Campaign Budget Exhausted: ${safeText(campaign.name)}`,
+        html: emailHtml,
+      });
+
+      logger.info('[Notifications] Campaign budget exhausted email sent', {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        sellerId: seller.id
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send campaign budget exhausted email', {
+        campaignId: campaign.id,
+        sellerId: seller.id,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Send trade deposit received notification (Phase 1B.1)
+   * Notifies seller and buyer when deposit payment is received
+   */
+  async sendTradeDepositReceived(
+    quotation: TradeQuotation,
+    seller: User,
+    buyer: { email: string; name?: string }
+  ): Promise<void> {
+    try {
+      const currency = quotation.currency || 'USD';
+      const depositAmount = parseFloat(quotation.depositAmount);
+      const balanceAmount = parseFloat(quotation.balanceAmount);
+
+      // Email to seller
+      const sellerContent = `
+        <!-- Success Banner -->
+        <div style="background-color: #d1fae5 !important; border-left: 4px solid #059669; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            ✅ Deposit Received
+          </h2>
+        </div>
+
+        <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Great news! The deposit payment for quotation <strong>${safeText(quotation.quotationNumber)}</strong> has been received.
+        </p>
+
+        <!-- Payment Details -->
+        <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Payment Details
+          </h3>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Deposit Received:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-size: 20px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(depositAmount, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Balance Remaining:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 16px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(balanceAmount, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Buyer:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 14px; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${safeText(buyer.name || buyer.email)}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Next Steps -->
+        <div style="background-color: #eff6ff !important; border: 1px solid #3b82f6; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            📋 Next Steps
+          </h3>
+          <ul style="margin: 0; padding-left: 20px; color: #1e40af !important; font-size: 14px; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <li>Begin preparing the order for fulfillment</li>
+            <li>The balance payment (${formatEmailPrice(balanceAmount, currency)}) is due before shipping</li>
+            <li>You'll be notified when the balance payment is received</li>
+          </ul>
+        </div>
+
+        <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <strong>Quotation Number:</strong> ${safeText(quotation.quotationNumber)}
+        </p>
+      `;
+
+      const sellerEmailHtml = generateEmailBaseLayout({
+        header: generateUpfirstHeader(),
+        content: sellerContent,
+        footer: generateUpfirstFooter(),
+        preheader: `Deposit received for quotation ${safeText(quotation.quotationNumber)}`,
+        darkModeSafe: true
+      });
+
+      await this.sendEmail({
+        to: seller.email!,
+        from: 'UPPFIRST Trade <trade@upfirst.io>',
+        replyTo: 'support@upfirst.io',
+        subject: `✅ Deposit Received - Quotation ${safeText(quotation.quotationNumber)}`,
+        html: sellerEmailHtml,
+      });
+
+      // Email to buyer
+      const buyerContent = `
+        <div style="background-color: #d1fae5 !important; border-left: 4px solid #059669; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            ✅ Payment Confirmed
+          </h2>
+        </div>
+
+        <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Thank you! Your deposit payment of <strong>${formatEmailPrice(depositAmount, currency)}</strong> has been received for quotation <strong>${safeText(quotation.quotationNumber)}</strong>.
+        </p>
+
+        <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin-bottom: 30px;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Deposit Paid:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-size: 18px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(depositAmount, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Balance Due:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 16px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(balanceAmount, currency)}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="margin: 0; font-size: 14px; color: #6b7280 !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          The seller will begin preparing your order. You'll receive a payment request for the balance amount before shipping.
+        </p>
+      `;
+
+      const buyerEmailHtml = generateEmailBaseLayout({
+        header: generateSellerHeader(seller),
+        content: buyerContent,
+        footer: await generateSellerFooter(seller),
+        preheader: `Deposit payment confirmed for quotation ${safeText(quotation.quotationNumber)}`,
+        darkModeSafe: true
+      });
+
+      await this.sendEmail({
+        to: buyer.email,
+        from: `${safeTextWithFallback(seller.companyName, seller.email!)} <noreply@upfirst.io>`,
+        replyTo: seller.email!,
+        subject: `Payment Confirmed - Quotation ${safeText(quotation.quotationNumber)}`,
+        html: buyerEmailHtml,
+      });
+
+      logger.info('[Notifications] Trade deposit received emails sent', {
+        quotationId: quotation.id,
+        sellerId: seller.id,
+        buyerEmail: buyer.email
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send trade deposit received emails', {
+        quotationId: quotation.id,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Send trade balance payment received notification (Phase 1B.2)
+   * Notifies seller and buyer when final balance payment is received
+   */
+  async sendTradeBalanceReceived(
+    quotation: TradeQuotation,
+    seller: User,
+    buyer: { email: string; name?: string }
+  ): Promise<void> {
+    try {
+      const currency = quotation.currency || 'USD';
+      const balanceAmount = parseFloat(quotation.balanceAmount);
+      const totalAmount = parseFloat(quotation.total);
+
+      // Email to seller
+      const sellerContent = `
+        <div style="background-color: #d1fae5 !important; border-left: 4px solid #059669; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            ✅ Balance Payment Received - Order Fully Paid
+          </h2>
+        </div>
+
+        <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Excellent! The balance payment for quotation <strong>${safeText(quotation.quotationNumber)}</strong> has been received. The order is now fully paid.
+        </p>
+
+        <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Payment Summary
+          </h3>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Balance Received:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-size: 20px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(balanceAmount, currency)}
+              </td>
+            </tr>
+            <tr style="border-top: 2px solid #e5e7eb;">
+              <td style="padding: 12px 0; padding-top: 16px; color: #1a1a1a !important; font-size: 16px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Total Order Value:
+              </td>
+              <td style="padding: 12px 0; padding-top: 16px; text-align: right; color: #1a1a1a !important; font-size: 24px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(totalAmount, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Buyer:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 14px; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${safeText(buyer.name || buyer.email)}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background-color: #fef3c7 !important; border: 1px solid #fbbf24; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            📦 Ready to Fulfill
+          </h3>
+          <p style="margin: 0; font-size: 14px; color: #92400e !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            The order is now fully paid and ready to ship. Please fulfill this order and provide tracking information to the buyer.
+          </p>
+        </div>
+
+        <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <strong>Quotation Number:</strong> ${safeText(quotation.quotationNumber)}
+        </p>
+      `;
+
+      const sellerEmailHtml = generateEmailBaseLayout({
+        header: generateUpfirstHeader(),
+        content: sellerContent,
+        footer: generateUpfirstFooter(),
+        preheader: `Balance payment received - quotation ${safeText(quotation.quotationNumber)} fully paid`,
+        darkModeSafe: true
+      });
+
+      await this.sendEmail({
+        to: seller.email!,
+        from: 'UPPFIRST Trade <trade@upfirst.io>',
+        replyTo: 'support@upfirst.io',
+        subject: `✅ Order Fully Paid - Quotation ${safeText(quotation.quotationNumber)}`,
+        html: sellerEmailHtml,
+      });
+
+      // Email to buyer
+      const buyerContent = `
+        <div style="background-color: #d1fae5 !important; border-left: 4px solid #059669; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            ✅ Payment Complete
+          </h2>
+        </div>
+
+        <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Thank you! Your balance payment of <strong>${formatEmailPrice(balanceAmount, currency)}</strong> has been received. Your order is now fully paid and will be shipped soon.
+        </p>
+
+        <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin-bottom: 30px;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Balance Paid:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-size: 18px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(balanceAmount, currency)}
+              </td>
+            </tr>
+            <tr style="border-top: 2px solid #e5e7eb;">
+              <td style="padding: 12px 0; padding-top: 16px; color: #1a1a1a !important; font-size: 16px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Total Paid:
+              </td>
+              <td style="padding: 12px 0; padding-top: 16px; text-align: right; color: #1a1a1a !important; font-size: 24px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(totalAmount, currency)}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="margin: 0; font-size: 14px; color: #6b7280 !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          The seller will ship your order shortly. You'll receive tracking information once the order ships.
+        </p>
+      `;
+
+      const buyerEmailHtml = generateEmailBaseLayout({
+        header: generateSellerHeader(seller),
+        content: buyerContent,
+        footer: await generateSellerFooter(seller),
+        preheader: `Balance payment confirmed - order ready to ship`,
+        darkModeSafe: true
+      });
+
+      await this.sendEmail({
+        to: buyer.email,
+        from: `${safeTextWithFallback(seller.companyName, seller.email!)} <noreply@upfirst.io>`,
+        replyTo: seller.email!,
+        subject: `Payment Complete - Quotation ${safeText(quotation.quotationNumber)}`,
+        html: buyerEmailHtml,
+      });
+
+      logger.info('[Notifications] Trade balance received emails sent', {
+        quotationId: quotation.id,
+        sellerId: seller.id,
+        buyerEmail: buyer.email
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send trade balance received emails', {
+        quotationId: quotation.id,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Send quotation approved notification (Phase 1B.3)
+   * Notifies seller when buyer approves quotation
+   */
+  async sendQuotationApproved(
+    quotation: TradeQuotation,
+    seller: User,
+    buyer: { email: string; name?: string }
+  ): Promise<void> {
+    try {
+      const currency = quotation.currency || 'USD';
+      const depositAmount = parseFloat(quotation.depositAmount);
+      const totalAmount = parseFloat(quotation.total);
+
+      const content = `
+        <div style="background-color: #dbeafe !important; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            🎉 Quotation Approved!
+          </h2>
+        </div>
+
+        <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a !important; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          Great news! <strong>${safeText(buyer.name || buyer.email)}</strong> has approved your quotation <strong>${safeText(quotation.quotationNumber)}</strong>.
+        </p>
+
+        <div style="background-color: #f9fafb !important; border-radius: 8px; padding: 25px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            Quotation Summary
+          </h3>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Total Amount:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 24px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(totalAmount, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Deposit Amount:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-size: 18px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${formatEmailPrice(depositAmount, currency)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Buyer:
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-size: 14px; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                ${safeText(buyer.email)}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background-color: #eff6ff !important; border: 1px solid #3b82f6; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+          <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            📋 Next Steps
+          </h3>
+          <ul style="margin: 0; padding-left: 20px; color: #1e40af !important; font-size: 14px; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <li>The buyer will proceed with the deposit payment of ${formatEmailPrice(depositAmount, currency)}</li>
+            <li>Once the deposit is received, you can begin preparing the order</li>
+            <li>You'll receive a notification when the deposit payment is complete</li>
+          </ul>
+        </div>
+
+        <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+          <strong>Quotation Number:</strong> ${safeText(quotation.quotationNumber)}
+        </p>
+      `;
+
+      const emailHtml = generateEmailBaseLayout({
+        header: generateUpfirstHeader(),
+        content,
+        footer: generateUpfirstFooter(),
+        preheader: `Quotation ${safeText(quotation.quotationNumber)} approved by ${safeText(buyer.name || buyer.email)}`,
+        darkModeSafe: true
+      });
+
+      await this.sendEmail({
+        to: seller.email!,
+        from: 'UPPFIRST Trade <trade@upfirst.io>',
+        replyTo: 'support@upfirst.io',
+        subject: `🎉 Quotation Approved - ${safeText(quotation.quotationNumber)}`,
+        html: emailHtml,
+      });
+
+      logger.info('[Notifications] Quotation approved email sent', {
+        quotationId: quotation.id,
+        sellerId: seller.id,
+        buyerEmail: buyer.email
+      });
+    } catch (error: any) {
+      logger.error('[Notifications] Failed to send quotation approved email', {
+        quotationId: quotation.id,
+        error: error.message
+      });
+    }
   }
 }
 
