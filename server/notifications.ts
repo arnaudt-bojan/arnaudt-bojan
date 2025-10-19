@@ -35,6 +35,7 @@ import {
   type RefundEmailData
 } from './utils/email-templates';
 import { EmailType, EmailMetadataService } from './services/email-metadata.service';
+import { getCurrencySymbol, formatEmailPrice, safeImageUrl, safeText, safeTextWithFallback } from './utils/email-helpers';
 import Stripe from 'stripe';
 
 export interface NotificationService {
@@ -1790,10 +1791,10 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #fef3c7 !important; border-left: 4px solid #f59e0b; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #92400e !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${balanceAmount.toFixed(2)} due
+          ${formatEmailPrice(balanceAmount, order.currency)} due
         </p>
         <p style="margin: 0; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          Deposit paid: $${depositAmount.toFixed(2)} • Total order: $${order.total}
+          Deposit paid: ${formatEmailPrice(depositAmount, order.currency)} • Total order: ${formatEmailPrice(parseFloat(order.total), order.currency)}
         </p>
       </div>
 
@@ -1808,7 +1809,7 @@ class NotificationServiceImpl implements NotificationService {
       header,
       content,
       footer,
-      preheader: `Balance payment due: $${balanceAmount.toFixed(2)}`,
+      preheader: `Balance payment due: ${formatEmailPrice(balanceAmount, order.currency)}`,
       darkModeSafe: true,
     });
   }
@@ -1833,10 +1834,10 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="margin: 20px 0; padding: 20px; background-color: #ecfdf5 !important; border-left: 4px solid #10b981; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #047857 !important; font-weight: 600; font-size: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          $${balanceAmount.toFixed(2)} paid
+          ${formatEmailPrice(balanceAmount, order.currency)} paid
         </p>
         <p style="margin: 0; color: #065f46 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          Total paid: $${totalPaid.toFixed(2)} • Order complete
+          Total paid: ${formatEmailPrice(totalPaid, order.currency)} • Order complete
         </p>
       </div>
 
@@ -1856,7 +1857,7 @@ class NotificationServiceImpl implements NotificationService {
       header,
       content,
       footer,
-      preheader: `Balance payment received: $${balanceAmount.toFixed(2)}`,
+      preheader: `Balance payment received: ${formatEmailPrice(balanceAmount, order.currency)}`,
       darkModeSafe: true,
     });
   }
@@ -1873,15 +1874,15 @@ class NotificationServiceImpl implements NotificationService {
         Payment Failed
       </h1>
       <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        Hi ${order.customerName}, we were unable to process your payment for order #${order.id.slice(0, 8)}.
+        Hi ${safeText(order.customerName)}, we were unable to process your payment for order #${order.id.slice(0, 8)}.
       </p>
 
       <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2 !important; border-left: 4px solid #ef4444; border-radius: 8px;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px; color: #991b1b !important; font-weight: 600; font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          Payment of $${amount.toFixed(2)} failed
+          Payment of ${formatEmailPrice(amount, order.currency)} failed
         </p>
         <p style="margin: 0; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          Reason: ${reason}
+          Reason: ${safeText(reason)}
         </p>
       </div>
 
@@ -2051,14 +2052,14 @@ class NotificationServiceImpl implements NotificationService {
           <td style="padding: 25px;">
             ${product.image ? `
             <div style="text-align: center; margin-bottom: 20px;">
-              <img src="${product.image}" alt="${product.name}" style="display: inline-block; max-width: 200px; height: auto; border-radius: 8px; border: 0;">
+              <img src="${safeImageUrl(product.image)}" alt="${product.name}" style="display: inline-block; max-width: 200px; height: auto; border-radius: 8px; border: 0;">
             </div>
             ` : ''}
             <h3 style="margin: 0 0 15px; font-size: 20px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
               ${product.name}
             </h3>
             <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
-              <strong>Price:</strong> $${product.price}
+              <strong>Price:</strong> ${formatEmailPrice(product.price, seller.listingCurrency)}
             </p>
             <p style="margin: 0 0 8px; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">
               <strong>Type:</strong> ${product.productType}
@@ -2117,11 +2118,11 @@ class NotificationServiceImpl implements NotificationService {
       </p>
 
       <div style="display: flex; gap: 15px; padding: 20px; background: #f9fafb !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
-        ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+        ${item.productImage ? `<img src="${safeImageUrl(item.productImage)}" alt="${safeText(item.productName)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
         <div style="flex: 1;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.productName}</h3>
+          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${safeText(item.productName)}</h3>
           <span style="display: inline-block; padding: 6px 12px; background: #22c55e; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">DELIVERED</span>
-          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
+          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Quantity: ${item.quantity} • ${formatEmailPrice(parseFloat(item.price), order.currency)} each</p>
         </div>
       </div>
 
@@ -2157,11 +2158,11 @@ class NotificationServiceImpl implements NotificationService {
       </p>
 
       <div style="display: flex; gap: 15px; padding: 20px; background: #f9fafb !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
-        ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+        ${item.productImage ? `<img src="${safeImageUrl(item.productImage)}" alt="${safeText(item.productName)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
         <div style="flex: 1;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.productName}</h3>
+          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${safeText(item.productName)}</h3>
           <span style="display: inline-block; padding: 6px 12px; background: #ef4444; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">CANCELLED</span>
-          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Quantity: ${item.quantity} • $${parseFloat(item.price).toFixed(2)} each</p>
+          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Quantity: ${item.quantity} • ${formatEmailPrice(parseFloat(item.price), order.currency)} each</p>
         </div>
       </div>
 
@@ -2207,16 +2208,16 @@ class NotificationServiceImpl implements NotificationService {
 
       <div style="text-align: center; padding: 30px; background: #f0fdf4 !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
         <p style="margin: 0 0 10px 0; color: #166534 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refund Amount</p>
-        <div style="font-size: 32px; font-weight: bold; color: #22c55e !important; margin: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${refundAmount.toFixed(2)}</div>
+        <div style="font-size: 32px; font-weight: bold; color: #22c55e !important; margin: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${formatEmailPrice(refundAmount, order.currency)}</div>
         <p style="margin: 0; color: #6b7280 !important; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">This amount will appear in your account within 5-10 business days</p>
       </div>
 
       <div style="display: flex; gap: 15px; padding: 20px; background: #f9fafb !important; border-radius: 8px; margin: 20px 0;" class="dark-mode-bg-white">
-        ${item.productImage ? `<img src="${item.productImage}" alt="${item.productName}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+        ${item.productImage ? `<img src="${safeImageUrl(item.productImage)}" alt="${safeText(item.productName)}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
         <div style="flex: 1;">
-          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${item.productName}</h3>
+          <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" class="dark-mode-text-dark">${safeText(item.productName)}</h3>
           <span style="display: inline-block; padding: 6px 12px; background: #3b82f6; color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">REFUNDED</span>
-          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refunded Quantity: ${refundedQuantity} • $${(refundAmount / refundedQuantity).toFixed(2)} each</p>
+          <p style="color: #6b7280 !important; margin: 10px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Refunded Quantity: ${refundedQuantity} • ${formatEmailPrice(refundAmount / refundedQuantity, order.currency)} each</p>
         </div>
       </div>
 
@@ -2236,7 +2237,7 @@ class NotificationServiceImpl implements NotificationService {
       header,
       content,
       footer,
-      preheader: `Refund processed for order #${order.id.slice(0, 8)} - $${refundAmount.toFixed(2)}`,
+      preheader: `Refund processed for order #${order.id.slice(0, 8)} - ${formatEmailPrice(refundAmount, order.currency)}`,
       darkModeSafe: true,
     });
   }
@@ -2474,7 +2475,7 @@ class NotificationServiceImpl implements NotificationService {
    * Send buyer payment failed notification (Upfirst → Buyer)
    */
   async sendBuyerPaymentFailed(buyerEmail: string, buyerName: string, amount: number, reason: string, retryLink?: string, currency: string = 'USD'): Promise<void> {
-    const emailHtml = this.generateBuyerPaymentFailedEmail(buyerName, amount, reason, retryLink);
+    const emailHtml = this.generateBuyerPaymentFailedEmail(buyerName, amount, reason, retryLink, currency);
     const template = this.messages.buyerPaymentFailed(amount, currency, reason);
 
     await this.sendEmail({
@@ -2491,7 +2492,7 @@ class NotificationServiceImpl implements NotificationService {
    * Send subscription payment failed (Upfirst → Seller)
    */
   async sendSubscriptionPaymentFailed(seller: User, amount: number, reason: string, currency: string = 'USD'): Promise<void> {
-    const emailHtml = this.generateSubscriptionPaymentFailedEmail(seller, amount, reason);
+    const emailHtml = this.generateSubscriptionPaymentFailedEmail(seller, amount, reason, currency);
     const template = this.messages.subscriptionPaymentFailed(amount, currency, reason);
 
     const result = await this.sendEmail({
@@ -3091,147 +3092,161 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   private generateOrderPaymentFailedEmail(seller: User, orderId: string, amount: number, reason: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Order Payment Failed</h1>
-            <p>Hi ${seller.firstName || 'there'},</p>
-            
-            <div class="error-box">
-              <strong>Order #${orderId.slice(0, 8)}</strong><br>
-              Payment of $${amount} failed<br>
-              <small>Reason: ${reason}</small>
-            </div>
-
-            <p>The customer's payment did not go through. This could be due to:</p>
-            <ul>
-              <li>Insufficient funds</li>
-              <li>Invalid card details</li>
-              <li>Card declined by issuing bank</li>
-            </ul>
-
-            <p>The order has been marked as failed and the customer has been notified.</p>
-
-            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/seller" class="button">
-              View Order Details
-            </a>
-
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-  }
-
-  private generateBuyerPaymentFailedEmail(buyerName: string, amount: number, reason: string, retryLink?: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Payment Failed</h1>
-            <p>Hi ${buyerName},</p>
-            
-            <div class="error-box">
-              <strong>Your payment of $${amount} could not be processed</strong><br>
-              <small>Reason: ${reason}</small>
-            </div>
-
-            <p>Don't worry! You can try again with:</p>
-            <ul>
-              <li>A different payment method</li>
-              <li>A different card</li>
-              <li>Contact your bank to authorize the payment</li>
-            </ul>
-
-            ${retryLink ? `
-              <a href="${retryLink}" class="button">
-                Try Again
-              </a>
-            ` : ''}
-
-            <p style="color: #666; font-size: 14px;">
-              Need help? Contact ${this.emailConfig.getSupportEmail()}
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Order Payment Failed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${safeText(seller.firstName) || 'there'},
+      </p>
+      
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #fef2f2 !important; border-radius: 8px; border-left: 4px solid #dc2626;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0 0 8px; font-weight: 600; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Order #${orderId.slice(0, 8)}
             </p>
+            <p style="margin: 0 0 8px; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Payment of ${formatEmailPrice(amount, seller.listingCurrency)} failed
+            </p>
+            <p style="margin: 0; font-size: 14px; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Reason: ${safeText(reason)}
+            </p>
+          </td>
+        </tr>
+      </table>
 
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        The customer's payment did not go through. This could be due to:
+      </p>
+      <ul style="margin: 0 0 20px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <li>Insufficient funds</li>
+        <li>Invalid card details</li>
+        <li>Card declined by issuing bank</li>
+      </ul>
+
+      <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        The order has been marked as failed and the customer has been notified.
+      </p>
+
+      ${generateCTAButton('View Order Details', `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/seller`)}
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Order #${orderId.slice(0, 8)} payment failed`,
+      darkModeSafe: true,
+    });
   }
 
-  private generateSubscriptionPaymentFailedEmail(seller: User, amount: number, reason: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 4px; }
-            .button { display: inline-block; padding: 12px 30px; background: #dc3545; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Subscription Payment Failed</h1>
-            <p>Hi ${seller.firstName || 'there'},</p>
-            
-            <div class="alert-box">
-              <strong>Action Required:</strong> Your Upfirst subscription payment of $${amount} failed.<br>
-              <small>Reason: ${reason}</small>
-            </div>
+  private generateBuyerPaymentFailedEmail(buyerName: string, amount: number, reason: string, retryLink?: string, currency: string = 'USD'): string {
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Payment Failed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${safeText(buyerName)},
+      </p>
+      
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #fef2f2 !important; border-radius: 8px; border-left: 4px solid #dc2626;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0 0 8px; font-weight: 600; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Your payment of ${formatEmailPrice(amount, currency)} could not be processed
+            </p>
+            <p style="margin: 0; font-size: 14px; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Reason: ${safeText(reason)}
+            </p>
+          </td>
+        </tr>
+      </table>
 
-            <p>To avoid service interruption, please update your payment method immediately.</p>
+      <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Don't worry! You can try again with:
+      </p>
+      <ul style="margin: 0 0 20px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <li>A different payment method</li>
+        <li>A different card</li>
+        <li>Contact your bank to authorize the payment</li>
+      </ul>
 
-            <p><strong>What happens next:</strong></p>
-            <ul>
-              <li>We'll retry the payment in 3 days</li>
-              <li>If payment fails again, your account will be suspended</li>
-              <li>Update your payment method now to avoid disruption</li>
-            </ul>
+      ${retryLink ? generateCTAButton('Try Again', retryLink) : ''}
 
-            <a href="${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/settings?tab=subscription" class="button">
-              Update Payment Method
-            </a>
-
-            <div class="footer">
-              <p>Questions? Contact ${this.emailConfig.getSupportEmail()}</p>
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Need help? Contact ${this.emailConfig.getSupportEmail()}
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Payment of ${formatEmailPrice(amount, currency)} failed`,
+      darkModeSafe: true,
+    });
+  }
+
+  private generateSubscriptionPaymentFailedEmail(seller: User, amount: number, reason: string, currency: string = 'USD'): string {
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    const settingsUrl = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : `http://localhost:${process.env.PORT || 5000}`}/settings?tab=subscription`;
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Subscription Payment Failed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${safeText(seller.firstName) || 'there'},
+      </p>
+      
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #fffbeb !important; border-radius: 8px; border-left: 4px solid #f59e0b;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0 0 8px; font-weight: 600; color: #92400e !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Action Required: Your Upfirst subscription payment of ${formatEmailPrice(amount, currency)} failed
+            </p>
+            <p style="margin: 0; font-size: 14px; color: #78350f !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Reason: ${safeText(reason)}
+            </p>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        To avoid service interruption, please update your payment method immediately.
+      </p>
+
+      <p style="margin: 20px 0; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        What happens next:
+      </p>
+      <ul style="margin: 0 0 20px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <li>We'll retry the payment in 3 days</li>
+        <li>If payment fails again, your account will be suspended</li>
+        <li>Update your payment method now to avoid disruption</li>
+      </ul>
+
+      ${generateCTAButton('Update Payment Method', settingsUrl)}
+
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Questions? Contact ${this.emailConfig.getSupportEmail()}
+      </p>
+    `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Subscription payment of ${formatEmailPrice(amount, currency)} failed - Action required`,
+      darkModeSafe: true,
+    });
   }
 
   /**
@@ -3523,59 +3538,72 @@ class NotificationServiceImpl implements NotificationService {
   }
 
   private generatePayoutFailedEmail(seller: User, amount: number, reason: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 8px; }
-            .error-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px; }
-            .button { display: inline-block; padding: 12px 30px; background: #000; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Payout Failed</h1>
-            <p>Hi ${seller.firstName || 'there'},</p>
-            
-            <div class="error-box">
-              <strong>Your payout of $${amount} failed</strong><br>
-              <small>Reason: ${reason}</small>
-            </div>
+    const header = generateUpfirstHeader();
+    const footer = generateUpfirstFooter();
+    
+    const content = `
+      <h1 style="margin: 0 0 10px; font-size: 28px; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Payout Failed
+      </h1>
+      <p style="margin: 0 0 30px; font-size: 16px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Hi ${safeText(seller.firstName) || 'there'},
+      </p>
+      
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0; background-color: #fef2f2 !important; border-radius: 8px; border-left: 4px solid #dc2626;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0 0 8px; font-weight: 600; color: #991b1b !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Your payout of ${formatEmailPrice(amount, seller.listingCurrency)} failed
+            </p>
+            <p style="margin: 0; font-size: 14px; color: #7f1d1d !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              Reason: ${safeText(reason)}
+            </p>
+          </td>
+        </tr>
+      </table>
 
-            <p>We were unable to transfer funds to your bank account. This could be due to:</p>
-            <ul>
-              <li>Invalid or closed bank account</li>
-              <li>Incorrect routing or account numbers</li>
-              <li>Bank verification required</li>
-            </ul>
+      <p style="margin: 20px 0; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        We were unable to transfer funds to your bank account. This could be due to:
+      </p>
+      <ul style="margin: 0 0 20px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <li>Invalid or closed bank account</li>
+        <li>Incorrect routing or account numbers</li>
+        <li>Bank verification required</li>
+      </ul>
 
-            <p><strong>What you need to do:</strong></p>
-            <ol>
-              <li>Log in to your Stripe dashboard</li>
-              <li>Verify your bank account details</li>
-              <li>Update any incorrect information</li>
-            </ol>
+      <p style="margin: 20px 0; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        What you need to do:
+      </p>
+      <ol style="margin: 0 0 20px; padding-left: 20px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <li>Log in to your Stripe dashboard</li>
+        <li>Verify your bank account details</li>
+        <li>Update any incorrect information</li>
+      </ol>
 
-            <a href="https://dashboard.stripe.com" class="button">
-              Go to Stripe Dashboard
-            </a>
+      ${generateCTAButton('Go to Stripe Dashboard', 'https://dashboard.stripe.com')}
 
-            <p style="margin-top: 30px; padding: 20px; background: #f0f7ff; border-radius: 8px;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0; background-color: #eff6ff !important; border-radius: 8px;">
+        <tr>
+          <td style="padding: 20px;">
+            <p style="margin: 0; color: #1e40af !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
               <strong>Note:</strong> Your funds are safe and will be retried once you update your bank details.
             </p>
+          </td>
+        </tr>
+      </table>
 
-            <div class="footer">
-              <p>Need help? Contact ${this.emailConfig.getSupportEmail()}</p>
-              <p>© ${new Date().getFullYear()} Upfirst. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+      <p style="margin: 30px 0 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        Need help? Contact ${this.emailConfig.getSupportEmail()}
+      </p>
     `;
+
+    return generateEmailBaseLayout({
+      header,
+      content,
+      footer,
+      preheader: `Payout of ${formatEmailPrice(amount, seller.listingCurrency)} failed`,
+      darkModeSafe: true,
+    });
   }
 
   /**
@@ -3779,10 +3807,13 @@ class NotificationServiceImpl implements NotificationService {
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : `http://localhost:${process.env.PORT || 5000}`;
 
+    // Get currency symbol for seller's listing currency
+    const currencySymbol = getCurrencySymbol(seller.listingCurrency);
+
     // Build product items HTML with thumbnails using orderItems for delivery dates
     const productItemsHtml = orderItems.map((orderItem: OrderItem) => {
       const product = products.find(p => p.id === orderItem.productId);
-      const productImage = product?.image || orderItem.productImage;
+      const productImage = safeImageUrl(product?.image || orderItem.productImage);
       
       // Format delivery date if available
       let deliveryDateHtml = '';
@@ -3808,12 +3839,12 @@ class NotificationServiceImpl implements NotificationService {
                     ${orderItem.productName}
                   </p>
                   <p style="margin: 0; font-size: 14px; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    Qty: ${orderItem.quantity} × $${orderItem.price}${variantHtml}${deliveryDateHtml}
+                    Qty: ${orderItem.quantity} × ${formatEmailPrice(orderItem.price, seller.listingCurrency)}${variantHtml}${deliveryDateHtml}
                   </p>
                 </td>
                 <td style="text-align: right; vertical-align: top; white-space: nowrap;">
                   <p style="margin: 0; font-weight: 600; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    $${parseFloat(orderItem.subtotal).toFixed(2)}
+                    ${formatEmailPrice(parseFloat(orderItem.subtotal), seller.listingCurrency)}
                   </p>
                 </td>
               </tr>
@@ -3857,7 +3888,7 @@ class NotificationServiceImpl implements NotificationService {
             </p>
             ${order.paymentType === 'deposit' ? `
               <p style="margin: 0; color: #166534 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                <strong>Payment Type:</strong> Deposit ($${deposit.toFixed(2)} paid, $${balance.toFixed(2)} balance due)
+                <strong>Payment Type:</strong> Deposit (${formatEmailPrice(deposit, seller.listingCurrency)} paid, ${formatEmailPrice(balance, seller.listingCurrency)} balance due)
               </p>
             ` : ''}
           </td>
@@ -3915,24 +3946,24 @@ class NotificationServiceImpl implements NotificationService {
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
               <tr>
                 <td style="padding: 8px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Subtotal:</td>
-                <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${subtotal.toFixed(2)}</td>
+                <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${formatEmailPrice(subtotal, seller.listingCurrency)}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #6b7280 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Tax:</td>
-                <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${taxAmount.toFixed(2)}</td>
+                <td style="padding: 8px 0; text-align: right; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${formatEmailPrice(taxAmount, seller.listingCurrency)}</td>
               </tr>
               <tr>
                 <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total:</td>
-                <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; text-align: right; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${total.toFixed(2)}</td>
+                <td style="padding: 16px 0 8px; border-top: 2px solid #e5e7eb; text-align: right; font-size: 20px; font-weight: 700; color: #1a1a1a !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${formatEmailPrice(total, seller.listingCurrency)}</td>
               </tr>
               ${deposit > 0 ? `
                 <tr>
                   <td style="padding: 8px 0; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Deposit Received:</td>
-                  <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${deposit.toFixed(2)}</td>
+                  <td style="padding: 8px 0; text-align: right; color: #059669 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${formatEmailPrice(deposit, seller.listingCurrency)}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Balance Due:</td>
-                  <td style="padding: 8px 0; text-align: right; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$${balance.toFixed(2)}</td>
+                  <td style="padding: 8px 0; text-align: right; color: #dc2626 !important; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${formatEmailPrice(balance, seller.listingCurrency)}</td>
                 </tr>
               ` : ''}
             </table>
@@ -3965,7 +3996,7 @@ class NotificationServiceImpl implements NotificationService {
       header,
       bodyContent,
       footer,
-      preheader: `New order #${order.id.slice(0, 8)} from ${order.customerName} - $${total.toFixed(2)}`,
+      preheader: `New order #${order.id.slice(0, 8)} from ${order.customerName} - ${formatEmailPrice(total, seller.listingCurrency)}`,
     });
   }
 
