@@ -157,45 +157,17 @@ import {
   type InsertTradeQuotation
 } from "@shared/prisma-types";
 
-// Also import Drizzle schemas for unmigrated methods
+// Minimal Drizzle schema imports for saveCart() only
+// Note: saveCart() is the only remaining Drizzle method (deferred to Phase 2 due to row-level locking requirements)
 import {
-  users, products, orders, orderItems, orderEvents,
-  orderBalancePayments, balanceRequests, orderAddressChanges,
-  refunds, refundLineItems, stockReservations, invitations,
-  metaSettings, tiktokSettings, xSettings, subscriberGroups,
-  subscribers, subscriberGroupMemberships, newsletters,
-  newsletterTemplates, newsletterAnalytics, newsletterEvents,
-  newsletterSegments, newsletterSchedule, newsletterABTests,
-  nftMints, wholesaleProducts, wholesaleInvitations,
-  categories, notifications, authTokens, shippingMatrices,
-  shippingZones, invoices, packingSlips, savedAddresses,
-  savedPaymentMethods, sellerHomepages, homepageCtaOptions,
-  homepageMediaAssets, musicTracks, userStoreRoles,
-  userStoreMemberships, wholesaleAccessGrants, teamInvitations,
-  storeInvitations, paymentIntents, webhookEvents,
-  failedWebhookEvents, carts, cartSessions, orderWorkflows,
-  orderWorkflowEvents, wholesaleOrders, wholesaleOrderItems,
-  wholesalePayments, wholesaleShippingDetails,
-  wholesaleOrderEvents, warehouseLocations, buyerProfiles,
-  wholesaleCarts, wholesalePaymentIntents,
-  wholesaleShippingMetadata, warehouseAddresses,
-  shippingLabels, shippingLabelRefunds, sellerCreditLedgers,
-  bulkUploadJobs, bulkUploadItems, metaAdAccounts,
-  metaCampaigns, metaCampaignFinance, metaCampaignMetricsDaily,
-  metaAdCampaigns, metaAdPayments, metaAdPerformance,
-  backgroundJobRuns, domainConnections, newsletterWorkflows,
-  automationExecutions, analyticsEvents, tradeQuotations,
-  tradeQuotationItems, tradeQuotationEvents, tradePaymentSchedules,
-  importJobs, importSources, importJobLogs, importJobErrors,
-  productSourceMappings, newsletterJobs, newsletterConversions,
-  subscriberEngagement, cancellationRequests, returnRequests,
-  sessions, trustpilotReviews, trustpilotTokens, dailyAnalytics,
-  featureAdoptions, cartItems
+  carts,
+  cartSessions
 } from "@shared/schema";
 
+// Minimal Drizzle setup for saveCart() only
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { Pool, neonConfig } from '@neondatabase/serverless';
-import { eq, and, or, desc, asc, sql, inArray, gte, lte, lt, like, ilike, isNull, isNotNull, count, sum, avg } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import ws from 'ws';
 
 // Configure Neon to use ws WebSocket implementation for Node.js
@@ -832,11 +804,13 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   private pool: Pool;
-  private db: any; // Drizzle client for unmigrated methods
+  private db: any; // Drizzle client - ONLY used by saveCart() method (row-level locking)
   private initialized: boolean = false;
   
   constructor() {
-    // Initialize Drizzle (for unmigrated methods)
+    // Minimal Drizzle initialization for saveCart() only
+    // Note: saveCart() requires Drizzle for row-level locking (FOR UPDATE clause)
+    // This is deferred to Phase 2 migration - all other methods use Prisma
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL environment variable is required');
     }
@@ -4975,6 +4949,22 @@ export class DatabaseStorage implements IStorage {
     return result ?? undefined;
   }
 
+  /**
+   * Save cart with atomic updates using row-level locking
+   * 
+   * ⚠️ PHASE 2 MIGRATION NOTE:
+   * This is the ONLY method still using Drizzle ORM (1 of 133 total queries - 99.2% migrated)
+   * 
+   * Why deferred to Phase 2:
+   * - Requires row-level locking (FOR UPDATE) to prevent race conditions
+   * - Prisma doesn't support FOR UPDATE in its query builder
+   * - Migration requires raw SQL transactions or application-level locking
+   * 
+   * Migration approach for Phase 2:
+   * - Option 1: Use Prisma's $queryRaw with raw SQL transactions
+   * - Option 2: Implement application-level optimistic locking with version field
+   * - Option 3: Use Redis-based distributed locks
+   */
   async saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart> {
     await this.ensureInitialized();
     
