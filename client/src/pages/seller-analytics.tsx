@@ -116,7 +116,7 @@ interface AnalyticsData {
 // Helper Functions
 // ============================================================================
 
-function formatCurrency(amount: number, currency: string = 'USD'): string {
+function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
