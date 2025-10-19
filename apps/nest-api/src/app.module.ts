@@ -13,6 +13,8 @@ import { WholesaleRulesModule } from './modules/wholesale-rules/wholesale-rules.
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
 import { PricingModule } from './modules/pricing/pricing.module';
+import { OrderPresentationModule } from './modules/order-presentation/order-presentation.module';
+import { ProductPresentationModule } from './modules/product-presentation/product-presentation.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { PricingModule } from './modules/pricing/pricing.module';
     WholesaleModule,
     QuotationsModule,
     WebSocketModule,
+    OrderPresentationModule,
+    ProductPresentationModule,
   ],
 })
 export class AppModule {}

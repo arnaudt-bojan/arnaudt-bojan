@@ -10,6 +10,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { PricingService } from '../pricing/pricing.service';
+import { OrderPresentationService } from '../order-presentation/order-presentation.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
@@ -21,6 +22,7 @@ export class OrdersResolver {
   constructor(
     private ordersService: OrdersService,
     private pricingService: PricingService,
+    private orderPresentationService: OrderPresentationService,
   ) {}
 
   @Query('getOrder')
@@ -132,5 +134,10 @@ export class OrdersResolver {
   @ResolveField('calculatedTax')
   async calculatedTax(@Parent() order: any): Promise<number> {
     return this.pricingService.calculateTaxForOrder(order.id);
+  }
+
+  @ResolveField('presentation')
+  async presentation(@Parent() order: any) {
+    return this.orderPresentationService.getOrderPresentation(order);
   }
 }

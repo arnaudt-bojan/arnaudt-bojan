@@ -377,8 +377,24 @@ type Product {
   """Active stock reservations"""
   stockReservations: [StockReservation!]!
   
+  """Server-side presentation logic"""
+  presentation: ProductPresentation!
+  
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+"""Server-side product presentation logic"""
+type ProductPresentation {
+  availabilityText: String!
+  badges: [String!]!
+  stockLevelIndicator: String!
+  availableForPurchase: Boolean!
+  isPreOrder: Boolean!
+  isMadeToOrder: Boolean!
+  isWholesale: Boolean!
+  stockQuantity: Int!
+  lowStockThreshold: Int!
 }
 
 """Product variant (size, color, etc.)"""
@@ -726,9 +742,24 @@ type Order {
   """Refunds"""
   refunds: [Refund!]!
   
+  """Server-side presentation logic"""
+  presentation: OrderPresentation!
+  
   createdAt: DateTime!
   updatedAt: DateTime!
   paidAt: DateTime
+}
+
+"""Server-side order presentation logic"""
+type OrderPresentation {
+  statusLabel: String!
+  statusColor: String!
+  fulfillmentLabel: String!
+  fulfillmentColor: String!
+  nextStatuses: [String!]!
+  canCancel: Boolean!
+  canRefund: Boolean!
+  canFulfill: Boolean!
 }
 
 """Line item in an order"""

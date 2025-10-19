@@ -1,6 +1,7 @@
 import { Resolver, Query, Mutation, Args, ResolveField, Parent, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { ProductService } from './product.service';
+import { ProductPresentationService } from '../product-presentation/product-presentation.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
@@ -9,7 +10,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Resolver('Product')
 export class ProductResolver {
-  constructor(private productService: ProductService) {}
+  constructor(
+    private productService: ProductService,
+    private productPresentationService: ProductPresentationService,
+  ) {}
 
   @Query('getProduct')
   async getProduct(@Args('id') id: string) {
@@ -71,5 +75,10 @@ export class ProductResolver {
   @ResolveField('seller')
   async seller(@Parent() product: any, @Context() context: GraphQLContext) {
     return context.sellerLoader.load(product.seller_id);
+  }
+
+  @ResolveField('presentation')
+  async presentation(@Parent() product: any) {
+    return this.productPresentationService.getProductPresentation(product);
   }
 }
