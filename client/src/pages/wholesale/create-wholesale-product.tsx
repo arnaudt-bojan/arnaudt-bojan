@@ -17,7 +17,7 @@ interface Category {
   level: number;
 }
 
-// Generate SKU in format: XYZ-A3X9K2
+// Generate SKU in format: ABC-D3F9K2 (random 3 letters + hyphen + random 6 alphanumeric)
 function generateSKU(): string {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const alphanumeric = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

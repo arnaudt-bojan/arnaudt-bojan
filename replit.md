@@ -66,7 +66,7 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
 -   **AI-Optimized Landing Page:** World-class marketing landing page at `/experience` route featuring platform overview, parallel platform deep-dives, pricing tiers, FAQ, and comparison matrix. Includes custom SEO hooks, structured data, Open Graph/Twitter Card tags, smooth scroll animations, and mobile-responsive navigation.
 -   **Analytics Dashboard:** Comprehensive seller analytics system with server-side calculations (Architecture 3) displaying revenue metrics, order analytics, product performance, customer insights, and B2C vs B2B platform breakdown. Features 5 time period filters, KPI cards with growth indicators, Recharts visualizations (line/bar/pie charts), top products analysis, and mobile-responsive dual-view layouts. All monetary values display in seller's Stripe account currency.
 -   **E2E Testing Authentication Bypass:** Test-only authentication endpoint (`POST /api/test/auth/session`) that allows Playwright E2E tests to authenticate without email confirmation. Blocked in production (NODE_ENV === 'production'), enabled in development/test environments. See server/routes.ts for implementation.
--   **Custom Domain System:** Production-ready custom domain management allowing sellers to connect root domains (xyz.com) to their storefronts. Implements dual-strategy approach (Cloudflare SaaS primary, Manual DNS fallback) with DNS verification, SSL provisioning, domain routing, and status tracking.
+-   **Custom Domain System:** Production-ready custom domain management allowing sellers to connect root domains (e.g., shop.example.com) to their storefronts. Implements dual-strategy approach (Cloudflare SaaS primary, Manual DNS fallback) with DNS verification, SSL provisioning, domain routing, and status tracking.
     -   **Frontend (100% Complete):**
         -   **Domain Management UI:** Settings → Domains tab with dual-view responsive layout (desktop table, mobile cards)
         -   **Primary Domain Toggle:** Single primary domain enforcement with optimistic UI updates
@@ -88,15 +88,15 @@ The design system supports dark/light mode, uses the Inter font, and emphasizes 
         -   **DNS Setup:** Point domains to your server/Cloudflare zone for routing to work
         -   **Optional:** Caddy server for manual DNS strategy (future enhancement)
     -   **How It Works:**
-        1. Seller adds domain (xyz.com) and gets DNS instructions
+        1. Seller adds domain (e.g., shop.example.com) and gets DNS instructions
         2. Seller adds TXT record for verification + CNAME to upfirst servers
         3. Seller clicks "Verify" → DNS verification checks TXT record
         4. If verified → status updates to dns_verified
         5. If Cloudflare strategy → SSL provisioning starts automatically
         6. Background job monitors SSL status every 2 minutes
         7. When SSL active → domain status updates to active
-        8. Domain routing middleware serves seller's storefront at xyz.com
-        9. Both xyz.com (custom) and username.upfirst.com (subdomain) work simultaneously
+        8. Domain routing middleware serves seller's storefront at their custom domain
+        9. Both custom domain and username.upfirst.io (subdomain) work simultaneously
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)

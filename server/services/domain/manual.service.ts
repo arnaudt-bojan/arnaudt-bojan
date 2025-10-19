@@ -43,7 +43,7 @@ export class ManualDomainService {
 
   constructor() {
     this.caddyAdminUrl = process.env.CADDY_ADMIN_URL || 'http://localhost:2019';
-    this.fallbackOrigin = process.env.FALLBACK_ORIGIN || 'app.upfirst.com';
+    this.fallbackOrigin = process.env.FALLBACK_ORIGIN || 'app.upfirst.io';
   }
 
   generateDNSInstructions(domain: string, verificationToken: string): DNSInstructions {

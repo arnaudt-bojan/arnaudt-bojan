@@ -24,7 +24,7 @@ export async function domainMiddleware(
     return next();
   }
 
-  if (!host.includes('upfirst.com') && !host.includes('replit.dev')) {
+  if (!host.includes('upfirst.io') && !host.includes('replit.dev')) {
     try {
       const domain = await storage.getDomainByName(host);
 

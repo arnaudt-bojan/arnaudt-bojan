@@ -90,7 +90,7 @@ export class DomainOrchestrator {
 
       const dnsInstructions = {
         type: 'cloudflare',
-        cnameTarget: process.env.FALLBACK_ORIGIN || 'app.upfirst.com',
+        cnameTarget: process.env.FALLBACK_ORIGIN || 'app.upfirst.io',
         verificationRecords: customHostname.ownershipVerification,
       };
 
@@ -327,7 +327,7 @@ export class DomainOrchestrator {
       });
 
       const dnsInstructions = domain.dnsInstructions as any;
-      const cnameTarget = dnsInstructions.cnameTarget || process.env.FALLBACK_ORIGIN || 'app.upfirst.com';
+      const cnameTarget = dnsInstructions.cnameTarget || process.env.FALLBACK_ORIGIN || 'app.upfirst.io';
 
       const cnameVerified = await dnsVerificationService.verifyCNAMERecord(
         domain.domain,
