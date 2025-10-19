@@ -82,6 +82,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
   const [newDeliveryDate, setNewDeliveryDate] = useState<Date | undefined>(undefined);
   const [isEditingCustomerDetails, setIsEditingCustomerDetails] = useState(false);
   const [showAddWarehouseDialog, setShowAddWarehouseDialog] = useState(false);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
   
   // Shipping label modal states
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
@@ -261,7 +262,7 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
     );
   }
 
-  const { order, items, events = [], balancePayments = [] } = data;
+  const { order, items = [], events = [], balancePayments = [] } = data;
 
   // Calculate subtotal from items (sum of all item subtotals)
   const calculatedSubtotal = items.reduce((sum, item) => {
