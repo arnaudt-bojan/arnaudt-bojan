@@ -34,7 +34,7 @@ import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-m
 import { CountrySelect } from "@/components/CountrySelect";
 import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
 import { getCountryName, getCountryCode } from "../../../shared/countries";
-import { useDomains, useCreateDomain, useDeleteDomain, useVerifyDomain, useUpdateDomain, getStatusBadgeVariant, getStatusText, copyToClipboard } from "@/lib/domains";
+import { useDomains, useCreateDomain, useDeleteDomain, useVerifyDomain, useUpdateDomain, useSwitchStrategy, getStatusBadgeVariant, getStatusText, copyToClipboard, DomainStrategy } from "@/lib/domains";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -194,6 +194,315 @@ function PaymentSetupForm({ clientSecret, onSuccess }: { clientSecret: string; o
         {isProcessing ? "Processing..." : "Save Payment Method"}
       </Button>
     </form>
+  );
+}
+
+// Status Timeline Component
+interface StatusTimelineProps {
+  currentStatus: string;
+  className?: string;
+}
+
+function StatusTimeline({ currentStatus, className = "" }: StatusTimelineProps) {
+  const statuses = [
+    { key: "pending_verification", label: "Pending", icon: Clock },
+    { key: "dns_verified", label: "DNS Verified", icon: CheckCircle },
+    { key: "ssl_provisioning", label: "SSL Setup", icon: Shield },
+    { key: "active", label: "Active", icon: Rocket },
+  ];
+
+  const currentIndex = statuses.findIndex(s => s.key === currentStatus);
+
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      {statuses.map((status, index) => {
+        const Icon = status.icon;
+        const isActive = index === currentIndex;
+        const isCompleted = index < currentIndex;
+        const isPending = index > currentIndex;
+
+        return (
+          <div key={status.key} className="flex items-center gap-2">
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : isCompleted
+                  ? "bg-primary/20 text-primary"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              data-testid={`status-timeline-${status.key}`}
+            >
+              <Icon className="h-3 w-3" />
+              <span className="hidden sm:inline">{status.label}</span>
+            </div>
+            {index < statuses.length - 1 && (
+              <div
+                className={`h-px w-4 sm:w-8 ${
+                  isCompleted ? "bg-primary" : "bg-border"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Delete Domain Confirmation Dialog Component
+interface DeleteDomainDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  domain: any;
+  onConfirm: () => Promise<void>;
+  isDeleting: boolean;
+}
+
+function DeleteDomainDialog({ open, onOpenChange, domain, onConfirm, isDeleting }: DeleteDomainDialogProps) {
+  const handleConfirm = async () => {
+    await onConfirm();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" data-testid="dialog-delete-domain">
+        <DialogHeader>
+          <DialogTitle>Delete Domain?</DialogTitle>
+          <DialogDescription>
+            This action cannot be undone. Your domain will be permanently removed.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {domain?.isPrimary === 1 && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+              <div className="flex gap-2">
+                <Shield className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">Primary Domain Warning</p>
+                  <p className="text-sm text-muted-foreground">
+                    This is your primary domain. Deleting it will make your storefront temporarily inaccessible until you set another domain as primary.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground mb-1">Domain to delete:</p>
+            <p className="font-semibold break-all">{domain?.domain}</p>
+            {domain?.isPrimary === 1 && (
+              <Badge variant="default" className="mt-2">
+                Primary Domain
+              </Badge>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">This will:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+              <li>Remove DNS configuration and SSL certificates</li>
+              <li>Make the domain unavailable for your storefront</li>
+              <li>Permanently delete all domain connection data</li>
+            </ul>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+            data-testid="button-cancel-delete"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={isDeleting}
+            data-testid="button-confirm-delete"
+          >
+            {isDeleting ? "Deleting..." : "Delete Domain"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Strategy Switcher Dialog Component
+interface StrategySwitcherDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  domain: any;
+}
+
+function StrategySwitcherDialog({ open, onOpenChange, domain }: StrategySwitcherDialogProps) {
+  const { toast } = useToast();
+  const switchStrategyMutation = useSwitchStrategy();
+  const [switchedDomain, setSwitchedDomain] = useState<any>(null);
+
+  const newStrategy: DomainStrategy = domain?.strategy === "cloudflare" ? "manual" : "cloudflare";
+
+  useEffect(() => {
+    if (!open) {
+      setSwitchedDomain(null);
+    }
+  }, [open]);
+
+  const handleSwitch = async () => {
+    if (!domain?.id) return;
+
+    try {
+      const result: any = await switchStrategyMutation.mutateAsync({ id: domain.id, newStrategy });
+      
+      if (result.success && result.domainConnection) {
+        setSwitchedDomain(result.domainConnection);
+        toast({
+          title: "Strategy Switched!",
+          description: `Successfully switched to ${newStrategy} strategy`,
+        });
+      } else {
+        toast({
+          title: "Switch Failed",
+          description: result.userMessage || result.error || "Failed to switch strategy",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Switch Failed",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClose = () => {
+    setSwitchedDomain(null);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-switch-strategy">
+        <DialogHeader>
+          <DialogTitle>
+            {switchedDomain ? "Strategy Switched Successfully" : "Switch Domain Strategy"}
+          </DialogTitle>
+          <DialogDescription>
+            {switchedDomain 
+              ? "Your domain is now using a different setup method. Follow the new DNS instructions below."
+              : "Change how your domain connects to Upfirst"}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!switchedDomain ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+              <div className="flex gap-2">
+                <Shield className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">DNS Configuration Will Change</p>
+                  <p className="text-sm text-muted-foreground">
+                    Switching strategy will require you to update your DNS records. Your domain will be unavailable until new records are configured and verified.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-muted-foreground mb-1">Current Strategy</p>
+                <p className="font-semibold capitalize">{domain?.strategy}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {domain?.strategy === "cloudflare" 
+                    ? "Automatic SSL via Cloudflare SaaS" 
+                    : "Manual DNS with Caddy server"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <p className="text-sm text-muted-foreground mb-1">New Strategy</p>
+                <p className="font-semibold capitalize">{newStrategy}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {newStrategy === "cloudflare" 
+                    ? "Automatic SSL via Cloudflare SaaS" 
+                    : "Manual DNS with Caddy server"}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">What happens next:</h4>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+                <li>Your current domain setup will be removed</li>
+                <li>New DNS instructions will be generated</li>
+                <li>You'll need to update your DNS records</li>
+                <li>Domain will enter verification process again</li>
+                <li>Once verified, your domain will be active with the new strategy</li>
+              </ol>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel-switch"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSwitch}
+                disabled={switchStrategyMutation.isPending}
+                data-testid="button-confirm-switch"
+              >
+                {switchStrategyMutation.isPending ? "Switching..." : `Switch to ${newStrategy}`}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <p className="font-medium">Strategy Switched!</p>
+              </div>
+              <p className="text-sm">
+                Domain: <span className="font-semibold">{switchedDomain.domain}</span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                New Strategy: <span className="capitalize font-medium">{switchedDomain.strategy}</span>
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-medium">Configure New DNS Settings:</h4>
+              <DnsInstructionsDisplay domain={switchedDomain} />
+            </div>
+
+            <div className="rounded-lg bg-muted/50 p-4">
+              <h4 className="font-medium text-sm mb-2">Next Steps:</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Update your DNS records with the new configuration shown above</li>
+                <li>Wait for DNS propagation (5-60 minutes)</li>
+                <li>Click "Verify" in the Domains list to check your setup</li>
+                <li>Your domain will be active once verification completes</li>
+              </ol>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={handleClose} data-testid="button-close-switch-instructions">
+                Done
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -687,6 +996,8 @@ function AddDomainDialog({ open, onOpenChange, onSuccess }: AddDomainDialogProps
 function DomainsTabContent() {
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [switchStrategyDomain, setSwitchStrategyDomain] = useState<any>(null);
+  const [deleteDomain, setDeleteDomain] = useState<any>(null);
   
   // All hooks must be called at the top level (Rules of Hooks)
   const { data: domains = [], isLoading } = useDomains();
@@ -744,22 +1055,8 @@ function DomainsTabContent() {
     }
   };
 
-  const handleDeleteDomain = async (id: string, domain: string) => {
-    if (window.confirm(`Are you sure you want to delete ${domain}? This action cannot be undone.`)) {
-      try {
-        await deleteDomainMutation.mutateAsync(id);
-        toast({
-          title: "Domain Deleted",
-          description: `${domain} has been removed from your account`,
-        });
-      } catch (error: any) {
-        toast({
-          title: "Delete Failed",
-          description: error.message || "Failed to delete domain",
-          variant: "destructive",
-        });
-      }
-    }
+  const handleDeleteDomain = (domainObj: any) => {
+    setDeleteDomain(domainObj);
   };
 
   if (isLoading) {
@@ -789,6 +1086,35 @@ function DomainsTabContent() {
         open={showAddDialog} 
         onOpenChange={setShowAddDialog}
         onSuccess={() => setShowAddDialog(false)}
+      />
+      
+      <StrategySwitcherDialog
+        open={!!switchStrategyDomain}
+        onOpenChange={(open) => !open && setSwitchStrategyDomain(null)}
+        domain={switchStrategyDomain}
+      />
+      
+      <DeleteDomainDialog
+        open={!!deleteDomain}
+        onOpenChange={(open) => !open && setDeleteDomain(null)}
+        domain={deleteDomain}
+        onConfirm={async () => {
+          if (!deleteDomain) return;
+          try {
+            await deleteDomainMutation.mutateAsync(deleteDomain.id);
+            toast({
+              title: "Domain Deleted",
+              description: `${deleteDomain.domain} has been removed from your account`,
+            });
+          } catch (error: any) {
+            toast({
+              title: "Delete Failed",
+              description: error.message || "Failed to delete domain",
+              variant: "destructive",
+            });
+          }
+        }}
+        isDeleting={deleteDomainMutation.isPending}
       />
       
       <Card data-testid="card-domains">
@@ -831,9 +1157,8 @@ function DomainsTabContent() {
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left p-3 text-sm font-medium">Domain</th>
-                        <th className="text-left p-3 text-sm font-medium">Status</th>
+                        <th className="text-left p-3 text-sm font-medium">Progress</th>
                         <th className="text-left p-3 text-sm font-medium">Strategy</th>
-                        <th className="text-left p-3 text-sm font-medium">SSL</th>
                         <th className="text-right p-3 text-sm font-medium">Actions</th>
                       </tr>
                     </thead>
@@ -853,23 +1178,12 @@ function DomainsTabContent() {
                             </div>
                           </td>
                           <td className="p-3">
-                            <Badge variant={getStatusBadgeVariant(domain.status)} data-testid={`badge-status-${domain.id}`}>
-                              {getStatusText(domain.status)}
-                            </Badge>
+                            <StatusTimeline currentStatus={domain.status} />
                           </td>
                           <td className="p-3">
                             <span className="text-sm capitalize" data-testid={`text-strategy-${domain.id}`}>
                               {domain.strategy}
                             </span>
-                          </td>
-                          <td className="p-3">
-                            {domain.sslStatus ? (
-                              <span className="text-sm text-muted-foreground capitalize" data-testid={`text-ssl-${domain.id}`}>
-                                {domain.sslStatus}
-                              </span>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">-</span>
-                            )}
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-end gap-2">
@@ -890,15 +1204,26 @@ function DomainsTabContent() {
                                 onClick={() => handleVerifyDomain(domain.id)}
                                 disabled={verifyDomainMutation.isPending}
                                 data-testid={`button-verify-${domain.id}`}
+                                title="Verify domain"
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleDeleteDomain(domain.id, domain.domain)}
+                                onClick={() => setSwitchStrategyDomain(domain)}
+                                data-testid={`button-switch-strategy-${domain.id}`}
+                                title="Switch strategy"
+                              >
+                                <Globe className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteDomain(domain)}
                                 disabled={deleteDomainMutation.isPending}
                                 data-testid={`button-delete-${domain.id}`}
+                                title="Delete domain"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -935,6 +1260,8 @@ function DomainsTabContent() {
                           </Badge>
                         </div>
 
+                        <StatusTimeline currentStatus={domain.status} className="overflow-x-auto" />
+
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <p className="text-muted-foreground">Strategy</p>
@@ -963,22 +1290,28 @@ function DomainsTabContent() {
                               {updateDomainMutation.isPending ? "Setting..." : "Set as Primary Domain"}
                             </Button>
                           )}
-                          <div className="flex gap-2">
+                          <div className="grid grid-cols-3 gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1"
                               onClick={() => handleVerifyDomain(domain.id)}
                               disabled={verifyDomainMutation.isPending}
                               data-testid={`button-verify-mobile-${domain.id}`}
                             >
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Verify
+                              <RefreshCw className="h-4 w-4" />
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleDeleteDomain(domain.id, domain.domain)}
+                              onClick={() => setSwitchStrategyDomain(domain)}
+                              data-testid={`button-switch-strategy-mobile-${domain.id}`}
+                            >
+                              <Globe className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteDomain(domain)}
                               disabled={deleteDomainMutation.isPending}
                               data-testid={`button-delete-mobile-${domain.id}`}
                             >
