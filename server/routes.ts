@@ -9552,6 +9552,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wholesale Dashboard Stats
+  app.get("/api/wholesale/dashboard/stats", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get wholesale products count
+      const productsResult = await storage.searchWholesaleProducts({
+        sellerId: userId,
+        limit: 1,
+        offset: 0
+      });
+      const totalProducts = productsResult.total || 0;
+      
+      // Get wholesale buyers count
+      const buyers = await storage.getWholesaleAccessGrantsBySeller(userId);
+      const totalBuyers = buyers.length;
+      
+      // Get wholesale orders
+      const ordersResult = await wholesaleOrderService.getOrdersBySeller(userId);
+      const orders = ordersResult.success ? ordersResult.orders : [];
+      const totalOrders = orders.length;
+      
+      // Calculate total revenue and pending orders
+      let totalRevenue = 0;
+      let pendingOrders = 0;
+      
+      for (const order of orders) {
+        // Sum revenue from all orders (totalAmountCents is in dollars, not cents despite the name)
+        const orderTotal = parseFloat(order.totalAmountCents as any) || 0;
+        totalRevenue += orderTotal;
+        
+        // Count pending orders (deposit_paid, awaiting_balance, or pending status)
+        if (order.status === 'pending' || order.status === 'deposit_paid' || order.status === 'awaiting_balance') {
+          pendingOrders++;
+        }
+      }
+      
+      res.json({
+        totalProducts,
+        totalBuyers,
+        totalOrders,
+        totalRevenue,
+        pendingOrders
+      });
+    } catch (error) {
+      logger.error("Error fetching wholesale dashboard stats", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
   // Wholesale Orders Routes
   app.get("/api/wholesale/orders", requireAuth, requireUserType('seller'), async (req: any, res) => {
     try {

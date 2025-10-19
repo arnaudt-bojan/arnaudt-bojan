@@ -37,9 +37,16 @@ export default function WholesalePreview() {
   });
 
   // Fetch seller's wholesale products
-  const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
+  const { data, isLoading } = useQuery<{
+    products: WholesaleProduct[];
+    total: number;
+    limit: number;
+    offset: number;
+  }>({
     queryKey: ["/api/wholesale/products"],
   });
+
+  const products = data?.products || [];
 
   const handleOpenLivePreview = () => {
     if (!currentUser) return;

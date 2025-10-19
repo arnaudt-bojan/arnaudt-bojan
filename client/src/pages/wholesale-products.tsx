@@ -33,9 +33,16 @@ export default function WholesaleProducts() {
   const { toast } = useToast();
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
+  const { data, isLoading } = useQuery<{
+    products: WholesaleProduct[];
+    total: number;
+    limit: number;
+    offset: number;
+  }>({
     queryKey: ["/api/wholesale/products"],
   });
+
+  const products = data?.products || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
