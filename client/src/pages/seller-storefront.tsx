@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ProductCard } from "@/components/product-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList, Eye } from "lucide-react";
+import { AlertCircle, Store, Grid3x3, LayoutGrid, LayoutList, Eye, Grip } from "lucide-react";
 import { ProductFiltersSheet } from "@/components/product-filters-sheet";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -226,33 +226,30 @@ export default function SellerStorefront() {
             <span className="text-sm text-muted-foreground mr-2">View:</span>
             <Button
               variant={cardSize === "compact" ? "default" : "outline"}
-              size="sm"
+              size="icon"
               onClick={() => setCardSize("compact")}
-              className="gap-1.5"
               data-testid="button-view-compact"
+              title="Compact view"
             >
-              <Grid3x3 className="h-3.5 w-3.5" />
-              Compact
+              <Grip className="h-4 w-4" />
             </Button>
             <Button
               variant={cardSize === "medium" ? "default" : "outline"}
-              size="sm"
+              size="icon"
               onClick={() => setCardSize("medium")}
-              className="gap-1.5"
               data-testid="button-view-medium"
+              title="Medium view"
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Medium
+              <LayoutGrid className="h-4 w-4" />
             </Button>
             <Button
               variant={cardSize === "large" ? "default" : "outline"}
-              size="sm"
+              size="icon"
               onClick={() => setCardSize("large")}
-              className="gap-1.5"
               data-testid="button-view-large"
+              title="Large view"
             >
-              <LayoutList className="h-3.5 w-3.5" />
-              Large
+              <Grid3x3 className="h-4 w-4" />
             </Button>
           </div>
         </div>

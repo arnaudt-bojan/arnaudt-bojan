@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Package2, Search, Eye, Grid3x3, LayoutGrid, LayoutList, ChevronRight, Home, Layers } from "lucide-react";
+import { Package2, Search, Eye, Grid3x3, LayoutGrid, LayoutList, ChevronRight, Home, Layers, Grip } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { formatCurrency, getCurrentCurrency } from "@/lib/currency";
 import { WholesaleStorefrontHeader } from "@/components/headers/wholesale-storefront-header";
@@ -314,33 +314,30 @@ export default function BuyerCatalog() {
             <span className="text-sm text-muted-foreground mr-2">View:</span>
             <Button
               variant={cardSize === "compact" ? "default" : "outline"}
-              size="sm"
+              size="icon"
               onClick={() => setCardSize("compact")}
-              className="gap-1.5"
               data-testid="button-view-compact"
+              title="Compact view"
             >
-              <Grid3x3 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Compact</span>
+              <Grip className="h-4 w-4" />
             </Button>
             <Button
               variant={cardSize === "medium" ? "default" : "outline"}
-              size="sm"
+              size="icon"
               onClick={() => setCardSize("medium")}
-              className="gap-1.5"
               data-testid="button-view-medium"
+              title="Medium view"
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Medium</span>
+              <LayoutGrid className="h-4 w-4" />
             </Button>
             <Button
               variant={cardSize === "large" ? "default" : "outline"}
-              size="sm"
+              size="icon"
               onClick={() => setCardSize("large")}
-              className="gap-1.5"
               data-testid="button-view-large"
+              title="Large view"
             >
-              <LayoutList className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Large</span>
+              <Grid3x3 className="h-4 w-4" />
             </Button>
           </div>
         </div>
