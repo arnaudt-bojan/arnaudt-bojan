@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, Settings as SettingsIcon, CreditCard, Image, Globe, Copy, CheckCircle, CheckCircle2, Tag, Plus, Edit, Trash2, DollarSign, Clock, Package, MapPin, Wallet, Receipt, X, Users, Shield, Mail, UserPlus, Rocket, FileText, Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
-import { getStoreUrl } from "@/lib/store-url";
+import { getStoreUrl, getProductionStoreUrl } from "@/lib/store-url";
 import { ShippingMatrixManager } from "@/components/shipping-matrix-manager";
 import { WarehouseAddressesManager } from "@/components/warehouse-addresses-manager";
 import { loadStripe } from "@stripe/stripe-js";
@@ -1545,7 +1545,8 @@ function SubscriptionTab({ user }: { user: any }) {
                     variant="outline"
                     onClick={async () => {
                       try {
-                        const result = await apiRequest("POST", "/api/subscription/fix", {});
+                        const response = await apiRequest("POST", "/api/subscription/fix", {});
+                        const result = await response.json();
                         if (result.success) {
                           refetchSubscription();
                           queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -3132,6 +3133,13 @@ export default function Settings() {
   const isSeller = user?.role === "seller" || user?.role === "owner" || user?.role === "admin";
   const isStripeConnected = user?.stripeConnectedAccountId && user?.stripeDetailsSubmitted === 1;
   const isInstagramConnected = user?.instagramUsername;
+  
+  // Query for user's custom domains
+  const { data: userDomains } = useQuery<any[]>({
+    queryKey: ['/api/seller/domains'],
+    enabled: !!user && isSeller,
+  });
+  
   const [isStripeModalOpen, setIsStripeModalOpen] = useState(false);
   const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
   const [isCountrySelectorOpen, setIsCountrySelectorOpen] = useState(false);
@@ -3782,124 +3790,216 @@ export default function Settings() {
                 <CardContent>
                   <Form {...quickSetupForm}>
                     <form onSubmit={quickSetupForm.handleSubmit((data) => updateQuickSetupMutation.mutate(data))} className="space-y-6">
-                      {/* Username Field */}
-                      <FormField
-                        control={quickSetupForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Store Username</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                placeholder="yourusername" 
-                                data-testid="input-username-quick-setup" 
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              3-20 characters, letters, numbers, and underscores only
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {/* PRIMARY: Store Username Section */}
+                      <div className="space-y-4">
+                        <FormField
+                          control={quickSetupForm.control}
+                          name="username"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Store Username *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="yourusername" 
+                                  data-testid="input-username-quick-setup" 
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                3-20 characters, letters, numbers, and underscores only
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                      {/* Store URL Display */}
-                      <div className="space-y-3 pt-2">
-                        <p className="text-sm font-medium">Your Store URL</p>
-                        <div className="flex gap-2">
-                          <Input
-                            value={quickSetupForm.watch('username') ? getStoreUrl(quickSetupForm.watch('username')) : 'Set username above'}
-                            readOnly
-                            className="flex-1"
-                            data-testid="input-store-url-display"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                              const username = quickSetupForm.watch('username');
-                              if (!username) return;
-                              const url = getStoreUrl(username);
-                              if (!url) return;
-                              navigator.clipboard.writeText(url);
-                              setCopiedUsername(true);
-                              setTimeout(() => setCopiedUsername(false), 2000);
-                              toast({ title: "Copied!", description: "Store link copied to clipboard" });
-                            }}
-                            disabled={!quickSetupForm.watch('username')}
-                            data-testid="button-copy-store-url"
-                          >
-                            {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </Button>
+                        {/* Full Production URL Display */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Your Storefront URL</Label>
+                          <Card className="border-muted bg-muted/30">
+                            <CardContent className="p-3">
+                              <div className="flex items-center gap-2">
+                                <code className="flex-1 text-sm font-mono break-all" data-testid="text-production-store-url">
+                                  {quickSetupForm.watch('username') 
+                                    ? getProductionStoreUrl(quickSetupForm.watch('username'))
+                                    : 'Set username above to see your URL'}
+                                </code>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="flex-shrink-0"
+                                  onClick={() => {
+                                    const username = quickSetupForm.watch('username');
+                                    if (!username) return;
+                                    const url = getProductionStoreUrl(username);
+                                    if (!url) return;
+                                    navigator.clipboard.writeText(url);
+                                    setCopiedUsername(true);
+                                    setTimeout(() => setCopiedUsername(false), 2000);
+                                    toast({ title: "Copied!", description: "Store link copied to clipboard" });
+                                  }}
+                                  disabled={!quickSetupForm.watch('username')}
+                                  data-testid="button-copy-store-url"
+                                >
+                                  {copiedUsername ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <p className="text-xs text-muted-foreground">
+                            This is your free storefront address. Share this link with customers.
+                          </p>
                         </div>
                       </div>
 
-                      {/* Instagram Connection */}
+                      {/* OPTIONAL: Instagram Connection Section */}
                       <div className="space-y-3 pt-4 border-t">
-                        {isInstagramConnected ? (
-                          <>
-                            <div className="flex items-center gap-2 text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                              <span className="font-medium">Instagram Connected</span>
-                              <span className="text-muted-foreground">@{user?.instagramUsername}</span>
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex-shrink-0">
+                            <SiInstagram className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-medium">Instagram Username</p>
+                              <Badge variant="secondary" className="text-xs">Optional</Badge>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Your Instagram handle is connected. You can use @{user?.instagramUsername} as your store identifier.
+                              Connect Instagram to use @handle.upfirst.io and build trust with followers
                             </p>
+                          </div>
+                        </div>
+
+                        {isInstagramConnected ? (
+                          <div className="space-y-3">
+                            <Card className="border-primary/20 bg-primary/5">
+                              <CardContent className="p-3">
+                                <div className="flex items-center gap-2 text-sm mb-2">
+                                  <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                                  <span className="font-medium">Connected as @{user?.instagramUsername}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <code className="flex-1 text-xs font-mono break-all" data-testid="text-instagram-url">
+                                    https://{user?.instagramUsername}.upfirst.io
+                                  </code>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 flex-shrink-0"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(`https://${user?.instagramUsername}.upfirst.io`);
+                                      toast({ title: "Copied!", description: "Instagram URL copied to clipboard" });
+                                    }}
+                                    data-testid="button-copy-instagram-url"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
                             <Button
                               type="button"
                               variant="outline"
-                              className="w-full justify-between"
+                              className="w-full"
                               onClick={() => disconnectInstagramMutation.mutate()}
                               disabled={disconnectInstagramMutation.isPending}
                               data-testid="button-disconnect-instagram"
                             >
-                              <div className="flex items-center gap-2">
-                                <SiInstagram className="h-5 w-5" />
-                                <span>{disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}</span>
-                              </div>
-                              <span>×</span>
+                              {disconnectInstagramMutation.isPending ? "Disconnecting..." : "Disconnect Instagram"}
                             </Button>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <p className="text-sm font-medium">Connect Instagram (Optional)</p>
-                            <p className="text-xs text-muted-foreground">
-                              Connect your Instagram to use your verified handle as your store URL. This provides instant credibility and makes it easier for your followers to find your store.
-                            </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full justify-between"
-                              onClick={handleConnectInstagram}
-                              data-testid="button-connect-instagram"
-                            >
-                              <div className="flex items-center gap-2">
-                                <SiInstagram className="h-5 w-5" />
-                                <span>Connect Instagram</span>
-                              </div>
-                              <span>→</span>
-                            </Button>
-                          </>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={handleConnectInstagram}
+                            data-testid="button-connect-instagram"
+                          >
+                            <SiInstagram className="mr-2 h-4 w-4" />
+                            Connect Instagram
+                          </Button>
                         )}
                       </div>
 
-                      {/* Custom Domain (Coming Soon) */}
+                      {/* ADVANCED: Custom Domain Section */}
                       <div className="space-y-3 pt-4 border-t">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">Custom Domain</p>
-                            <p className="text-xs text-muted-foreground mt-1">Coming Soon</p>
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted flex-shrink-0">
+                            <Globe className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-medium">Custom Domain</p>
+                              <Badge variant="secondary" className="text-xs">Advanced</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Use your own domain like shop.example.com
+                            </p>
                           </div>
                         </div>
-                        <Input 
-                          placeholder="mystore.com" 
-                          disabled
-                          data-testid="input-custom-domain" 
-                        />
-                        <p className="text-xs text-muted-foreground">Connect your own domain to your store (feature coming soon)</p>
+
+                        {userDomains && userDomains.length > 0 ? (
+                          <div className="space-y-3">
+                            <Card className="border-muted">
+                              <CardContent className="p-3">
+                                <p className="text-xs text-muted-foreground mb-2">Active domains:</p>
+                                <div className="space-y-1">
+                                  {userDomains.map((domain: any) => (
+                                    <div key={domain.id} className="flex items-center gap-2 text-sm">
+                                      <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                                      <code className="flex-1 text-xs font-mono break-all">{domain.domain}</code>
+                                      {domain.isPrimary === 1 && (
+                                        <Badge variant="default" className="text-xs flex-shrink-0">Primary</Badge>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                            <Link href="/settings?tab=domains">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full"
+                                data-testid="button-manage-domains"
+                              >
+                                <Globe className="mr-2 h-4 w-4" />
+                                Manage Domains
+                                <ExternalLink className="ml-2 h-3 w-3" />
+                              </Button>
+                            </Link>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <Card className="border-muted">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <Globe className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium mb-1">Professional branding with your own domain</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Connect shop.yourdomain.com or any custom domain
+                                    </p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                            <Link href="/settings?tab=domains">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full"
+                                data-testid="button-add-custom-domain"
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Custom Domain
+                                <ExternalLink className="ml-2 h-3 w-3" />
+                              </Button>
+                            </Link>
+                          </div>
+                        )}
                       </div>
 
                       {/* Store Logo */}
