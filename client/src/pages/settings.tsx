@@ -34,7 +34,7 @@ import { SavedPaymentMethodsManager } from "@/components/saved-payment-methods-m
 import { CountrySelect } from "@/components/CountrySelect";
 import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
 import { getCountryName, getCountryCode } from "../../../shared/countries";
-import { useDomains, useDeleteDomain, useVerifyDomain, useUpdateDomain, getStatusBadgeVariant, getStatusText, copyToClipboard } from "@/lib/domains";
+import { useDomains, useCreateDomain, useDeleteDomain, useVerifyDomain, useUpdateDomain, getStatusBadgeVariant, getStatusText, copyToClipboard } from "@/lib/domains";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -197,12 +197,234 @@ function PaymentSetupForm({ clientSecret, onSuccess }: { clientSecret: string; o
   );
 }
 
+// Add Domain Dialog Component
+interface AddDomainDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+const addDomainSchema = z.object({
+  domain: z.string()
+    .min(1, "Domain is required")
+    .regex(/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[A-Za-z]{2,}$/, "Invalid domain format (e.g., shop.example.com)"),
+  strategy: z.enum(["cloudflare", "manual"], {
+    required_error: "Please select a setup strategy",
+  }),
+  isPrimary: z.boolean().default(false),
+});
+
+type AddDomainFormData = z.infer<typeof addDomainSchema>;
+
+function AddDomainDialog({ open, onOpenChange, onSuccess }: AddDomainDialogProps) {
+  const { toast } = useToast();
+  const createDomainMutation = useCreateDomain();
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [createdDomain, setCreatedDomain] = useState<any>(null);
+
+  const form = useForm<AddDomainFormData>({
+    resolver: zodResolver(addDomainSchema),
+    defaultValues: {
+      domain: "",
+      strategy: "cloudflare",
+      isPrimary: false,
+    },
+  });
+
+  const onSubmit = async (data: AddDomainFormData) => {
+    try {
+      const result = await createDomainMutation.mutateAsync(data);
+      setCreatedDomain(result.domain);
+      setShowInstructions(true);
+      form.reset();
+      toast({
+        title: "Domain Added",
+        description: `${data.domain} has been added. Follow the DNS setup instructions below.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Add Domain",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClose = () => {
+    setShowInstructions(false);
+    setCreatedDomain(null);
+    form.reset();
+    onOpenChange(false);
+    if (createdDomain) {
+      onSuccess();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" data-testid="dialog-add-domain">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            {showInstructions ? "DNS Setup Instructions" : "Add Custom Domain"}
+          </DialogTitle>
+          <DialogDescription>
+            {showInstructions 
+              ? "Configure your DNS settings to point your domain to your storefront"
+              : "Connect your own domain to create a professional branded storefront"}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!showInstructions ? (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="domain"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Domain Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="shop.yourbrand.com"
+                        {...field}
+                        data-testid="input-domain"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter your root domain (e.g., shop.example.com). Do not include https:// or www.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="strategy"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Setup Method</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-2"
+                        data-testid="radio-group-strategy"
+                      >
+                        <div className="flex items-start space-x-3 space-y-0">
+                          <RadioGroupItem value="cloudflare" id="cloudflare" data-testid="radio-cloudflare" />
+                          <div className="space-y-1">
+                            <Label htmlFor="cloudflare" className="font-medium">
+                              Cloudflare (Recommended)
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                              Automatic SSL provisioning and faster setup. Best for most users.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 space-y-0">
+                          <RadioGroupItem value="manual" id="manual" data-testid="radio-manual" />
+                          <div className="space-y-1">
+                            <Label htmlFor="manual" className="font-medium">
+                              Manual Setup
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                              Configure DNS manually. For advanced users or custom DNS providers.
+                            </p>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="isPrimary"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="checkbox-is-primary"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Set as Primary Domain
+                      </FormLabel>
+                      <FormDescription>
+                        Make this your default storefront domain. Customers will see this domain in their browser.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={createDomainMutation.isPending}
+                  data-testid="button-cancel-add-domain"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createDomainMutation.isPending}
+                  data-testid="button-submit-add-domain"
+                >
+                  {createDomainMutation.isPending ? "Adding..." : "Add Domain"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm font-medium mb-2">Domain Added:</p>
+              <p className="text-lg font-semibold">{createdDomain?.domain}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Strategy: {createdDomain?.strategy}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-medium">Next Steps:</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm">
+                <li>Configure your DNS settings as shown in the Domains tab</li>
+                <li>Wait for DNS propagation (usually 5-60 minutes)</li>
+                <li>Click "Verify" to check your setup</li>
+                <li>Your custom domain will be active once verified</li>
+              </ol>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={handleClose} data-testid="button-close-instructions">
+                Done
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Domains Tab Content Component
 function DomainsTabContent() {
   const { toast } = useToast();
+  const [showAddDialog, setShowAddDialog] = useState(false);
   
   // All hooks must be called at the top level (Rules of Hooks)
   const { data: domains = [], isLoading } = useDomains();
+  const createDomainMutation = useCreateDomain();
   const deleteDomainMutation = useDeleteDomain();
   const verifyDomainMutation = useVerifyDomain();
   const updateDomainMutation = useUpdateDomain();
@@ -296,7 +518,13 @@ function DomainsTabContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <AddDomainDialog 
+        open={showAddDialog} 
+        onOpenChange={setShowAddDialog}
+        onSuccess={() => setShowAddDialog(false)}
+      />
+      
       <Card data-testid="card-domains">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -309,7 +537,7 @@ function DomainsTabContent() {
                 Connect your own domain to your storefront for a professional branded experience
               </CardDescription>
             </div>
-            <Button data-testid="button-add-domain" disabled>
+            <Button data-testid="button-add-domain" onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Domain
             </Button>
@@ -323,7 +551,7 @@ function DomainsTabContent() {
               <p className="text-sm text-muted-foreground mb-4">
                 Connect your own domain (e.g., shop.yourbrand.com) to create a professional branded storefront.
               </p>
-              <Button disabled data-testid="button-add-first-domain">
+              <Button onClick={() => setShowAddDialog(true)} data-testid="button-add-first-domain">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Domain
               </Button>
@@ -501,7 +729,7 @@ function DomainsTabContent() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }
 
