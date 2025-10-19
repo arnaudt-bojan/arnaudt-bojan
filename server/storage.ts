@@ -157,26 +157,20 @@ import {
   type InsertTradeQuotation
 } from "@shared/prisma-types";
 
-// Minimal Drizzle schema imports for saveCart() and atomicReserveStock()
-// Note: These methods require row-level locking (deferred to Phase 2 due to Prisma limitations)
-import {
-  carts,
-  cartSessions,
-  products,
-  stockReservations
-} from "@shared/schema";
-
-// Minimal Drizzle setup for saveCart() only
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { eq, and } from 'drizzle-orm';
-import ws from 'ws';
-
-// Configure Neon to use ws WebSocket implementation for Node.js
-neonConfig.webSocketConstructor = ws;
+// ============================================================================
+// Phase 2 Migration Complete: 100% Prisma ORM
+// ============================================================================
+// All Drizzle operations have been migrated to Prisma using $transaction
+// and $queryRaw for row-level locking semantics.
+//
+// Migrated methods:
+// 1. saveCart() - cart persistence with FOR UPDATE locking
+// 2. atomicReserveStock() - stock reservation with FOR UPDATE locking
+// 3. updateReservationQuantityAtomic() - reservation updates with FOR UPDATE locking
 
 import { prisma } from './prisma';
 import { logger } from './logger';
+import type { CartLockRow, ProductLockRow, StockReservationLockRow } from './utils/prisma-locking';
 
 // ============================================================================
 // Prisma Field Mapping Utilities (snake_case → camelCase)
@@ -1622,23 +1616,14 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  private pool: Pool;
-  private db: any; // Drizzle client - ONLY used by saveCart() method (row-level locking)
+  // Note: Phase 2 migration completed - all cart and stock reservation operations
+  // now use Prisma with $transaction and $queryRaw for row-level locking
   private initialized: boolean = false;
   
   constructor() {
-    // Minimal Drizzle initialization for saveCart() only
-    // Note: saveCart() requires Drizzle for row-level locking (FOR UPDATE clause)
-    // This is deferred to Phase 2 migration - all other methods use Prisma
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL environment variable is required');
-    }
-
-    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    this.db = drizzle(this.pool);
+    // All database operations now use Prisma client (imported from ./prisma.ts)
+    // Previously used Drizzle for saveCart() and atomicReserveStock() - migrated in Phase 2
     this.initialized = true;
-    
-    // Prisma client is imported from ./prisma.ts and already initialized
   }
 
   private async ensureInitialized() {
@@ -2228,6 +2213,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  /**
+   * ✅ PHASE 2 MIGRATION: Migrated from Drizzle to Prisma
+   * 
+   * Atomically reserve stock with row-level locking
+   * Uses Prisma $transaction + $queryRaw for FOR UPDATE semantics
+   */
   async atomicReserveStock(
     productId: string,
     quantity: number,
@@ -2254,23 +2245,20 @@ export class DatabaseStorage implements IStorage {
     
     // Use database transaction to prevent race conditions
     // This ensures check-and-insert is atomic
-    return await this.db.transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       // Step 1: Lock the product row with SELECT ... FOR UPDATE
-      const product = await tx
-        .select()
-        .from(products)
-        .where(eq(products.id, productId))
-        .for('update')
-        .limit(1);
+      const productRows = await tx.$queryRaw<ProductLockRow[]>`
+        SELECT * FROM products WHERE id = ${productId} FOR UPDATE LIMIT 1
+      `;
       
-      if (!product || product.length === 0) {
+      if (!productRows || productRows.length === 0) {
         return {
           success: false,
           error: 'Product not found',
         };
       }
 
-      const prod = product[0];
+      const prod = productRows[0];
       
       // Step 2: Calculate current stock
       let currentStock = 0;
@@ -2278,7 +2266,7 @@ export class DatabaseStorage implements IStorage {
       
       if (variantId && prod.variants) {
         const variants = Array.isArray(prod.variants) ? prod.variants : [];
-        const hasColors = prod.hasColors === 1;
+        const hasColors = prod.has_colors === 1;
         
         if (hasColors) {
           // ColorVariant structure: parse "size-color" format (e.g., "l-black")
@@ -2308,20 +2296,24 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Step 3: Get reserved stock (with lock on reservations)
-      const conditions = [
-        eq(stockReservations.productId, productId),
-        eq(stockReservations.status, 'active')
-      ];
+      let activeReservations: StockReservationLockRow[];
       
       if (variantId) {
-        conditions.push(eq(stockReservations.variantId, variantId));
+        activeReservations = await tx.$queryRaw<StockReservationLockRow[]>`
+          SELECT * FROM stock_reservations
+          WHERE product_id = ${productId}
+            AND variant_id = ${variantId}
+            AND status = 'active'
+          FOR UPDATE
+        `;
+      } else {
+        activeReservations = await tx.$queryRaw<StockReservationLockRow[]>`
+          SELECT * FROM stock_reservations
+          WHERE product_id = ${productId}
+            AND status = 'active'
+          FOR UPDATE
+        `;
       }
-
-      const activeReservations = await tx
-        .select()
-        .from(stockReservations)
-        .where(and(...conditions))
-        .for('update');
       
       const reservedStock = activeReservations.reduce((total, res) => total + res.quantity, 0);
       const availableStock = Math.max(0, currentStock - reservedStock);
@@ -2348,29 +2340,35 @@ export class DatabaseStorage implements IStorage {
       const expirationMinutes = options?.expirationMinutes || 15;
       const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
 
-      const reservationData: InsertStockReservation = {
-        productId,
-        variantId: variantId || null,
-        quantity,
-        sessionId,
-        userId: options?.userId || null,
-        status: 'active',
-        expiresAt,
-        orderId: null,
-        committedAt: null,
-        releasedAt: null,
-      };
-
-      const result = await tx.insert(stockReservations).values(reservationData).returning();
+      const reservation = await tx.stock_reservations.create({
+        data: {
+          product_id: productId,
+          variant_id: variantId || null,
+          quantity,
+          session_id: sessionId,
+          user_id: options?.userId || null,
+          status: 'active',
+          expires_at: expiresAt,
+          order_id: null,
+          committed_at: null,
+          released_at: null,
+        }
+      });
       
       return {
         success: true,
-        reservation: result[0],
+        reservation: mapStockReservationFromPrisma(reservation),
         availability,
       };
     });
   }
 
+  /**
+   * ✅ PHASE 2 MIGRATION: Migrated from Drizzle to Prisma
+   * 
+   * Atomically update reservation quantity with row-level locking
+   * Uses Prisma $transaction + $queryRaw for FOR UPDATE semantics
+   */
   async updateReservationQuantityAtomic(
     reservationId: string,
     newQuantity: number
@@ -2391,23 +2389,20 @@ export class DatabaseStorage implements IStorage {
     
     // CRITICAL: Database transaction with row-level locking to prevent race conditions
     // Locks product row to get FRESH stock data (not stale)
-    return await this.db.transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       // Step 1: Lock the reservation row with SELECT ... FOR UPDATE
-      const currentReservation = await tx
-        .select()
-        .from(stockReservations)
-        .where(eq(stockReservations.id, reservationId))
-        .for('update')
-        .limit(1);
+      const currentReservationRows = await tx.$queryRaw<StockReservationLockRow[]>`
+        SELECT * FROM stock_reservations WHERE id = ${reservationId} FOR UPDATE LIMIT 1
+      `;
       
-      if (!currentReservation || currentReservation.length === 0) {
+      if (!currentReservationRows || currentReservationRows.length === 0) {
         return {
           success: false,
           error: 'Reservation not found',
         };
       }
 
-      const reservation = currentReservation[0];
+      const reservation = currentReservationRows[0];
 
       if (reservation.status !== 'active') {
         return {
@@ -2416,32 +2411,29 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      const productId = reservation.productId;
-      const variantId = reservation.variantId;
+      const productId = reservation.product_id;
+      const variantId = reservation.variant_id;
 
       // Step 2: Lock product row and get FRESH stock (prevents stale data)
-      const product = await tx
-        .select()
-        .from(products)
-        .where(eq(products.id, productId))
-        .for('update')
-        .limit(1);
+      const productRows = await tx.$queryRaw<ProductLockRow[]>`
+        SELECT * FROM products WHERE id = ${productId} FOR UPDATE LIMIT 1
+      `;
       
-      if (!product || product.length === 0) {
+      if (!productRows || productRows.length === 0) {
         return {
           success: false,
           error: 'Product not found',
         };
       }
 
-      const prod = product[0];
+      const prod = productRows[0];
 
       // Step 3: Calculate CURRENT stock (fresh, locked data)
       let currentStock = 0;
       
       if (variantId && prod.variants) {
         const variants = Array.isArray(prod.variants) ? prod.variants : [];
-        const hasColors = prod.hasColors === 1;
+        const hasColors = prod.has_colors === 1;
         
         if (hasColors) {
           // ColorVariant structure: parse "size-color" format (e.g., "l-black")
@@ -2471,20 +2463,24 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Step 4: Lock all active reservations for this product/variant
-      const conditions = [
-        eq(stockReservations.productId, productId),
-        eq(stockReservations.status, 'active')
-      ];
+      let activeReservations: StockReservationLockRow[];
       
       if (variantId) {
-        conditions.push(eq(stockReservations.variantId, variantId));
+        activeReservations = await tx.$queryRaw<StockReservationLockRow[]>`
+          SELECT * FROM stock_reservations
+          WHERE product_id = ${productId}
+            AND variant_id = ${variantId}
+            AND status = 'active'
+          FOR UPDATE
+        `;
+      } else {
+        activeReservations = await tx.$queryRaw<StockReservationLockRow[]>`
+          SELECT * FROM stock_reservations
+          WHERE product_id = ${productId}
+            AND status = 'active'
+          FOR UPDATE
+        `;
       }
-
-      const activeReservations = await tx
-        .select()
-        .from(stockReservations)
-        .where(and(...conditions))
-        .for('update');
       
       // Step 5: Calculate reserved stock EXCLUDING current reservation
       const allReservedStock = activeReservations.reduce((total, res) => total + res.quantity, 0);
@@ -2510,15 +2506,14 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Step 7: Atomically update reservation quantity within transaction
-      const result = await tx
-        .update(stockReservations)
-        .set({ quantity: newQuantity })
-        .where(eq(stockReservations.id, reservationId))
-        .returning();
+      const updatedReservation = await tx.stock_reservations.update({
+        where: { id: reservationId },
+        data: { quantity: newQuantity }
+      });
       
       return {
         success: true,
-        reservation: result[0],
+        reservation: mapStockReservationFromPrisma(updatedReservation),
         availability,
       };
     });
@@ -5845,76 +5840,94 @@ export class DatabaseStorage implements IStorage {
   /**
    * Save cart with atomic updates using row-level locking
    * 
-   * ⚠️ PHASE 2 MIGRATION NOTE:
-   * This is the ONLY method still using Drizzle ORM (1 of 133 total queries - 99.2% migrated)
+   * ✅ PHASE 2 MIGRATION: Migrated from Drizzle to Prisma
    * 
-   * Why deferred to Phase 2:
-   * - Requires row-level locking (FOR UPDATE) to prevent race conditions
-   * - Prisma doesn't support FOR UPDATE in its query builder
-   * - Migration requires raw SQL transactions or application-level locking
-   * 
-   * Migration approach for Phase 2:
-   * - Option 1: Use Prisma's $queryRaw with raw SQL transactions
-   * - Option 2: Implement application-level optimistic locking with version field
-   * - Option 3: Use Redis-based distributed locks
+   * Implementation:
+   * - Uses Prisma $transaction for atomic operations
+   * - Uses $queryRaw with FOR UPDATE for row-level locking
+   * - Preserves exact behavior: guest/auth flows, session mapping
+   * - Ensures rollback on failure
    */
   async saveCart(sessionId: string, sellerId: string, items: any[], userId?: string): Promise<Cart> {
     await this.ensureInitialized();
     
-    return await this.db.transaction(async (tx) => {
-      let targetCart: Cart | undefined;
+    return await prisma.$transaction(async (tx) => {
+      let targetCartId: string;
       
       if (userId) {
         // Auth user: lock and get/create cart for (sellerId, userId)
-        const existing = await tx.select().from(carts)
-          .where(and(eq(carts.sellerId, sellerId), eq(carts.buyerId, userId)))
-          .for('update').limit(1);
+        const existingCarts = await tx.$queryRaw<CartLockRow[]>`
+          SELECT * FROM carts 
+          WHERE seller_id = ${sellerId} AND buyer_id = ${userId}
+          FOR UPDATE LIMIT 1
+        `;
         
-        if (existing[0]) {
-          targetCart = existing[0];
+        if (existingCarts[0]) {
+          targetCartId = existingCarts[0].id;
         } else {
           // Create new authenticated cart
-          const [newCart] = await tx.insert(carts).values({
-            sellerId,
-            buyerId: userId,
-            items,
-          }).returning();
-          targetCart = newCart;
+          const newCart = await tx.carts.create({
+            data: {
+              seller_id: sellerId,
+              buyer_id: userId,
+              items,
+              status: 'active',
+            }
+          });
+          targetCartId = newCart.id;
         }
       } else {
         // Guest: get cart via session mapping or create new
-        const sessionMap = await tx.select().from(cartSessions)
-          .where(eq(cartSessions.sessionId, sessionId)).limit(1);
+        const sessionMap = await tx.cart_sessions.findUnique({
+          where: { session_id: sessionId }
+        });
         
-        if (sessionMap[0]) {
-          const [existingCart] = await tx.select().from(carts)
-            .where(eq(carts.id, sessionMap[0].cartId)).limit(1);
-          targetCart = existingCart;
+        if (sessionMap) {
+          // Lock existing cart
+          const existingCarts = await tx.$queryRaw<CartLockRow[]>`
+            SELECT * FROM carts WHERE id = ${sessionMap.cart_id} FOR UPDATE LIMIT 1
+          `;
+          targetCartId = existingCarts[0]?.id || sessionMap.cart_id;
         } else {
           // Create new guest cart
-          const [newCart] = await tx.insert(carts).values({
-            sellerId,
-            buyerId: null,
-            items,
-          }).returning();
-          targetCart = newCart;
+          const newCart = await tx.carts.create({
+            data: {
+              seller_id: sellerId,
+              buyer_id: null,
+              items,
+              status: 'active',
+            }
+          });
+          targetCartId = newCart.id;
         }
       }
       
       // Update cart items (only mutable fields)
-      await tx.update(carts)
-        .set({ items, sellerId, buyerId: userId || null, updatedAt: new Date() })
-        .where(eq(carts.id, targetCart.id));
+      const updatedCart = await tx.carts.update({
+        where: { id: targetCartId },
+        data: {
+          items,
+          seller_id: sellerId,
+          buyer_id: userId || null,
+          updated_at: new Date(),
+        }
+      });
       
       // Upsert session mapping
-      await tx.insert(cartSessions)
-        .values({ sessionId, cartId: targetCart.id, lastSeen: new Date() })
-        .onConflictDoUpdate({
-          target: cartSessions.sessionId,
-          set: { cartId: targetCart.id, lastSeen: new Date() },
-        });
+      await tx.cart_sessions.upsert({
+        where: { session_id: sessionId },
+        update: {
+          cart_id: targetCartId,
+          last_seen: new Date(),
+        },
+        create: {
+          session_id: sessionId,
+          cart_id: targetCartId,
+          last_seen: new Date(),
+        }
+      });
       
-      return targetCart;
+      return mapCartFromPrisma(updatedCart);
     });
   }
 
