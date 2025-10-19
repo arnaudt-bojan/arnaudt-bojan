@@ -25,6 +25,8 @@ import { MetaOAuthService } from "./services/meta/meta-oauth.service";
 import { ShippoLabelService } from "./services/shippo-label.service";
 import { domainMiddleware } from "./middleware/domain";
 import { startDomainStatusChecker } from "./jobs/domain-status-checker";
+import { proxyMiddleware, logProxyStats } from "./middleware/proxy.middleware";
+import { featureFlagsService } from "./services/feature-flags.service";
 import Stripe from "stripe";
 import { prisma } from "./prisma";
 
@@ -106,6 +108,12 @@ app.get('/api/health', (_req, res) => {
 (async () => {
   app.use(domainMiddleware);
 
+  // API Gateway Proxy Middleware - routes requests to REST or GraphQL based on feature flags
+  // Phase 1: All requests go to REST (no-op behavior)
+  // Phase 3: Gradual migration to NestJS GraphQL via feature flags
+  app.use(proxyMiddleware());
+  log('[Server] Proxy middleware registered (Phase 1: all traffic to REST)');
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -144,6 +152,7 @@ app.get('/api/health', (_req, res) => {
   let metaJobScheduler: MetaJobScheduler | null = null;
   let shippoRefundPollInterval: NodeJS.Timeout | null = null;
   let domainStatusChecker: any = null;
+  let proxyStatsInterval: NodeJS.Timeout | null = null;
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -258,6 +267,17 @@ app.get('/api/health', (_req, res) => {
     } else {
       log('[Server] Shippo refund polling skipped (SHIPPO_API_KEY not configured)');
     }
+    
+    // Log proxy configuration stats every 5 minutes
+    // Initial log on startup
+    logProxyStats();
+    
+    // Then periodic logging
+    proxyStatsInterval = setInterval(() => {
+      logProxyStats();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    log('[Server] Proxy stats logging started (5 minute interval)');
   });
   
   // Graceful shutdown
@@ -280,6 +300,12 @@ app.get('/api/health', (_req, res) => {
     if (shippoRefundPollInterval) {
       clearInterval(shippoRefundPollInterval);
     }
+    if (proxyStatsInterval) {
+      clearInterval(proxyStatsInterval);
+    }
+    
+    // Cleanup feature flags service
+    featureFlagsService.destroy();
     
     // Wait a bit for jobs to cleanup
     await new Promise(resolve => setTimeout(resolve, 2000));
