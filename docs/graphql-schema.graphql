@@ -2286,6 +2286,9 @@ type Query {
   # Module 1: Identity & Access
   # ========================================
   
+  """Get authenticated user ID (for testing authentication)"""
+  whoami: String
+  
   """Get currently authenticated user"""
   getCurrentUser: User
   

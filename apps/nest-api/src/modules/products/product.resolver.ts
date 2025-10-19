@@ -1,6 +1,11 @@
 import { Resolver, Query, Mutation, Args, ResolveField, Parent, Context } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { GraphQLContext } from '../../types/context';
+import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
+import { UserTypeGuard } from '../auth/guards/user-type.guard';
+import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Resolver('Product')
 export class ProductResolver {
@@ -29,32 +34,44 @@ export class ProductResolver {
     return this.productService.listProducts({ filter, sort, first, after });
   }
 
+  @Query('whoami')
+  @UseGuards(GqlAuthGuard)
+  whoami(@CurrentUser() userId: string): string {
+    return `Authenticated as: ${userId}`;
+  }
+
   @Mutation('createProduct')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
   async createProduct(
     @Args('input') input: any,
+    @CurrentUser() userId: string,
     @Context() context: GraphQLContext,
   ) {
-    const sellerId = 'e2e-seller1';
-    return this.productService.createProduct(input, sellerId);
+    return this.productService.createProduct(input, userId);
   }
 
   @Mutation('updateProduct')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
   async updateProduct(
     @Args('id') id: string,
     @Args('input') input: any,
+    @CurrentUser() userId: string,
     @Context() context: GraphQLContext,
   ) {
-    const sellerId = 'e2e-seller1';
-    return this.productService.updateProduct(id, input, sellerId);
+    return this.productService.updateProduct(id, input, userId);
   }
 
   @Mutation('deleteProduct')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
   async deleteProduct(
     @Args('id') id: string,
+    @CurrentUser() userId: string,
     @Context() context: GraphQLContext,
   ) {
-    const sellerId = 'e2e-seller1';
-    return this.productService.deleteProduct(id, sellerId);
+    return this.productService.deleteProduct(id, userId);
   }
 
   @ResolveField('seller')
