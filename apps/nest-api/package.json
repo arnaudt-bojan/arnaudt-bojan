@@ -4,6 +4,7 @@
   "type": "commonjs",
   "private": true,
   "scripts": {
+    "build": "nest build",
     "codegen": "graphql-codegen --config codegen.ts"
   }
 }

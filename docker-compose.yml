@@ -1,146 +1,63 @@
-# Upfirst Platform - Docker Development Environment
-# Phase 0: Infrastructure Readiness
-
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: upfirst-postgres
-    restart: unless-stopped
     environment:
-      POSTGRES_DB: upfirst_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_dev_password
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: upfirst
+      POSTGRES_PASSWORD: upfirst_dev_password
+      POSTGRES_DB: upfirst
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U upfirst"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - upfirst-network
 
-  # Redis (for sessions, caching, Socket.IO adapter)
-  redis:
-    image: redis:7-alpine
-    container_name: upfirst-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-    networks:
-      - upfirst-network
-
-  # Legacy App (Current Express + Vite + React)
-  legacy-app:
+  nest-api:
     build:
       context: .
-      dockerfile: Dockerfile.legacy
-    container_name: upfirst-legacy
-    restart: unless-stopped
+      dockerfile: apps/nest-api/Dockerfile
+    container_name: upfirst-nest-api
     environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://postgres:postgres_dev_password@postgres:5432/upfirst_dev
-      REDIS_URL: redis://redis:6379
-      PORT: 3000
-      # Copy existing secrets (will be loaded from .env)
-      SESSION_SECRET: ${SESSION_SECRET}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      SHIPPO_API_KEY: ${SHIPPO_API_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      # Object Storage
-      DEFAULT_OBJECT_STORAGE_BUCKET_ID: ${DEFAULT_OBJECT_STORAGE_BUCKET_ID}
-      PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS}
-      PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR}
+      NODE_ENV: production
+      DATABASE_URL: postgresql://upfirst:upfirst_dev_password@postgres:5432/upfirst
+      PORT: 4000
     ports:
-      - "3000:3000"
-    volumes:
-      # Hot reload - mount source code
-      - ./client:/app/client
-      - ./server:/app/server
-      - ./shared:/app/shared
-      - ./public:/app/public
-      # Exclude node_modules from sync (use container's)
-      - /app/node_modules
+      - "4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - upfirst-network
-
-  # NGINX API Gateway (for dual routing REST + future GraphQL)
-  nginx-gateway:
-    image: nginx:alpine
-    container_name: upfirst-gateway
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./prisma:/app/prisma
+    command: sh -c "npx prisma migrate deploy && node apps/nest-api/dist/main.js"
+
+  vite-frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: upfirst-vite-frontend
+    ports:
+      - "5000:80"
     depends_on:
-      - legacy-app
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    networks:
-      - upfirst-network
+      - nest-api
 
-  # Future: NestJS GraphQL Server (Phase 2)
-  # nest-server:
-  #   build:
-  #     context: ./apps/nest-server
-  #     dockerfile: Dockerfile
-  #   container_name: upfirst-nest
-  #   environment:
-  #     DATABASE_URL: postgresql://postgres:postgres_dev_password@postgres:5432/upfirst_dev
-  #     REDIS_URL: redis://redis:6379
-  #   ports:
-  #     - "4000:4000"
-  #   networks:
-  #     - upfirst-network
-
-  # Future: Next.js Client (Phase 3)
-  # next-client:
-  #   build:
-  #     context: ./apps/next-client
-  #     dockerfile: Dockerfile
-  #   container_name: upfirst-next
-  #   ports:
-  #     - "3001:3000"
-  #   networks:
-  #     - upfirst-network
+  nextjs-frontend:
+    build:
+      context: .
+      dockerfile: apps/nextjs/Dockerfile
+    container_name: upfirst-nextjs-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_GRAPHQL_URL: http://nest-api:4000/graphql
+    ports:
+      - "3000:3000"
+    depends_on:
+      - nest-api
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-
-networks:
-  upfirst-network:
-    driver: bridge
