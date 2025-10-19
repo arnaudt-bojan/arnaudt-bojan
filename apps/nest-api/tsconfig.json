@@ -20,8 +20,8 @@
     "moduleResolution": "node",
     "esModuleInterop": true,
     "lib": ["ES2021"],
-    "types": ["node"]
+    "types": ["node", "jest"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
