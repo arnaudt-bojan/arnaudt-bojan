@@ -2,7 +2,33 @@
 
 ## Recent Changes
 
-### Drizzle ORM Removal (October 19, 2025)
+### Phase 3A: NestJS GraphQL Foundation (October 19, 2025)
+**Status**: ✅ Complete - NestJS application operational with GraphQL schema-first architecture
+
+**What Was Done:**
+- Bootstrapped NestJS application in `apps/nest-api/` workspace (separate from Express)
+- Configured GraphQL module (schema-first) using existing 2,300-line SDL from `docs/graphql-schema.graphql`
+- Integrated shared Prisma client (reuses DATABASE_URL, graceful shutdown hooks)
+- Implemented health check endpoint: `GET http://localhost:4000/health`
+- Resolved Apollo Server version compatibility (Apollo Server 4 + @nestjs/apollo@13.1.0)
+- Created modular structure: Health module, Prisma module, GraphQL module
+
+**Architecture:**
+- NestJS runs on port 4000 (alongside Express on 5000)
+- GraphQL playground at `http://localhost:4000/graphql`
+- Express proxy middleware ready to route traffic based on feature flags
+- Shared Prisma client (no dual database connections)
+
+**Next Phase:** Phase 3B will implement product resolvers with dataloaders for N+1 prevention
+
+**File Structure:**
+- `apps/nest-api/src/main.ts` - NestJS entry point
+- `apps/nest-api/src/app.module.ts` - Root module
+- `apps/nest-api/src/modules/health/` - Health check
+- `apps/nest-api/src/modules/prisma/` - Prisma service
+- `apps/nest-api/src/modules/graphql/` - GraphQL configuration
+
+### Phase 2: Drizzle ORM Removal (October 19, 2025)
 **Status**: ✅ Complete - Drizzle ORM packages removed, 100% Prisma architecture
 
 **What Was Done:**
@@ -22,6 +48,22 @@
 - `shared/prisma-types.ts` - All Prisma type exports
 - `shared/validation-schemas.ts` - Pure Zod validation schemas
 - `shared/schema.ts` - Compatibility layer (re-exports from above)
+
+### GraphQL Schema Design (October 19, 2025)
+**Status**: ✅ Complete - Comprehensive GraphQL schema + resolver mapping documentation
+
+**What Was Done:**
+- Designed 2,300-line GraphQL SDL schema covering 10 domain modules
+- Created 2,500-line resolver mapping documentation with contract test guidelines
+- Modules: Identity, Catalog, Cart, Orders, Wholesale, Quotations, Subscriptions, Marketing, Newsletter, Platform Ops
+- 40+ queries, 50+ mutations, 7 subscriptions
+- Built Express proxy layer with feature flag system for gradual NestJS cutover
+
+**File Structure:**
+- `docs/graphql-schema.graphql` - Complete SDL schema (2,300+ lines)
+- `docs/graphql-resolver-mapping.md` - Resolver mapping + contract tests (2,500 lines)
+- `config/feature-flags.json` - Feature flag configuration
+- `server/middleware/proxy.middleware.ts` - Express proxy with hot-reload
 
 ## Overview
 Upfirst is a D2C e-commerce platform empowering creators and brands with individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates essential e-commerce functionalities such as product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform features B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system. Upfirst's ambition is to provide a scalable, secure, and modern direct-to-consumer solution with significant market potential.
