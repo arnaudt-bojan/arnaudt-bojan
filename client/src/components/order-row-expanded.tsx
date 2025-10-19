@@ -789,7 +789,9 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                                 ? `Estimated Delivery: ${format(new Date((item as any).deliveryDate), 'PPP')}`
                                 : item.productType === "pre-order"
                                   ? "Pre-order (delivery date not set)"
-                                  : `Made-to-order (${(item as any).madeToOrderLeadTime || 0} days lead time)`
+                                  : (item as any).madeToOrderLeadTime && (item as any).madeToOrderLeadTime > 0
+                                    ? `Made-to-order (${(item as any).madeToOrderLeadTime} days lead time)`
+                                    : "Made-to-order (lead time not set)"
                               }
                             </div>
                             <Button
@@ -809,12 +811,15 @@ export function OrderRowExpanded({ orderId }: OrderRowExpandedProps) {
                     )}
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">
+                    <div className="font-medium" data-testid={`text-item-subtotal-${item.id}`}>
                       {order.currency} {parseFloat(item.subtotal).toFixed(2)}
                     </div>
-                    <Badge className={getItemStatusColor(item.itemStatus)}>
-                      {item.itemStatus.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </Badge>
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <span className="text-xs text-muted-foreground">Status:</span>
+                      <Badge className={getItemStatusColor(item.itemStatus)} data-testid={`badge-item-status-${item.id}`}>
+                        {item.itemStatus.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 
