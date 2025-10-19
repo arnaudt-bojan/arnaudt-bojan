@@ -3,14 +3,9 @@
  * Handles background processing with database persistence (no jobs lost on restart)
  */
 
-import { storage } from "../../storage";
-import { newsletterJobs } from "@shared/schema";
-import { eq, and, lte, or, isNull } from "drizzle-orm";
+import { prisma } from "../../prisma";
 import { logger } from "../../logger";
 import type { JobType, JobStatus } from "@shared/newsletter-types";
-
-// Get database instance
-const db = storage.db;
 
 // Job queue configuration
 const POLL_INTERVAL = 10000; // 10 seconds
@@ -73,14 +68,16 @@ export class NewsletterJobQueue {
     scheduledFor?: Date;
     maxRetries?: number;
   }): Promise<string> {
-    const [newJob] = await db.insert(newsletterJobs).values({
-      type: job.type,
-      data: job.data as any,
-      priority: job.priority ?? 0,
-      scheduledFor: job.scheduledFor,
-      maxRetries: job.maxRetries ?? MAX_RETRIES,
-      status: 'queued',
-    }).returning();
+    const newJob = await prisma.newsletter_jobs.create({
+      data: {
+        type: job.type,
+        data: job.data as any,
+        priority: job.priority ?? 0,
+        scheduled_for: job.scheduledFor,
+        max_retries: job.maxRetries ?? MAX_RETRIES,
+        status: 'queued',
+      }
+    });
 
     logger.info(`[NewsletterQueue] Enqueued job ${newJob.id} (type: ${job.type})`);
     return newJob.id;
@@ -90,8 +87,8 @@ export class NewsletterJobQueue {
    * Get job status from database
    */
   async getJobStatus(jobId: string) {
-    const job = await db.query.newsletterJobs.findFirst({
-      where: (jobs, { eq }) => eq(jobs.id, jobId),
+    const job = await prisma.newsletter_jobs.findUnique({
+      where: { id: jobId }
     });
     return job;
   }
@@ -106,29 +103,45 @@ export class NewsletterJobQueue {
       controller.abort();
       this.activeJobs.delete(jobId);
       
-      await db.update(newsletterJobs)
-        .set({ status: 'cancelled', completedAt: new Date() })
-        .where(eq(newsletterJobs.id, jobId));
+      // Atomic update - only if still running
+      const result = await prisma.newsletter_jobs.updateMany({
+        where: {
+          id: jobId,
+          status: 'running'
+        },
+        data: { 
+          status: 'cancelled', 
+          completed_at: new Date() 
+        }
+      });
+      
+      if (result.count === 0) {
+        logger.warn(`[NewsletterQueue] Job ${jobId} not in running state, skipping cancel update`);
+      }
       
       logger.info(`[NewsletterQueue] Cancelled running job ${jobId}`);
       return true;
     }
 
-    // Cancel if queued
-    const result = await db.update(newsletterJobs)
-      .set({ status: 'cancelled', completedAt: new Date() })
-      .where(and(
-        eq(newsletterJobs.id, jobId),
-        eq(newsletterJobs.status, 'queued')
-      ))
-      .returning();
+    // Cancel if queued - use updateMany to check status atomically
+    const result = await prisma.newsletter_jobs.updateMany({
+      where: {
+        id: jobId,
+        status: 'queued'
+      },
+      data: { 
+        status: 'cancelled', 
+        completed_at: new Date() 
+      }
+    });
 
-    if (result.length > 0) {
-      logger.info(`[NewsletterQueue] Cancelled queued job ${jobId}`);
-      return true;
+    if (result.count === 0) {
+      // Job not queued (already running/completed/cancelled)
+      return false;
     }
 
-    return false;
+    logger.info(`[NewsletterQueue] Cancelled queued job ${jobId}`);
+    return true;
   }
 
   /**
@@ -155,17 +168,19 @@ export class NewsletterJobQueue {
     const now = new Date();
 
     // Find next job that's ready to run (queued, and either no schedule or past schedule time)
-    const [queuedJob] = await db.select()
-      .from(newsletterJobs)
-      .where(and(
-        eq(newsletterJobs.status, 'queued'),
-        or(
-          isNull(newsletterJobs.scheduledFor),
-          lte(newsletterJobs.scheduledFor, now)
-        )
-      ))
-      .orderBy(newsletterJobs.priority, newsletterJobs.createdAt)
-      .limit(1);
+    const queuedJob = await prisma.newsletter_jobs.findFirst({
+      where: {
+        status: 'queued',
+        OR: [
+          { scheduled_for: null },
+          { scheduled_for: { lte: now } }
+        ]
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { created_at: 'asc' }
+      ]
+    });
 
     if (!queuedJob) {
       logger.debug("[NewsletterQueue] No queued jobs found");
@@ -174,37 +189,55 @@ export class NewsletterJobQueue {
     
     logger.info(`[NewsletterQueue] Found queued job ${queuedJob.id} (type: ${queuedJob.type})`);
 
-
     const processor = this.processors.get(queuedJob.type as JobType);
     if (!processor) {
       logger.error(`[NewsletterQueue] No processor registered for job type: ${queuedJob.type}`);
       
-      await db.update(newsletterJobs)
-        .set({
+      // Atomic update - only if still queued
+      const result = await prisma.newsletter_jobs.updateMany({
+        where: {
+          id: queuedJob.id,
+          status: 'queued'
+        },
+        data: {
           status: 'failed',
           error: `No processor registered for job type: ${queuedJob.type}`,
-          completedAt: now,
-        })
-        .where(eq(newsletterJobs.id, queuedJob.id));
+          completed_at: now,
+        }
+      });
+      
+      if (result.count === 0) {
+        logger.warn(`[NewsletterQueue] Job ${queuedJob.id} not in queued state, skipping no-processor failure update`);
+      }
       
       return;
     }
 
     // Atomically claim the job
-    const [claimedJob] = await db.update(newsletterJobs)
-      .set({
+    const result = await prisma.newsletter_jobs.updateMany({
+      where: {
+        id: queuedJob.id,
+        status: 'queued' // This IS checked in updateMany!
+      },
+      data: {
         status: 'running',
-        startedAt: now,
-      })
-      .where(and(
-        eq(newsletterJobs.id, queuedJob.id),
-        eq(newsletterJobs.status, 'queued') // Only update if still queued
-      ))
-      .returning();
+        started_at: now,
+      }
+    });
+
+    // If count === 0, another worker already claimed it
+    if (result.count === 0) {
+      return; // Job already claimed by another worker
+    }
+
+    // If count === 1, we successfully claimed it!
+    // Now fetch the full job object
+    const claimedJob = await prisma.newsletter_jobs.findUnique({
+      where: { id: queuedJob.id }
+    });
 
     if (!claimedJob) {
-      // Job was already claimed by another worker
-      return;
+      return; // Job was deleted
     }
 
     const controller = new AbortController();
@@ -228,26 +261,60 @@ export class NewsletterJobQueue {
 
       // Check if job was aborted
       if (controller.signal.aborted) {
-        await db.update(newsletterJobs)
-          .set({ status: 'cancelled', completedAt: new Date() })
-          .where(eq(newsletterJobs.id, job.id));
+        const result = await prisma.newsletter_jobs.updateMany({
+          where: {
+            id: job.id,
+            status: 'running'
+          },
+          data: { 
+            status: 'cancelled', 
+            completed_at: new Date() 
+          }
+        });
+        
+        if (result.count === 0) {
+          logger.warn(`[NewsletterQueue] Job ${job.id} not in running state, skipping cancel update`);
+        }
         
         logger.info(`[NewsletterQueue] Job ${job.id} was cancelled`);
         return;
       }
 
-      // Mark job as completed
-      await db.update(newsletterJobs)
-        .set({ status: 'completed', completedAt: new Date() })
-        .where(eq(newsletterJobs.id, job.id));
+      // Mark job as completed (atomic - only if still running)
+      const result = await prisma.newsletter_jobs.updateMany({
+        where: {
+          id: job.id,
+          status: 'running'
+        },
+        data: { 
+          status: 'completed', 
+          completed_at: new Date() 
+        }
+      });
+
+      if (result.count === 0) {
+        logger.warn(`[NewsletterQueue] Job ${job.id} not in running state, skipping completion update`);
+        return;
+      }
 
       logger.info(`[NewsletterQueue] Job ${job.id} completed successfully`);
 
     } catch (error: any) {
       if (controller.signal.aborted) {
-        await db.update(newsletterJobs)
-          .set({ status: 'cancelled', completedAt: new Date() })
-          .where(eq(newsletterJobs.id, job.id));
+        const result = await prisma.newsletter_jobs.updateMany({
+          where: {
+            id: job.id,
+            status: 'running'
+          },
+          data: { 
+            status: 'cancelled', 
+            completed_at: new Date() 
+          }
+        });
+        
+        if (result.count === 0) {
+          logger.warn(`[NewsletterQueue] Job ${job.id} not in running state, skipping cancel update`);
+        }
         
         logger.info(`[NewsletterQueue] Job ${job.id} was cancelled`);
         return;
@@ -255,29 +322,47 @@ export class NewsletterJobQueue {
 
       logger.error(`[NewsletterQueue] Job ${job.id} failed:`, error);
 
-      // Retry logic
-      if (job.retryCount < job.maxRetries) {
-        await db.update(newsletterJobs)
-          .set({
+      // Retry logic - atomic update (only if still running)
+      if (job.retry_count < job.max_retries) {
+        const result = await prisma.newsletter_jobs.updateMany({
+          where: {
+            id: job.id,
+            status: 'running'
+          },
+          data: {
             status: 'queued',
-            retryCount: job.retryCount + 1,
-            startedAt: null,
+            retry_count: job.retry_count + 1,
+            started_at: null,
             error: error.message,
-          })
-          .where(eq(newsletterJobs.id, job.id));
+          }
+        });
 
-        logger.info(`[NewsletterQueue] Job ${job.id} will retry (attempt ${job.retryCount + 1}/${job.maxRetries})`);
+        if (result.count === 0) {
+          logger.warn(`[NewsletterQueue] Job ${job.id} not in running state, skipping retry rollback`);
+          return;
+        }
+
+        logger.info(`[NewsletterQueue] Job ${job.id} will retry (attempt ${job.retry_count + 1}/${job.max_retries})`);
       } else {
-        // Max retries exceeded
-        await db.update(newsletterJobs)
-          .set({
+        // Max retries exceeded - atomic update (only if still running)
+        const result = await prisma.newsletter_jobs.updateMany({
+          where: {
+            id: job.id,
+            status: 'running'
+          },
+          data: {
             status: 'failed',
             error: error.message,
-            completedAt: new Date(),
-          })
-          .where(eq(newsletterJobs.id, job.id));
+            completed_at: new Date(),
+          }
+        });
 
-        logger.error(`[NewsletterQueue] Job ${job.id} failed after ${job.retryCount} retries`);
+        if (result.count === 0) {
+          logger.warn(`[NewsletterQueue] Job ${job.id} not in running state, skipping final failure update`);
+          return;
+        }
+
+        logger.error(`[NewsletterQueue] Job ${job.id} failed after ${job.retry_count} retries`);
       }
     }
   }
@@ -286,11 +371,11 @@ export class NewsletterJobQueue {
    * Find jobs by type and campaign ID (for cancellation)
    */
   async findJobByCampaignId(campaignId: string, jobType: JobType): Promise<string | null> {
-    const jobs = await db.query.newsletterJobs.findMany({
-      where: (jobs, { eq, and }) => and(
-        eq(jobs.status, 'queued'),
-        eq(jobs.type, jobType)
-      ),
+    const jobs = await prisma.newsletter_jobs.findMany({
+      where: {
+        status: 'queued',
+        type: jobType
+      }
     });
 
     // Find job matching this campaign
@@ -302,13 +387,13 @@ export class NewsletterJobQueue {
    * Get queue statistics
    */
   async getStatistics() {
-    const stats = await db.select()
-      .from(newsletterJobs)
-      .where(eq(newsletterJobs.status, 'queued'));
+    const queuedJobs = await prisma.newsletter_jobs.findMany({
+      where: { status: 'queued' }
+    });
     
     return {
       activeJobs: this.activeJobs.size,
-      pendingJobs: stats.length,
+      pendingJobs: queuedJobs.length,
       registeredProcessors: Array.from(this.processors.keys()),
     };
   }

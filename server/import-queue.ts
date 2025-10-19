@@ -1,9 +1,4 @@
-import { storage } from "./storage";
-import { importJobs, importJobLogs, importJobErrors } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
-
-// Get database instance from storage
-const db = storage.db;
+import { prisma } from "./prisma";
 
 // Job queue configuration
 const POLL_INTERVAL = 5000; // 5 seconds
@@ -74,47 +69,49 @@ export class ImportJobQueue {
     }
 
     // First, find the next queued job
-    const queuedJobs = await db
-      .select()
-      .from(importJobs)
-      .where(eq(importJobs.status, "queued"))
-      .orderBy(importJobs.createdAt)
-      .limit(1);
+    const nextJob = await prisma.import_jobs.findFirst({
+      where: { status: "queued" },
+      orderBy: { created_at: 'asc' }
+    });
 
-    if (queuedJobs.length === 0) {
+    if (!nextJob) {
       return; // No jobs to process
     }
 
-    const nextJob = queuedJobs[0];
-
     // Atomically claim it by updating only if still queued
     // This prevents race conditions where the same job is picked twice
-    const claimedJobs = await db
-      .update(importJobs)
-      .set({
+    const result = await prisma.import_jobs.updateMany({
+      where: {
+        id: nextJob.id,
+        status: "queued" // This IS checked in updateMany!
+      },
+      data: {
         status: "running",
-        startedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(importJobs.id, nextJob.id),
-          eq(importJobs.status, "queued") // Only update if still queued
-        )
-      )
-      .returning();
+        started_at: new Date(),
+      }
+    });
 
-    if (claimedJobs.length === 0) {
-      // Job was already claimed by another worker
-      return;
+    // If count === 0, another worker already claimed it
+    if (result.count === 0) {
+      return; // Job already claimed by another worker
     }
 
-    const job = claimedJobs[0];
+    // If count === 1, we successfully claimed it!
+    // Now fetch the full job object
+    const claimedJob = await prisma.import_jobs.findUnique({
+      where: { id: nextJob.id }
+    });
+
+    if (!claimedJob) {
+      return; // Job was deleted
+    }
+
     const controller = new AbortController();
-    this.activeJobs.set(job.id, controller);
+    this.activeJobs.set(claimedJob.id, controller);
 
     // Fire-and-forget job processing (non-blocking for concurrency)
-    this.processJob(job, controller).finally(() => {
-      this.activeJobs.delete(job.id);
+    this.processJob(claimedJob, controller).finally(() => {
+      this.activeJobs.delete(claimedJob.id);
     });
   }
 
@@ -129,38 +126,60 @@ export class ImportJobQueue {
 
       // Check if job was aborted
       if (controller.signal.aborted) {
-        await db
-          .update(importJobs)
-          .set({
+        const result = await prisma.import_jobs.updateMany({
+          where: {
+            id: job.id,
+            status: "running"
+          },
+          data: {
             status: "failed",
-            finishedAt: new Date(),
-          })
-          .where(eq(importJobs.id, job.id));
+            finished_at: new Date(),
+          }
+        });
+        
+        if (result.count === 0) {
+          console.warn(`[ImportQueue] Job ${job.id} not in running state, skipping cancel update`);
+        }
         
         await this.log(job.id, "warn", `Job ${job.id} was cancelled`);
         return;
       }
 
-      // Mark job as success
-      await db
-        .update(importJobs)
-        .set({
+      // Mark job as success (atomic - only if still running)
+      const result = await prisma.import_jobs.updateMany({
+        where: {
+          id: job.id,
+          status: "running"
+        },
+        data: {
           status: "success",
-          finishedAt: new Date(),
-        })
-        .where(eq(importJobs.id, job.id));
+          finished_at: new Date(),
+        }
+      });
+
+      if (result.count === 0) {
+        console.warn(`[ImportQueue] Job ${job.id} not in running state, skipping success update`);
+        return;
+      }
 
       await this.log(job.id, "info", `Job ${job.id} completed successfully`);
     } catch (error: any) {
       // Check if error was due to abort
       if (controller.signal.aborted) {
-        await db
-          .update(importJobs)
-          .set({
+        const result = await prisma.import_jobs.updateMany({
+          where: {
+            id: job.id,
+            status: "running"
+          },
+          data: {
             status: "failed",
-            finishedAt: new Date(),
-          })
-          .where(eq(importJobs.id, job.id));
+            finished_at: new Date(),
+          }
+        });
+        
+        if (result.count === 0) {
+          console.warn(`[ImportQueue] Job ${job.id} not in running state, skipping cancel update`);
+        }
         
         await this.log(job.id, "warn", `Job ${job.id} was cancelled`);
         return;
@@ -172,24 +191,31 @@ export class ImportJobQueue {
       await this.logError(job.id, "process", error.message, error.code);
 
       // Fetch latest job state to get current errorCount
-      const latestJob = await db
-        .select()
-        .from(importJobs)
-        .where(eq(importJobs.id, job.id))
-        .limit(1);
+      const latestJob = await prisma.import_jobs.findUnique({
+        where: { id: job.id }
+      });
 
-      const currentErrorCount = latestJob[0]?.errorCount || 0;
+      const currentErrorCount = latestJob?.error_count || 0;
       const newErrorCount = currentErrorCount + 1;
       const shouldRetry = newErrorCount < MAX_RETRIES;
 
-      await db
-        .update(importJobs)
-        .set({
+      // Atomic update - only if still running (prevents race with cancellation)
+      const result = await prisma.import_jobs.updateMany({
+        where: {
+          id: job.id,
+          status: "running"
+        },
+        data: {
           status: shouldRetry ? "queued" : "failed",
-          errorCount: newErrorCount,
-          finishedAt: shouldRetry ? null : new Date(), // Explicitly null to clear timestamp on retry
-        })
-        .where(eq(importJobs.id, job.id));
+          error_count: newErrorCount,
+          finished_at: shouldRetry ? null : new Date(),
+        }
+      });
+
+      if (result.count === 0) {
+        console.warn(`[ImportQueue] Job ${job.id} not in running state, skipping retry/fail update`);
+        return;
+      }
 
       await this.log(
         job.id,
@@ -203,99 +229,98 @@ export class ImportJobQueue {
 
   // Log a message for a job
   private async log(jobId: string, level: "info" | "warn" | "error", message: string, details?: any) {
-    await db.insert(importJobLogs).values({
-      jobId,
-      level,
-      message,
-      detailsJson: details || null,
+    await prisma.import_job_logs.create({
+      data: {
+        job_id: jobId,
+        level,
+        message,
+        details_json: details || null,
+      }
     });
   }
 
   // Log an error for a job
   private async logError(jobId: string, stage: string, errorMessage: string, errorCode?: string, externalId?: string) {
-    await db.insert(importJobErrors).values({
-      jobId,
-      stage,
-      errorMessage,
-      errorCode: errorCode || null,
-      externalId: externalId || null,
-      retryCount: 0,
-      resolved: 0,
+    await prisma.import_job_errors.create({
+      data: {
+        job_id: jobId,
+        stage,
+        error_message: errorMessage,
+        error_code: errorCode || null,
+        external_id: externalId || null,
+        retry_count: 0,
+        resolved: 0,
+      }
     });
   }
 
   // Get job status
   async getJobStatus(jobId: string) {
-    const job = await db
-      .select()
-      .from(importJobs)
-      .where(eq(importJobs.id, jobId))
-      .limit(1);
+    const job = await prisma.import_jobs.findUnique({
+      where: { id: jobId }
+    });
 
-    return job[0] || null;
+    return job || null;
   }
 
   // Get job logs
   async getJobLogs(jobId: string) {
-    const logs = await db
-      .select()
-      .from(importJobLogs)
-      .where(eq(importJobLogs.jobId, jobId))
-      .orderBy(importJobLogs.createdAt);
+    const logs = await prisma.import_job_logs.findMany({
+      where: { job_id: jobId },
+      orderBy: { created_at: 'asc' }
+    });
 
     return logs;
   }
 
   // Get job errors
   async getJobErrors(jobId: string) {
-    const errors = await db
-      .select()
-      .from(importJobErrors)
-      .where(eq(importJobErrors.jobId, jobId))
-      .orderBy(importJobErrors.createdAt);
+    const errors = await prisma.import_job_errors.findMany({
+      where: { job_id: jobId },
+      orderBy: { created_at: 'asc' }
+    });
 
     return errors;
   }
 
   // Enqueue a new job
   async enqueueJob(sourceId: string, type: "full" | "delta", createdBy: string) {
-    const job = await db
-      .insert(importJobs)
-      .values({
-        sourceId,
+    const job = await prisma.import_jobs.create({
+      data: {
+        source_id: sourceId,
         type,
         status: "queued",
-        createdBy,
-        totalItems: 0,
-        processedItems: 0,
-        errorCount: 0,
-      })
-      .returning();
+        created_by: createdBy,
+        total_items: 0,
+        processed_items: 0,
+        error_count: 0,
+      }
+    });
 
-    await this.log(job[0].id, "info", `Job enqueued: ${type} import from source ${sourceId}`);
+    await this.log(job.id, "info", `Job enqueued: ${type} import from source ${sourceId}`);
 
-    return job[0];
+    return job;
   }
 
   // Update job progress
   async updateProgress(jobId: string, processedItems: number, totalItems: number) {
-    await db
-      .update(importJobs)
-      .set({
-        processedItems,
-        totalItems,
-      })
-      .where(eq(importJobs.id, jobId));
+    await prisma.import_jobs.update({
+      where: { id: jobId },
+      data: {
+        processed_items: processedItems,
+        total_items: totalItems,
+      }
+    });
   }
 
   // Update job checkpoint (for resumable imports)
   async updateCheckpoint(jobId: string, checkpoint: string) {
-    await db
-      .update(importJobs)
-      .set({
-        lastCheckpoint: checkpoint,
-      })
-      .where(eq(importJobs.id, jobId));
+    await prisma.import_jobs.update({
+      where: { id: jobId },
+      data: {
+        last_checkpoint: checkpoint,
+      }
+    });
   }
 }
 
