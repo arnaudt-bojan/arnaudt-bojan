@@ -156,6 +156,51 @@ import {
   type TradeQuotation,
   type InsertTradeQuotation
 } from "@shared/prisma-types";
+
+// Also import Drizzle schemas for unmigrated methods
+import {
+  users, products, orders, orderItems, orderEvents,
+  orderBalancePayments, balanceRequests, orderAddressChanges,
+  refunds, refundLineItems, stockReservations, invitations,
+  metaSettings, tiktokSettings, xSettings, subscriberGroups,
+  subscribers, subscriberGroupMemberships, newsletters,
+  newsletterTemplates, newsletterAnalytics, newsletterEvents,
+  newsletterSegments, newsletterSchedule, newsletterABTests,
+  nftMints, wholesaleProducts, wholesaleInvitations,
+  categories, notifications, authTokens, shippingMatrices,
+  shippingZones, invoices, packingSlips, savedAddresses,
+  savedPaymentMethods, sellerHomepages, homepageCtaOptions,
+  homepageMediaAssets, musicTracks, userStoreRoles,
+  userStoreMemberships, wholesaleAccessGrants, teamInvitations,
+  storeInvitations, paymentIntents, webhookEvents,
+  failedWebhookEvents, carts, cartSessions, orderWorkflows,
+  orderWorkflowEvents, wholesaleOrders, wholesaleOrderItems,
+  wholesalePayments, wholesaleShippingDetails,
+  wholesaleOrderEvents, warehouseLocations, buyerProfiles,
+  wholesaleCarts, wholesalePaymentIntents,
+  wholesaleShippingMetadata, warehouseAddresses,
+  shippingLabels, shippingLabelRefunds, sellerCreditLedgers,
+  bulkUploadJobs, bulkUploadItems, metaAdAccounts,
+  metaCampaigns, metaCampaignFinance, metaCampaignMetricsDaily,
+  metaAdCampaigns, metaAdPayments, metaAdPerformance,
+  backgroundJobRuns, domainConnections, newsletterWorkflows,
+  automationExecutions, analyticsEvents, tradeQuotations,
+  tradeQuotationItems, tradeQuotationEvents, tradePaymentSchedules,
+  importJobs, importSources, importJobLogs, importJobErrors,
+  productSourceMappings, newsletterJobs, newsletterConversions,
+  subscriberEngagement, cancellationRequests, returnRequests,
+  sessions, trustpilotReviews, trustpilotTokens, dailyAnalytics,
+  featureAdoptions, cartItems
+} from "@shared/schema";
+
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { eq, and, or, desc, asc, sql, inArray, gte, lte, lt, like, ilike, isNull, isNotNull, count, sum, avg } from 'drizzle-orm';
+import ws from 'ws';
+
+// Configure Neon to use ws WebSocket implementation for Node.js
+neonConfig.webSocketConstructor = ws;
+
 import { prisma } from './prisma';
 import { logger } from './logger';
 
@@ -786,18 +831,26 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Prisma client is imported from ./prisma.ts and already initialized
-  // No need for manual pool/client initialization
+  private pool: Pool;
+  private db: any; // Drizzle client for unmigrated methods
+  private initialized: boolean = false;
   
   constructor() {
-    // Prisma client initialization is handled in ./prisma.ts
-    // DATABASE_URL is automatically read by Prisma from environment
+    // Initialize Drizzle (for unmigrated methods)
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
+
+    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.db = drizzle(this.pool);
+    this.initialized = true;
+    
+    // Prisma client is imported from ./prisma.ts and already initialized
   }
 
-  // ensureInitialized is no longer needed with Prisma
-  // Prisma client is ready immediately upon import
   private async ensureInitialized() {
-    // No-op for Prisma - kept for backward compatibility with existing code
+    // Already initialized in constructor
+    return Promise.resolve();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -806,47 +859,111 @@ export class DatabaseStorage implements IStorage {
     return result ?? undefined;
   }
 
+  /**
+   * Helper function to map camelCase fields from UpsertUser to snake_case Prisma format
+   */
+  private mapUserDataToPrisma(userData: any): any {
+    const mapped: any = {};
+    
+    // Fields that don't need transformation (already snake_case or no change needed)
+    if (userData.id !== undefined) mapped.id = userData.id;
+    if (userData.email !== undefined) mapped.email = userData.email;
+    if (userData.username !== undefined) mapped.username = userData.username;
+    if (userData.role !== undefined) mapped.role = userData.role;
+    
+    // CamelCase to snake_case transformations
+    if (userData.firstName !== undefined) mapped.first_name = userData.firstName;
+    if (userData.lastName !== undefined) mapped.last_name = userData.lastName;
+    if (userData.profileImageUrl !== undefined) mapped.profile_image_url = userData.profileImageUrl;
+    if (userData.sellerId !== undefined) mapped.seller_id = userData.sellerId;
+    if (userData.invitedBy !== undefined) mapped.invited_by = userData.invitedBy;
+    if (userData.storeBanner !== undefined) mapped.store_banner = userData.storeBanner;
+    if (userData.storeLogo !== undefined) mapped.store_logo = userData.storeLogo;
+    if (userData.paymentProvider !== undefined) mapped.payment_provider = userData.paymentProvider;
+    if (userData.stripeConnectedAccountId !== undefined) mapped.stripe_connected_account_id = userData.stripeConnectedAccountId;
+    if (userData.stripeChargesEnabled !== undefined) mapped.stripe_charges_enabled = userData.stripeChargesEnabled;
+    if (userData.stripePayoutsEnabled !== undefined) mapped.stripe_payouts_enabled = userData.stripePayoutsEnabled;
+    if (userData.stripeDetailsSubmitted !== undefined) mapped.stripe_details_submitted = userData.stripeDetailsSubmitted;
+    if (userData.listingCurrency !== undefined) mapped.listing_currency = userData.listingCurrency;
+    if (userData.stripeCustomerId !== undefined) mapped.stripe_customer_id = userData.stripeCustomerId;
+    if (userData.stripeSubscriptionId !== undefined) mapped.stripe_subscription_id = userData.stripeSubscriptionId;
+    if (userData.subscriptionStatus !== undefined) mapped.subscription_status = userData.subscriptionStatus;
+    if (userData.subscriptionPlan !== undefined) mapped.subscription_plan = userData.subscriptionPlan;
+    if (userData.trialEndsAt !== undefined) mapped.trial_ends_at = userData.trialEndsAt;
+    if (userData.createdAt !== undefined) mapped.created_at = userData.createdAt;
+    if (userData.updatedAt !== undefined) mapped.updated_at = userData.updatedAt;
+    if (userData.welcomeEmailSent !== undefined) mapped.welcome_email_sent = userData.welcomeEmailSent;
+    
+    // Handle already snake_case fields (in case they're passed that way)
+    if (userData.first_name !== undefined) mapped.first_name = userData.first_name;
+    if (userData.last_name !== undefined) mapped.last_name = userData.last_name;
+    if (userData.profile_image_url !== undefined) mapped.profile_image_url = userData.profile_image_url;
+    if (userData.seller_id !== undefined) mapped.seller_id = userData.seller_id;
+    if (userData.invited_by !== undefined) mapped.invited_by = userData.invited_by;
+    if (userData.store_banner !== undefined) mapped.store_banner = userData.store_banner;
+    if (userData.store_logo !== undefined) mapped.store_logo = userData.store_logo;
+    if (userData.payment_provider !== undefined) mapped.payment_provider = userData.payment_provider;
+    if (userData.stripe_connected_account_id !== undefined) mapped.stripe_connected_account_id = userData.stripe_connected_account_id;
+    if (userData.stripe_charges_enabled !== undefined) mapped.stripe_charges_enabled = userData.stripe_charges_enabled;
+    if (userData.stripe_payouts_enabled !== undefined) mapped.stripe_payouts_enabled = userData.stripe_payouts_enabled;
+    if (userData.stripe_details_submitted !== undefined) mapped.stripe_details_submitted = userData.stripe_details_submitted;
+    if (userData.listing_currency !== undefined) mapped.listing_currency = userData.listing_currency;
+    if (userData.stripe_customer_id !== undefined) mapped.stripe_customer_id = userData.stripe_customer_id;
+    if (userData.stripe_subscription_id !== undefined) mapped.stripe_subscription_id = userData.stripe_subscription_id;
+    if (userData.subscription_status !== undefined) mapped.subscription_status = userData.subscription_status;
+    if (userData.subscription_plan !== undefined) mapped.subscription_plan = userData.subscription_plan;
+    if (userData.trial_ends_at !== undefined) mapped.trial_ends_at = userData.trial_ends_at;
+    if (userData.created_at !== undefined) mapped.created_at = userData.created_at;
+    if (userData.updated_at !== undefined) mapped.updated_at = userData.updated_at;
+    if (userData.welcome_email_sent !== undefined) mapped.welcome_email_sent = userData.welcome_email_sent;
+    
+    return mapped;
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     await this.ensureInitialized();
     
+    // Map camelCase fields to snake_case for Prisma
+    const mappedData = this.mapUserDataToPrisma(userData);
+    
     // Prisma upsert requires a unique constraint to upsert on
     // First try by email (which is unique), then fallback to ID-based logic
-    if (userData.email) {
+    if (mappedData.email) {
       return await prisma.users.upsert({
-        where: { email: userData.email },
-        create: userData,
+        where: { email: mappedData.email },
+        create: mappedData,
         update: {
-          ...userData,
-          updatedAt: new Date()
+          ...mappedData,
+          updated_at: new Date()
         }
       });
-    } else if (userData.id) {
+    } else if (mappedData.id) {
       // If no email but has ID, try to update or create
-      const existingUser = await prisma.users.findUnique({ where: { id: userData.id } });
+      const existingUser = await prisma.users.findUnique({ where: { id: mappedData.id } });
       if (existingUser) {
         return await prisma.users.update({
-          where: { id: userData.id },
+          where: { id: mappedData.id },
           data: {
-            ...userData,
-            updatedAt: new Date()
+            ...mappedData,
+            updated_at: new Date()
           }
         });
       } else {
         return await prisma.users.create({
-          data: userData
+          data: mappedData
         });
       }
     } else {
       // No email or ID, just create
       return await prisma.users.create({
-        data: userData
+        data: mappedData
       });
     }
   }
 
   async getAllProducts(): Promise<Product[]> {
     return await prisma.products.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -888,7 +1005,7 @@ export class DatabaseStorage implements IStorage {
   async getOrdersByUserId(userId: string): Promise<Order[]> {
     await this.ensureInitialized();
     return await prisma.orders.findMany({
-      where: { userId },
+      where: { user_id: userId },
       orderBy: { created_at: 'desc' }
     });
   }
@@ -904,7 +1021,7 @@ export class DatabaseStorage implements IStorage {
   async getOrderByPaymentIntent(paymentIntentId: string): Promise<Order | undefined> {
     await this.ensureInitialized();
     const result = await prisma.orders.findFirst({
-      where: { stripePaymentIntentId: paymentIntentId }
+      where: { stripe_payment_intent_id: paymentIntentId }
     });
     return result ?? undefined;
   }
@@ -967,13 +1084,13 @@ export class DatabaseStorage implements IStorage {
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      where.categoryLevel1Id = filters.categoryLevel1Id;
+      where.category_level_1_id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      where.categoryLevel2Id = filters.categoryLevel2Id;
+      where.category_level_2_id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      where.categoryLevel3Id = filters.categoryLevel3Id;
+      where.category_level_3_id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents)
@@ -991,12 +1108,12 @@ export class DatabaseStorage implements IStorage {
     
     // Seller filter
     if (filters.sellerId) {
-      where.sellerId = filters.sellerId;
+      where.seller_id = filters.sellerId;
     }
     
     // Product type filter
     if (filters.productType) {
-      where.productType = filters.productType;
+      where.product_type = filters.productType;
     }
     
     // Status filter (supports both single status and array of statuses)
@@ -1006,7 +1123,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Sorting
-    const sortBy = filters.sortBy || 'createdAt';
+    const sortBy = filters.sortBy || 'created_at';
     const sortOrder = filters.sortOrder || 'desc';
     const orderBy = { [sortBy]: sortOrder };
     
@@ -1047,13 +1164,13 @@ export class DatabaseStorage implements IStorage {
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      where.categoryLevel1Id = filters.categoryLevel1Id;
+      where.category_level_1_id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      where.categoryLevel2Id = filters.categoryLevel2Id;
+      where.category_level_2_id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      where.categoryLevel3Id = filters.categoryLevel3Id;
+      where.category_level_3_id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents)
@@ -1071,12 +1188,12 @@ export class DatabaseStorage implements IStorage {
     
     // Seller filter
     if (filters.sellerId) {
-      where.sellerId = filters.sellerId;
+      where.seller_id = filters.sellerId;
     }
     
     // Product type filter
     if (filters.productType) {
-      where.productType = filters.productType;
+      where.product_type = filters.productType;
     }
     
     // Status filter (supports both single status and array of statuses)
@@ -1644,7 +1761,7 @@ export class DatabaseStorage implements IStorage {
     
     // Count shipped items
     const shippedItems = items.filter(item => 
-      item.itemStatus === 'shipped' || item.itemStatus === 'delivered'
+      item.item_status === 'shipped' || item.item_status === 'delivered'
     );
     
     // Determine fulfillment status
@@ -1660,7 +1777,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.orders.update({
         where: { id: orderId },
-        data: { fulfillmentStatus }
+        data: { fulfillment_status: fulfillmentStatus }
       });
       return result;
     } catch (error) {
@@ -1672,7 +1789,7 @@ export class DatabaseStorage implements IStorage {
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
     await this.ensureInitialized();
     return await prisma.order_items.findMany({
-      where: { orderId },
+      where: { order_id: orderId },
       orderBy: { created_at: 'asc' }
     });
   }
@@ -1705,15 +1822,15 @@ export class DatabaseStorage implements IStorage {
   async updateOrderItemStatus(itemId: string, status: string): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
     const updateData: any = { 
-      itemStatus: status,
-      updatedAt: new Date()
+      item_status: status,
+      updated_at: new Date()
     };
     
     // Set timestamps based on status
     if (status === 'shipped') {
-      updateData.shippedAt = new Date();
+      updateData.shipped_at = new Date();
     } else if (status === 'delivered') {
-      updateData.deliveredAt = new Date();
+      updateData.delivered_at = new Date();
     }
     
     try {
@@ -1733,13 +1850,13 @@ export class DatabaseStorage implements IStorage {
       const result = await prisma.order_items.update({
         where: { id: itemId },
         data: {
-          trackingNumber,
-          trackingCarrier: trackingCarrier || null,
-          trackingUrl: trackingUrl || null,
-          trackingLink: trackingUrl || null,
-          itemStatus: 'shipped',
-          shippedAt: new Date(),
-          updatedAt: new Date()
+          tracking_number: trackingNumber,
+          tracking_carrier: trackingCarrier || null,
+          tracking_url: trackingUrl || null,
+          tracking_link: trackingUrl || null,
+          item_status: 'shipped',
+          shipped_at: new Date(),
+          updated_at: new Date()
         }
       });
       return result;
@@ -1751,17 +1868,17 @@ export class DatabaseStorage implements IStorage {
   async updateOrderItemRefund(itemId: string, refundedQuantity: number, refundedAmount: string, status: string): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
     const updateData: any = {
-      refundedQuantity,
-      refundedAmount,
-      itemStatus: status,
-      updatedAt: new Date()
+      refunded_quantity: refundedQuantity,
+      refunded_amount: refundedAmount,
+      item_status: status,
+      updated_at: new Date()
     };
     
     // Set timestamps based on status
     if (status === 'returned') {
-      updateData.returnedAt = new Date();
+      updateData.returned_at = new Date();
     } else if (status === 'refunded') {
-      updateData.refundedAt = new Date();
+      updateData.refunded_at = new Date();
     }
     
     try {
@@ -1778,17 +1895,17 @@ export class DatabaseStorage implements IStorage {
   async updateOrderItemDeliveryDate(itemId: string, preOrderDate: Date | null, madeToOrderLeadTime: number | null): Promise<OrderItem | undefined> {
     await this.ensureInitialized();
     const updateData: any = {
-      updatedAt: new Date(),
+      updated_at: new Date(),
       // CRITICAL: Reset reminder flag when delivery date changes so a new reminder will be sent
-      deliveryReminderSentAt: null
+      delivery_reminder_sent_at: null
     };
 
     if (preOrderDate !== null) {
-      updateData.preOrderDate = preOrderDate;
+      updateData.pre_order_date = preOrderDate;
     }
     
     if (madeToOrderLeadTime !== null) {
-      updateData.madeToOrderLeadTime = madeToOrderLeadTime;
+      updateData.made_to_order_lead_time = madeToOrderLeadTime;
     }
 
     try {
@@ -1808,17 +1925,17 @@ export class DatabaseStorage implements IStorage {
       const result = await prisma.orders.update({
         where: { id: orderId },
         data: {
-          customerName: details.customerName,
-          shippingStreet: details.shippingStreet,
-          shippingCity: details.shippingCity,
-          shippingState: details.shippingState,
-          shippingPostalCode: details.shippingPostalCode,
-          shippingCountry: details.shippingCountry,
-          billingStreet: details.billingStreet,
-          billingCity: details.billingCity,
-          billingState: details.billingState,
-          billingPostalCode: details.billingPostalCode,
-          billingCountry: details.billingCountry
+          customer_name: details.customerName,
+          shipping_street: details.shippingStreet,
+          shipping_city: details.shippingCity,
+          shipping_state: details.shippingState,
+          shipping_postal_code: details.shippingPostalCode,
+          shipping_country: details.shippingCountry,
+          billing_street: details.billingStreet,
+          billing_city: details.billingCity,
+          billing_state: details.billingState,
+          billing_postal_code: details.billingPostalCode,
+          billing_country: details.billingCountry
         }
       });
       return result;
@@ -1870,7 +1987,7 @@ export class DatabaseStorage implements IStorage {
   async getRefundsByOrderId(orderId: string): Promise<Refund[]> {
     await this.ensureInitialized();
     return await prisma.refunds.findMany({
-      where: { orderId },
+      where: { order_id: orderId },
       orderBy: { created_at: 'desc' }
     });
   }
@@ -1879,7 +1996,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const updateData: any = { status };
     if (stripeRefundId) {
-      updateData.stripeRefundId = stripeRefundId;
+      updateData.stripe_refund_id = stripeRefundId;
     }
     try {
       const result = await prisma.refunds.update({
@@ -1897,7 +2014,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.orders.update({
         where: { id: orderId },
-        data: { paymentStatus }
+        data: { payment_status: paymentStatus }
       });
       return result;
     } catch (error) {
@@ -1924,7 +2041,7 @@ export class DatabaseStorage implements IStorage {
   async getRefundLineItems(refundId: string): Promise<RefundLineItem[]> {
     await this.ensureInitialized();
     return await prisma.refund_line_items.findMany({
-      where: { refundId },
+      where: { refund_id: refundId },
       orderBy: { created_at: 'desc' }
     });
   }
@@ -1984,7 +2101,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Calculate how much was actually paid and can be refunded
-    const amountPaid = parseFloat(order.amountPaid || order.total || "0");
+    const amountPaid = parseFloat(order.amount_paid || order.total || "0");
     const totalRefunded = successfulRefunds.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
     const totalRefundablePool = Math.max(0, amountPaid - totalRefunded);
     
@@ -1996,8 +2113,8 @@ export class DatabaseStorage implements IStorage {
       return sum + (refundableQuantity * pricePerUnit);
     }, 0);
     
-    const catalogShippingTotal = parseFloat(order.shippingCost || "0");
-    const catalogTaxTotal = parseFloat(order.taxAmount || "0");
+    const catalogShippingTotal = parseFloat(order.shipping_cost || "0");
+    const catalogTaxTotal = parseFloat(order.tax_amount || "0");
     const catalogGrandTotal = catalogItemsTotal + catalogShippingTotal + catalogTaxTotal;
     
     // Calculate proportional refundable amounts
@@ -2033,11 +2150,11 @@ export class DatabaseStorage implements IStorage {
     });
     
     // Calculate shipping refundable (from proportional pool, minus already refunded)
-    const shippingTotal = parseFloat(order.shippingCost || "0");
+    const shippingTotal = parseFloat(order.shipping_cost || "0");
     const shippingRefundable = Math.max(0, Math.min(shippingRefundablePool, shippingTotal - shippingRefunded));
     
     // Calculate tax refundable (from proportional pool, minus already refunded)
-    const taxTotal = parseFloat(order.taxAmount || "0");
+    const taxTotal = parseFloat(order.tax_amount || "0");
     const taxRefundable = Math.max(0, Math.min(taxRefundablePool, taxTotal - taxRefunded));
     
     // Total refundable is simply the pool (amountPaid - totalRefunded)
@@ -2078,7 +2195,7 @@ export class DatabaseStorage implements IStorage {
   async getOrderEvents(orderId: string): Promise<OrderEvent[]> {
     await this.ensureInitialized();
     return await prisma.order_events.findMany({
-      where: { orderId },
+      where: { order_id: orderId },
       orderBy: { occurred_at: 'desc' }
     });
   }
@@ -2094,7 +2211,7 @@ export class DatabaseStorage implements IStorage {
   async getBalancePaymentsByOrderId(orderId: string): Promise<OrderBalancePayment[]> {
     await this.ensureInitialized();
     return await prisma.order_balance_payments.findMany({
-      where: { orderId },
+      where: { order_id: orderId },
       orderBy: { created_at: 'desc' }
     });
   }
@@ -2117,7 +2234,7 @@ export class DatabaseStorage implements IStorage {
   async updateBalancePayment(id: string, data: Partial<OrderBalancePayment>): Promise<OrderBalancePayment | undefined> {
     await this.ensureInitialized();
     // Filter out undefined properties to prevent NULL clobbering
-    const updateData: Record<string, any> = { updatedAt: new Date() };
+    const updateData: Record<string, any> = { updated_at: new Date() };
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined) {
         updateData[key] = value;
@@ -2146,7 +2263,7 @@ export class DatabaseStorage implements IStorage {
   async getBalanceRequestByOrderId(orderId: string): Promise<BalanceRequest | undefined> {
     await this.ensureInitialized();
     const result = await prisma.balance_requests.findFirst({
-      where: { orderId },
+      where: { order_id: orderId },
       orderBy: { created_at: 'desc' }
     });
     return result ?? undefined;
@@ -2155,7 +2272,7 @@ export class DatabaseStorage implements IStorage {
   async getBalanceRequestByToken(tokenHash: string): Promise<BalanceRequest | undefined> {
     await this.ensureInitialized();
     const result = await prisma.balance_requests.findFirst({
-      where: { sessionTokenHash: tokenHash }
+      where: { session_token_hash: tokenHash }
     });
     return result ?? undefined;
   }
@@ -2170,7 +2287,7 @@ export class DatabaseStorage implements IStorage {
   async updateBalanceRequest(id: string, data: Partial<BalanceRequest>): Promise<BalanceRequest | undefined> {
     await this.ensureInitialized();
     // Filter out undefined properties to prevent NULL clobbering
-    const updateData: Record<string, any> = { updatedAt: new Date() };
+    const updateData: Record<string, any> = { updated_at: new Date() };
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined) {
         updateData[key] = value;
@@ -2191,7 +2308,7 @@ export class DatabaseStorage implements IStorage {
   async getOrderAddressChanges(orderId: string): Promise<OrderAddressChange[]> {
     await this.ensureInitialized();
     return await prisma.order_address_changes.findMany({
-      where: { orderId },
+      where: { order_id: orderId },
       orderBy: { created_at: 'desc' }
     });
   }
@@ -2222,7 +2339,7 @@ export class DatabaseStorage implements IStorage {
   async getWorkflowByCheckoutSession(checkoutSessionId: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
     const result = await prisma.order_workflows.findFirst({
-      where: { checkoutSessionId }
+      where: { checkout_session_id: checkoutSessionId }
     });
     return result ?? undefined;
   }
@@ -2230,7 +2347,7 @@ export class DatabaseStorage implements IStorage {
   async getWorkflowByPaymentIntent(paymentIntentId: string): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
     const result = await prisma.order_workflows.findFirst({
-      where: { paymentIntentId }
+      where: { payment_intent_id: paymentIntentId }
     });
     return result ?? undefined;
   }
@@ -2238,8 +2355,8 @@ export class DatabaseStorage implements IStorage {
   async updateWorkflowState(id: string, state: string, data?: any): Promise<OrderWorkflow | undefined> {
     await this.ensureInitialized();
     const updateData: Record<string, any> = { 
-      currentState: state,
-      updatedAt: new Date() 
+      current_state: state,
+      updated_at: new Date() 
     };
     if (data !== undefined) {
       updateData.data = data;
@@ -2259,13 +2376,13 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const updateData: Record<string, any> = { 
       status,
-      updatedAt: new Date() 
+      updated_at: new Date() 
     };
     if (error !== undefined) {
       updateData.error = error;
     }
     if (errorCode !== undefined) {
-      updateData.errorCode = errorCode;
+      updateData.error_code = errorCode;
     }
     try {
       const result = await prisma.order_workflows.update({
@@ -2288,7 +2405,7 @@ export class DatabaseStorage implements IStorage {
   async getWorkflowEvents(workflowId: string): Promise<OrderWorkflowEvent[]> {
     await this.ensureInitialized();
     return await prisma.order_workflow_events.findMany({
-      where: { workflowId },
+      where: { workflow_id: workflowId },
       orderBy: { occurred_at: 'desc' }
     });
   }
@@ -2298,7 +2415,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.order_workflows.update({
         where: { id },
-        data: { orderId, updatedAt: new Date() }
+        data: { order_id: orderId, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -2311,7 +2428,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.order_workflows.update({
         where: { id },
-        data: { paymentIntentId, updatedAt: new Date() }
+        data: { payment_intent_id: paymentIntentId, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -2365,21 +2482,21 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     await this.ensureInitialized();
     return await prisma.users.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { created_at: 'desc' }
     });
   }
 
   async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
     await this.ensureInitialized();
-    const result = await prisma.users.findFirst({ where: { stripeCustomerId } });
+    const result = await prisma.users.findFirst({ where: { stripe_customer_id: stripeCustomerId } });
     return result ?? undefined;
   }
 
   async getTeamMembersBySellerId(sellerId: string): Promise<User[]> {
     await this.ensureInitialized();
     return await prisma.users.findMany({
-      where: { sellerId },
-      orderBy: { createdAt: 'desc' }
+      where: { seller_id: sellerId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -2706,15 +2823,15 @@ export class DatabaseStorage implements IStorage {
   async getAllWholesaleInvitations(): Promise<WholesaleInvitation[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_invitations.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { created_at: 'desc' }
     });
   }
 
   async getWholesaleInvitationsBySellerId(sellerId: string): Promise<WholesaleInvitation[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_invitations.findMany({
-      where: { sellerId },
-      orderBy: { createdAt: 'desc' }
+      where: { seller_id: sellerId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -2783,7 +2900,7 @@ export class DatabaseStorage implements IStorage {
         set: {
           ...settings,
           connected: settings.connected ? 1 : 0,
-          updatedAt: new Date(),
+          updated_at: new Date(),
         },
       })
       .returning();
@@ -2814,7 +2931,7 @@ export class DatabaseStorage implements IStorage {
         target: tiktokSettings.userId,
         set: {
           ...settings,
-          updatedAt: new Date(),
+          updated_at: new Date(),
         },
       })
       .returning();
@@ -2845,7 +2962,7 @@ export class DatabaseStorage implements IStorage {
         target: xSettings.userId,
         set: {
           ...settings,
-          updatedAt: new Date(),
+          updated_at: new Date(),
         },
       })
       .returning();
@@ -3239,14 +3356,14 @@ export class DatabaseStorage implements IStorage {
   // Wholesale Products Methods
   async getAllWholesaleProducts(): Promise<WholesaleProduct[]> {
     return await prisma.wholesale_products.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { created_at: 'desc' }
     });
   }
 
   async getWholesaleProductsBySellerId(sellerId: string): Promise<WholesaleProduct[]> {
     return await prisma.wholesale_products.findMany({
-      where: { sellerId },
-      orderBy: { createdAt: 'desc' }
+      where: { seller_id: sellerId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -3272,7 +3389,7 @@ export class DatabaseStorage implements IStorage {
         where: { id },
         data: {
           ...product,
-          updatedAt: new Date()
+          updated_at: new Date()
         }
       });
       return result;
@@ -3307,31 +3424,31 @@ export class DatabaseStorage implements IStorage {
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      where.categoryLevel1Id = filters.categoryLevel1Id;
+      where.category_level_1_id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      where.categoryLevel2Id = filters.categoryLevel2Id;
+      where.category_level_2_id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      where.categoryLevel3Id = filters.categoryLevel3Id;
+      where.category_level_3_id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents for wholesalePrice)
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
-      where.wholesalePrice = {};
+      where.wholesale_price = {};
       if (filters.minPrice !== undefined) {
         const minPriceCents = Math.round(filters.minPrice * 100).toString();
-        where.wholesalePrice.gte = minPriceCents;
+        where.wholesale_price.gte = minPriceCents;
       }
       if (filters.maxPrice !== undefined) {
         const maxPriceCents = Math.round(filters.maxPrice * 100).toString();
-        where.wholesalePrice.lte = maxPriceCents;
+        where.wholesale_price.lte = maxPriceCents;
       }
     }
     
     // Seller filter
     if (filters.sellerId) {
-      where.sellerId = filters.sellerId;
+      where.seller_id = filters.sellerId;
     }
     
     // MOQ filters (Minimum Order Quantity)
@@ -3352,7 +3469,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Sorting
-    const sortBy = filters.sortBy || 'createdAt';
+    const sortBy = filters.sortBy || 'created_at';
     const sortOrder = filters.sortOrder || 'desc';
     const orderBy = { [sortBy]: sortOrder };
     
@@ -3393,31 +3510,31 @@ export class DatabaseStorage implements IStorage {
     
     // Category filters
     if (filters.categoryLevel1Id) {
-      where.categoryLevel1Id = filters.categoryLevel1Id;
+      where.category_level_1_id = filters.categoryLevel1Id;
     }
     if (filters.categoryLevel2Id) {
-      where.categoryLevel2Id = filters.categoryLevel2Id;
+      where.category_level_2_id = filters.categoryLevel2Id;
     }
     if (filters.categoryLevel3Id) {
-      where.categoryLevel3Id = filters.categoryLevel3Id;
+      where.category_level_3_id = filters.categoryLevel3Id;
     }
     
     // Price range filters (convert dollars to cents for wholesalePrice)
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
-      where.wholesalePrice = {};
+      where.wholesale_price = {};
       if (filters.minPrice !== undefined) {
         const minPriceCents = Math.round(filters.minPrice * 100).toString();
-        where.wholesalePrice.gte = minPriceCents;
+        where.wholesale_price.gte = minPriceCents;
       }
       if (filters.maxPrice !== undefined) {
         const maxPriceCents = Math.round(filters.maxPrice * 100).toString();
-        where.wholesalePrice.lte = maxPriceCents;
+        where.wholesale_price.lte = maxPriceCents;
       }
     }
     
     // Seller filter
     if (filters.sellerId) {
-      where.sellerId = filters.sellerId;
+      where.seller_id = filters.sellerId;
     }
     
     // MOQ filters (Minimum Order Quantity)
@@ -3459,7 +3576,7 @@ export class DatabaseStorage implements IStorage {
   async getWholesaleOrderByNumber(orderNumber: string): Promise<WholesaleOrder | undefined> {
     await this.ensureInitialized();
     const result = await prisma.wholesale_orders.findFirst({
-      where: { orderNumber }
+      where: { order_number: orderNumber }
     });
     return result ?? undefined;
   }
@@ -3467,16 +3584,16 @@ export class DatabaseStorage implements IStorage {
   async getWholesaleOrdersBySellerId(sellerId: string): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_orders.findMany({
-      where: { sellerId },
-      orderBy: { createdAt: 'desc' }
+      where: { seller_id: sellerId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
   async getWholesaleOrdersByBuyerId(buyerId: string): Promise<WholesaleOrder[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_orders.findMany({
-      where: { buyerId },
-      orderBy: { createdAt: 'desc' }
+      where: { buyer_id: buyerId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -3487,11 +3604,11 @@ export class DatabaseStorage implements IStorage {
         status: {
           in: ['deposit_paid', 'awaiting_balance']
         },
-        balancePaymentDueDate: {
+        balance_payment_due_date: {
           lte: dueDate
         }
       },
-      orderBy: { balancePaymentDueDate: 'asc' }
+      orderBy: { balance_payment_due_date: 'asc' }
     });
   }
 
@@ -3500,7 +3617,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.wholesale_orders.update({
         where: { id },
-        data: { ...updates, updatedAt: new Date() }
+        data: { ...updates, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -3531,7 +3648,7 @@ export class DatabaseStorage implements IStorage {
   async getWholesaleOrderItems(wholesaleOrderId: string): Promise<WholesaleOrderItem[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_order_items.findMany({
-      where: { wholesaleOrderId }
+      where: { wholesale_order_id: wholesaleOrderId }
     });
   }
 
@@ -3548,7 +3665,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.wholesale_order_items.update({
         where: { id },
-        data: { ...updates, updatedAt: new Date() }
+        data: { ...updates, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -3562,9 +3679,9 @@ export class DatabaseStorage implements IStorage {
       const result = await prisma.wholesale_order_items.update({
         where: { id: itemId },
         data: {
-          refundedQuantity,
-          refundedAmountCents,
-          updatedAt: new Date(),
+          refunded_quantity: refundedQuantity,
+          refunded_amount_cents: refundedAmountCents,
+          updated_at: new Date(),
         }
       });
       return result;
@@ -3604,8 +3721,8 @@ export class DatabaseStorage implements IStorage {
   async getWholesalePaymentsByOrderId(wholesaleOrderId: string): Promise<WholesalePayment[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_payments.findMany({
-      where: { wholesaleOrderId },
-      orderBy: { createdAt: 'desc' }
+      where: { wholesale_order_id: wholesaleOrderId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -3614,7 +3731,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.wholesale_payments.update({
         where: { id },
-        data: { ...updates, updatedAt: new Date() }
+        data: { ...updates, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -3645,15 +3762,15 @@ export class DatabaseStorage implements IStorage {
   async getPaymentIntentsByOrderId(orderId: string): Promise<WholesalePaymentIntent[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_payment_intents.findMany({
-      where: { orderId },
-      orderBy: { createdAt: 'desc' }
+      where: { order_id: orderId },
+      orderBy: { created_at: 'desc' }
     });
   }
 
   async getPaymentIntentByStripeId(stripePaymentIntentId: string): Promise<WholesalePaymentIntent | undefined> {
     await this.ensureInitialized();
     const result = await prisma.wholesale_payment_intents.findFirst({
-      where: { stripePaymentIntentId }
+      where: { stripe_payment_intent_id: stripePaymentIntentId }
     });
     return result ?? undefined;
   }
@@ -3711,7 +3828,7 @@ export class DatabaseStorage implements IStorage {
   async getWholesaleShippingDetails(wholesaleOrderId: string): Promise<WholesaleShippingDetail | undefined> {
     await this.ensureInitialized();
     const result = await prisma.wholesale_shipping_details.findFirst({
-      where: { wholesaleOrderId }
+      where: { wholesale_order_id: wholesaleOrderId }
     });
     return result ?? undefined;
   }
@@ -3720,8 +3837,8 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     try {
       const result = await prisma.wholesale_shipping_details.updateMany({
-        where: { wholesaleOrderId },
-        data: { ...updates, updatedAt: new Date() }
+        where: { wholesale_order_id: wholesaleOrderId },
+        data: { ...updates, updated_at: new Date() }
       });
       if (result.count > 0) {
         return await this.getWholesaleShippingDetails(wholesaleOrderId);
@@ -3736,7 +3853,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     try {
       await prisma.wholesale_shipping_details.deleteMany({
-        where: { wholesaleOrderId }
+        where: { wholesale_order_id: wholesaleOrderId }
       });
       return true;
     } catch (error) {
@@ -3755,7 +3872,7 @@ export class DatabaseStorage implements IStorage {
   async getWholesaleOrderEvents(wholesaleOrderId: string): Promise<WholesaleOrderEvent[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_order_events.findMany({
-      where: { wholesaleOrderId },
+      where: { wholesale_order_id: wholesaleOrderId },
       orderBy: { occurredAt: 'desc' }
     });
   }
