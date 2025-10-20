@@ -129,7 +129,7 @@ export default function DashboardPage() {
       </Toolbar>
       <List>
         <ListItem disablePadding>
-          <ListItemButton selected>
+          <ListItemButton selected data-testid="link-dashboard">
             <ListItemIcon>
               <DashboardIcon />
             </ListItemIcon>
@@ -137,7 +137,7 @@ export default function DashboardPage() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton>
+          <ListItemButton onClick={() => router.push('/products')} data-testid="link-products">
             <ListItemIcon>
               <InventoryIcon />
             </ListItemIcon>
@@ -145,7 +145,7 @@ export default function DashboardPage() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton>
+          <ListItemButton data-testid="link-orders">
             <ListItemIcon>
               <ShoppingCartIcon />
             </ListItemIcon>
