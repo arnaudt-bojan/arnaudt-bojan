@@ -165,11 +165,11 @@ export const settingsSocketService = new SettingsSocketService();
  * - Socket.IO for settings updates (/socket.io/) - new functionality with session authentication
  */
 export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: RequestHandler) {
-  // Create NATIVE WebSocket server for orders
-  const wss = new WebSocketServer({ 
-    server: httpServer,
-    path: '/ws/orders'
-  });
+  // CRITICAL FIX: Use noServer mode and manually route upgrade events
+  // This prevents the `ws` library from interfering with Socket.IO's upgrade handling
+  
+  // Create Native WebSocket server with noServer: true (manual upgrade handling)
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on('connection', (ws: WebSocket) => {
     logger.info('[WebSocket] Native WS client connected for orders');
@@ -184,11 +184,9 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
   });
 
   orderWebSocketService.setWSS(wss);
-
-  // Create Socket.IO server for settings with SESSION AUTHENTICATION
-  // CRITICAL FIX: Use WebSocket-only transport to avoid Vite middleware intercepting Engine.IO polling
-  // When using Vite in middleware mode, the catch-all route intercepts /socket.io/?EIO=4&transport=polling
-  // WebSocket upgrades work because they use HTTP 'upgrade' event, not Express middleware
+  
+  // Create Socket.IO server (it handles its own upgrades)
+  // CRITICAL: Use WebSocket-only transport to avoid Vite middleware intercepting Engine.IO polling
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io/',
     transports: ['websocket'], // WebSocket-only, skip polling
@@ -329,5 +327,20 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
 
   settingsSocketService.setIO(io);
 
-  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings (authenticated)');
+  // Manual upgrade routing - Route /ws/orders to Native WS, everything else passes through to Socket.IO
+  httpServer.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+    
+    if (pathname === '/ws/orders') {
+      // Route to Native WebSocket
+      console.log('[Upgrade Router] Routing /ws/orders to Native WS');
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+    // Socket.IO handles its own upgrades via Engine.IO, no need to explicitly route
+    // Just don't interfere with paths that aren't /ws/orders
+  });
+
+  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings (authenticated) with manual upgrade routing');
 }

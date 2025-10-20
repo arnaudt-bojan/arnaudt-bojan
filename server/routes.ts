@@ -13602,6 +13602,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
+  // DEBUG: Log ALL WebSocket upgrade attempts at HTTP server level
+  httpServer.on('upgrade', (request, socket, head) => {
+    console.log('[HTTP Server] 🔍 UPGRADE REQUEST DETECTED', {
+      url: request.url,
+      path: new URL(request.url || '/', 'http://localhost').pathname,
+      headers: {
+        upgrade: request.headers.upgrade,
+        connection: request.headers.connection,
+        'sec-websocket-key': request.headers['sec-websocket-key'] ? 'present' : 'missing',
+        'sec-websocket-version': request.headers['sec-websocket-version'],
+        origin: request.headers.origin,
+        cookie: request.headers.cookie ? `present (${request.headers.cookie.substring(0, 50)}...)` : 'MISSING',
+      }
+    });
+  });
+
   // Initialize WebSocket for real-time order updates and settings
   // Native WebSocket for orders (/ws/orders) + Socket.IO for settings (/socket.io/) with session auth
   const { configureWebSocket } = await import('./websocket');

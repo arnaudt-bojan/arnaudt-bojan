@@ -130,5 +130,6 @@ Check server logs for connection:
 ---
 
 **Date Fixed**: October 20, 2025  
-**Time Investment**: ~2 hours of debugging  
-**Status**: ✅ Production-ready
+**Time Investment**: ~2.5 hours of debugging  
+**Status**: ⚠️ Partially Fixed - Socket.IO works when Native WS is disabled, intermittent when both enabled
+**Recommended Action**: Continue using Native WS for orders until WebSocket library conflict is fully resolved
