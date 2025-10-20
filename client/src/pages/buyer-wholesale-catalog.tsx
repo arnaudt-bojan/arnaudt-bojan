@@ -9,6 +9,8 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { WholesaleStorefrontHeader } from "@/components/headers/wholesale-storefront-header";
 import { useCart } from "@/lib/cart-context";
 import { CartSheet } from "@/components/cart-sheet";
+import { useAuth } from "@/hooks/use-auth";
+import { useWholesaleEvents } from "@/hooks/use-wholesale-events";
 
 interface WholesaleProduct {
   id: string;
@@ -40,6 +42,10 @@ export default function BuyerWholesaleCatalog() {
   const { formatPrice } = useCurrency();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { itemsCount } = useCart();
+  const { user } = useAuth();
+  
+  // Real-time wholesale updates via Socket.IO
+  useWholesaleEvents(user?.id);
 
   const { data: products, isLoading } = useQuery<WholesaleProduct[]>({
     queryKey: ["/api/wholesale/buyer/catalog"],

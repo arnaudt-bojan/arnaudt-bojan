@@ -37,14 +37,20 @@ import { useLocation } from "wouter";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useWholesaleEvents } from "@/hooks/use-wholesale-events";
 
 export default function WholesaleInvitations() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = useState("");
   const [buyerName, setBuyerName] = useState("");
+  
+  // Real-time wholesale updates via Socket.IO
+  useWholesaleEvents(user?.id);
 
   const { data: invitations, isLoading } = useQuery<WholesaleInvitation[]>({
     queryKey: ["/api/wholesale/invitations"],

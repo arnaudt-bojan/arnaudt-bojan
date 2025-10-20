@@ -37,6 +37,7 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
 import { getCountryName, getCountryCode } from "../../../shared/countries";
 import { useDomains, useCreateDomain, useDeleteDomain, useVerifyDomain, useUpdateDomain, useSwitchStrategy, getStatusBadgeVariant, getStatusText, copyToClipboard, DomainStrategy } from "@/lib/domains";
+import { useSettingsEvents } from "@/hooks/use-settings-events";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -2662,6 +2663,9 @@ export default function Settings() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  
+  // Real-time settings updates via Socket.IO
+  useSettingsEvents(user?.id);
   const [copiedUsername, setCopiedUsername] = useState(false);
 
   // Force refetch user data when component mounts to ensure fresh auth state

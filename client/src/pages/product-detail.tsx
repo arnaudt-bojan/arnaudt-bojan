@@ -34,6 +34,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSellerContext, getSellerAwarePath, extractSellerFromCurrentPath } from "@/contexts/seller-context";
+import { useProductEvents } from "@/hooks/use-product-events";
 
 interface Category {
   id: string;
@@ -68,6 +69,9 @@ export default function ProductDetail() {
   const domainInfo = detectDomain();
   // Sellers and collaborators cannot buy from stores (prevent cart access)
   const canAddToCart = !isSeller && !isCollaborator;
+  
+  // Real-time product updates via Socket.IO
+  useProductEvents(productId);
 
   const { data: product, isLoading } = useQuery<Product & { 
     variantRequirements?: {

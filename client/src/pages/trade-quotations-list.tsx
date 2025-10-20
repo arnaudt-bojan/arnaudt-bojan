@@ -47,6 +47,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { formatPrice } from "@/lib/currency-utils";
 import { format } from "date-fns";
+import { useQuotationEvents } from "@/hooks/use-quotation-events";
 
 export default function TradeQuotationsList() {
   const [, setLocation] = useLocation();
@@ -62,6 +63,9 @@ export default function TradeQuotationsList() {
   const { data: user } = useQuery<any>({ 
     queryKey: ["/api/auth/user"] 
   });
+  
+  // Real-time quotation updates via Socket.IO
+  useQuotationEvents(user?.id);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

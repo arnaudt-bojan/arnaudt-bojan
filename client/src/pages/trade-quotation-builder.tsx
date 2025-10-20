@@ -40,6 +40,7 @@ import { ArrowLeft, Plus, Trash2, Send, Save, DollarSign, Calendar, Ship, Upload
 import { z } from "zod";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import type { UploadResult } from "@uppy/core";
+import { useQuotationEvents } from "@/hooks/use-quotation-events";
 
 // Currency options
 const currencies = [
@@ -99,6 +100,9 @@ export default function TradeQuotationBuilder() {
   const { data: user } = useQuery<any>({ 
     queryKey: ["/api/auth/user"] 
   });
+  
+  // Real-time quotation updates via Socket.IO
+  useQuotationEvents(user?.id);
 
   // Fetch existing quotation if editing
   const { data: existingQuotation, isLoading: isLoadingQuotation } = useQuery({

@@ -26,6 +26,8 @@ import {
   Ship,
   Download
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useQuotationEvents } from "@/hooks/use-quotation-events";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -162,7 +164,11 @@ function PaymentForm({
 export default function TradeQuotationView() {
   const [, params] = useRoute("/trade/view/:token");
   const { toast } = useToast();
+  const { user } = useAuth();
   const token = params?.token;
+  
+  // Real-time quotation updates via Socket.IO (for authenticated buyers)
+  useQuotationEvents(user?.id);
   
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentType, setPaymentType] = useState<'deposit' | 'balance'>('deposit');

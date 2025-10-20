@@ -52,6 +52,7 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { AddressAutocompleteInput } from "@/components/AddressAutocompleteInput";
 import { getCountryName } from "@shared/countries";
 import type { Address } from "@shared/schema";
+import { useCartEvents } from "@/hooks/use-cart-events";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -736,6 +737,9 @@ export default function Checkout() {
   const { items, total, clearCart, sellerId } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  
+  // Real-time cart item updates via Socket.IO
+  useCartEvents();
   const { isSeller, isCollaborator } = useAuth();
   const { sellerUsername } = useSellerContext();
   

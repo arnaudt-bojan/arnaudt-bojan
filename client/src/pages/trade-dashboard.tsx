@@ -9,6 +9,7 @@ import { Link, useLocation } from "wouter";
 import { formatPrice } from "@/lib/currency-utils";
 import { format } from "date-fns";
 import type { TradeQuotation } from "@shared/schema";
+import { useQuotationEvents } from "@/hooks/use-quotation-events";
 
 export default function TradeDashboard() {
   const [, setLocation] = useLocation();
@@ -22,6 +23,9 @@ export default function TradeDashboard() {
   const { data: user } = useQuery<any>({ 
     queryKey: ["/api/auth/user"] 
   });
+  
+  // Real-time quotation updates via Socket.IO
+  useQuotationEvents(user?.id);
 
   // Calculate metrics from quotations
   const totalQuotations = quotations.length;
