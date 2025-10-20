@@ -2052,8 +2052,9 @@ export class DatabaseStorage implements IStorage {
       where.status = { in: statuses };
     }
     
-    // Sorting
-    const sortBy = filters.sortBy || 'created_at';
+    // Sorting (normalize camelCase to snake_case)
+    const sortByRaw = filters.sortBy || 'created_at';
+    const sortBy = sortByRaw === 'createdAt' ? 'created_at' : sortByRaw === 'updatedAt' ? 'updated_at' : sortByRaw;
     const sortOrder = filters.sortOrder || 'desc';
     const orderBy = { [sortBy]: sortOrder };
     
@@ -4544,8 +4545,9 @@ export class DatabaseStorage implements IStorage {
       where.status = { in: statuses };
     }
     
-    // Sorting
-    const sortBy = filters.sortBy || 'created_at';
+    // Sorting (normalize camelCase to snake_case)
+    const sortByRaw = filters.sortBy || 'created_at';
+    const sortBy = sortByRaw === 'createdAt' ? 'created_at' : sortByRaw === 'updatedAt' ? 'updated_at' : sortByRaw;
     const sortOrder = filters.sortOrder || 'desc';
     const orderBy = { [sortBy]: sortOrder };
     

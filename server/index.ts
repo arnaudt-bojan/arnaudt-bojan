@@ -7,10 +7,14 @@ import { processShopifyImport } from "./adapters/shopify";
 import { importSources } from "@shared/schema";
 import { 
   securityHeadersMiddleware, 
-  rateLimitMiddleware, 
-  authRateLimitMiddleware,
   sanitizeInputMiddleware
 } from "./security";
+import { 
+  globalRateLimitMiddleware,
+  authRateLimitMiddleware,
+  userRateLimitMiddleware
+} from "./middleware/rate-limit.middleware";
+import { initializeRateLimiter, getRateLimiter } from "./rate-limiter";
 import { ReservationCleanupJob } from "./jobs/cleanup-reservations";
 import { WholesaleBalanceReminderJob } from "./jobs/wholesale-balance-reminder.job";
 import { DeliveryReminderService } from "./services/delivery-reminder.service";
@@ -59,13 +63,8 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 // Input sanitization - remove dangerous characters (skips raw buffers)
 app.use(sanitizeInputMiddleware);
 
-// Strict rate limiting for authentication endpoints
-app.use('/api/auth/send-code', authRateLimitMiddleware());
-app.use('/api/auth/verify-code', authRateLimitMiddleware());
-app.use('/api/auth/magic-link', authRateLimitMiddleware());
-
-// General rate limiting for all API routes
-app.use('/api', rateLimitMiddleware({ maxRequests: 100, windowMs: 60 * 1000 }));
+// NOTE: Rate limiting middleware will be applied after routes are registered
+// This allows health endpoints to be exempt from rate limiting
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -217,6 +216,63 @@ app.get('/api/health/cache', (_req, res) => {
   }
 });
 
+// Rate limiter health and metrics endpoint
+app.get('/api/health/rate-limiter', (_req, res) => {
+  try {
+    const rateLimiter = getRateLimiter();
+    const metrics = rateLimiter.getMetrics();
+    
+    // Determine health status based on metrics
+    const isHealthy = metrics.backend !== 'unknown';
+    const hasHighBlockRate = metrics.blockRate > 20; // More than 20% blocked
+    const status = !isHealthy ? 'degraded' : hasHighBlockRate ? 'warning' : 'healthy';
+    
+    res.status(isHealthy ? 200 : 503).json({
+      status,
+      timestamp: new Date().toISOString(),
+      rateLimiter: {
+        backend: metrics.backend,
+        metrics: {
+          totalRequests: metrics.totalRequests,
+          allowedRequests: metrics.allowedRequests,
+          blockedRequests: metrics.blockedRequests,
+          blockRate: `${metrics.blockRate}%`,
+          violationsByTier: metrics.violationsByTier,
+        },
+        config: {
+          backend: process.env.RATE_LIMIT_BACKEND || 'memory',
+          allowlist: process.env.RATE_LIMIT_ALLOWLIST || 'none',
+          tiers: {
+            global: {
+              maxRequests: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '1000', 10),
+              windowSeconds: parseInt(process.env.RATE_LIMIT_GLOBAL_WINDOW || '60', 10),
+            },
+            auth: {
+              maxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '5', 10),
+              windowSeconds: parseInt(process.env.RATE_LIMIT_AUTH_WINDOW || '900', 10),
+            },
+            user: {
+              maxRequests: parseInt(process.env.RATE_LIMIT_USER_MAX || '100', 10),
+              windowSeconds: parseInt(process.env.RATE_LIMIT_USER_WINDOW || '60', 10),
+            },
+            endpoint: {
+              maxRequests: parseInt(process.env.RATE_LIMIT_ENDPOINT_MAX || '1000', 10),
+              windowSeconds: parseInt(process.env.RATE_LIMIT_ENDPOINT_WINDOW || '60', 10),
+            },
+          },
+        },
+      },
+      recommendations: generateRateLimiterRecommendations(metrics),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 /**
  * Generate cache performance recommendations
  */
@@ -246,6 +302,39 @@ function generateCacheRecommendations(metrics: any): string[] {
   return recommendations;
 }
 
+/**
+ * Generate rate limiter performance recommendations
+ */
+function generateRateLimiterRecommendations(metrics: any): string[] {
+  const recommendations: string[] = [];
+  
+  if (metrics.blockRate > 20) {
+    recommendations.push('High block rate detected. Consider reviewing rate limit thresholds or identifying potential attacks.');
+  }
+  
+  if (metrics.violationsByTier.auth > 100) {
+    recommendations.push('High authentication violations. Possible brute force attack - review security logs.');
+  }
+  
+  if (metrics.violationsByTier.global > 1000) {
+    recommendations.push('High global violations. Consider enabling IP allowlist or implementing DDoS protection.');
+  }
+  
+  if (metrics.backend.includes('fallback')) {
+    recommendations.push('Running on fallback rate limiter. Check Redis connection if Redis is configured.');
+  }
+  
+  if (metrics.backend === 'memory' && metrics.totalRequests > 100000) {
+    recommendations.push('High traffic detected with in-memory backend. Consider switching to Redis for better scalability.');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('Rate limiter performance is healthy.');
+  }
+  
+  return recommendations;
+}
+
 (async () => {
   app.use(domainMiddleware);
 
@@ -254,6 +343,25 @@ function generateCacheRecommendations(metrics: any): string[] {
   // Phase 3: Gradual migration to NestJS GraphQL via feature flags
   app.use(proxyMiddleware());
   log('[Server] Proxy middleware registered (Phase 1: all traffic to REST)');
+
+  // Apply production-grade rate limiting middleware (after health endpoints, before routes)
+  // Global rate limiting for all API routes (except health/metrics endpoints)
+  app.use('/api', (req, res, next) => {
+    // Skip rate limiting for health and metrics endpoints
+    if (req.path.startsWith('/health') || req.path.startsWith('/metrics')) {
+      return next();
+    }
+    return globalRateLimitMiddleware()(req, res, next);
+  });
+  
+  // Strict auth rate limiting for authentication endpoints (applied after global for stricter limits)
+  app.use('/api/auth/send-code', authRateLimitMiddleware());
+  app.use('/api/auth/verify-code', authRateLimitMiddleware());
+  app.use('/api/auth/magic-link', authRateLimitMiddleware());
+  
+  // User-based rate limiting for authenticated routes (applied in routes.ts where req.user is available)
+  
+  log('[Server] Production-grade rate limiting enabled (token bucket algorithm)');
 
   const server = await registerRoutes(app);
 
@@ -310,6 +418,10 @@ function generateCacheRecommendations(metrics: any): string[] {
     // Initialize cache service
     initializeCache();
     log('[Server] Cache service initialized');
+    
+    // Initialize rate limiter service
+    initializeRateLimiter();
+    log('[Server] Rate limiter service initialized');
     
     // Start database connection warmup job to maintain minimum pool size
     const { startConnectionWarmup } = await import('./prisma');
