@@ -22,14 +22,6 @@ import type {
   TradeQuotationItem,
   TradePaymentSchedule,
 } from '@shared/schema';
-import {
-  tradeQuotationEvents,
-  tradePaymentSchedules,
-  tradeQuotations,
-  orderEvents,
-  orders,
-} from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
 import { logger } from '../logger';
 import type { DatabaseStorage } from '../storage';
 
@@ -100,10 +92,11 @@ export class TradeWorkflowOrchestrator {
       }
 
       // Fetch payment schedules to get Stripe payment intent IDs
-      const paymentSchedules = await db
-        .select()
-        .from(tradePaymentSchedules)
-        .where(eq(tradePaymentSchedules.quotationId, quotationId));
+      const paymentSchedules = await db.trade_payment_schedules.findMany({
+        where: {
+          quotation_id: quotationId
+        }
+      });
 
       const depositPayment = paymentSchedules.find((p: TradePaymentSchedule) => p.paymentType === 'deposit');
       const balancePayment = paymentSchedules.find((p: TradePaymentSchedule) => p.paymentType === 'balance');
@@ -117,45 +110,47 @@ export class TradeWorkflowOrchestrator {
       });
 
       // Step 3-10: Execute in transaction
-      order = await db.transaction(async (tx: any) => {
+      order = await db.$transaction(async (tx) => {
         // Step 4: Create Order record
-        const [newOrder] = await tx.insert(orders).values({
-          userId: quotation.buyerId || null,
-          sellerId: quotation.sellerId,
-          customerName: quotation.buyerEmail.split('@')[0], // Extract name from email
-          customerEmail: quotation.buyerEmail,
-          customerAddress: JSON.stringify({
-            line1: '', // Quotations don't have shipping address
-            city: '',
-            state: '',
-            postalCode: '',
-            country: '',
-          }),
-          items: JSON.stringify([]), // Legacy field - empty for now
-          total: quotation.total,
-          amountPaid: quotation.total, // Already fully paid
-          remainingBalance: '0',
-          paymentType: 'full', // Fully paid via quotation
-          paymentStatus: 'fully_paid',
-          stripePaymentIntentId: depositPayment?.stripePaymentIntentId || null,
-          stripeBalancePaymentIntentId: balancePayment?.stripePaymentIntentId || null,
-          status: 'pending', // Seller must fulfill separately
-          fulfillmentStatus: 'unfulfilled',
-          
-          // Tax and totals from quotation
-          taxAmount: quotation.taxAmount,
-          subtotalBeforeTax: quotation.subtotal,
-          
-          // Currency
-          currency: quotation.currency,
-          
-          // Shipping fields from quotation
-          shippingCost: quotation.shippingAmount,
-          
-          // Store quotation metadata
-          // Note: orders table doesn't have metadata field, so we use a workaround
-          // We'll log this in order_events instead
-        }).returning();
+        const newOrder = await tx.orders.create({
+          data: {
+            user_id: quotation.buyerId || null,
+            seller_id: quotation.sellerId,
+            customer_name: quotation.buyerEmail.split('@')[0], // Extract name from email
+            customer_email: quotation.buyerEmail,
+            customer_address: JSON.stringify({
+              line1: '', // Quotations don't have shipping address
+              city: '',
+              state: '',
+              postal_code: '',
+              country: '',
+            }),
+            items: JSON.stringify([]), // Legacy field - empty for now
+            total: quotation.total,
+            amount_paid: quotation.total, // Already fully paid
+            remaining_balance: '0',
+            payment_type: 'full', // Fully paid via quotation
+            payment_status: 'fully_paid',
+            stripe_payment_intent_id: depositPayment?.stripePaymentIntentId || null,
+            stripe_balance_payment_intent_id: balancePayment?.stripePaymentIntentId || null,
+            status: 'pending', // Seller must fulfill separately
+            fulfillment_status: 'unfulfilled',
+            
+            // Tax and totals from quotation
+            tax_amount: quotation.taxAmount,
+            subtotal_before_tax: quotation.subtotal,
+            
+            // Currency
+            currency: quotation.currency,
+            
+            // Shipping fields from quotation
+            shipping_cost: quotation.shippingAmount,
+            
+            // Store quotation metadata
+            // Note: orders table doesn't have metadata field, so we use a workaround
+            // We'll log this in order_events instead
+          }
+        });
 
         // Step 5: Create OrderItems from quotation items
         const orderItems: InsertOrderItem[] = quotation.items.map((item) => ({
@@ -251,42 +246,48 @@ export class TradeWorkflowOrchestrator {
         // Step 8: Log events
         
         // Log quotation event: Use existing event type with metadata
-        await tx.insert(tradeQuotationEvents).values({
-          quotationId: quotation.id,
-          eventType: 'email_sent', // Use closest existing type, store real type in payload
-          performedBy: 'system',
-          payload: {
-            action: 'order_created',
-            orderId: newOrder.id,
-            orderNumber: newOrder.id,
-            convertedAt: new Date().toISOString(),
-          },
+        await tx.trade_quotation_events.create({
+          data: {
+            quotation_id: quotation.id,
+            event_type: 'email_sent', // Use closest existing type, store real type in payload
+            performed_by: 'system',
+            payload: {
+              action: 'order_created',
+              orderId: newOrder.id,
+              orderNumber: newOrder.id,
+              convertedAt: new Date().toISOString(),
+            },
+          }
         });
 
         // Log order event: Use existing event type with metadata
-        await tx.insert(orderEvents).values({
-          orderId: newOrder.id,
-          eventType: 'payment_received', // Use closest existing type
-          payload: {
-            source: 'trade_quotation',
-            quotationId: quotation.id,
-            quotationNumber: quotation.quotationNumber,
-            depositPaymentIntentId: depositPayment?.stripePaymentIntentId,
-            balancePaymentIntentId: balancePayment?.stripePaymentIntentId,
-          },
-          description: `Order created from quotation ${quotation.quotationNumber}`,
-          performedBy: 'system',
+        await tx.order_events.create({
+          data: {
+            order_id: newOrder.id,
+            event_type: 'payment_received', // Use closest existing type
+            payload: {
+              source: 'trade_quotation',
+              quotationId: quotation.id,
+              quotationNumber: quotation.quotationNumber,
+              depositPaymentIntentId: depositPayment?.stripePaymentIntentId,
+              balancePaymentIntentId: balancePayment?.stripePaymentIntentId,
+            },
+            description: `Order created from quotation ${quotation.quotationNumber}`,
+            performed_by: 'system',
+          }
         });
 
         // Step 9: Update quotation status to "completed" and store orderId (idempotency)
-        await tx
-          .update(tradeQuotations)
-          .set({
+        await tx.trade_quotations.update({
+          where: {
+            id: quotationId
+          },
+          data: {
             status: 'completed',
-            orderId: newOrder.id, // Store orderId to prevent duplicate conversions
-            updatedAt: new Date(),
-          })
-          .where(eq(tradeQuotations.id, quotationId));
+            order_id: newOrder.id, // Store orderId to prevent duplicate conversions
+            updated_at: new Date(),
+          }
+        });
 
         logger.info('[TradeWorkflowOrchestrator] Order created successfully from quotation', {
           orderId: newOrder.id,

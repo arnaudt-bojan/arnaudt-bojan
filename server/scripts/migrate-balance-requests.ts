@@ -10,8 +10,6 @@
  */
 
 import { db } from "../db";
-import { eq, and, isNull, gt } from "drizzle-orm";
-import { orders, balanceRequests } from "@shared/schema";
 import { logger } from "../logger";
 import { BalancePaymentService } from "../services/balance-payment.service";
 import { PricingCalculationService } from "../services/pricing-calculation.service";
@@ -32,16 +30,15 @@ async function migrateBalanceRequests() {
   const balanceService = new BalancePaymentService(storage, pricingService, shippingService, stripe);
 
   try {
-    // Find orders that need balance requests
-    const eligibleOrders = await db
-      .select()
-      .from(orders)
-      .where(
-        and(
-          gt(orders.balanceDueCents, 0),
-          eq(orders.paymentStatus, 'partially_paid')
-        )
-      );
+    // Find orders that need balance requests (using Prisma)
+    const eligibleOrders = await db.orders.findMany({
+      where: {
+        balance_due_cents: {
+          gt: 0
+        },
+        payment_status: 'partially_paid'
+      }
+    });
 
     console.log(`Found ${eligibleOrders.length} orders with partial payments\n`);
 
@@ -50,14 +47,14 @@ async function migrateBalanceRequests() {
     let errors = 0;
 
     for (const order of eligibleOrders) {
-      // Check if balance request already exists
-      const existing = await db
-        .select()
-        .from(balanceRequests)
-        .where(eq(balanceRequests.orderId, order.id))
-        .limit(1);
+      // Check if balance request already exists (using Prisma)
+      const existing = await db.balance_requests.findFirst({
+        where: {
+          order_id: order.id
+        }
+      });
 
-      if (existing.length > 0) {
+      if (existing) {
         console.log(`⏭️  Skipping order ${order.id} - balance request already exists`);
         skipped++;
         continue;

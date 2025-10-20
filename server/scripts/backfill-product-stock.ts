@@ -7,24 +7,17 @@
  * Run with: tsx server/scripts/backfill-product-stock.ts
  */
 
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
-import { products } from "../../shared/schema";
+import { PrismaClient } from "@prisma/client";
 import { calculateTotalStockFromVariants } from "../utils/calculate-stock";
-import { eq } from "drizzle-orm";
-
-neonConfig.webSocketConstructor = ws;
 
 async function backfillProductStock() {
   console.log("🔧 Starting product.stock backfill...\n");
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const db = drizzle(pool);
+  const db = new PrismaClient();
 
   try {
-    // Get all products
-    const allProducts = await db.select().from(products);
+    // Get all products (using Prisma)
+    const allProducts = await db.products.findMany();
     console.log(`📦 Found ${allProducts.length} total products\n`);
 
     let updated = 0;
@@ -43,12 +36,16 @@ async function backfillProductStock() {
         const calculatedStock = calculateTotalStockFromVariants(product.variants);
         const currentStock = product.stock || 0;
 
-        // Only update if there's drift
+        // Only update if there's drift (using Prisma)
         if (calculatedStock !== currentStock) {
-          await db
-            .update(products)
-            .set({ stock: calculatedStock })
-            .where(eq(products.id, product.id));
+          await db.products.update({
+            where: {
+              id: product.id
+            },
+            data: {
+              stock: calculatedStock
+            }
+          });
 
           console.log(`✅ Updated "${product.name}" (${product.id})`);
           console.log(`   Previous stock: ${currentStock}, Calculated: ${calculatedStock}\n`);
@@ -71,7 +68,7 @@ async function backfillProductStock() {
     console.error("❌ Backfill failed:", error);
     process.exit(1);
   } finally {
-    await pool.end();
+    await db.$disconnect();
   }
 }
 
