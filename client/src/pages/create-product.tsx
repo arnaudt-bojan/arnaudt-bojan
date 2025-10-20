@@ -367,7 +367,7 @@ export default function CreateProduct() {
               <Button
                 type="submit"
                 disabled={createMutation.isPending || isWarehouseBlocking}
-                data-testid="button-submit-product"
+                data-testid="button-save-product"
               >
                 {createMutation.isPending ? "Creating..." : "Create Product"}
               </Button>
