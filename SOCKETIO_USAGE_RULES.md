@@ -69,7 +69,7 @@ import { WebSocketModule } from '../websocket/websocket.module';
 export class MyModule {}
 ```
 
-### Pattern 2: Express Services (Legacy API)
+### Pattern 2: Express Services - Orders (Native WebSocket)
 
 **Use**: `orderWebSocketService` from `server/websocket.ts`
 
@@ -82,6 +82,28 @@ await storage.updateOrder(orderId, {...});
 orderWebSocketService.broadcastOrderUpdate(orderId, {
   status: 'shipped',
   trackingNumber: '123456',
+});
+```
+
+### Pattern 3: Express Services - Settings (Socket.IO)
+
+**Use**: `settingsSocketService` from `server/websocket.ts`
+
+```typescript
+import { settingsSocketService } from '../websocket';
+
+// Emit after database operation
+const updatedUser = await storage.upsertUser({...});
+
+// Public-facing settings (emit to seller + storefront viewers)
+settingsSocketService.emitBrandingUpdated(userId, {
+  storeLogo: updatedUser.storeLogo,
+  storeBanner: updatedUser.storeBanner,
+});
+
+// Internal settings (emit to seller only)
+settingsSocketService.emitInternalSettingsUpdated(userId, 'warehouse', {
+  warehouseAddressLine1: updatedUser.warehouseAddressLine1,
 });
 ```
 
@@ -134,7 +156,19 @@ orderWebSocketService.broadcastOrderUpdate(orderId, {
    - Payment canceled
    - Charge refunded
 
-7. **Analytics**
+7. **Seller Settings**
+   - Storefront branding updated (logo, banner, policies)
+   - Contact info updated (social links, email, about)
+   - Store status toggled (active/inactive)
+   - Terms & Conditions updated
+   - Username changed
+   - Warehouse address updated (internal)
+   - Payment provider updated (internal)
+   - Tax settings updated (internal)
+   - Custom domain updated (internal)
+   - Shipping price updated (internal)
+
+8. **Analytics**
    - Sale completed
    - Revenue metrics updated
    - Product performance changed
@@ -160,6 +194,14 @@ orderWebSocketService.broadcastOrderUpdate(orderId, {
 - New order notifications
 - Revenue analytics updates
 - Wholesale invitation responses
+- Internal settings (warehouse, payment, tax, shipping, domain)
+
+### Seller + Storefront Viewers
+- Storefront branding changes
+- Contact info updates
+- Store status changes
+- Username changes
+- Terms & Conditions updates
 
 ### BOTH Buyer and Seller
 - Order fulfillment updates
@@ -189,6 +231,16 @@ orderWebSocketService.broadcastOrderUpdate(orderId, {
 - `stock:low`
 - `stock:out`
 - `stock:restocked`
+- `storefront:branding_updated`
+- `storefront:contact_updated`
+- `storefront:status_updated`
+- `storefront:terms_updated`
+- `storefront:username_updated`
+- `settings:warehouse_updated`
+- `settings:payment_provider_updated`
+- `settings:tax_settings_updated`
+- `settings:custom_domain_updated`
+- `settings:shipping_updated`
 
 ---
 
@@ -330,10 +382,14 @@ When reviewing code, check:
 - Wholesale (invitations, orders)
 - Quotations (full lifecycle)
 - Orders (create, fulfillment, refund, payment webhooks)
+- **Settings (ALL 10 endpoints - NEW!)**
+  - Branding, Contact, Store Status, Terms, Username (public-facing)
+  - Warehouse, Payment, Tax, Domain, Shipping (internal)
 - Analytics (sale completed)
+- Payment Webhooks (failed, canceled, refunded)
 
-### 🎯 Future Enhancements
-- Subscription lifecycle events
+### 🎯 Future Enhancements (Deferred - NOT Critical)
+- Subscription lifecycle events (customer.subscription.*)
 - User profile updates
 - Notification creation events
 - Newsletter campaign events
@@ -464,6 +520,68 @@ async handlePaymentIntentFailed(event: WebhookEvent) {
     logger.info(`Payment failed and Socket.IO broadcasted for order ${orderId}`);
   }
 }
+```
+
+### Example 4: Settings Update (Public-Facing)
+```typescript
+app.patch("/api/user/branding", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { storeBanner, storeLogo, shippingPolicy, returnsPolicy } = req.body;
+
+    // 1. Update database
+    const updatedUser = await storage.upsertUser({
+      ...user,
+      storeBanner: storeBanner || null,
+      storeLogo: storeLogo || null,
+      shippingPolicy: shippingPolicy || null,
+      returnsPolicy: returnsPolicy || null,
+    });
+
+    // 2. Send response first
+    res.json({ message: "Branding updated successfully", user: updatedUser });
+
+    // 3. Emit Socket.IO to seller + storefront viewers
+    settingsSocketService.emitBrandingUpdated(userId, {
+      storeBanner: updatedUser.storeBanner,
+      storeLogo: updatedUser.storeLogo,
+      shippingPolicy: updatedUser.shippingPolicy,
+      returnsPolicy: updatedUser.returnsPolicy,
+    });
+  } catch (error) {
+    logger.error("Branding update error", error);
+    res.status(500).json({ error: "Failed to update branding" });
+  }
+});
+```
+
+### Example 5: Settings Update (Internal)
+```typescript
+app.patch("/api/user/warehouse", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const { warehouseAddressLine1, warehouseAddressCity } = req.body;
+
+    // 1. Update database
+    const updatedUser = await storage.upsertUser({
+      ...user,
+      warehouseAddressLine1: warehouseAddressLine1 || null,
+      warehouseAddressCity: warehouseAddressCity || null,
+    });
+
+    // 2. Send response
+    res.json({ message: "Warehouse updated successfully", user: updatedUser });
+
+    // 3. Emit Socket.IO to seller only (internal setting)
+    settingsSocketService.emitInternalSettingsUpdated(userId, 'warehouse', {
+      warehouseAddressLine1: updatedUser.warehouseAddressLine1,
+      warehouseAddressCity: updatedUser.warehouseAddressCity,
+    });
+  } catch (error) {
+    logger.error("Warehouse update error", error);
+    res.status(500).json({ error: "Failed to update warehouse" });
+  }
+});
 ```
 
 ---
