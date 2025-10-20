@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private prisma: PrismaService,
+    private cacheService: CacheService,
     private websocketGateway: AppWebSocketGateway,
   ) {}
 
@@ -84,6 +86,7 @@ export class OrdersService {
   async createOrder(input: any, userId: string) {
     const { cartId, shippingAddress, billingAddress, paymentMethodId, buyerNotes } = input;
 
+    // Pre-transaction validation
     const cart = await this.prisma.carts.findUnique({
       where: { id: cartId },
     });
@@ -113,73 +116,86 @@ export class OrdersService {
 
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
-    const orderData = {
-      user_id: userId,
-      seller_id: cart.seller_id,
-      customer_name: shippingAddress.fullName,
-      customer_email: 'buyer@example.com',
-      customer_address: `${shippingAddress.addressLine1}, ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}`,
-      items: JSON.stringify(items),
-      total: subtotal,
-      subtotal_before_tax: subtotal,
-      tax_amount: 0,
-      shipping_cost: 0,
-      amount_paid: 0,
-      remaining_balance: subtotal,
-      payment_type: 'full',
-      payment_status: 'pending',
-      status: 'pending',
-      fulfillment_status: 'unfulfilled',
-      currency: 'USD',
-      shipping_street: shippingAddress.addressLine1,
-      shipping_city: shippingAddress.city,
-      shipping_state: shippingAddress.state,
-      shipping_postal_code: shippingAddress.postalCode,
-      shipping_country: shippingAddress.country || 'US',
-      billing_name: billingAddress?.fullName || shippingAddress.fullName,
-      billing_email: billingAddress?.addressLine1 || shippingAddress.addressLine1,
-      billing_street: billingAddress?.addressLine1 || shippingAddress.addressLine1,
-      billing_city: billingAddress?.city || shippingAddress.city,
-      billing_state: billingAddress?.state || shippingAddress.state,
-      billing_postal_code: billingAddress?.postalCode || shippingAddress.postalCode,
-      billing_country: billingAddress?.country || shippingAddress.country || 'US',
-      created_at: new Date().toISOString(),
-    };
+    // Transaction: Create order, order items, and update cart atomically
+    const order = await this.prisma.runTransaction(async (tx) => {
+      const orderData = {
+        user_id: userId,
+        seller_id: cart.seller_id,
+        customer_name: shippingAddress.fullName,
+        customer_email: 'buyer@example.com',
+        customer_address: `${shippingAddress.addressLine1}, ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}`,
+        items: JSON.stringify(items),
+        total: subtotal,
+        subtotal_before_tax: subtotal,
+        tax_amount: 0,
+        shipping_cost: 0,
+        amount_paid: 0,
+        remaining_balance: subtotal,
+        payment_type: 'full',
+        payment_status: 'pending',
+        status: 'pending',
+        fulfillment_status: 'unfulfilled',
+        currency: 'USD',
+        shipping_street: shippingAddress.addressLine1,
+        shipping_city: shippingAddress.city,
+        shipping_state: shippingAddress.state,
+        shipping_postal_code: shippingAddress.postalCode,
+        shipping_country: shippingAddress.country || 'US',
+        billing_name: billingAddress?.fullName || shippingAddress.fullName,
+        billing_email: billingAddress?.addressLine1 || shippingAddress.addressLine1,
+        billing_street: billingAddress?.addressLine1 || shippingAddress.addressLine1,
+        billing_city: billingAddress?.city || shippingAddress.city,
+        billing_state: billingAddress?.state || shippingAddress.state,
+        billing_postal_code: billingAddress?.postalCode || shippingAddress.postalCode,
+        billing_country: billingAddress?.country || shippingAddress.country || 'US',
+        created_at: new Date().toISOString(),
+      };
 
-    const order = await this.prisma.orders.create({
-      data: orderData,
-    });
+      // Step 1: Create order
+      const createdOrder = await tx.orders.create({
+        data: orderData,
+      });
 
-    for (const item of items) {
-      await this.prisma.order_items.create({
-        data: {
-          order_id: order.id,
-          product_id: item.id,
-          product_name: item.name,
-          product_image: item.images?.[0] || null,
-          product_type: item.productType,
-          quantity: item.quantity,
-          price: parseFloat(item.price),
-          subtotal: parseFloat(item.price) * item.quantity,
-          variant: item.variant || null,
-          item_status: 'pending',
-          product_sku: item.productSku || null,
-          variant_sku: item.variantSku || null,
+      // Step 2: Create order items
+      for (const item of items) {
+        await tx.order_items.create({
+          data: {
+            order_id: createdOrder.id,
+            product_id: item.id,
+            product_name: item.name,
+            product_image: item.images?.[0] || null,
+            product_type: item.productType,
+            quantity: item.quantity,
+            price: parseFloat(item.price),
+            subtotal: parseFloat(item.price) * item.quantity,
+            variant: item.variant || null,
+            item_status: 'pending',
+            product_sku: item.productSku || null,
+            variant_sku: item.variantSku || null,
+          },
+        });
+      }
+
+      // Step 3: Update cart status
+      await tx.carts.update({
+        where: { id: cartId },
+        data: { 
+          items: [] as any, 
+          status: 'completed',
+          updated_at: new Date() 
         },
       });
-    }
 
-    await this.prisma.carts.update({
-      where: { id: cartId },
-      data: { 
-        items: [] as any, 
-        status: 'completed',
-        updated_at: new Date() 
-      },
+      return createdOrder;
     });
+
+    // Cache invalidation: Clear order caches for buyer and seller
+    await this.cacheService.delPattern(`orders:buyer:${userId}`);
+    await this.cacheService.delPattern(`orders:seller:${cart.seller_id}`);
 
     const graphqlOrder = this.mapOrderToGraphQL(order);
 
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitOrderUpdate(userId, graphqlOrder);
     this.websocketGateway.emitOrderUpdate(cart.seller_id, graphqlOrder);
 
@@ -196,6 +212,7 @@ export class OrdersService {
   async updateOrderFulfillment(input: any, sellerId: string) {
     const { orderId, status, trackingNumber, carrier, notes } = input;
 
+    // Pre-transaction validation
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
     });
@@ -212,31 +229,44 @@ export class OrdersService {
       });
     }
 
-    const updateData: any = {
-      fulfillment_status: status.toLowerCase(),
-    };
+    // Transaction: Update order and order items atomically
+    const updatedOrder = await this.prisma.runTransaction(async (tx) => {
+      const updateData: any = {
+        fulfillment_status: status.toLowerCase(),
+      };
 
-    if (trackingNumber) updateData.tracking_number = trackingNumber;
-    if (carrier) updateData.shipping_carrier = carrier;
+      if (trackingNumber) updateData.tracking_number = trackingNumber;
+      if (carrier) updateData.shipping_carrier = carrier;
 
-    const updatedOrder = await this.prisma.orders.update({
-      where: { id: orderId },
-      data: updateData,
+      // Step 1: Update order
+      const updated = await tx.orders.update({
+        where: { id: orderId },
+        data: updateData,
+      });
+
+      // Step 2: Update order items if tracking info provided
+      if (trackingNumber && carrier) {
+        await tx.order_items.updateMany({
+          where: { order_id: orderId },
+          data: {
+            tracking_number: trackingNumber,
+            tracking_carrier: carrier,
+            item_status: status.toLowerCase(),
+          },
+        });
+      }
+
+      return updated;
     });
 
-    if (trackingNumber && carrier) {
-      await this.prisma.order_items.updateMany({
-        where: { order_id: orderId },
-        data: {
-          tracking_number: trackingNumber,
-          tracking_carrier: carrier,
-          item_status: status.toLowerCase(),
-        },
-      });
-    }
+    // Cache invalidation: Clear order caches
+    await this.cacheService.del(`order:${orderId}`);
+    await this.cacheService.delPattern(`orders:buyer:${updatedOrder.user_id}`);
+    await this.cacheService.delPattern(`orders:seller:${updatedOrder.seller_id}`);
 
     const graphqlOrder = this.mapOrderToGraphQL(updatedOrder);
 
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitOrderUpdate(updatedOrder.user_id, graphqlOrder);
     this.websocketGateway.emitOrderUpdate(updatedOrder.seller_id, graphqlOrder);
 
@@ -246,6 +276,7 @@ export class OrdersService {
   async issueRefund(input: any, sellerId: string) {
     const { orderId, lineItems, reason } = input;
 
+    // Pre-transaction validation
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
     });
@@ -266,16 +297,26 @@ export class OrdersService {
       return sum + parseFloat(item.amount);
     }, 0);
 
-    const updatedOrder = await this.prisma.orders.update({
-      where: { id: orderId },
-      data: {
-        payment_status: 'refunded',
-        status: 'refunded',
-      },
+    // Transaction: Update order status atomically
+    const updatedOrder = await this.prisma.runTransaction(async (tx) => {
+      return await tx.orders.update({
+        where: { id: orderId },
+        data: {
+          payment_status: 'refunded',
+          status: 'refunded',
+        },
+      });
     });
+
+    // Cache invalidation: Clear order caches
+    await this.cacheService.del(`order:${orderId}`);
+    await this.cacheService.delPattern(`orders:buyer:${updatedOrder.user_id}`);
+    await this.cacheService.delPattern(`orders:seller:${updatedOrder.seller_id}`);
 
     const graphqlOrder = this.mapOrderToGraphQL(updatedOrder);
 
+    // External API calls (Socket.IO) - OUTSIDE transaction
+    // TODO: Actual Stripe refund API call should go here (OUTSIDE transaction)
     this.websocketGateway.emitOrderUpdate(updatedOrder.user_id, graphqlOrder);
     this.websocketGateway.emitOrderUpdate(updatedOrder.seller_id, graphqlOrder);
 

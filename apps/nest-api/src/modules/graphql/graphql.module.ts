@@ -4,6 +4,8 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { SellerLoader } from '../../common/dataloaders/seller.loader';
 import { BuyerLoader } from '../../common/dataloaders/buyer.loader';
+import { UserLoader } from '../../common/dataloaders/user.loader';
+import { BuyerProfileLoader } from '../../common/dataloaders/buyer-profile.loader';
 import { OrderItemsLoader } from '../../common/dataloaders/order-items.loader';
 import { WholesaleOrderItemsLoader } from '../../common/dataloaders/wholesale-order-items.loader';
 import { WholesaleOrderEventsLoader } from '../../common/dataloaders/wholesale-order-events.loader';
@@ -21,6 +23,8 @@ import { DataloaderModule } from '../../common/dataloaders/dataloader.module';
       inject: [
         SellerLoader,
         BuyerLoader,
+        UserLoader,
+        BuyerProfileLoader,
         OrderItemsLoader,
         WholesaleOrderItemsLoader,
         WholesaleOrderEventsLoader,
@@ -31,6 +35,8 @@ import { DataloaderModule } from '../../common/dataloaders/dataloader.module';
       useFactory: (
         sellerLoader: SellerLoader,
         buyerLoader: BuyerLoader,
+        userLoader: UserLoader,
+        buyerProfileLoader: BuyerProfileLoader,
         orderItemsLoader: OrderItemsLoader,
         wholesaleOrderItemsLoader: WholesaleOrderItemsLoader,
         wholesaleOrderEventsLoader: WholesaleOrderEventsLoader,
@@ -48,6 +54,8 @@ import { DataloaderModule } from '../../common/dataloaders/dataloader.module';
           req,
           sellerLoader,
           buyerLoader,
+          userLoader,
+          buyerProfileLoader,
           orderItemsLoader,
           wholesaleOrderItemsLoader,
           wholesaleOrderEventsLoader,

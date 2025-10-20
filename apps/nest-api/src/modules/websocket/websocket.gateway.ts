@@ -7,7 +7,7 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import type {
   ProductCreatedEvent,
   ProductUpdatedEvent,
@@ -48,6 +48,12 @@ import type {
   StockRestockedEvent,
 } from './events/stock.events';
 
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+  violations: number;
+}
+
 @WebSocketGateway({
   cors: {
     origin: ['http://localhost:5000', 'http://localhost:3000'],
@@ -61,15 +67,41 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   private readonly logger = new Logger(AppWebSocketGateway.name);
   private connectedUsers = new Map<string, string>();
+  private rateLimitStorage = new Map<string, RateLimitEntry>();
+  
+  // Rate limit: 100 events per minute per user
+  private readonly RATE_LIMIT = 100;
+  private readonly RATE_LIMIT_WINDOW = 60000; // 60 seconds
+  private readonly MAX_VIOLATIONS = 3;
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
     
+    // Enforce authentication for WebSocket connections
     const userId = client.handshake.auth?.userId;
-    if (userId) {
-      this.connectedUsers.set(client.id, userId);
-      client.join(`user:${userId}`);
-      this.logger.log(`User ${userId} joined room user:${userId}`);
+    const session = (client.request as any).session;
+    
+    // Check if user is authenticated
+    const isAuthenticated = userId && session?.passport?.user;
+    
+    if (!isAuthenticated) {
+      this.logger.warn(`Unauthenticated WebSocket connection attempt from ${client.id}`);
+      client.emit('error', { message: 'Authentication required' });
+      client.disconnect();
+      return;
+    }
+    
+    this.connectedUsers.set(client.id, userId);
+    client.join(`user:${userId}`);
+    this.logger.log(`Authenticated user ${userId} joined room user:${userId}`);
+    
+    // Initialize rate limit entry for this user
+    if (!this.rateLimitStorage.has(userId)) {
+      this.rateLimitStorage.set(userId, {
+        count: 0,
+        resetTime: Date.now() + this.RATE_LIMIT_WINDOW,
+        violations: 0,
+      });
     }
   }
 
@@ -309,8 +341,56 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     this.server.to(`product:${event.productId}`).emit('stock:restocked', payload);
   }
 
+  private checkRateLimit(userId: string, client: Socket): boolean {
+    const now = Date.now();
+    const entry = this.rateLimitStorage.get(userId);
+    
+    if (!entry) {
+      this.rateLimitStorage.set(userId, {
+        count: 1,
+        resetTime: now + this.RATE_LIMIT_WINDOW,
+        violations: 0,
+      });
+      return true;
+    }
+    
+    // Reset if window has passed
+    if (now > entry.resetTime) {
+      entry.count = 1;
+      entry.resetTime = now + this.RATE_LIMIT_WINDOW;
+      return true;
+    }
+    
+    // Check if limit exceeded
+    if (entry.count >= this.RATE_LIMIT) {
+      entry.violations++;
+      this.logger.warn(`Rate limit exceeded for user ${userId}. Violations: ${entry.violations}`);
+      
+      // Disconnect after too many violations
+      if (entry.violations >= this.MAX_VIOLATIONS) {
+        this.logger.error(`User ${userId} exceeded rate limit violations. Disconnecting.`);
+        client.emit('error', { 
+          message: 'Rate limit exceeded. Connection terminated.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        });
+        client.disconnect();
+        this.rateLimitStorage.delete(userId);
+      }
+      
+      return false;
+    }
+    
+    entry.count++;
+    return true;
+  }
+
   @SubscribeMessage('join:seller')
   handleJoinSeller(@ConnectedSocket() client: Socket) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     client.join('sellers');
     this.logger.log(`Client ${client.id} joined sellers room`);
     return { success: true };
@@ -318,6 +398,11 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   @SubscribeMessage('leave:seller')
   handleLeaveSeller(@ConnectedSocket() client: Socket) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     client.leave('sellers');
     this.logger.log(`Client ${client.id} left sellers room`);
     return { success: true };
@@ -325,6 +410,11 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   @SubscribeMessage('join:storefront')
   handleJoinStorefront(@ConnectedSocket() client: Socket, payload: { sellerId: string }) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     const { sellerId } = payload;
     client.join(`storefront:${sellerId}`);
     this.logger.log(`Client ${client.id} joined storefront:${sellerId}`);
@@ -333,6 +423,11 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   @SubscribeMessage('leave:storefront')
   handleLeaveStorefront(@ConnectedSocket() client: Socket, payload: { sellerId: string }) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     const { sellerId } = payload;
     client.leave(`storefront:${sellerId}`);
     this.logger.log(`Client ${client.id} left storefront:${sellerId}`);
@@ -341,6 +436,11 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   @SubscribeMessage('join:product')
   handleJoinProduct(@ConnectedSocket() client: Socket, payload: { productId: string }) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     const { productId } = payload;
     client.join(`product:${productId}`);
     this.logger.log(`Client ${client.id} joined product:${productId}`);
@@ -349,6 +449,11 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   @SubscribeMessage('leave:product')
   handleLeaveProduct(@ConnectedSocket() client: Socket, payload: { productId: string }) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     const { productId } = payload;
     client.leave(`product:${productId}`);
     this.logger.log(`Client ${client.id} left product:${productId}`);
@@ -357,6 +462,11 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
 
   @SubscribeMessage('ping')
   handlePing(@ConnectedSocket() client: Socket) {
+    const userId = this.connectedUsers.get(client.id);
+    if (!userId || !this.checkRateLimit(userId, client)) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+    
     return { pong: true, timestamp: new Date() };
   }
 }

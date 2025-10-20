@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { CacheModule } from './modules/cache/cache.module';
 import { HealthModule } from './modules/health/health.module';
 import { GraphQLConfigModule } from './modules/graphql/graphql.module';
 import { ProductsModule } from './modules/products/product.module';
@@ -19,6 +20,7 @@ import { ProductPresentationModule } from './modules/product-presentation/produc
 @Module({
   imports: [
     PrismaModule,
+    CacheModule,
     HealthModule,
     GraphQLConfigModule,
     ProductsModule,

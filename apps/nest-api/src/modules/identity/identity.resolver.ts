@@ -6,10 +6,21 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
 import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UpdateProfileInput } from './dto/update-profile.input';
+import { UpdateSellerAccountInput } from './dto/update-seller-account.input';
 
 @Resolver('User')
 export class IdentityResolver {
   constructor(private identityService: IdentityService) {}
+
+  private mapSubscriptionTier(plan: string | null): string {
+    if (!plan) return 'FREE';
+    const upperPlan = plan.toUpperCase();
+    if (['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(upperPlan)) {
+      return upperPlan;
+    }
+    return 'FREE';
+  }
 
   @Query('whoami')
   @UseGuards(GqlAuthGuard)
@@ -46,53 +57,67 @@ export class IdentityResolver {
   @Mutation('updateProfile')
   @UseGuards(GqlAuthGuard)
   async updateProfile(
-    @Args('fullName') fullName?: string,
-    @Args('username') username?: string,
-    @Args('phoneNumber') phoneNumber?: string,
-    @Args('profileImageUrl') profileImageUrl?: string,
-    @CurrentUser() userId?: string,
+    @Args('input') input: UpdateProfileInput,
+    @CurrentUser() userId: string,
   ) {
-    return this.identityService.updateProfile(userId!, {
-      fullName,
-      username,
-      phoneNumber,
-      profileImageUrl,
-    });
+    return this.identityService.updateProfile(userId, input);
   }
 
   @Mutation('updateSellerAccount')
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
   async updateSellerAccount(
-    @Args('storeName') storeName?: string,
-    @Args('businessName') businessName?: string,
-    @Args('businessEmail') businessEmail?: string,
-    @Args('brandColor') brandColor?: string,
-    @Args('logoUrl') logoUrl?: string,
-    @CurrentUser() userId?: string,
+    @Args('input') input: UpdateSellerAccountInput,
+    @CurrentUser() userId: string,
   ) {
-    return this.identityService.updateSellerAccount(userId!, {
-      storeName,
-      businessName,
-      businessEmail,
-      brandColor,
-      logoUrl,
-    });
+    return this.identityService.updateSellerAccount(userId, input);
   }
 
   @ResolveField('sellerAccount')
-  async sellerAccount(@Parent() user: any) {
+  async sellerAccount(@Parent() user: any, @Context() context: GraphQLContext) {
     if (user.userType === 'SELLER' || user.role === 'seller') {
-      return this.identityService.getSeller(user.id);
+      const userData = await context.userLoader.load(user.id);
+      if (!userData) return null;
+      
+      return {
+        id: userData.id,
+        userId: userData.id,
+        storeName: userData.username || '',
+        storeSlug: userData.username || '',
+        businessName: userData.company_name,
+        businessEmail: userData.contact_email,
+        businessPhone: userData.business_phone,
+        stripeAccountId: userData.stripe_connected_account_id,
+        subscriptionTier: this.mapSubscriptionTier(userData.subscription_plan),
+        brandColor: userData.store_banner,
+        logoUrl: userData.store_logo,
+        notificationSettings: null,
+        createdAt: userData.created_at,
+        updatedAt: userData.updated_at,
+      };
     }
     return null;
   }
 
   @ResolveField('buyerProfile')
-  async buyerProfile(@Parent() user: any) {
+  async buyerProfile(@Parent() user: any, @Context() context: GraphQLContext) {
     if (user.userType === 'BUYER' || user.role === 'buyer' || user.role === 'customer') {
       try {
-        return await this.identityService.getBuyerProfile(user.id);
+        const profile = await context.buyerProfileLoader.load(user.id);
+        if (!profile) return null;
+        
+        return {
+          id: profile.id,
+          userId: profile.user_id,
+          companyName: profile.company_name,
+          vatNumber: profile.vat_number,
+          billingAddress: profile.billing_address,
+          shippingAddress: profile.shipping_address,
+          defaultPaymentTerms: profile.default_payment_terms,
+          creditLimit: profile.credit_limit,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+        };
       } catch (error) {
         return null;
       }
@@ -111,8 +136,21 @@ export class SellerAccountResolver {
   constructor(private identityService: IdentityService) {}
 
   @ResolveField('user')
-  async user(@Parent() sellerAccount: any) {
-    return this.identityService.getUser(sellerAccount.userId);
+  async user(@Parent() sellerAccount: any, @Context() context: GraphQLContext) {
+    const userData = await context.userLoader.load(sellerAccount.userId);
+    if (!userData) return null;
+    
+    return {
+      id: userData.id,
+      email: userData.email,
+      username: userData.username,
+      fullName: [userData.first_name, userData.last_name].filter(Boolean).join(' ') || null,
+      userType: userData.user_type || (userData.role === 'seller' ? 'SELLER' : 'BUYER'),
+      profileImageUrl: userData.profile_image_url,
+      phoneNumber: userData.phone_number || null,
+      createdAt: userData.created_at,
+      updatedAt: userData.updated_at,
+    };
   }
 
   @ResolveField('homepage')
@@ -131,7 +169,20 @@ export class BuyerProfileResolver {
   constructor(private identityService: IdentityService) {}
 
   @ResolveField('user')
-  async user(@Parent() buyerProfile: any) {
-    return this.identityService.getUser(buyerProfile.userId);
+  async user(@Parent() buyerProfile: any, @Context() context: GraphQLContext) {
+    const userData = await context.userLoader.load(buyerProfile.userId);
+    if (!userData) return null;
+    
+    return {
+      id: userData.id,
+      email: userData.email,
+      username: userData.username,
+      fullName: [userData.first_name, userData.last_name].filter(Boolean).join(' ') || null,
+      userType: userData.user_type || (userData.role === 'seller' ? 'SELLER' : 'BUYER'),
+      profileImageUrl: userData.profile_image_url,
+      phoneNumber: userData.phone_number || null,
+      createdAt: userData.created_at,
+      updatedAt: userData.updated_at,
+    };
   }
 }

@@ -1,5 +1,7 @@
 import { SellerLoader } from '../common/dataloaders/seller.loader';
 import { BuyerLoader } from '../common/dataloaders/buyer.loader';
+import { UserLoader } from '../common/dataloaders/user.loader';
+import { BuyerProfileLoader } from '../common/dataloaders/buyer-profile.loader';
 import { OrderItemsLoader } from '../common/dataloaders/order-items.loader';
 import { WholesaleOrderItemsLoader } from '../common/dataloaders/wholesale-order-items.loader';
 import { WholesaleOrderEventsLoader } from '../common/dataloaders/wholesale-order-events.loader';
@@ -11,6 +13,8 @@ export interface GraphQLContext {
   req: any;
   sellerLoader: SellerLoader;
   buyerLoader: BuyerLoader;
+  userLoader: UserLoader;
+  buyerProfileLoader: BuyerProfileLoader;
   orderItemsLoader: OrderItemsLoader;
   wholesaleOrderItemsLoader: WholesaleOrderItemsLoader;
   wholesaleOrderEventsLoader: WholesaleOrderEventsLoader;

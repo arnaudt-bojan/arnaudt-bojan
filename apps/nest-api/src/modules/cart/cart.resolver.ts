@@ -13,6 +13,8 @@ import { PricingService } from '../pricing/pricing.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AddToCartInput } from './dto/add-to-cart.input';
+import { UpdateCartItemInput } from './dto/update-cart-item.input';
 
 @Resolver('Cart')
 export class CartResolver {
@@ -33,7 +35,7 @@ export class CartResolver {
 
   @Mutation('addToCart')
   async addToCart(
-    @Args('input') input: any,
+    @Args('input') input: AddToCartInput,
     @Context() context: GraphQLContext,
   ) {
     // Extract sessionId from context if available
@@ -44,7 +46,7 @@ export class CartResolver {
   @Mutation('updateCartItem')
   async updateCartItem(
     @Args('cartId') cartId: string,
-    @Args('input') input: any,
+    @Args('input') input: UpdateCartItemInput,
   ) {
     return this.cartService.updateCartItem(cartId, input);
   }

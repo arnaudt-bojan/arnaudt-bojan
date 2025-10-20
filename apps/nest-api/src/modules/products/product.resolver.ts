@@ -7,6 +7,9 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
 import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateProductInput } from './dto/create-product.input';
+import { UpdateProductInput } from './dto/update-product.input';
+import { GqlRateLimitGuard, RateLimit } from '../auth/guards/gql-rate-limit.guard';
 
 @Resolver('Product')
 export class ProductResolver {
@@ -29,6 +32,8 @@ export class ProductResolver {
   }
 
   @Query('listProducts')
+  @UseGuards(GqlRateLimitGuard)
+  @RateLimit({ limit: 20, ttl: 60 })
   async listProducts(
     @Args('filter') filter?: any,
     @Args('sort') sort?: any,
@@ -42,7 +47,7 @@ export class ProductResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
   async createProduct(
-    @Args('input') input: any,
+    @Args('input') input: CreateProductInput,
     @CurrentUser() userId: string,
     @Context() context: GraphQLContext,
   ) {
@@ -54,7 +59,7 @@ export class ProductResolver {
   @RequireUserType('seller')
   async updateProduct(
     @Args('id') id: string,
-    @Args('input') input: any,
+    @Args('input') input: UpdateProductInput,
     @CurrentUser() userId: string,
     @Context() context: GraphQLContext,
   ) {

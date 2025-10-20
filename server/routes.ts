@@ -654,6 +654,9 @@ function parseOrderItems(items: any): any[] {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // NOTE: Health check endpoints are defined in server/index.ts (before Vite middleware)
+  // to ensure they're not intercepted by Vite's SPA fallback routing
+  
   await setupAuth(app);
 
   // Email-based authentication routes

@@ -15,6 +15,8 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
 import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateQuotationInput } from './dto/create-quotation.input';
+import { UpdateQuotationInput } from './dto/update-quotation.input';
 
 @Resolver('Quotation')
 export class QuotationsResolver {
@@ -49,7 +51,7 @@ export class QuotationsResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
   async createQuotation(
-    @Args('input') input: any,
+    @Args('input') input: CreateQuotationInput,
     @CurrentUser() userId: string,
   ) {
     return this.quotationsService.createQuotation(input, userId);
@@ -60,7 +62,7 @@ export class QuotationsResolver {
   @RequireUserType('seller')
   async updateQuotation(
     @Args('id') id: string,
-    @Args('input') input: any,
+    @Args('input') input: UpdateQuotationInput,
     @CurrentUser() userId: string,
   ) {
     return this.quotationsService.updateQuotation(id, input, userId);

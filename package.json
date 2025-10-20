@@ -38,6 +38,7 @@
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/platform-socket.io": "^11.1.6",
     "@nestjs/schematics": "^11.0.9",
+    "@nestjs/terminus": "^11.0.0",
     "@nestjs/testing": "^11.1.6",
     "@nestjs/websockets": "^11.1.6",
     "@playwright/test": "^1.56.1",

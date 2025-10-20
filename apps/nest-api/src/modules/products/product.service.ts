@@ -1,17 +1,27 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ProductService {
   constructor(
     private prisma: PrismaService,
+    private cacheService: CacheService,
     @Inject(forwardRef(() => AppWebSocketGateway))
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   async getProduct(id: string) {
+    // Cache key: product:{id}
+    const cacheKey = `product:${id}`;
+    
+    // Try cache first
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) return cached;
+
+    // Cache miss - fetch from DB
     const product = await this.prisma.products.findUnique({
       where: { id },
     });
@@ -22,10 +32,21 @@ export class ProductService {
       });
     }
 
+    // Store in cache (5min TTL)
+    await this.cacheService.set(cacheKey, product, 300);
+
     return product;
   }
 
   async getProductBySlug(sellerId: string, slug: string) {
+    // Cache key: product:slug:{sellerId}:{slug}
+    const cacheKey = `product:slug:${sellerId}:${slug}`;
+    
+    // Try cache first
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) return cached;
+
+    // Cache miss - fetch from DB
     const product = await this.prisma.products.findFirst({
       where: { 
         seller_id: sellerId,
@@ -38,6 +59,9 @@ export class ProductService {
         extensions: { code: 'NOT_FOUND' },
       });
     }
+
+    // Store in cache (5min TTL)
+    await this.cacheService.set(cacheKey, product, 300);
 
     return product;
   }
@@ -144,6 +168,10 @@ export class ProductService {
       data: productData,
     });
 
+    // Cache invalidation: Clear product list caches for this seller
+    await this.cacheService.delPattern(`products:seller:${sellerId}`);
+
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitProductCreated(sellerId, {
       productId: product.id,
       sellerId: product.seller_id,
@@ -208,6 +236,15 @@ export class ProductService {
       data: updateData,
     });
 
+    // Cache invalidation: Clear product caches
+    await this.cacheService.del(`product:${id}`);
+    await this.cacheService.del(`product:slug:${sellerId}:${existing.slug}`);
+    if (updateData.slug && updateData.slug !== existing.slug) {
+      await this.cacheService.del(`product:slug:${sellerId}:${updateData.slug}`);
+    }
+    await this.cacheService.delPattern(`products:seller:${sellerId}`);
+
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitProductUpdated(sellerId, {
       productId: product.id,
       sellerId: product.seller_id,

@@ -1,12 +1,14 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class QuotationsService {
   constructor(
     private prisma: PrismaService,
+    private cacheService: CacheService,
     @Inject(forwardRef(() => AppWebSocketGateway))
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
@@ -23,55 +25,67 @@ export class QuotationsService {
     const depositAmount = (subtotal * depositPercentage) / 100;
     const balanceAmount = subtotal - depositAmount;
 
-    const quotationData = {
-      seller_id: sellerId,
-      buyer_email: input.buyerEmail,
-      buyer_id: input.buyerId || null,
-      quotation_number: quotationNumber,
-      currency: input.currency || 'USD',
-      subtotal,
-      tax_amount: 0,
-      shipping_amount: 0,
-      total: subtotal,
-      deposit_amount: depositAmount,
-      deposit_percentage: depositPercentage,
-      balance_amount: balanceAmount,
-      status: 'draft' as const,
-      valid_until: input.validUntil || null,
-      delivery_terms: input.deliveryTerms || null,
-      data_sheet_url: input.dataSheetUrl || null,
-      terms_and_conditions_url: input.termsAndConditionsUrl || null,
-      metadata: input.metadata || null,
-    };
+    // Transaction: Create quotation, items, and events atomically
+    const quotation = await this.prisma.runTransaction(async (tx) => {
+      const quotationData = {
+        seller_id: sellerId,
+        buyer_email: input.buyerEmail,
+        buyer_id: input.buyerId || null,
+        quotation_number: quotationNumber,
+        currency: input.currency || 'USD',
+        subtotal,
+        tax_amount: 0,
+        shipping_amount: 0,
+        total: subtotal,
+        deposit_amount: depositAmount,
+        deposit_percentage: depositPercentage,
+        balance_amount: balanceAmount,
+        status: 'draft' as const,
+        valid_until: input.validUntil || null,
+        delivery_terms: input.deliveryTerms || null,
+        data_sheet_url: input.dataSheetUrl || null,
+        terms_and_conditions_url: input.termsAndConditionsUrl || null,
+        metadata: input.metadata || null,
+      };
 
-    const quotation = await this.prisma.trade_quotations.create({
-      data: quotationData,
-    });
+      // Step 1: Create quotation
+      const created = await tx.trade_quotations.create({
+        data: quotationData,
+      });
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      await this.prisma.trade_quotation_items.create({
+      // Step 2: Create quotation items
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        await tx.trade_quotation_items.create({
+          data: {
+            quotation_id: created.id,
+            line_number: i + 1,
+            description: item.description,
+            product_id: item.productId || null,
+            unit_price: parseFloat(item.unitPrice),
+            quantity: item.quantity,
+            line_total: parseFloat(item.unitPrice) * item.quantity,
+          },
+        });
+      }
+
+      // Step 3: Create quotation event
+      await tx.trade_quotation_events.create({
         data: {
-          quotation_id: quotation.id,
-          line_number: i + 1,
-          description: item.description,
-          product_id: item.productId || null,
-          unit_price: parseFloat(item.unitPrice),
-          quantity: item.quantity,
-          line_total: parseFloat(item.unitPrice) * item.quantity,
+          quotation_id: created.id,
+          event_type: 'created',
+          performed_by: sellerId,
+          payload: { quotation_number: quotationNumber },
         },
       });
-    }
 
-    await this.prisma.trade_quotation_events.create({
-      data: {
-        quotation_id: quotation.id,
-        event_type: 'created',
-        performed_by: sellerId,
-        payload: { quotation_number: quotationNumber },
-      },
+      return created;
     });
 
+    // Cache invalidation: Clear quotation caches
+    await this.cacheService.delPattern(`quotations:seller:${sellerId}`);
+
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitQuotationCreated(sellerId, {
       quotationId: quotation.id,
       sellerId: quotation.seller_id,
@@ -121,6 +135,7 @@ export class QuotationsService {
   }
 
   async updateQuotation(id: string, input: any, sellerId: string) {
+    // Pre-transaction validation
     const existing = await this.prisma.trade_quotations.findUnique({
       where: { id },
     });
@@ -137,59 +152,70 @@ export class QuotationsService {
       });
     }
 
-    const updateData: any = {};
+    // Transaction: Delete old items, create new items, update quotation atomically
+    const quotation = await this.prisma.runTransaction(async (tx) => {
+      const updateData: any = {};
 
-    if (input.items) {
-      await this.prisma.trade_quotation_items.deleteMany({
-        where: { quotation_id: id },
-      });
-
-      const subtotal = input.items.reduce((sum: number, item: any) => {
-        return sum + parseFloat(item.unitPrice) * item.quantity;
-      }, 0);
-
-      const depositPercentage = input.depositPercentage || existing.deposit_percentage;
-      const depositAmount = (subtotal * depositPercentage) / 100;
-      const balanceAmount = subtotal - depositAmount;
-
-      updateData.subtotal = subtotal;
-      updateData.total = subtotal;
-      updateData.deposit_amount = depositAmount;
-      updateData.deposit_percentage = depositPercentage;
-      updateData.balance_amount = balanceAmount;
-
-      for (let i = 0; i < input.items.length; i++) {
-        const item = input.items[i];
-        await this.prisma.trade_quotation_items.create({
-          data: {
-            quotation_id: id,
-            line_number: i + 1,
-            description: item.description,
-            product_id: item.productId || null,
-            unit_price: parseFloat(item.unitPrice),
-            quantity: item.quantity,
-            line_total: parseFloat(item.unitPrice) * item.quantity,
-          },
+      if (input.items) {
+        // Step 1: Delete old quotation items
+        await tx.trade_quotation_items.deleteMany({
+          where: { quotation_id: id },
         });
+
+        const subtotal = input.items.reduce((sum: number, item: any) => {
+          return sum + parseFloat(item.unitPrice) * item.quantity;
+        }, 0);
+
+        const depositPercentage = input.depositPercentage || existing.deposit_percentage;
+        const depositAmount = (subtotal * depositPercentage) / 100;
+        const balanceAmount = subtotal - depositAmount;
+
+        updateData.subtotal = subtotal;
+        updateData.total = subtotal;
+        updateData.deposit_amount = depositAmount;
+        updateData.deposit_percentage = depositPercentage;
+        updateData.balance_amount = balanceAmount;
+
+        // Step 2: Create new quotation items
+        for (let i = 0; i < input.items.length; i++) {
+          const item = input.items[i];
+          await tx.trade_quotation_items.create({
+            data: {
+              quotation_id: id,
+              line_number: i + 1,
+              description: item.description,
+              product_id: item.productId || null,
+              unit_price: parseFloat(item.unitPrice),
+              quantity: item.quantity,
+              line_total: parseFloat(item.unitPrice) * item.quantity,
+            },
+          });
+        }
       }
-    }
 
-    if (input.depositPercentage !== undefined) {
-      updateData.deposit_percentage = input.depositPercentage;
-      const depositAmount = (parseFloat(existing.subtotal.toString()) * input.depositPercentage) / 100;
-      updateData.deposit_amount = depositAmount;
-      updateData.balance_amount = parseFloat(existing.subtotal.toString()) - depositAmount;
-    }
+      if (input.depositPercentage !== undefined) {
+        updateData.deposit_percentage = input.depositPercentage;
+        const depositAmount = (parseFloat(existing.subtotal.toString()) * input.depositPercentage) / 100;
+        updateData.deposit_amount = depositAmount;
+        updateData.balance_amount = parseFloat(existing.subtotal.toString()) - depositAmount;
+      }
 
-    if (input.validUntil !== undefined) {
-      updateData.valid_until = input.validUntil;
-    }
+      if (input.validUntil !== undefined) {
+        updateData.valid_until = input.validUntil;
+      }
 
-    const quotation = await this.prisma.trade_quotations.update({
-      where: { id },
-      data: updateData,
+      // Step 3: Update quotation
+      return await tx.trade_quotations.update({
+        where: { id },
+        data: updateData,
+      });
     });
 
+    // Cache invalidation: Clear quotation caches
+    await this.cacheService.del(`quotation:${id}`);
+    await this.cacheService.delPattern(`quotations:seller:${sellerId}`);
+
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitQuotationUpdated(sellerId, existing.buyer_id, {
       quotationId: quotation.id,
       sellerId: quotation.seller_id,
@@ -205,6 +231,7 @@ export class QuotationsService {
   }
 
   async sendQuotation(id: string, sellerId: string) {
+    // Pre-transaction validation
     const existing = await this.prisma.trade_quotations.findUnique({
       where: { id },
     });
@@ -221,21 +248,34 @@ export class QuotationsService {
       });
     }
 
-    const quotation = await this.prisma.trade_quotations.update({
-      where: { id },
-      data: {
-        status: 'sent',
-      },
+    // Transaction: Update quotation status and create event atomically
+    const quotation = await this.prisma.runTransaction(async (tx) => {
+      // Step 1: Update quotation status
+      const updated = await tx.trade_quotations.update({
+        where: { id },
+        data: {
+          status: 'sent',
+        },
+      });
+
+      // Step 2: Create quotation event
+      await tx.trade_quotation_events.create({
+        data: {
+          quotation_id: id,
+          event_type: 'sent',
+          performed_by: sellerId,
+        },
+      });
+
+      return updated;
     });
 
-    await this.prisma.trade_quotation_events.create({
-      data: {
-        quotation_id: id,
-        event_type: 'sent',
-        performed_by: sellerId,
-      },
-    });
+    // Cache invalidation: Clear quotation caches
+    await this.cacheService.del(`quotation:${id}`);
+    await this.cacheService.delPattern(`quotations:seller:${sellerId}`);
 
+    // External API calls (Socket.IO) - OUTSIDE transaction
+    // TODO: Actual email notification should go here (OUTSIDE transaction)
     this.websocketGateway.emitQuotationSent(sellerId, existing.buyer_id, {
       quotationId: quotation.id,
       sellerId: quotation.seller_id,
@@ -248,6 +288,7 @@ export class QuotationsService {
   }
 
   async acceptQuotation(id: string, buyerInfo: any) {
+    // Pre-transaction validation
     const existing = await this.prisma.trade_quotations.findUnique({
       where: { id },
     });
@@ -258,23 +299,63 @@ export class QuotationsService {
       });
     }
 
-    const quotation = await this.prisma.trade_quotations.update({
-      where: { id },
-      data: {
-        status: 'accepted',
-        buyer_id: buyerInfo?.buyerId || null,
-      },
+    // Transaction: Update quotation, create event, and create payment schedules atomically
+    const quotation = await this.prisma.runTransaction(async (tx) => {
+      // Step 1: Update quotation status
+      const updated = await tx.trade_quotations.update({
+        where: { id },
+        data: {
+          status: 'accepted',
+          buyer_id: buyerInfo?.buyerId || null,
+        },
+      });
+
+      // Step 2: Create quotation event
+      await tx.trade_quotation_events.create({
+        data: {
+          quotation_id: id,
+          event_type: 'accepted',
+          performed_by: buyerInfo?.buyerId || existing.buyer_email,
+          payload: buyerInfo || null,
+        },
+      });
+
+      // Step 3: Create payment schedules if they don't exist
+      const depositSchedule = await tx.trade_payment_schedules.findFirst({
+        where: {
+          quotation_id: id,
+          payment_type: 'deposit',
+        },
+      });
+
+      if (!depositSchedule) {
+        await tx.trade_payment_schedules.create({
+          data: {
+            quotation_id: id,
+            payment_type: 'deposit',
+            amount: existing.deposit_amount,
+            status: 'pending',
+          },
+        });
+
+        await tx.trade_payment_schedules.create({
+          data: {
+            quotation_id: id,
+            payment_type: 'balance',
+            amount: existing.balance_amount,
+            status: 'pending',
+          },
+        });
+      }
+
+      return updated;
     });
 
-    await this.prisma.trade_quotation_events.create({
-      data: {
-        quotation_id: id,
-        event_type: 'accepted',
-        performed_by: buyerInfo?.buyerId || existing.buyer_email,
-        payload: buyerInfo || null,
-      },
-    });
+    // Cache invalidation: Clear quotation caches
+    await this.cacheService.del(`quotation:${id}`);
+    await this.cacheService.delPattern(`quotations:seller:${existing.seller_id}`);
 
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitQuotationAccepted(
       existing.seller_id,
       buyerInfo?.buyerId || quotation.buyer_id,
@@ -286,33 +367,6 @@ export class QuotationsService {
         total: quotation.total.toString(),
       }
     );
-
-    const depositSchedule = await this.prisma.trade_payment_schedules.findFirst({
-      where: {
-        quotation_id: id,
-        payment_type: 'deposit',
-      },
-    });
-
-    if (!depositSchedule) {
-      await this.prisma.trade_payment_schedules.create({
-        data: {
-          quotation_id: id,
-          payment_type: 'deposit',
-          amount: existing.deposit_amount,
-          status: 'pending',
-        },
-      });
-
-      await this.prisma.trade_payment_schedules.create({
-        data: {
-          quotation_id: id,
-          payment_type: 'balance',
-          amount: existing.balance_amount,
-          status: 'pending',
-        },
-      });
-    }
 
     return this.mapQuotationToGraphQL(quotation);
   }

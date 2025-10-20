@@ -16,6 +16,10 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
 import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateOrderInput } from './dto/create-order.input';
+import { UpdateFulfillmentInput } from './dto/update-fulfillment.input';
+import { IssueRefundInput } from './dto/issue-refund.input';
+import { GqlRateLimitGuard, RateLimit } from '../auth/guards/gql-rate-limit.guard';
 
 @Resolver('Order')
 export class OrdersResolver {
@@ -35,8 +39,9 @@ export class OrdersResolver {
   }
 
   @Query('listOrders')
-  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @UseGuards(GqlAuthGuard, UserTypeGuard, GqlRateLimitGuard)
   @RequireUserType('seller')
+  @RateLimit({ limit: 50, ttl: 60 })
   async listOrders(
     @Args('filter') filter?: any,
     @Args('sort') sort?: any,
@@ -73,7 +78,7 @@ export class OrdersResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('buyer')
   async createOrder(
-    @Args('input') input: any,
+    @Args('input') input: CreateOrderInput,
     @CurrentUser() userId: string,
   ) {
     return this.ordersService.createOrder(input, userId);
@@ -83,7 +88,7 @@ export class OrdersResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
   async updateFulfillment(
-    @Args('input') input: any,
+    @Args('input') input: UpdateFulfillmentInput,
     @CurrentUser() userId: string,
   ) {
     return this.ordersService.updateOrderFulfillment(input, userId);
@@ -93,7 +98,7 @@ export class OrdersResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
   async issueRefund(
-    @Args('input') input: any,
+    @Args('input') input: IssueRefundInput,
     @CurrentUser() userId: string,
   ) {
     return this.ordersService.issueRefund(input, userId);

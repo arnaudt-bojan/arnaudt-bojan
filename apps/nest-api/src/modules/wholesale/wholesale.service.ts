@@ -1,6 +1,7 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import { Prisma } from '../../../../../generated/prisma';
 import { WholesaleRulesService } from '../wholesale-rules/wholesale-rules.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
@@ -9,6 +10,7 @@ import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 export class WholesaleService {
   constructor(
     private prisma: PrismaService,
+    private cacheService: CacheService,
     @Inject(forwardRef(() => WholesaleRulesService))
     private readonly wholesaleRulesService: WholesaleRulesService,
     @Inject(forwardRef(() => AppWebSocketGateway))
@@ -100,6 +102,7 @@ export class WholesaleService {
       });
     }
 
+    // Pre-transaction validation
     const existingGrant = await this.prisma.wholesale_access_grants.findFirst({
       where: {
         buyer_id: buyerId,
@@ -113,23 +116,34 @@ export class WholesaleService {
       });
     }
 
-    await this.prisma.wholesale_invitations.update({
-      where: { id: invitation.id },
-      data: {
-        status: 'accepted',
-        accepted_at: new Date(),
-      },
+    // Transaction: Update invitation and create access grant atomically
+    const grant = await this.prisma.runTransaction(async (tx) => {
+      // Step 1: Update invitation status
+      await tx.wholesale_invitations.update({
+        where: { id: invitation.id },
+        data: {
+          status: 'accepted',
+          accepted_at: new Date(),
+        },
+      });
+
+      // Step 2: Create access grant
+      return await tx.wholesale_access_grants.create({
+        data: {
+          buyer_id: buyerId,
+          seller_id: invitation.seller_id,
+          status: 'active',
+          wholesale_terms: invitation.wholesale_terms,
+        },
+      });
     });
 
-    const grant = await this.prisma.wholesale_access_grants.create({
-      data: {
-        buyer_id: buyerId,
-        seller_id: invitation.seller_id,
-        status: 'active',
-        wholesale_terms: invitation.wholesale_terms,
-      },
-    });
+    // Cache invalidation: Clear wholesale invitation/grant caches
+    await this.cacheService.delPattern(`wholesale:invitations:seller:${invitation.seller_id}`);
+    await this.cacheService.delPattern(`wholesale:grants:buyer:${buyerId}`);
+    await this.cacheService.delPattern(`wholesale:grants:seller:${invitation.seller_id}`);
 
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitWholesaleInvitationAccepted(
       invitation.seller_id,
       buyerId,
@@ -304,45 +318,58 @@ export class WholesaleService {
       ? `${buyer.first_name || ''} ${buyer.last_name || ''}`.trim()
       : '';
 
-    const order = await this.prisma.wholesale_orders.create({
-      data: {
-        order_number: orderNumber,
-        seller_id: sellerId,
-        buyer_id: buyerId,
-        status: 'pending',
-        subtotal_cents: subtotalCents,
-        tax_amount_cents: 0,
-        total_cents: subtotalCents,
-        deposit_amount_cents: depositAmountCents,
-        balance_amount_cents: balanceAmountCents,
-        deposit_percentage: depositPercentage,
-        balance_percentage: 100 - depositPercentage,
-        payment_terms: paymentTerms || 'Net 30',
-        po_number: poNumber || null,
-        buyer_email: buyer?.email || '',
-        buyer_name: buyerName,
-        currency: 'USD',
-      },
-    });
-
-    for (const itemData of orderItems) {
-      await this.prisma.wholesale_order_items.create({
+    // Transaction: Create wholesale order, order items, and event atomically
+    const order = await this.prisma.runTransaction(async (tx) => {
+      // Step 1: Create wholesale order
+      const created = await tx.wholesale_orders.create({
         data: {
-          wholesale_order_id: order.id,
-          ...itemData,
+          order_number: orderNumber,
+          seller_id: sellerId,
+          buyer_id: buyerId,
+          status: 'pending',
+          subtotal_cents: subtotalCents,
+          tax_amount_cents: 0,
+          total_cents: subtotalCents,
+          deposit_amount_cents: depositAmountCents,
+          balance_amount_cents: balanceAmountCents,
+          deposit_percentage: depositPercentage,
+          balance_percentage: 100 - depositPercentage,
+          payment_terms: paymentTerms || 'Net 30',
+          po_number: poNumber || null,
+          buyer_email: buyer?.email || '',
+          buyer_name: buyerName,
+          currency: 'USD',
         },
       });
-    }
 
-    await this.prisma.wholesale_order_events.create({
-      data: {
-        wholesale_order_id: order.id,
-        event_type: 'order_created',
-        description: 'Wholesale order placed',
-        performed_by: buyerId,
-      },
+      // Step 2: Create wholesale order items
+      for (const itemData of orderItems) {
+        await tx.wholesale_order_items.create({
+          data: {
+            wholesale_order_id: created.id,
+            ...itemData,
+          },
+        });
+      }
+
+      // Step 3: Create wholesale order event
+      await tx.wholesale_order_events.create({
+        data: {
+          wholesale_order_id: created.id,
+          event_type: 'order_created',
+          description: 'Wholesale order placed',
+          performed_by: buyerId,
+        },
+      });
+
+      return created;
     });
 
+    // Cache invalidation: Clear wholesale order caches
+    await this.cacheService.delPattern(`wholesale:orders:buyer:${buyerId}`);
+    await this.cacheService.delPattern(`wholesale:orders:seller:${sellerId}`);
+
+    // External API calls (Socket.IO) - OUTSIDE transaction
     this.websocketGateway.emitWholesaleOrderPlaced(sellerId, buyerId, {
       orderId: order.id,
       sellerId: order.seller_id,

@@ -15,6 +15,8 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { UserTypeGuard } from '../auth/guards/user-type.guard';
 import { RequireUserType } from '../auth/decorators/require-user-type.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateWholesaleInvitationInput } from './dto/create-wholesale-invitation.input';
+import { PlaceWholesaleOrderInput } from './dto/place-wholesale-order.input';
 
 @Resolver('WholesaleInvitation')
 export class WholesaleInvitationResolver {
@@ -206,7 +208,7 @@ export class WholesaleMutationResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('seller')
   async createWholesaleInvitation(
-    @Args('input') input: any,
+    @Args('input') input: CreateWholesaleInvitationInput,
     @CurrentUser() userId: string,
   ) {
     return this.wholesaleService.createWholesaleInvitation(input, userId);
@@ -231,7 +233,7 @@ export class WholesaleMutationResolver {
   @UseGuards(GqlAuthGuard, UserTypeGuard)
   @RequireUserType('buyer')
   async placeWholesaleOrder(
-    @Args('input') input: any,
+    @Args('input') input: PlaceWholesaleOrderInput,
     @CurrentUser() userId: string,
   ) {
     return this.wholesaleService.placeWholesaleOrder(input, userId);

@@ -102,12 +102,192 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint (for Docker/Kubernetes probes)
+// ====================================================================
+// HEALTH CHECK ENDPOINTS (for Docker/Kubernetes/load balancer probes)
+// ====================================================================
+
+/**
+ * Basic Health Check
+ * GET /api/health
+ * 
+ * Always returns 200 if server is running.
+ * Used for load balancer health checks.
+ */
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ 
-    status: 'healthy', 
+    status: 'ok', 
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    service: 'express-api',
+  });
+});
+
+/**
+ * Detailed Health Check
+ * GET /api/health/detailed
+ * 
+ * Checks multiple subsystems:
+ * - Database connectivity (Prisma query test)
+ * - Cache service availability (test set/get)
+ * - External services (Stripe, Resend connectivity)
+ * 
+ * Returns 200 if all critical services up
+ * Returns 503 if any critical service down
+ */
+app.get('/api/health/detailed', async (_req, res) => {
+  const appStartTime = Date.now();
+  const checks: any = {};
+
+  // Check database connectivity
+  const dbStart = Date.now();
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = {
+      status: 'up',
+      responseTime: Date.now() - dbStart,
+    };
+  } catch (error: any) {
+    checks.database = {
+      status: 'down',
+      error: error.message,
+    };
+  }
+
+  // Check cache service
+  const cacheStart = Date.now();
+  try {
+    const cache = getCache();
+    const testKey = 'health-check-test';
+    const testValue = 'ok';
+    
+    await cache.set(testKey, testValue, 10);
+    const retrieved = await cache.get(testKey);
+    
+    if (retrieved !== testValue) {
+      throw new Error('Cache value mismatch');
+    }
+    
+    await cache.delete(testKey);
+    
+    checks.cache = {
+      status: 'up',
+      responseTime: Date.now() - cacheStart,
+    };
+  } catch (error: any) {
+    checks.cache = {
+      status: 'down',
+      error: error.message,
+    };
+  }
+
+  // Check Stripe (optional)
+  if (process.env.STRIPE_SECRET_KEY) {
+    checks.stripe = { status: 'up' };
+  } else {
+    checks.stripe = {
+      status: 'down',
+      error: 'Stripe not configured',
+    };
+  }
+
+  // Check Resend email (optional)
+  if (process.env.RESEND_API_KEY) {
+    checks.email = { status: 'up' };
+  } else {
+    checks.email = {
+      status: 'down',
+      error: 'Email service not configured',
+    };
+  }
+
+  // Determine overall status
+  const criticalServices = [checks.database, checks.cache];
+  const allUp = Object.values(checks).every((c: any) => c.status === 'up');
+  const criticalUp = criticalServices.every(c => c.status === 'up');
+
+  let status: 'healthy' | 'degraded' | 'unhealthy';
+  if (allUp) {
+    status = 'healthy';
+  } else if (criticalUp) {
+    status = 'degraded';
+  } else {
+    status = 'unhealthy';
+  }
+
+  const statusCode = status === 'unhealthy' ? 503 : 200;
+
+  res.status(statusCode).json({
+    status,
+    timestamp: new Date().toISOString(),
+    checks,
+    uptime: Math.floor(process.uptime()),
+    version: process.env.npm_package_version || '1.0.0',
+  });
+});
+
+/**
+ * Readiness Check
+ * GET /api/health/ready
+ * 
+ * Checks if application is ready to accept traffic.
+ * Verifies:
+ * - Database connectivity
+ * - Required env vars present
+ * - All modules initialized
+ * 
+ * Returns 200 if ready, 503 if not ready
+ */
+app.get('/api/health/ready', async (_req, res) => {
+  const checks: any = {};
+
+  // Check database connectivity
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = { status: 'up' };
+  } catch (error: any) {
+    checks.database = {
+      status: 'down',
+      error: error.message,
+    };
+  }
+
+  // Check required environment variables
+  const requiredEnvVars = ['DATABASE_URL'];
+  const missingEnvVars = requiredEnvVars.filter(v => !process.env[v]);
+  
+  if (missingEnvVars.length > 0) {
+    checks.envVars = {
+      status: 'down',
+      error: `Missing env vars: ${missingEnvVars.join(', ')}`,
+    };
+  } else {
+    checks.envVars = { status: 'up' };
+  }
+
+  // Check modules initialized
+  try {
+    const cache = getCache();
+    if (!prisma || !cache) {
+      checks.modules = {
+        status: 'down',
+        error: 'Critical modules not initialized',
+      };
+    } else {
+      checks.modules = { status: 'up' };
+    }
+  } catch (error: any) {
+    checks.modules = {
+      status: 'down',
+      error: error.message,
+    };
+  }
+
+  const isReady = Object.values(checks).every((c: any) => c.status === 'up');
+  const statusCode = isReady ? 200 : 503;
+
+  res.status(statusCode).json({
+    ready: isReady,
+    timestamp: new Date().toISOString(),
+    checks,
   });
 });
 

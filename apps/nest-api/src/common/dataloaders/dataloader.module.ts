@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { SellerLoader } from './seller.loader';
 import { BuyerLoader } from './buyer.loader';
+import { UserLoader } from './user.loader';
+import { BuyerProfileLoader } from './buyer-profile.loader';
 import { OrderItemsLoader } from './order-items.loader';
 import { WholesaleOrderItemsLoader } from './wholesale-order-items.loader';
 import { WholesaleOrderEventsLoader } from './wholesale-order-events.loader';
@@ -14,6 +16,8 @@ import { PrismaModule } from '../../modules/prisma/prisma.module';
   providers: [
     SellerLoader,
     BuyerLoader,
+    UserLoader,
+    BuyerProfileLoader,
     OrderItemsLoader,
     WholesaleOrderItemsLoader,
     WholesaleOrderEventsLoader,
@@ -24,6 +28,8 @@ import { PrismaModule } from '../../modules/prisma/prisma.module';
   exports: [
     SellerLoader,
     BuyerLoader,
+    UserLoader,
+    BuyerProfileLoader,
     OrderItemsLoader,
     WholesaleOrderItemsLoader,
     WholesaleOrderEventsLoader,
