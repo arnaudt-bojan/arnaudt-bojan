@@ -5786,6 +5786,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Branding updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller + storefront viewers
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitBrandingUpdated(userId, {
+        storeBanner: updatedUser.storeBanner,
+        storeLogo: updatedUser.storeLogo,
+        shippingPolicy: updatedUser.shippingPolicy,
+        returnsPolicy: updatedUser.returnsPolicy,
+      });
     } catch (error) {
       logger.error("Branding update error", error);
       res.status(500).json({ error: "Failed to update branding" });
@@ -5838,6 +5847,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "About & Contact updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller + storefront viewers
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitContactUpdated(userId, {
+        aboutStory: updatedUser.aboutStory,
+        contactEmail: updatedUser.contactEmail,
+        socialInstagram: updatedUser.socialInstagram,
+        socialTwitter: updatedUser.socialTwitter,
+        socialTiktok: updatedUser.socialTiktok,
+        socialSnapchat: updatedUser.socialSnapchat,
+        socialWebsite: updatedUser.socialWebsite,
+      });
     } catch (error) {
       logger.error("About & Contact update error", error);
       res.status(500).json({ error: "Failed to update about & contact information" });
@@ -5888,6 +5909,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Warehouse address updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller only (internal setting)
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitInternalSettingsUpdated(userId, 'warehouse', {
+        warehouseAddressLine1: updatedUser.warehouseAddressLine1,
+        warehouseAddressCity: updatedUser.warehouseAddressCity,
+        warehouseAddressState: updatedUser.warehouseAddressState,
+        warehouseAddressPostalCode: updatedUser.warehouseAddressPostalCode,
+        warehouseAddressCountryCode: updatedUser.warehouseAddressCountryCode,
+      });
     } catch (error) {
       logger.error("Warehouse address update error", error);
       res.status(500).json({ error: "Failed to update warehouse address" });
@@ -5938,6 +5969,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Terms & Conditions updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller + storefront viewers
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitTermsUpdated(userId, {
+        termsSource: updatedUser.termsSource,
+        termsPdfUrl: updatedUser.termsPdfUrl,
+      });
     } catch (error) {
       logger.error("Terms & Conditions update error", error);
       res.status(500).json({ error: "Failed to update Terms & Conditions" });
@@ -5978,6 +6016,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Store status updated successfully", user: updatedUser, storeActive });
+
+      // Emit Socket.IO to seller + storefront viewers
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitStoreStatusUpdated(userId, { storeActive });
     } catch (error) {
       logger.error("Store status update error", error);
       res.status(500).json({ error: "Failed to update store status" });
@@ -6004,6 +6046,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Payment provider updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller only (internal setting)
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitInternalSettingsUpdated(userId, 'payment_provider', {
+        paymentProvider: updatedUser.paymentProvider,
+      });
     } catch (error) {
       logger.error("Payment provider update error", error);
       res.status(500).json({ error: "Failed to update payment provider" });
@@ -6039,6 +6087,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Username updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller + storefront viewers
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitUsernameUpdated(userId, { username: updatedUser.username });
     } catch (error: any) {
       logger.error("Username update error", error);
       res.status(500).json({ error: "Failed to update username" });
@@ -6067,6 +6119,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Custom domain updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller only (internal setting)
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitInternalSettingsUpdated(userId, 'custom_domain', {
+        customDomain: updatedUser.customDomain,
+        customDomainVerified: updatedUser.customDomainVerified,
+      });
     } catch (error) {
       logger.error("Custom domain update error", error);
       res.status(500).json({ error: "Failed to update custom domain" });
@@ -6095,6 +6154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Shipping price updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller only (internal setting)
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitInternalSettingsUpdated(userId, 'shipping', {
+        shippingPrice: updatedUser.shippingPrice,
+      });
     } catch (error) {
       logger.error("Shipping price update error", error);
       res.status(500).json({ error: "Failed to update shipping price" });
@@ -6142,6 +6207,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ message: "Tax settings updated successfully", user: updatedUser });
+
+      // Emit Socket.IO to seller only (internal setting)
+      const { settingsSocketService } = await import('./websocket');
+      settingsSocketService.emitInternalSettingsUpdated(userId, 'tax_settings', {
+        taxEnabled: updatedUser.taxEnabled,
+        taxNexusCountries: updatedUser.taxNexusCountries,
+        taxNexusStates: updatedUser.taxNexusStates,
+        taxProductCode: updatedUser.taxProductCode,
+      });
     } catch (error) {
       logger.error("Tax settings update error", error);
       res.status(500).json({ error: "Failed to update tax settings" });
@@ -13528,9 +13602,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // Initialize WebSocket for real-time order updates
-  const { orderWebSocketService } = await import('./websocket');
-  orderWebSocketService.initialize(httpServer);
+  // Initialize WebSocket for real-time order updates and settings
+  // Native WebSocket for orders (/ws/orders) + Socket.IO for settings (/socket.io/)
+  const { configureWebSocket } = await import('./websocket');
+  configureWebSocket(httpServer);
 
   return httpServer;
 }

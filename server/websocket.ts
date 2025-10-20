@@ -1,6 +1,8 @@
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
+import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { logger } from './logger';
+import type WebSocket from 'ws';
 
 interface OrderUpdateMessage {
   type: 'order_updated';
@@ -17,33 +19,9 @@ type WebSocketMessage = OrderUpdateMessage;
 
 export class OrderWebSocketService {
   private wss: WebSocketServer | null = null;
-  private clients: Set<WebSocket> = new Set();
 
-  initialize(server: HTTPServer) {
-    this.wss = new WebSocketServer({ 
-      server,
-      path: '/ws/orders'
-    });
-
-    this.wss.on('connection', (ws: WebSocket) => {
-      logger.info('[WebSocket] Client connected');
-      this.clients.add(ws);
-
-      ws.on('close', () => {
-        logger.info('[WebSocket] Client disconnected');
-        this.clients.delete(ws);
-      });
-
-      ws.on('error', (error) => {
-        logger.error('[WebSocket] Client error:', error);
-        this.clients.delete(ws);
-      });
-
-      // Send initial connection confirmation
-      ws.send(JSON.stringify({ type: 'connected', message: 'WebSocket connected' }));
-    });
-
-    logger.info('[WebSocket] Order update service initialized');
+  setWSS(websocketServer: WebSocketServer) {
+    this.wss = websocketServer;
   }
 
   /**
@@ -55,33 +33,23 @@ export class OrderWebSocketService {
       return;
     }
 
-    const message: OrderUpdateMessage = {
+    const message: WebSocketMessage = {
       type: 'order_updated',
       orderId,
       data,
     };
 
     const messageStr = JSON.stringify(message);
-    let successCount = 0;
-    let failCount = 0;
 
-    this.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(messageStr);
-          successCount++;
-        } catch (error) {
-          logger.error('[WebSocket] Failed to send to client:', error);
-          failCount++;
-        }
-      }
+    logger.info('[WebSocket] Order update broadcasted', {
+      orderId,
+      updateData: JSON.stringify(data)
     });
 
-    logger.info(`[WebSocket] Order update broadcasted`, {
-      orderId,
-      clientsReached: successCount,
-      clientsFailed: failCount,
-      totalClients: this.clients.size,
+    this.wss.clients.forEach((client: WebSocket) => {
+      if (client.readyState === 1) { // WebSocket.OPEN
+        client.send(messageStr);
+      }
     });
   }
 
@@ -89,14 +57,159 @@ export class OrderWebSocketService {
    * Get connection statistics
    */
   getStats() {
+    if (!this.wss) {
+      return {
+        totalConnections: 0,
+        activeConnections: 0,
+      };
+    }
+    
     return {
-      totalConnections: this.clients.size,
-      activeConnections: Array.from(this.clients).filter(
-        (client) => client.readyState === WebSocket.OPEN
-      ).length,
+      totalConnections: this.wss.clients.size,
+      activeConnections: this.wss.clients.size,
     };
   }
 }
 
-// Singleton instance
+export class SettingsSocketService {
+  private io: SocketIOServer | null = null;
+
+  setIO(socketIO: SocketIOServer) {
+    this.io = socketIO;
+  }
+
+  /**
+   * Emit storefront branding updates (logo, banner, policies)
+   * Targets: Seller dashboard + Storefront viewers
+   */
+  emitBrandingUpdated(sellerId: string, data: {
+    storeBanner?: string | null;
+    storeLogo?: string | null;
+    shippingPolicy?: string | null;
+    returnsPolicy?: string | null;
+  }) {
+    if (!this.io) return;
+    this.io.to(`user:${sellerId}`).emit('storefront:branding_updated', data);
+    this.io.to(`storefront:${sellerId}`).emit('storefront:branding_updated', data);
+  }
+
+  /**
+   * Emit contact/footer updates (social links, contact email, about story)
+   * Targets: Seller dashboard + Storefront viewers
+   */
+  emitContactUpdated(sellerId: string, data: {
+    aboutStory?: string | null;
+    contactEmail?: string | null;
+    socialInstagram?: string | null;
+    socialTwitter?: string | null;
+    socialTiktok?: string | null;
+    socialSnapchat?: string | null;
+    socialWebsite?: string | null;
+  }) {
+    if (!this.io) return;
+    this.io.to(`user:${sellerId}`).emit('storefront:contact_updated', data);
+    this.io.to(`storefront:${sellerId}`).emit('storefront:contact_updated', data);
+  }
+
+  /**
+   * Emit store status changes (active/inactive)
+   * Targets: Seller dashboard + Storefront viewers
+   */
+  emitStoreStatusUpdated(sellerId: string, data: { storeActive: number }) {
+    if (!this.io) return;
+    this.io.to(`user:${sellerId}`).emit('storefront:status_updated', data);
+    this.io.to(`storefront:${sellerId}`).emit('storefront:status_updated', data);
+  }
+
+  /**
+   * Emit T&C settings updates
+   * Targets: Seller dashboard + Storefront viewers
+   */
+  emitTermsUpdated(sellerId: string, data: {
+    termsSource?: string | null;
+    termsPdfUrl?: string | null;
+  }) {
+    if (!this.io) return;
+    this.io.to(`user:${sellerId}`).emit('storefront:terms_updated', data);
+    this.io.to(`storefront:${sellerId}`).emit('storefront:terms_updated', data);
+  }
+
+  /**
+   * Emit username changes
+   * Targets: Seller dashboard + Storefront viewers
+   */
+  emitUsernameUpdated(sellerId: string, data: { username: string }) {
+    if (!this.io) return;
+    this.io.to(`user:${sellerId}`).emit('storefront:username_updated', data);
+    this.io.to(`storefront:${sellerId}`).emit('storefront:username_updated', data);
+  }
+
+  /**
+   * Emit internal settings (warehouse, payment provider, tax, shipping, domain)
+   * Targets: Seller dashboard only
+   */
+  emitInternalSettingsUpdated(sellerId: string, settingType: string, data: any) {
+    if (!this.io) return;
+    this.io.to(`user:${sellerId}`).emit(`settings:${settingType}_updated`, data);
+  }
+}
+
 export const orderWebSocketService = new OrderWebSocketService();
+export const settingsSocketService = new SettingsSocketService();
+
+/**
+ * Configure WebSocket services - creates BOTH native WebSocket and Socket.IO servers
+ * - Native WebSocket for order updates (/ws/orders) - backward compatible with existing frontend
+ * - Socket.IO for settings updates (/socket.io/) - new functionality
+ */
+export function configureWebSocket(httpServer: HTTPServer) {
+  // Create NATIVE WebSocket server for orders
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws/orders'
+  });
+
+  wss.on('connection', (ws: WebSocket) => {
+    logger.info('[WebSocket] Native WS client connected for orders');
+    
+    ws.on('close', () => {
+      logger.info('[WebSocket] Native WS client disconnected');
+    });
+
+    ws.on('error', (error: Error) => {
+      logger.error('[WebSocket] Native WS client error:', error);
+    });
+  });
+
+  orderWebSocketService.setWSS(wss);
+
+  // Create Socket.IO server for settings (on different path)
+  const io = new SocketIOServer(httpServer, {
+    path: '/socket.io/',
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+  });
+
+  io.on('connection', (socket) => {
+    logger.info('[WebSocket] Socket.IO client connected for settings', { socketId: socket.id });
+    
+    socket.on('join', (room: string) => {
+      socket.join(room);
+      logger.info('[WebSocket] Socket.IO client joined room', { socketId: socket.id, room });
+    });
+
+    socket.on('disconnect', () => {
+      logger.info('[WebSocket] Socket.IO client disconnected', { socketId: socket.id });
+    });
+
+    socket.on('error', (error) => {
+      logger.error('[WebSocket] Socket.IO client error:', error);
+    });
+  });
+
+  settingsSocketService.setIO(io);
+
+  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings');
+}
