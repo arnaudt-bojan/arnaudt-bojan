@@ -16,6 +16,8 @@ import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { useOrderWebSocket } from "@/hooks/use-order-websocket";
+import { useOrderEvents } from "@/hooks/use-order-events";
+import { useAuth } from "@/hooks/use-auth";
 import Home from "@/pages/home";
 import ProductDetail from "@/pages/product-detail";
 import Checkout from "@/pages/checkout";
@@ -81,9 +83,13 @@ function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { itemsCount } = useCart();
   const [location] = useLocation();
+  const { user } = useAuth();
   
   // Connect to WebSocket for real-time order updates
   useOrderWebSocket();
+  
+  // Initialize order events hook (app-wide real-time notifications)
+  useOrderEvents(user?.id);
   
   // Scroll to top on route change
   useEffect(() => {

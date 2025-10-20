@@ -15,7 +15,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io('/socket.io/', {
+    const socketInstance = io({
       path: '/socket.io/',
       withCredentials: true,
       transports: ['websocket', 'polling'],
