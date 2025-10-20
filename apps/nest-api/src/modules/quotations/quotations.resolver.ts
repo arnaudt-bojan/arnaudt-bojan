@@ -97,18 +97,18 @@ export class QuotationsResolver {
   }
 
   @ResolveField('items')
-  async items(@Parent() quotation: any) {
-    return this.quotationsService.getQuotationLineItems(quotation.id);
+  async items(@Parent() quotation: any, @Context() context: GraphQLContext) {
+    return context.quotationLineItemsLoader.load(quotation.id);
   }
 
   @ResolveField('activities')
-  async activities(@Parent() quotation: any) {
-    return this.quotationsService.getQuotationActivities(quotation.id);
+  async activities(@Parent() quotation: any, @Context() context: GraphQLContext) {
+    return context.quotationActivitiesLoader.load(quotation.id);
   }
 
   @ResolveField('payments')
-  async payments(@Parent() quotation: any) {
-    return this.quotationsService.getQuotationPayments(quotation.id);
+  async payments(@Parent() quotation: any, @Context() context: GraphQLContext) {
+    return context.quotationPaymentsLoader.load(quotation.id);
   }
 
   @ResolveField('order')

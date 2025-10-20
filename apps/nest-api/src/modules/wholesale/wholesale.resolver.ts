@@ -70,13 +70,13 @@ export class WholesaleOrderResolver {
   }
 
   @ResolveField('items')
-  async items(@Parent() order: any) {
-    return this.wholesaleService.getWholesaleOrderItems(order.id);
+  async items(@Parent() order: any, @Context() context: GraphQLContext) {
+    return context.wholesaleOrderItemsLoader.load(order.id);
   }
 
   @ResolveField('events')
-  async events(@Parent() order: any) {
-    return this.wholesaleService.getWholesaleOrderEvents(order.id);
+  async events(@Parent() order: any, @Context() context: GraphQLContext) {
+    return context.wholesaleOrderEventsLoader.load(order.id);
   }
 
   @ResolveField('invoice')
@@ -90,10 +90,10 @@ export class WholesaleOrderResolver {
   }
 
   @ResolveField('calculatedDepositAmount')
-  async calculatedDepositAmount(@Parent() order: any): Promise<number> {
-    const items = await this.wholesaleService.getWholesaleOrderItems(order.id);
+  async calculatedDepositAmount(@Parent() order: any, @Context() context: GraphQLContext): Promise<number> {
+    const items = await context.wholesaleOrderItemsLoader.load(order.id);
     const mappedItems = items.map(item => ({
-      price: item.unitPrice,
+      price: item.unit_price_cents / 100,
       quantity: item.quantity,
     }));
     return this.pricingService.calculateWholesaleDeposit(

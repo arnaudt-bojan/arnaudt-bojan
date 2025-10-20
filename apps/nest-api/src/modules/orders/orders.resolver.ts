@@ -112,8 +112,8 @@ export class OrdersResolver {
   }
 
   @ResolveField('items')
-  async items(@Parent() order: any) {
-    return this.ordersService.getOrderItems(order.id);
+  async items(@Parent() order: any, @Context() context: GraphQLContext) {
+    return context.orderItemsLoader.load(order.id);
   }
 
   @ResolveField('events')
