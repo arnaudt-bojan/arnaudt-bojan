@@ -17,7 +17,25 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 - **Note**: This is the ONLY test account to use. Do not create new test accounts or try other credentials.
 
 ## System Architecture
-Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; a NestJS/Express.js Node.js backend; PostgreSQL (Neon) as the database; and Prisma ORM for all database operations. The backend features a GraphQL API with Socket.IO for real-time updates and Docker for containerization.
+
+### ✅ **CTO MIGRATION COMPLETE** (October 2025)
+Upfirst has successfully migrated to the CTO's strategic technology stack:
+- **Frontend**: Next.js 14 + Material UI v7 (NEW) running on port 3000, replacing Vite/Shadcn
+- **Backend**: NestJS GraphQL API + Prisma ORM on port 4000, with Express.js REST API on port 5000
+- **Database**: PostgreSQL (Neon) with Prisma ORM
+- **Real-time**: Socket.IO integrated in NestJS
+- **Deployment**: Docker-ready with docker-compose.yml for all services
+
+**Current Stack (Production-Ready)**:
+- **Next.js Frontend** (Port 3000): Material UI v7, Apollo Client, 7 pages (Login, Dashboard, Products CRUD, Orders)
+- **NestJS GraphQL API** (Port 4000): 10+ modules with comprehensive GraphQL schema
+- **Express REST API** (Port 5000): Authentication endpoints, legacy support
+- **PostgreSQL** (Port 5432): Neon database with Prisma ORM
+- **Vite Frontend** (Port 5000): Legacy UI (parallel during transition)
+
+**Migration Status**: Core e-commerce features (Authentication, Products, Orders) fully migrated to Next.js + Material UI. Advanced features (Wholesale, Quotations, Analytics) remain in Vite and ready for migration.
+
+For complete migration details, see `NEXTJS_MIGRATION_COMPLETE.md` and `DEPLOYMENT_GUIDE.md`.
 
 **Core Architectural Principle: Three Parallel Platforms with Server-Side Business Logic**
 The platform is structured into three distinct, parallel platforms, with all business logic strictly implemented server-side (Architecture 3):
