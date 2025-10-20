@@ -695,7 +695,7 @@ export class OrderService {
       try {
         const { orderSocketService } = await import('../websocket');
         const events = await this.storage.getOrderEvents(order.id);
-        orderSocketService.emitOrderUpdated(order.id, order.buyerId, order.sellerId, {
+        orderSocketService.emitOrderUpdated(order.id, order.user_id, order.seller_id, {
           paymentStatus,
           amountPaid: newAmountPaid, // Already formatted as 2-decimal string
           status: orderStatus,

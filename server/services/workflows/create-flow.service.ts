@@ -574,13 +574,13 @@ export class CreateFlowService extends WorkflowExecutor {
       // Fetch order to get buyerId and sellerId
       const order = await this.storage.getOrder(event.checkoutSessionId);
       if (!order) {
-        logger.warn(`[CreateFlow] Order not found for WebSocket broadcast: ${event.checkoutSessionId}`);
+        logger.warn(`[CreateFlow] Order not found for Socket.IO emit: ${event.checkoutSessionId}`);
         return;
       }
 
-      // Emit via Socket.IO to buyer + seller
+      // Emit via Socket.IO to buyer + seller (use order.id to match frontend query keys)
       const { orderSocketService } = await import('../../websocket');
-      orderSocketService.emitOrderUpdated(event.checkoutSessionId, order.buyerId, order.sellerId, {
+      orderSocketService.emitOrderUpdated(order.id, order.user_id, order.seller_id, {
         paymentStatus: event.status,
         status: event.currentState,
         events: [
