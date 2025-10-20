@@ -55,7 +55,7 @@ The platform is structured into three distinct, parallel platforms, with all bus
 The design system supports dark/light modes, uses the Inter font, emphasizes consistent spacing and typography, and prioritizes a mobile-first responsive approach. Navigation is dashboard-centric, and storefronts offer customizable seller branding.
 
 **Technical Implementations:**
--   **Backend**: NestJS application for GraphQL API and Socket.IO, integrated with an existing Express.js server. Uses service layer pattern with dependency injection, authentication guards, and DataLoaders for N+1 query prevention.
+-   **Backend**: NestJS application for GraphQL API and Socket.IO, integrated with an existing Express.js server. Uses service layer pattern with dependency injection, authentication guards, and DataLoaders for N+1 query prevention. **DTO Validation System (Phase 2.2 - October 2025)**: Comprehensive class-validator based DTOs for all REST endpoints with automatic request validation, type transformation, and detailed error messages. 20+ DTOs across 6 domains (Orders, Products, Cart, Checkout, Wholesale, Quotations) with shared validation decorators for common patterns (UUIDs, emails, currency, addresses). Validation middleware wired into Express pipeline with comprehensive logging and error handling.
 -   **GraphQL API**: Comprehensive schema with 10 domain modules (Identity, Catalog, Cart, Orders, Wholesale, Quotations, Subscriptions, Marketing, Newsletter, Platform Ops), including queries, mutations, and subscriptions. Secured with session-based authentication and role-based access control.
 -   **Real-time Features (Socket.IO Only - Consolidated October 2025)**: **Comprehensive 100% coverage** with 50+ events across all modules. **Socket.IO-only architecture** on `/socket.io/` with WebSocket-only transport for optimal performance. All connections require session authentication with balanced security: users auto-join private `user:{userId}` rooms, and can join validated public `storefront:{sellerId}` and `product:{productId}` rooms. Includes real-time updates for products (inventory, pricing), wholesale (invitations, orders), quotations (status changes), orders (fulfillment, payment webhooks - both buyer AND seller), cart, settings (branding, contact, store status, warehouse, payment, tax, shipping, domain), and analytics. Features comprehensive metrics tracking (connections, errors, room memberships, events) via `/api/metrics/socketio` endpoint. Uses room-based targeting for efficient event delivery. All events follow {module}:{action} naming convention with typed interfaces. **[See SOCKETIO_CONSOLIDATION_COMPLETE.md, SOCKETIO_IMPLEMENTATION_SUMMARY.md and SOCKETIO_USAGE_RULES.md for complete details]**
 -   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import with AI-powered field mapping.
@@ -84,7 +84,7 @@ The design system supports dark/light modes, uses the Inter font, emphasizes con
 -   **State Management**: TanStack Query (Vite), Apollo Client (Next.js)
 -   **Routing**: Next.js App Router (Next.js), Wouter (Vite legacy)
 -   **Forms**: React Hook Form
--   **Validation**: Zod
+-   **Validation**: Zod (frontend), class-validator + class-transformer (backend DTOs)
 -   **CSV Parsing**: PapaParse, XLSX
 -   **Currency Exchange**: Fawazahmed0 Currency API
 -   **PDF Generation**: PDFKit

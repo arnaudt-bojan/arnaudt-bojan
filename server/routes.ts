@@ -87,6 +87,30 @@ import { BudgetService } from "./services/meta/budget.service";
 import { AnalyticsService as MetaAnalyticsService } from "./services/meta/analytics.service";
 import { GeminiAdIntelligenceService } from "./services/meta/gemini-ad-intelligence.service";
 
+// Import Validation Middleware and DTOs (Phase 2.2: DTO Architecture)
+import { validateBody, validateQuery, validateParams } from "./middleware/validation.middleware";
+import {
+  CreateOrderDto,
+  UpdateOrderStatusDto,
+  RefundOrderDto,
+  UpdateTrackingDto,
+  CreateBalancePaymentDto,
+  CreateProductDto,
+  UpdateProductDto,
+  BulkCreateProductsDto,
+  AddToCartDto,
+  UpdateCartItemDto,
+  InitiateCheckoutDto,
+  CompleteCheckoutDto,
+  CreateWholesaleInvitationDto,
+  CreateWholesaleOrderDto,
+  CreateDepositPaymentDto,
+  UpdateWholesaleOrderStatusDto,
+  CreateQuotationDto,
+  UpdateQuotationDto,
+  SendQuotationDto,
+} from "./dtos/rest";
+
 // Initialize notification service
 const notificationService = createNotificationService(storage);
 
@@ -1409,10 +1433,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
+  // Phase 2.2: DTO validation added for type safety and automatic validation
+  app.post("/api/products", requireAuth, requireUserType('seller'), validateBody(CreateProductDto), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
+      // req.body is now typed and validated as CreateProductDto
       const result = await productService.createProduct({
         productData: req.body,
         sellerId: userId,
@@ -1584,9 +1610,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/orders", async (req: any, res) => {
+  // Phase 2.2: DTO validation added for type safety and automatic validation
+  app.post("/api/orders", validateBody(CreateOrderDto), async (req: any, res) => {
     try {
-      // Extract request data (frontend sends payment info after successful payment)
+      // req.body is now typed and validated as CreateOrderDto
       const { 
         customerEmail, 
         customerName, 
@@ -1601,19 +1628,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         taxBreakdown,
         subtotalBeforeTax
       } = req.body;
-      
-      // Basic validation (business logic validation happens in OrderService)
-      if (!customerEmail) {
-        return res.status(400).json({ error: "Customer email is required for all orders" });
-      }
-
-      if (!items || !Array.isArray(items)) {
-        return res.status(400).json({ error: "Cart items are required" });
-      }
-
-      if (!destination || !destination.country) {
-        return res.status(400).json({ error: "Shipping destination is required" });
-      }
 
       // ARCHITECTURE 3: Validate variants for all items before order creation
       for (const item of items) {
@@ -11375,16 +11389,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Note: cartValidationService, shippingService, and orderService are already initialized at the top
 
+  // Phase 2.2: DTO validation added for type safety and automatic validation
   // Cart API - Backend cart management with session-based storage
-  app.post("/api/cart/add", async (req: any, res) => {
+  app.post("/api/cart/add", validateBody(AddToCartDto), async (req: any, res) => {
     try {
+      // req.body is now typed and validated as AddToCartDto
       const { productId, quantity = 1, variantId, variant } = req.body;
       const sessionId = req.sessionID;
       const userId = req.user?.claims?.sub;
-
-      if (!productId) {
-        return res.status(400).json({ error: "Product ID is required" });
-      }
 
       if (!sessionId) {
         return res.status(500).json({ error: "Session not available" });
