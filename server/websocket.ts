@@ -221,14 +221,38 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
 
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
-    logger.info(`[Socket.IO] Client connected for settings: ${userId}`);
+    logger.info(`[Socket.IO] Client connected (authenticated): ${userId}`);
     
-    // AUTOMATICALLY join user to their own room (server-side decision)
+    // AUTO-JOIN: User's own room (server-controlled)
     socket.join(`user:${userId}`);
-    logger.info(`[Socket.IO] User ${userId} joined room: user:${userId}`);
+    logger.info(`[Socket.IO] User ${userId} auto-joined room: user:${userId}`);
     
-    // SECURITY: Client-controlled 'join' handler removed - prevents unauthorized room access
-    // Users can ONLY join their own room, which is determined server-side by their session
+    // VALIDATED JOIN: Allow authenticated users to join public rooms
+    socket.on('join', (room: string) => {
+      // SECURITY: Only allow storefront:{sellerId} and product:{productId} format
+      if (typeof room === 'string' && room.startsWith('storefront:')) {
+        const sellerId = room.split(':')[1];
+        
+        // Basic validation: sellerId should not be empty
+        if (sellerId && sellerId.length > 0) {
+          socket.join(room);
+          logger.info(`[Socket.IO] User ${userId} joined validated room: ${room}`);
+        } else {
+          logger.warn(`[Socket.IO] Invalid storefront room format rejected: ${room}`);
+        }
+      } else if (typeof room === 'string' && room.startsWith('product:')) {
+        // Future: Allow product rooms for real-time product updates
+        const productId = room.split(':')[1];
+        if (productId && productId.length > 0) {
+          socket.join(room);
+          logger.info(`[Socket.IO] User ${userId} joined validated room: ${room}`);
+        } else {
+          logger.warn(`[Socket.IO] Invalid product room format rejected: ${room}`);
+        }
+      } else {
+        logger.warn(`[Socket.IO] Unauthorized room join attempt rejected: ${room} by user: ${userId}`);
+      }
+    });
     
     socket.on('disconnect', () => {
       logger.info(`[Socket.IO] Client disconnected: ${userId}`);
