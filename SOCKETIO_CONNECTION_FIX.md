@@ -3,27 +3,79 @@
 ## Problem Summary
 Socket.IO client connections were failing with "websocket error" despite Native WebSocket (`/ws/orders`) working perfectly. The issue prevented real-time features from functioning.
 
-## Root Cause
-**Vite's catch-all middleware was intercepting Socket.IO polling requests** before Socket.IO could handle them. When Socket.IO tried to establish connections using the default transport negotiation (polling first, then upgrade to WebSocket), Vite's `app.use("*", ...)` middleware returned `index.html` instead of letting Socket.IO handle the request.
+## Root Causes (Multiple Issues)
+
+### 1. **Vite's catch-all middleware interception**
+Vite's `app.use("*", ...")` middleware was intercepting Socket.IO polling requests before Socket.IO could handle them. When Socket.IO tried to establish connections using the default transport negotiation (polling first, then upgrade to WebSocket), Vite returned `index.html` instead of letting Socket.IO handle the request.
+
+**Fix**: Use WebSocket-only transport (`transports: ['websocket']`) to bypass Express middleware entirely.
+
+### 2. **WebSocket library interference (CRITICAL)**
+The `ws` library's WebSocketServer was consuming ALL HTTP upgrade events when attached with `{ server: httpServer, path: '/ws/orders' }`, preventing Socket.IO from ever receiving upgrade requests for `/socket.io/`.
+
+**Root Cause**: When `ws.WebSocketServer` is attached to an HTTP server with a path filter, it still listens to ALL 'upgrade' events and only checks the path AFTER consuming the event. This prevents Socket.IO from handling its own upgrades.
+
+**Solution**: Use `noServer: true` for Native WebSocket and manually route upgrade events based on pathname.
 
 ## Solution
 
-### 1. **Server-Side: WebSocket-Only Transport**
-Configure Socket.IO to skip polling entirely:
+### 1. **Server-Side: Manual Upgrade Routing (FINAL SOLUTION)**
+
+Create Native WebSocket with `noServer: true` and manually route upgrades by path:
 
 ```typescript
 // server/websocket.ts
-const io = new SocketIOServer(httpServer, {
-  path: '/socket.io/',
-  transports: ['websocket'], // ✅ WebSocket-only, skip polling
-  cors: {
-    origin: true,
-    credentials: true,
-  },
-});
+export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: RequestHandler) {
+  // Create Native WebSocket with noServer: true (manual upgrade handling)
+  const wss = new WebSocketServer({ noServer: true });
+  
+  wss.on('connection', (ws: WebSocket) => {
+    logger.info('[WebSocket] Native WS client connected for orders');
+  });
+  
+  orderWebSocketService.setWSS(wss);
+  
+  // Create Socket.IO server (it handles its own upgrades)
+  const io = new SocketIOServer(httpServer, {
+    path: '/socket.io/',
+    transports: ['websocket'], // WebSocket-only, skip polling
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+  });
+  
+  // Apply session authentication middleware
+  io.engine.use(sessionMiddleware);
+  io.engine.use(passport.initialize());
+  io.engine.use(passport.session());
+  
+  // Authentication and connection handlers...
+  
+  settingsSocketService.setIO(io);
+  
+  // Manual upgrade routing - Route /ws/orders to Native WS
+  httpServer.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+    
+    if (pathname === '/ws/orders') {
+      // Route to Native WebSocket
+      console.log('[Upgrade Router] Routing /ws/orders to Native WS');
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+    // Socket.IO handles its own upgrades via Engine.IO automatically
+  });
+}
 ```
 
-**Why this works**: WebSocket connections use the HTTP `upgrade` mechanism, which happens at the HTTP server level BEFORE Express middleware processes the request. This bypasses Vite's catch-all route entirely.
+**Why this works**: 
+- Native WS with `noServer: true` doesn't attach to HTTP server automatically
+- Manual `httpServer.on('upgrade')` handler routes by pathname
+- `/ws/orders` → Native WebSocket  
+- All other paths (including `/socket.io/`) → Socket.IO handles automatically
+- No conflict between the two systems
 
 ### 2. **Client-Side: Explicit WebSocket URL**
 Explicitly specify the WebSocket URL to avoid connection ambiguity:
@@ -121,15 +173,19 @@ Check server logs for connection:
 
 ## Lessons Learned
 
-1. **Middleware order matters**: Socket.IO must attach before catch-all routes
-2. **Transport flexibility has costs**: Polling + WebSocket = more complexity
-3. **WebSocket bypasses middleware**: Uses HTTP upgrade, not Express routing
-4. **Replit environment**: Standard Socket.IO patterns may need adaptation
-5. **Debugging requires patience**: Network-level issues aren't always obvious
+1. **WebSocket library conflicts**: The `ws` library intercepts ALL 'upgrade' events even with path filtering
+2. **noServer mode is essential**: Use `noServer: true` + manual routing for coexistence
+3. **Middleware order matters**: Socket.IO must attach before catch-all routes
+4. **Transport flexibility has costs**: Polling + WebSocket = more complexity
+5. **WebSocket bypasses middleware**: Uses HTTP upgrade, not Express routing
+6. **Manual routing gives control**: Explicit pathname-based routing prevents conflicts
+7. **Replit environment**: Standard Socket.IO patterns may need adaptation
+8. **Debugging requires patience**: Network-level issues aren't always obvious
+9. **Test both systems**: Always verify BOTH WebSocket systems connect simultaneously
 
 ---
 
 **Date Fixed**: October 20, 2025  
-**Time Investment**: ~2.5 hours of debugging  
-**Status**: ⚠️ Partially Fixed - Socket.IO works when Native WS is disabled, intermittent when both enabled
-**Recommended Action**: Continue using Native WS for orders until WebSocket library conflict is fully resolved
+**Time Investment**: ~3 hours of debugging  
+**Status**: ✅ **PRODUCTION-READY** - Both Native WS and Socket.IO working simultaneously with manual upgrade routing
+**Solution**: Use `noServer: true` for Native WebSocket + manual HTTP upgrade routing by path
