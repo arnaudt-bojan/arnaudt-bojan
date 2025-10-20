@@ -1,0 +1,67 @@
+“Set up code-driven Phase-1 test+telemetry system for a 3-sided commerce app (B2C, B2B, Trade) with auto-run + auto-debug, avoiding slow E2E.
+
+A. Harness & Speed
+	1.	Fast runner with file-watcher; default <60s; changed-files-only mode (git diff).
+	2.	Tags: unit=fast, integration=medium; default fast. Deterministic seed + time-travel; each test in DB transaction with auto-rollback.
+	3.	CI: run fast pack on push/PR; cache deps; parallel shards. Gate merges on regression.
+
+B. Contracts & Auth
+4) Generate OpenAPI contract tests for all services; fail on breaking changes.
+5) AuthN/AuthZ matrix: buyer/seller/admin across B2C/B2B/Trade endpoints (login/register/password-reset/JWT/session expiry/CSRF).
+
+C. Database & Events
+6) SQL/ORM triggers to test_log on INSERT/UPDATE; assert side-effects.
+7) Migrations: apply→verify→rollback; block destructive diffs. Constraint tests (FK/unique/check).
+8) Idempotency for writes; concurrency races for inventory reserve/release (no negative stock).
+9) Mock message queue; assert payload schema, routing, retry/backoff, DLQ, dedupe keys.
+
+D. Payments & Orders
+10) Stub Stripe/PayPal: intent/confirm/refund/dispute; verify order state machine & ledger.
+11) Payment webhooks (success/failure/partial) → order status; prevent double-charge via idempotency keys.
+12) Taxes/VAT/FX rounding edges; assert totals & accounting entries.
+
+E. Email (all sides)
+13) Mock SMTP/SES; assert recipients/headers/attachments; message_key idempotency.
+14) Snapshot templates (HTML/text); validate links (HTTP 200), signed tokens, quiet-hours scheduling (time-travel).
+15) Webhooks: delivered/bounce/complaint → suppression lists/audit.
+
+F. Catalog/Inventory/Pricing
+16) Import mappers for Shopify/Etsy/Joor/Zedonk: schema map, conflict rules, media validation.
+17) Tiered pricing/discount precedence, MOQ/min-order packs (B2B).
+
+G. APIs by plane
+18) B2C: cart→checkout→order→fulfilment→return; rate-limit (429 + headers); pagination/sort/filter snapshots.
+19) B2B: quote→approval→NET terms (30/60), PO create/ack, credit-limit checks; invoice generation.
+20) Trade/Admin: vendor onboarding, role grants, price list mgmt, bulk edits, exports.
+
+H. Frontend Integrity (no browser E2E)
+21) Parse all routes; shallow render pages/layouts/components.
+22) Fail on missing exports/imports/circular deps; capture console errors/warnings.
+23) Validate required props/context; flag undefined/null; output table: route → OK/FAIL → stack → suggested fix.
+
+I. Performance micro-load
+24) Short bursts for cart/checkout/catalog; assert p95 threshold; warm vs cold cache deltas.
+
+J. Live Telemetry & Audits
+25) Metrics (Prometheus text OK):
+	•	api_latency_ms{route}, api_error_total{route,code}
+	•	emails_sent{template,actor}, email_failure{reason}
+	•	queue_publish_total{topic}, retry_total, dlq_total
+	•	db_migration_fail_total, constraint_violation_total
+	•	frontend_render_fail_total{route}
+
+	26.	Append-only audits: email_audit, order_state_audit, webhook_audit, payment_audit (ordered transitions).
+	27.	/healthz and /metrics endpoints; CI prints summary table (passes/fails, p95s, new drifts).
+
+K. Auto-debug Loop
+28) On any failure:
+	•	capture failing test/route, stack, git diff;
+	•	classify into pattern: {missing import, bad prop shape, contract drift, migration mismatch, flaky async, schema violation};
+	•	propose patch via codemod or minimal edit (generate diff);
+	•	run fast suite again; if green, open auto-commit; else attach patch + notes in report.
+
+Deliverables
+	•	Test suites, fixtures, mocks, route-render tests; telemetry wiring; audit schemas.
+	•	One consolidated report/run: failing routes, top errors, contract drifts, idempotency violations, p95 table, links to audit rows.
+	•	CI gating config (fail on: test fail, contract drift, new render fails, p95 regression > X%).
+Run everything automatically on save/commit and on PR.”
