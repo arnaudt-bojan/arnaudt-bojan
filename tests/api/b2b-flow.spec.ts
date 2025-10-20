@@ -1,17 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../server/index.js';
+import type { Express } from 'express';
+import { getTestApp } from '../setup/test-app.js';
 import { createBuyerSession, createSellerSession } from '../setup/auth-helpers.js';
 import { createFixtures } from '../setup/fixtures.js';
 import { prisma } from '../../server/prisma.js';
 import type { Prisma } from '../../generated/prisma/index.js';
 
 describe('B2B Wholesale Flow @api @integration @b2b', () => {
+  let app: Express;
   let fixtures: ReturnType<typeof createFixtures>;
   let buyerAuth: Awaited<ReturnType<typeof createBuyerSession>>;
   let sellerAuth: Awaited<ReturnType<typeof createSellerSession>>;
   let sellerId: string;
   let buyerId: string;
+
+  beforeAll(async () => {
+    app = await getTestApp();
+  });
 
   beforeEach(async () => {
     fixtures = createFixtures(prisma);

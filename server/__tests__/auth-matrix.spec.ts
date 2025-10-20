@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { withTransaction, createTestPrisma } from '@tests/setup/db-test-utils';
 import { createFixtures } from '@tests/setup/fixtures';
 import {
@@ -7,15 +7,15 @@ import {
   createAdminSession,
   type AuthContext,
 } from '@tests/setup/auth-helpers';
+import { getTestApp } from '@tests/setup/test-app.js';
 import type { Prisma } from '../../generated/prisma/index.js';
 import request from 'supertest';
 import type { Express } from 'express';
 
 let app: Express;
 
-beforeEach(async () => {
-  const { default: createApp } = await import('../index.js');
-  app = await createApp();
+beforeAll(async () => {
+  app = await getTestApp();
 });
 
 describe('Auth Matrix Tests - @integration', () => {

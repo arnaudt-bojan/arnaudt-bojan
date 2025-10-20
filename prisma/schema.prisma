@@ -1941,6 +1941,16 @@ model x_settings {
   updated_at          DateTime? @default(now()) @db.Timestamp(6)
 }
 
+model test_audit_log {
+  id          Int      @id @default(autoincrement())
+  table_name  String
+  operation   String
+  row_id      String
+  old_data    Json?
+  new_data    Json?
+  changed_at  DateTime @default(now())
+}
+
 enum background_job_status {
   pending
   running

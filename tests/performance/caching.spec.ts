@@ -1,8 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
-import { app } from '../../server/index';
+import type { Express } from 'express';
+import { getTestApp } from '../setup/test-app.js';
 
 describe('API Caching & Performance @performance', () => {
+  let app: Express;
+
+  beforeAll(async () => {
+    app = await getTestApp();
+  });
+
   it('should serve cached responses faster', async () => {
     const endpoint = '/api/products';
 

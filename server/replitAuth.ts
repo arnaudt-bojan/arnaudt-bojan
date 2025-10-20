@@ -11,7 +11,7 @@ import { logger } from "./logger";
 import { generateUniqueUsername } from "./utils";
 import { CartService } from "./services/cart.service";
 
-if (!process.env.REPLIT_DOMAINS) {
+if (!process.env.REPLIT_DOMAINS && process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
@@ -227,137 +227,148 @@ export async function setupAuth(app: Express) {
     }
   ));
 
-  const config = await getOidcConfig();
+  // Only set up OIDC strategy in non-test environments with proper configuration
+  let config;
+  if (process.env.NODE_ENV !== 'test' && !process.env.VITEST && process.env.REPLIT_DOMAINS) {
+    try {
+      config = await getOidcConfig();
 
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback,
-    req?: any
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    const intendedRole = req?.session?.intendedRole;
-    await upsertUser(tokens.claims(), intendedRole);
-    if (req?.session?.intendedRole) {
-      delete req.session.intendedRole;
+      const verify: VerifyFunction = async (
+        tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
+        verified: passport.AuthenticateCallback,
+        req?: any
+      ) => {
+        const user = {};
+        updateUserSession(user, tokens);
+        const intendedRole = req?.session?.intendedRole;
+        await upsertUser(tokens.claims(), intendedRole);
+        if (req?.session?.intendedRole) {
+          delete req.session.intendedRole;
+        }
+        verified(null, user);
+      };
+
+      for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+        const strategy = new Strategy(
+          {
+            name: `replitauth:${domain}`,
+            config,
+            scope: "openid email profile offline_access",
+            callbackURL: `https://${domain}/api/callback`,
+          },
+          verify
+        );
+        passport.use(strategy);
+      }
+
+      app.get("/api/login", (req, res, next) => {
+        const intendedRole = req.query.role as string;
+        const returnUrl = req.query.returnUrl as string;
+        const loginContext = req.query.loginContext as string;
+        
+        if (intendedRole) {
+          (req.session as any).intendedRole = intendedRole;
+        }
+        if (returnUrl) {
+          (req.session as any).returnUrl = returnUrl;
+        }
+        if (loginContext) {
+          (req.session as any).loginContext = loginContext;
+        }
+        
+        passport.authenticate(`replitauth:${req.hostname}`, {
+          prompt: "login consent",
+          scope: ["openid", "email", "profile", "offline_access"],
+        })(req, res, next);
+      });
+
+      app.get("/api/callback", async (req, res, next) => {
+        passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
+          if (err || !user) {
+            return res.redirect("/api/login");
+          }
+          
+          req.login(user, async (loginErr) => {
+            if (loginErr) {
+              return res.redirect("/api/login");
+            }
+            
+            const dbUser = await storage.getUser(user.claims.sub);
+            
+            // Migrate guest cart to authenticated user
+            try {
+              const cartService = new CartService(storage);
+              await cartService.migrateGuestCart(req.sessionID, user.claims.sub);
+              logger.info('[Auth] Cart migration completed for OIDC login', { 
+                userId: user.claims.sub
+              });
+            } catch (error) {
+              logger.error('[Auth] Cart migration failed for OIDC login', error, { 
+                userId: user.claims.sub
+              });
+            }
+            
+            // Check for preserved returnUrl in session
+            const rawReturnUrl = (req.session as any)?.returnUrl;
+            const loginContext = (req.session as any)?.loginContext;
+            
+            // Clear session variables
+            delete (req.session as any).returnUrl;
+            delete (req.session as any).loginContext;
+            
+            // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
+            let returnUrl: string | null = null;
+            if (rawReturnUrl) {
+              try {
+                // Only allow paths starting with / and not // (protocol-relative URLs)
+                if (rawReturnUrl.startsWith("/") && !rawReturnUrl.startsWith("//")) {
+                  returnUrl = rawReturnUrl;
+                } else {
+                  logger.warn('Invalid returnUrl rejected', {
+                    module: 'auth',
+                    returnUrl: rawReturnUrl,
+                    userId: dbUser?.id
+                  });
+                }
+              } catch (e) {
+                logger.warn('returnUrl validation failed', {
+                  module: 'auth',
+                  returnUrl: rawReturnUrl
+                });
+              }
+            }
+            
+            // If sanitized returnUrl exists, use it
+            if (returnUrl) {
+              logger.auth('Redirecting to preserved returnUrl', { 
+                returnUrl, 
+                loginContext,
+                userId: dbUser?.id 
+              });
+              return res.redirect(returnUrl);
+            }
+            
+            // Otherwise, use default role-based redirect
+            if (dbUser?.role === "buyer") {
+              return res.redirect("/buyer-dashboard");
+            } else if (dbUser?.role === "seller" || dbUser?.role === "owner" || dbUser?.role === "admin") {
+              return res.redirect("/seller-dashboard");
+            } else {
+              return res.redirect("/");
+            }
+          });
+        })(req, res, next);
+      });
+    } catch (error) {
+      logger.warn('Failed to set up OIDC authentication. Falling back to local auth only.', {
+        module: 'auth',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
-    verified(null, user);
-  };
-
-  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
-    const strategy = new Strategy(
-      {
-        name: `replitauth:${domain}`,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
-      },
-      verify
-    );
-    passport.use(strategy);
   }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
-  app.get("/api/login", (req, res, next) => {
-    const intendedRole = req.query.role as string;
-    const returnUrl = req.query.returnUrl as string;
-    const loginContext = req.query.loginContext as string;
-    
-    if (intendedRole) {
-      (req.session as any).intendedRole = intendedRole;
-    }
-    if (returnUrl) {
-      (req.session as any).returnUrl = returnUrl;
-    }
-    if (loginContext) {
-      (req.session as any).loginContext = loginContext;
-    }
-    
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
-  });
-
-  app.get("/api/callback", async (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any) => {
-      if (err || !user) {
-        return res.redirect("/api/login");
-      }
-      
-      req.login(user, async (loginErr) => {
-        if (loginErr) {
-          return res.redirect("/api/login");
-        }
-        
-        const dbUser = await storage.getUser(user.claims.sub);
-        
-        // Migrate guest cart to authenticated user
-        try {
-          const cartService = new CartService(storage);
-          await cartService.migrateGuestCart(req.sessionID, user.claims.sub);
-          logger.info('[Auth] Cart migration completed for OIDC login', { 
-            userId: user.claims.sub
-          });
-        } catch (error) {
-          logger.error('[Auth] Cart migration failed for OIDC login', error, { 
-            userId: user.claims.sub
-          });
-        }
-        
-        // Check for preserved returnUrl in session
-        const rawReturnUrl = (req.session as any)?.returnUrl;
-        const loginContext = (req.session as any)?.loginContext;
-        
-        // Clear session variables
-        delete (req.session as any).returnUrl;
-        delete (req.session as any).loginContext;
-        
-        // Sanitize returnUrl to prevent open redirect - only allow same-origin paths
-        let returnUrl: string | null = null;
-        if (rawReturnUrl) {
-          try {
-            // Only allow paths starting with / and not // (protocol-relative URLs)
-            if (rawReturnUrl.startsWith("/") && !rawReturnUrl.startsWith("//")) {
-              returnUrl = rawReturnUrl;
-            } else {
-              logger.warn('Invalid returnUrl rejected', {
-                module: 'auth',
-                returnUrl: rawReturnUrl,
-                userId: dbUser?.id
-              });
-            }
-          } catch (e) {
-            logger.warn('returnUrl validation failed', {
-              module: 'auth',
-              returnUrl: rawReturnUrl
-            });
-          }
-        }
-        
-        // If sanitized returnUrl exists, use it
-        if (returnUrl) {
-          logger.auth('Redirecting to preserved returnUrl', { 
-            returnUrl, 
-            loginContext,
-            userId: dbUser?.id 
-          });
-          return res.redirect(returnUrl);
-        }
-        
-        // Otherwise, use default role-based redirect
-        if (dbUser?.role === "buyer") {
-          return res.redirect("/buyer-dashboard");
-        } else if (dbUser?.role === "seller" || dbUser?.role === "owner" || dbUser?.role === "admin") {
-          return res.redirect("/seller-dashboard");
-        } else {
-          return res.redirect("/");
-        }
-      });
-    })(req, res, next);
-  });
 
   // Local login route for testing
   app.post("/api/local-login", (req, res, next) => {
@@ -511,13 +522,18 @@ export async function setupAuth(app: Express) {
       if (isLocalOrEmailAuth) {
         res.redirect(returnUrl);
       } else {
-        const fullReturnUrl = `${req.protocol}://${req.hostname}${returnUrl}`;
-        res.redirect(
-          client.buildEndSessionUrl(config, {
-            client_id: process.env.REPL_ID!,
-            post_logout_redirect_uri: fullReturnUrl,
-          }).href
-        );
+        if (config) {
+          const fullReturnUrl = `${req.protocol}://${req.hostname}${returnUrl}`;
+          res.redirect(
+            client.buildEndSessionUrl(config, {
+              client_id: process.env.REPL_ID!,
+              post_logout_redirect_uri: fullReturnUrl,
+            }).href
+          );
+        } else {
+          // Fallback for test environments without OIDC config
+          res.redirect(returnUrl);
+        }
       }
     });
   });

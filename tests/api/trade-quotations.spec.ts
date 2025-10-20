@@ -1,15 +1,21 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../server/index.js';
+import type { Express } from 'express';
+import { getTestApp } from '../setup/test-app.js';
 import { createSellerSession } from '../setup/auth-helpers.js';
 import { createFixtures } from '../setup/fixtures.js';
 import { prisma } from '../../server/prisma.js';
 import type { Prisma } from '../../generated/prisma/index.js';
 
 describe('Trade Quotation System @api @integration @trade', () => {
+  let app: Express;
   let fixtures: ReturnType<typeof createFixtures>;
   let sellerAuth: Awaited<ReturnType<typeof createSellerSession>>;
   let sellerId: string;
+
+  beforeAll(async () => {
+    app = await getTestApp();
+  });
 
   beforeEach(async () => {
     fixtures = createFixtures(prisma);
