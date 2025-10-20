@@ -10,6 +10,7 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { SellerProvider } from "@/contexts/seller-context";
 import { AuthStoreProvider } from "@/contexts/auth-store-context";
 import { BusinessModeProvider } from "@/contexts/business-mode-context";
+import { SocketProvider } from "@/contexts/SocketProvider";
 import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
@@ -644,18 +645,20 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <SellerProvider>
-            <AuthStoreProvider>
-              <BusinessModeProvider>
-                <CurrencyProvider>
-                  <CartProvider>
-                    <AppContent />
-                    <Toaster />
-                  </CartProvider>
-                </CurrencyProvider>
-              </BusinessModeProvider>
-            </AuthStoreProvider>
-          </SellerProvider>
+          <SocketProvider>
+            <SellerProvider>
+              <AuthStoreProvider>
+                <BusinessModeProvider>
+                  <CurrencyProvider>
+                    <CartProvider>
+                      <AppContent />
+                      <Toaster />
+                    </CartProvider>
+                  </CurrencyProvider>
+                </BusinessModeProvider>
+              </AuthStoreProvider>
+            </SellerProvider>
+          </SocketProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
