@@ -44,6 +44,11 @@ const app = express();
 // Export app for testing
 export { app };
 
+// Export createApp function for test compatibility
+export default async function createApp() {
+  return app;
+}
+
 // Trust proxy if behind load balancer (for rate limiting by real IP)
 app.set('trust proxy', true);
 
@@ -611,9 +616,11 @@ function generateRateLimiterRecommendations(metrics: any): string[] {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  const env = app.get("env") || process.env.NODE_ENV;
+  if (env === "development") {
     await setupVite(app, server);
-  } else {
+  } else if (env !== "test") {
+    // Skip static serving in test environment
     serveStatic(app);
   }
 
@@ -625,6 +632,11 @@ function generateRateLimiterRecommendations(metrics: any): string[] {
   let shippoRefundPollInterval: NodeJS.Timeout | null = null;
   let domainStatusChecker: any = null;
   let proxyStatsInterval: NodeJS.Timeout | null = null;
+
+  // Skip server startup and background jobs in test environment
+  if (env === "test" || process.env.VITEST) {
+    return; // Exit IIFE early for tests
+  }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

@@ -2082,6 +2082,9 @@ enum refund_line_item_type {
 enum ProductStatus {
   draft
   active
+  coming_soon
+  paused
+  out_of_stock
   archived
 }
 
