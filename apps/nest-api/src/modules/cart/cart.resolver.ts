@@ -24,8 +24,12 @@ export class CartResolver {
   ) {}
 
   @Query('getCart')
-  async getCart(@Args('id') id: string) {
-    return this.cartService.getCart(id);
+  @UseGuards(GqlAuthGuard)
+  async getCart(
+    @Args('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.cartService.getCart(id, user.id);
   }
 
   @Query('getCartBySession')
@@ -44,25 +48,33 @@ export class CartResolver {
   }
 
   @Mutation('updateCartItem')
+  @UseGuards(GqlAuthGuard)
   async updateCartItem(
     @Args('cartId') cartId: string,
     @Args('input') input: UpdateCartItemInput,
+    @CurrentUser() user: any,
   ) {
-    return this.cartService.updateCartItem(cartId, input);
+    return this.cartService.updateCartItem(cartId, input, user.id);
   }
 
   @Mutation('removeFromCart')
+  @UseGuards(GqlAuthGuard)
   async removeFromCart(
     @Args('cartId') cartId: string,
     @Args('productId') productId: string,
-    @Args('variantId') variantId?: string,
+    @Args('variantId') variantId: string | undefined,
+    @CurrentUser() user: any,
   ) {
-    return this.cartService.removeFromCart(cartId, productId, variantId);
+    return this.cartService.removeFromCart(cartId, productId, variantId, user.id);
   }
 
   @Mutation('clearCart')
-  async clearCart(@Args('cartId') cartId: string) {
-    return this.cartService.clearCart(cartId);
+  @UseGuards(GqlAuthGuard)
+  async clearCart(
+    @Args('cartId') cartId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.cartService.clearCart(cartId, user.id);
   }
 
   @ResolveField('seller')

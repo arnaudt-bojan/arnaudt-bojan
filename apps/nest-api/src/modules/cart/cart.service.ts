@@ -45,6 +45,29 @@ export class CartService {
   ) {}
 
   /**
+   * Validate cart ownership - prevents unauthorized access
+   */
+  private async validateCartOwnership(cartId: string, userId: string): Promise<void> {
+    const cart = await this.prisma.carts.findUnique({
+      where: { id: cartId },
+    });
+
+    if (!cart) {
+      throw new GraphQLError('Cart not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    // Check if user owns the cart (via buyer_id)
+    // Use "Cart not found" instead of "Unauthorized" to prevent enumeration
+    if (cart.buyer_id && cart.buyer_id !== userId) {
+      throw new GraphQLError('Cart not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+  }
+
+  /**
    * Get cart by session ID
    */
   async getCartBySessionId(sessionId: string): Promise<any> {
@@ -102,10 +125,13 @@ export class CartService {
   }
 
   /**
-   * Get cart by cart ID
+   * Get cart by cart ID (with ownership validation)
    */
-  async getCart(cartId: string): Promise<any> {
+  async getCart(cartId: string, userId: string): Promise<any> {
     try {
+      // Validate ownership first
+      await this.validateCartOwnership(cartId, userId);
+
       const cart = await this.prisma.carts.findUnique({
         where: { id: cartId },
       });
@@ -130,6 +156,7 @@ export class CartService {
         updatedAt: cart.updated_at,
       };
     } catch (error: any) {
+      if (error instanceof GraphQLError) throw error;
       throw new GraphQLError('Failed to get cart', {
         extensions: { code: 'INTERNAL_SERVER_ERROR' },
       });
@@ -346,10 +373,13 @@ export class CartService {
   }
 
   /**
-   * Update cart item quantity
+   * Update cart item quantity (with ownership validation)
    */
-  async updateCartItem(cartId: string, input: any): Promise<any> {
+  async updateCartItem(cartId: string, input: any, userId: string): Promise<any> {
     try {
+      // Validate ownership first
+      await this.validateCartOwnership(cartId, userId);
+
       const { productId, variantId, quantity } = input;
 
       if (quantity < 1 || quantity > 10000) {
@@ -440,14 +470,18 @@ export class CartService {
   }
 
   /**
-   * Remove item from cart
+   * Remove item from cart (with ownership validation)
    */
   async removeFromCart(
     cartId: string,
     productId: string,
-    variantId?: string,
+    variantId: string | undefined,
+    userId: string,
   ): Promise<any> {
     try {
+      // Validate ownership first
+      await this.validateCartOwnership(cartId, userId);
+
       const cart = await this.prisma.carts.findUnique({
         where: { id: cartId },
       });
@@ -499,10 +533,13 @@ export class CartService {
   }
 
   /**
-   * Clear entire cart
+   * Clear entire cart (with ownership validation)
    */
-  async clearCart(cartId: string): Promise<boolean> {
+  async clearCart(cartId: string, userId: string): Promise<boolean> {
     try {
+      // Validate ownership first
+      await this.validateCartOwnership(cartId, userId);
+
       const cart = await this.prisma.carts.update({
         where: { id: cartId },
         data: { items: [] as any, updated_at: new Date() },
@@ -524,6 +561,7 @@ export class CartService {
 
       return true;
     } catch (error: any) {
+      if (error instanceof GraphQLError) throw error;
       throw new GraphQLError('Failed to clear cart', {
         extensions: { code: 'INTERNAL_SERVER_ERROR' },
       });
