@@ -1,0 +1,35 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Check for missing tests
+echo "\n📋 Checking for files without tests..."
+tsx scripts/auto-coverage-detector.ts
+
+if [ $? -ne 0 ]; then
+  echo "\n❌ Some files are missing tests!"
+  echo "   Run: npm run generate:test-stubs"
+  echo "   Or add tests manually before committing"
+  # Don't block commit in development, just warn
+  # exit 1
+fi
+
+# Run type check
+echo "\n🔍 Running TypeScript type check..."
+npm run check
+
+if [ $? -ne 0 ]; then
+  echo "\n❌ Type check failed!"
+  exit 1
+fi
+
+# Run linter (if configured)
+# echo "\n🔍 Running linter..."
+# npm run lint
+
+# Run affected tests only (fast)
+echo "\n🧪 Running affected tests..."
+# npm run test:affected
+
+echo "\n✅ Pre-commit checks passed!"

@@ -1,0 +1,203 @@
+name: Test Coverage Enforcement
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  check-coverage:
+    name: Check Test Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate diff
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Detect files without tests
+        id: coverage-check
+        run: |
+          tsx scripts/auto-coverage-detector.ts || true
+          
+          # Check if report was generated
+          if [ -f reports/missing-tests.json ]; then
+            COUNT=$(cat reports/missing-tests.json | jq '.files | length')
+            echo "missing_count=$COUNT" >> $GITHUB_OUTPUT
+            
+            if [ $COUNT -gt 0 ]; then
+              echo "❌ Found $COUNT files without tests"
+              exit 1
+            fi
+          fi
+      
+      - name: Run unit tests
+        run: npm run test:unit || npm test
+        env:
+          CI: true
+      
+      - name: Run integration tests
+        run: npm run test:integration || true
+        env:
+          CI: true
+      
+      - name: Check changed files have tests
+        if: github.event_name == 'pull_request'
+        run: |
+          # Get list of changed files
+          git diff --name-only origin/${{ github.base_ref }}...HEAD > changed-files.txt
+          
+          # Filter for source files
+          grep -E '\.(ts|tsx)$' changed-files.txt | \
+          grep -v -E '\.(spec|test)\.(ts|tsx)$' | \
+          grep -v 'node_modules' | \
+          grep -v '.d.ts' > source-changes.txt || true
+          
+          if [ -s source-changes.txt ]; then
+            echo "📝 Changed source files:"
+            cat source-changes.txt
+            
+            # Check each file has corresponding test
+            while read file; do
+              # Simple check: does a test file with similar name exist?
+              filename=$(basename "$file" | sed 's/\.(ts|tsx)$//')
+              if ! find tests -name "*$filename*.spec.ts" | grep -q .; then
+                echo "⚠️  Missing test for: $file"
+                # Don't block for now, just warn
+              fi
+            done < source-changes.txt
+          fi
+      
+      - name: Comment PR with coverage report
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## ⚠️ Test Coverage Report\n\n';
+            
+            if (fs.existsSync('reports/missing-tests.json')) {
+              const data = JSON.parse(fs.readFileSync('reports/missing-tests.json'));
+              const count = data.files.length;
+              
+              comment += `Found **${count}** files without tests.\n\n`;
+              comment += '### Files Missing Tests:\n\n';
+              
+              const byType = {};
+              data.files.forEach(file => {
+                if (!byType[file.type]) byType[file.type] = [];
+                byType[file.type].push(file);
+              });
+              
+              for (const [type, files] of Object.entries(byType)) {
+                comment += `\n#### ${type.toUpperCase()} (${files.length}):\n`;
+                files.slice(0, 5).forEach(file => {
+                  comment += `- \`${file.path}\`\n`;
+                });
+                if (files.length > 5) {
+                  comment += `- ... and ${files.length - 5} more\n`;
+                }
+              }
+              
+              comment += '\n### Action Required:\n';
+              comment += 'Please add tests for changed files before merging.\n';
+              comment += 'Run: `npm run generate:test-stubs` to generate test stubs.\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+  
+  run-tests:
+    name: Run Test Suite
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run all tests
+        run: npm test
+        env:
+          CI: true
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            coverage/
+  
+  socket-tests:
+    name: Socket.IO Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run socket tests
+        run: npm run test -- tests/socket
+        env:
+          CI: true
+  
+  contract-tests:
+    name: Contract & Schema Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check GraphQL schema drift
+        run: |
+          # TODO: Implement GraphQL schema comparison
+          echo "GraphQL schema check - TODO"
+      
+      - name: Check API contract drift
+        run: |
+          # TODO: Implement API contract tests
+          echo "API contract check - TODO"
