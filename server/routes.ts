@@ -1258,6 +1258,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Standardized seller product creation endpoint
+  // Consistent with other /api/seller/* endpoints
+  app.post("/api/seller/products", requireAuth, requireUserType('seller'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const result = await productService.createProduct({
+        productData: req.body,
+        sellerId: userId,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.status(201).json(result.product);
+    } catch (error) {
+      logger.error("Error creating product", error);
+      res.status(500).json({ error: "Failed to create product" });
+    }
+  });
+
   // Public products endpoint (for storefront - with search, filter, sort, pagination)
   app.get("/api/products", async (req, res) => {
     try {

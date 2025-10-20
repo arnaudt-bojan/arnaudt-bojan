@@ -223,7 +223,8 @@ export default function CreateProduct() {
       
       // Note: preOrderDate and madeToOrderDays are now added in onSubmit before validation
       
-      return await apiRequest("POST", "/api/products", data);
+      // Use standardized seller endpoint for consistency
+      return await apiRequest("POST", "/api/seller/products", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller/products"] });
