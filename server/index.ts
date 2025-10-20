@@ -137,6 +137,45 @@ app.get('/api/metrics/socketio', async (_req, res) => {
   }
 });
 
+// Database connection pool health check endpoint
+app.get('/api/health/database', async (_req, res) => {
+  try {
+    const { checkDatabaseHealth } = await import('./prisma');
+    const health = await checkDatabaseHealth();
+    
+    if (health.healthy) {
+      res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: {
+          connected: true,
+          latency: health.latency,
+        },
+        poolMetrics: health.metrics,
+      });
+    } else {
+      res.status(503).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        database: {
+          connected: false,
+          error: health.error,
+        },
+        poolMetrics: health.metrics,
+      });
+    }
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+  }
+});
+
 (async () => {
   app.use(domainMiddleware);
 
@@ -197,6 +236,10 @@ app.get('/api/metrics/socketio', async (_req, res) => {
     reusePort: true,
   }, async () => {
     log(`serving on port ${port}`);
+    
+    // Start database connection warmup job to maintain minimum pool size
+    const { startConnectionWarmup } = await import('./prisma');
+    startConnectionWarmup();
     
     // Register platform adapters
     importQueue.registerProcessor(async (job, signal) => {
@@ -335,6 +378,10 @@ app.get('/api/metrics/socketio', async (_req, res) => {
     if (proxyStatsInterval) {
       clearInterval(proxyStatsInterval);
     }
+    
+    // Stop database connection warmup job
+    const { stopConnectionWarmup } = await import('./prisma');
+    stopConnectionWarmup();
     
     // Cleanup feature flags service
     featureFlagsService.destroy();
