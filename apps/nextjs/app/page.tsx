@@ -8,7 +8,14 @@ export default function Home() {
       <p className="mt-2 text-sm text-gray-500">
         ✅ Material UI + Apollo GraphQL configured
       </p>
-      <div className="mt-8 flex gap-4">
+      <div className="mt-8 flex flex-wrap gap-4 items-center justify-center">
+        <a
+          href="/login"
+          className="rounded-lg bg-gray-900 text-white px-8 py-4 hover:bg-gray-800 font-semibold text-lg shadow-lg transition-colors"
+          data-testid="link-login"
+        >
+          Login / Sign Up
+        </a>
         <a
           href="/dashboard"
           className="rounded-lg border border-gray-300 bg-blue-500 text-white px-6 py-3 hover:bg-blue-600 font-semibold"

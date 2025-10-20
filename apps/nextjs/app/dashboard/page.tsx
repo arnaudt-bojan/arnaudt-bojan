@@ -21,14 +21,18 @@ import {
   ListItemIcon,
   ListItemText,
   IconButton,
+  Button,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
   Inventory as InventoryIcon,
   ShoppingCart as ShoppingCartIcon,
   Menu as MenuIcon,
+  Logout as LogoutIcon,
+  Login as LoginIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const GET_PRODUCTS = gql`
   query ListProducts($first: Int) {
@@ -82,7 +86,9 @@ const GET_USER = gql`
 const drawerWidth = 240;
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   
   const { loading: productsLoading, error: productsError, data: productsData } = useQuery(GET_PRODUCTS, {
     variables: { first: 10 },
@@ -92,6 +98,26 @@ export default function DashboardPage() {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        router.push('/login');
+      } else {
+        console.error('Logout failed');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setLogoutLoading(false);
+    }
   };
 
   const drawer = (
@@ -146,16 +172,37 @@ export default function DashboardPage() {
             edge="start"
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
+            data-testid="button-menu"
           >
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Product Dashboard
           </Typography>
-          {userData?.me && (
-            <Typography variant="body2">
-              {userData.me.email}
-            </Typography>
+          {userData?.me ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2">
+                {userData.me.email}
+              </Typography>
+              <Button
+                color="inherit"
+                onClick={handleLogout}
+                disabled={logoutLoading}
+                startIcon={<LogoutIcon />}
+                data-testid="button-logout"
+              >
+                {logoutLoading ? 'Logging out...' : 'Logout'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              color="inherit"
+              href="/login"
+              startIcon={<LoginIcon />}
+              data-testid="link-login"
+            >
+              Login
+            </Button>
           )}
         </Toolbar>
       </AppBar>
