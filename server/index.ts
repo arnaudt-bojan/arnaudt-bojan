@@ -105,6 +105,38 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// Socket.IO metrics endpoint (for monitoring and alerting)
+app.get('/api/metrics/socketio', async (_req, res) => {
+  try {
+    const { getConnectionMetrics } = await import('./websocket');
+    const metrics = getConnectionMetrics();
+    
+    // Add health status based on metrics
+    const healthStatus = {
+      isHealthy: metrics.activeConnections >= 0 && metrics.connectionErrors < 100,
+      errorRate: metrics.totalConnections > 0 
+        ? (metrics.connectionErrors / metrics.totalConnections * 100).toFixed(2) + '%'
+        : '0%',
+      authFailureRate: metrics.totalConnections > 0
+        ? (metrics.authenticationFailures / metrics.totalConnections * 100).toFixed(2) + '%'
+        : '0%'
+    };
+    
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      metrics,
+      health: healthStatus
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to fetch Socket.IO metrics',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 (async () => {
   app.use(domainMiddleware);
 

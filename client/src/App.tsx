@@ -15,7 +15,6 @@ import { MainHeader } from "@/components/main-header";
 import { CartSheet } from "@/components/cart-sheet";
 import { useCart } from "@/lib/cart-context";
 import { ProtectedRoute } from "@/components/protected-route";
-import { useOrderWebSocket } from "@/hooks/use-order-websocket";
 import { useOrderEvents } from "@/hooks/use-order-events";
 import { useAuth } from "@/hooks/use-auth";
 import Home from "@/pages/home";
@@ -85,10 +84,8 @@ function AppContent() {
   const [location] = useLocation();
   const { user } = useAuth();
   
-  // Connect to WebSocket for real-time order updates
-  useOrderWebSocket();
-  
-  // Initialize order events hook (app-wide real-time notifications)
+  // Initialize Socket.IO order events (app-wide real-time notifications)
+  // Replaces legacy Native WebSocket system
   useOrderEvents(user?.id);
   
   // Scroll to top on route change

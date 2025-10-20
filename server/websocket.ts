@@ -1,77 +1,68 @@
-import { WebSocketServer } from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { logger } from './logger';
-import type WebSocket from 'ws';
 import type { RequestHandler } from 'express';
 import passport from 'passport';
 
-interface OrderUpdateMessage {
-  type: 'order_updated';
-  orderId: string;
-  data: {
-    paymentStatus?: string;
-    amountPaid?: string;
-    status?: string;
-    events?: any[];
+// ========================================
+// CONNECTION METRICS TRACKING
+// ========================================
+
+interface ConnectionMetrics {
+  totalConnections: number;
+  activeConnections: number;
+  connectionErrors: number;
+  authenticationFailures: number;
+  roomJoinSuccesses: number;
+  roomJoinFailures: number;
+  eventsEmitted: {
+    orders: number;
+    settings: number;
+    total: number;
   };
+  roomMemberships: Map<string, Set<string>>; // room -> Set of userIds
+  lastConnectionError: string | null;
+  lastErrorTimestamp: number | null;
 }
 
-type WebSocketMessage = OrderUpdateMessage;
+export const connectionMetrics: ConnectionMetrics = {
+  totalConnections: 0,
+  activeConnections: 0,
+  connectionErrors: 0,
+  authenticationFailures: 0,
+  roomJoinSuccesses: 0,
+  roomJoinFailures: 0,
+  eventsEmitted: {
+    orders: 0,
+    settings: 0,
+    total: 0
+  },
+  roomMemberships: new Map(),
+  lastConnectionError: null,
+  lastErrorTimestamp: null
+};
 
-export class OrderWebSocketService {
-  private wss: WebSocketServer | null = null;
-
-  setWSS(websocketServer: WebSocketServer) {
-    this.wss = websocketServer;
-  }
-
-  /**
-   * Broadcast order update to all connected clients
-   */
-  broadcastOrderUpdate(orderId: string, data: OrderUpdateMessage['data']) {
-    if (!this.wss) {
-      logger.warn('[WebSocket] Cannot broadcast - server not initialized');
-      return;
+// Helper to track room membership
+function trackRoomMembership(room: string, userId: string, action: 'join' | 'leave') {
+  if (action === 'join') {
+    if (!connectionMetrics.roomMemberships.has(room)) {
+      connectionMetrics.roomMemberships.set(room, new Set());
     }
-
-    const message: WebSocketMessage = {
-      type: 'order_updated',
-      orderId,
-      data,
-    };
-
-    const messageStr = JSON.stringify(message);
-
-    logger.info('[WebSocket] Order update broadcasted', {
-      orderId,
-      updateData: JSON.stringify(data)
-    });
-
-    this.wss.clients.forEach((client: WebSocket) => {
-      if (client.readyState === 1) { // WebSocket.OPEN
-        client.send(messageStr);
+    connectionMetrics.roomMemberships.get(room)!.add(userId);
+  } else {
+    const members = connectionMetrics.roomMemberships.get(room);
+    if (members) {
+      members.delete(userId);
+      if (members.size === 0) {
+        connectionMetrics.roomMemberships.delete(room);
       }
-    });
-  }
-
-  /**
-   * Get connection statistics
-   */
-  getStats() {
-    if (!this.wss) {
-      return {
-        totalConnections: 0,
-        activeConnections: 0,
-      };
     }
-    
-    return {
-      totalConnections: this.wss.clients.size,
-      activeConnections: this.wss.clients.size,
-    };
   }
 }
+
+// ========================================
+// ORDER SOCKET SERVICE
+// ========================================
 
 export class OrderSocketService {
   private io: SocketIOServer | null = null;
@@ -89,6 +80,8 @@ export class OrderSocketService {
     logger.info('[Socket.IO] Emitting order:created', { orderId, buyerId, sellerId });
     this.io.to(`user:${sellerId}`).emit('order:created', { orderId, buyerId, sellerId, ...data });
     this.io.to(`user:${buyerId}`).emit('order:created', { orderId, buyerId, sellerId, ...data });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -106,6 +99,24 @@ export class OrderSocketService {
     logger.info('[Socket.IO] Emitting order:updated', { orderId, buyerId, sellerId, status: data.status });
     this.io.to(`user:${sellerId}`).emit('order:updated', { orderId, buyerId, sellerId, ...data });
     this.io.to(`user:${buyerId}`).emit('order:updated', { orderId, buyerId, sellerId, ...data });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
+  }
+
+  /**
+   * Emit order payment succeeded event
+   * Targets: Seller + Buyer
+   */
+  emitOrderPaymentSucceeded(orderId: string, buyerId: string, sellerId: string, data: {
+    amountPaid?: string;
+    paymentStatus?: string;
+  }) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:payment_succeeded', { orderId, buyerId, sellerId });
+    this.io.to(`user:${sellerId}`).emit('order:payment_succeeded', { orderId, buyerId, sellerId, ...data });
+    this.io.to(`user:${buyerId}`).emit('order:payment_succeeded', { orderId, buyerId, sellerId, ...data });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -121,6 +132,8 @@ export class OrderSocketService {
     logger.info('[Socket.IO] Emitting order:fulfilled', { orderId, trackingNumber: data.trackingNumber });
     this.io.to(`user:${sellerId}`).emit('order:fulfilled', { orderId, buyerId, sellerId, ...data });
     this.io.to(`user:${buyerId}`).emit('order:fulfilled', { orderId, buyerId, sellerId, ...data });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -132,6 +145,8 @@ export class OrderSocketService {
     logger.info('[Socket.IO] Emitting payment:failed', { orderId });
     this.io.to(`user:${sellerId}`).emit('payment:failed', { orderId, buyerId, sellerId, message });
     this.io.to(`user:${buyerId}`).emit('payment:failed', { orderId, buyerId, sellerId, message });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -143,6 +158,8 @@ export class OrderSocketService {
     logger.info('[Socket.IO] Emitting payment:canceled', { orderId });
     this.io.to(`user:${sellerId}`).emit('payment:canceled', { orderId, buyerId, sellerId, message });
     this.io.to(`user:${buyerId}`).emit('payment:canceled', { orderId, buyerId, sellerId, message });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -154,8 +171,60 @@ export class OrderSocketService {
     logger.info('[Socket.IO] Emitting payment:refunded', { orderId });
     this.io.to(`user:${sellerId}`).emit('payment:refunded', { orderId, buyerId, sellerId, message });
     this.io.to(`user:${buyerId}`).emit('payment:refunded', { orderId, buyerId, sellerId, message });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
+  }
+
+  /**
+   * Emit refund processed event
+   * Targets: Seller + Buyer
+   */
+  emitRefundProcessed(orderId: string, buyerId: string, sellerId: string, data: {
+    refundAmount?: string;
+    reason?: string;
+  }) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:refund_processed', { orderId });
+    this.io.to(`user:${sellerId}`).emit('order:refund_processed', { orderId, buyerId, sellerId, ...data });
+    this.io.to(`user:${buyerId}`).emit('order:refund_processed', { orderId, buyerId, sellerId, ...data });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
+  }
+
+  /**
+   * Emit order cancelled event
+   * Targets: Seller + Buyer
+   */
+  emitOrderCancelled(orderId: string, buyerId: string, sellerId: string, reason?: string) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:cancelled', { orderId });
+    this.io.to(`user:${sellerId}`).emit('order:cancelled', { orderId, buyerId, sellerId, reason });
+    this.io.to(`user:${buyerId}`).emit('order:cancelled', { orderId, buyerId, sellerId, reason });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
+  }
+
+  /**
+   * Emit fulfillment updated event
+   * Targets: Seller + Buyer
+   */
+  emitFulfillmentUpdated(orderId: string, buyerId: string, sellerId: string, data: {
+    fulfillmentStatus?: string;
+    trackingNumber?: string;
+    carrier?: string;
+  }) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:fulfillment_updated', { orderId });
+    this.io.to(`user:${sellerId}`).emit('order:fulfillment_updated', { orderId, buyerId, sellerId, ...data });
+    this.io.to(`user:${buyerId}`).emit('order:fulfillment_updated', { orderId, buyerId, sellerId, ...data });
+    connectionMetrics.eventsEmitted.orders += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 }
+
+// ========================================
+// SETTINGS SOCKET SERVICE
+// ========================================
 
 export class SettingsSocketService {
   private io: SocketIOServer | null = null;
@@ -177,6 +246,8 @@ export class SettingsSocketService {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit('storefront:branding_updated', data);
     this.io.to(`storefront:${sellerId}`).emit('storefront:branding_updated', data);
+    connectionMetrics.eventsEmitted.settings += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -195,6 +266,8 @@ export class SettingsSocketService {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit('storefront:contact_updated', data);
     this.io.to(`storefront:${sellerId}`).emit('storefront:contact_updated', data);
+    connectionMetrics.eventsEmitted.settings += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -205,6 +278,8 @@ export class SettingsSocketService {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit('storefront:status_updated', data);
     this.io.to(`storefront:${sellerId}`).emit('storefront:status_updated', data);
+    connectionMetrics.eventsEmitted.settings += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -218,6 +293,8 @@ export class SettingsSocketService {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit('storefront:terms_updated', data);
     this.io.to(`storefront:${sellerId}`).emit('storefront:terms_updated', data);
+    connectionMetrics.eventsEmitted.settings += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -228,6 +305,8 @@ export class SettingsSocketService {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit('storefront:username_updated', data);
     this.io.to(`storefront:${sellerId}`).emit('storefront:username_updated', data);
+    connectionMetrics.eventsEmitted.settings += 2;
+    connectionMetrics.eventsEmitted.total += 2;
   }
 
   /**
@@ -237,41 +316,21 @@ export class SettingsSocketService {
   emitInternalSettingsUpdated(sellerId: string, settingType: string, data: any) {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit(`settings:${settingType}_updated`, data);
+    connectionMetrics.eventsEmitted.settings += 1;
+    connectionMetrics.eventsEmitted.total += 1;
   }
 }
 
-export const orderWebSocketService = new OrderWebSocketService();
 export const orderSocketService = new OrderSocketService();
 export const settingsSocketService = new SettingsSocketService();
 
 /**
- * Configure WebSocket services - creates BOTH native WebSocket and Socket.IO servers
- * - Native WebSocket for order updates (/ws/orders) - backward compatible with existing frontend
- * - Socket.IO for settings updates (/socket.io/) - new functionality with session authentication
+ * Configure Socket.IO WebSocket service with comprehensive monitoring
+ * CONSOLIDATED: Uses Socket.IO only (Native WebSocket removed for simplicity)
  */
 export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: RequestHandler) {
-  // CRITICAL FIX: Use noServer mode and manually route upgrade events
-  // This prevents the `ws` library from interfering with Socket.IO's upgrade handling
-  
-  // Create Native WebSocket server with noServer: true (manual upgrade handling)
-  const wss = new WebSocketServer({ noServer: true });
-
-  wss.on('connection', (ws: WebSocket) => {
-    logger.info('[WebSocket] Native WS client connected for orders');
-    
-    ws.on('close', () => {
-      logger.info('[WebSocket] Native WS client disconnected');
-    });
-
-    ws.on('error', (error: Error) => {
-      logger.error('[WebSocket] Native WS client error:', error);
-    });
-  });
-
-  orderWebSocketService.setWSS(wss);
-  
-  // Create Socket.IO server (it handles its own upgrades)
-  // CRITICAL: Use WebSocket-only transport to avoid Vite middleware intercepting Engine.IO polling
+  // Create Socket.IO server with WebSocket-only transport
+  // This prevents Vite middleware from interfering with Engine.IO polling
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io/',
     transports: ['websocket'], // WebSocket-only, skip polling
@@ -281,65 +340,50 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
     },
   });
 
-  // DEBUG: Log when Socket.IO server is ready
-  console.log('[Socket.IO DEBUG] Server instance created');
+  logger.info('[Socket.IO] Server initialized', {
+    path: '/socket.io/',
+    transports: ['websocket'],
+    cors: { origin: true, credentials: true }
+  });
+
+  // Apply session middleware to Socket.IO engine for authentication
+  logger.info('[Socket.IO] Applying session middleware');
+  io.engine.use(sessionMiddleware);
   
+  // Apply passport middleware for user deserialization
+  logger.info('[Socket.IO] Applying passport middleware');
+  io.engine.use(passport.initialize());
+  io.engine.use(passport.session());
+  
+  logger.info('[Socket.IO] Session authentication enabled');
+
+  // Track connection errors
   io.engine.on('connection_error', (err: any) => {
-    console.log('[Socket.IO Engine] CONNECTION_ERROR EVENT:', err.message, err.code);
+    connectionMetrics.connectionErrors++;
+    connectionMetrics.lastConnectionError = err.message;
+    connectionMetrics.lastErrorTimestamp = Date.now();
+    
     logger.error('[Socket.IO Engine] Connection error:', {
       message: err.message,
       code: err.code,
-      context: err.context,
+      errorCount: connectionMetrics.connectionErrors,
       req: {
         method: err.req?.method,
         url: err.req?.url,
         headers: err.req?.headers ? {
           origin: err.req.headers.origin,
-          'user-agent': err.req.headers['user-agent'],
-          cookie: err.req.headers.cookie ? `present (${err.req.headers.cookie.substring(0, 50)}...)` : 'MISSING',
+          cookie: err.req.headers.cookie ? `present (${err.req.headers.cookie.substring(0, 30)}...)` : 'MISSING',
           'sec-websocket-key': err.req.headers['sec-websocket-key'] ? 'present' : 'missing',
-          upgrade: err.req.headers.upgrade,
         } : 'no headers'
       }
     });
   });
 
-  console.log('[Socket.IO DEBUG] connection_error handler registered');
-  logger.info('[Socket.IO] Server initialized', {
-    path: '/socket.io/',
-    cors: { origin: true, credentials: true }
-  });
-
-  // Apply session middleware to Socket.IO engine for authentication
-  // This allows access to req.session and req.user in Socket.IO handlers
-  // With WebSocket-only transport, this should work because WebSocket upgrades
-  // include the session cookie in the initial HTTP handshake
-  console.log('[Socket.IO DEBUG] About to apply session middleware');
-  logger.info('[Socket.IO] Applying session middleware to engine');
-  io.engine.use(sessionMiddleware);
-  console.log('[Socket.IO DEBUG] Session middleware applied');
-  
-  // Apply passport middleware to Socket.IO for user deserialization
-  console.log('[Socket.IO DEBUG] About to apply passport middleware');
-  logger.info('[Socket.IO] Applying passport middleware to engine');
-  io.engine.use(passport.initialize());
-  io.engine.use(passport.session());
-  console.log('[Socket.IO DEBUG] Passport middleware applied');
-  
-  logger.info('[Socket.IO] Session middleware enabled for authenticated connections');
-
   // AUTHENTICATION MIDDLEWARE - STRICT MODE
-  console.log('[Socket.IO DEBUG] Setting up auth middleware (strict mode)');
   io.use((socket, next) => {
     const req = socket.request as any;
     
-    console.log('[Socket.IO DEBUG] Auth middleware triggered!', {
-      hasSession: !!req.session,
-      hasUser: !!req.user,
-      userId: req.user?.claims?.sub
-    });
-    
-    logger.info('[Socket.IO] Auth check', {
+    logger.debug('[Socket.IO] Auth check', {
       hasSession: !!req.session,
       hasUser: !!req.user,
       userClaims: req.user?.claims?.sub,
@@ -351,28 +395,58 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
       const userId = req.user.claims.sub;
       socket.data.userId = userId;
       socket.data.authenticated = true;
-      console.log(`[Socket.IO DEBUG] Authenticated user: ${userId}`);
-      logger.info(`[Socket.IO] Authenticated connection for user: ${userId}`);
+      logger.info(`[Socket.IO] ✅ Authentication successful for user: ${userId}`);
       next();
     } else {
-      console.log('[Socket.IO DEBUG] Authentication REJECTED');
-      logger.warn('[Socket.IO] Unauthenticated connection rejected', {
+      connectionMetrics.authenticationFailures++;
+      logger.warn('[Socket.IO] ❌ Authentication failed - Connection rejected', {
         hasSession: !!req.session,
         hasUser: !!req.user,
+        failureCount: connectionMetrics.authenticationFailures
       });
       next(new Error('Authentication required'));
     }
   });
 
-  console.log('[Socket.IO DEBUG] Setting up connection handler');
+  // CONNECTION HANDLER with enhanced logging and metrics
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
-    console.log(`[Socket.IO DEBUG] CONNECTION EVENT! UserId: ${userId}`);
-    logger.info(`[Socket.IO] Client connected (authenticated): ${userId}`);
+    connectionMetrics.totalConnections++;
+    connectionMetrics.activeConnections++;
     
-    // AUTO-JOIN: User's own room (server-controlled)
-    socket.join(`user:${userId}`);
-    logger.info(`[Socket.IO] User ${userId} auto-joined room: user:${userId}`);
+    logger.info(`[Socket.IO] 🔗 Client connected`, {
+      userId,
+      socketId: socket.id,
+      totalConnections: connectionMetrics.totalConnections,
+      activeConnections: connectionMetrics.activeConnections
+    });
+    
+    // CRITICAL: AUTO-JOIN USER'S PRIVATE ROOM
+    const userRoom = `user:${userId}`;
+    socket.join(userRoom);
+    
+    // VERIFY room join succeeded
+    const rooms = Array.from(socket.rooms);
+    const joinSucceeded = rooms.includes(userRoom);
+    
+    if (joinSucceeded) {
+      connectionMetrics.roomJoinSuccesses++;
+      trackRoomMembership(userRoom, userId, 'join');
+      logger.info(`[Socket.IO] ✅ Room auto-join SUCCESS`, {
+        userId,
+        room: userRoom,
+        allRooms: rooms,
+        successCount: connectionMetrics.roomJoinSuccesses
+      });
+    } else {
+      connectionMetrics.roomJoinFailures++;
+      logger.error(`[Socket.IO] ❌ Room auto-join FAILED`, {
+        userId,
+        room: userRoom,
+        attemptedRooms: rooms,
+        failureCount: connectionMetrics.roomJoinFailures
+      });
+    }
     
     // VALIDATED JOIN: Allow authenticated users to join public rooms
     socket.on('join', (room: string) => {
@@ -380,53 +454,104 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
       if (typeof room === 'string' && room.startsWith('storefront:')) {
         const sellerId = room.split(':')[1];
         
-        // Basic validation: sellerId should not be empty
         if (sellerId && sellerId.length > 0) {
           socket.join(room);
-          logger.info(`[Socket.IO] User ${userId} joined validated room: ${room}`);
+          trackRoomMembership(room, userId, 'join');
+          connectionMetrics.roomJoinSuccesses++;
+          logger.info(`[Socket.IO] ✅ Validated room join`, {
+            userId,
+            room,
+            roomMembers: connectionMetrics.roomMemberships.get(room)?.size || 0
+          });
         } else {
-          logger.warn(`[Socket.IO] Invalid storefront room format rejected: ${room}`);
+          connectionMetrics.roomJoinFailures++;
+          logger.warn(`[Socket.IO] ❌ Invalid storefront room format rejected`, { room });
         }
       } else if (typeof room === 'string' && room.startsWith('product:')) {
-        // Future: Allow product rooms for real-time product updates
         const productId = room.split(':')[1];
         if (productId && productId.length > 0) {
           socket.join(room);
-          logger.info(`[Socket.IO] User ${userId} joined validated room: ${room}`);
+          trackRoomMembership(room, userId, 'join');
+          connectionMetrics.roomJoinSuccesses++;
+          logger.info(`[Socket.IO] ✅ Validated room join`, {
+            userId,
+            room,
+            roomMembers: connectionMetrics.roomMemberships.get(room)?.size || 0
+          });
         } else {
-          logger.warn(`[Socket.IO] Invalid product room format rejected: ${room}`);
+          connectionMetrics.roomJoinFailures++;
+          logger.warn(`[Socket.IO] ❌ Invalid product room format rejected`, { room });
         }
       } else {
-        logger.warn(`[Socket.IO] Unauthorized room join attempt rejected: ${room} by user: ${userId}`);
+        connectionMetrics.roomJoinFailures++;
+        logger.warn(`[Socket.IO] ❌ Unauthorized room join attempt rejected`, { userId, room });
       }
     });
     
-    socket.on('disconnect', () => {
-      logger.info(`[Socket.IO] Client disconnected: ${userId}`);
+    // DISCONNECT HANDLER
+    socket.on('disconnect', (reason) => {
+      connectionMetrics.activeConnections--;
+      
+      // Clean up room memberships
+      const rooms = Array.from(socket.rooms);
+      rooms.forEach(room => {
+        if (room !== socket.id) { // Skip the socket's own room
+          trackRoomMembership(room, userId, 'leave');
+        }
+      });
+      
+      logger.info(`[Socket.IO] 🔌 Client disconnected`, {
+        userId,
+        reason,
+        activeConnections: connectionMetrics.activeConnections
+      });
     });
 
+    // ERROR HANDLER
     socket.on('error', (error) => {
-      logger.error('[Socket.IO] Client error:', error, { userId });
+      connectionMetrics.connectionErrors++;
+      logger.error('[Socket.IO] Client error', {
+        userId,
+        error: error.message,
+        stack: error.stack,
+        errorCount: connectionMetrics.connectionErrors
+      });
     });
   });
 
+  // Set IO instances
   settingsSocketService.setIO(io);
   orderSocketService.setIO(io);
 
-  // Manual upgrade routing - Route /ws/orders to Native WS, everything else passes through to Socket.IO
-  httpServer.on('upgrade', (request, socket, head) => {
-    const pathname = new URL(request.url || '/', 'http://localhost').pathname;
-    
-    if (pathname === '/ws/orders') {
-      // Route to Native WebSocket
-      console.log('[Upgrade Router] Routing /ws/orders to Native WS');
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
-    }
-    // Socket.IO handles its own upgrades via Engine.IO, no need to explicitly route
-    // Just don't interfere with paths that aren't /ws/orders
-  });
+  logger.info('[Socket.IO] WebSocket system configured successfully - Socket.IO only (Native WS removed)');
+}
 
-  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings+orders (authenticated) with manual upgrade routing');
+/**
+ * Get connection metrics for monitoring
+ */
+export function getConnectionMetrics() {
+  return {
+    ...connectionMetrics,
+    roomMemberships: Array.from(connectionMetrics.roomMemberships.entries()).map(([room, members]) => ({
+      room,
+      memberCount: members.size,
+      members: Array.from(members)
+    }))
+  };
+}
+
+/**
+ * Reset metrics (useful for testing)
+ */
+export function resetMetrics() {
+  connectionMetrics.totalConnections = 0;
+  connectionMetrics.activeConnections = 0;
+  connectionMetrics.connectionErrors = 0;
+  connectionMetrics.authenticationFailures = 0;
+  connectionMetrics.roomJoinSuccesses = 0;
+  connectionMetrics.roomJoinFailures = 0;
+  connectionMetrics.eventsEmitted = { orders: 0, settings: 0, total: 0 };
+  connectionMetrics.roomMemberships.clear();
+  connectionMetrics.lastConnectionError = null;
+  connectionMetrics.lastErrorTimestamp = null;
 }
