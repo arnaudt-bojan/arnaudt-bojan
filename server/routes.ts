@@ -1345,8 +1345,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sellerId: sellerId as string,
         productType: productType as string,
         // CRITICAL FIX: Pass status filter to database instead of filtering client-side
-        // Default to ['active', 'coming-soon'] for public storefront if no status specified
-        status: status as string || ['active', 'coming-soon'],
+        // Default to ['active', 'coming_soon'] for public storefront if no status specified
+        status: status as string || ['active', 'coming_soon'],
         sortBy: (sortBy as any) || 'createdAt',
         sortOrder: (sortOrder as any) || 'desc',
         limit: limit ? parseInt(limit as string) : 20,
@@ -1375,7 +1375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get products by seller ID (for seller storefronts - only active and coming-soon)
+  // Get products by seller ID (for seller storefronts - only active and coming_soon)
   app.get("/api/products/seller/:sellerId", async (req, res) => {
     try {
       const { sellerId } = req.params;
@@ -1385,11 +1385,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currency = seller?.listingCurrency || 'USD';
       
       const allProducts = await storage.getAllProducts();
-      // Filter to only show active and coming-soon products for public storefronts
+      // Filter to only show active and coming_soon products for public storefronts
       const sellerProducts = allProducts
         .filter(p => 
           p.seller_id === sellerId && 
-          (p.status === "active" || p.status === "coming-soon")
+          (p.status === "active" || p.status === "coming_soon")
         )
         .sort((a, b) => {
           // Sort by created_at DESC (newest first)
@@ -1422,8 +1422,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAuthenticated = req.isAuthenticated() && req.user?.claims?.sub;
       const isOwner = isAuthenticated && req.user.claims.sub === product.seller_id;
       
-      // If not owner, only show active and coming-soon products
-      if (!isOwner && product.status !== "active" && product.status !== "coming-soon") {
+      // If not owner, only show active and coming_soon products
+      if (!isOwner && product.status !== "active" && product.status !== "coming_soon") {
         return res.status(404).json({ error: "Product not found" });
       }
       
@@ -2979,7 +2979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { status } = req.body;
       const userId = req.user.claims.sub;
-      const validStatuses = ['draft', 'active', 'coming-soon', 'paused', 'out-of-stock', 'archived'];
+      const validStatuses = ['draft', 'active', 'coming_soon', 'paused', 'out_of_stock', 'archived'];
       
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({ error: "Invalid status. Must be one of: " + validStatuses.join(', ') });
@@ -9675,8 +9675,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       // Validate status
-      if (!status || !['draft', 'active', 'coming-soon', 'paused', 'out-of-stock', 'archived'].includes(status)) {
-        return res.status(400).json({ message: "Invalid status. Must be 'draft', 'active', 'coming-soon', 'paused', 'out-of-stock', or 'archived'" });
+      if (!status || !['draft', 'active', 'coming_soon', 'paused', 'out_of_stock', 'archived'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Must be 'draft', 'active', 'coming_soon', 'paused', 'out_of_stock', or 'archived'" });
       }
       
       const result = await wholesaleService.updateProduct({

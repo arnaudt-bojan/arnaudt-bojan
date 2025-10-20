@@ -328,7 +328,7 @@ export class ProductService {
       if (cached) {
         // Verify visibility permissions
         const isOwner = requesterId && requesterId === cached.seller_id;
-        if (!isOwner && cached.status !== 'active' && cached.status !== 'coming-soon') {
+        if (!isOwner && cached.status !== 'active' && cached.status !== 'coming_soon') {
           return null;
         }
         
@@ -351,7 +351,7 @@ export class ProductService {
 
       // Check visibility permissions
       const isOwner = requesterId && requesterId === product.seller_id;
-      if (!isOwner && product.status !== 'active' && product.status !== 'coming-soon') {
+      if (!isOwner && product.status !== 'active' && product.status !== 'coming_soon') {
         return null;
       }
 
@@ -364,8 +364,8 @@ export class ProductService {
         currency,
       };
 
-      // Step 3: Populate cache for future requests (only for active/coming-soon products)
-      if (product.status === 'active' || product.status === 'coming-soon') {
+      // Step 3: Populate cache for future requests (only for active/coming_soon products)
+      if (product.status === 'active' || product.status === 'coming_soon') {
         try {
           await cache.set(cacheKey, enrichedProduct, CacheTTL.PRODUCTS);
           serviceLogger.debug('[ProductService] Product cached', { 

@@ -1135,7 +1135,7 @@ export interface ProductSearchFilters {
   maxPrice?: number; // Price in dollars (will be converted to cents)
   sellerId?: string;
   productType?: string;
-  status?: string | string[]; // Single status or array of statuses (e.g., ['active', 'coming-soon'])
+  status?: string | string[]; // Single status or array of statuses (e.g., ['active', 'coming_soon'])
   sortBy?: 'name' | 'price' | 'createdAt' | 'stock';
   sortOrder?: 'asc' | 'desc';
   limit?: number;
