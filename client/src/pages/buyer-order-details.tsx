@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Order, OrderItem } from "@shared/schema";
 import { getPaymentStatusLabel, getOrderStatusLabel } from "@/lib/format-status";
 import { formatVariant } from "@shared/variant-formatter";
+import { useOrderEvents } from "@/hooks/use-order-events";
+import { useAuth } from "@/hooks/use-auth";
 
 interface OrderDetailsResponse {
   order: Order;
@@ -23,6 +25,10 @@ interface OrderDetailsResponse {
 export default function BuyerOrderDetails() {
   const { orderId } = useParams();
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+
+  // Enable real-time order updates via Socket.IO
+  const { isConnected } = useOrderEvents(user?.id);
 
   const { data, isLoading, error } = useQuery<OrderDetailsResponse>({
     queryKey: [`/api/orders/${orderId}/details`],

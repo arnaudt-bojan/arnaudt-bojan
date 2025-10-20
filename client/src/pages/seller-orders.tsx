@@ -18,10 +18,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Order } from "@shared/schema";
 import { getPaymentStatusLabel, getOrderStatusLabel, getProductTypeLabel } from "@/lib/format-status";
+import { useOrderEvents } from "@/hooks/use-order-events";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function SellerOrdersPage() {
   const [, setLocation] = useLocation();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const { user } = useAuth();
+
+  // Enable real-time order updates via Socket.IO
+  const { isConnected } = useOrderEvents(user?.id);
 
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/seller/orders"],

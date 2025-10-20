@@ -73,6 +73,90 @@ export class OrderWebSocketService {
   }
 }
 
+export class OrderSocketService {
+  private io: SocketIOServer | null = null;
+
+  setIO(socketIO: SocketIOServer) {
+    this.io = socketIO;
+  }
+
+  /**
+   * Emit order created event
+   * Targets: Seller + Buyer
+   */
+  emitOrderCreated(orderId: string, buyerId: string, sellerId: string, data?: any) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:created', { orderId, buyerId, sellerId });
+    this.io.to(`user:${sellerId}`).emit('order:created', { orderId, buyerId, sellerId, ...data });
+    this.io.to(`user:${buyerId}`).emit('order:created', { orderId, buyerId, sellerId, ...data });
+  }
+
+  /**
+   * Emit order updated event
+   * Targets: Seller + Buyer
+   */
+  emitOrderUpdated(orderId: string, buyerId: string, sellerId: string, data: {
+    status?: string;
+    paymentStatus?: string;
+    fulfillmentStatus?: string;
+    amountPaid?: string;
+    events?: any[];
+  }) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:updated', { orderId, buyerId, sellerId, status: data.status });
+    this.io.to(`user:${sellerId}`).emit('order:updated', { orderId, buyerId, sellerId, ...data });
+    this.io.to(`user:${buyerId}`).emit('order:updated', { orderId, buyerId, sellerId, ...data });
+  }
+
+  /**
+   * Emit order fulfilled event
+   * Targets: Seller + Buyer
+   */
+  emitOrderFulfilled(orderId: string, buyerId: string, sellerId: string, data: {
+    trackingNumber?: string;
+    carrier?: string;
+    fulfillmentStatus?: string;
+  }) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting order:fulfilled', { orderId, trackingNumber: data.trackingNumber });
+    this.io.to(`user:${sellerId}`).emit('order:fulfilled', { orderId, buyerId, sellerId, ...data });
+    this.io.to(`user:${buyerId}`).emit('order:fulfilled', { orderId, buyerId, sellerId, ...data });
+  }
+
+  /**
+   * Emit payment failed event
+   * Targets: Seller + Buyer
+   */
+  emitPaymentFailed(orderId: string, buyerId: string, sellerId: string, message?: string) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting payment:failed', { orderId });
+    this.io.to(`user:${sellerId}`).emit('payment:failed', { orderId, buyerId, sellerId, message });
+    this.io.to(`user:${buyerId}`).emit('payment:failed', { orderId, buyerId, sellerId, message });
+  }
+
+  /**
+   * Emit payment canceled event
+   * Targets: Seller + Buyer
+   */
+  emitPaymentCanceled(orderId: string, buyerId: string, sellerId: string, message?: string) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting payment:canceled', { orderId });
+    this.io.to(`user:${sellerId}`).emit('payment:canceled', { orderId, buyerId, sellerId, message });
+    this.io.to(`user:${buyerId}`).emit('payment:canceled', { orderId, buyerId, sellerId, message });
+  }
+
+  /**
+   * Emit payment refunded event
+   * Targets: Seller + Buyer
+   */
+  emitPaymentRefunded(orderId: string, buyerId: string, sellerId: string, message?: string) {
+    if (!this.io) return;
+    logger.info('[Socket.IO] Emitting payment:refunded', { orderId });
+    this.io.to(`user:${sellerId}`).emit('payment:refunded', { orderId, buyerId, sellerId, message });
+    this.io.to(`user:${buyerId}`).emit('payment:refunded', { orderId, buyerId, sellerId, message });
+  }
+}
+
 export class SettingsSocketService {
   private io: SocketIOServer | null = null;
 
@@ -157,6 +241,7 @@ export class SettingsSocketService {
 }
 
 export const orderWebSocketService = new OrderWebSocketService();
+export const orderSocketService = new OrderSocketService();
 export const settingsSocketService = new SettingsSocketService();
 
 /**
@@ -326,6 +411,7 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
   });
 
   settingsSocketService.setIO(io);
+  orderSocketService.setIO(io);
 
   // Manual upgrade routing - Route /ws/orders to Native WS, everything else passes through to Socket.IO
   httpServer.on('upgrade', (request, socket, head) => {
@@ -342,5 +428,5 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
     // Just don't interfere with paths that aren't /ws/orders
   });
 
-  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings (authenticated) with manual upgrade routing');
+  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings+orders (authenticated) with manual upgrade routing');
 }
