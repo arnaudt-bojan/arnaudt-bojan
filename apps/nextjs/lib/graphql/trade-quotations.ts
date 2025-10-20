@@ -139,6 +139,27 @@ export const ACCEPT_QUOTATION = gql`
   }
 `;
 
+// Mutation for live calculation of quotation totals
+export const CALCULATE_QUOTATION_TOTALS = gql`
+  mutation CalculateQuotationTotals($input: CalculateQuotationTotalsInput!) {
+    calculateQuotationTotals(input: $input) {
+      lineItems {
+        description
+        unitPrice
+        quantity
+        lineTotal
+      }
+      subtotal
+      taxAmount
+      shippingAmount
+      total
+      depositAmount
+      depositPercentage
+      balanceAmount
+    }
+  }
+`;
+
 // Types
 export interface QuotationItem {
   id?: string;
@@ -218,4 +239,32 @@ export interface UpdateQuotationInput {
     unitPrice: number;
     quantity: number;
   }>;
+}
+
+export interface CalculateQuotationTotalsInput {
+  lineItems: Array<{
+    description: string;
+    productId?: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
+  depositPercentage?: number;
+  taxRate?: number;
+  shippingAmount?: number;
+}
+
+export interface CalculatedQuotationTotals {
+  lineItems: Array<{
+    description: string;
+    unitPrice: number;
+    quantity: number;
+    lineTotal: number;
+  }>;
+  subtotal: number;
+  taxAmount: number;
+  shippingAmount: number;
+  total: number;
+  depositAmount: number;
+  depositPercentage: number;
+  balanceAmount: number;
 }

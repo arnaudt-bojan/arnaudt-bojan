@@ -25,6 +25,7 @@ import {
   Slider,
   Alert,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add,
@@ -33,7 +34,13 @@ import {
   Send,
   ArrowBack,
 } from '@mui/icons-material';
-import { CREATE_QUOTATION, CreateQuotationInput } from '@/lib/graphql/trade-quotations';
+import {
+  CREATE_QUOTATION,
+  CALCULATE_QUOTATION_TOTALS,
+  CreateQuotationInput,
+  CalculateQuotationTotalsInput,
+  CalculatedQuotationTotals,
+} from '@/lib/graphql/trade-quotations';
 
 interface LineItem {
   description: string;
@@ -61,6 +68,17 @@ const INCOTERMS = [
   { value: 'Other', label: 'Other' },
 ];
 
+const mockCalculatedTotals: CalculatedQuotationTotals = {
+  lineItems: [],
+  subtotal: 0,
+  taxAmount: 0,
+  shippingAmount: 0,
+  total: 0,
+  depositAmount: 0,
+  depositPercentage: 50,
+  balanceAmount: 0,
+};
+
 export default function QuotationBuilder() {
   const router = useRouter();
   const [buyerEmail, setBuyerEmail] = useState('');
@@ -72,16 +90,63 @@ export default function QuotationBuilder() {
     { description: '', unitPrice: 0, quantity: 1 },
   ]);
 
+  const [calculatedTotals, setCalculatedTotals] = useState<CalculatedQuotationTotals>(mockCalculatedTotals);
+
+  const [calculateTotals, { loading: calculating }] = useMutation<
+    { calculateQuotationTotals: CalculatedQuotationTotals },
+    { input: CalculateQuotationTotalsInput }
+  >(CALCULATE_QUOTATION_TOTALS, {
+    onCompleted: (data) => {
+      setCalculatedTotals(data.calculateQuotationTotals);
+    },
+    onError: () => {
+      const mockTotals: CalculatedQuotationTotals = {
+        lineItems: items.map(item => ({
+          description: item.description,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          lineTotal: item.unitPrice * item.quantity,
+        })),
+        subtotal: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0),
+        taxAmount: 0,
+        shippingAmount: 0,
+        total: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0),
+        depositAmount: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) * depositPercentage / 100,
+        depositPercentage,
+        balanceAmount: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) * (1 - depositPercentage / 100),
+      };
+      setCalculatedTotals(mockTotals);
+    },
+  });
+
   const [createQuotation, { loading: saving }] = useMutation(CREATE_QUOTATION, {
     onCompleted: (data) => {
       router.push('/trade/quotations');
     },
   });
 
-  // Calculate totals (client-side for display, but server will recalculate)
-  const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  const depositAmount = (subtotal * depositPercentage) / 100;
-  const balanceAmount = subtotal - depositAmount;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (items.some(item => item.description && item.quantity > 0)) {
+        calculateTotals({
+          variables: {
+            input: {
+              lineItems: items.map(item => ({
+                description: item.description,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+              })),
+              depositPercentage,
+            },
+          },
+        });
+      } else {
+        setCalculatedTotals(mockCalculatedTotals);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [items, depositPercentage, calculateTotals]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -142,7 +207,6 @@ export default function QuotationBuilder() {
         </Typography>
       </Box>
 
-      {/* Quotation Header */}
       <Card sx={{ mb: 3 }}>
         <CardHeader title="Quotation Details" />
         <CardContent>
@@ -205,7 +269,6 @@ export default function QuotationBuilder() {
         </CardContent>
       </Card>
 
-      {/* Line Items Table */}
       <Card sx={{ mb: 3 }}>
         <CardHeader
           title="Line Items"
@@ -229,148 +292,167 @@ export default function QuotationBuilder() {
                   <TableCell width="50%">Description</TableCell>
                   <TableCell align="right" width="15%">Quantity</TableCell>
                   <TableCell align="right" width="20%">Unit Price</TableCell>
-                  <TableCell align="right" width="20%">Total</TableCell>
+                  <TableCell align="right" width="20%">Line Total</TableCell>
                   <TableCell align="center" width="5%"></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        placeholder="Product description..."
-                        value={item.description}
-                        onChange={(e) => updateItem(index, 'description', e.target.value)}
-                        data-testid={`input-description-${index}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                        inputProps={{ min: 1, style: { textAlign: 'right' } }}
-                        data-testid={`input-quantity-${index}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        type="number"
-                        value={item.unitPrice}
-                        onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                        inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
-                        data-testid={`input-unit-price-${index}`}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="medium" data-testid={`text-line-total-${index}`}>
-                        {formatCurrency(item.unitPrice * item.quantity)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => removeRow(index)}
-                        disabled={items.length === 1}
-                        data-testid={`button-remove-row-${index}`}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {items.map((item, index) => {
+                  const calculatedItem = calculatedTotals.lineItems[index];
+                  const lineTotal = calculatedItem?.lineTotal || 0;
+
+                  return (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          placeholder="Product description..."
+                          value={item.description}
+                          onChange={(e) => updateItem(index, 'description', e.target.value)}
+                          data-testid={`input-description-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                          inputProps={{ min: 1, style: { textAlign: 'right' } }}
+                          data-testid={`input-quantity-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
+                          data-testid={`input-unit-price-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="medium">
+                          {formatCurrency(lineTotal)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+                          onClick={() => removeRow(index)}
+                          disabled={items.length === 1}
+                          data-testid={`button-remove-row-${index}`}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
         </CardContent>
       </Card>
 
-      {/* Payment Terms */}
-      <Card sx={{ mb: 3 }}>
-        <CardHeader title="Payment Terms" />
-        <CardContent>
-          <Box sx={{ mb: 3 }}>
-            <Typography gutterBottom>
-              Deposit Percentage: {depositPercentage}%
-            </Typography>
-            <Slider
-              value={depositPercentage}
-              onChange={(_, value) => setDepositPercentage(value as number)}
-              min={10}
-              max={90}
-              step={5}
-              marks
-              valueLabelDisplay="auto"
-              data-testid="slider-deposit-percentage"
-            />
-          </Box>
-
-          <Divider sx={{ my: 3 }} />
-
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <Box>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Subtotal
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Card>
+            <CardHeader title="Payment Terms" />
+            <CardContent>
+              <Box sx={{ px: 2 }}>
+                <Typography gutterBottom>
+                  Deposit Percentage: {depositPercentage}%
                 </Typography>
-                <Typography variant="h6" data-testid="text-subtotal">
-                  {formatCurrency(subtotal)}
-                </Typography>
+                <Slider
+                  value={depositPercentage}
+                  onChange={(_, value) => setDepositPercentage(value as number)}
+                  min={0}
+                  max={100}
+                  step={5}
+                  marks={[
+                    { value: 0, label: '0%' },
+                    { value: 25, label: '25%' },
+                    { value: 50, label: '50%' },
+                    { value: 75, label: '75%' },
+                    { value: 100, label: '100%' },
+                  ]}
+                  valueLabelDisplay="auto"
+                  data-testid="slider-deposit"
+                />
               </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Deposit ({depositPercentage}%)
-                </Typography>
-                <Typography variant="h6" color="primary" data-testid="text-deposit-amount">
-                  {formatCurrency(depositAmount)}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Balance
-                </Typography>
-                <Typography variant="h6" data-testid="text-balance-amount">
-                  {formatCurrency(balanceAmount)}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </Grid>
 
-      {/* Actions */}
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<Save />}
-          onClick={() => handleSave(true)}
-          disabled={saving || !buyerEmail || items.some((i) => !i.description)}
-          data-testid="button-save-draft"
-        >
-          Save as Draft
-        </Button>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<Send />}
-          onClick={() => handleSave(false)}
-          disabled={saving || !buyerEmail || items.some((i) => !i.description)}
-          data-testid="button-send-quotation"
-        >
-          Send to Buyer
-        </Button>
-      </Box>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardHeader title="Summary" />
+            <CardContent>
+              {calculating && (
+                <Box display="flex" justifyContent="center" py={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+
+              <Box sx={{ mb: 2 }}>
+                <Box display="flex" justifyContent="space-between" mb={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    Subtotal
+                  </Typography>
+                  <Typography variant="body2" fontWeight="medium" data-testid="text-subtotal">
+                    {formatCurrency(calculatedTotals.subtotal)}
+                  </Typography>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Box display="flex" justifyContent="space-between" mb={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    Deposit ({calculatedTotals.depositPercentage}%)
+                  </Typography>
+                  <Typography variant="body2" fontWeight="medium" data-testid="text-deposit">
+                    {formatCurrency(calculatedTotals.depositAmount)}
+                  </Typography>
+                </Box>
+
+                <Box display="flex" justifyContent="space-between" mb={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Balance Due
+                  </Typography>
+                  <Typography variant="body2" fontWeight="medium" data-testid="text-balance">
+                    {formatCurrency(calculatedTotals.balanceAmount)}
+                  </Typography>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="h6">Total</Typography>
+                  <Typography variant="h6" color="primary" data-testid="text-total">
+                    {formatCurrency(calculatedTotals.total)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Button
+                variant="contained"
+                fullWidth
+                startIcon={saving ? <CircularProgress size={16} /> : <Save />}
+                onClick={() => handleSave(false)}
+                disabled={saving || !buyerEmail || items.every(i => !i.description)}
+                data-testid="button-save"
+              >
+                {saving ? 'Saving...' : 'Save & Send'}
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Container>
   );
 }

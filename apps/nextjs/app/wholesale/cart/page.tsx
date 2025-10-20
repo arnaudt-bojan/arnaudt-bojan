@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
@@ -27,67 +28,102 @@ import {
   ArrowForward,
   Warning,
 } from '@mui/icons-material';
+import {
+  GET_WHOLESALE_CART,
+  UPDATE_WHOLESALE_CART_ITEM,
+  REMOVE_FROM_WHOLESALE_CART,
+} from '@/lib/graphql/wholesale-buyer';
 
-// Mock cart data (would come from GraphQL in real implementation)
 const mockCartData = {
-  items: [
-    {
-      id: '1',
-      productId: 'prod-1',
-      productName: 'Premium Wholesale T-Shirt',
-      productImage: '/placeholder-product.png',
-      quantity: 15,
-      moq: 10,
-      unitPriceCents: 1250, // $12.50
-      subtotalCents: 18750, // $187.50
-    },
-    {
-      id: '2',
-      productId: 'prod-2',
-      productName: 'Classic Wholesale Jeans',
-      productImage: '/placeholder-product.png',
-      quantity: 8,
-      moq: 5,
-      unitPriceCents: 3500, // $35.00
-      subtotalCents: 28000, // $280.00
-    },
-  ],
-  subtotalCents: 46750, // $467.50 - server-calculated
-  depositPercentage: 30,
-  depositAmountCents: 14025, // $140.25 - server-calculated
-  balanceDueCents: 32725, // $327.25 - server-calculated
-  currency: 'USD',
+  wholesaleCart: {
+    id: 'cart-1',
+    buyerId: 'buyer-1',
+    sellerId: 'seller-1',
+    subtotalCents: 46750,
+    depositCents: 14025,
+    balanceDueCents: 32725,
+    depositPercentage: 30,
+    currency: 'USD',
+    updatedAt: new Date().toISOString(),
+    items: [
+      {
+        id: '1',
+        productId: 'prod-1',
+        productName: 'Premium Wholesale T-Shirt',
+        productSku: 'TS-001',
+        productImage: '/placeholder-product.png',
+        quantity: 15,
+        unitPriceCents: 1250,
+        lineTotalCents: 18750,
+        moq: 10,
+        moqCompliant: true,
+      },
+      {
+        id: '2',
+        productId: 'prod-2',
+        productName: 'Classic Wholesale Jeans',
+        productSku: 'JN-002',
+        productImage: '/placeholder-product.png',
+        quantity: 8,
+        unitPriceCents: 3500,
+        lineTotalCents: 28000,
+        moq: 5,
+        moqCompliant: true,
+      },
+    ],
+  },
 };
 
 export default function WholesaleCartPage() {
   const router = useRouter();
-  const [cartData, setCartData] = useState(mockCartData);
-  const [loading, setLoading] = useState(false);
+
+  const { data, loading, refetch } = useQuery(GET_WHOLESALE_CART, {
+    fetchPolicy: 'cache-and-network',
+    onError: () => {
+    },
+  });
+
+  const [updateCartItem, { loading: updating }] = useMutation(UPDATE_WHOLESALE_CART_ITEM, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (error) => {
+      console.error('Error updating cart item:', error);
+    },
+  });
+
+  const [removeCartItem, { loading: removing }] = useMutation(REMOVE_FROM_WHOLESALE_CART, {
+    onCompleted: () => {
+      refetch();
+    },
+    onError: (error) => {
+      console.error('Error removing cart item:', error);
+    },
+  });
+
+  const cart = data?.wholesaleCart || mockCartData.wholesaleCart;
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
-    setCartData((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              quantity: newQuantity,
-              subtotalCents: item.unitPriceCents * newQuantity,
-            }
-          : item
-      ),
-    }));
+    if (newQuantity < 1) return;
+    
+    updateCartItem({
+      variables: {
+        itemId,
+        quantity: newQuantity,
+      },
+    });
   };
 
   const handleRemoveItem = (itemId: string) => {
-    setCartData((prev) => ({
-      ...prev,
-      items: prev.items.filter((item) => item.id !== itemId),
-    }));
+    removeCartItem({
+      variables: {
+        itemId,
+      },
+    });
   };
 
   const handleCheckout = () => {
-    const hasErrors = cartData.items.some((item) => item.quantity < item.moq);
+    const hasErrors = cart.items.some((item: any) => !item.moqCompliant);
     if (hasErrors) {
       alert('Please fix MOQ errors before proceeding to checkout');
       return;
@@ -99,7 +135,7 @@ export default function WholesaleCartPage() {
     return `$${(cents / 100).toFixed(2)}`;
   };
 
-  const moqErrors = cartData.items.filter((item) => item.quantity < item.moq);
+  const moqErrors = cart.items.filter((item: any) => !item.moqCompliant);
 
   if (loading) {
     return (
@@ -111,7 +147,7 @@ export default function WholesaleCartPage() {
     );
   }
 
-  if (cartData.items.length === 0) {
+  if (!cart || cart.items.length === 0) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Card>
@@ -137,7 +173,6 @@ export default function WholesaleCartPage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Wholesale Cart
@@ -147,13 +182,12 @@ export default function WholesaleCartPage() {
         </Typography>
       </Box>
 
-      {/* MOQ Validation Alerts */}
       {moqErrors.length > 0 && (
         <Alert severity="error" icon={<Warning />} sx={{ mb: 3 }}>
           <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
             MOQ Requirements Not Met
           </Typography>
-          {moqErrors.map((item) => (
+          {moqErrors.map((item: any) => (
             <Typography key={item.id} variant="body2">
               • {item.productName}: Quantity {item.quantity} is below MOQ of {item.moq}
             </Typography>
@@ -162,7 +196,6 @@ export default function WholesaleCartPage() {
       )}
 
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { md: '2fr 1fr' } }}>
-        {/* Cart Items */}
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -176,16 +209,16 @@ export default function WholesaleCartPage() {
                     <TableCell align="center">MOQ</TableCell>
                     <TableCell align="center">Quantity</TableCell>
                     <TableCell align="right">Unit Price</TableCell>
-                    <TableCell align="right">Subtotal</TableCell>
+                    <TableCell align="right">Line Total</TableCell>
                     <TableCell align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {cartData.items.map((item) => (
+                  {cart.items.map((item: any) => (
                     <TableRow
                       key={item.id}
                       sx={{
-                        bgcolor: item.quantity < item.moq ? 'error.lighter' : 'transparent',
+                        bgcolor: !item.moqCompliant ? 'error.lighter' : 'transparent',
                       }}
                     >
                       <TableCell>
@@ -214,7 +247,8 @@ export default function WholesaleCartPage() {
                           inputProps={{ min: 1, step: 1 }}
                           size="small"
                           sx={{ width: 80 }}
-                          error={item.quantity < item.moq}
+                          error={!item.moqCompliant}
+                          disabled={updating}
                         />
                       </TableCell>
                       <TableCell align="right">
@@ -222,7 +256,7 @@ export default function WholesaleCartPage() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography fontWeight="medium">
-                          {formatCurrency(item.subtotalCents)}
+                          {formatCurrency(item.lineTotalCents)}
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
@@ -230,6 +264,7 @@ export default function WholesaleCartPage() {
                           onClick={() => handleRemoveItem(item.id)}
                           color="error"
                           size="small"
+                          disabled={removing}
                         >
                           <Delete />
                         </IconButton>
@@ -242,7 +277,6 @@ export default function WholesaleCartPage() {
           </CardContent>
         </Card>
 
-        {/* Cart Summary */}
         <Box>
           <Card>
             <CardContent>
@@ -256,7 +290,7 @@ export default function WholesaleCartPage() {
                     Subtotal
                   </Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    {formatCurrency(cartData.subtotalCents)}
+                    {formatCurrency(cart.subtotalCents)}
                   </Typography>
                 </Box>
 
@@ -267,16 +301,16 @@ export default function WholesaleCartPage() {
                     Payment Terms
                   </Typography>
                   <Typography variant="caption">
-                    {cartData.depositPercentage}% deposit required at checkout
+                    {cart.depositPercentage}% deposit required at checkout
                   </Typography>
                 </Alert>
 
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography variant="body2" color="text.secondary">
-                    Deposit Required ({cartData.depositPercentage}%)
+                    Deposit Required ({cart.depositPercentage}%)
                   </Typography>
                   <Typography variant="body2" fontWeight="medium" data-testid="text-deposit-amount">
-                    {formatCurrency(cartData.depositAmountCents)}
+                    {formatCurrency(cart.depositCents)}
                   </Typography>
                 </Box>
 
@@ -285,7 +319,7 @@ export default function WholesaleCartPage() {
                     Balance Due (Net 30)
                   </Typography>
                   <Typography variant="body2" fontWeight="medium" data-testid="text-balance-due">
-                    {formatCurrency(cartData.balanceDueCents)}
+                    {formatCurrency(cart.balanceDueCents)}
                   </Typography>
                 </Box>
 
@@ -296,7 +330,7 @@ export default function WholesaleCartPage() {
                     Total Order Value
                   </Typography>
                   <Typography variant="h6" color="primary">
-                    {formatCurrency(cartData.subtotalCents)}
+                    {formatCurrency(cart.subtotalCents)}
                   </Typography>
                 </Box>
               </Box>

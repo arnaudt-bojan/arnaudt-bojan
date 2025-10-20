@@ -225,3 +225,102 @@ export const PLACE_WHOLESALE_ORDER = gql`
     }
   }
 `;
+
+// ============================================
+// WHOLESALE CART QUERIES AND MUTATIONS
+// ============================================
+
+// Cart fragment for reusability
+export const WHOLESALE_CART_FRAGMENT = gql`
+  fragment WholesaleCartFields on WholesaleCart {
+    id
+    buyerId
+    sellerId
+    subtotalCents
+    depositCents
+    balanceDueCents
+    depositPercentage
+    currency
+    updatedAt
+  }
+`;
+
+export const CART_ITEM_FRAGMENT = gql`
+  fragment CartItemFields on WholesaleCartItem {
+    id
+    productId
+    productName
+    productSku
+    productImage
+    quantity
+    unitPriceCents
+    lineTotalCents
+    moq
+    moqCompliant
+  }
+`;
+
+// Query to get wholesale cart with server-calculated totals
+export const GET_WHOLESALE_CART = gql`
+  ${WHOLESALE_CART_FRAGMENT}
+  ${CART_ITEM_FRAGMENT}
+  query GetWholesaleCart {
+    wholesaleCart {
+      ...WholesaleCartFields
+      items {
+        ...CartItemFields
+      }
+    }
+  }
+`;
+
+// Mutation to add item to cart - returns full cart with recalculated totals
+export const ADD_TO_WHOLESALE_CART = gql`
+  ${WHOLESALE_CART_FRAGMENT}
+  ${CART_ITEM_FRAGMENT}
+  mutation AddToWholesaleCart($productId: ID!, $quantity: Int!) {
+    addToWholesaleCart(productId: $productId, quantity: $quantity) {
+      ...WholesaleCartFields
+      items {
+        ...CartItemFields
+      }
+    }
+  }
+`;
+
+// Mutation to update cart item quantity - returns full cart with recalculated totals
+export const UPDATE_WHOLESALE_CART_ITEM = gql`
+  ${WHOLESALE_CART_FRAGMENT}
+  ${CART_ITEM_FRAGMENT}
+  mutation UpdateWholesaleCartItem($itemId: ID!, $quantity: Int!) {
+    updateWholesaleCartItem(itemId: $itemId, quantity: $quantity) {
+      ...WholesaleCartFields
+      items {
+        ...CartItemFields
+      }
+    }
+  }
+`;
+
+// Mutation to remove item from cart - returns full cart with recalculated totals
+export const REMOVE_FROM_WHOLESALE_CART = gql`
+  ${WHOLESALE_CART_FRAGMENT}
+  ${CART_ITEM_FRAGMENT}
+  mutation RemoveFromWholesaleCart($itemId: ID!) {
+    removeFromWholesaleCart(itemId: $itemId) {
+      ...WholesaleCartFields
+      items {
+        ...CartItemFields
+      }
+    }
+  }
+`;
+
+// Mutation to clear entire cart
+export const CLEAR_WHOLESALE_CART = gql`
+  mutation ClearWholesaleCart {
+    clearWholesaleCart {
+      success
+    }
+  }
+`;
