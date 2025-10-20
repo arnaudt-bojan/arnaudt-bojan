@@ -3,6 +3,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { logger } from './logger';
 import type WebSocket from 'ws';
+import type { RequestHandler } from 'express';
+import passport from 'passport';
 
 interface OrderUpdateMessage {
   type: 'order_updated';
@@ -160,9 +162,9 @@ export const settingsSocketService = new SettingsSocketService();
 /**
  * Configure WebSocket services - creates BOTH native WebSocket and Socket.IO servers
  * - Native WebSocket for order updates (/ws/orders) - backward compatible with existing frontend
- * - Socket.IO for settings updates (/socket.io/) - new functionality
+ * - Socket.IO for settings updates (/socket.io/) - new functionality with session authentication
  */
-export function configureWebSocket(httpServer: HTTPServer) {
+export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: RequestHandler) {
   // Create NATIVE WebSocket server for orders
   const wss = new WebSocketServer({ 
     server: httpServer,
@@ -183,33 +185,61 @@ export function configureWebSocket(httpServer: HTTPServer) {
 
   orderWebSocketService.setWSS(wss);
 
-  // Create Socket.IO server for settings (on different path)
+  // Create Socket.IO server for settings with SESSION AUTHENTICATION
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io/',
     cors: {
       origin: true,
-      credentials: true,
+      credentials: true, // IMPORTANT: Allow credentials for session cookies
     },
   });
 
-  io.on('connection', (socket) => {
-    logger.info('[WebSocket] Socket.IO client connected for settings', { socketId: socket.id });
-    
-    socket.on('join', (room: string) => {
-      socket.join(room);
-      logger.info('[WebSocket] Socket.IO client joined room', { socketId: socket.id, room });
-    });
+  // Apply session middleware to Socket.IO engine for authentication
+  // This allows access to req.session and req.user in Socket.IO handlers
+  io.engine.use(sessionMiddleware);
+  
+  // Apply passport middleware to Socket.IO for user deserialization
+  io.engine.use(passport.initialize());
+  io.engine.use(passport.session());
 
+  // AUTHENTICATION MIDDLEWARE - Verify session before connection
+  io.use((socket, next) => {
+    const req = socket.request as any;
+    
+    // Check if user is authenticated via passport session
+    if (req.user?.claims?.sub) {
+      const userId = req.user.claims.sub;
+      socket.data.userId = userId;
+      socket.data.authenticated = true;
+      logger.info(`[Socket.IO] Authenticated connection for user: ${userId}`);
+      next();
+    } else {
+      logger.warn('[Socket.IO] Unauthenticated connection rejected');
+      next(new Error('Authentication required'));
+    }
+  });
+
+  io.on('connection', (socket) => {
+    const userId = socket.data.userId;
+    logger.info(`[Socket.IO] Client connected for settings: ${userId}`);
+    
+    // AUTOMATICALLY join user to their own room (server-side decision)
+    socket.join(`user:${userId}`);
+    logger.info(`[Socket.IO] User ${userId} joined room: user:${userId}`);
+    
+    // SECURITY: Client-controlled 'join' handler removed - prevents unauthorized room access
+    // Users can ONLY join their own room, which is determined server-side by their session
+    
     socket.on('disconnect', () => {
-      logger.info('[WebSocket] Socket.IO client disconnected', { socketId: socket.id });
+      logger.info(`[Socket.IO] Client disconnected: ${userId}`);
     });
 
     socket.on('error', (error) => {
-      logger.error('[WebSocket] Socket.IO client error:', error);
+      logger.error('[Socket.IO] Client error:', error, { userId });
     });
   });
 
   settingsSocketService.setIO(io);
 
-  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings');
+  logger.info('[WebSocket] Dual websocket system configured: Native WS for orders + Socket.IO for settings (authenticated)');
 }

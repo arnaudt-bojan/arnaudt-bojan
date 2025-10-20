@@ -7,7 +7,7 @@ import { insertOrderSchema, insertProductSchema, orderStatusEnum, insertSavedAdd
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { computeDeliveryDate } from "@shared/order-utils";
-import { setupAuth } from "./replitAuth";
+import { setupAuth, getSession } from "./replitAuth";
 import { requireAuth, requireUserType, requireCapability, requireStoreAccess, requireProductAccess, requireOrderAccess, requireCanPurchase } from "./middleware/auth";
 import { AuthorizationService } from "./services/authorization.service";
 import Stripe from "stripe";
@@ -13603,9 +13603,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Initialize WebSocket for real-time order updates and settings
-  // Native WebSocket for orders (/ws/orders) + Socket.IO for settings (/socket.io/)
+  // Native WebSocket for orders (/ws/orders) + Socket.IO for settings (/socket.io/) with session auth
   const { configureWebSocket } = await import('./websocket');
-  configureWebSocket(httpServer);
+  const sessionMiddleware = getSession();
+  configureWebSocket(httpServer, sessionMiddleware);
 
   return httpServer;
 }
