@@ -8,6 +8,7 @@ import {
   Context,
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { GraphQLError } from 'graphql';
 import { CartService } from './cart.service';
 import { PricingService } from '../pricing/pricing.service';
 import { GraphQLContext } from '../../types/context';
@@ -15,6 +16,7 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AddToCartInput } from './dto/add-to-cart.input';
 import { UpdateCartItemInput } from './dto/update-cart-item.input';
+import { DomainError } from '../../../../../server/services/domain/errors/domain-error';
 
 @Resolver('Cart')
 export class CartResolver {
@@ -105,7 +107,17 @@ export class CartResolver {
     try {
       return await this.pricingService.calculateCartTotals(cart.id);
     } catch (error) {
-      return null;
+      // Let GraphQLExceptionFilter handle DomainErrors with proper codes
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      // Wrap unexpected errors
+      throw new GraphQLError('Failed to calculate cart totals', {
+        extensions: {
+          code: 'CART_CALCULATION_ERROR',
+          httpStatus: 500,
+        },
+      });
     }
   }
 }

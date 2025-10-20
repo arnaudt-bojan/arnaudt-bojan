@@ -551,25 +551,10 @@ function generateRateLimiterRecommendations(metrics: any): string[] {
 
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    // Prevent double responses
-    if (res.headersSent) {
-      return _next(err);
-    }
-
-    // Handle ConfigurationError - always return 400
-    if (err instanceof ConfigurationError) {
-      res.status(400).json({ message: err.message });
-      throw err;
-      return;
-    }
-
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Centralized error handling middleware (MUST be registered LAST, after all routes)
+  // Handles DomainError, ConfigurationError, and unexpected errors consistently
+  const { errorHandlerMiddleware } = await import('./middleware/error-handler');
+  app.use(errorHandlerMiddleware);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

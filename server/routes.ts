@@ -550,59 +550,6 @@ const requireApiKey: any = (req: any, res: any, next: any) => {
 };
 
 /**
- * Domain Error Mapping Helper - Maps DomainErrors to HTTP responses
- * 
- * USAGE PATTERN (Architecture 3):
- * 
- * Import domain services and errors:
- * ```typescript
- * import { DomainError } from './services/domain/errors/domain-error';
- * import { CheckoutDomainService } from './services/domain/checkout.domain-service';
- * import { PaymentDomainService } from './services/domain/payment.domain-service';
- * import { OrderDomainService } from './services/domain/orders.domain-service';
- * ```
- * 
- * Thin controller pattern:
- * ```typescript
- * app.post('/api/checkout/initiate', async (req, res) => {
- *   try {
- *     const checkoutService = new CheckoutDomainService(prisma, checkoutOrchestrator);
- *     const session = await checkoutService.initiateCheckout({
- *       userId: req.user?.claims?.sub,
- *       items: req.body.items,
- *       shippingAddress: req.body.shippingAddress,
- *       customerEmail: req.body.customerEmail,
- *       customerName: req.body.customerName,
- *     });
- *     res.json(session);
- *   } catch (error) {
- *     handleDomainError(error, res);
- *   }
- * });
- * ```
- */
-function handleDomainError(error: any, res: any): void {
-  // Import DomainError dynamically to avoid circular dependency
-  const { DomainError } = require('./services/domain/errors/domain-error');
-  
-  if (error instanceof DomainError) {
-    return res.status(error.httpStatus).json({
-      error: error.code,
-      message: error.message,
-    });
-  }
-  
-  // Log unexpected errors
-  logger.error('[Domain Service] Unexpected error:', error);
-  
-  // Generic error response for non-domain errors
-  res.status(500).json({
-    error: 'INTERNAL_SERVER_ERROR',
-    message: error.message || 'An unexpected error occurred',
-  });
-}
-
-/**
  * Resend Webhook Signature Verification
  * Resend uses Svix for webhooks with HMAC-SHA256 signatures
  */
@@ -5068,7 +5015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Checkout - B2C checkout using CheckoutDomainService (Architecture 3)
   // Domain service wraps CheckoutWorkflowOrchestrator and adds validation
-  app.post('/api/checkout/initiate', async (req, res) => {
+  app.post('/api/checkout/initiate', async (req, res, next) => {
     try {
       // Validate checkoutWorkflowOrchestrator availability
       if (!checkoutWorkflowOrchestrator) {
@@ -5149,7 +5096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
     } catch (error: any) {
-      return handleDomainError(error, res);
+      next(error);
     }
   });
 

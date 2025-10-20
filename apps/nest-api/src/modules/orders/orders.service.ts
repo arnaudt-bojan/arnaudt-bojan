@@ -4,17 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { OrderDomainService } from '../../../../../server/services/domain/orders.domain-service';
-import {
-  OrderNotFoundError,
-  UnauthorizedOrderAccessError,
-  CartNotFoundError,
-  UnauthorizedCartAccessError,
-  EmptyCartError,
-  InvalidRefundAmountError,
-  InvalidCursorError,
-  ForbiddenError,
-  OrderDomainError,
-} from '../../../../../server/services/domain/errors/order-errors';
+import { DomainError } from '../../../../../server/services/domain/errors/domain-error';
 
 /**
  * GraphQL OrdersService - Thin layer that delegates to OrderDomainService
@@ -170,35 +160,13 @@ export class OrdersService {
   // ============================================================================
 
   private convertDomainErrorToGraphQL(error: unknown): GraphQLError {
-    // Handle domain-specific errors
-    if (error instanceof OrderNotFoundError || error instanceof UnauthorizedOrderAccessError) {
+    // Handle domain errors - use their code and httpStatus directly
+    if (error instanceof DomainError) {
       return new GraphQLError(error.message, {
-        extensions: { code: 'NOT_FOUND' },
-      });
-    }
-
-    if (error instanceof CartNotFoundError) {
-      return new GraphQLError(error.message, {
-        extensions: { code: 'NOT_FOUND' },
-      });
-    }
-
-    if (error instanceof UnauthorizedCartAccessError || error instanceof ForbiddenError) {
-      return new GraphQLError(error.message, {
-        extensions: { code: 'FORBIDDEN' },
-      });
-    }
-
-    if (error instanceof EmptyCartError || error instanceof InvalidRefundAmountError || error instanceof InvalidCursorError) {
-      return new GraphQLError(error.message, {
-        extensions: { code: 'BAD_REQUEST' },
-      });
-    }
-
-    if (error instanceof OrderDomainError) {
-      // Catch-all for other domain errors
-      return new GraphQLError(error.message, {
-        extensions: { code: 'BAD_REQUEST' },
+        extensions: {
+          code: error.code,
+          httpStatus: error.httpStatus,
+        },
       });
     }
 

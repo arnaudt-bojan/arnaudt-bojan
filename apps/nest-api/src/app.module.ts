@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { CacheModule } from './modules/cache/cache.module';
 import { HealthModule } from './modules/health/health.module';
@@ -16,6 +17,7 @@ import { WebSocketModule } from './modules/websocket/websocket.module';
 import { PricingModule } from './modules/pricing/pricing.module';
 import { OrderPresentationModule } from './modules/order-presentation/order-presentation.module';
 import { ProductPresentationModule } from './modules/product-presentation/product-presentation.module';
+import { GraphQLExceptionFilter } from './common/filters/graphql-exception.filter';
 
 @Module({
   imports: [
@@ -36,6 +38,12 @@ import { ProductPresentationModule } from './modules/product-presentation/produc
     WebSocketModule,
     OrderPresentationModule,
     ProductPresentationModule,
+  ],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: GraphQLExceptionFilter,
+    },
   ],
 })
 export class AppModule {}
