@@ -145,7 +145,7 @@ export default function DashboardPage() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton data-testid="link-orders">
+          <ListItemButton onClick={() => router.push('/orders')} data-testid="link-orders">
             <ListItemIcon>
               <ShoppingCartIcon />
             </ListItemIcon>
