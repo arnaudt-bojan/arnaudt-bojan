@@ -1,137 +1,212 @@
 /**
- * Centralized Logging System
+ * Production-Grade Structured Logging with Winston
  * 
- * Provides structured logging with severity levels, timestamps, and context.
- * Replaces scattered console.log statements with a consistent logging interface.
+ * Features:
+ * - JSON logs in production, pretty logs in development
+ * - Correlation ID integration via AsyncLocalStorage
+ * - Child logger support for service-specific context
+ * - Environment-driven configuration (LOG_LEVEL, LOG_FORMAT)
+ * - Consistent metadata schema across all logs
+ * 
+ * Usage:
+ * ```typescript
+ * import { logger } from './logger';
+ * 
+ * // Simple logging
+ * logger.info('User logged in', { userId: '123' });
+ * 
+ * // Service-specific logger
+ * const serviceLogger = logger.child({ service: 'OrderService' });
+ * serviceLogger.info('Order created', { orderId: 'abc', amount: 100 });
+ * ```
  */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical';
+import winston from 'winston';
+import { getRequestId } from './request-context';
 
-export interface LogContext {
-  module?: string;
-  userId?: string;
-  orderId?: string;
-  productId?: string;
-  [key: string]: string | number | boolean | undefined;
-}
+// ============================================================================
+// Configuration
+// ============================================================================
 
-class Logger {
-  private readonly isProduction = process.env.NODE_ENV === 'production';
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
-  /**
-   * Format log message with timestamp and context
-   */
-  private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
-    const timestamp = new Date().toISOString();
-    const levelStr = level.toUpperCase().padEnd(8);
-    const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-    return `${timestamp} [${levelStr}] ${message}${contextStr}`;
+// Environment variables for configuration
+const LOG_LEVEL = process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info');
+const LOG_FORMAT = process.env.LOG_FORMAT || (isDevelopment ? 'pretty' : 'json');
+
+// ============================================================================
+// Custom Formats
+// ============================================================================
+
+/**
+ * Add correlation ID from AsyncLocalStorage to every log
+ */
+const correlationIdFormat = winston.format((info) => {
+  const requestId = getRequestId();
+  if (requestId) {
+    info.requestId = requestId;
   }
+  return info;
+});
 
-  /**
-   * Log debug message (development only)
-   */
-  debug(message: string, context?: LogContext): void {
-    if (!this.isProduction) {
-      console.log(this.formatMessage('debug', message, context));
-    }
-  }
+/**
+ * Pretty format for development - human-readable colored output
+ */
+const prettyFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+  correlationIdFormat(),
+  winston.format.errors({ stack: true }),
+  winston.format.printf((info) => {
+    const { timestamp, level, message, service, requestId, ...meta } = info;
 
-  /**
-   * Log informational message
-   */
-  info(message: string, context?: LogContext): void {
-    console.log(this.formatMessage('info', message, context));
-  }
+    // Color codes
+    const levelColors: Record<string, string> = {
+      error: '\x1b[31m',   // Red
+      warn: '\x1b[33m',    // Yellow
+      info: '\x1b[36m',    // Cyan
+      debug: '\x1b[35m',   // Magenta
+    };
+    const reset = '\x1b[0m';
+    const gray = '\x1b[90m';
 
-  /**
-   * Log warning message
-   */
-  warn(message: string, context?: LogContext): void {
-    console.warn(this.formatMessage('warn', message, context));
-  }
-
-  /**
-   * Log error message
-   */
-  error(message: string, error?: Error | unknown, context?: LogContext): void {
-    const errorContext = error instanceof Error 
-      ? { ...context, error: error.message, stack: error.stack }
-      : context;
-    console.error(this.formatMessage('error', message, errorContext));
-  }
-
-  /**
-   * Log critical error (system-level failures)
-   */
-  critical(message: string, error?: Error | unknown, context?: LogContext): void {
-    const errorContext = error instanceof Error 
-      ? { ...context, error: error.message, stack: error.stack }
-      : context;
-    console.error(this.formatMessage('critical', message, errorContext));
-    // In production, could trigger alerts/notifications here
-  }
-
-  /**
-   * Log auth-related events
-   */
-  auth(message: string, context?: LogContext): void {
-    this.info(`[AUTH] ${message}`, context);
-  }
-
-  /**
-   * Log payment-related events
-   */
-  payment(message: string, context?: LogContext): void {
-    this.info(`[PAYMENT] ${message}`, context);
-  }
-
-  /**
-   * Log database operations
-   */
-  database(message: string, context?: LogContext): void {
-    if (!this.isProduction) {
-      this.debug(`[DATABASE] ${message}`, context);
-    }
-  }
-
-  /**
-   * Log HTTP requests
-   */
-  http(method: string, path: string, statusCode: number, duration: number, response?: unknown): void {
-    const level: LogLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
-    const message = `${method} ${path} ${statusCode} in ${duration}ms`;
-    const context: LogContext = { method, path, statusCode, duration };
+    const color = levelColors[level] || '';
+    const levelStr = `[${level.toUpperCase()}]`.padEnd(9);
     
-    if (response && typeof response === 'object') {
-      // Don't log large responses
-      const responseStr = JSON.stringify(response);
-      if (responseStr.length < 500) {
-        console.log(this.formatMessage(level, message, { ...context, response: responseStr }));
-      } else {
-        console.log(this.formatMessage(level, message, context));
-      }
-    } else {
-      console.log(this.formatMessage(level, message, context));
+    // Build log line
+    let logLine = `${gray}${timestamp}${reset} ${color}${levelStr}${reset}`;
+    
+    // Add service name if present
+    if (service) {
+      logLine += ` ${gray}[${service}]${reset}`;
     }
-  }
+    
+    // Add request ID if present
+    if (requestId) {
+      logLine += ` ${gray}[req:${requestId}]${reset}`;
+    }
+    
+    // Add message
+    logLine += ` ${message}`;
+    
+    // Add metadata if present
+    const metaKeys = Object.keys(meta);
+    if (metaKeys.length > 0) {
+      // Pretty print metadata
+      const metaStr = JSON.stringify(meta, null, 2);
+      if (metaStr.length < 100) {
+        logLine += ` ${gray}${metaStr}${reset}`;
+      } else {
+        logLine += `\n${gray}${metaStr}${reset}`;
+      }
+    }
+    
+    return logLine;
+  })
+);
 
-  /**
-   * Log queue/background job events
-   */
-  queue(message: string, context?: LogContext): void {
-    this.info(`[QUEUE] ${message}`, context);
-  }
+/**
+ * JSON format for production - structured, machine-readable logs
+ */
+const jsonFormat = winston.format.combine(
+  winston.format.timestamp(),
+  correlationIdFormat(),
+  winston.format.errors({ stack: true }),
+  winston.format.json()
+);
 
-  /**
-   * Log notification events
-   */
-  notification(message: string, context?: LogContext): void {
-    this.info(`[NOTIFICATION] ${message}`, context);
-  }
+// ============================================================================
+// Winston Logger Instance
+// ============================================================================
+
+/**
+ * Main Winston logger instance
+ */
+const winstonLogger = winston.createLogger({
+  level: LOG_LEVEL,
+  format: LOG_FORMAT === 'json' ? jsonFormat : prettyFormat,
+  transports: [
+    new winston.transports.Console({
+      handleExceptions: true,
+      handleRejections: true,
+    }),
+  ],
+  exitOnError: false,
+});
+
+// ============================================================================
+// Logger Interface
+// ============================================================================
+
+/**
+ * Logger interface with child logger support
+ */
+export interface Logger {
+  debug(message: string, meta?: Record<string, any>): void;
+  info(message: string, meta?: Record<string, any>): void;
+  warn(message: string, meta?: Record<string, any>): void;
+  error(message: string, meta?: Record<string, any>): void;
+  child(defaultMeta: Record<string, any>): Logger;
 }
 
-export const logger = new Logger();
+/**
+ * Create logger interface from Winston logger instance
+ */
+function createLoggerInterface(baseLogger: winston.Logger): Logger {
+  return {
+    debug: (message: string, meta?: Record<string, any>) => {
+      baseLogger.debug(message, meta);
+    },
+    info: (message: string, meta?: Record<string, any>) => {
+      baseLogger.info(message, meta);
+    },
+    warn: (message: string, meta?: Record<string, any>) => {
+      baseLogger.warn(message, meta);
+    },
+    error: (message: string, meta?: Record<string, any>) => {
+      baseLogger.error(message, meta);
+    },
+    child: (defaultMeta: Record<string, any>) => {
+      const childLogger = baseLogger.child(defaultMeta);
+      return createLoggerInterface(childLogger);
+    },
+  };
+}
 
-// Export singleton instance as default
+// ============================================================================
+// Exports
+// ============================================================================
+
+/**
+ * Main logger instance
+ * 
+ * Use directly for general logging:
+ * ```typescript
+ * logger.info('Server started', { port: 3000 });
+ * ```
+ * 
+ * Create child loggers for service-specific context:
+ * ```typescript
+ * const serviceLogger = logger.child({ service: 'OrderService' });
+ * serviceLogger.info('Order created', { orderId: 'abc' });
+ * ```
+ */
+export const logger = createLoggerInterface(winstonLogger);
+
+/**
+ * Default export for convenience
+ */
 export default logger;
+
+// ============================================================================
+// Legacy Compatibility Types
+// ============================================================================
+
+/**
+ * Legacy log context type for backward compatibility
+ */
+export type LogContext = Record<string, any>;
+
+/**
+ * Legacy log level type for backward compatibility
+ */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical';

@@ -32,6 +32,7 @@ import { domainMiddleware } from "./middleware/domain";
 import { startDomainStatusChecker } from "./jobs/domain-status-checker";
 import { proxyMiddleware, logProxyStats } from "./middleware/proxy.middleware";
 import { featureFlagsService } from "./services/feature-flags.service";
+import { correlationMiddleware } from "./middleware/correlation.middleware";
 import Stripe from "stripe";
 import { prisma } from "./prisma";
 import { initializeCache, getCache } from "./cache";
@@ -63,6 +64,10 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Input sanitization - remove dangerous characters (skips raw buffers)
 app.use(sanitizeInputMiddleware);
+
+// Correlation ID middleware - establishes request context with X-Request-ID
+// Mount early to ensure correlation ID available for all downstream middleware
+app.use(correlationMiddleware);
 
 // NOTE: Rate limiting middleware will be applied after routes are registered
 // This allows health endpoints to be exempt from rate limiting

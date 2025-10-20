@@ -26,6 +26,9 @@ import { logger } from "../logger";
 import { z } from "zod";
 import { prisma } from "../prisma";
 
+// Service-specific logger with structured logging
+const serviceLogger = logger.child({ service: 'QuotationService' });
+
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
@@ -202,7 +205,7 @@ export class QuotationService {
         return { ...newQuotation, items } as any;
       });
 
-      logger.info("[QuotationService] Quotation created", {
+      serviceLogger.info("[QuotationService] Quotation created", {
         quotationId: quotation.id,
         quotationNumber: quotation.quotationNumber,
         sellerId,
@@ -210,7 +213,7 @@ export class QuotationService {
 
       return quotation;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to create quotation", {
+      serviceLogger.error("[QuotationService] Failed to create quotation", {
         error: error.message,
         sellerId,
       });
@@ -238,7 +241,7 @@ export class QuotationService {
 
       return { ...quotation, items } as any;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to get quotation", {
+      serviceLogger.error("[QuotationService] Failed to get quotation", {
         error: error.message,
         quotationId: id,
       });
@@ -280,7 +283,7 @@ export class QuotationService {
 
       return { quotations: quotations as any, total };
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to list quotations", {
+      serviceLogger.error("[QuotationService] Failed to list quotations", {
         error: error.message,
         sellerId,
       });
@@ -402,14 +405,14 @@ export class QuotationService {
         }
       });
 
-      logger.info("[QuotationService] Quotation updated", {
+      serviceLogger.info("[QuotationService] Quotation updated", {
         quotationId: id,
         sellerId,
       });
 
       return quotation;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to update quotation", {
+      serviceLogger.error("[QuotationService] Failed to update quotation", {
         error: error.message,
         quotationId: id,
       });
@@ -454,12 +457,12 @@ export class QuotationService {
         });
       });
 
-      logger.info("[QuotationService] Quotation deleted", {
+      serviceLogger.info("[QuotationService] Quotation deleted", {
         quotationId: id,
         sellerId,
       });
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to delete quotation", {
+      serviceLogger.error("[QuotationService] Failed to delete quotation", {
         error: error.message,
         quotationId: id,
       });
@@ -574,11 +577,11 @@ export class QuotationService {
         },
       });
 
-      logger.info("[QuotationService] Quotation recalculated", {
+      serviceLogger.info("[QuotationService] Quotation recalculated", {
         quotationId,
       });
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to recalculate quotation", {
+      serviceLogger.error("[QuotationService] Failed to recalculate quotation", {
         error: error.message,
         quotationId,
       });
@@ -622,14 +625,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Quotation sent", {
+      serviceLogger.info("[QuotationService] Quotation sent", {
         quotationId: id,
         buyerEmail: quotation.buyerEmail,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to send quotation", {
+      serviceLogger.error("[QuotationService] Failed to send quotation", {
         error: error.message,
         quotationId: id,
       });
@@ -664,14 +667,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Quotation viewed", {
+      serviceLogger.info("[QuotationService] Quotation viewed", {
         quotationId: id,
         viewedBy,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to mark quotation as viewed", {
+      serviceLogger.error("[QuotationService] Failed to mark quotation as viewed", {
         error: error.message,
         quotationId: id,
       });
@@ -718,14 +721,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Quotation accepted", {
+      serviceLogger.info("[QuotationService] Quotation accepted", {
         quotationId: id,
         buyerId: buyerId || quotation.buyerEmail,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to accept quotation", {
+      serviceLogger.error("[QuotationService] Failed to accept quotation", {
         error: error.message,
         quotationId: id,
       });
@@ -789,14 +792,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Deposit paid", {
+      serviceLogger.info("[QuotationService] Deposit paid", {
         quotationId: id,
         paymentIntentId,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to mark deposit as paid", {
+      serviceLogger.error("[QuotationService] Failed to mark deposit as paid", {
         error: error.message,
         quotationId: id,
       });
@@ -845,14 +848,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Balance marked as due", {
+      serviceLogger.info("[QuotationService] Balance marked as due", {
         quotationId: id,
         dueDate: dueDate ? dueDate.toISOString() : undefined,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to mark balance as due", {
+      serviceLogger.error("[QuotationService] Failed to mark balance as due", {
         error: error.message,
         quotationId: id,
       });
@@ -912,14 +915,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Fully paid", {
+      serviceLogger.info("[QuotationService] Fully paid", {
         quotationId: id,
         paymentIntentId,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to mark as fully paid", {
+      serviceLogger.error("[QuotationService] Failed to mark as fully paid", {
         error: error.message,
         quotationId: id,
       });
@@ -948,13 +951,13 @@ export class QuotationService {
         data: { status: "completed", updated_at: new Date() },
       });
 
-      logger.info("[QuotationService] Quotation completed", {
+      serviceLogger.info("[QuotationService] Quotation completed", {
         quotationId: id,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to mark as completed", {
+      serviceLogger.error("[QuotationService] Failed to mark as completed", {
         error: error.message,
         quotationId: id,
       });
@@ -994,14 +997,14 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Quotation cancelled", {
+      serviceLogger.info("[QuotationService] Quotation cancelled", {
         quotationId: id,
         reason,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to cancel quotation", {
+      serviceLogger.error("[QuotationService] Failed to cancel quotation", {
         error: error.message,
         quotationId: id,
       });
@@ -1047,13 +1050,13 @@ export class QuotationService {
         return result;
       });
 
-      logger.info("[QuotationService] Quotation expired", {
+      serviceLogger.info("[QuotationService] Quotation expired", {
         quotationId: id,
       });
 
       return updated;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to mark as expired", {
+      serviceLogger.error("[QuotationService] Failed to mark as expired", {
         error: error.message,
         quotationId: id,
       });
@@ -1161,7 +1164,7 @@ export class QuotationService {
 
       return events as any;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to get quotation events", {
+      serviceLogger.error("[QuotationService] Failed to get quotation events", {
         error: error.message,
         quotationId,
       });
@@ -1214,7 +1217,7 @@ export class QuotationService {
 
       return schedules as any;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to get payment schedules", {
+      serviceLogger.error("[QuotationService] Failed to get payment schedules", {
         error: error.message,
         quotationId,
       });
@@ -1242,7 +1245,7 @@ export class QuotationService {
 
       return quotations as any;
     } catch (error: any) {
-      logger.error("[QuotationService] Failed to find expired quotations", {
+      serviceLogger.error("[QuotationService] Failed to find expired quotations", {
         error: error.message,
       });
       throw error;

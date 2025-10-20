@@ -9,6 +9,9 @@ import { syncProductStockFromVariants } from '../utils/calculate-stock';
 import type Stripe from 'stripe';
 import { getCache, CacheTTL, CacheKeys } from '../cache';
 
+// Service-specific logger with structured logging
+const serviceLogger = logger.child({ service: 'ProductService' });
+
 export interface CreateProductParams {
   productData: any;
   sellerId: string;
@@ -98,7 +101,7 @@ export class ProductService {
       if (validationResult.data.shippingType === 'shippo') {
         const warehouseValid = await this.validateWarehouseAddress(sellerId);
         if (!warehouseValid.valid) {
-          logger.warn('[ProductService] Shippo product creation blocked - no warehouse address', {
+          serviceLogger.warn('[ProductService] Shippo product creation blocked - no warehouse address', {
             sellerId,
             productName: validationResult.data.name
           });
@@ -123,17 +126,17 @@ export class ProductService {
 
       // Step 9: Send notifications (don't fail if notifications fail)
       await this.sendProductListingNotifications(product, user).catch(error => {
-        logger.error('[ProductService] Failed to send notifications:', error);
+        serviceLogger.error('[ProductService] Failed to send notifications:', { error });
       });
 
-      logger.info('[ProductService] Product created successfully', { 
+      serviceLogger.info('[ProductService] Product created successfully', { 
         productId: product.id, 
         sellerId 
       });
 
       return { success: true, product };
     } catch (error: any) {
-      logger.error('[ProductService] Product creation failed:', error);
+      serviceLogger.error('[ProductService] Product creation failed:', { error });
       return { 
         success: false, 
         error: error.message || 'Failed to create product' 
@@ -184,7 +187,7 @@ export class ProductService {
       }
     }
 
-    logger.info('[ProductService] Bulk import completed', {
+    serviceLogger.info('[ProductService] Bulk import completed', {
       sellerId,
       success: results.success,
       failed: results.failed,
@@ -216,7 +219,7 @@ export class ProductService {
       if (updates.shipping_type === 'shippo') {
         const warehouseValid = await this.validateWarehouseAddress(sellerId);
         if (!warehouseValid.valid) {
-          logger.warn('[ProductService] Shippo product update blocked - no warehouse address', {
+          serviceLogger.warn('[ProductService] Shippo product update blocked - no warehouse address', {
             sellerId,
             productId,
             productName: product.name
@@ -243,11 +246,11 @@ export class ProductService {
       // Invalidate cache after update
       await this.invalidateProductCache(productId, sellerId);
 
-      logger.info('[ProductService] Product updated', { productId, sellerId });
+      serviceLogger.info('[ProductService] Product updated', { productId, sellerId });
 
       return { success: true, product: updatedProduct };
     } catch (error: any) {
-      logger.error('[ProductService] Product update failed:', error);
+      serviceLogger.error('[ProductService] Product update failed:', { error });
       return { 
         success: false, 
         error: error.message || 'Failed to update product' 
@@ -294,11 +297,11 @@ export class ProductService {
       // Invalidate cache after deletion
       await this.invalidateProductCache(productId, sellerId);
 
-      logger.info('[ProductService] Product deleted', { productId, sellerId });
+      serviceLogger.info('[ProductService] Product deleted', { productId, sellerId });
 
       return { success: true };
     } catch (error: any) {
-      logger.error('[ProductService] Product deletion failed:', error);
+      serviceLogger.error('[ProductService] Product deletion failed:', { error });
       return { 
         success: false, 
         error: error.message || 'Failed to delete product' 
@@ -329,14 +332,14 @@ export class ProductService {
           return null;
         }
         
-        logger.debug('[ProductService] Cache hit for product', { productId });
+        serviceLogger.debug('[ProductService] Cache hit for product', { productId });
         return cached;
       }
 
-      logger.debug('[ProductService] Cache miss for product, fetching from DB', { productId });
+      serviceLogger.debug('[ProductService] Cache miss for product, fetching from DB', { productId });
     } catch (error) {
       // Cache errors should not break the service
-      logger.warn('[ProductService] Cache get error, fetching from DB:', error as any);
+      serviceLogger.warn('[ProductService] Cache get error, fetching from DB:', { error: error as any });
     }
 
     // Step 2: Cache miss or error - fetch from DB
@@ -365,19 +368,19 @@ export class ProductService {
       if (product.status === 'active' || product.status === 'coming-soon') {
         try {
           await cache.set(cacheKey, enrichedProduct, CacheTTL.PRODUCTS);
-          logger.debug('[ProductService] Product cached', { 
+          serviceLogger.debug('[ProductService] Product cached', { 
             productId,
             ttl: CacheTTL.PRODUCTS 
           });
         } catch (error) {
           // Cache errors should not break the service
-          logger.warn('[ProductService] Cache set error:', error as any);
+          serviceLogger.warn('[ProductService] Cache set error:', { error: error as any });
         }
       }
 
       return enrichedProduct;
     } catch (error) {
-      logger.error('[ProductService] Failed to get product:', error);
+      serviceLogger.error('[ProductService] Failed to get product:', { error });
       return null;
     }
   }
@@ -400,13 +403,13 @@ export class ProductService {
       // Invalidate pricing caches that might include this product
       await cache.deletePattern(CacheKeys.pricing(sellerId, '*'));
       
-      logger.info('[ProductService] Product cache invalidated', { 
+      serviceLogger.info('[ProductService] Product cache invalidated', { 
         productId, 
         sellerId 
       });
     } catch (error) {
       // Cache errors should not break the service
-      logger.warn('[ProductService] Failed to invalidate product cache:', error as any);
+      serviceLogger.warn('[ProductService] Failed to invalidate product cache:', { error: error as any });
     }
   }
 
@@ -431,13 +434,13 @@ export class ProductService {
           ...user,
           listing_currency: stripeCurrency,
         });
-        logger.info('[ProductService] Synced currency from Stripe', { 
+        serviceLogger.info('[ProductService] Synced currency from Stripe', { 
           userId: user.id, 
           currency: stripeCurrency 
         });
       }
     } catch (error) {
-      logger.error('[ProductService] Failed to sync Stripe currency:', error);
+      serviceLogger.error('[ProductService] Failed to sync Stripe currency:', { error });
       // Don't fail the operation if currency sync fails
     }
   }
@@ -465,7 +468,7 @@ export class ProductService {
       );
     }
 
-    logger.info('[ProductService] SKUs generated', { 
+    serviceLogger.info('[ProductService] SKUs generated', { 
       productSKU: productData.sku, 
       variantCount: productData.variants?.length || 0 
     });
@@ -522,7 +525,7 @@ export class ProductService {
       html: emailHtml,
     });
 
-    logger.info('[ProductService] Notifications sent', { 
+    serviceLogger.info('[ProductService] Notifications sent', { 
       userId: user.id, 
       productId: product.id 
     });

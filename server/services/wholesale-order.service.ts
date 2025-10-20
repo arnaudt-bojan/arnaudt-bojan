@@ -22,6 +22,9 @@ import type {
 import { logger } from '../logger';
 import type { NotificationService } from '../notifications';
 
+// Service-specific logger with structured logging
+const serviceLogger = logger.child({ service: 'WholesaleOrderService' });
+
 // ============================================================================
 // Interfaces
 // ============================================================================
@@ -213,7 +216,7 @@ export class WholesaleOrderService {
         payload: { orderNumber, itemCount: items.length },
       });
 
-      logger.info('[WholesaleOrderService] Order created successfully', {
+      serviceLogger.info('[WholesaleOrderService] Order created successfully', {
         orderId: order.id,
         orderNumber,
         sellerId,
@@ -224,7 +227,7 @@ export class WholesaleOrderService {
 
       return { success: true, order };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to create order', error);
+      serviceLogger.error('[WholesaleOrderService] Failed to create order', { error });
       return { 
         success: false, 
         error: error.message || 'Failed to create order',
@@ -255,7 +258,7 @@ export class WholesaleOrderService {
         order: { ...order, items } 
       };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to get order', error, { orderId });
+      serviceLogger.error('[WholesaleOrderService] Failed to get order', { error, orderId });
       return { 
         success: false, 
         error: error.message || 'Failed to get order',
@@ -273,7 +276,7 @@ export class WholesaleOrderService {
 
       return { success: true, orders };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to get seller orders', error, { sellerId });
+      serviceLogger.error('[WholesaleOrderService] Failed to get seller orders', { error, sellerId });
       return { 
         success: false, 
         error: error.message || 'Failed to get orders',
@@ -291,7 +294,7 @@ export class WholesaleOrderService {
 
       return { success: true, orders };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to get buyer orders', error, { buyerId });
+      serviceLogger.error('[WholesaleOrderService] Failed to get buyer orders', { error, buyerId });
       return { 
         success: false, 
         error: error.message || 'Failed to get orders',
@@ -355,7 +358,7 @@ export class WholesaleOrderService {
         companyName: sellerUser.companyName || undefined,
       } : undefined;
 
-      logger.info('[WholesaleOrderService] Order details retrieved', {
+      serviceLogger.info('[WholesaleOrderService] Order details retrieved', {
         orderId,
         userId,
         itemCount: items.length,
@@ -373,7 +376,7 @@ export class WholesaleOrderService {
         },
       };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to get order details', error, { orderId, userId });
+      serviceLogger.error('[WholesaleOrderService] Failed to get order details', { error, orderId, userId });
       return {
         success: false,
         error: error.message || 'Failed to get order details',
@@ -426,7 +429,7 @@ export class WholesaleOrderService {
       const isValidTransition = this.validateStatusTransition(order.status, status);
       
       if (!isValidTransition) {
-        logger.error('[WholesaleOrderService] Invalid status transition', {
+        serviceLogger.error('[WholesaleOrderService] Invalid status transition', {
           orderId,
           currentStatus: order.status,
           attemptedStatus: status,
@@ -459,7 +462,7 @@ export class WholesaleOrderService {
         performedBy,
       });
 
-      logger.info('[WholesaleOrderService] Order status updated', {
+      serviceLogger.info('[WholesaleOrderService] Order status updated', {
         orderId,
         oldStatus: order.status,
         newStatus: status,
@@ -513,13 +516,13 @@ export class WholesaleOrderService {
             );
           }
         } catch (emailError: any) {
-          logger.error('[WholesaleOrderService] Failed to send status change email', emailError);
+          serviceLogger.error('[WholesaleOrderService] Failed to send status change email', { error: emailError });
         }
       }
 
       return { success: true, order: updatedOrder };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to update order status', error, { orderId });
+      serviceLogger.error('[WholesaleOrderService] Failed to update order status', { error, orderId });
       return { 
         success: false, 
         error: error.message || 'Failed to update status',
@@ -568,14 +571,14 @@ export class WholesaleOrderService {
         performedBy,
       });
 
-      logger.info('[WholesaleOrderService] Order cancelled', {
+      serviceLogger.info('[WholesaleOrderService] Order cancelled', {
         orderId,
         reason,
       });
 
       return { success: true, order: updatedOrder };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to cancel order', error, { orderId });
+      serviceLogger.error('[WholesaleOrderService] Failed to cancel order', { error, orderId });
       return { 
         success: false, 
         error: error.message || 'Failed to cancel order',
@@ -593,7 +596,7 @@ export class WholesaleOrderService {
 
       return { success: true, events };
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to get order timeline', error, { orderId });
+      serviceLogger.error('[WholesaleOrderService] Failed to get order timeline', { error, orderId });
       return { 
         success: false, 
         error: error.message || 'Failed to get timeline',
@@ -626,7 +629,7 @@ export class WholesaleOrderService {
     try {
       await this.storage.createWholesaleOrderEvent(event);
     } catch (error: any) {
-      logger.error('[WholesaleOrderService] Failed to create order event', error);
+      serviceLogger.error('[WholesaleOrderService] Failed to create order event', { error });
     }
   }
 }

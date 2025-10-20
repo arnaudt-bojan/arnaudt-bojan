@@ -11,6 +11,9 @@ import type { IStorage } from "../storage";
 import type { Product, Cart as StorageCart } from "@shared/schema";
 import { logger } from "../logger";
 
+// Service-specific logger with structured logging
+const serviceLogger = logger.child({ service: 'CartService' });
+
 export interface CartItem {
   id: string;
   name: string;
@@ -70,7 +73,7 @@ export class CartService {
           validItems.push(item);
         } else {
           hasInvalidItems = true;
-          logger.warn("[CartService] Removed deleted product from cart", { 
+          serviceLogger.warn("[CartService] Removed deleted product from cart", { 
             productId: item.id, 
             productName: item.name,
             sessionId 
@@ -109,7 +112,7 @@ export class CartService {
       
       return cart;
     } catch (error: any) {
-      logger.error("[CartService] Error getting cart", error, { sessionId });
+      serviceLogger.error("[CartService] Error getting cart", { error, sessionId });
       return this.createEmptyCart();
     }
   }
@@ -286,7 +289,7 @@ export class CartService {
         // Only return modified cart after successful save
         return { success: true, cart: currentCart };
       } catch (saveError: any) {
-        logger.error("[CartService] Failed to save cart", saveError, { sessionId, productId });
+        serviceLogger.error("[CartService] Failed to save cart", { error: saveError, sessionId, productId });
         // Return original cart on save failure to maintain consistency
         return { 
           success: false, 
@@ -295,7 +298,7 @@ export class CartService {
         };
       }
     } catch (error: any) {
-      logger.error("[CartService] Error adding to cart", error, { sessionId, productId });
+      serviceLogger.error("[CartService] Error adding to cart", { error, sessionId, productId });
       return { success: false, error: error.message };
     }
   }
@@ -340,7 +343,7 @@ export class CartService {
           await this.storage.clearCartBySession(sessionId);
           return { success: true, cart };
         } catch (saveError: any) {
-          logger.error("[CartService] Failed to clear cart", saveError, { sessionId, itemId });
+          serviceLogger.error("[CartService] Failed to clear cart", { error: saveError, sessionId, itemId });
           return { 
             success: false, 
             error: "Failed to remove item. Please try again.",
@@ -359,7 +362,7 @@ export class CartService {
           );
           return { success: true, cart };
         } catch (saveError: any) {
-          logger.error("[CartService] Failed to save cart", saveError, { sessionId, itemId });
+          serviceLogger.error("[CartService] Failed to save cart", { error: saveError, sessionId, itemId });
           return { 
             success: false, 
             error: "Failed to remove item. Please try again.",
@@ -368,7 +371,7 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      logger.error("[CartService] Error removing from cart", error, { sessionId, itemId });
+      serviceLogger.error("[CartService] Error removing from cart", { error, sessionId, itemId });
       return { success: false, cart: this.createEmptyCart() };
     }
   }
@@ -433,7 +436,7 @@ export class CartService {
           );
           return { success: true, cart };
         } catch (saveError: any) {
-          logger.error("[CartService] Failed to save cart", saveError, { sessionId, itemId });
+          serviceLogger.error("[CartService] Failed to save cart", { error: saveError, sessionId, itemId });
           return { 
             success: false, 
             error: "Failed to update quantity. Please try again.",
@@ -444,7 +447,7 @@ export class CartService {
 
       return { success: true, cart: originalCart };
     } catch (error: any) {
-      logger.error("[CartService] Error updating cart quantity", error, { sessionId, itemId, quantity });
+      serviceLogger.error("[CartService] Error updating cart quantity", { error, sessionId, itemId, quantity });
       return { success: false, cart: this.createEmptyCart() };
     }
   }
@@ -457,7 +460,7 @@ export class CartService {
       await this.storage.clearCartBySession(sessionId);
       return { success: true };
     } catch (error: any) {
-      logger.error("[CartService] Error clearing cart", error, { sessionId });
+      serviceLogger.error("[CartService] Error clearing cart", { error, sessionId });
       return { success: false };
     }
   }
@@ -524,7 +527,7 @@ export class CartService {
           };
           this.recalculateCart(userCartFormatted);
           
-          logger.warn("[CartService] Seller mismatch during cart migration", { 
+          serviceLogger.warn("[CartService] Seller mismatch during cart migration", { 
             sessionId, 
             userId, 
             userSellerId: userCart.sellerId || 'null',
@@ -563,7 +566,7 @@ export class CartService {
         };
         this.recalculateCart(cart);
         
-        logger.info("[CartService] Bound new session to existing user cart (same seller)", { 
+        serviceLogger.info("[CartService] Bound new session to existing user cart (same seller)", { 
           sessionId, 
           userId, 
           cartId: userCart.id,
@@ -595,7 +598,7 @@ export class CartService {
         };
         this.recalculateCart(cart);
         
-        logger.info("[CartService] Bound new session to existing user cart", { sessionId, userId, cartId: userCart.id });
+        serviceLogger.info("[CartService] Bound new session to existing user cart", { sessionId, userId, cartId: userCart.id });
         return { success: true, cart };
       }
       
@@ -609,14 +612,14 @@ export class CartService {
           userId
         );
         
-        logger.info("[CartService] Promoted guest cart to authenticated", { sessionId, userId });
+        serviceLogger.info("[CartService] Promoted guest cart to authenticated", { sessionId, userId });
         return { success: true, cart: guestCart };
       }
       
       // CASE 4: No cart exists for user or session
       return { success: true, cart: this.createEmptyCart() };
     } catch (error: any) {
-      logger.error("[CartService] Error migrating guest cart", error, { sessionId, userId });
+      serviceLogger.error("[CartService] Error migrating guest cart", { error, sessionId, userId });
       return { success: false, error: error.message };
     }
   }
@@ -632,7 +635,7 @@ export class CartService {
       
       // CRITICAL: Validate parseFloat result and quantity
       if (isNaN(price) || isNaN(quantity)) {
-        logger.error("[CartService] Invalid price or quantity in cart item", { 
+        serviceLogger.error("[CartService] Invalid price or quantity in cart item", { 
           itemId: item.id, 
           price: item.price, 
           quantity,
@@ -650,7 +653,7 @@ export class CartService {
       
       // Validate quantity is a valid number
       if (isNaN(quantity)) {
-        logger.error("[CartService] Invalid quantity in cart item", { 
+        serviceLogger.error("[CartService] Invalid quantity in cart item", { 
           itemId: item.id, 
           quantity 
         });

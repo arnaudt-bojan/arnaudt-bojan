@@ -37,6 +37,9 @@ import { Storage } from '@google-cloud/storage';
 import { prisma } from '../prisma';
 import type { Prisma } from '../../generated/prisma';
 
+// Service-specific logger with structured logging
+const serviceLogger = logger.child({ service: 'OrderService' });
+
 // ===========================================================================
 // Interfaces
 // ============================================================================
@@ -300,7 +303,7 @@ export class OrderService {
           throw new Error(commitResult.error || 'Failed to commit inventory');
         }
 
-        logger.info('[OrderService] Transaction completed successfully', {
+        serviceLogger.info('[OrderService] Transaction completed successfully', {
           orderId: createdOrder.id,
           userId,
           checkoutSessionId,
@@ -322,11 +325,11 @@ export class OrderService {
       if (order.paymentStatus === 'fully_paid' || order.status === 'processing') {
         try {
           await this.sendOrderNotifications(order);
-          logger.info('[OrderService] Order notifications sent', {
+          serviceLogger.info('[OrderService] Order notifications sent', {
             orderId: order.id,
           });
         } catch (emailError) {
-          logger.error('[OrderService] Failed to send order notifications', {
+          serviceLogger.error('[OrderService] Failed to send order notifications', {
             error: emailError,
             orderId: order.id,
           });
@@ -334,7 +337,7 @@ export class OrderService {
         }
       }
 
-      logger.info('[OrderService] Order created successfully', {
+      serviceLogger.info('[OrderService] Order created successfully', {
         orderId: order.id,
         checkoutSessionId,
         itemCount: validation.items.length,
@@ -348,14 +351,14 @@ export class OrderService {
     } catch (error: any) {
       // Transaction automatically rolled back ALL database changes
       // We only need to clean up inventory reservations
-      logger.error('[OrderService] Order creation failed - transaction auto-rolled back', { 
+      serviceLogger.error('[OrderService] Order creation failed - transaction auto-rolled back', { 
         error: error.message,
         reservationsCount: successfulReservations.length,
       });
 
       // Release any successful inventory reservations
       if (successfulReservations.length > 0) {
-        logger.warn('[OrderService] Releasing inventory reservations', {
+        serviceLogger.warn('[OrderService] Releasing inventory reservations', {
           count: successfulReservations.length,
         });
 
@@ -363,7 +366,7 @@ export class OrderService {
           try {
             await this.inventoryService.releaseReservation(reservation.id);
           } catch (releaseError: any) {
-            logger.error('[OrderService] Failed to release reservation', {
+            serviceLogger.error('[OrderService] Failed to release reservation', {
               reservationId: reservation.id,
               error: releaseError.message,
             });
@@ -403,7 +406,7 @@ export class OrderService {
 
     // Auto-generate documents based on status
     this.handleStatusChangeDocuments(updatedOrder).catch(error => {
-      logger.error('[OrderService] Document generation failed', { error });
+      serviceLogger.error('[OrderService] Document generation failed', { error });
     });
 
     return updatedOrder;
@@ -461,10 +464,10 @@ export class OrderService {
 
       // Send refund notifications
       this.sendRefundNotifications(order, refundAmount).catch(error => {
-        logger.error('[OrderService] Refund notification failed', { error });
+        serviceLogger.error('[OrderService] Refund notification failed', { error });
       });
 
-      logger.info('[OrderService] Refund processed successfully', {
+      serviceLogger.info('[OrderService] Refund processed successfully', {
         orderId: params.orderId,
         refundId: stripeRefund.id,
         amount: refundAmount,
@@ -477,7 +480,7 @@ export class OrderService {
       };
 
     } catch (error: any) {
-      logger.error('[OrderService] Refund processing failed', { error });
+      serviceLogger.error('[OrderService] Refund processing failed', { error });
       return {
         success: false,
         error: error.message || 'Failed to process refund',
@@ -503,7 +506,7 @@ export class OrderService {
     const order = await this.storage.getOrder(params.orderId);
     if (order && params.trackingNumber) {
       this.sendTrackingNotification(order, params).catch(error => {
-        logger.error('[OrderService] Tracking notification failed', { error });
+        serviceLogger.error('[OrderService] Tracking notification failed', { error });
       });
     }
   }
@@ -558,7 +561,7 @@ export class OrderService {
 
       // Send balance payment request email
       this.sendBalancePaymentNotification(order, paymentIntent).catch(error => {
-        logger.error('[OrderService] Balance payment notification failed', { error });
+        serviceLogger.error('[OrderService] Balance payment notification failed', { error });
       });
 
       return {
@@ -568,7 +571,7 @@ export class OrderService {
       };
 
     } catch (error: any) {
-      logger.error('[OrderService] Balance payment request failed', { error });
+      serviceLogger.error('[OrderService] Balance payment request failed', { error });
       return {
         success: false,
         error: error.message || 'Failed to request balance payment',
@@ -594,14 +597,14 @@ export class OrderService {
       const order = await this.storage.getOrderByPaymentIntent(paymentIntentId);
       
       if (!order) {
-        logger.error('[OrderService] Order not found for payment intent', { paymentIntentId });
+        serviceLogger.error('[OrderService] Order not found for payment intent', { paymentIntentId });
         return {
           success: false,
           error: 'Order not found',
         };
       }
 
-      logger.info('[OrderService] Confirming payment for order', {
+      serviceLogger.info('[OrderService] Confirming payment for order', {
         orderId: order.id,
         paymentIntentId,
         amount,
@@ -615,26 +618,26 @@ export class OrderService {
           
           for (const reservation of reservations) {
             await this.inventoryService.commitReservation(reservation.id, order.id);
-            logger.info('[OrderService] Committed inventory reservation', {
+            serviceLogger.info('[OrderService] Committed inventory reservation', {
               reservationId: reservation.id,
               productId: reservation.productId,
               orderId: order.id,
             });
           }
           
-          logger.info('[OrderService] Committed all inventory reservations', {
+          serviceLogger.info('[OrderService] Committed all inventory reservations', {
             orderId: order.id,
             count: reservations.length,
           });
         } catch (inventoryError: any) {
-          logger.error('[OrderService] Failed to commit inventory reservations', {
+          serviceLogger.error('[OrderService] Failed to commit inventory reservations', {
             orderId: order.id,
             error: inventoryError.message,
           });
           // Continue with payment confirmation - inventory commit is best-effort
         }
       } else {
-        logger.warn('[OrderService] No checkout session ID provided, skipping inventory commit', {
+        serviceLogger.warn('[OrderService] No checkout session ID provided, skipping inventory commit', {
           orderId: order.id,
         });
       }
@@ -707,11 +710,11 @@ export class OrderService {
           events,
         });
       } catch (socketError) {
-        logger.error('[OrderService] Failed to emit Socket.IO update:', socketError);
+        serviceLogger.error('[OrderService] Failed to emit Socket.IO update:', { error: socketError });
         // Don't fail the operation if Socket.IO broadcast fails
       }
 
-      logger.info('[OrderService] Payment confirmed, sending notifications', {
+      serviceLogger.info('[OrderService] Payment confirmed, sending notifications', {
         orderId: order.id,
         amount,
       });
@@ -740,7 +743,7 @@ export class OrderService {
           // Send buyer confirmation
           await this.notificationService.sendOrderConfirmation(updatedOrder, seller, products);
           
-          logger.info('[OrderService] Buyer email sent, now sending seller notification', {
+          serviceLogger.info('[OrderService] Buyer email sent, now sending seller notification', {
             orderId: order.id,
             sellerId: seller.id,
             sellerEmail: seller.email ?? undefined,
@@ -750,18 +753,18 @@ export class OrderService {
           // Send seller notification
           await this.notificationService.sendSellerOrderNotification(updatedOrder, seller, products);
           
-          logger.info('[OrderService] Order confirmation emails sent', {
+          serviceLogger.info('[OrderService] Order confirmation emails sent', {
             orderId: order.id,
             amountPaid: amount,
           });
         } else {
-          logger.warn('[OrderService] Missing seller or products, skipping notifications', {
+          serviceLogger.warn('[OrderService] Missing seller or products, skipping notifications', {
             orderId: order.id,
           });
         }
       } catch (notificationError: any) {
         console.error('[OrderService] Notification error FULL DETAILS:', notificationError);
-        logger.error('[OrderService] Failed to send order notifications', {
+        serviceLogger.error('[OrderService] Failed to send order notifications', {
           orderId: order.id,
           error: notificationError.message,
           stack: notificationError.stack,
@@ -772,7 +775,7 @@ export class OrderService {
       // EARLY PAYMENT FEATURE: Create balance request immediately after deposit is paid
       if (paymentStatus === 'partially_paid' && order.balanceDueCents && order.balanceDueCents > 0) {
         try {
-          logger.info('[OrderService] Creating early balance payment request', {
+          serviceLogger.info('[OrderService] Creating early balance payment request', {
             orderId: order.id,
             balanceDueCents: order.balanceDueCents,
           });
@@ -810,18 +813,18 @@ export class OrderService {
               }
             }
             
-            logger.info('[OrderService] Early balance payment request created and email sent', {
+            serviceLogger.info('[OrderService] Early balance payment request created and email sent', {
               orderId: order.id,
               balanceRequestId: balanceResult.balanceRequest.id,
             });
           } else {
-            logger.warn('[OrderService] Failed to create early balance payment request', {
+            serviceLogger.warn('[OrderService] Failed to create early balance payment request', {
               orderId: order.id,
               error: balanceResult.error,
             });
           }
         } catch (balanceError: any) {
-          logger.error('[OrderService] Error creating early balance payment request', {
+          serviceLogger.error('[OrderService] Error creating early balance payment request', {
             orderId: order.id,
             error: balanceError.message,
           });
@@ -832,7 +835,7 @@ export class OrderService {
       return { success: true };
 
     } catch (error: any) {
-      logger.error('[OrderService] Payment confirmation failed', { 
+      serviceLogger.error('[OrderService] Payment confirmation failed', { 
         error: error.message,
         paymentIntentId,
       });
@@ -882,7 +885,7 @@ export class OrderService {
         password: null,
       });
 
-      logger.info('[OrderService] Created buyer account', {
+      serviceLogger.info('[OrderService] Created buyer account', {
         email: normalizedEmail,
         username,
       });
@@ -913,7 +916,7 @@ export class OrderService {
             )
           : undefined);
 
-      logger.info('[OrderService] Reserving stock with variant', {
+      serviceLogger.info('[OrderService] Reserving stock with variant', {
         productId: requestedItem.productId,
         directVariantId: requestedItem.variantId,
         constructedVariantId: requestedItem.variant ? this.inventoryService.getVariantId(
@@ -1151,18 +1154,18 @@ export class OrderService {
         };
       });
 
-      logger.info('[OrderService] About to insert order items', {
+      serviceLogger.info('[OrderService] About to insert order items', {
         orderId: order.id,
         itemCount: orderItemsToCreate.length,
       });
 
       await this.storage.createOrderItems(orderItemsToCreate);
-      logger.info('[OrderService] Created order items', {
+      serviceLogger.info('[OrderService] Created order items', {
         orderId: order.id,
         count: orderItemsToCreate.length,
       });
     } catch (error: any) {
-      logger.error('[OrderService] Failed to create order items', {
+      serviceLogger.error('[OrderService] Failed to create order items', {
         error: error?.message,
         orderId: order.id,
         itemCount: orderItemsToCreate.length,
@@ -1181,7 +1184,7 @@ export class OrderService {
         }
       }
     } catch (error) {
-      logger.error('[OrderService] Failed to get seller currency', { error });
+      serviceLogger.error('[OrderService] Failed to get seller currency', { error });
     }
     return 'USD';
   }
@@ -1281,7 +1284,7 @@ export class OrderService {
       // Get seller from order items (all items must be from same seller)
       const orderItems = await this.storage.getOrderItems(order.id);
       if (orderItems.length === 0) {
-        logger.error('[OrderService] Cannot send order notifications - no order items found', {
+        serviceLogger.error('[OrderService] Cannot send order notifications - no order items found', {
           orderId: order.id,
         });
         return;
@@ -1299,7 +1302,7 @@ export class OrderService {
       }
 
       if (products.length === 0) {
-        logger.error('[OrderService] Cannot send order notifications - no products found', {
+        serviceLogger.error('[OrderService] Cannot send order notifications - no products found', {
           orderId: order.id,
         });
         return;
@@ -1308,7 +1311,7 @@ export class OrderService {
       // Get seller information
       const seller = await this.storage.getUser(products[0].sellerId);
       if (!seller) {
-        logger.error('[OrderService] Cannot send order notifications - seller not found', {
+        serviceLogger.error('[OrderService] Cannot send order notifications - seller not found', {
           orderId: order.id,
           sellerId: products[0].sellerId,
         });
@@ -1318,7 +1321,7 @@ export class OrderService {
       // Send order confirmation to buyer (also creates in-app notification for seller)
       await this.notificationService.sendOrderConfirmation(order, seller, products);
 
-      logger.info('[OrderService] Order confirmation sent to buyer', {
+      serviceLogger.info('[OrderService] Order confirmation sent to buyer', {
         orderId: order.id,
         customerEmail: order.customerEmail,
       });
@@ -1326,12 +1329,12 @@ export class OrderService {
       // Send order notification email to seller
       await this.notificationService.sendSellerOrderNotification(order, seller, products);
 
-      logger.info('[OrderService] Seller order notification sent', {
+      serviceLogger.info('[OrderService] Seller order notification sent', {
         orderId: order.id,
         sellerEmail: seller.email ?? undefined,
       });
     } catch (error) {
-      logger.error('[OrderService] Failed to send order notifications', { error, orderId: order.id });
+      serviceLogger.error('[OrderService] Failed to send order notifications', { error, orderId: order.id });
     }
   }
 
@@ -1340,7 +1343,7 @@ export class OrderService {
       // Get seller from order items
       const orderItems = await this.storage.getOrderItems(order.id);
       if (orderItems.length === 0) {
-        logger.error('[OrderService] Cannot generate documents - no order items', {
+        serviceLogger.error('[OrderService] Cannot generate documents - no order items', {
           orderId: order.id,
         });
         return;
@@ -1348,7 +1351,7 @@ export class OrderService {
 
       const firstProduct = await this.storage.getProduct(orderItems[0].productId);
       if (!firstProduct) {
-        logger.error('[OrderService] Cannot generate documents - product not found', {
+        serviceLogger.error('[OrderService] Cannot generate documents - product not found', {
           orderId: order.id,
         });
         return;
@@ -1356,7 +1359,7 @@ export class OrderService {
 
       const seller = await this.storage.getUser(firstProduct.sellerId);
       if (!seller) {
-        logger.error('[OrderService] Cannot generate documents - seller not found', {
+        serviceLogger.error('[OrderService] Cannot generate documents - seller not found', {
           orderId: order.id,
         });
         return;
@@ -1368,14 +1371,14 @@ export class OrderService {
           // Check if invoice already exists
           const existingInvoices = await this.storage.getInvoicesByOrderId(order.id);
           if (existingInvoices.length > 0) {
-            logger.info('[OrderService] Invoice already exists for order', {
+            serviceLogger.info('[OrderService] Invoice already exists for order', {
               orderId: order.id,
               invoiceId: existingInvoices[0].id,
             });
             return;
           }
 
-          logger.info('[OrderService] Generating invoice for order', {
+          serviceLogger.info('[OrderService] Generating invoice for order', {
             orderId: order.id,
             sellerId: seller.id,
           });
@@ -1389,7 +1392,7 @@ export class OrderService {
           try {
             parsedAddress = JSON.parse(order.customerAddress);
           } catch (e) {
-            logger.warn('[OrderService] Failed to parse customerAddress', { orderId: order.id });
+            serviceLogger.warn('[OrderService] Failed to parse customerAddress', { orderId: order.id });
           }
 
           const invoiceData: InvoiceData = {
@@ -1445,13 +1448,13 @@ export class OrderService {
             generationTrigger: 'auto_on_payment',
           });
 
-          logger.info('[OrderService] Invoice generated successfully', {
+          serviceLogger.info('[OrderService] Invoice generated successfully', {
             orderId: order.id,
             invoiceNumber,
             documentUrl,
           });
         } catch (error) {
-          logger.error('[OrderService] Invoice generation failed', { error, orderId: order.id });
+          serviceLogger.error('[OrderService] Invoice generation failed', { error, orderId: order.id });
         }
       }
 
@@ -1461,14 +1464,14 @@ export class OrderService {
           // Check if packing slip already exists
           const existingSlips = await this.storage.getPackingSlipsByOrderId(order.id);
           if (existingSlips.length > 0) {
-            logger.info('[OrderService] Packing slip already exists for order', {
+            serviceLogger.info('[OrderService] Packing slip already exists for order', {
               orderId: order.id,
               slipId: existingSlips[0].id,
             });
             return;
           }
 
-          logger.info('[OrderService] Generating packing slip for order', {
+          serviceLogger.info('[OrderService] Generating packing slip for order', {
             orderId: order.id,
             sellerId: seller.id,
           });
@@ -1482,7 +1485,7 @@ export class OrderService {
           try {
             parsedAddress = JSON.parse(order.customerAddress);
           } catch (e) {
-            logger.warn('[OrderService] Failed to parse customerAddress', { orderId: order.id });
+            serviceLogger.warn('[OrderService] Failed to parse customerAddress', { orderId: order.id });
           }
 
           const packingSlipData: PackingSlipData = {
@@ -1525,17 +1528,17 @@ export class OrderService {
             generationTrigger: 'auto_on_ready_to_ship',
           });
 
-          logger.info('[OrderService] Packing slip generated successfully', {
+          serviceLogger.info('[OrderService] Packing slip generated successfully', {
             orderId: order.id,
             packingSlipNumber,
             documentUrl,
           });
         } catch (error) {
-          logger.error('[OrderService] Packing slip generation failed', { error, orderId: order.id });
+          serviceLogger.error('[OrderService] Packing slip generation failed', { error, orderId: order.id });
         }
       }
     } catch (error) {
-      logger.error('[OrderService] Status change document handling failed', { error, orderId: order.id });
+      serviceLogger.error('[OrderService] Status change document handling failed', { error, orderId: order.id });
     }
   }
 
@@ -1544,7 +1547,7 @@ export class OrderService {
       // Get seller from order items
       const orderItems = await this.storage.getOrderItems(order.id);
       if (orderItems.length === 0) {
-        logger.error('[OrderService] Cannot send refund notification - no order items', {
+        serviceLogger.error('[OrderService] Cannot send refund notification - no order items', {
           orderId: order.id,
         });
         return;
@@ -1552,7 +1555,7 @@ export class OrderService {
 
       const firstProduct = await this.storage.getProduct(orderItems[0].productId);
       if (!firstProduct) {
-        logger.error('[OrderService] Cannot send refund notification - product not found', {
+        serviceLogger.error('[OrderService] Cannot send refund notification - product not found', {
           orderId: order.id,
         });
         return;
@@ -1560,7 +1563,7 @@ export class OrderService {
 
       const seller = await this.storage.getUser(firstProduct.sellerId);
       if (!seller) {
-        logger.error('[OrderService] Cannot send refund notification - seller not found', {
+        serviceLogger.error('[OrderService] Cannot send refund notification - seller not found', {
           orderId: order.id,
         });
         return;
@@ -1570,7 +1573,7 @@ export class OrderService {
       const refundedItem = orderItems.find(item => parseFloat(item.refundedAmount || '0') > 0);
 
       if (!refundedItem) {
-        logger.warn('[OrderService] No refunded items found for notification', { orderId: order.id });
+        serviceLogger.warn('[OrderService] No refunded items found for notification', { orderId: order.id });
         return;
       }
 
@@ -1588,13 +1591,13 @@ export class OrderService {
         refundedItemsData
       );
 
-      logger.info('[OrderService] Refund notification sent', {
+      serviceLogger.info('[OrderService] Refund notification sent', {
         orderId: order.id,
         customerEmail: order.customerEmail,
         amount,
       });
     } catch (error) {
-      logger.error('[OrderService] Failed to send refund notification', { error, orderId: order.id });
+      serviceLogger.error('[OrderService] Failed to send refund notification', { error, orderId: order.id });
     }
   }
 
@@ -1606,7 +1609,7 @@ export class OrderService {
       // Get seller from order items
       const orderItems = await this.storage.getOrderItems(order.id);
       if (orderItems.length === 0) {
-        logger.error('[OrderService] Cannot send tracking notification - no order items', {
+        serviceLogger.error('[OrderService] Cannot send tracking notification - no order items', {
           orderId: order.id,
         });
         return;
@@ -1614,7 +1617,7 @@ export class OrderService {
 
       const firstProduct = await this.storage.getProduct(orderItems[0].productId);
       if (!firstProduct) {
-        logger.error('[OrderService] Cannot send tracking notification - product not found', {
+        serviceLogger.error('[OrderService] Cannot send tracking notification - product not found', {
           orderId: order.id,
         });
         return;
@@ -1622,7 +1625,7 @@ export class OrderService {
 
       const seller = await this.storage.getUser(firstProduct.sellerId);
       if (!seller) {
-        logger.error('[OrderService] Cannot send tracking notification - seller not found', {
+        serviceLogger.error('[OrderService] Cannot send tracking notification - seller not found', {
           orderId: order.id,
         });
         return;
@@ -1634,13 +1637,13 @@ export class OrderService {
       // Send order shipped notification with tracking info
       await this.notificationService.sendOrderShipped(updatedOrder, seller);
 
-      logger.info('[OrderService] Tracking notification sent', {
+      serviceLogger.info('[OrderService] Tracking notification sent', {
         orderId: order.id,
         customerEmail: order.customerEmail,
         trackingNumber: tracking.trackingNumber,
       });
     } catch (error) {
-      logger.error('[OrderService] Failed to send tracking notification', { error, orderId: order.id });
+      serviceLogger.error('[OrderService] Failed to send tracking notification', { error, orderId: order.id });
     }
   }
 
@@ -1652,7 +1655,7 @@ export class OrderService {
       // Get seller from order items
       const orderItems = await this.storage.getOrderItems(order.id);
       if (orderItems.length === 0) {
-        logger.error('[OrderService] Cannot send balance payment notification - no order items', {
+        serviceLogger.error('[OrderService] Cannot send balance payment notification - no order items', {
           orderId: order.id,
         });
         return;
@@ -1660,7 +1663,7 @@ export class OrderService {
 
       const firstProduct = await this.storage.getProduct(orderItems[0].productId);
       if (!firstProduct) {
-        logger.error('[OrderService] Cannot send balance payment notification - product not found', {
+        serviceLogger.error('[OrderService] Cannot send balance payment notification - product not found', {
           orderId: order.id,
         });
         return;
@@ -1668,7 +1671,7 @@ export class OrderService {
 
       const seller = await this.storage.getUser(firstProduct.sellerId);
       if (!seller) {
-        logger.error('[OrderService] Cannot send balance payment notification - seller not found', {
+        serviceLogger.error('[OrderService] Cannot send balance payment notification - seller not found', {
           orderId: order.id,
         });
         return;
@@ -1677,20 +1680,20 @@ export class OrderService {
       // NOTE: This method uses old architecture - balance payment requests should use BalancePaymentService
       // For now, we skip sending email here as the proper flow is handled in confirmPayment method
       // The BalancePaymentService creates balanceRequest and sessionToken, then sends email
-      logger.info('[OrderService] Skipping balance payment notification - handled by BalancePaymentService', {
+      serviceLogger.info('[OrderService] Skipping balance payment notification - handled by BalancePaymentService', {
         orderId: order.id,
       });
 
       // Calculate balance amount for logging
       const balanceAmount = paymentIntent.amount / this.getCurrencyDivisor(paymentIntent.currency || 'usd');
 
-      logger.info('[OrderService] Balance payment notification sent', {
+      serviceLogger.info('[OrderService] Balance payment notification sent', {
         orderId: order.id,
         customerEmail: order.customerEmail,
         balanceAmount,
       });
     } catch (error) {
-      logger.error('[OrderService] Failed to send balance payment notification', { error, orderId: order.id });
+      serviceLogger.error('[OrderService] Failed to send balance payment notification', { error, orderId: order.id });
     }
   }
 
@@ -1821,7 +1824,7 @@ export class OrderService {
       }
     });
 
-    logger.info('[OrderService] Created buyer account in transaction', {
+    serviceLogger.info('[OrderService] Created buyer account in transaction', {
       email: normalizedEmail,
       username,
       userId: newUserId,
@@ -2101,7 +2104,7 @@ export class OrderService {
         };
       });
 
-      logger.info('[OrderService] Creating order items in transaction', {
+      serviceLogger.info('[OrderService] Creating order items in transaction', {
         orderId: order.id,
         itemCount: orderItemsToCreate.length,
       });
@@ -2111,12 +2114,12 @@ export class OrderService {
         data: orderItemsToCreate
       });
 
-      logger.info('[OrderService] Order items created in transaction', {
+      serviceLogger.info('[OrderService] Order items created in transaction', {
         orderId: order.id,
         count: orderItemsToCreate.length,
       });
     } catch (error: any) {
-      logger.error('[OrderService] Failed to create order items in transaction', {
+      serviceLogger.error('[OrderService] Failed to create order items in transaction', {
         error: error?.message,
         orderId: order.id,
       });
@@ -2141,7 +2144,7 @@ export class OrderService {
       });
 
       if (reservations.length === 0) {
-        logger.warn('[OrderService] No reservations found for session', { checkoutSessionId });
+        serviceLogger.warn('[OrderService] No reservations found for session', { checkoutSessionId });
         return { success: true, committed: 0 };
       }
 
@@ -2155,7 +2158,7 @@ export class OrderService {
         }
       });
 
-      logger.info('[OrderService] Committed inventory reservations in transaction', {
+      serviceLogger.info('[OrderService] Committed inventory reservations in transaction', {
         checkoutSessionId,
         orderId,
         committed: updateResult.count,
@@ -2166,7 +2169,7 @@ export class OrderService {
         committed: updateResult.count,
       };
     } catch (error: any) {
-      logger.error('[OrderService] Failed to commit reservations in transaction', {
+      serviceLogger.error('[OrderService] Failed to commit reservations in transaction', {
         checkoutSessionId,
         orderId,
         error: error.message,
