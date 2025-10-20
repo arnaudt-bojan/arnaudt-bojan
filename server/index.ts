@@ -33,11 +33,16 @@ import { startDomainStatusChecker } from "./jobs/domain-status-checker";
 import { proxyMiddleware, logProxyStats } from "./middleware/proxy.middleware";
 import { featureFlagsService } from "./services/feature-flags.service";
 import { correlationMiddleware } from "./middleware/correlation.middleware";
+import { metricsMiddleware } from "./middleware/metrics";
+import { register } from "./metrics";
 import Stripe from "stripe";
 import { prisma } from "./prisma";
 import { initializeCache, getCache } from "./cache";
 
 const app = express();
+
+// Export app for testing
+export { app };
 
 // Trust proxy if behind load balancer (for rate limiting by real IP)
 app.set('trust proxy', true);
@@ -68,6 +73,9 @@ app.use(sanitizeInputMiddleware);
 // Correlation ID middleware - establishes request context with X-Request-ID
 // Mount early to ensure correlation ID available for all downstream middleware
 app.use(correlationMiddleware);
+
+// Prometheus metrics middleware - instruments all requests
+app.use(metricsMiddleware);
 
 // NOTE: Rate limiting middleware will be applied after routes are registered
 // This allows health endpoints to be exempt from rate limiting
@@ -289,6 +297,50 @@ app.get('/api/health/ready', async (_req, res) => {
     timestamp: new Date().toISOString(),
     checks,
   });
+});
+
+/**
+ * Health Check (Kubernetes/Docker compatible)
+ * GET /healthz
+ * 
+ * Simplified health check endpoint for container orchestration.
+ * Returns 200 if healthy, 503 if unhealthy.
+ */
+app.get('/healthz', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()),
+      database: 'connected'
+    });
+  } catch (error: any) {
+    res.status(503).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Prometheus Metrics Endpoint
+ * GET /metrics
+ * 
+ * Exposes application metrics in Prometheus format.
+ * Includes:
+ * - API request latency (histogram)
+ * - API error counts (counter)
+ * - API request counts (counter)
+ * - Email metrics (counter)
+ * - Order metrics (counter, histogram)
+ * - Database query duration (histogram)
+ * - Active connections (gauge)
+ */
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
 });
 
 // Socket.IO metrics endpoint (for monitoring and alerting)

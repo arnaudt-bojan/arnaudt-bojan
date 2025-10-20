@@ -127,3 +127,56 @@ export async function cleanDatabase(): Promise<void> {
   const testDb = TestDatabase.getInstance();
   await testDb.cleanup();
 }
+
+export interface AuditLogEntry {
+  id: number;
+  table_name: string;
+  operation: string;
+  row_id: string;
+  old_data: any;
+  new_data: any;
+  changed_at: Date;
+}
+
+export async function getAuditLog(tableName?: string): Promise<AuditLogEntry[]> {
+  const testDb = TestDatabase.getInstance();
+  const prisma = testDb.getPrisma();
+  
+  if (tableName) {
+    return await prisma.$queryRaw`
+      SELECT * FROM test_audit_log
+      WHERE table_name = ${tableName}
+      ORDER BY changed_at DESC
+    `;
+  }
+  
+  return await prisma.$queryRaw`
+    SELECT * FROM test_audit_log
+    ORDER BY changed_at DESC
+  `;
+}
+
+export async function clearAuditLog(): Promise<void> {
+  const testDb = TestDatabase.getInstance();
+  const prisma = testDb.getPrisma();
+  
+  await prisma.$executeRaw`DELETE FROM test_audit_log`;
+}
+
+export async function getAuditLogCount(tableName?: string): Promise<number> {
+  const testDb = TestDatabase.getInstance();
+  const prisma = testDb.getPrisma();
+  
+  if (tableName) {
+    const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) as count FROM test_audit_log
+      WHERE table_name = ${tableName}
+    `;
+    return Number(result[0].count);
+  }
+  
+  const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT COUNT(*) as count FROM test_audit_log
+  `;
+  return Number(result[0].count);
+}

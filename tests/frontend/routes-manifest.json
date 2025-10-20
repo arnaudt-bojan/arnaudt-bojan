@@ -1,0 +1,410 @@
+[
+  {
+    "path": "/",
+    "component": "SellerStorefront",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/products/:id",
+    "component": "ProductDetail",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/checkout",
+    "component": "Checkout",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/checkout/complete",
+    "component": "CheckoutComplete",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/email-login",
+    "component": "EmailLogin",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/auth/magic",
+    "component": "MagicLinkVerify",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/login",
+    "component": "Login",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/dashboard",
+    "component": "DashboardRedirect",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/order-success/:orderId",
+    "component": "OrderSuccess",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/orders/:orderId/pay-balance",
+    "component": "BalancePayment",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/accept-invitation",
+    "component": "AcceptInvitation",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/help",
+    "component": "Help",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/privacy",
+    "component": "Privacy",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/terms",
+    "component": "Terms",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/trade/view/:token",
+    "component": "TradeQuotationView",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/accept/:token",
+    "component": "WholesaleAcceptInvitation",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/",
+    "component": "Home",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/experience",
+    "component": "ExperiencePage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/s/:username",
+    "component": "SellerStorefront",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/s/:username/products/:id",
+    "component": "ProductDetail",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/s/:username/checkout",
+    "component": "Checkout",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/s/:username/checkout/complete",
+    "component": "CheckoutComplete",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/s/:username/order-success/:orderId",
+    "component": "OrderSuccess",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/catalog",
+    "component": "BuyerCatalog",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/catalog/:productId",
+    "component": "WholesaleProductDetailPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/cart",
+    "component": "WholesaleCartPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/checkout",
+    "component": "WholesaleCheckoutPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/orders/:orderId/confirmation",
+    "component": "OrderConfirmationPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/product/:id",
+    "component": "WholesaleProductDetail",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/buyer-dashboard",
+    "component": "BuyerDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/orders/:orderId",
+    "component": "BuyerOrderDetails",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller-dashboard",
+    "component": "SellerDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/dashboard",
+    "component": "SellerDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/products",
+    "component": "SellerProducts",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/dashboard/products",
+    "component": "SellerProducts",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/dashboard/orders",
+    "component": "SellerOrdersPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/create-product",
+    "component": "CreateProduct",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/bulk-upload",
+    "component": "BulkProductUpload",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/products/:id/edit",
+    "component": "EditProduct",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/orders",
+    "component": "SellerOrdersPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/wallet",
+    "component": "SellerWallet",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/analytics",
+    "component": "SellerAnalytics",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/settings",
+    "component": "Settings",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/quick-access",
+    "component": "QuickAccess",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/team",
+    "component": "Team",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/meta-ads/dashboard",
+    "component": "MetaAdsDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/meta-ads/create",
+    "component": "CreateAdWizard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/meta-ads/analytics",
+    "component": "MetaAdsAnalytics",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/newsletter",
+    "component": "SellerNewsletterPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/campaigns",
+    "component": "Campaigns",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/subscription-success",
+    "component": "SubscriptionSuccess",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/meta-oauth-success",
+    "component": "MetaOAuthSuccess",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/dashboard",
+    "component": "WholesaleDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/products",
+    "component": "WholesaleProducts",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/products/create",
+    "component": "CreateWholesaleProduct",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/orders",
+    "component": "WholesaleOrdersPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/buyers",
+    "component": "WholesaleBuyersPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/preview",
+    "component": "WholesalePreviewPage",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/wholesale/invitations",
+    "component": "WholesaleInvitations",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/trade/quotations",
+    "component": "TradeQuotationsList",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/trade/quotations/new",
+    "component": "TradeQuotationBuilder",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/trade/quotations/:id/edit",
+    "component": "TradeQuotationBuilder",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/trade/dashboard",
+    "component": "TradeDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/trade/orders",
+    "component": "TradeOrders",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/wholesale/products",
+    "component": "WholesaleProducts",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/wholesale/create-product",
+    "component": "CreateWholesaleProduct",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/seller/wholesale/invitations",
+    "component": "WholesaleInvitations",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  },
+  {
+    "path": "/admin",
+    "component": "AdminDashboard",
+    "file": "/home/runner/workspace/client/src/App.tsx",
+    "isProtected": false
+  }
+]

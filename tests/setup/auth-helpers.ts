@@ -59,7 +59,7 @@ export async function createAuthSession(
 
   return {
     userId: user.id,
-    email: user.email,
+    email: user.email || email,
     userType,
     sessionCookie,
   };
