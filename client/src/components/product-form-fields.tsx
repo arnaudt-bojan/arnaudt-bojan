@@ -382,50 +382,61 @@ export function ProductFormFields({
 
       {/* Product Type Selection - Retail Only */}
       {(!mode || mode === "retail") && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Choose Product Type</h2>
-            <p className="text-muted-foreground">Select how this product will be fulfilled</p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {productTypes.map((type) => {
-              const Icon = type.icon;
-              const isSelected = selectedType === type.value;
-              
-              return (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => form.setValue("productType", type.value as any)}
-                  className={cn(
-                    "relative group p-6 rounded-xl border-2 transition-all text-left hover-elevate active-elevate-2",
-                    isSelected 
-                      ? `${type.activeBg} ${type.borderColor} ring-2 ${type.ringColor}` 
-                      : "border-border bg-card",
-                  )}
-                  data-testid={`button-product-type-${type.value}`}
-                >
-                  {isSelected && (
-                    <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
-                      <Check className="h-4 w-4 text-primary-foreground" />
-                    </div>
-                  )}
-                  
-                  <div className={cn(
-                    "rounded-lg p-3 w-fit mb-4 transition-colors bg-gradient-to-br",
-                    type.gradient
-                  )}>
-                    <Icon className={cn("h-6 w-6", type.iconColor)} />
+        <FormField
+          control={form.control}
+          name="productType"
+          render={({ field }) => (
+            <FormItem>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold">Choose Product Type</h2>
+                  <p className="text-muted-foreground">Select how this product will be fulfilled</p>
+                </div>
+                
+                <FormControl>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {productTypes.map((type) => {
+                      const Icon = type.icon;
+                      const isSelected = selectedType === type.value;
+                      
+                      return (
+                        <button
+                          key={type.value}
+                          type="button"
+                          onClick={() => field.onChange(type.value)}
+                          className={cn(
+                            "relative group p-6 rounded-xl border-2 transition-all text-left hover-elevate active-elevate-2",
+                            isSelected 
+                              ? `${type.activeBg} ${type.borderColor} ring-2 ${type.ringColor}` 
+                              : "border-border bg-card",
+                          )}
+                          data-testid={`button-product-type-${type.value}`}
+                        >
+                          {isSelected && (
+                            <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
+                              <Check className="h-4 w-4 text-primary-foreground" />
+                            </div>
+                          )}
+                          
+                          <div className={cn(
+                            "rounded-lg p-3 w-fit mb-4 transition-colors bg-gradient-to-br",
+                            type.gradient
+                          )}>
+                            <Icon className={cn("h-6 w-6", type.iconColor)} />
+                          </div>
+                          
+                          <h3 className="font-semibold text-lg mb-1">{type.label}</h3>
+                          <p className="text-sm text-muted-foreground">{type.description}</p>
+                        </button>
+                      );
+                    })}
                   </div>
-                  
-                  <h3 className="font-semibold text-lg mb-1">{type.label}</h3>
-                  <p className="text-sm text-muted-foreground">{type.description}</p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                </FormControl>
+                <FormMessage />
+              </div>
+            </FormItem>
+          )}
+        />
       )}
 
       {/* Basic Information */}

@@ -764,6 +764,75 @@ function mapSubscriberGroupFromPrisma(sg: any): any {
   };
 }
 
+function mapSubscriberGroupMembershipFromPrisma(sgm: any): any {
+  if (!sgm) return sgm;
+  return {
+    ...sgm,
+    subscriberId: sgm.subscriber_id,
+    groupId: sgm.group_id,
+    createdAt: sgm.created_at,
+  };
+}
+
+function mapNewsletterSegmentFromPrisma(ns: any): any {
+  if (!ns) return ns;
+  return {
+    ...ns,
+    userId: ns.user_id,
+    subscriberCount: ns.subscriber_count,
+    lastEvaluatedAt: ns.last_evaluated_at,
+    createdAt: ns.created_at,
+    updatedAt: ns.updated_at,
+  };
+}
+
+function mapNewsletterScheduleFromPrisma(nsch: any): any {
+  if (!nsch) return nsch;
+  return {
+    ...nsch,
+    campaignId: nsch.campaign_id,
+    scheduledAt: nsch.scheduled_at,
+    lockedAt: nsch.locked_at,
+    lockedBy: nsch.locked_by,
+    sentAt: nsch.sent_at,
+    createdAt: nsch.created_at,
+  };
+}
+
+function mapNewsletterABTestFromPrisma(nabt: any): any {
+  if (!nabt) return nabt;
+  return {
+    ...nabt,
+    campaignId: nabt.campaign_id,
+    variantASubject: nabt.variant_a_subject,
+    variantAContent: nabt.variant_a_content,
+    variantBSubject: nabt.variant_b_subject,
+    variantBContent: nabt.variant_b_content,
+    splitPercentage: nabt.split_percentage,
+    winnerMetric: nabt.winner_metric,
+    winnerId: nabt.winner_id,
+    variantASent: nabt.variant_a_sent,
+    variantAOpened: nabt.variant_a_opened,
+    variantAClicked: nabt.variant_a_clicked,
+    variantBSent: nabt.variant_b_sent,
+    variantBOpened: nabt.variant_b_opened,
+    variantBClicked: nabt.variant_b_clicked,
+  };
+}
+
+function mapNewsletterEventFromPrisma(ne: any): any {
+  if (!ne) return ne;
+  return {
+    ...ne,
+    newsletterId: ne.newsletter_id,
+    recipientEmail: ne.recipient_email,
+    eventType: ne.event_type,
+    eventData: ne.event_data,
+    webhookEventId: ne.webhook_event_id,
+    createdAt: ne.created_at,
+  };
+}
+
 function mapUserStoreRoleFromPrisma(usr: any): any {
   if (!usr) return usr;
   return {
@@ -776,11 +845,12 @@ function mapUserStoreRoleFromPrisma(usr: any): any {
 
 function mapCategoryFromPrisma(c: any): any {
   if (!c) return c;
+  const { parent_id, created_at, updated_at, ...rest } = c;
   return {
-    ...c,
-    parentId: c.parent_id,
-    createdAt: c.created_at,
-    updatedAt: c.updated_at,
+    ...rest,
+    parentId: parent_id,
+    createdAt: created_at,
+    updatedAt: updated_at,
   };
 }
 
@@ -2538,8 +2608,8 @@ export class DatabaseStorage implements IStorage {
       const result = await prisma.orders.update({
         where: { id },
         data: {
-          trackingNumber,
-          trackingLink
+          tracking_number: trackingNumber,
+          tracking_link: trackingLink
         }
       });
       return result;
@@ -2553,7 +2623,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.orders.update({
         where: { id },
-        data: { stripeBalancePaymentIntentId: paymentIntentId }
+        data: { stripe_balance_payment_intent_id: paymentIntentId }
       });
       return result;
     } catch (error) {
@@ -3257,7 +3327,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.order_workflows.update({
         where: { id },
-        data: { retryCount, lastRetryAt: new Date(), updatedAt: new Date() }
+        data: { retry_count: retryCount, last_retry_at: new Date(), updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -3281,7 +3351,7 @@ export class DatabaseStorage implements IStorage {
     await this.ensureInitialized();
     const result = await prisma.users.update({
       where: { id: userId },
-      data: { role, updatedAt: new Date() }
+      data: { role, updated_at: new Date() }
     });
     return mapUserFromPrisma(result);
   }
@@ -3325,7 +3395,7 @@ export class DatabaseStorage implements IStorage {
       await prisma.users.delete({
         where: {
           id: userId,
-          sellerId: sellerId
+          seller_id: sellerId
         }
       });
       return true;
@@ -3589,7 +3659,7 @@ export class DatabaseStorage implements IStorage {
   async updateStoreInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<StoreInvitation | undefined> {
     await this.ensureInitialized();
     const updates: any = { status };
-    if (acceptedAt) updates.acceptedAt = acceptedAt;
+    if (acceptedAt) updates.accepted_at = acceptedAt;
     const result = await prisma.store_invitations.update({
       where: { id },
       data: updates
@@ -3617,7 +3687,7 @@ export class DatabaseStorage implements IStorage {
   async getWholesaleInvitationsBySeller(sellerId: string): Promise<WholesaleInvitation[]> {
     await this.ensureInitialized();
     return await prisma.wholesale_invitations.findMany({
-      where: { sellerId }
+      where: { seller_id: sellerId }
     });
   }
 
@@ -3631,7 +3701,7 @@ export class DatabaseStorage implements IStorage {
   async updateWholesaleInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<WholesaleInvitation | undefined> {
     await this.ensureInitialized();
     const updates: any = { status };
-    if (acceptedAt) updates.acceptedAt = acceptedAt;
+    if (acceptedAt) updates.accepted_at = acceptedAt;
     try {
       const result = await prisma.wholesale_invitations.update({
         where: { id },
@@ -3666,7 +3736,7 @@ export class DatabaseStorage implements IStorage {
         where: { token },
         data: { 
           status: "accepted", 
-          acceptedAt: new Date() 
+          accepted_at: new Date() 
         }
       });
       return result;
@@ -4147,12 +4217,12 @@ export class DatabaseStorage implements IStorage {
 
   async createNewsletterAnalytics(analytics: InsertNewsletterAnalytics): Promise<NewsletterAnalytics> {
     await this.ensureInitialized();
-    const existing = await this.getNewsletterAnalytics(analytics.newsletterId);
+    const existing = await this.getNewsletterAnalytics(analytics.newsletter_id);
     if (existing) {
       const result = await prisma.newsletter_analytics.update({
-        where: { newsletter_id: analytics.newsletterId },
+        where: { newsletter_id: analytics.newsletter_id },
         data: {
-          total_sent: (existing.totalSent || 0) + (analytics.totalSent || 0),
+          total_sent: (existing.total_sent || 0) + (analytics.total_sent || 0),
           last_updated: new Date()
         }
       });
@@ -4183,7 +4253,7 @@ export class DatabaseStorage implements IStorage {
       return mapNewsletterEventFromPrisma(result);
     } catch (error: any) {
       if (error.code === 'P2002' || error.code === '23505' || error.message?.includes('unique constraint')) {
-        console.log('[Storage] Duplicate newsletter event, skipping:', event.eventType, event.recipientEmail);
+        console.log('[Storage] Duplicate newsletter event, skipping:', event.event_type, event.recipient_email);
         return null;
       }
       logger.error("[Storage] Newsletter event creation error:", error);
@@ -4720,7 +4790,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.wholesale_payment_intents.update({
         where: { id },
-        data: { status: status as any, updatedAt: new Date() }
+        data: { status: status as any, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -4739,7 +4809,7 @@ export class DatabaseStorage implements IStorage {
   async getShippingMetadataByOrderId(orderId: string): Promise<WholesaleShippingMetadata | undefined> {
     await this.ensureInitialized();
     const result = await prisma.wholesale_shipping_metadata.findFirst({
-      where: { orderId }
+      where: { order_id: orderId }
     });
     return result ?? undefined;
   }
@@ -4749,7 +4819,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const result = await prisma.wholesale_shipping_metadata.update({
         where: { id },
-        data: { ...data, updatedAt: new Date() }
+        data: { ...data, updated_at: new Date() }
       });
       return result;
     } catch (error) {
@@ -4939,28 +5009,31 @@ export class DatabaseStorage implements IStorage {
   // Categories Methods
   async getAllCategories(): Promise<Category[]> {
     await this.ensureInitialized();
-    return await prisma.categories.findMany({
+    const categories = await prisma.categories.findMany({
       orderBy: [
         { level: 'asc' },
         { name: 'asc' }
       ]
     });
+    return categories.map(mapCategoryFromPrisma);
   }
 
   async getCategoriesByLevel(level: number): Promise<Category[]> {
     await this.ensureInitialized();
-    return await prisma.categories.findMany({
+    const categories = await prisma.categories.findMany({
       where: { level },
       orderBy: { name: 'asc' }
     });
+    return categories.map(mapCategoryFromPrisma);
   }
 
   async getCategoriesByParentId(parentId: string | null): Promise<Category[]> {
     await this.ensureInitialized();
-    return await prisma.categories.findMany({
+    const categories = await prisma.categories.findMany({
       where: { parent_id: parentId },
       orderBy: { name: 'asc' }
     });
+    return categories.map(mapCategoryFromPrisma);
   }
 
   async getCategory(id: string): Promise<Category | undefined> {
@@ -4968,26 +5041,35 @@ export class DatabaseStorage implements IStorage {
     const result = await prisma.categories.findUnique({
       where: { id }
     });
-    return result ?? undefined;
+    return result ? mapCategoryFromPrisma(result) : undefined;
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
     await this.ensureInitialized();
-    return await prisma.categories.create({
-      data: category
+    const data: any = { ...category };
+    if ('parentId' in data) {
+      data.parent_id = data.parentId;
+      delete data.parentId;
+    }
+    const result = await prisma.categories.create({
+      data
     });
+    return mapCategoryFromPrisma(result);
   }
 
   async updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined> {
     await this.ensureInitialized();
+    const data: any = { ...category };
+    if ('parentId' in data) {
+      data.parent_id = data.parentId;
+      delete data.parentId;
+    }
+    data.updated_at = new Date();
     const result = await prisma.categories.update({
       where: { id },
-      data: {
-        ...category,
-        updated_at: new Date()
-      }
+      data
     });
-    return result ?? undefined;
+    return result ? mapCategoryFromPrisma(result) : undefined;
   }
 
   async deleteCategory(id: string): Promise<boolean> {
