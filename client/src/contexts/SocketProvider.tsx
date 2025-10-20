@@ -15,18 +15,36 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // CRITICAL FIX: Use WebSocket-only transport to avoid Vite middleware interception
-    // Vite's catch-all route intercepts Engine.IO polling requests
-    // WebSocket connections work because they use HTTP upgrade mechanism
-    const socketInstance = io({
+    // DEBUG: Explicitly specify full WebSocket URL for Replit environment
+    // Build WebSocket URL from current location
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}`;
+    
+    console.log('[Socket.IO] Attempting connection:', {
+      wsUrl,
+      path: '/socket.io/',
+      transports: ['websocket'],
+      withCredentials: true
+    });
+    
+    const socketInstance = io(wsUrl, {
       path: '/socket.io/',
       withCredentials: true,
-      transports: ['websocket'], // WebSocket-only, skip polling
-      upgrade: false, // Don't try to upgrade from polling to websocket
+      transports: ['websocket'], // WebSocket-only
+      upgrade: false,
+      // Production-ready: Infinite retries with exponential backoff
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000, // Start with 1s
+      reconnectionDelayMax: 5000, // Max 5s between retries
+      timeout: 10000, // 10s connection timeout
     });
 
     socketInstance.on('connect', () => {
-      console.log('[Socket.IO] Connected:', socketInstance.id);
+      console.log('[Socket.IO] ✅ CONNECTED!', {
+        id: socketInstance.id,
+        transport: socketInstance.io.engine.transport.name
+      });
       setIsConnected(true);
     });
 
@@ -36,7 +54,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     socketInstance.on('connect_error', (error) => {
-      console.error('[Socket.IO] Connection error:', error.message);
+      console.error('[Socket.IO] Connection error:', {
+        message: error.message,
+        description: error.description,
+        type: error.type,
+        stack: error.stack,
+      });
     });
 
     setSocket(socketInstance);

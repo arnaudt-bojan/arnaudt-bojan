@@ -212,7 +212,10 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
         url: err.req?.url,
         headers: err.req?.headers ? {
           origin: err.req.headers.origin,
-          cookie: err.req.headers.cookie ? 'present' : 'missing'
+          'user-agent': err.req.headers['user-agent'],
+          cookie: err.req.headers.cookie ? `present (${err.req.headers.cookie.substring(0, 50)}...)` : 'MISSING',
+          'sec-websocket-key': err.req.headers['sec-websocket-key'] ? 'present' : 'missing',
+          upgrade: err.req.headers.upgrade,
         } : 'no headers'
       }
     });
