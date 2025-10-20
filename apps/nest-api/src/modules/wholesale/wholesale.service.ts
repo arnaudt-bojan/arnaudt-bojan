@@ -389,20 +389,68 @@ export class WholesaleService {
     sellerId?: string;
     buyerId?: string;
     status?: string;
+    first?: number;
+    after?: string;
   }) {
-    const { sellerId, buyerId, status } = args;
+    const { sellerId, buyerId, status, first = 20, after } = args;
 
+    // Enforce max 100 limit (Relay pagination best practice)
+    const take = Math.min(first, 100);
+
+    // Decode cursor
+    let cursor;
+    if (after) {
+      try {
+        const decoded = JSON.parse(Buffer.from(after, 'base64').toString('utf-8'));
+        cursor = { id: decoded.id };
+      } catch (e) {
+        throw new GraphQLError('Invalid cursor', {
+          extensions: { code: 'BAD_REQUEST' },
+        });
+      }
+    }
+
+    // Build where clause
     const where: any = {};
     if (sellerId) where.seller_id = sellerId;
     if (buyerId) where.buyer_id = buyerId;
     if (status) where.status = status.toLowerCase();
 
+    // Fetch orders with cursor pagination
     const orders = await this.prisma.wholesale_orders.findMany({
       where,
       orderBy: { created_at: 'desc' },
+      take: take + 1,
+      ...(cursor && { skip: 1, cursor }),
     });
 
-    return orders.map(order => this.mapWholesaleOrderToGraphQL(order));
+    // Calculate hasNextPage
+    const hasNextPage = orders.length > take;
+    const nodes = hasNextPage ? orders.slice(0, take) : orders;
+
+    // Get total count
+    const totalCount = await this.prisma.wholesale_orders.count({ where });
+
+    // Map to GraphQL format
+    const mappedOrders = nodes.map(order => this.mapWholesaleOrderToGraphQL(order));
+
+    // Build edges
+    const edges = mappedOrders.map((node, index) => ({
+      cursor: Buffer.from(JSON.stringify({ id: nodes[index].id })).toString('base64'),
+      node,
+    }));
+
+    // Return connection-shaped response
+    return {
+      edges,
+      pageInfo: {
+        hasNextPage,
+        hasPreviousPage: !!after,
+        startCursor: edges.length > 0 ? edges[0].cursor : null,
+        endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null,
+      },
+      totalCount,
+    };
   }
 
   async getWholesaleOrder(orderId: string) {

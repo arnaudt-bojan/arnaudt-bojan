@@ -172,25 +172,14 @@ export class WholesaleQueryResolver {
     @Args('after') after: string | undefined,
     @CurrentUser() userId: string,
   ) {
-    const orders = await this.wholesaleService.getWholesaleOrders({
+    // Service now returns connection-shaped response with proper pagination
+    return this.wholesaleService.getWholesaleOrders({
       sellerId: filter?.sellerId,
       buyerId: filter?.buyerId,
       status: filter?.status,
+      first,
+      after,
     });
-
-    return {
-      edges: orders.map(node => ({
-        cursor: Buffer.from(JSON.stringify({ id: node.id })).toString('base64'),
-        node,
-      })),
-      pageInfo: {
-        hasNextPage: false,
-        hasPreviousPage: false,
-        startCursor: null,
-        endCursor: null,
-      },
-      totalCount: orders.length,
-    };
   }
 
   @Query('getWholesaleOrder')

@@ -74,6 +74,9 @@ export class ProductService {
   }) {
     const { filter, sort, first = 20, after } = args;
     
+    // Enforce max 100 limit (Relay pagination best practice)
+    const take = Math.min(first, 100);
+    
     let cursor;
     if (after) {
       try {
@@ -114,12 +117,12 @@ export class ProductService {
     const items = await this.prisma.products.findMany({
       where,
       orderBy,
-      take: first + 1,
+      take: take + 1,
       ...(cursor && { skip: 1, cursor }),
     });
 
-    const hasNextPage = items.length > first;
-    const nodes = hasNextPage ? items.slice(0, first) : items;
+    const hasNextPage = items.length > take;
+    const nodes = hasNextPage ? items.slice(0, take) : items;
 
     const totalCount = await this.prisma.products.count({ where });
 
