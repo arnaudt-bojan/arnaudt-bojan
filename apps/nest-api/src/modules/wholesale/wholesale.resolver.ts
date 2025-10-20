@@ -17,6 +17,8 @@ import { RequireUserType } from '../auth/decorators/require-user-type.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateWholesaleInvitationInput } from './dto/create-wholesale-invitation.input';
 import { PlaceWholesaleOrderInput } from './dto/place-wholesale-order.input';
+import { AddToWholesaleCartInput } from './dto/add-to-wholesale-cart.input';
+import { UpdateWholesaleCartItemInput } from './dto/update-wholesale-cart-item.input';
 
 @Resolver('WholesaleInvitation')
 export class WholesaleInvitationResolver {
@@ -198,6 +200,16 @@ export class WholesaleQueryResolver {
   ) {
     return this.wholesaleService.getWholesaleOrder(id);
   }
+
+  @Query('getWholesaleCart')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async getWholesaleCart(
+    @CurrentUser() userId: string,
+    @Args('sellerId') sellerId?: string,
+  ) {
+    return this.wholesaleService.getWholesaleCart(userId, sellerId);
+  }
 }
 
 @Resolver('Mutation')
@@ -237,5 +249,44 @@ export class WholesaleMutationResolver {
     @CurrentUser() userId: string,
   ) {
     return this.wholesaleService.placeWholesaleOrder(input, userId);
+  }
+
+  @Mutation('addToWholesaleCart')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async addToWholesaleCart(
+    @Args('input') input: AddToWholesaleCartInput,
+    @CurrentUser() userId: string,
+  ) {
+    return this.wholesaleService.addToWholesaleCart({
+      buyerId: userId,
+      sellerId: input.sellerId,
+      productId: input.productId,
+      quantity: input.quantity,
+    });
+  }
+
+  @Mutation('updateWholesaleCartItem')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async updateWholesaleCartItem(
+    @Args('input') input: UpdateWholesaleCartItemInput,
+    @CurrentUser() userId: string,
+  ) {
+    return this.wholesaleService.updateWholesaleCartItem(
+      input.itemId,
+      input.quantity,
+      userId,
+    );
+  }
+
+  @Mutation('removeFromWholesaleCart')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async removeFromWholesaleCart(
+    @Args('itemId') itemId: string,
+    @CurrentUser() userId: string,
+  ) {
+    return this.wholesaleService.removeFromWholesaleCart(itemId, userId);
   }
 }

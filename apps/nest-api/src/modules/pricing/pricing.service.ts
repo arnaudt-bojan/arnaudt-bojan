@@ -409,4 +409,161 @@ export class PricingService {
 
     return parseFloat(String(quotation.subtotal || 0));
   }
+
+  /**
+   * Calculate complete quotation totals (stateless, for previews)
+   * Uses proper rounding to avoid floating point errors
+   */
+  calculateQuotationTotalsFromLineItems(input: {
+    lineItems: Array<{ description: string; unitPrice: number; quantity: number }>;
+    depositPercentage?: number;
+    taxRate?: number;
+    shippingAmount?: number;
+  }): {
+    lineItems: Array<{ description: string; unitPrice: number; quantity: number; lineTotal: number }>;
+    subtotal: number;
+    taxAmount: number;
+    shippingAmount: number;
+    total: number;
+    depositAmount: number;
+    depositPercentage: number;
+    balanceAmount: number;
+  } {
+    const depositPercentage = input.depositPercentage ?? 50;
+    const taxRate = input.taxRate ?? 0;
+    const shippingAmount = input.shippingAmount ?? 0;
+
+    // Calculate line totals using cents to avoid rounding errors
+    const lineItems = input.lineItems.map((item) => {
+      const unitPriceCents = Math.round(item.unitPrice * 100);
+      const lineTotalCents = unitPriceCents * item.quantity;
+      const lineTotal = lineTotalCents / 100;
+
+      return {
+        description: item.description,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        lineTotal: Math.round(lineTotal * 100) / 100, // Round to 2 decimals
+      };
+    });
+
+    // Calculate subtotal in cents
+    const subtotalCents = lineItems.reduce((sum, item) => {
+      return sum + Math.round(item.lineTotal * 100);
+    }, 0);
+
+    const subtotal = subtotalCents / 100;
+
+    // Calculate tax and shipping in cents
+    const taxAmountCents = Math.round(subtotalCents * taxRate);
+    const shippingAmountCents = Math.round(shippingAmount * 100);
+
+    // Calculate total in cents
+    const totalCents = subtotalCents + taxAmountCents + shippingAmountCents;
+
+    // Calculate deposit and balance in cents
+    const depositCents = Math.round((totalCents * depositPercentage) / 100);
+    const balanceCents = totalCents - depositCents;
+
+    return {
+      lineItems,
+      subtotal: Math.round(subtotal * 100) / 100,
+      taxAmount: taxAmountCents / 100,
+      shippingAmount: shippingAmountCents / 100,
+      total: totalCents / 100,
+      depositAmount: depositCents / 100,
+      depositPercentage,
+      balanceAmount: balanceCents / 100,
+    };
+  }
+
+  // ============================================================================
+  // Wholesale Cart Calculations
+  // ============================================================================
+
+  /**
+   * Calculate wholesale cart totals (stateless)
+   * All calculations in cents to avoid rounding errors
+   */
+  calculateWholesaleCartTotals(input: {
+    items: Array<{
+      productId: string;
+      quantity: number;
+      unitPriceCents: number;
+      moq?: number;
+    }>;
+    depositPercentage?: number;
+  }): {
+    items: Array<{
+      productId: string;
+      quantity: number;
+      unitPriceCents: number;
+      lineTotalCents: number;
+      moq?: number;
+      moqCompliant: boolean;
+    }>;
+    subtotalCents: number;
+    depositCents: number;
+    balanceDueCents: number;
+    depositPercentage: number;
+    totalCents: number;
+  } {
+    const depositPercentage = input.depositPercentage ?? 50;
+
+    // Calculate line totals and check MOQ compliance
+    const items = input.items.map((item) => {
+      const lineTotalCents = item.unitPriceCents * item.quantity;
+      const moqCompliant = !item.moq || item.quantity >= item.moq;
+
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPriceCents: item.unitPriceCents,
+        lineTotalCents,
+        moq: item.moq,
+        moqCompliant,
+      };
+    });
+
+    // Calculate subtotal in cents
+    const subtotalCents = items.reduce((sum, item) => sum + item.lineTotalCents, 0);
+
+    // Calculate deposit and balance in cents
+    const depositCents = Math.round((subtotalCents * depositPercentage) / 100);
+    const balanceDueCents = subtotalCents - depositCents;
+
+    return {
+      items,
+      subtotalCents,
+      depositCents,
+      balanceDueCents,
+      depositPercentage,
+      totalCents: subtotalCents,
+    };
+  }
+
+  /**
+   * Validate MOQ requirements for wholesale items
+   */
+  validateWholesaleMOQ(items: Array<{ quantity: number; moq?: number }>): {
+    isValid: boolean;
+    violations: Array<{ index: number; quantity: number; moq: number }>;
+  } {
+    const violations: Array<{ index: number; quantity: number; moq: number }> = [];
+
+    items.forEach((item, index) => {
+      if (item.moq && item.quantity < item.moq) {
+        violations.push({
+          index,
+          quantity: item.quantity,
+          moq: item.moq,
+        });
+      }
+    });
+
+    return {
+      isValid: violations.length === 0,
+      violations,
+    };
+  }
 }

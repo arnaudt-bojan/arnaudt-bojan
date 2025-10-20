@@ -5,12 +5,14 @@ import { CacheService } from '../cache/cache.service';
 import { Prisma } from '../../../../../generated/prisma';
 import { WholesaleRulesService } from '../wholesale-rules/wholesale-rules.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { PricingService } from '../pricing/pricing.service';
 
 @Injectable()
 export class WholesaleService {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
+    private pricingService: PricingService,
     @Inject(forwardRef(() => WholesaleRulesService))
     private readonly wholesaleRulesService: WholesaleRulesService,
     @Inject(forwardRef(() => AppWebSocketGateway))
@@ -518,5 +520,206 @@ export class WholesaleService {
 
   private generateToken(): string {
     return `whs_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  }
+
+  // ============================================================================
+  // Wholesale Cart Methods - All pricing calculated server-side
+  // ============================================================================
+
+  /**
+   * Get wholesale cart with server-calculated totals
+   */
+  async getWholesaleCart(buyerId: string, sellerId?: string) {
+    const where: any = { buyer_id: buyerId };
+    if (sellerId) {
+      where.seller_id = sellerId;
+    }
+
+    let cart = await this.prisma.wholesale_carts.findFirst({ where });
+
+    if (!cart) {
+      cart = await this.prisma.wholesale_carts.create({
+        data: {
+          buyer_id: buyerId,
+          seller_id: sellerId || '',
+          items: [],
+          currency: 'USD',
+        },
+      });
+    }
+
+    return this.mapWholesaleCartToGraphQL(cart);
+  }
+
+  /**
+   * Add item to wholesale cart with server-side calculations
+   */
+  async addToWholesaleCart(input: {
+    buyerId: string;
+    sellerId: string;
+    productId: string;
+    quantity: number;
+  }) {
+    const { buyerId, sellerId, productId, quantity } = input;
+
+    const product = await this.prisma.wholesale_products.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new GraphQLError('Product not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    let cart = await this.prisma.wholesale_carts.findFirst({
+      where: { buyer_id: buyerId, seller_id: sellerId },
+    });
+
+    const items = cart ? (cart.items as any[]) : [];
+    const existingItemIndex = items.findIndex((item: any) => item.productId === productId);
+
+    if (existingItemIndex >= 0) {
+      items[existingItemIndex].quantity += quantity;
+    } else {
+      items.push({
+        productId,
+        productName: product.name,
+        productSku: product.sku,
+        productImage: product.image,
+        quantity,
+        unitPriceCents: Math.round(parseFloat(product.wholesale_price.toString()) * 100),
+        moq: product.moq || 1,
+      });
+    }
+
+    if (!cart) {
+      cart = await this.prisma.wholesale_carts.create({
+        data: {
+          buyer_id: buyerId,
+          seller_id: sellerId,
+          items,
+          currency: 'USD',
+        },
+      });
+    } else {
+      cart = await this.prisma.wholesale_carts.update({
+        where: { id: cart.id },
+        data: {
+          items,
+          updated_at: new Date(),
+        },
+      });
+    }
+
+    return this.mapWholesaleCartToGraphQL(cart);
+  }
+
+  /**
+   * Update wholesale cart item quantity with server-side recalculation
+   */
+  async updateWholesaleCartItem(itemId: string, quantity: number, buyerId: string) {
+    const cart = await this.prisma.wholesale_carts.findFirst({
+      where: { buyer_id: buyerId },
+    });
+
+    if (!cart) {
+      throw new GraphQLError('Cart not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    const items = (cart.items as any[]) || [];
+    const itemIndex = items.findIndex((item: any) => item.productId === itemId);
+
+    if (itemIndex === -1) {
+      throw new GraphQLError('Item not found in cart', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    items[itemIndex].quantity = quantity;
+
+    const updatedCart = await this.prisma.wholesale_carts.update({
+      where: { id: cart.id },
+      data: {
+        items,
+        updated_at: new Date(),
+      },
+    });
+
+    return this.mapWholesaleCartToGraphQL(updatedCart);
+  }
+
+  /**
+   * Remove item from wholesale cart
+   */
+  async removeFromWholesaleCart(itemId: string, buyerId: string) {
+    const cart = await this.prisma.wholesale_carts.findFirst({
+      where: { buyer_id: buyerId },
+    });
+
+    if (!cart) {
+      throw new GraphQLError('Cart not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    const items = (cart.items as any[]) || [];
+    const filteredItems = items.filter((item: any) => item.productId !== itemId);
+
+    const updatedCart = await this.prisma.wholesale_carts.update({
+      where: { id: cart.id },
+      data: {
+        items: filteredItems,
+        updated_at: new Date(),
+      },
+    });
+
+    return this.mapWholesaleCartToGraphQL(updatedCart);
+  }
+
+  /**
+   * Map wholesale cart to GraphQL with SERVER-CALCULATED totals
+   */
+  private mapWholesaleCartToGraphQL(cart: any) {
+    const items = (cart.items as any[]) || [];
+
+    const calculated = this.pricingService.calculateWholesaleCartTotals({
+      items: items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPriceCents: item.unitPriceCents,
+        moq: item.moq,
+      })),
+      depositPercentage: 30,
+    });
+
+    return {
+      id: cart.id,
+      buyerId: cart.buyer_id,
+      sellerId: cart.seller_id,
+      subtotalCents: calculated.subtotalCents,
+      depositCents: calculated.depositCents,
+      balanceDueCents: calculated.balanceDueCents,
+      depositPercentage: calculated.depositPercentage,
+      currency: cart.currency || 'USD',
+      updatedAt: cart.updated_at,
+      items: items.map((item: any, index: number) => {
+        const calculatedItem = calculated.items[index];
+        return {
+          id: item.productId,
+          productId: item.productId,
+          productName: item.productName,
+          productSku: item.productSku,
+          productImage: item.productImage,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPriceCents,
+          lineTotalCents: calculatedItem.lineTotalCents,
+          moq: item.moq,
+          moqCompliant: calculatedItem.moqCompliant,
+        };
+      }),
+    };
   }
 }

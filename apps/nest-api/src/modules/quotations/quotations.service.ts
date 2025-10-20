@@ -3,12 +3,14 @@ import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { PricingService } from '../pricing/pricing.service';
 
 @Injectable()
 export class QuotationsService {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
+    private pricingService: PricingService,
     @Inject(forwardRef(() => AppWebSocketGateway))
     private readonly websocketGateway: AppWebSocketGateway,
   ) {}
@@ -17,13 +19,14 @@ export class QuotationsService {
     const quotationNumber = `QT-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
     const items = input.items || [];
-    const subtotal = items.reduce((sum: number, item: any) => {
-      return sum + parseFloat(item.unitPrice) * item.quantity;
-    }, 0);
-
-    const depositPercentage = input.depositPercentage || 50;
-    const depositAmount = (subtotal * depositPercentage) / 100;
-    const balanceAmount = subtotal - depositAmount;
+    
+    // Use PricingService for ALL calculations (no inline math)
+    const calculated = this.pricingService.calculateQuotationTotalsFromLineItems({
+      lineItems: items,
+      depositPercentage: input.depositPercentage,
+      taxRate: 0,
+      shippingAmount: 0,
+    });
 
     // Transaction: Create quotation, items, and events atomically
     const quotation = await this.prisma.runTransaction(async (tx) => {
@@ -33,13 +36,13 @@ export class QuotationsService {
         buyer_id: input.buyerId || null,
         quotation_number: quotationNumber,
         currency: input.currency || 'USD',
-        subtotal,
-        tax_amount: 0,
-        shipping_amount: 0,
-        total: subtotal,
-        deposit_amount: depositAmount,
-        deposit_percentage: depositPercentage,
-        balance_amount: balanceAmount,
+        subtotal: calculated.subtotal,
+        tax_amount: calculated.taxAmount,
+        shipping_amount: calculated.shippingAmount,
+        total: calculated.total,
+        deposit_amount: calculated.depositAmount,
+        deposit_percentage: calculated.depositPercentage,
+        balance_amount: calculated.balanceAmount,
         status: 'draft' as const,
         valid_until: input.validUntil || null,
         delivery_terms: input.deliveryTerms || null,
@@ -53,18 +56,18 @@ export class QuotationsService {
         data: quotationData,
       });
 
-      // Step 2: Create quotation items
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
+      // Step 2: Create quotation items using calculated line totals
+      for (let i = 0; i < calculated.lineItems.length; i++) {
+        const item = calculated.lineItems[i];
         await tx.trade_quotation_items.create({
           data: {
             quotation_id: created.id,
             line_number: i + 1,
             description: item.description,
-            product_id: item.productId || null,
-            unit_price: parseFloat(item.unitPrice),
+            product_id: items[i].productId || null,
+            unit_price: item.unitPrice,
             quantity: item.quantity,
-            line_total: parseFloat(item.unitPrice) * item.quantity,
+            line_total: item.lineTotal,
           },
         });
       }
@@ -171,42 +174,59 @@ export class QuotationsService {
           where: { quotation_id: id },
         });
 
-        const subtotal = input.items.reduce((sum: number, item: any) => {
-          return sum + parseFloat(item.unitPrice) * item.quantity;
-        }, 0);
+        // Use PricingService for ALL calculations (no inline math)
+        const calculated = this.pricingService.calculateQuotationTotalsFromLineItems({
+          lineItems: input.items,
+          depositPercentage: input.depositPercentage ?? existing.deposit_percentage,
+          taxRate: 0,
+          shippingAmount: 0,
+        });
 
-        const depositPercentage = input.depositPercentage || existing.deposit_percentage;
-        const depositAmount = (subtotal * depositPercentage) / 100;
-        const balanceAmount = subtotal - depositAmount;
+        updateData.subtotal = calculated.subtotal;
+        updateData.total = calculated.total;
+        updateData.tax_amount = calculated.taxAmount;
+        updateData.shipping_amount = calculated.shippingAmount;
+        updateData.deposit_amount = calculated.depositAmount;
+        updateData.deposit_percentage = calculated.depositPercentage;
+        updateData.balance_amount = calculated.balanceAmount;
 
-        updateData.subtotal = subtotal;
-        updateData.total = subtotal;
-        updateData.deposit_amount = depositAmount;
-        updateData.deposit_percentage = depositPercentage;
-        updateData.balance_amount = balanceAmount;
-
-        // Step 2: Create new quotation items
-        for (let i = 0; i < input.items.length; i++) {
-          const item = input.items[i];
+        // Step 2: Create new quotation items using calculated line totals
+        for (let i = 0; i < calculated.lineItems.length; i++) {
+          const item = calculated.lineItems[i];
           await tx.trade_quotation_items.create({
             data: {
               quotation_id: id,
               line_number: i + 1,
               description: item.description,
-              product_id: item.productId || null,
-              unit_price: parseFloat(item.unitPrice),
+              product_id: input.items[i].productId || null,
+              unit_price: item.unitPrice,
               quantity: item.quantity,
-              line_total: parseFloat(item.unitPrice) * item.quantity,
+              line_total: item.lineTotal,
             },
           });
         }
-      }
+      } else if (input.depositPercentage !== undefined) {
+        // If only depositPercentage is updated, recalculate deposit and balance
+        // We need to get existing line items to recalculate
+        const existingItems = await tx.trade_quotation_items.findMany({
+          where: { quotation_id: id },
+          orderBy: { line_number: 'asc' },
+        });
 
-      if (input.depositPercentage !== undefined) {
-        updateData.deposit_percentage = input.depositPercentage;
-        const depositAmount = (parseFloat(existing.subtotal.toString()) * input.depositPercentage) / 100;
-        updateData.deposit_amount = depositAmount;
-        updateData.balance_amount = parseFloat(existing.subtotal.toString()) - depositAmount;
+        const calculated = this.pricingService.calculateQuotationTotalsFromLineItems({
+          lineItems: existingItems.map(item => ({
+            description: item.description,
+            unitPrice: parseFloat(item.unit_price.toString()),
+            quantity: item.quantity,
+          })),
+          depositPercentage: input.depositPercentage,
+          taxRate: 0,
+          shippingAmount: 0,
+        });
+
+        updateData.deposit_percentage = calculated.depositPercentage;
+        updateData.deposit_amount = calculated.depositAmount;
+        updateData.balance_amount = calculated.balanceAmount;
       }
 
       if (input.validUntil !== undefined) {

@@ -17,6 +17,8 @@ import { RequireUserType } from '../auth/decorators/require-user-type.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateQuotationInput } from './dto/create-quotation.input';
 import { UpdateQuotationInput } from './dto/update-quotation.input';
+import { CalculateQuotationTotalsInput } from './dto/calculate-quotation-totals.input';
+import { CalculatedQuotationTotals } from './dto/calculated-quotation-totals.output';
 
 @Resolver('Quotation')
 export class QuotationsResolver {
@@ -85,6 +87,22 @@ export class QuotationsResolver {
     @Args('buyerInfo') buyerInfo?: any,
   ) {
     return this.quotationsService.acceptQuotation(token, buyerInfo);
+  }
+
+  @Mutation(() => CalculatedQuotationTotals, { name: 'calculateQuotationTotals' })
+  async calculateQuotationTotals(
+    @Args('input') input: CalculateQuotationTotalsInput,
+  ): Promise<CalculatedQuotationTotals> {
+    return this.pricingService.calculateQuotationTotalsFromLineItems({
+      lineItems: input.lineItems.map(item => ({
+        description: item.description,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+      })),
+      depositPercentage: input.depositPercentage,
+      taxRate: input.taxRate,
+      shippingAmount: input.shippingAmount,
+    });
   }
 
   @ResolveField('seller')
