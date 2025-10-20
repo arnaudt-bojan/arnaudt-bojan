@@ -185,6 +185,15 @@ export class TestFixtures {
     return { user };
   }
 
+  async createAdmin() {
+    const user = await this.createUser({
+      user_type: 'seller',
+      role: 'admin',
+      store_active: 1,
+    });
+    return { user };
+  }
+
   async createFullOrder() {
     const { user: seller } = await this.createSeller();
     const { user: buyer } = await this.createBuyer();

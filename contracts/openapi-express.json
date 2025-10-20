@@ -1,0 +1,627 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "ShopSwift REST API",
+    "version": "1.0.0",
+    "description": "Express REST API - B2C, B2B Wholesale, and Trade Quotations",
+    "contact": {
+      "name": "API Support",
+      "email": "support@shopswift.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints"
+    },
+    {
+      "name": "Products - B2C",
+      "description": "Retail product operations"
+    },
+    {
+      "name": "Cart - B2C",
+      "description": "Shopping cart operations"
+    },
+    {
+      "name": "Orders - B2C",
+      "description": "Order management"
+    },
+    {
+      "name": "Checkout - B2C",
+      "description": "Checkout flow"
+    },
+    {
+      "name": "Wholesale - B2B",
+      "description": "Wholesale operations"
+    },
+    {
+      "name": "Trade - Quotations",
+      "description": "Trade quotation system"
+    }
+  ],
+  "paths": {
+    "/api/products": {
+      "get": {
+        "tags": [
+          "Products - B2C"
+        ],
+        "summary": "List all retail products",
+        "description": "Public endpoint - Lists all active retail products for buyers",
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by seller ID"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by category"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Product"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products - B2C"
+        ],
+        "summary": "Create a new product",
+        "description": "Seller only - Creates a new retail product",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Seller access required"
+          }
+        }
+      }
+    },
+    "/api/cart": {
+      "get": {
+        "tags": [
+          "Cart - B2C"
+        ],
+        "summary": "Get buyer cart",
+        "description": "Buyer only - Retrieves current cart items",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cart items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cart"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Cart - B2C"
+        ],
+        "summary": "Add item to cart",
+        "description": "Buyer only - Adds product to cart",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddToCartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item added to cart"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Buyers only"
+          }
+        }
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "tags": [
+          "Orders - B2C"
+        ],
+        "summary": "List orders",
+        "description": "Authenticated - Lists orders (buyer sees their orders, seller sees store orders)",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of orders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "orders": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Order"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/wholesale/products": {
+      "get": {
+        "tags": [
+          "Wholesale - B2B"
+        ],
+        "summary": "List wholesale products",
+        "description": "Authenticated buyer with wholesale access - Lists wholesale products",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of wholesale products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WholesaleProduct"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Wholesale access required"
+          }
+        }
+      }
+    },
+    "/api/wholesale/cart": {
+      "post": {
+        "tags": [
+          "Wholesale - B2B"
+        ],
+        "summary": "Add item to wholesale cart",
+        "description": "Buyer with wholesale access - Adds wholesale product to cart",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "wholesaleProductId",
+                  "quantity",
+                  "sellerId"
+                ],
+                "properties": {
+                  "wholesaleProductId": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "minimum": 1
+                  },
+                  "sellerId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item added to wholesale cart"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Wholesale access required"
+          }
+        }
+      }
+    },
+    "/api/wholesale/orders": {
+      "get": {
+        "tags": [
+          "Wholesale - B2B"
+        ],
+        "summary": "List wholesale orders",
+        "description": "Authenticated - Lists wholesale orders (buyer/seller specific)",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of wholesale orders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "orders": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/trade/quotations": {
+      "get": {
+        "tags": [
+          "Trade - Quotations"
+        ],
+        "summary": "List quotations",
+        "description": "Seller only - Lists all quotations for the seller",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of quotations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "quotations": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Seller access required"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Trade - Quotations"
+        ],
+        "summary": "Create quotation",
+        "description": "Seller only - Creates new quotation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "buyerEmail"
+                ],
+                "properties": {
+                  "buyerEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "validUntil": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "lineItems": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Quotation created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "quotation": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Seller access required"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "connect.sid",
+        "description": "Session-based authentication via connect.sid cookie"
+      }
+    },
+    "schemas": {
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stock": {
+            "type": "number"
+          }
+        }
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "stock": {
+            "type": "number"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Cart": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "productId": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "price": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "string"
+          }
+        }
+      },
+      "AddToCartDto": {
+        "type": "object",
+        "required": [
+          "productId",
+          "quantity"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          },
+          "variantId": {
+            "type": "string"
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "shipped",
+              "delivered",
+              "cancelled"
+            ]
+          },
+          "total": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WholesaleProduct": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "wholesalePrice": {
+            "type": "string"
+          },
+          "moq": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}
