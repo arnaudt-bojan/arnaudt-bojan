@@ -246,7 +246,7 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${metricsLoading ? "..." : ((metrics?.platformFees || 0) / 100).toFixed(2)}</div>
+              <div className="text-2xl font-bold">${metricsLoading ? "..." : (metrics?.platformFees || 0).toFixed(2)}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 1.5% collected
               </p>

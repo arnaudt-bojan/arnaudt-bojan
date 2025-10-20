@@ -39,6 +39,7 @@ export interface Cart {
   sellerId: string | null;
   total: number;
   itemsCount: number;
+  currency: string;
 }
 
 export class CartService {
@@ -46,6 +47,7 @@ export class CartService {
 
   /**
    * Get cart by session ID
+   * Architecture 3: Server-side total/itemsCount/currency calculation
    */
   async getCart(sessionId: string): Promise<Cart> {
     try {
@@ -76,11 +78,21 @@ export class CartService {
         }
       }
       
+      // Architecture 3: Fetch seller to get currency setting
+      let currency = 'USD'; // Default currency
+      if (validItems.length > 0 && storageCart.sellerId) {
+        const seller = await this.storage.getUser(storageCart.sellerId);
+        if (seller && seller.listingCurrency) {
+          currency = seller.listingCurrency;
+        }
+      }
+      
       const cart: Cart = {
         items: validItems,
         sellerId: validItems.length > 0 ? storageCart.sellerId : null,
         total: 0,
         itemsCount: 0,
+        currency,
       };
 
       this.recalculateCart(cart);
@@ -142,6 +154,7 @@ export class CartService {
         sellerId: originalCart.sellerId,
         total: originalCart.total,
         itemsCount: originalCart.itemsCount,
+        currency: originalCart.currency,
       };
 
       // Validate seller constraint (single-seller cart)
@@ -303,6 +316,7 @@ export class CartService {
         sellerId: originalCart.sellerId,
         total: originalCart.total,
         itemsCount: originalCart.itemsCount,
+        currency: originalCart.currency,
       };
       
       // Remove item (handles both productId and productId-variantId)
@@ -396,6 +410,7 @@ export class CartService {
         sellerId: originalCart.sellerId,
         total: originalCart.total,
         itemsCount: originalCart.itemsCount,
+        currency: originalCart.currency,
       };
       
       // Find item (handles both productId and productId-variantId)
@@ -467,11 +482,21 @@ export class CartService {
       // Convert guest cart to service format if it exists
       let guestCart: Cart | null = null;
       if (guestCartStorage && guestCartStorage.items) {
+        // Fetch seller currency for guest cart
+        let guestCurrency = 'USD';
+        if (guestCartStorage.sellerId) {
+          const seller = await this.storage.getUser(guestCartStorage.sellerId);
+          if (seller && seller.listingCurrency) {
+            guestCurrency = seller.listingCurrency;
+          }
+        }
+        
         guestCart = {
           items: (guestCartStorage.items as CartItem[]) || [],
           sellerId: guestCartStorage.sellerId,
           total: 0,
           itemsCount: 0,
+          currency: guestCurrency,
         };
         this.recalculateCart(guestCart);
       }
@@ -481,11 +506,21 @@ export class CartService {
         // CRITICAL FIX #6: Check for seller mismatch
         if (userCart.sellerId !== guestCart.sellerId) {
           // Seller mismatch - return conflict error with both carts
+          // Fetch user cart seller currency
+          let userCurrency = 'USD';
+          if (userCart.sellerId) {
+            const seller = await this.storage.getUser(userCart.sellerId);
+            if (seller && seller.listingCurrency) {
+              userCurrency = seller.listingCurrency;
+            }
+          }
+          
           const userCartFormatted: Cart = {
             items: (userCart.items as CartItem[]) || [],
             sellerId: userCart.sellerId,
             total: 0,
             itemsCount: 0,
+            currency: userCurrency,
           };
           this.recalculateCart(userCartFormatted);
           
@@ -510,11 +545,21 @@ export class CartService {
         // The saveCart with userId will use row locking to ensure atomicity
         await this.storage.saveCart(sessionId, userCart.sellerId, userCart.items as any[], userId);
         
+        // Fetch seller currency
+        let currency = 'USD';
+        if (userCart.sellerId) {
+          const seller = await this.storage.getUser(userCart.sellerId);
+          if (seller && seller.listingCurrency) {
+            currency = seller.listingCurrency;
+          }
+        }
+        
         const cart: Cart = {
           items: (userCart.items as CartItem[]) || [],
           sellerId: userCart.sellerId,
           total: 0,
           itemsCount: 0,
+          currency,
         };
         this.recalculateCart(cart);
         
@@ -532,11 +577,21 @@ export class CartService {
         // Bind new session to existing user cart atomically
         await this.storage.saveCart(sessionId, userCart.sellerId, userCart.items as any[], userId);
         
+        // Fetch seller currency
+        let currency = 'USD';
+        if (userCart.sellerId) {
+          const seller = await this.storage.getUser(userCart.sellerId);
+          if (seller && seller.listingCurrency) {
+            currency = seller.listingCurrency;
+          }
+        }
+        
         const cart: Cart = {
           items: (userCart.items as CartItem[]) || [],
           sellerId: userCart.sellerId,
           total: 0,
           itemsCount: 0,
+          currency,
         };
         this.recalculateCart(cart);
         
@@ -608,6 +663,7 @@ export class CartService {
 
   /**
    * Create empty cart
+   * Architecture 3: Server-calculated totals with default currency
    */
   private createEmptyCart(): Cart {
     return {
@@ -615,6 +671,7 @@ export class CartService {
       sellerId: null,
       total: 0,
       itemsCount: 0,
+      currency: 'USD',
     };
   }
 

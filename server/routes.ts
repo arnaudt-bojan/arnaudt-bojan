@@ -11,7 +11,7 @@ import { setupAuth } from "./replitAuth";
 import { requireAuth, requireUserType, requireCapability, requireStoreAccess, requireProductAccess, requireOrderAccess, requireCanPurchase } from "./middleware/auth";
 import { AuthorizationService } from "./services/authorization.service";
 import Stripe from "stripe";
-import { getExchangeRates, getUserCurrency } from "./currencyService";
+import { getExchangeRates, getUserCurrency, convertPrice, formatCurrency } from "./currencyService";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import emailAuthRoutes from "./auth-email";
 import { createNotificationService } from "./notifications";
@@ -4905,6 +4905,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       logger.error("[Pricing API] Error calculating pricing:", error);
       res.status(500).json({ error: "Failed to calculate pricing" });
+    }
+  });
+
+  // **CHECKOUT QUOTE API - Architecture 3 Server-Side Pricing**
+  // Dedicated endpoint for checkout flow pricing calculations
+  // Returns pre-calculated tax, shipping, deposits, and grand totals
+  app.post("/api/checkout/quote", async (req, res) => {
+    try {
+      const { sellerId, items, shippingAddress } = req.body;
+
+      // Validate input
+      if (!sellerId || !items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "sellerId and items array are required" });
+      }
+
+      // Call pricing calculation service (reuses existing tax/shipping logic)
+      const pricingBreakdown = await pricingCalculationService.calculateCartPricing({
+        sellerId,
+        items,
+        destination: shippingAddress,
+      });
+
+      // Map to checkout quote response format
+      const quoteResponse = {
+        currency: pricingBreakdown.currency,
+        subtotal: pricingBreakdown.subtotal,
+        tax: pricingBreakdown.taxAmount,
+        shipping: pricingBreakdown.shippingCost,
+        deposit: pricingBreakdown.depositTotal,
+        grandTotal: pricingBreakdown.total,
+        // Include full breakdown for transparency
+        breakdown: {
+          items: pricingBreakdown.items,
+          subtotalWithShipping: pricingBreakdown.subtotalWithShipping,
+          hasPreOrders: pricingBreakdown.hasPreOrders,
+          remainingBalance: pricingBreakdown.remainingBalance,
+          payingDepositOnly: pricingBreakdown.payingDepositOnly,
+          amountToCharge: pricingBreakdown.amountToCharge,
+          taxCalculationId: pricingBreakdown.taxCalculationId,
+        }
+      };
+
+      res.json(quoteResponse);
+    } catch (error: any) {
+      if (error instanceof ConfigurationError || error instanceof ValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+      logger.error("[Checkout Quote API] Error calculating quote:", error);
+      res.status(500).json({ error: "Failed to calculate checkout quote" });
     }
   });
 
@@ -10794,6 +10843,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * POST /api/currency/convert
+   * 
+   * Architecture 3 Compliance: Server-side currency conversion
+   * Converts an amount from one currency to another using current exchange rates.
+   * 
+   * Request body:
+   * {
+   *   amount: number,
+   *   fromCurrency: string,  // e.g. "USD"
+   *   toCurrency: string     // e.g. "EUR"
+   * }
+   * 
+   * Response:
+   * {
+   *   amount: number,           // original amount
+   *   fromCurrency: string,
+   *   toCurrency: string,
+   *   convertedAmount: number,  // converted amount
+   *   rate: number              // exchange rate used
+   * }
+   */
+  app.post("/api/currency/convert", async (req, res) => {
+    try {
+      const { amount, fromCurrency, toCurrency } = req.body;
+
+      // Validation
+      if (typeof amount !== 'number' || !fromCurrency || !toCurrency) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: amount (number), fromCurrency, toCurrency' 
+        });
+      }
+
+      // Get exchange rates
+      const ratesData = await getExchangeRates();
+      
+      // Perform server-side conversion
+      const convertedAmount = convertPrice(amount, fromCurrency, toCurrency, ratesData.rates);
+      
+      // Calculate the exchange rate for client reference
+      const fromRate = ratesData.rates[fromCurrency] || 1;
+      const toRate = ratesData.rates[toCurrency] || 1;
+      const rate = (toRate / fromRate);
+
+      res.json({
+        amount,
+        fromCurrency,
+        toCurrency,
+        convertedAmount,
+        rate
+      });
+    } catch (error) {
+      logger.error("Error converting currency", error);
+      res.status(500).json({ error: "Failed to convert currency" });
+    }
+  });
+
+  /**
+   * POST /api/currency/format
+   * 
+   * Architecture 3 Compliance: Server-side currency formatting
+   * Formats an amount with proper currency symbol and decimal places.
+   * 
+   * Request body:
+   * {
+   *   amount: number,
+   *   currency: string,  // e.g. "USD"
+   *   convert?: boolean, // if true, convert from USD first
+   *   fromCurrency?: string // source currency if convert=true
+   * }
+   * 
+   * Response:
+   * {
+   *   formatted: string,        // e.g. "$123.45"
+   *   amount: number,
+   *   currency: string
+   * }
+   */
+  app.post("/api/currency/format", async (req, res) => {
+    try {
+      const { amount, currency, convert, fromCurrency } = req.body;
+
+      // Validation
+      if (typeof amount !== 'number' || !currency) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: amount (number), currency' 
+        });
+      }
+
+      let finalAmount = amount;
+
+      // Optional: convert first if requested
+      if (convert && fromCurrency && fromCurrency !== currency) {
+        const ratesData = await getExchangeRates();
+        finalAmount = convertPrice(amount, fromCurrency, currency, ratesData.rates);
+      }
+
+      // Server-side formatting
+      const formatted = formatCurrency(finalAmount, currency);
+
+      res.json({
+        formatted,
+        amount: finalAmount,
+        currency
+      });
+    } catch (error) {
+      logger.error("Error formatting currency", error);
+      res.status(500).json({ error: "Failed to format currency" });
+    }
+  });
+
   // Object Storage endpoints - from javascript_object_storage integration
   // Endpoint to upload file directly through backend (avoids CORS issues)
   app.post("/api/objects/upload-file", requireAuth, async (req: any, res) => {
@@ -11030,7 +11190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalProducts,
         totalOrders,
         totalRevenue,
-        platformFees,
+        platformFees: platformFees / 100, // Convert cents to dollars on server
         activeSubscriptions,
         trialSubscriptions,
       });

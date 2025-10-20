@@ -36,12 +36,14 @@ interface RevenueAnalytics {
   totalRevenue: number;
   revenueGrowth: number;
   averageOrderValue: number;
+  estimatedMRR: number;
   revenueByPeriod: Array<{ date: string; revenue: number }>;
   previousPeriodRevenue: number;
 }
 
 interface OrderAnalytics {
   totalOrders: number;
+  orderGrowth: number;
   ordersByStatus: Array<{ status: string; count: number }>;
   orderCompletionRate: number;
   refundRate: number;
@@ -79,6 +81,7 @@ interface ProductAnalytics {
 interface CustomerAnalytics {
   totalCustomers: number;
   newCustomers: number;
+  customerGrowth: number;
   repeatCustomers: number;
   repeatRate: number;
   customersByPeriod: Array<{ date: string; customers: number }>;
@@ -200,13 +203,7 @@ export default function SellerAnalytics() {
     },
   ];
 
-  const orderGrowth = analytics.orders.previousPeriodOrders > 0
-    ? ((analytics.orders.totalOrders - analytics.orders.previousPeriodOrders) / analytics.orders.previousPeriodOrders) * 100
-    : analytics.orders.totalOrders > 0 ? 100 : 0;
-
-  const customerGrowth = analytics.customers.previousPeriodCustomers > 0
-    ? ((analytics.customers.newCustomers - analytics.customers.previousPeriodCustomers) / analytics.customers.previousPeriodCustomers) * 100
-    : analytics.customers.newCustomers > 0 ? 100 : 0;
+  // Architecture 3: Use server-calculated growth values (no client-side calculations)
 
   return (
     <div className="space-y-6" data-testid="page-seller-analytics">
@@ -260,7 +257,7 @@ export default function SellerAnalytics() {
               {analytics.orders.totalOrders}
             </div>
             <p className="text-xs text-muted-foreground" data-testid="text-order-growth">
-              {formatGrowth(orderGrowth)} from last period
+              {formatGrowth(analytics.orders.orderGrowth)} from last period
             </p>
           </CardContent>
         </Card>

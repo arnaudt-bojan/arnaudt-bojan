@@ -17,12 +17,14 @@ export interface RevenueAnalytics {
   totalRevenue: number; // Total revenue in dollars
   revenueGrowth: number; // Percentage change vs previous period
   averageOrderValue: number; // Average order value in dollars
+  estimatedMRR: number; // Estimated Monthly Recurring Revenue from active subscriptions
   revenueByPeriod: Array<{ date: string; revenue: number }>; // For charts
   previousPeriodRevenue: number; // For comparison
 }
 
 export interface OrderAnalytics {
   totalOrders: number;
+  orderGrowth: number; // Percentage change vs previous period (server-calculated - Architecture 3)
   ordersByStatus: Array<{ status: string; count: number }>;
   orderCompletionRate: number; // Percentage of delivered orders
   refundRate: number; // Percentage of refunded orders
@@ -60,6 +62,7 @@ export interface ProductAnalytics {
 export interface CustomerAnalytics {
   totalCustomers: number; // Unique customer emails
   newCustomers: number; // New in this time range
+  customerGrowth: number; // Percentage change vs previous period (server-calculated - Architecture 3)
   repeatCustomers: number; // Customers with >1 order
   repeatRate: number; // Percentage
   customersByPeriod: Array<{ date: string; customers: number }>; // For charts
@@ -208,10 +211,17 @@ export class AnalyticsService {
         revenue: Number(row.revenue)
       }));
 
+      // Estimated MRR (Architecture 3 - server-side calculation)
+      // TODO: Enhance this to calculate actual MRR from subscription products/orders
+      // For now, use a simple heuristic: monthly average revenue
+      const daysInPeriod = (timeRange.endDate.getTime() - timeRange.startDate.getTime()) / (1000 * 60 * 60 * 24);
+      const estimatedMRR = daysInPeriod > 0 ? (totalRevenue / daysInPeriod) * 30 : 0;
+
       return {
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         revenueGrowth: Math.round(revenueGrowth * 10) / 10,
         averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+        estimatedMRR: Math.round(estimatedMRR * 100) / 100,
         revenueByPeriod,
         previousPeriodRevenue: Math.round(previousPeriodRevenue * 100) / 100
       };
@@ -222,6 +232,7 @@ export class AnalyticsService {
         totalRevenue: 0,
         revenueGrowth: 0,
         averageOrderValue: 0,
+        estimatedMRR: 0,
         revenueByPeriod: [],
         previousPeriodRevenue: 0
       };
@@ -301,6 +312,11 @@ export class AnalyticsService {
 
       const previousPeriodOrders = Number(previousOrdersResult[0]?.count || 0);
 
+      // Calculate order growth percentage (Architecture 3 - server-side)
+      const orderGrowth = previousPeriodOrders > 0
+        ? ((totalOrders - previousPeriodOrders) / previousPeriodOrders) * 100
+        : totalOrders > 0 ? 100 : 0;
+
       // Orders by period (daily breakdown for charts)
       const ordersByDay = await db
         .select({
@@ -325,6 +341,7 @@ export class AnalyticsService {
 
       return {
         totalOrders,
+        orderGrowth: Math.round(orderGrowth * 10) / 10,
         ordersByStatus,
         orderCompletionRate: Math.round(orderCompletionRate * 10) / 10,
         refundRate: Math.round(refundRate * 10) / 10,
@@ -335,6 +352,7 @@ export class AnalyticsService {
       logger.error('[AnalyticsService] Error calculating order analytics:', error);
       return {
         totalOrders: 0,
+        orderGrowth: 0,
         ordersByStatus: [],
         orderCompletionRate: 0,
         refundRate: 0,
@@ -562,6 +580,11 @@ export class AnalyticsService {
 
       const previousPeriodCustomers = Number(previousCustomersResult[0]?.count || 0);
 
+      // Calculate customer growth percentage (Architecture 3 - server-side)
+      const customerGrowth = previousPeriodCustomers > 0
+        ? ((newCustomers - previousPeriodCustomers) / previousPeriodCustomers) * 100
+        : newCustomers > 0 ? 100 : 0;
+
       // Customers by period (daily breakdown for charts)
       const customersByDay = await db
         .select({
@@ -587,6 +610,7 @@ export class AnalyticsService {
       return {
         totalCustomers,
         newCustomers,
+        customerGrowth: Math.round(customerGrowth * 10) / 10,
         repeatCustomers,
         repeatRate: Math.round(repeatRate * 10) / 10,
         customersByPeriod,
@@ -597,6 +621,7 @@ export class AnalyticsService {
       return {
         totalCustomers: 0,
         newCustomers: 0,
+        customerGrowth: 0,
         repeatCustomers: 0,
         repeatRate: 0,
         customersByPeriod: [],

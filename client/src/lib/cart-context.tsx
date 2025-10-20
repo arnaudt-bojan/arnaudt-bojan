@@ -33,6 +33,7 @@ interface Cart {
   sellerId: string | null;
   total: number;
   itemsCount: number;
+  currency: string;
 }
 
 interface CartContextType {

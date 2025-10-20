@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import type { InsertOrder } from "@shared/schema";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { usePricing } from "@/hooks/use-pricing";
+import { useCheckoutQuote } from "@/hooks/use-checkout-quote";
 import { CurrencyDisclaimer } from "@/components/currency-disclaimer";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { requiresState, isValidState } from "@shared/shipping-validation";
@@ -1016,20 +1016,21 @@ export default function Checkout() {
     [items]
   );
 
-  // Use backend pricing API for all calculations (includes shipping, tax, deposit/balance)
-  const { data: pricingData, isLoading: isPricingLoading, error: pricingError } = usePricing({
+  // Use server-side checkout quote API for all calculations (Architecture 3)
+  // All business logic (tax, shipping, deposits) is calculated server-side
+  const { data: quoteData, isLoading: isPricingLoading, error: pricingError } = useCheckoutQuote({
     sellerId: sellerId || undefined,
     items: pricingItems,
-    destination,
+    shippingAddress: destination,
     enabled: items.length > 0 && !!sellerId,
   });
 
-  // Calculate payment info using backend pricing API
+  // Extract payment info from server-calculated quote (no client-side business calculations)
   const paymentInfo = useMemo(() => {
     let earliestDeliveryDate: Date | undefined = undefined;
     let latestDeliveryDate: Date | undefined = undefined;
 
-    // Track pre-order dates for delivery estimates (not pricing-related)
+    // Track pre-order dates for delivery estimates (UI logic, not pricing)
     items.forEach((item) => {
       if (item.productType === "pre-order" && (item as any).preOrderDate) {
         const preOrderDate = new Date((item as any).preOrderDate);
@@ -1042,9 +1043,9 @@ export default function Checkout() {
       }
     });
 
-    // Use backend pricing API data (includes shipping, tax, deposit/balance calculations)
-    if (!pricingData) {
-      // Return defaults while pricing is loading or unavailable
+    // Use server-provided quote data (no calculations here)
+    if (!quoteData) {
+      // Return defaults while quote is loading or unavailable
       return {
         hasPreOrders: false,
         depositTotal: 0,
@@ -1060,22 +1061,23 @@ export default function Checkout() {
       };
     }
 
+    // Extract server-calculated values from quote breakdown
     return {
-      hasPreOrders: pricingData.hasPreOrders,
-      depositTotal: pricingData.depositTotal,
-      remainingBalance: pricingData.remainingBalance,
-      fullTotal: pricingData.total,
-      subtotal: pricingData.subtotal,
-      shipping: pricingData.shippingCost,
-      tax: pricingData.taxAmount,
-      payingDepositOnly: pricingData.payingDepositOnly,
-      amountToCharge: pricingData.amountToCharge,
+      hasPreOrders: quoteData.breakdown.hasPreOrders,
+      depositTotal: quoteData.deposit,
+      remainingBalance: quoteData.breakdown.remainingBalance,
+      fullTotal: quoteData.grandTotal,
+      subtotal: quoteData.subtotal,
+      shipping: quoteData.shipping,
+      tax: quoteData.tax,
+      payingDepositOnly: quoteData.breakdown.payingDepositOnly,
+      amountToCharge: quoteData.breakdown.amountToCharge,
       earliestDeliveryDate,
       latestDeliveryDate,
     };
-  }, [items, pricingData]);
+  }, [items, quoteData]);
 
-  // Use the pricing service's calculated amount to charge
+  // Use the server-calculated quote amount to charge
   const amountToPay = paymentInfo.amountToCharge;
 
   // Create payment intent when form is valid
@@ -2196,7 +2198,7 @@ export default function Checkout() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     <span data-testid="text-shipping">
-                      {isPricingLoading || !pricingData || pricingError ? (
+                      {isPricingLoading || !quoteData || pricingError ? (
                         <span className="text-muted-foreground">Calculating...</span>
                       ) : (
                         paymentInfo.shipping === 0 ? "FREE" : formatConvertedPrice(paymentInfo.shipping)
