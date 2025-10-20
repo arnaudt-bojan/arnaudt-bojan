@@ -10,6 +10,12 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 - **Interaction Preferences**: Ask for confirmation before implementing significant architectural changes or refactoring large portions of the codebase.
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
 
+## Test Authentication Credentials
+**CRITICAL: Always use these credentials for manual testing and E2E tests**
+- **Email**: `mirtorabi+seller1@gmail.com`
+- **Verification Code**: `111111`
+- **Note**: This is the ONLY test account to use. Do not create new test accounts or try other credentials.
+
 ## System Architecture
 Upfirst employs a modern web stack: React, TypeScript, Tailwind CSS, and Shadcn UI for the frontend; a NestJS/Express.js Node.js backend; PostgreSQL (Neon) as the database; and Prisma ORM for all database operations. The backend features a GraphQL API with Socket.IO for real-time updates and Docker for containerization.
 
