@@ -186,41 +186,102 @@ export function configureWebSocket(httpServer: HTTPServer, sessionMiddleware: Re
   orderWebSocketService.setWSS(wss);
 
   // Create Socket.IO server for settings with SESSION AUTHENTICATION
+  // CRITICAL FIX: Use WebSocket-only transport to avoid Vite middleware intercepting Engine.IO polling
+  // When using Vite in middleware mode, the catch-all route intercepts /socket.io/?EIO=4&transport=polling
+  // WebSocket upgrades work because they use HTTP 'upgrade' event, not Express middleware
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io/',
+    transports: ['websocket'], // WebSocket-only, skip polling
     cors: {
       origin: true,
       credentials: true, // IMPORTANT: Allow credentials for session cookies
     },
   });
 
+  // DEBUG: Log when Socket.IO server is ready
+  console.log('[Socket.IO DEBUG] Server instance created');
+  
+  io.engine.on('connection_error', (err: any) => {
+    console.log('[Socket.IO Engine] CONNECTION_ERROR EVENT:', err.message, err.code);
+    logger.error('[Socket.IO Engine] Connection error:', {
+      message: err.message,
+      code: err.code,
+      context: err.context,
+      req: {
+        method: err.req?.method,
+        url: err.req?.url,
+        headers: err.req?.headers ? {
+          origin: err.req.headers.origin,
+          cookie: err.req.headers.cookie ? 'present' : 'missing'
+        } : 'no headers'
+      }
+    });
+  });
+
+  console.log('[Socket.IO DEBUG] connection_error handler registered');
+  logger.info('[Socket.IO] Server initialized', {
+    path: '/socket.io/',
+    cors: { origin: true, credentials: true }
+  });
+
   // Apply session middleware to Socket.IO engine for authentication
   // This allows access to req.session and req.user in Socket.IO handlers
+  // With WebSocket-only transport, this should work because WebSocket upgrades
+  // include the session cookie in the initial HTTP handshake
+  console.log('[Socket.IO DEBUG] About to apply session middleware');
+  logger.info('[Socket.IO] Applying session middleware to engine');
   io.engine.use(sessionMiddleware);
+  console.log('[Socket.IO DEBUG] Session middleware applied');
   
   // Apply passport middleware to Socket.IO for user deserialization
+  console.log('[Socket.IO DEBUG] About to apply passport middleware');
+  logger.info('[Socket.IO] Applying passport middleware to engine');
   io.engine.use(passport.initialize());
   io.engine.use(passport.session());
+  console.log('[Socket.IO DEBUG] Passport middleware applied');
+  
+  logger.info('[Socket.IO] Session middleware enabled for authenticated connections');
 
-  // AUTHENTICATION MIDDLEWARE - Verify session before connection
+  // AUTHENTICATION MIDDLEWARE - STRICT MODE
+  console.log('[Socket.IO DEBUG] Setting up auth middleware (strict mode)');
   io.use((socket, next) => {
     const req = socket.request as any;
     
-    // Check if user is authenticated via passport session
+    console.log('[Socket.IO DEBUG] Auth middleware triggered!', {
+      hasSession: !!req.session,
+      hasUser: !!req.user,
+      userId: req.user?.claims?.sub
+    });
+    
+    logger.info('[Socket.IO] Auth check', {
+      hasSession: !!req.session,
+      hasUser: !!req.user,
+      userClaims: req.user?.claims?.sub,
+      sessionID: req.session?.id,
+    });
+    
+    // STRICT AUTH: Only allow authenticated users
     if (req.user?.claims?.sub) {
       const userId = req.user.claims.sub;
       socket.data.userId = userId;
       socket.data.authenticated = true;
+      console.log(`[Socket.IO DEBUG] Authenticated user: ${userId}`);
       logger.info(`[Socket.IO] Authenticated connection for user: ${userId}`);
       next();
     } else {
-      logger.warn('[Socket.IO] Unauthenticated connection rejected');
+      console.log('[Socket.IO DEBUG] Authentication REJECTED');
+      logger.warn('[Socket.IO] Unauthenticated connection rejected', {
+        hasSession: !!req.session,
+        hasUser: !!req.user,
+      });
       next(new Error('Authentication required'));
     }
   });
 
+  console.log('[Socket.IO DEBUG] Setting up connection handler');
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
+    console.log(`[Socket.IO DEBUG] CONNECTION EVENT! UserId: ${userId}`);
     logger.info(`[Socket.IO] Client connected (authenticated): ${userId}`);
     
     // AUTO-JOIN: User's own room (server-controlled)

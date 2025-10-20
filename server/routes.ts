@@ -13608,5 +13608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const sessionMiddleware = getSession();
   configureWebSocket(httpServer, sessionMiddleware);
 
+  // NOTE: Socket.IO middleware was removed - using WebSocket-only transport instead
+  // This avoids Vite catch-all route intercepting Engine.IO polling requests
+  // WebSocket upgrades work via HTTP 'upgrade' event, not Express middleware
+
   return httpServer;
 }

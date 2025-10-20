@@ -15,10 +15,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    // CRITICAL FIX: Use WebSocket-only transport to avoid Vite middleware interception
+    // Vite's catch-all route intercepts Engine.IO polling requests
+    // WebSocket connections work because they use HTTP upgrade mechanism
     const socketInstance = io({
       path: '/socket.io/',
       withCredentials: true,
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'], // WebSocket-only, skip polling
+      upgrade: false, // Don't try to upgrade from polling to websocket
     });
 
     socketInstance.on('connect', () => {

@@ -38,10 +38,10 @@ export function getSession() {
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // IMPORTANT: false for Socket.IO compatibility
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production', // false in dev for non-HTTPS
       sameSite: 'lax',
       maxAge: sessionTtl,
     },
