@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { getCache, CacheTTL, CacheKeys } from './cache';
 
 interface ExchangeRates {
   [currency: string]: number;
@@ -13,9 +14,6 @@ interface CurrencyCache {
 interface CountryToCurrency {
   [countryCode: string]: string;
 }
-
-const CACHE_DURATION = 24 * 60 * 60 * 1000;
-let cache: CurrencyCache | null = null;
 
 const countryToCurrency: CountryToCurrency = {
   US: "USD", CA: "CAD", GB: "GBP", AU: "AUD", NZ: "NZD",
@@ -50,26 +48,74 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
     
     return rates;
   } catch (error) {
-    logger.error("Error fetching exchange rates:", error);
+    logger.error("[CurrencyService] Error fetching exchange rates:", error);
     return { USD: 1 };
   }
 }
 
+/**
+ * Get exchange rates with cache-first strategy
+ * 
+ * Uses production-grade caching layer with:
+ * - 1-hour TTL for currency rates (configurable via CACHE_TTL_CURRENCY)
+ * - Graceful fallback to fresh fetch if cache miss
+ * - Automatic cache population on fetch
+ */
 export async function getExchangeRates(): Promise<CurrencyCache> {
-  const now = Date.now();
-  
-  if (cache && (now - cache.lastUpdated) < CACHE_DURATION) {
-    return cache;
+  const cache = getCache();
+  const cacheKey = CacheKeys.currency();
+
+  try {
+    // Step 1: Try to get from cache (cache-first strategy)
+    const cached = await cache.get<CurrencyCache>(cacheKey);
+    
+    if (cached) {
+      logger.debug('[CurrencyService] Cache hit for exchange rates');
+      return cached;
+    }
+
+    logger.debug('[CurrencyService] Cache miss for exchange rates, fetching fresh data');
+  } catch (error) {
+    // Cache errors should not break the service
+    logger.warn('[CurrencyService] Cache get error, fetching fresh data:', error as any);
   }
-  
+
+  // Step 2: Cache miss or error - fetch fresh rates
   const rates = await fetchExchangeRates();
-  cache = {
+  const currencyCache: CurrencyCache = {
     rates,
-    lastUpdated: now,
+    lastUpdated: Date.now(),
     baseCurrency: "USD"
   };
-  
-  return cache;
+
+  // Step 3: Populate cache for future requests
+  try {
+    await cache.set(cacheKey, currencyCache, CacheTTL.CURRENCY);
+    logger.info('[CurrencyService] Exchange rates cached', { 
+      ttl: CacheTTL.CURRENCY,
+      rateCount: Object.keys(rates).length 
+    });
+  } catch (error) {
+    // Cache errors should not break the service
+    logger.warn('[CurrencyService] Cache set error:', error as any);
+  }
+
+  return currencyCache;
+}
+
+/**
+ * Invalidate currency cache
+ * 
+ * Call this when currency rates need to be refreshed manually
+ */
+export async function invalidateCurrencyCache(): Promise<void> {
+  try {
+    const cache = getCache();
+    await cache.delete(CacheKeys.currency());
+    logger.info('[CurrencyService] Currency cache invalidated');
+  } catch (error) {
+    logger.warn('[CurrencyService] Failed to invalidate currency cache:', error as any);
+  }
 }
 
 export async function getUserCurrency(countryCode?: string): Promise<string> {

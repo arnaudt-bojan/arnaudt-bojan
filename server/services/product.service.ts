@@ -7,6 +7,7 @@ import { insertProductSchema } from '@shared/validation-schemas';
 import { fromZodError } from 'zod-validation-error';
 import { syncProductStockFromVariants } from '../utils/calculate-stock';
 import type Stripe from 'stripe';
+import { getCache, CacheTTL, CacheKeys } from '../cache';
 
 export interface CreateProductParams {
   productData: any;
@@ -117,7 +118,10 @@ export class ProductService {
       // Step 7: Create product
       const product = await this.storage.createProduct(syncedProductData);
 
-      // Step 8: Send notifications (don't fail if notifications fail)
+      // Step 8: Invalidate product list cache for this seller
+      await this.invalidateProductCache(product.id, sellerId);
+
+      // Step 9: Send notifications (don't fail if notifications fail)
       await this.sendProductListingNotifications(product, user).catch(error => {
         logger.error('[ProductService] Failed to send notifications:', error);
       });
@@ -204,12 +208,12 @@ export class ProductService {
         return { success: false, error: 'Product not found' };
       }
 
-      if (product.sellerId !== sellerId) {
+      if (product.seller_id !== sellerId) {
         return { success: false, error: 'Unauthorized' };
       }
 
       // Validate Shippo shipping requirements if changing to Shippo (ISSUE #1 FIX)
-      if (updates.shippingType === 'shippo') {
+      if (updates.shipping_type === 'shippo') {
         const warehouseValid = await this.validateWarehouseAddress(sellerId);
         if (!warehouseValid.valid) {
           logger.warn('[ProductService] Shippo product update blocked - no warehouse address', {
@@ -235,6 +239,9 @@ export class ProductService {
       if (!updatedProduct) {
         return { success: false, error: 'Failed to update product' };
       }
+
+      // Invalidate cache after update
+      await this.invalidateProductCache(productId, sellerId);
 
       logger.info('[ProductService] Product updated', { productId, sellerId });
 
@@ -274,7 +281,7 @@ export class ProductService {
         return { success: false, error: 'Product not found' };
       }
 
-      if (product.sellerId !== sellerId) {
+      if (product.seller_id !== sellerId) {
         return { success: false, error: 'Unauthorized' };
       }
 
@@ -283,6 +290,9 @@ export class ProductService {
       if (!deleted) {
         return { success: false, error: 'Failed to delete product' };
       }
+
+      // Invalidate cache after deletion
+      await this.invalidateProductCache(productId, sellerId);
 
       logger.info('[ProductService] Product deleted', { productId, sellerId });
 
@@ -297,9 +307,39 @@ export class ProductService {
   }
 
   /**
-   * Get product with currency (enriched)
+   * Get product with currency (enriched) - Cache-First Strategy
+   * 
+   * Uses production-grade caching with:
+   * - 5-minute TTL for product data (configurable via CACHE_TTL_PRODUCTS)
+   * - Graceful fallback to DB query on cache miss
+   * - Automatic cache population
    */
   async getProductWithCurrency(productId: string, requesterId?: string): Promise<Product & { currency: string } | null> {
+    const cache = getCache();
+    const cacheKey = CacheKeys.product(productId);
+
+    try {
+      // Step 1: Try to get from cache (cache-first strategy)
+      const cached = await cache.get<Product & { currency: string }>(cacheKey);
+      
+      if (cached) {
+        // Verify visibility permissions
+        const isOwner = requesterId && requesterId === cached.seller_id;
+        if (!isOwner && cached.status !== 'active' && cached.status !== 'coming-soon') {
+          return null;
+        }
+        
+        logger.debug('[ProductService] Cache hit for product', { productId });
+        return cached;
+      }
+
+      logger.debug('[ProductService] Cache miss for product, fetching from DB', { productId });
+    } catch (error) {
+      // Cache errors should not break the service
+      logger.warn('[ProductService] Cache get error, fetching from DB:', error as any);
+    }
+
+    // Step 2: Cache miss or error - fetch from DB
     try {
       const product = await this.storage.getProduct(productId);
       if (!product) {
@@ -307,22 +347,66 @@ export class ProductService {
       }
 
       // Check visibility permissions
-      const isOwner = requesterId && requesterId === product.sellerId;
+      const isOwner = requesterId && requesterId === product.seller_id;
       if (!isOwner && product.status !== 'active' && product.status !== 'coming-soon') {
         return null;
       }
 
       // Get seller's currency
-      const seller = await this.storage.getUser(product.sellerId);
-      const currency = seller?.listingCurrency || 'USD';
+      const seller = await this.storage.getUser(product.seller_id);
+      const currency = seller?.listing_currency || 'USD';
 
-      return {
+      const enrichedProduct = {
         ...product,
         currency,
       };
+
+      // Step 3: Populate cache for future requests (only for active/coming-soon products)
+      if (product.status === 'active' || product.status === 'coming-soon') {
+        try {
+          await cache.set(cacheKey, enrichedProduct, CacheTTL.PRODUCTS);
+          logger.debug('[ProductService] Product cached', { 
+            productId,
+            ttl: CacheTTL.PRODUCTS 
+          });
+        } catch (error) {
+          // Cache errors should not break the service
+          logger.warn('[ProductService] Cache set error:', error as any);
+        }
+      }
+
+      return enrichedProduct;
     } catch (error) {
       logger.error('[ProductService] Failed to get product:', error);
       return null;
+    }
+  }
+
+  /**
+   * Invalidate product cache
+   * 
+   * Automatically called on product mutations (create, update, delete)
+   */
+  private async invalidateProductCache(productId: string, sellerId: string): Promise<void> {
+    try {
+      const cache = getCache();
+      
+      // Invalidate specific product cache
+      await cache.delete(CacheKeys.product(productId));
+      
+      // Invalidate product list caches for this seller
+      await cache.deletePattern(CacheKeys.productList(sellerId, '*'));
+      
+      // Invalidate pricing caches that might include this product
+      await cache.deletePattern(CacheKeys.pricing(sellerId, '*'));
+      
+      logger.info('[ProductService] Product cache invalidated', { 
+        productId, 
+        sellerId 
+      });
+    } catch (error) {
+      // Cache errors should not break the service
+      logger.warn('[ProductService] Failed to invalidate product cache:', error as any);
     }
   }
 
@@ -334,18 +418,18 @@ export class ProductService {
    * Sync currency from Stripe account
    */
   private async syncCurrencyFromStripe(user: User): Promise<void> {
-    if (!user.stripeConnectedAccountId || !this.stripe) {
+    if (!user.stripe_connected_account_id || !this.stripe) {
       return;
     }
 
     try {
-      const account = await this.stripe.accounts.retrieve(user.stripeConnectedAccountId);
+      const account = await this.stripe.accounts.retrieve(user.stripe_connected_account_id);
       const stripeCurrency = account.default_currency?.toUpperCase() || 'USD';
 
-      if (user.listingCurrency !== stripeCurrency) {
+      if (user.listing_currency !== stripeCurrency) {
         await this.storage.upsertUser({
           ...user,
-          listingCurrency: stripeCurrency,
+          listing_currency: stripeCurrency,
         });
         logger.info('[ProductService] Synced currency from Stripe', { 
           userId: user.id, 
@@ -395,11 +479,11 @@ export class ProductService {
   private async sendProductListingNotifications(product: Product, user: User): Promise<void> {
     // Create in-app notification
     await this.notificationService.createNotification({
-      userId: user.id,
+      user_id: user.id,
       type: 'product_listed',
       title: 'Product Listed Successfully!',
       message: `Your product "${product.name}" is now live on your store`,
-      emailSent: 0,
+      email_sent: 0,
       metadata: { 
         productId: product.id, 
         productName: product.name, 
@@ -415,12 +499,12 @@ export class ProductService {
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Product Listed Successfully!</h2>
-        <p>Hi ${user.firstName || 'there'},</p>
+        <p>Hi ${user.first_name || 'there'},</p>
         <p>Your product has been successfully added to your Upfirst store:</p>
         <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="margin-top: 0;">${product.name}</h3>
           <p style="color: #6b7280; margin: 10px 0;">Price: $${product.price}</p>
-          <p style="color: #6b7280; margin: 10px 0;">Type: ${product.productType}</p>
+          <p style="color: #6b7280; margin: 10px 0;">Type: ${product.product_type}</p>
           ${product.stock ? `<p style="color: #6b7280; margin: 10px 0;">Stock: ${product.stock} units</p>` : ''}
         </div>
         <p>Your product is now visible to customers on your storefront.</p>
@@ -464,11 +548,11 @@ export class ProductService {
 
     // Check that at least one warehouse has all required fields
     const completeWarehouse = warehouseAddresses.find(warehouse => 
-      warehouse.addressLine1 &&
+      warehouse.address_line1 &&
       warehouse.city &&
-      warehouse.postalCode &&
-      warehouse.countryCode &&
-      warehouse.countryName
+      warehouse.postal_code &&
+      warehouse.country_code &&
+      warehouse.country_name
     );
 
     if (!completeWarehouse) {

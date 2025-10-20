@@ -89,7 +89,7 @@ export class PricingCalculationService {
       throw new Error("Seller not found");
     }
 
-    const currency = seller.listingCurrency || 'USD';
+    const currency = seller.listing_currency || 'USD';
     logger.info(`[PricingCalculationService] Using seller's currency: ${currency}`);
 
     // Step 2: Fetch products and calculate subtotal (with discount support)
@@ -103,14 +103,14 @@ export class PricingCalculationService {
       }
 
       // Calculate price with active discount (Architecture 3: respect validated prices)
-      let itemPrice = parseFloat(product.price);
+      let itemPrice = parseFloat(product.price.toString());
       
       if (
-        product.promotionActive === 1 &&
-        product.discountPercentage &&
-        (!product.promotionEndDate || new Date(product.promotionEndDate) > new Date())
+        product.promotion_active === 1 &&
+        product.discount_percentage &&
+        (!product.promotion_end_date || new Date(product.promotion_end_date) > new Date())
       ) {
-        const discount = parseFloat(product.discountPercentage);
+        const discount = parseFloat(product.discount_percentage.toString());
         itemPrice = itemPrice * (1 - discount / 100);
       }
 
@@ -123,8 +123,8 @@ export class PricingCalculationService {
         price: itemPrice,
         quantity: item.quantity,
         total: itemTotal,
-        productType: product.productType,
-        depositAmount: product.depositAmount ? parseFloat(product.depositAmount) : null,
+        productType: product.product_type,
+        depositAmount: product.deposit_amount ? parseFloat(product.deposit_amount.toString()) : null,
       });
     }
 
@@ -169,7 +169,7 @@ export class PricingCalculationService {
       }
     } else {
       // No destination provided, use seller's default shipping
-      shippingCost = seller.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
+      shippingCost = seller.shipping_price ? parseFloat(seller.shipping_price.toString()) : 0;
       logger.info(`[PricingCalculationService] No destination - using default shipping: ${currency} ${shippingCost}`);
     }
 
@@ -177,7 +177,7 @@ export class PricingCalculationService {
     let taxAmount = 0;
     let taxCalculationId: string | undefined = undefined;
 
-    if (destination && seller.taxEnabled && this.stripe) {
+    if (destination && seller.tax_enabled && this.stripe) {
       // Check if we have complete address for tax calculation
       const hasCompleteAddress = destination.line1 && destination.city && destination.country;
       
@@ -338,7 +338,7 @@ export class PricingCalculationService {
     } else if (sellerId) {
       // No destination provided, use seller's default shipping
       const seller = await this.storage.getUser(sellerId);
-      shippingCost = seller?.shippingPrice ? parseFloat(seller.shippingPrice.toString()) : 0;
+      shippingCost = seller?.shipping_price ? parseFloat(seller.shipping_price.toString()) : 0;
       logger.info(`[PricingCalculationService] No destination - using default shipping: ${shippingCost}`);
     }
     
@@ -388,7 +388,7 @@ export class PricingCalculationService {
       return { taxCents, taxCalculationId, taxRate };
     }
 
-    if (seller.taxEnabled !== 1) {
+    if (seller.tax_enabled !== 1) {
       logger.info(`[PricingCalculationService] Tax disabled for seller: ${sellerId}`);
       return { taxCents, taxCalculationId, taxRate };
     }

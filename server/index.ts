@@ -29,6 +29,7 @@ import { proxyMiddleware, logProxyStats } from "./middleware/proxy.middleware";
 import { featureFlagsService } from "./services/feature-flags.service";
 import Stripe from "stripe";
 import { prisma } from "./prisma";
+import { initializeCache, getCache } from "./cache";
 
 const app = express();
 
@@ -176,6 +177,75 @@ app.get('/api/health/database', async (_req, res) => {
   }
 });
 
+// Cache health and metrics endpoint
+app.get('/api/health/cache', (_req, res) => {
+  try {
+    const cache = getCache();
+    const metrics = cache.getMetrics();
+    
+    // Determine health status based on metrics
+    const isHealthy = metrics.backend !== 'unknown';
+    const status = isHealthy ? 'healthy' : 'degraded';
+    
+    res.status(isHealthy ? 200 : 503).json({
+      status,
+      timestamp: new Date().toISOString(),
+      cache: {
+        backend: metrics.backend,
+        metrics: {
+          hits: metrics.hits,
+          misses: metrics.misses,
+          hitRate: `${metrics.hitRate}%`,
+          missRate: `${metrics.missRate}%`,
+          totalRequests: metrics.totalRequests,
+          averageLatencyMs: metrics.averageLatencyMs,
+          currentSize: metrics.currentSize,
+          maxSize: metrics.maxSize,
+          utilization: metrics.maxSize > 0 
+            ? `${Math.round((metrics.currentSize / metrics.maxSize) * 100)}%`
+            : 'N/A',
+        },
+      },
+      recommendations: generateCacheRecommendations(metrics),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Generate cache performance recommendations
+ */
+function generateCacheRecommendations(metrics: any): string[] {
+  const recommendations: string[] = [];
+  
+  if (metrics.hitRate < 50) {
+    recommendations.push('Low hit rate detected. Consider increasing CACHE_TTL values or reviewing cache key patterns.');
+  }
+  
+  if (metrics.currentSize > metrics.maxSize * 0.9) {
+    recommendations.push('Cache near capacity. Consider increasing CACHE_MAX_SIZE.');
+  }
+  
+  if (metrics.averageLatencyMs > 10) {
+    recommendations.push('High cache latency detected. Consider using Redis for better performance.');
+  }
+  
+  if (metrics.backend.includes('fallback')) {
+    recommendations.push('Running on fallback cache. Check Redis connection if Redis is configured.');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('Cache performance is healthy.');
+  }
+  
+  return recommendations;
+}
+
 (async () => {
   app.use(domainMiddleware);
 
@@ -236,6 +306,10 @@ app.get('/api/health/database', async (_req, res) => {
     reusePort: true,
   }, async () => {
     log(`serving on port ${port}`);
+    
+    // Initialize cache service
+    initializeCache();
+    log('[Server] Cache service initialized');
     
     // Start database connection warmup job to maintain minimum pool size
     const { startConnectionWarmup } = await import('./prisma');
