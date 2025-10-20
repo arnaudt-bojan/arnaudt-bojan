@@ -34,6 +34,8 @@ import { logger } from '../logger';
 import type Stripe from 'stripe';
 import { DocumentGenerator, type InvoiceData, type PackingSlipData } from './document-generator';
 import { Storage } from '@google-cloud/storage';
+import { prisma } from '../prisma';
+import type { Prisma } from '../../generated/prisma';
 
 // ===========================================================================
 // Interfaces
@@ -137,42 +139,35 @@ export class OrderService {
   ) {}
 
   /**
-   * Create order - Full orchestration of order creation process
+   * Create order - Full orchestration of order creation process with ATOMIC TRANSACTIONS
    * 
-   * Steps:
-   * 1. User lookup/creation (guest checkout support)
-   * 2. Cart validation (server-side pricing)
-   * 3. Shipping calculation
-   * 4. Tax calculation
-   * 5. Inventory reservation (CRITICAL for preventing overselling)
+   * Steps (PRE-TRANSACTION):
+   * 1. Cart validation (server-side pricing)
+   * 2. Shipping calculation
+   * 3. Tax calculation
+   * 4. Inventory reservation (optimistic locking)
+   * 
+   * Steps (IN TRANSACTION - ATOMIC):
+   * 5. User lookup/creation (guest checkout support)
    * 6. Order creation
    * 7. Order items creation
-   * 8. Notification sending
+   * 8. Inventory commit (finalizes stock deduction)
    * 
-   * Rollback on ANY failure
+   * Steps (POST-TRANSACTION):
+   * 9. Notification sending (best-effort)
+   * 
+   * Transaction ensures ALL database writes succeed or ALL rollback automatically.
    */
   async createOrder(params: CreateOrderParams): Promise<CreateOrderResult> {
-    let userId: string;
     const successfulReservations: any[] = [];
-    let createdOrder: Order | null = null; // Track order creation for rollback
 
     try {
-      // Step 1: User lookup/creation
-      const userResult = await this.getOrCreateUser(
-        params.customerEmail,
-        params.customerName
-      );
-
-      if (!userResult.success || !userResult.user) {
-        return {
-          success: false,
-          error: userResult.error || 'Failed to create/find user',
-        };
-      }
-
-      userId = userResult.user.id;
-
-      // Step 2: Cart validation (server-side pricing)
+      // ===========================================================================
+      // PRE-TRANSACTION PHASE: Validation & External Service Calls
+      // ===========================================================================
+      // These operations don't touch the database or have their own transaction handling
+      
+      // Step 1: Cart validation (server-side pricing)
       const validation = await this.cartValidationService.validateCart(
         params.items.map(item => ({
           productId: item.productId,
@@ -188,13 +183,13 @@ export class OrderService {
         };
       }
 
-      // Step 3: Shipping calculation
+      // Step 2: Shipping calculation
       const shipping = await this.shippingService.calculateShipping(
         params.items.map(i => ({ id: i.productId, quantity: i.quantity })),
         params.destination
       );
 
-      // Step 4: Tax calculation using Stripe Tax (Plan C architecture)
+      // Step 3: Tax calculation using Stripe Tax
       const sellerId = validation.items[0]?.sellerId || '';
       const seller = await this.storage.getUser(sellerId);
       const currency = seller?.listingCurrency || 'USD';
@@ -212,7 +207,7 @@ export class OrderService {
         shippingCost: shipping.cost,
       });
 
-      // Step 5: Pricing calculation
+      // Step 4: Pricing calculation
       const pricing = calculatePricing(
         validation.items,
         shipping.cost,
@@ -222,12 +217,17 @@ export class OrderService {
       // Get seller currency
       const sellerCurrency = await this.getSellerCurrency(validation.items[0]?.id);
 
-      // Step 6: Inventory reservation (CRITICAL)
+      // Step 5: Inventory reservation (optimistic locking - creates temporary reservations)
       const checkoutSessionId = `checkout_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      
+      // We need userId for reservation, but we'll get it in transaction
+      // For now, use a temporary userId that will be updated in transaction
+      const tempUserId = 'temp_' + Math.random().toString(36).substring(2, 8);
+      
       const reservationResult = await this.reserveInventory(
         params.items,
         validation.items,
-        userId,
+        tempUserId, // Will be updated to real userId in transaction
         checkoutSessionId
       );
 
@@ -241,73 +241,88 @@ export class OrderService {
 
       successfulReservations.push(...(reservationResult.reservations || []));
 
-      // Step 7: Create order with shipping data
-      const order = await this.createOrderRecord(
-        userId,
-        sellerId, // CRITICAL: Pass sellerId to populate order.seller_id field
-        params,
-        validation,
-        pricing,
-        taxCalculation.taxAmount,
-        sellerCurrency,
-        checkoutSessionId,
-        taxCalculation.calculationId,
-        taxCalculation.taxBreakdown || null, // Pass tax breakdown
-        shipping,
-        params.paymentIntentId // Pass payment intent ID from frontend
-      );
-      createdOrder = order; // Track for rollback
-
-      // Step 8: Create order items
-      await this.createOrderItems(order);
-
-      // Step 9: CRITICAL - Commit inventory reservations (finalize stock deduction)
-      // This is NOT best-effort - if commit fails, we must roll back the entire order
-      const commitResult = await this.inventoryService.commitReservationsBySession(checkoutSessionId, order.id);
+      // ===========================================================================
+      // TRANSACTION PHASE: Atomic Database Operations
+      // ===========================================================================
+      // ALL database writes happen atomically - either ALL succeed or ALL rollback
       
-      if (!commitResult.success) {
-        logger.error('[OrderService] CRITICAL - Failed to commit inventory, rolling back order', {
-          orderId: order.id,
-          checkoutSessionId,
-          error: commitResult.error,
-        });
+      const order = await prisma.$transaction(async (tx) => {
+        // Step 6: User lookup/creation (ATOMIC)
+        const userResult = await this.getOrCreateUserTx(
+          tx,
+          params.customerEmail,
+          params.customerName
+        );
+
+        if (!userResult.success || !userResult.user) {
+          throw new Error(userResult.error || 'Failed to create/find user');
+        }
+
+        const userId = userResult.user.id;
         
-        // ROLLBACK: Delete order and order items since inventory couldn't be committed
-        try {
-          await this.storage.deleteOrderItems(order.id);
-          await this.storage.deleteOrder(order.id);
-          logger.info('[OrderService] Successfully rolled back order and items', { orderId: order.id });
-        } catch (rollbackError: any) {
-          logger.error('[OrderService] Failed to rollback order - manual intervention required', {
-            orderId: order.id,
-            error: rollbackError.message,
+        // Update reservations with real userId
+        for (const reservation of successfulReservations) {
+          await tx.stock_reservations.update({
+            where: { id: reservation.id },
+            data: { user_id: userId }
           });
         }
-        
-        // Release reservations (cleanup)
-        for (const reservation of successfulReservations) {
-          await this.inventoryService.releaseReservation(reservation.id);
-        }
-        
-        // Return error - order creation FAILED
-        return {
-          success: false,
-          error: 'Failed to finalize inventory. Please try again.',
-        };
-      }
 
-      logger.info('[OrderService] Inventory committed successfully', {
-        orderId: order.id,
-        checkoutSessionId,
-        committed: commitResult.committed,
+        // Step 7: Create order (ATOMIC)
+        const createdOrder = await this.createOrderRecordTx(
+          tx,
+          userId,
+          sellerId,
+          params,
+          validation,
+          pricing,
+          taxCalculation.taxAmount,
+          sellerCurrency,
+          checkoutSessionId,
+          taxCalculation.calculationId,
+          taxCalculation.taxBreakdown || null,
+          shipping,
+          params.paymentIntentId
+        );
+
+        // Step 8: Create order items (ATOMIC)
+        await this.createOrderItemsTx(tx, createdOrder);
+
+        // Step 9: Commit inventory reservations (ATOMIC - CRITICAL!)
+        // This finalizes stock deduction - if this fails, entire transaction rolls back
+        const commitResult = await this.commitInventoryReservationsTx(
+          tx,
+          checkoutSessionId,
+          createdOrder.id
+        );
+
+        if (!commitResult.success) {
+          throw new Error(commitResult.error || 'Failed to commit inventory');
+        }
+
+        logger.info('[OrderService] Transaction completed successfully', {
+          orderId: createdOrder.id,
+          userId,
+          checkoutSessionId,
+          itemCount: validation.items.length,
+        });
+
+        return createdOrder;
+      }, {
+        timeout: 30000, // 30 second timeout for complex orders
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       });
 
-      // Send order notifications immediately if payment confirmed (webhook may not fire in test mode)
-      // NOTE: Webhooks handle this for production, but test cards don't trigger webhooks
+      // ===========================================================================
+      // POST-TRANSACTION PHASE: Best-Effort Operations
+      // ===========================================================================
+      // These operations should not block order creation if they fail
+      
+      // Send order notifications immediately if payment confirmed
       if (order.paymentStatus === 'fully_paid' || order.status === 'processing') {
         try {
           await this.sendOrderNotifications(order);
-          logger.info('[OrderService] Order notifications sent immediately (payment confirmed)', {
+          logger.info('[OrderService] Order notifications sent', {
             orderId: order.id,
           });
         } catch (emailError) {
@@ -331,41 +346,31 @@ export class OrderService {
       };
 
     } catch (error: any) {
-      // CRITICAL ROLLBACK: Clean up ALL created resources
-      logger.error('[OrderService] Order creation failed - initiating full rollback', { 
+      // Transaction automatically rolled back ALL database changes
+      // We only need to clean up inventory reservations
+      logger.error('[OrderService] Order creation failed - transaction auto-rolled back', { 
         error: error.message,
-        orderCreated: !!createdOrder,
         reservationsCount: successfulReservations.length,
       });
 
-      // 1. Rollback order and items if they were created
-      if (createdOrder) {
-        try {
-          await this.storage.deleteOrderItems(createdOrder.id);
-          await this.storage.deleteOrder(createdOrder.id);
-          logger.info('[OrderService] Successfully rolled back order and items', { 
-            orderId: createdOrder.id 
-          });
-        } catch (rollbackError: any) {
-          logger.error('[OrderService] Failed to rollback order - manual intervention required', {
-            orderId: createdOrder.id,
-            error: rollbackError.message,
-          });
-        }
-      }
-
-      // 2. Release any successful reservations
+      // Release any successful inventory reservations
       if (successfulReservations.length > 0) {
-        logger.warn('[OrderService] Rolling back reservations', {
+        logger.warn('[OrderService] Releasing inventory reservations', {
           count: successfulReservations.length,
         });
 
         for (const reservation of successfulReservations) {
-          await this.inventoryService.releaseReservation(reservation.id);
+          try {
+            await this.inventoryService.releaseReservation(reservation.id);
+          } catch (releaseError: any) {
+            logger.error('[OrderService] Failed to release reservation', {
+              reservationId: reservation.id,
+              error: releaseError.message,
+            });
+          }
         }
       }
 
-      logger.error('[OrderService] Order creation failed after full rollback', { error });
       return {
         success: false,
         error: error.message || 'Failed to create order',
@@ -1714,5 +1719,462 @@ export class OrderService {
     const prefix = 'user';
     const randomSuffix = Math.random().toString(36).substring(2, 8);
     return `${prefix}_${randomSuffix}`;
+  }
+
+  // ============================================================================
+  // Transaction-Aware Helper Methods (for Atomic Operations)
+  // ============================================================================
+  // These methods accept a Prisma transaction client and use it for all DB operations
+  // to ensure atomicity across the entire order creation flow.
+
+  /**
+   * Get or create user within a transaction
+   * @param tx - Prisma transaction client
+   */
+  private async getOrCreateUserTx(
+    tx: Prisma.TransactionClient,
+    email: string,
+    name: string
+  ): Promise<{ success: boolean; user?: User; error?: string }> {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Query user by email within transaction
+    const existingUser = await tx.users.findFirst({
+      where: { email: normalizedEmail }
+    });
+
+    // Check if seller trying to checkout
+    const sellerRoles = ['admin', 'editor', 'viewer', 'seller', 'owner'];
+    if (existingUser && sellerRoles.includes(existingUser.role)) {
+      return {
+        success: false,
+        error: 'This is a seller account email. Sellers cannot checkout as buyers. Please use a different email address.',
+      };
+    }
+
+    if (existingUser) {
+      // Map snake_case to camelCase for return value
+      const user: User = {
+        ...existingUser,
+        firstName: existingUser.first_name,
+        lastName: existingUser.last_name,
+        profileImageUrl: existingUser.profile_image_url,
+        sellerId: existingUser.seller_id,
+        invitedBy: existingUser.invited_by,
+        storeBanner: existingUser.store_banner,
+        storeLogo: existingUser.store_logo,
+        paymentProvider: existingUser.payment_provider,
+        stripeConnectedAccountId: existingUser.stripe_connected_account_id,
+        stripeChargesEnabled: existingUser.stripe_charges_enabled,
+        stripePayoutsEnabled: existingUser.stripe_payouts_enabled,
+        stripeDetailsSubmitted: existingUser.stripe_details_submitted,
+        listingCurrency: existingUser.listing_currency,
+        stripeCustomerId: existingUser.stripe_customer_id,
+        stripeSubscriptionId: existingUser.stripe_subscription_id,
+        subscriptionStatus: existingUser.subscription_status,
+        subscriptionPlan: existingUser.subscription_plan,
+        trialEndsAt: existingUser.trial_ends_at,
+        paypalMerchantId: existingUser.paypal_merchant_id,
+        paypalPartnerId: existingUser.paypal_partner_id,
+        customDomain: existingUser.custom_domain,
+        customDomainVerified: existingUser.custom_domain_verified,
+        instagramUserId: existingUser.instagram_user_id,
+        instagramUsername: existingUser.instagram_username,
+        instagramAccessToken: existingUser.instagram_access_token,
+        shippingPrice: existingUser.shipping_price,
+        storeActive: existingUser.store_active,
+        shippingPolicy: existingUser.shipping_policy,
+        returnsPolicy: existingUser.returns_policy,
+        contactEmail: existingUser.contact_email,
+        createdAt: existingUser.created_at,
+        updatedAt: existingUser.updated_at,
+        taxEnabled: existingUser.tax_enabled,
+        taxNexusCountries: existingUser.tax_nexus_countries,
+        taxNexusStates: existingUser.tax_nexus_states,
+        taxProductCode: existingUser.tax_product_code,
+        isPlatformAdmin: existingUser.is_platform_admin,
+        aboutStory: existingUser.about_story,
+        socialInstagram: existingUser.social_instagram,
+        socialTwitter: existingUser.social_twitter,
+        socialTiktok: existingUser.social_tiktok,
+      } as User;
+      
+      return { success: true, user };
+    }
+
+    // Create new buyer account within transaction
+    const newUserId = Math.random().toString(36).substring(2, 8);
+    const [firstName, ...lastNameParts] = (name || 'Guest User').split(' ');
+    const username = await this.generateUniqueUsername();
+
+    const newUser = await tx.users.create({
+      data: {
+        id: newUserId,
+        email: normalizedEmail,
+        username,
+        first_name: firstName || 'Guest',
+        last_name: lastNameParts.join(' ') || 'User',
+        profile_image_url: null,
+        role: 'buyer',
+        user_type: 'buyer',
+        password: null,
+      }
+    });
+
+    logger.info('[OrderService] Created buyer account in transaction', {
+      email: normalizedEmail,
+      username,
+      userId: newUserId,
+    });
+
+    // Map to camelCase
+    const user: User = {
+      ...newUser,
+      firstName: newUser.first_name,
+      lastName: newUser.last_name,
+      profileImageUrl: newUser.profile_image_url,
+      sellerId: newUser.seller_id,
+      invitedBy: newUser.invited_by,
+      storeBanner: newUser.store_banner,
+      storeLogo: newUser.store_logo,
+      paymentProvider: newUser.payment_provider,
+      stripeConnectedAccountId: newUser.stripe_connected_account_id,
+      stripeChargesEnabled: newUser.stripe_charges_enabled,
+      stripePayoutsEnabled: newUser.stripe_payouts_enabled,
+      stripeDetailsSubmitted: newUser.stripe_details_submitted,
+      listingCurrency: newUser.listing_currency,
+      stripeCustomerId: newUser.stripe_customer_id,
+      stripeSubscriptionId: newUser.stripe_subscription_id,
+      subscriptionStatus: newUser.subscription_status,
+      subscriptionPlan: newUser.subscription_plan,
+      trialEndsAt: newUser.trial_ends_at,
+      paypalMerchantId: newUser.paypal_merchant_id,
+      paypalPartnerId: newUser.paypal_partner_id,
+      customDomain: newUser.custom_domain,
+      customDomainVerified: newUser.custom_domain_verified,
+      instagramUserId: newUser.instagram_user_id,
+      instagramUsername: newUser.instagram_username,
+      instagramAccessToken: newUser.instagram_access_token,
+      shippingPrice: newUser.shipping_price,
+      storeActive: newUser.store_active,
+      shippingPolicy: newUser.shipping_policy,
+      returnsPolicy: newUser.returns_policy,
+      contactEmail: newUser.contact_email,
+      createdAt: newUser.created_at,
+      updatedAt: newUser.updated_at,
+      taxEnabled: newUser.tax_enabled,
+      taxNexusCountries: newUser.tax_nexus_countries,
+      taxNexusStates: newUser.tax_nexus_states,
+      taxProductCode: newUser.tax_product_code,
+      isPlatformAdmin: newUser.is_platform_admin,
+      aboutStory: newUser.about_story,
+      socialInstagram: newUser.social_instagram,
+      socialTwitter: newUser.social_twitter,
+      socialTiktok: newUser.social_tiktok,
+    } as User;
+
+    return { success: true, user };
+  }
+
+  /**
+   * Create order record within a transaction
+   * @param tx - Prisma transaction client
+   */
+  private async createOrderRecordTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    sellerId: string,
+    params: CreateOrderParams,
+    validation: any,
+    pricing: any,
+    taxAmount: number,
+    currency: string,
+    checkoutSessionId: string,
+    taxCalculationId?: string,
+    taxBreakdown?: any,
+    shipping?: {
+      cost: number;
+      method: string;
+      zone?: string;
+      estimatedDays?: string;
+      carrier?: string;
+    },
+    paymentIntentId?: string
+  ): Promise<Order> {
+    const fullAddress = [
+      params.customerAddress.line1,
+      params.customerAddress.line2,
+      `${params.customerAddress.city}, ${params.customerAddress.state} ${params.customerAddress.postalCode}`,
+      params.customerAddress.country,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    // Use payment info from frontend if provided
+    const finalAmountPaid = params.amountPaid || '0';
+    const finalPaymentStatus = params.paymentStatus || 'pending';
+    const finalStatus = params.paymentStatus === 'fully_paid' || params.paymentStatus === 'deposit_paid' 
+      ? 'processing' 
+      : 'pending';
+    
+    const finalTaxAmount = params.taxAmount || taxAmount.toString();
+    const finalTaxCalculationId = params.taxCalculationId || taxCalculationId || null;
+    const finalTaxBreakdown = params.taxBreakdown || taxBreakdown;
+    const finalSubtotalBeforeTax = pricing.subtotal.toString();
+    
+    // Calculate total deposit amount from all items (in cents)
+    let totalDepositCents: number | null = null;
+    if (pricing.payingDepositOnly) {
+      const totalDeposit = validation.items.reduce((sum: number, item: any) => {
+        const itemDeposit = item.depositAmount ? parseFloat(item.depositAmount) * item.quantity : 0;
+        return sum + itemDeposit;
+      }, 0);
+      totalDepositCents = Math.round(totalDeposit * 100);
+    }
+    
+    const orderData: InsertOrder = {
+      userId,
+      sellerId,
+      customerName: params.customerName,
+      customerEmail: params.customerEmail.toLowerCase().trim(),
+      customerAddress: fullAddress,
+      taxCalculationId: finalTaxCalculationId,
+      taxBreakdown: finalTaxBreakdown,
+      items: JSON.stringify(
+        validation.items.map((item: any) => ({
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          originalPrice: item.originalPrice || null,
+          discountPercentage: item.discountPercentage || null,
+          discountAmount: item.discountAmount || null,
+          quantity: item.quantity,
+          productType: item.productType,
+          depositAmount: item.depositAmount,
+          requiresDeposit: item.requiresDeposit,
+          productSku: item.sku || item.productSku || null,
+          variantSku: item.variantSku || null,
+          preOrderDate: item.preOrderDate || null,
+          madeToOrderDays: item.madeToOrderDays || null,
+          variant: (() => {
+            const matchedItem = params.items.find(i => i.productId === item.id);
+            if (matchedItem?.variant) {
+              return matchedItem.variant;
+            }
+            if (matchedItem?.variantId) {
+              const parts = matchedItem.variantId.split('-');
+              if (parts.length >= 2) {
+                return { size: parts[0], color: parts[1] };
+              } else if (parts.length === 1) {
+                return { size: parts[0] };
+              }
+            }
+            return null;
+          })(),
+        }))
+      ),
+      total: pricing.fullTotal.toString(),
+      amountPaid: finalAmountPaid,
+      remainingBalance: pricing.payingDepositOnly
+        ? pricing.remainingBalance.toString()
+        : '0',
+      paymentType: pricing.payingDepositOnly ? 'deposit' : 'full',
+      paymentStatus: finalPaymentStatus,
+      status: finalStatus,
+      subtotalBeforeTax: finalSubtotalBeforeTax,
+      taxAmount: finalTaxAmount,
+      currency,
+      stripePaymentIntentId: paymentIntentId || null,
+      shippingCost: shipping ? shipping.cost.toString() : null,
+      shippingMethod: shipping ? shipping.method : null,
+      shippingZone: shipping?.zone || null,
+      shippingCarrier: shipping?.carrier || null,
+      shippingEstimatedDays: shipping?.estimatedDays || null,
+      shippingStreet: params.customerAddress.line1,
+      shippingCity: params.customerAddress.city,
+      shippingState: params.customerAddress.state,
+      shippingPostalCode: params.customerAddress.postalCode,
+      shippingCountry: params.customerAddress.country,
+      depositAmountCents: totalDepositCents,
+    };
+
+    // Create order within transaction
+    const result = await tx.orders.create({
+      data: orderData
+    });
+
+    // Map snake_case to camelCase for return value
+    const order: Order = {
+      ...result,
+      userId: result.user_id,
+      sellerId: result.seller_id,
+      customerName: result.customer_name,
+      customerEmail: result.customer_email,
+      customerAddress: result.customer_address,
+      taxCalculationId: result.tax_calculation_id,
+      taxBreakdown: result.tax_breakdown,
+      amountPaid: result.amount_paid,
+      remainingBalance: result.remaining_balance,
+      paymentType: result.payment_type,
+      paymentStatus: result.payment_status,
+      subtotalBeforeTax: result.subtotal_before_tax,
+      taxAmount: result.tax_amount,
+      stripePaymentIntentId: result.stripe_payment_intent_id,
+      shippingCost: result.shipping_cost,
+      shippingMethod: result.shipping_method,
+      shippingZone: result.shipping_zone,
+      shippingCarrier: result.shipping_carrier,
+      shippingEstimatedDays: result.shipping_estimated_days,
+      shippingStreet: result.shipping_street,
+      shippingCity: result.shipping_city,
+      shippingState: result.shipping_state,
+      shippingPostalCode: result.shipping_postal_code,
+      shippingCountry: result.shipping_country,
+      depositAmountCents: result.deposit_amount_cents,
+      balanceDueCents: result.balance_due_cents,
+      trackingNumber: result.tracking_number,
+      trackingUrl: result.tracking_url,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    } as Order;
+
+    return order;
+  }
+
+  /**
+   * Create order items within a transaction
+   * @param tx - Prisma transaction client
+   */
+  private async createOrderItemsTx(tx: Prisma.TransactionClient, order: Order): Promise<void> {
+    try {
+      // Parse items from order
+      const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+      
+      // Fetch all products at once for efficiency
+      const productIds = items.map((item: any) => item.productId || item.id);
+      const products = await Promise.all(
+        productIds.map((id: string) => tx.products.findUnique({ where: { id } }))
+      );
+      const productMap = new Map<string, any>();
+      products.forEach(p => {
+        if (p) {
+          productMap.set(p.id, p);
+        }
+      });
+      
+      const orderItemsToCreate = items.map((item: any) => {
+        const itemPrice = parseFloat(item.price);
+        const subtotal = itemPrice * item.quantity;
+        const productType = item.productType || 'in-stock';
+        
+        const product = productMap.get(item.productId || item.id);
+        
+        // Calculate per-item balance amount
+        let balanceAmount: string | null = null;
+        if ((productType === 'pre-order' || productType === 'made-to-order') && item.depositAmount) {
+          const depositPerItem = parseFloat(item.depositAmount);
+          const totalDeposit = depositPerItem * item.quantity;
+          balanceAmount = String(subtotal - totalDeposit);
+        }
+        
+        return {
+          order_id: order.id,
+          product_id: item.productId || item.id,
+          product_name: item.name,
+          product_image: item.image || null,
+          product_type: productType,
+          quantity: item.quantity,
+          price: String(item.price),
+          original_price: item.originalPrice ? String(item.originalPrice) : null,
+          discount_percentage: item.discountPercentage ? String(item.discountPercentage) : null,
+          discount_amount: item.discountAmount ? String(item.discountAmount) : null,
+          subtotal: String(subtotal),
+          deposit_amount: item.depositAmount ? String(item.depositAmount) : null,
+          balance_amount: balanceAmount,
+          requires_deposit: item.requiresDeposit ? 1 : 0,
+          variant: item.variant || null,
+          product_sku: item.productSku || null,
+          variant_sku: item.variantSku || null,
+          item_status: 'pending' as const,
+          pre_order_date: product?.pre_order_date || null,
+          made_to_order_lead_time: product?.made_to_order_days || null,
+        };
+      });
+
+      logger.info('[OrderService] Creating order items in transaction', {
+        orderId: order.id,
+        itemCount: orderItemsToCreate.length,
+      });
+
+      // Create all order items within transaction
+      await tx.order_items.createMany({
+        data: orderItemsToCreate
+      });
+
+      logger.info('[OrderService] Order items created in transaction', {
+        orderId: order.id,
+        count: orderItemsToCreate.length,
+      });
+    } catch (error: any) {
+      logger.error('[OrderService] Failed to create order items in transaction', {
+        error: error?.message,
+        orderId: order.id,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Commit inventory reservations within a transaction
+   * This finalizes the stock deduction by marking reservations as committed
+   * @param tx - Prisma transaction client
+   */
+  private async commitInventoryReservationsTx(
+    tx: Prisma.TransactionClient,
+    checkoutSessionId: string,
+    orderId: string
+  ): Promise<{ success: boolean; committed?: number; error?: string }> {
+    try {
+      // Get all reservations for this checkout session
+      const reservations = await tx.stock_reservations.findMany({
+        where: { checkout_session_id: checkoutSessionId }
+      });
+
+      if (reservations.length === 0) {
+        logger.warn('[OrderService] No reservations found for session', { checkoutSessionId });
+        return { success: true, committed: 0 };
+      }
+
+      // Mark all reservations as committed within the transaction
+      const updateResult = await tx.stock_reservations.updateMany({
+        where: { checkout_session_id: checkoutSessionId },
+        data: {
+          status: 'committed',
+          order_id: orderId,
+          committed_at: new Date(),
+        }
+      });
+
+      logger.info('[OrderService] Committed inventory reservations in transaction', {
+        checkoutSessionId,
+        orderId,
+        committed: updateResult.count,
+      });
+
+      return {
+        success: true,
+        committed: updateResult.count,
+      };
+    } catch (error: any) {
+      logger.error('[OrderService] Failed to commit reservations in transaction', {
+        checkoutSessionId,
+        orderId,
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 }
