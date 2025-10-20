@@ -163,6 +163,39 @@ export class IdentityService {
     return this.mapSellerAccountFromPrisma(user);
   }
 
+  async getStorePublicProfile(slug: string) {
+    // CRITICAL FIX: Public-safe version that only returns storefront data (no PII)
+    const user = await this.prisma.users.findFirst({
+      where: { 
+        username: slug,
+      },
+    });
+
+    if (!user) {
+      throw new GraphQLError('Store not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    // PUBLIC-SAFE: Only return fields appropriate for public storefronts
+    return {
+      id: user.id,
+      userId: user.id,
+      storeName: user.username || '',
+      storeSlug: user.username || '',
+      businessName: user.company_name,
+      // EXCLUDED: businessEmail (PII)
+      // EXCLUDED: businessPhone (PII)
+      // EXCLUDED: stripeAccountId (sensitive)
+      subscriptionTier: this.mapSubscriptionTier(user.subscription_plan),
+      brandColor: user.store_banner,
+      logoUrl: user.store_logo,
+      notificationSettings: null,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
+  }
+
   async getBuyerProfile(userId: string) {
     const buyerProfile = await this.prisma.buyer_profiles.findUnique({
       where: { user_id: userId },

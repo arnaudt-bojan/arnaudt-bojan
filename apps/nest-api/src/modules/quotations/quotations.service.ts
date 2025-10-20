@@ -97,12 +97,21 @@ export class QuotationsService {
     return this.mapQuotationToGraphQL(quotation);
   }
 
-  async getQuotation(id: string) {
+  async getQuotation(id: string, sellerId: string) {
+    // CRITICAL FIX: Validate seller ownership before returning quotation
     const quotation = await this.prisma.trade_quotations.findUnique({
       where: { id },
     });
 
     if (!quotation) {
+      throw new GraphQLError('Quotation not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    // AUTHORIZATION: Only the seller who created this quotation can access it
+    if (quotation.seller_id !== sellerId) {
+      // Security: Return "not found" instead of "unauthorized" to prevent enumeration
       throw new GraphQLError('Quotation not found', {
         extensions: { code: 'NOT_FOUND' },
       });

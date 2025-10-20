@@ -183,6 +183,11 @@ model carts {
   created_at    DateTime        @default(now()) @db.Timestamp(6)
   updated_at    DateTime        @default(now()) @db.Timestamp(6)
   cart_sessions cart_sessions[]
+
+  // CRITICAL FIX: Indexes on foreign keys for performance
+  @@index([seller_id])
+  @@index([buyer_id])
+  @@index([seller_id, status])
 }
 
 model categories {
@@ -901,6 +906,13 @@ model order_items {
   pre_order_date            DateTime? @db.Timestamp(6)
   made_to_order_lead_time   Int?
   delivery_reminder_sent_at DateTime? @db.Timestamp(6)
+  
+  // CRITICAL FIX: Cascade delete + indexes for performance
+  orders                    orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id])
+  @@index([product_id])
+  @@index([order_id, product_id])
 }
 
 model order_workflow_events {
@@ -955,7 +967,8 @@ model orders {
   fulfillment_status               String?          @default("unfulfilled")
   tracking_number                  String?          @db.VarChar
   tracking_link                    String?
-  created_at                       String           @default(dbgenerated("CURRENT_TIMESTAMP"))
+  created_at                       DateTime         @default(now()) @db.Timestamp(6)
+  updated_at                       DateTime         @default(now()) @db.Timestamp(6)
   tax_amount                       Decimal?         @default(0) @db.Decimal(10, 2)
   tax_calculation_id               String?          @db.VarChar
   tax_breakdown                    Json?
@@ -987,6 +1000,14 @@ model orders {
   billing_country                  String?          @db.VarChar
   shipping_label_id                String?          @db.VarChar
   shipping_labels                  shipping_labels? @relation(fields: [shipping_label_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "orders_shipping_label_id_shipping_labels_id_fk")
+  order_items                      order_items[]
+
+  // CRITICAL FIX: Indexes on foreign keys for performance
+  @@index([user_id])
+  @@index([seller_id])
+  @@index([user_id, status])
+  @@index([seller_id, status])
+  @@index([created_at])
 }
 
 model packing_slips {
@@ -1423,47 +1444,53 @@ model trade_quotation_events {
 }
 
 model trade_quotation_items {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
-  quotation_id String   @db.VarChar
-  line_number  Int
-  description  String
-  product_id   String?  @db.VarChar
-  unit_price   Decimal  @db.Decimal(10, 2)
-  quantity     Int
-  line_total   Decimal  @db.Decimal(10, 2)
-  created_at   DateTime @default(now()) @db.Timestamp(6)
-  updated_at   DateTime @default(now()) @db.Timestamp(6)
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
+  quotation_id      String             @db.VarChar
+  line_number       Int
+  description       String
+  product_id        String?            @db.VarChar
+  unit_price        Decimal            @db.Decimal(10, 2)
+  quantity          Int
+  line_total        Decimal            @db.Decimal(10, 2)
+  created_at        DateTime           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime           @default(now()) @db.Timestamp(6)
+  
+  // CRITICAL FIX: Cascade delete when quotation is deleted
+  trade_quotations  trade_quotations   @relation(fields: [quotation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([quotation_id], map: "trade_quotation_items_quotation_idx")
 }
 
 model trade_quotations {
-  id                       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
-  seller_id                String                 @db.VarChar
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar
+  seller_id                String                    @db.VarChar
   buyer_email              String
-  buyer_id                 String?                @db.VarChar
-  quotation_number         String                 @unique(map: "trade_quotations_quotation_number_idx") @db.VarChar
-  currency                 String                 @default("USD") @db.VarChar(3)
-  subtotal                 Decimal                @db.Decimal(10, 2)
-  tax_amount               Decimal                @default(0) @db.Decimal(10, 2)
-  shipping_amount          Decimal                @default(0) @db.Decimal(10, 2)
-  total                    Decimal                @db.Decimal(10, 2)
-  deposit_amount           Decimal                @db.Decimal(10, 2)
-  deposit_percentage       Int                    @default(50)
-  balance_amount           Decimal                @db.Decimal(10, 2)
-  status                   trade_quotation_status @default(draft)
-  valid_until              DateTime?              @db.Timestamp(6)
+  buyer_id                 String?                   @db.VarChar
+  quotation_number         String                    @unique(map: "trade_quotations_quotation_number_idx") @db.VarChar
+  currency                 String                    @default("USD") @db.VarChar(3)
+  subtotal                 Decimal                   @db.Decimal(10, 2)
+  tax_amount               Decimal                   @default(0) @db.Decimal(10, 2)
+  shipping_amount          Decimal                   @default(0) @db.Decimal(10, 2)
+  total                    Decimal                   @db.Decimal(10, 2)
+  deposit_amount           Decimal                   @db.Decimal(10, 2)
+  deposit_percentage       Int                       @default(50)
+  balance_amount           Decimal                   @db.Decimal(10, 2)
+  status                   trade_quotation_status    @default(draft)
+  valid_until              DateTime?                 @db.Timestamp(6)
   metadata                 Json?
-  created_at               DateTime               @default(now()) @db.Timestamp(6)
-  updated_at               DateTime               @default(now()) @db.Timestamp(6)
-  order_id                 String?                @db.VarChar
-  delivery_terms           String?                @db.VarChar(10)
+  created_at               DateTime                  @default(now()) @db.Timestamp(6)
+  updated_at               DateTime                  @default(now()) @db.Timestamp(6)
+  order_id                 String?                   @db.VarChar
+  delivery_terms           String?                   @db.VarChar(10)
   data_sheet_url           String?
   terms_and_conditions_url String?
+  trade_quotation_items    trade_quotation_items[]
 
   @@index([buyer_email])
   @@index([seller_id], map: "trade_quotations_seller_idx")
   @@index([status])
+  @@index([buyer_id])
+  @@index([seller_id, status])
 }
 
 model trustpilot_reviews {

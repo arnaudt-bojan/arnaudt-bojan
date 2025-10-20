@@ -12,12 +12,24 @@ export class OrdersService {
     private websocketGateway: AppWebSocketGateway,
   ) {}
 
-  async getOrder(orderId: string) {
+  async getOrder(orderId: string, userId: string) {
+    // CRITICAL FIX: Validate ownership before returning order
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
     });
 
     if (!order) {
+      throw new GraphQLError('Order not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    // AUTHORIZATION: User must be either the buyer OR the seller
+    const isBuyer = order.user_id === userId;
+    const isSeller = order.seller_id === userId;
+
+    if (!isBuyer && !isSeller) {
+      // Security: Return "not found" instead of "unauthorized" to prevent user enumeration
       throw new GraphQLError('Order not found', {
         extensions: { code: 'NOT_FOUND' },
       });

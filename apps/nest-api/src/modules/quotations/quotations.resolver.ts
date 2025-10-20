@@ -32,7 +32,8 @@ export class QuotationsResolver {
     @Args('id') id: string,
     @CurrentUser() userId: string,
   ) {
-    return this.quotationsService.getQuotation(id);
+    // CRITICAL FIX: Pass sellerId for ownership validation
+    return this.quotationsService.getQuotation(id, userId);
   }
 
   @Query('getQuotationByToken')

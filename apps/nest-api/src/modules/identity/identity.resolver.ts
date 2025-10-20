@@ -1,5 +1,6 @@
 import { Resolver, Query, Mutation, Args, ResolveField, Parent, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { GraphQLError } from 'graphql';
 import { IdentityService } from './identity.service';
 import { GraphQLContext } from '../../types/context';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
@@ -35,22 +36,53 @@ export class IdentityResolver {
   }
 
   @Query('getUser')
-  async getUser(@Args('id') id: string) {
+  @UseGuards(GqlAuthGuard)
+  async getUser(
+    @Args('id') id: string,
+    @CurrentUser() currentUserId: string,
+  ) {
+    // CRITICAL FIX: Only allow users to query themselves (prevent PII enumeration)
+    if (id !== currentUserId) {
+      throw new GraphQLError('Access denied', {
+        extensions: { code: 'FORBIDDEN' },
+      });
+    }
     return this.identityService.getUser(id);
   }
 
   @Query('getSeller')
-  async getSeller(@Args('id') id: string) {
+  @UseGuards(GqlAuthGuard)
+  async getSeller(
+    @Args('id') id: string,
+    @CurrentUser() currentUserId: string,
+  ) {
+    // CRITICAL FIX: Only allow sellers to query themselves (prevent business email/phone exposure)
+    if (id !== currentUserId) {
+      throw new GraphQLError('Access denied', {
+        extensions: { code: 'FORBIDDEN' },
+      });
+    }
     return this.identityService.getSeller(id);
   }
 
   @Query('getStore')
   async getStore(@Args('slug') slug: string) {
-    return this.identityService.getStore(slug);
+    // PUBLIC QUERY: Returns only storefront-safe fields (no PII)
+    return this.identityService.getStorePublicProfile(slug);
   }
 
   @Query('getBuyerProfile')
-  async getBuyerProfile(@Args('userId') userId: string) {
+  @UseGuards(GqlAuthGuard)
+  async getBuyerProfile(
+    @Args('userId') userId: string,
+    @CurrentUser() currentUserId: string,
+  ) {
+    // CRITICAL FIX: Only allow buyers to query themselves (prevent PII exposure)
+    if (userId !== currentUserId) {
+      throw new GraphQLError('Access denied', {
+        extensions: { code: 'FORBIDDEN' },
+      });
+    }
     return this.identityService.getBuyerProfile(userId);
   }
 

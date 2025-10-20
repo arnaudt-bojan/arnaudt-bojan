@@ -35,7 +35,8 @@ export class OrdersResolver {
     @Args('id') id: string,
     @CurrentUser() userId: string,
   ) {
-    return this.ordersService.getOrder(id);
+    // CRITICAL FIX: Pass userId for ownership validation
+    return this.ordersService.getOrder(id, userId);
   }
 
   @Query('listOrders')

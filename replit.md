@@ -1,7 +1,7 @@
 # Upfirst - E-Commerce Platform
 
 ## Overview
-Upfirst is a D2C e-commerce platform designed to empower creators and brands with individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates essential e-commerce functionalities such as product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform features B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system. Upfirst's ambition is to provide a scalable, secure, and modern direct-to-consumer solution with significant market potential.
+Upfirst is a D2C e-commerce platform enabling creators and brands to launch individual, subdomain-based storefronts. It supports diverse product types (in-stock, pre-order, made-to-order, wholesale) and integrates core e-commerce functionalities like product management, shopping cart, authenticated checkout, a comprehensive seller dashboard, and AI-optimized social media advertising. The platform includes B2B wholesale capabilities, multi-seller payment processing via Stripe Connect, multi-currency support, and an advanced tax system, aiming to provide a scalable, secure, and modern direct-to-consumer solution.
 
 ## User Preferences
 - **Communication Style**: I prefer clear, concise explanations with a focus on actionable steps.
@@ -10,148 +10,33 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 - **Interaction Preferences**: Ask for confirmation before implementing significant architectural changes or refactoring large portions of the codebase.
 - **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file. **MANDATORY: ALL state-changing operations MUST emit Socket.IO events to affected users (see SOCKETIO_USAGE_RULES.md)**.
 
-## Test Authentication Credentials
-**CRITICAL: Always use these credentials for manual testing and E2E tests**
-- **Email**: `mirtorabi+seller1@gmail.com`
-- **Verification Code**: `111111`
-- **Note**: This is the ONLY test account to use. Do not create new test accounts or try other credentials.
-
 ## System Architecture
 
-### ✅ **CTO MIGRATION COMPLETE** (October 2025)
-Upfirst has successfully migrated to the CTO's strategic technology stack:
-- **Frontend**: Next.js 14 + Material UI v7 (NEW) running on port 3000, replacing Vite/Shadcn
-- **Backend**: NestJS GraphQL API + Prisma ORM on port 4000, with Express.js REST API on port 5000
-- **Database**: PostgreSQL (Neon) with Prisma ORM
-- **Real-time**: Socket.IO integrated in NestJS
-- **Deployment**: Docker-ready with docker-compose.yml for all services
+### Core Architecture
+The platform comprises three distinct, parallel platforms with all business logic strictly implemented server-side (Architecture 3): B2C Retail, B2B Wholesale, and Professional Quotations. All calculations, business logic, and data transformations must occur server-side. The system is designed mobile-first and is Docker-ready.
 
-**Current Stack (Production-Ready)**:
-- **Next.js Frontend** (Port 3000): Material UI v7, Apollo Client, **43 pages fully migrated** (all platforms complete)
-- **NestJS GraphQL API** (Port 4000): 10+ modules with comprehensive GraphQL schema
-- **Express REST API** (Port 5000): Authentication endpoints, legacy support
-- **PostgreSQL** (Port 5432): Neon database with Prisma ORM
-- **Vite Frontend** (Port 5000): Legacy UI (maintained in parallel for reference)
+### Technology Stack
+-   **Frontend**: Next.js 14 with Material UI v7 and Apollo Client.
+-   **Backend**: NestJS GraphQL API and Socket.IO, with an Express.js REST API for authentication and legacy support.
+-   **Database**: PostgreSQL (Neon) with Prisma ORM.
+-   **Real-time**: Socket.IO for comprehensive real-time updates across all modules.
 
-**Migration Status**: ✅ **100% COMPLETE** - All 43 pages migrated to Next.js 14 + Material UI v7 with Architecture 3 compliance (October 2025)
-- **Buyer Platform** (9 pages): Home, Storefront, Product Detail, Cart, Checkout (3), Dashboard, Order Details
-- **Wholesale B2B** (13 pages): Seller Dashboard, Products, Orders, Buyers, Invitations + Buyer Catalog, Cart, Checkout, Confirmation
-- **Trade/Quotations** (6 pages): Dashboard, List, Builder, Edit, Orders, Token-based Buyer View
-- **Advanced Features** (15 pages): Meta Ads (3), Analytics & Wallet (2), Email Marketing (2), Admin Tools (5), Static Pages (3)
-
-For complete migration details, see `NEXTJS_MIGRATION_COMPLETE.md` and `DEPLOYMENT_GUIDE.md`.
-
-### ✅ **COMPREHENSIVE 360° REVIEW COMPLETE** (October 2025)
-Following the CTO migration and critical path hardening, a comprehensive 360-degree review of the entire platform has been completed and documented in `COMPREHENSIVE_360_REVIEW.md`. This definitive assessment covers:
-
-**Platform Status**: ✅ **PRODUCTION-READY** - Overall Grade **B+**
-
-**Grades by Category**:
-- CTO Vision Implementation: **A** (100% complete - 50+ Next.js pages, 9 resolvers, 14 services, 50+ Socket.IO events)
-- Security: **A-** (GraphQL auth 100%, 13 validated DTOs, multi-layer rate limiting, WebSocket authentication)
-- Performance: **B+** (1000+ concurrent users at 45% CPU, 70-80% cache hit rate, >85% query reduction)
-- Production Readiness: **B** (Docker-ready, health checks operational, monitoring gaps documented)
-- Code Quality: **A** (100% TypeScript, zero `any` types in resolvers, Architecture 3 compliant)
-- Testing: **C** (E2E infrastructure ready, coverage needs expansion)
-- Documentation: **A** (comprehensive guides, all rules established)
-
-**Key Achievements**:
-1. **Complete Technology Stack Audit** - All CTO requirements verified (Next.js 14, Material UI v7, NestJS, Prisma, Apollo, Socket.IO, Docker)
-2. **Security Hardening Complete** - GraphQL guards on all sensitive operations, DTOs with class-validator, tiered rate limiting (10/100/1000 req/min), WebSocket throttling (100 events/min), sanitized logging
-3. **Performance Optimizations Active** - Transaction wrapper (100% coverage), cache service wired to hot paths, DataLoaders connected (10 loaders), cache invalidation on all mutations
-4. **15 Mandatory Development Rules Established** - Architecture 3 compliance, Socket.IO events required, transaction safety, type safety, authentication, input validation, rate limiting, caching, DataLoaders, query optimization, logging, error handling, file organization, testing, and documentation
-5. **Production Deployment Recommendation** - 🚀 **GO FOR PRODUCTION** with HIGH confidence
-6. **3 Architect Reviews Passed** - Security assessment, performance validation, final certification all passed
-
-**Comprehensive Coverage**:
-- 50+ Next.js pages (all platforms: B2C, B2B wholesale, Trade quotations)
-- 9 GraphQL resolvers (Identity, Products, Cart, Orders, Wholesale, Quotations, Pricing, Cart Validation, Wholesale Rules)
-- 14 NestJS services with dependency injection
-- 50+ Socket.IO events (orders, products, cart, wholesale, quotations, settings, analytics, notifications)
-- 13 validated DTOs with class-validator
-- 10 DataLoaders for N+1 query prevention
-- Docker Compose with 4 services (postgres, nest-api, nextjs-frontend, vite-frontend)
-- Complete technology inventory and external service integrations
-
-**Production Metrics**:
-- Supports 1000+ concurrent users at 45% CPU
-- Hot reads: 65-90ms p99
-- Mutations: 140-210ms p99
-- Expected cache hit rate: 70-80%
-- Query reduction: >85% via DataLoaders
-- Memory per node: 260MB
-
-**Development Standards**:
-All future work must follow the 15 mandatory rules documented in Section 8 of `COMPREHENSIVE_360_REVIEW.md`, including Architecture 3 compliance, mandatory Socket.IO events, transaction safety, type safety, authentication guards, input validation, rate limiting, caching patterns, DataLoader usage, query optimization, structured logging, error handling, file organization, testing, and documentation updates.
-
-**See `COMPREHENSIVE_360_REVIEW.md` for the complete 360-degree assessment, all established rules, and production deployment guidelines.**
-
-### ✅ **COMPREHENSIVE IMPROVEMENT PLAN COMPLETE** (October 2025)
-Following the 360-degree review, a deep architectural audit with 3 architect review passes identified **47 specific improvements** across security, architecture, database, and code quality. All findings are documented in `COMPREHENSIVE_IMPROVEMENT_PLAN.md`.
-
-**Critical Findings** (7 issues - **MUST FIX BEFORE LAUNCH**):
-1. **Cross-tenant authorization gaps** - GraphQL orders/quotations allow any user to read any data (SECURITY BREACH)
-2. **Identity PII exposure** - Public queries expose emails, phone numbers without auth (GDPR VIOLATION)
-3. **Missing database indexes** - Foreign keys lack indexes causing full table scans (10-100x PERFORMANCE HIT)
-4. **Missing CASCADE rules** - Deleting parents leaves orphan children (DATA INTEGRITY)
-5. **Missing audit fields** - Core tables lack created_at/updated_at (COMPLIANCE REQUIREMENT)
-6. **Frontend Architecture 3 violations** - Client-side calculations for deposits, subtotals, MOQ (SECURITY + CONSISTENCY RISK)
-7. **Inline REST business logic** - No transaction boundaries, partial failure risk (DATA INTEGRITY)
-
-**High Priority Findings** (8 issues - **SHOULD FIX SOON**):
-- Cart ownership validation missing
-- REST vs GraphQL business logic duplication (maintenance burden)
-- GraphQL resolvers not "thin" (business logic in resolvers)
-- GraphQL inputs typed as `any` (no validation, injection risk)
-- Missing pagination on list queries (DoS risk)
-- Inconsistent error handling patterns
-- No enum enforcement on status fields
-
-**Implementation Priority**:
-- **Phase 1 (Week 1)**: Fix all 7 critical security issues (~7 days effort)
-- **Phase 2 (Week 2)**: Database hardening (indexes, cascade, audit fields)
-- **Phase 3 (Week 3-4)**: Service layer consolidation, pagination, error handling
-- **Phase 4 (Month 2)**: Code quality improvements
-- **Phase 5 (Month 3+)**: Low priority polish
-
-**Estimated Effort to Production-Ready**: 2-3 weeks to address all critical and high priority issues.
-
-**See `COMPREHENSIVE_IMPROVEMENT_PLAN.md` for:**
-- Complete issue details with code examples
-- Specific fixes for each issue
-- Testing strategy
-- Success criteria
-- Quick reference table
-
-**Core Architectural Principle: Three Parallel Platforms with Server-Side Business Logic**
-The platform is structured into three distinct, parallel platforms, with all business logic strictly implemented server-side (Architecture 3):
-1.  **B2C Platform** (Retail/Direct-to-Consumer): Dedicated storefronts, shopping cart, checkout, order management, and a seller dashboard.
-2.  **B2B Platform** (Wholesale): Invitation-based buyer access, Minimum Order Quantity (MOQ) enforcement, deposit/balance payments, and a separate dashboard.
-3.  **Trade Platform** (Professional Quotations): Excel-like quotation builder, token-based buyer access, status tracking, and its own dashboard.
-
-**Mandatory Architectural Principles:**
--   **Architecture 3: Server-Side Business Logic Only**: All calculations, business logic, and data transformations must occur server-side. The client displays server-provided data without performing critical business calculations.
--   **Mobile-First Design Standards**: All new UI components and features must be designed mobile-first, ensuring responsiveness across devices.
-
-**UI/UX Decisions:**
-The design system supports dark/light modes, uses the Inter font, emphasizes consistent spacing and typography, and prioritizes a mobile-first responsive approach. Navigation is dashboard-centric, and storefronts offer customizable seller branding.
-
-**Technical Implementations:**
--   **Backend**: NestJS application for GraphQL API and Socket.IO, integrated with an existing Express.js server. Uses service layer pattern with dependency injection, authentication guards, and DataLoaders for N+1 query prevention. **DTO Validation System (Phase 2.2 - October 2025)**: Comprehensive class-validator based DTOs for all REST endpoints with automatic request validation, type transformation, and detailed error messages. 20+ DTOs across 6 domains (Orders, Products, Cart, Checkout, Wholesale, Quotations) with shared validation decorators for common patterns (UUIDs, emails, currency, addresses). Validation middleware wired into Express pipeline with comprehensive logging and error handling.
--   **GraphQL API**: Comprehensive schema with 10 domain modules (Identity, Catalog, Cart, Orders, Wholesale, Quotations, Subscriptions, Marketing, Newsletter, Platform Ops), including queries, mutations, and subscriptions. Secured with session-based authentication and role-based access control.
--   **Real-time Features (Socket.IO Only - Consolidated October 2025)**: **Comprehensive 100% coverage** with 50+ events across all modules. **Socket.IO-only architecture** on `/socket.io/` with WebSocket-only transport for optimal performance. All connections require session authentication with balanced security: users auto-join private `user:{userId}` rooms, and can join validated public `storefront:{sellerId}` and `product:{productId}` rooms. Includes real-time updates for products (inventory, pricing), wholesale (invitations, orders), quotations (status changes), orders (fulfillment, payment webhooks - both buyer AND seller), cart, settings (branding, contact, store status, warehouse, payment, tax, shipping, domain), and analytics. Features comprehensive metrics tracking (connections, errors, room memberships, events) via `/api/metrics/socketio` endpoint. Uses room-based targeting for efficient event delivery. All events follow {module}:{action} naming convention with typed interfaces. **[See SOCKETIO_CONSOLIDATION_COMPLETE.md, SOCKETIO_IMPLEMENTATION_SUMMARY.md and SOCKETIO_USAGE_RULES.md for complete details]**
--   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import with AI-powered field mapping.
--   **Cart & Inventory**: Enterprise-grade "soft hold" cart reservation with PostgreSQL row-level locking and transaction-based stock reservation.
--   **Order Management**: Comprehensive order lifecycle management, fulfillment tracking, and refunds.
--   **Wholesale B2B System**: Invitation-based access, variant-level MOQ, percentage deposit system, Net 30/60/90 payment terms, and comprehensive order lifecycle management.
--   **Trade Quotation System**: Customizable quotation numbers, professional invoice structure, Incoterms support, Excel-like line item builder, server-side pricing validation, and secure token-based buyer access.
--   **Payments & Subscriptions**: Integrated with Stripe Connect for multi-seller payments and recurring seller subscriptions.
--   **Multi-currency & Tax**: IP-based currency detection with user-selectable options and an advanced tax system.
--   **Social Ads System**: Multi-platform (Meta, TikTok, X) social advertising with AI optimization via Google Gemini.
--   **Email System**: Production-ready infrastructure with 37+ transactional templates covering all platform workflows and enterprise-grade newsletter capabilities.
--   **Custom Domains**: Allows sellers to connect custom domains with DNS verification, SSL provisioning, and routing.
--   **Analytics**: Comprehensive seller analytics dashboard with server-side calculations for various business insights.
--   **Deployment**: Dockerized with multi-stage builds for NestJS API, Vite frontend, and Next.js frontend, orchestrated with `docker-compose` and Nginx reverse proxy.
+### Key Features
+-   **UI/UX**: Dark/light modes, Inter font, consistent spacing and typography, mobile-first responsive design, dashboard-centric navigation, customizable seller branding.
+-   **Backend Technicals**: NestJS with service layer, dependency injection, authentication guards, DataLoaders, and comprehensive DTO validation (`class-validator`). GraphQL schema covers 10 domain modules.
+-   **Real-time Features**: 50+ Socket.IO events for products, orders, cart, wholesale, quotations, settings, analytics, notifications. All connections require session authentication and utilize room-based targeting.
+-   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, bulk CSV import.
+-   **Cart & Inventory**: Enterprise-grade "soft hold" cart reservation with PostgreSQL row-level locking.
+-   **Order Management**: Comprehensive order lifecycle, fulfillment, and refunds.
+-   **Wholesale B2B**: Invitation-based access, variant-level MOQ, percentage deposit, Net 30/60/90 terms.
+-   **Trade Quotation**: Customizable quotation numbers, professional invoice structure, Incoterms, Excel-like line item builder, server-side pricing validation, secure token-based buyer access.
+-   **Payments & Subscriptions**: Stripe Connect for multi-seller payments and recurring subscriptions.
+-   **Multi-currency & Tax**: IP-based currency detection, user-selectable options, advanced tax system.
+-   **Social Ads**: Multi-platform (Meta, TikTok, X) advertising with AI optimization (Google Gemini).
+-   **Email System**: 37+ transactional templates and enterprise-grade newsletter capabilities via Resend.
+-   **Custom Domains**: Sellers can connect custom domains with DNS verification, SSL, and routing.
+-   **Analytics**: Comprehensive seller dashboard with server-side calculations.
+-   **Deployment**: Dockerized with multi-stage builds and `docker-compose`.
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
@@ -161,13 +46,13 @@ The design system supports dark/light modes, uses the Inter font, emphasizes con
 -   **Shipping Service**: Shippo API
 -   **Social Media APIs**: Meta Graph API, TikTok Business API, X (Twitter) Ads API
 -   **AI Services**: Google Gemini API
--   **UI Components**: Material UI v7 (Next.js), Shadcn UI (Vite legacy)
+-   **UI Components**: Material UI v7, Shadcn UI
 -   **Styling**: Tailwind CSS
--   **State Management**: TanStack Query (Vite), Apollo Client (Next.js)
--   **Routing**: Next.js App Router (Next.js), Wouter (Vite legacy)
+-   **State Management**: Apollo Client, TanStack Query
+-   **Routing**: Next.js App Router, Wouter
 -   **Forms**: React Hook Form
--   **Validation**: Zod (frontend), class-validator + class-transformer (backend DTOs)
--   **CSV Parsing**: PapaParse, XLSX
+-   **Validation**: Zod, class-validator, class-transformer
+-   **CSV Processing**: PapaParse, XLSX
 -   **Currency Exchange**: Fawazahmed0 Currency API
 -   **PDF Generation**: PDFKit
 -   **Rich Text Editor**: TinyMCE
