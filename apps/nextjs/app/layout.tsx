@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import { ApolloProvider } from '../lib/apollo-client';
 import { ThemeProvider } from '../lib/theme-provider';
 
@@ -19,11 +20,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ApolloProvider>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
-        </ApolloProvider>
+        <AppRouterCacheProvider>
+          <ApolloProvider>
+            <ThemeProvider>
+              {children}
+            </ThemeProvider>
+          </ApolloProvider>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );

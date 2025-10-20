@@ -27,6 +27,7 @@
     "@metaplex-foundation/js": "^0.20.1",
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
+    "@mui/material-nextjs": "^7.3.3",
     "@mui/x-data-grid": "^8.14.1",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/cli": "^11.0.10",
