@@ -37,7 +37,6 @@ import { InventoryService } from '../inventory.service';
 import { PaymentService } from '../payment/payment.service';
 import { OrderService } from '../order.service';
 import type { NotificationService } from '../../notifications';
-import { orderWebSocketService } from '../../websocket';
 import { logger } from '../../logger';
 
 // Import workflow steps
@@ -568,12 +567,20 @@ export class CreateFlowService extends WorkflowExecutor {
   }
 
   /**
-   * Emit progress event via WebSocket
+   * Emit progress event via Socket.IO
    */
   async emitProgress(event: WorkflowProgressEvent): Promise<void> {
     try {
-      // Broadcast via WebSocket to all connected clients
-      orderWebSocketService.broadcastOrderUpdate(event.checkoutSessionId, {
+      // Fetch order to get buyerId and sellerId
+      const order = await this.storage.getOrder(event.checkoutSessionId);
+      if (!order) {
+        logger.warn(`[CreateFlow] Order not found for WebSocket broadcast: ${event.checkoutSessionId}`);
+        return;
+      }
+
+      // Emit via Socket.IO to buyer + seller
+      const { orderSocketService } = await import('../../websocket');
+      orderSocketService.emitOrderUpdated(event.checkoutSessionId, order.buyerId, order.sellerId, {
         paymentStatus: event.status,
         status: event.currentState,
         events: [

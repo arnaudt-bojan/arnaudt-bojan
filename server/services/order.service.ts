@@ -691,19 +691,19 @@ export class OrderService {
         performedBy: null, // System event
       });
 
-      // Broadcast real-time update to connected WebSocket clients
+      // Emit Socket.IO real-time update to buyer + seller
       try {
-        const { orderWebSocketService } = await import('../websocket');
+        const { orderSocketService } = await import('../websocket');
         const events = await this.storage.getOrderEvents(order.id);
-        orderWebSocketService.broadcastOrderUpdate(order.id, {
+        orderSocketService.emitOrderUpdated(order.id, order.buyerId, order.sellerId, {
           paymentStatus,
           amountPaid: newAmountPaid, // Already formatted as 2-decimal string
           status: orderStatus,
           events,
         });
-      } catch (wsError) {
-        logger.error('[OrderService] Failed to broadcast WebSocket update:', wsError);
-        // Don't fail the operation if WebSocket broadcast fails
+      } catch (socketError) {
+        logger.error('[OrderService] Failed to emit Socket.IO update:', socketError);
+        // Don't fail the operation if Socket.IO broadcast fails
       }
 
       logger.info('[OrderService] Payment confirmed, sending notifications', {

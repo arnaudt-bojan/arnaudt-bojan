@@ -5,7 +5,7 @@ import { InventoryService } from '../inventory.service';
 import { NotificationService } from '../../notifications';
 import { logger } from '../../logger';
 import type { OrderService } from '../order.service';
-import { orderWebSocketService } from '../../websocket';
+import { orderSocketService } from '../../websocket';
 
 export interface WebhookEvent {
   id: string;
@@ -344,15 +344,15 @@ export class WebhookHandler {
         logger.warn(`[Webhook] Seller not found for order ${orderId}, skipping email`);
       }
       
-      // Broadcast WebSocket update to all clients
+      // Emit Socket.IO update to buyer + seller
       const updatedOrder = await this.storage.getOrder(orderId);
       if (updatedOrder) {
-        orderWebSocketService.broadcastOrderUpdate(orderId, {
+        orderSocketService.emitOrderUpdated(orderId, updatedOrder.buyerId, updatedOrder.sellerId, {
           status: updatedOrder.status,
           paymentStatus: updatedOrder.paymentStatus || undefined,
           amountPaid: updatedOrder.amountPaid || undefined,
         });
-        logger.info(`[Webhook] Broadcasted balance payment update via WebSocket for order ${orderId}`);
+        logger.info(`[Webhook] Emitted balance payment update via Socket.IO for order ${orderId}`);
       }
       
       logger.info(`[Webhook] Balance payment confirmed for order ${orderId}, total paid: ${totalPaidCents} cents`);
@@ -414,11 +414,11 @@ export class WebhookHandler {
       await this.storage.updateOrderStatus(orderId, 'cancelled');
       logger.info(`[Webhook] Updated order ${orderId} to cancelled (payment failed)`);
 
-      // Broadcast WebSocket update
-      orderWebSocketService.broadcastOrderUpdate(orderId, {
-        status: 'cancelled',
-        paymentStatus: 'failed',
-      });
+      // Emit Socket.IO update
+      const failedOrder = await this.storage.getOrder(orderId);
+      if (failedOrder) {
+        orderSocketService.emitPaymentFailed(orderId, failedOrder.buyerId, failedOrder.sellerId, 'Payment failed');
+      }
     }
   }
 
@@ -456,11 +456,11 @@ export class WebhookHandler {
       await this.storage.updateOrderStatus(orderId, 'cancelled');
       logger.info(`[Webhook] Updated order ${orderId} to cancelled (payment canceled)`);
 
-      // Broadcast WebSocket update
-      orderWebSocketService.broadcastOrderUpdate(orderId, {
-        status: 'cancelled',
-        paymentStatus: 'failed',
-      });
+      // Emit Socket.IO update
+      const canceledOrder = await this.storage.getOrder(orderId);
+      if (canceledOrder) {
+        orderSocketService.emitPaymentCanceled(orderId, canceledOrder.buyerId, canceledOrder.sellerId, 'Payment canceled');
+      }
     }
   }
 
@@ -479,9 +479,10 @@ export class WebhookHandler {
         const metadata = intentRecord.metadata as any;
         if (metadata.orderId) {
           const orderId = metadata.orderId;
-          orderWebSocketService.broadcastOrderUpdate(orderId, {
-            paymentStatus: 'refunded',
-          });
+          const refundedOrder = await this.storage.getOrder(orderId);
+          if (refundedOrder) {
+            orderSocketService.emitPaymentRefunded(orderId, refundedOrder.buyerId, refundedOrder.sellerId);
+          }
         }
       }
     }
