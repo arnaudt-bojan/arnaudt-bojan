@@ -15,7 +15,7 @@ try {
   notificationService = createNotificationService(storage);
   logger.info('Auth-Email services initialized successfully');
 } catch (error) {
-  logger.critical('Failed to initialize Auth-Email services', error);
+  logger.error('Failed to initialize Auth-Email services', { error });
   // Create stub service that will log errors
   notificationService = createNotificationService(storage);
 }
@@ -39,7 +39,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
       const storefrontMatch = returnUrl.match(/^\/s\/([^\/]+)/);
       if (storefrontMatch && storefrontMatch[1]) {
         finalSellerContext = storefrontMatch[1];
-        logger.auth('Extracted seller context from returnUrl', {
+        logger.info('Extracted seller context from returnUrl', {
           returnUrl,
           sellerContext: finalSellerContext
         });
@@ -84,7 +84,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
     try {
       emailSent = await notificationService.sendAuthCode(email, code, token);
     } catch (emailError) {
-      logger.error('Email sending failed', emailError, { module: 'auth-email', email });
+      logger.error('Email sending failed', { error: emailError, module: 'auth-email', email });
       emailSent = false;
     }
 
@@ -98,7 +98,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
         hint: 'Check Resend domain verification'
       });
     } else {
-      logger.auth('Verification code sent successfully', { email });
+      logger.info('Verification code sent successfully', { email });
     }
 
     // Return accurate status based on email delivery
@@ -113,7 +113,7 @@ router.post('/send-code', async (req: Request, res: Response) => {
       ...(((process.env.NODE_ENV === 'development') || !emailSent) && { devCode: code })
     });
   } catch (error) {
-    logger.critical('Critical error in send-code endpoint', error, { module: 'auth-email', email });
+    logger.error('Critical error in send-code endpoint', { error, module: 'auth-email', email });
     // Return failure status but include fallback code if available
     res.status(500).json({ 
       success: false, 
@@ -153,7 +153,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
     const isTestAccount = testAccounts.includes(normalizedEmailForTest);
     let authToken;
     
-    logger.auth('Auth verification attempt', { 
+    logger.info('Auth verification attempt', { 
       email: normalizedEmailForTest, 
       code: normalizedCode,
       isTestAccount 
@@ -162,7 +162,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
     if (isTestAccount && normalizedCode === '111111') {
       // For E2E test accounts, skip token validation (no need for exact code match)
       authToken = null; // Will trigger user creation/lookup below
-      logger.auth('✅ E2E test account authentication with fixed code 111111', { email: normalizedEmailForTest });
+      logger.info('✅ E2E test account authentication with fixed code 111111', { email: normalizedEmailForTest });
     } else {
       // Normal flow: Find auth token by code
       authToken = await storage.getAuthTokenByCode(email, code);
@@ -198,7 +198,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
     const isMainDomain = !finalSellerContext;
     const sellerUsername = finalSellerContext;
     
-    logger.auth('Domain context determined', {
+    logger.info('Domain context determined', {
       isMainDomain,
       sellerContextFromBody: sellerContext || undefined,
       sellerContextFromToken: authToken?.sellerContext || undefined,
@@ -222,7 +222,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
         userType,
       });
       
-      logger.auth('Created new user', {
+      logger.info('Created new user', {
         role,
         userType,
         email: normalizedEmail,
@@ -236,13 +236,13 @@ router.post('/verify-code', async (req: any, res: Response) => {
         try {
           await notificationService.sendSellerWelcome(user);
           await storage.updateWelcomeEmailSent(user.id);
-          logger.auth('Welcome email sent to new seller', { userId: user.id, email: normalizedEmail });
+          logger.info('Welcome email sent to new seller', { userId: user.id, email: normalizedEmail });
         } catch (error) {
-          logger.error('Failed to send welcome email', error, { userId: user.id, email: normalizedEmail });
+          logger.error('Failed to send welcome email', { error, userId: user.id, email: normalizedEmail });
         }
       }
     } else {
-      logger.auth('Existing user logging in', {
+      logger.info('Existing user logging in', {
         role: user.role,
         email: normalizedEmail,
         userId: user.id
@@ -270,7 +270,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
       });
     });
 
-    logger.auth('User authenticated successfully', { email: normalizedEmail, userId: user.id });
+    logger.info('User authenticated successfully', { email: normalizedEmail, userId: user.id });
 
     // Migrate guest cart to authenticated user
     try {
@@ -280,7 +280,8 @@ router.post('/verify-code', async (req: any, res: Response) => {
         userId: user.id
       });
     } catch (error) {
-      logger.error('[Auth] Cart migration failed for email verify-code', error, { 
+      logger.error('[Auth] Cart migration failed for email verify-code', { 
+        error,
         userId: user.id
       });
     }
@@ -313,7 +314,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
     if (sanitizedReturnUrl) {
       // Use sanitized preserved returnUrl from auth token
       redirectUrl = sanitizedReturnUrl;
-      logger.auth('Using preserved returnUrl from auth token', {
+      logger.info('Using preserved returnUrl from auth token', {
         returnUrl: sanitizedReturnUrl,
         loginContext: authToken?.loginContext || undefined,
         userId: user.id
@@ -341,7 +342,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Verify code error', error, { module: 'auth-email' });
+    logger.error('Verify code error', { error, module: 'auth-email' });
     res.status(500).json({ error: 'Failed to verify code' });
   }
 });
@@ -385,7 +386,7 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
     try {
       emailSent = await notificationService.sendMagicLink(email, magicLink);
     } catch (emailError) {
-      logger.error('Magic link email sending failed', emailError, { module: 'auth-email', email });
+      logger.error('Magic link email sending failed', { error: emailError, module: 'auth-email', email });
       emailSent = false;
     }
 
@@ -399,7 +400,7 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
         hint: 'Check Resend domain verification'
       });
     } else {
-      logger.auth('Magic link sent successfully', { email });
+      logger.info('Magic link sent successfully', { email });
     }
 
     // Return accurate status based on email delivery
@@ -414,7 +415,7 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       ...(!emailSent && { magicLink })
     });
   } catch (error) {
-    logger.critical('Critical error in send-magic-link endpoint', error, { module: 'auth-email', email });
+    logger.error('Critical error in send-magic-link endpoint', { error, module: 'auth-email', email });
     // Return failure status with clear error message
     res.status(500).json({ 
       success: false, 
@@ -467,7 +468,7 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     // If sellerContext exists, this is a buyer login from a seller's storefront
     const isMainDomain = !sellerContextFromToken;
     
-    logger.auth('Magic link domain context', {
+    logger.info('Magic link domain context', {
       isMainDomain,
       sellerContext: sellerContextFromToken || undefined
     });
@@ -485,7 +486,7 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
         role,
       });
       
-      logger.auth('Created new user via magic link', {
+      logger.info('Created new user via magic link', {
         role,
         email: normalizedEmail,
         userId: user.id
@@ -496,13 +497,13 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
         try {
           await notificationService.sendSellerWelcome(user);
           await storage.updateWelcomeEmailSent(user.id);
-          logger.auth('Welcome email sent to new seller', { userId: user.id, email: normalizedEmail });
+          logger.info('Welcome email sent to new seller', { userId: user.id, email: normalizedEmail });
         } catch (error) {
-          logger.error('Failed to send welcome email', error, { userId: user.id, email: normalizedEmail });
+          logger.error('Failed to send welcome email', { error, userId: user.id, email: normalizedEmail });
         }
       }
     } else {
-      logger.auth('Existing user logging in via magic link', {
+      logger.info('Existing user logging in via magic link', {
         role: user.role,
         email: normalizedEmail,
         userId: user.id
@@ -530,7 +531,7 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
       });
     });
 
-    logger.auth('User authenticated via magic link', {
+    logger.info('User authenticated via magic link', {
       email: normalizedEmail,
       userId: user.id
     });
@@ -543,7 +544,8 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
         userId: user.id
       });
     } catch (error) {
-      logger.error('[Auth] Cart migration failed for email magic-link', error, { 
+      logger.error('[Auth] Cart migration failed for email magic-link', { 
+        error,
         userId: user.id
       });
     }
@@ -576,9 +578,9 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     if (sanitizedReturnUrl) {
       // Use sanitized preserved returnUrl from auth token (highest priority)
       redirectUrl = sanitizedReturnUrl;
-      logger.auth('Using preserved returnUrl from auth token', {
+      logger.info('Using preserved returnUrl from auth token', {
         returnUrl: sanitizedReturnUrl,
-        loginContext: authToken.loginContext || undefined,
+        loginContext: authToken.login_context || undefined,
         userId: user.id
       });
     } else if (redirect && typeof redirect === 'string') {
@@ -601,7 +603,7 @@ router.get('/verify-magic-link', async (req: any, res: Response) => {
     
     res.redirect(redirectUrl);
   } catch (error) {
-    logger.error('Verify magic link error', error, { module: 'auth-email' });
+    logger.error('Verify magic link error', { error, module: 'auth-email' });
     // Redirect to login with error
     res.redirect('/login?error=invalid_link');
   }
@@ -620,10 +622,10 @@ router.post('/logout', async (req: Request, res: Response) => {
       });
     });
 
-    logger.auth('User logged out successfully');
+    logger.info('User logged out successfully');
     res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
-    logger.error('Logout error', error, { module: 'auth-email' });
+    logger.error('Logout error', { error, module: 'auth-email' });
     res.status(500).json({ error: 'Failed to logout' });
   }
 });
