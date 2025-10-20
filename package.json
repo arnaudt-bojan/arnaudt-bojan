@@ -29,6 +29,7 @@
     "@mui/material": "^7.3.4",
     "@mui/material-nextjs": "^7.3.3",
     "@mui/x-data-grid": "^8.14.1",
+    "@mui/x-date-pickers": "^8.14.1",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/cli": "^11.0.10",
     "@nestjs/common": "^11.1.6",

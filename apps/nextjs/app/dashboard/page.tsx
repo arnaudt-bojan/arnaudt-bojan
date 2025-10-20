@@ -30,6 +30,8 @@ import {
   Menu as MenuIcon,
   Logout as LogoutIcon,
   Login as LoginIcon,
+  Email as EmailIcon,
+  Campaign as CampaignIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -150,6 +152,22 @@ export default function DashboardPage() {
               <ShoppingCartIcon />
             </ListItemIcon>
             <ListItemText primary="Orders" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => router.push('/newsletter')} data-testid="link-newsletter">
+            <ListItemIcon>
+              <EmailIcon />
+            </ListItemIcon>
+            <ListItemText primary="Newsletter" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => router.push('/campaigns')} data-testid="link-campaigns">
+            <ListItemIcon>
+              <CampaignIcon />
+            </ListItemIcon>
+            <ListItemText primary="Campaigns" />
           </ListItemButton>
         </ListItem>
       </List>
