@@ -230,6 +230,72 @@ function mapUserFromPrisma(u: any): any {
   };
 }
 
+// Map product from camelCase (app) to snake_case (Prisma)
+function mapProductToPrisma(p: any): any {
+  if (!p) return p;
+  
+  const mapped: any = {};
+  
+  // Copy all fields, handling both camelCase and snake_case
+  for (const key in p) {
+    if (p[key] !== undefined) {
+      mapped[key] = p[key];
+    }
+  }
+  
+  // Map camelCase to snake_case (overwrite if present)
+  if (p.sellerId !== undefined) mapped.seller_id = p.sellerId;
+  if (p.categoryLevel1Id !== undefined) mapped.category_level_1_id = p.categoryLevel1Id;
+  if (p.categoryLevel2Id !== undefined) mapped.category_level_2_id = p.categoryLevel2Id;
+  if (p.categoryLevel3Id !== undefined) mapped.category_level_3_id = p.categoryLevel3Id;
+  if (p.productType !== undefined) mapped.product_type = p.productType;
+  if (p.depositAmount !== undefined) mapped.deposit_amount = p.depositAmount;
+  if (p.requiresDeposit !== undefined) mapped.requires_deposit = p.requiresDeposit;
+  if (p.madeToOrderDays !== undefined) mapped.made_to_order_days = p.madeToOrderDays;
+  if (p.preOrderDate !== undefined) mapped.pre_order_date = p.preOrderDate;
+  if (p.discountPercentage !== undefined) mapped.discount_percentage = p.discountPercentage;
+  if (p.promotionActive !== undefined) mapped.promotion_active = p.promotionActive;
+  if (p.promotionEndDate !== undefined) mapped.promotion_end_date = p.promotionEndDate;
+  if (p.shippingType !== undefined) mapped.shipping_type = p.shippingType;
+  if (p.flatShippingRate !== undefined) mapped.flat_shipping_rate = p.flatShippingRate;
+  if (p.shippingMatrixId !== undefined) mapped.shipping_matrix_id = p.shippingMatrixId;
+  if (p.shippoWeight !== undefined) mapped.shippo_weight = p.shippoWeight;
+  if (p.shippoLength !== undefined) mapped.shippo_length = p.shippoLength;
+  if (p.shippoWidth !== undefined) mapped.shippo_width = p.shippoWidth;
+  if (p.shippoHeight !== undefined) mapped.shippo_height = p.shippoHeight;
+  if (p.shippoTemplate !== undefined) mapped.shippo_template = p.shippoTemplate;
+  if (p.hasColors !== undefined) mapped.has_colors = p.hasColors;
+  if (p.createdAt !== undefined) mapped.created_at = p.createdAt;
+  if (p.updatedAt !== undefined) mapped.updated_at = p.updatedAt;
+  
+  // Remove camelCase duplicates
+  delete mapped.sellerId;
+  delete mapped.categoryLevel1Id;
+  delete mapped.categoryLevel2Id;
+  delete mapped.categoryLevel3Id;
+  delete mapped.productType;
+  delete mapped.depositAmount;
+  delete mapped.requiresDeposit;
+  delete mapped.madeToOrderDays;
+  delete mapped.preOrderDate;
+  delete mapped.discountPercentage;
+  delete mapped.promotionActive;
+  delete mapped.promotionEndDate;
+  delete mapped.shippingType;
+  delete mapped.flatShippingRate;
+  delete mapped.shippingMatrixId;
+  delete mapped.shippoWeight;
+  delete mapped.shippoLength;
+  delete mapped.shippoWidth;
+  delete mapped.shippoHeight;
+  delete mapped.shippoTemplate;
+  delete mapped.hasColors;
+  delete mapped.createdAt;
+  delete mapped.updatedAt;
+  
+  return mapped;
+}
+
 function mapProductFromPrisma(p: any): Product {
   if (!p) return p;
   return {
@@ -1841,10 +1907,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    // Map camelCase to snake_case for Prisma
+    const mappedData = mapProductToPrisma(insertProduct);
+    
     const result = await prisma.products.create({
       data: {
-        ...insertProduct,
-        image: insertProduct.image || ''
+        ...mappedData,
+        image: mappedData.image || ''
       }
     });
     return mapProductFromPrisma(result);
@@ -1906,9 +1975,12 @@ export class DatabaseStorage implements IStorage {
 
   async updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product | undefined> {
     try {
+      // Map camelCase to snake_case for Prisma
+      const mappedUpdates = mapProductToPrisma(updates);
+      
       const result = await prisma.products.update({
         where: { id },
-        data: updates
+        data: mappedUpdates
       });
       return mapProductFromPrisma(result);
     } catch (error) {
