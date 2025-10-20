@@ -1,0 +1,298 @@
+'use client';
+
+import { useQuery, gql } from '@apollo/client';
+import {
+  Container,
+  AppBar,
+  Toolbar,
+  Typography,
+  Card,
+  CardContent,
+  CardMedia,
+  Grid,
+  Box,
+  Chip,
+  CircularProgress,
+  Alert,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+} from '@mui/material';
+import {
+  Dashboard as DashboardIcon,
+  Inventory as InventoryIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Menu as MenuIcon,
+} from '@mui/icons-material';
+import { useState } from 'react';
+
+const GET_PRODUCTS = gql`
+  query ListProducts($first: Int) {
+    listProducts(first: $first) {
+      edges {
+        node {
+          id
+          name
+          description
+          price
+          image
+          category
+          productType
+          status
+          stock
+          inventoryStatus
+          presentation {
+            availabilityText
+            badges
+            availableForPurchase
+            isPreOrder
+            isMadeToOrder
+            stockQuantity
+          }
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      totalCount
+    }
+  }
+`;
+
+const GET_USER = gql`
+  query GetCurrentUser {
+    me {
+      id
+      email
+      username
+      fullName
+      userType
+    }
+  }
+`;
+
+const drawerWidth = 240;
+
+export default function DashboardPage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  const { loading: productsLoading, error: productsError, data: productsData } = useQuery(GET_PRODUCTS, {
+    variables: { first: 10 },
+  });
+
+  const { loading: userLoading, error: userError, data: userData } = useQuery(GET_USER);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const drawer = (
+    <div>
+      <Toolbar>
+        <Typography variant="h6" noWrap component="div">
+          Upfirst
+        </Typography>
+      </Toolbar>
+      <List>
+        <ListItem disablePadding>
+          <ListItemButton selected>
+            <ListItemIcon>
+              <DashboardIcon />
+            </ListItemIcon>
+            <ListItemText primary="Dashboard" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton>
+            <ListItemIcon>
+              <InventoryIcon />
+            </ListItemIcon>
+            <ListItemText primary="Products" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton>
+            <ListItemIcon>
+              <ShoppingCartIcon />
+            </ListItemIcon>
+            <ListItemText primary="Orders" />
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </div>
+  );
+
+  return (
+    <Box sx={{ display: 'flex' }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            Product Dashboard
+          </Typography>
+          {userData?.me && (
+            <Typography variant="body2">
+              {userData.me.email}
+            </Typography>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      <Box
+        component="nav"
+        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+      >
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true,
+          }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+        >
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
+      </Box>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+        }}
+      >
+        <Toolbar />
+        
+        <Container maxWidth="xl">
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h4" gutterBottom>
+              Products
+            </Typography>
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              Fetching data from GraphQL API at http://localhost:4000/graphql
+            </Typography>
+          </Box>
+
+          {userError && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              User authentication: {userError.message}
+            </Alert>
+          )}
+
+          {productsLoading && (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {productsError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Error loading products: {productsError.message}
+            </Alert>
+          )}
+
+          {productsData?.listProducts && (
+            <>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Total Products: {productsData.listProducts.totalCount}
+                </Typography>
+              </Box>
+
+              <Grid container spacing={3}>
+                {productsData.listProducts.edges.map(({ node: product }: any) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+                    <Card>
+                      <CardMedia
+                        component="img"
+                        height="200"
+                        image={product.image || 'https://via.placeholder.com/300x200?text=No+Image'}
+                        alt={product.name}
+                        sx={{ objectFit: 'cover' }}
+                      />
+                      <CardContent>
+                        <Typography gutterBottom variant="h6" component="div">
+                          {product.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          {product.description?.substring(0, 100)}
+                          {product.description?.length > 100 ? '...' : ''}
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                          <Chip label={product.category} size="small" color="primary" />
+                          <Chip label={product.productType} size="small" />
+                          {product.presentation?.badges?.map((badge: string, i: number) => (
+                            <Chip key={i} label={badge} size="small" variant="outlined" />
+                          ))}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="h6" color="primary">
+                            ${product.price}
+                          </Typography>
+                          <Chip
+                            label={product.presentation?.availabilityText || product.inventoryStatus}
+                            size="small"
+                            color={product.presentation?.availableForPurchase ? 'success' : 'default'}
+                          />
+                        </Box>
+                        
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                          Stock: {product.presentation?.stockQuantity || product.stock}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </>
+          )}
+
+          {!productsLoading && !productsError && (!productsData?.listProducts || productsData.listProducts.edges.length === 0) && (
+            <Alert severity="info">
+              No products found. The GraphQL API is working but returned no data.
+            </Alert>
+          )}
+        </Container>
+      </Box>
+    </Box>
+  );
+}

@@ -5,9 +5,18 @@ export default function Home() {
       <p className="mt-4 text-lg text-gray-600">
         CTO Vision: Modern stack with Next.js App Router
       </p>
+      <p className="mt-2 text-sm text-gray-500">
+        ✅ Material UI + Apollo GraphQL configured
+      </p>
       <div className="mt-8 flex gap-4">
         <a
-          href="/api/graphql"
+          href="/dashboard"
+          className="rounded-lg border border-gray-300 bg-blue-500 text-white px-6 py-3 hover:bg-blue-600 font-semibold"
+        >
+          Dashboard (MUI + GraphQL) →
+        </a>
+        <a
+          href="http://localhost:4000/graphql"
           className="rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-100"
         >
           GraphQL API →
