@@ -70,6 +70,13 @@ export interface IssueRefundInput {
   refundType: 'full' | 'partial';
 }
 
+export interface ProcessBalancePaymentInput {
+  orderId: string;
+  paymentIntentId: string;
+  amountPaid: number;
+  currency?: string;
+}
+
 export interface ListOrdersFilters {
   sellerId?: string;
   buyerId?: string;
@@ -430,6 +437,86 @@ export class OrderDomainService {
     // Cache invalidation
     if (this.cache) {
       await this.cache.invalidate(`order:${orderId}`);
+    }
+
+    return graphqlOrder;
+  }
+
+  /**
+   * Process balance payment
+   * SECURITY: User must be either buyer or seller
+   * TRANSACTION: Updates order payment status and amounts
+   * SOCKET.IO: Emits events to buyer and seller (MANDATORY)
+   */
+  async processBalancePayment(input: ProcessBalancePaymentInput, userId: string) {
+    const { orderId, paymentIntentId, amountPaid, currency = 'USD' } = input;
+
+    // Verify order exists
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new OrderNotFoundError(orderId);
+    }
+
+    // Authorization: buyer (order owner) OR seller (owns products)
+    const isBuyer = order.user_id === userId;
+    const isSeller = order.seller_id === userId;
+
+    if (!isBuyer && !isSeller) {
+      throw new ForbiddenError('Access denied: You are not authorized to process payment for this order');
+    }
+
+    // Validate payment amount
+    const currentBalance = parseFloat(order.remaining_balance?.toString() || '0');
+    const currentAmountPaid = parseFloat(order.amount_paid?.toString() || '0');
+
+    if (amountPaid <= 0) {
+      throw new Error('Payment amount must be greater than zero');
+    }
+
+    if (amountPaid > currentBalance) {
+      throw new Error(`Payment amount cannot exceed remaining balance of ${currentBalance}`);
+    }
+
+    // Calculate new amounts
+    const newAmountPaid = currentAmountPaid + amountPaid;
+    const newRemainingBalance = currentBalance - amountPaid;
+
+    // Determine new payment status
+    let paymentStatus = order.payment_status;
+    if (newRemainingBalance === 0) {
+      paymentStatus = 'paid';
+    } else if (newAmountPaid > 0) {
+      paymentStatus = 'partially_paid';
+    }
+
+    // Update order in transaction
+    const updatedOrder = await this.prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        amount_paid: newAmountPaid.toString(),
+        remaining_balance: newRemainingBalance.toString(),
+        payment_status: paymentStatus,
+        stripe_payment_intent_id: paymentIntentId,
+        updated_at: new Date().toISOString(),
+      },
+    });
+
+    const graphqlOrder = this.mapOrderToGraphQL(updatedOrder);
+
+    // SOCKET.IO EMISSION (MANDATORY per SOCKETIO_USAGE_RULES.md)
+    if (this.websocketGateway) {
+      this.websocketGateway.emitOrderUpdate(updatedOrder.user_id, graphqlOrder);
+      this.websocketGateway.emitOrderUpdate(updatedOrder.seller_id, graphqlOrder);
+    }
+
+    // Cache invalidation
+    if (this.cache) {
+      await this.cache.invalidate(`order:${orderId}`);
+      await this.cache.invalidate(`orders:buyer:${updatedOrder.user_id}`);
+      await this.cache.invalidate(`orders:seller:${updatedOrder.seller_id}`);
     }
 
     return graphqlOrder;

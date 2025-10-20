@@ -70,6 +70,14 @@ import { WholesaleCheckoutWorkflowOrchestrator, type WholesaleCheckoutData } fro
 import { LocationIQAddressService } from "./services/locationiq-address.service";
 import { ShippoLabelService } from "./services/shippo-label.service";
 
+// Import Domain Services and Errors (Architecture 3)
+import { CheckoutDomainService } from "./services/domain/checkout.domain-service";
+import { PaymentDomainService } from "./services/domain/payment.domain-service";
+import { OrderDomainService } from "./services/domain/orders.domain-service";
+import { DomainError } from "./services/domain/errors/domain-error";
+import { prisma } from "./prisma";
+import { orderSocketService } from "./websocket";
+
 // Import Newsletter Services (Architecture 3)
 import { CampaignService } from "./services/newsletter/campaign.service";
 import { SubscriberService } from "./services/newsletter/subscriber.service";
@@ -540,6 +548,59 @@ const requireApiKey: any = (req: any, res: any, next: any) => {
     return res.status(401).json({ error: 'Invalid API key' });
   }
 };
+
+/**
+ * Domain Error Mapping Helper - Maps DomainErrors to HTTP responses
+ * 
+ * USAGE PATTERN (Architecture 3):
+ * 
+ * Import domain services and errors:
+ * ```typescript
+ * import { DomainError } from './services/domain/errors/domain-error';
+ * import { CheckoutDomainService } from './services/domain/checkout.domain-service';
+ * import { PaymentDomainService } from './services/domain/payment.domain-service';
+ * import { OrderDomainService } from './services/domain/orders.domain-service';
+ * ```
+ * 
+ * Thin controller pattern:
+ * ```typescript
+ * app.post('/api/checkout/initiate', async (req, res) => {
+ *   try {
+ *     const checkoutService = new CheckoutDomainService(prisma, checkoutOrchestrator);
+ *     const session = await checkoutService.initiateCheckout({
+ *       userId: req.user?.claims?.sub,
+ *       items: req.body.items,
+ *       shippingAddress: req.body.shippingAddress,
+ *       customerEmail: req.body.customerEmail,
+ *       customerName: req.body.customerName,
+ *     });
+ *     res.json(session);
+ *   } catch (error) {
+ *     handleDomainError(error, res);
+ *   }
+ * });
+ * ```
+ */
+function handleDomainError(error: any, res: any): void {
+  // Import DomainError dynamically to avoid circular dependency
+  const { DomainError } = require('./services/domain/errors/domain-error');
+  
+  if (error instanceof DomainError) {
+    return res.status(error.httpStatus).json({
+      error: error.code,
+      message: error.message,
+    });
+  }
+  
+  // Log unexpected errors
+  logger.error('[Domain Service] Unexpected error:', error);
+  
+  // Generic error response for non-domain errors
+  res.status(500).json({
+    error: 'INTERNAL_SERVER_ERROR',
+    message: error.message || 'An unexpected error occurred',
+  });
+}
 
 /**
  * Resend Webhook Signature Verification
@@ -5005,8 +5066,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Checkout - B2C checkout using CheckoutWorkflowOrchestrator (Architecture 3)
-  // Simplified orchestrator with direct sequential flow and rollback capabilities
+  // Checkout - B2C checkout using CheckoutDomainService (Architecture 3)
+  // Domain service wraps CheckoutWorkflowOrchestrator and adds validation
   app.post('/api/checkout/initiate', async (req, res) => {
     try {
       // Validate checkoutWorkflowOrchestrator availability
@@ -5034,9 +5095,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { items, shippingAddress, billingAddress, billingSameAsShipping, customerEmail, customerName, checkoutSessionId } = validatedData;
 
-      // Prepare billing address for orchestrator (optional parameter)
+      // Prepare billing address
       const finalBillingAddress = billingSameAsShipping || !billingAddress 
-        ? undefined // Let orchestrator handle default behavior
+        ? undefined
         : {
             name: billingAddress.name,
             email: billingAddress.email || customerEmail,
@@ -5048,10 +5109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             country: billingAddress.country,
           };
 
-      // Map request to CheckoutData format expected by orchestrator
-      const checkoutData = {
+      // Create domain service instance
+      const checkoutService = new CheckoutDomainService(
+        prisma,
+        checkoutWorkflowOrchestrator,
+        cartReservationService
+      );
+
+      // Initiate checkout using domain service
+      const session = await checkoutService.initiateCheckout({
         sessionId: checkoutSessionId,
-        userId: (req as any).user?.claims?.sub, // Optional user ID for authenticated users
+        userId: (req as any).user?.claims?.sub,
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -5068,42 +5136,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingAddress: finalBillingAddress,
         customerEmail,
         customerName,
-        currency: (req as any).detectedCurrency || 'USD', // Use detected currency or default to USD
-      };
+        currency: (req as any).detectedCurrency || 'USD',
+      });
 
-      // Execute checkout workflow
-      const result = await checkoutWorkflowOrchestrator.executeCheckout(checkoutData);
-
-      if (!result.success) {
-        // Determine appropriate status code: 400 for client errors, 500 for server errors
-        const isClientError = result.errorCode?.includes('VALIDATION') || 
-                              result.errorCode?.includes('CART') ||
-                              result.errorCode?.includes('STOCK') ||
-                              result.errorCode?.includes('SELLER');
-        const statusCode = isClientError ? 400 : 500;
-        
-        return res.status(statusCode).json({
-          error: result.error,
-          errorCode: result.errorCode,
-          step: result.step,
-        });
-      }
-
-      // Map orchestrator result to API response format (preserve API contract)
+      // Return checkout session (API contract preserved)
       return res.json({
-        clientSecret: result.clientSecret,
-        paymentIntentId: result.paymentIntentId,
-        checkoutSessionId: checkoutSessionId, // Echo back the session ID
-        amountToCharge: result.order?.total, // Map order total to amountToCharge
-        currency: result.order?.currency || 'USD',
+        clientSecret: session.clientSecret,
+        paymentIntentId: session.paymentIntentId,
+        checkoutSessionId: session.checkoutSessionId,
+        amountToCharge: session.amountToCharge,
+        currency: session.currency,
       });
 
     } catch (error: any) {
-      logger.error('[API] Checkout initiate failed:', error);
-      return res.status(500).json({ 
-        error: 'Internal server error',
-        errorCode: 'SERVER_ERROR' 
-      });
+      return handleDomainError(error, res);
     }
   });
 

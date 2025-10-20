@@ -6,6 +6,8 @@ import { NotificationService } from '../../notifications';
 import { logger } from '../../logger';
 import type { OrderService } from '../order.service';
 import { orderSocketService } from '../../websocket';
+import { OrderDomainService } from '../domain/orders.domain-service';
+import { prisma } from '../../prisma';
 
 export interface WebhookEvent {
   id: string;
@@ -263,101 +265,76 @@ export class WebhookHandler {
       }
     }
 
-    // Handle BALANCE payments separately
+    // Handle BALANCE payments using OrderDomainService (Architecture 3)
     if (paymentType === 'balance' && balanceRequestId && orderId) {
       logger.info(`[Webhook] Processing balance payment for order ${orderId}`);
       
-      // Get current order and balance request
-      const order = await this.storage.getOrder(orderId);
-      const balanceRequest = await this.storage.getBalanceRequest(balanceRequestId);
-      
-      if (!order) {
-        logger.error(`[Webhook] Order ${orderId} not found for balance payment`);
-        return;
-      }
-      
-      if (!balanceRequest) {
-        logger.error(`[Webhook] Balance request ${balanceRequestId} not found`);
-        return;
-      }
-      
-      // Use ACTUAL Stripe payment amount (not pre-computed balance request amount)
-      const balancePaidCents = amountPaidCents; // From paymentIntent.amount_received
-      const depositAmountCents = order.depositAmountCents || 0;
-      const totalPaidCents = depositAmountCents + balancePaidCents;
-      
-      // Determine decimal precision based on currency
-      let decimalPlaces = 2; // Default
-      if (zeroDecimalCurrencies.includes(currency)) {
-        decimalPlaces = 0;
-      } else if (threeDecimalCurrencies.includes(currency)) {
-        decimalPlaces = 3;
-      }
-      
-      // Convert to decimal for amountPaid field (currency-aware)
-      const totalPaidDecimal = (totalPaidCents / divisor).toFixed(decimalPlaces);
-      
-      // Update order with balance payment
-      const updateData: any = {
-        balancePaidAt: new Date(),
-        paymentStatus: 'fully_paid',
-        amountPaid: totalPaidDecimal,
-        remainingBalance: (0).toFixed(decimalPlaces), // Currency-aware zero
-      };
-      
-      // Only update status if not already shipped/delivered/completed
-      if (!['shipped', 'delivered', 'completed'].includes(order.status)) {
-        updateData.status = 'processing';
-      }
-      
-      await this.storage.updateOrder(orderId, updateData);
-      
-      // Update balance request status with full payment details
-      await this.storage.updateBalanceRequest(balanceRequestId, {
-        status: 'paid',
-        paymentIntentId: paymentIntent.id,
-      });
-      
-      // Create order event
-      await this.storage.createOrderEvent({
-        orderId,
-        eventType: 'balance_payment_received',
-        payload: {
-          amountPaidCents: totalPaidCents,
-          balancePaidCents,
-          depositAmountCents,
-          balanceRequestId,
+      try {
+        // Create domain service instance
+        const orderDomainService = new OrderDomainService(
+          prisma,
+          {
+            emitOrderUpdate: (userId: string, order: any) => {
+              // Adapt to orderSocketService interface
+              orderSocketService.emitOrderUpdated(order.id, order.buyerId, order.sellerId, {
+                status: order.status,
+                paymentStatus: order.paymentStatus,
+                amountPaid: order.amountPaid,
+              });
+            },
+            emitAnalyticsSaleCompleted: () => {}, // Not needed for balance payments
+          }
+        );
+        
+        // Calculate amount paid from Stripe payment intent
+        const balancePaidCents = amountPaidCents;
+        const balancePaidDecimal = balancePaidCents / divisor;
+        
+        // Process balance payment using domain service
+        await orderDomainService.processBalancePayment(
+          {
+            orderId,
+            paymentIntentId: paymentIntent.id,
+            amountPaid: balancePaidDecimal,
+            currency,
+          },
+          'system' // userId - using 'system' for webhook processing
+        );
+        
+        // Update balance request status
+        await this.storage.updateBalanceRequest(balanceRequestId, {
+          status: 'paid',
           paymentIntentId: paymentIntent.id,
-        },
-        performedBy: 'system',
-      });
-      
-      // Get seller for email notification
-      const seller = order.sellerId ? await this.storage.getUser(order.sellerId) : null;
-      
-      if (seller) {
-        // Send balance payment confirmation email (currency-aware)
-        const balanceAmountDecimal = balancePaidCents / divisor;
-        await this.notificationService.sendBalancePaymentReceived(order, seller, balanceAmountDecimal);
-        logger.info(`[Webhook] Balance payment confirmation email sent for order ${orderId}`);
-      } else {
-        logger.warn(`[Webhook] Seller not found for order ${orderId}, skipping email`);
-      }
-      
-      // Emit Socket.IO update to buyer + seller
-      const updatedOrder = await this.storage.getOrder(orderId);
-      if (updatedOrder) {
-        orderSocketService.emitOrderUpdated(orderId, updatedOrder.buyerId, updatedOrder.sellerId, {
-          status: updatedOrder.status,
-          paymentStatus: updatedOrder.paymentStatus || undefined,
-          amountPaid: updatedOrder.amountPaid || undefined,
         });
-        logger.info(`[Webhook] Emitted balance payment update via Socket.IO for order ${orderId}`);
+        
+        // Create order event
+        await this.storage.createOrderEvent({
+          orderId,
+          eventType: 'balance_payment_received',
+          payload: {
+            amountPaidCents: balancePaidCents,
+            balanceRequestId,
+            paymentIntentId: paymentIntent.id,
+          },
+          performedBy: 'system',
+        });
+        
+        // Get order and seller for email notification
+        const order = await this.storage.getOrder(orderId);
+        const seller = order?.sellerId ? await this.storage.getUser(order.sellerId) : null;
+        
+        if (order && seller) {
+          await this.notificationService.sendBalancePaymentReceived(order, seller, balancePaidDecimal);
+          logger.info(`[Webhook] Balance payment confirmation email sent for order ${orderId}`);
+        }
+        
+        logger.info(`[Webhook] Balance payment confirmed for order ${orderId} using OrderDomainService`);
+        
+        return; // Don't call orderService.confirmPayment for balance payments
+      } catch (error) {
+        logger.error(`[Webhook] Failed to process balance payment using OrderDomainService:`, error);
+        throw error;
       }
-      
-      logger.info(`[Webhook] Balance payment confirmed for order ${orderId}, total paid: ${totalPaidCents} cents`);
-      
-      return; // Don't call orderService.confirmPayment for balance payments
     }
 
     // Handle DEPOSIT/FULL payments (existing flow)
