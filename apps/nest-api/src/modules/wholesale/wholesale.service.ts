@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../../../../generated/prisma';
 import { WholesaleRulesService } from '../wholesale-rules/wholesale-rules.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class WholesaleService {
@@ -10,6 +11,8 @@ export class WholesaleService {
     private prisma: PrismaService,
     @Inject(forwardRef(() => WholesaleRulesService))
     private readonly wholesaleRulesService: WholesaleRulesService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly websocketGateway: AppWebSocketGateway,
   ) {}
 
   async createWholesaleInvitation(input: any, sellerId: string) {
@@ -27,6 +30,13 @@ export class WholesaleService {
         expires_at: expiresAt,
         wholesale_terms: input.wholesaleTerms || null,
       },
+    });
+
+    this.websocketGateway.emitWholesaleInvitationSent(sellerId, {
+      invitationId: invitation.id,
+      sellerId: invitation.seller_id,
+      buyerEmail: invitation.buyer_email,
+      buyerName: invitation.buyer_name || undefined,
     });
 
     return this.mapInvitationToGraphQL(invitation);
@@ -120,6 +130,17 @@ export class WholesaleService {
       },
     });
 
+    this.websocketGateway.emitWholesaleInvitationAccepted(
+      invitation.seller_id,
+      buyerId,
+      {
+        invitationId: invitation.id,
+        sellerId: invitation.seller_id,
+        buyerId,
+        buyerEmail: invitation.buyer_email,
+      }
+    );
+
     return this.mapAccessGrantToGraphQL(grant);
   }
 
@@ -145,6 +166,12 @@ export class WholesaleService {
       data: {
         status: 'rejected',
       },
+    });
+
+    this.websocketGateway.emitWholesaleInvitationRejected(invitation.seller_id, {
+      invitationId: invitation.id,
+      sellerId: invitation.seller_id,
+      buyerEmail: invitation.buyer_email,
     });
 
     return true;
@@ -314,6 +341,16 @@ export class WholesaleService {
         description: 'Wholesale order placed',
         performed_by: buyerId,
       },
+    });
+
+    this.websocketGateway.emitWholesaleOrderPlaced(sellerId, buyerId, {
+      orderId: order.id,
+      sellerId: order.seller_id,
+      buyerId: order.buyer_id,
+      total: (order.total_cents / 100).toString(),
+      depositAmount: (order.deposit_amount_cents / 100).toString(),
+      balanceAmount: (order.balance_amount_cents / 100).toString(),
+      paymentTerms: order.payment_terms,
     });
 
     return this.mapWholesaleOrderToGraphQL(order);

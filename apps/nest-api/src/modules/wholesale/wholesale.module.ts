@@ -3,6 +3,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { DataloaderModule } from '../../common/dataloaders/dataloader.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { WholesaleRulesModule } from '../wholesale-rules/wholesale-rules.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { 
   WholesaleInvitationResolver,
   WholesaleAccessGrantResolver,
@@ -19,6 +20,7 @@ import { WholesaleService } from './wholesale.service';
     DataloaderModule, 
     PricingModule,
     forwardRef(() => WholesaleRulesModule),
+    forwardRef(() => WebSocketModule),
   ],
   providers: [
     WholesaleService,

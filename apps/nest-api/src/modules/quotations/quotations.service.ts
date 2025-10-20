@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class QuotationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly websocketGateway: AppWebSocketGateway,
+  ) {}
 
   async createQuotation(input: any, sellerId: string) {
     const quotationNumber = `QT-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
@@ -65,6 +70,14 @@ export class QuotationsService {
         performed_by: sellerId,
         payload: { quotation_number: quotationNumber },
       },
+    });
+
+    this.websocketGateway.emitQuotationCreated(sellerId, {
+      quotationId: quotation.id,
+      sellerId: quotation.seller_id,
+      quotationNumber: quotation.quotation_number,
+      buyerEmail: quotation.buyer_email,
+      total: quotation.total.toString(),
     });
 
     return this.mapQuotationToGraphQL(quotation);
@@ -177,6 +190,17 @@ export class QuotationsService {
       data: updateData,
     });
 
+    this.websocketGateway.emitQuotationUpdated(sellerId, existing.buyer_id, {
+      quotationId: quotation.id,
+      sellerId: quotation.seller_id,
+      quotationNumber: quotation.quotation_number,
+      changes: {
+        items: input.items !== undefined,
+        pricing: input.depositPercentage !== undefined,
+        terms: input.validUntil !== undefined,
+      },
+    });
+
     return this.mapQuotationToGraphQL(quotation);
   }
 
@@ -212,6 +236,14 @@ export class QuotationsService {
       },
     });
 
+    this.websocketGateway.emitQuotationSent(sellerId, existing.buyer_id, {
+      quotationId: quotation.id,
+      sellerId: quotation.seller_id,
+      buyerId: existing.buyer_id || undefined,
+      buyerEmail: quotation.buyer_email,
+      quotationNumber: quotation.quotation_number,
+    });
+
     return this.mapQuotationToGraphQL(quotation);
   }
 
@@ -242,6 +274,18 @@ export class QuotationsService {
         payload: buyerInfo || null,
       },
     });
+
+    this.websocketGateway.emitQuotationAccepted(
+      existing.seller_id,
+      buyerInfo?.buyerId || quotation.buyer_id,
+      {
+        quotationId: quotation.id,
+        sellerId: quotation.seller_id,
+        buyerId: buyerInfo?.buyerId || quotation.buyer_id,
+        quotationNumber: quotation.quotation_number,
+        total: quotation.total.toString(),
+      }
+    );
 
     const depositSchedule = await this.prisma.trade_payment_schedules.findFirst({
       where: {

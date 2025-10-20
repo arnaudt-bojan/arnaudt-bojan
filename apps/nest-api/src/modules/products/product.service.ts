@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ProductService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly websocketGateway: AppWebSocketGateway,
+  ) {}
 
   async getProduct(id: string) {
     const product = await this.prisma.products.findUnique({
@@ -139,6 +144,14 @@ export class ProductService {
       data: productData,
     });
 
+    this.websocketGateway.emitProductCreated(sellerId, {
+      productId: product.id,
+      sellerId: product.seller_id,
+      name: product.name,
+      price: product.price.toString(),
+      stock: product.stock || 0,
+    });
+
     return product;
   }
 
@@ -160,14 +173,28 @@ export class ProductService {
     }
 
     const updateData: any = {};
-    if (input.name !== undefined) updateData.name = input.name;
+    const changes: any = {};
+    
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+      changes.name = input.name;
+    }
     if (input.description !== undefined) updateData.description = input.description;
-    if (input.price !== undefined) updateData.price = input.price;
+    if (input.price !== undefined) {
+      updateData.price = input.price;
+      changes.price = input.price.toString();
+    }
     if (input.image !== undefined) updateData.image = input.image;
     if (input.images !== undefined) updateData.images = input.images;
     if (input.category !== undefined) updateData.category = input.category;
-    if (input.stock !== undefined) updateData.stock = input.stock;
-    if (input.status !== undefined) updateData.status = input.status;
+    if (input.stock !== undefined) {
+      updateData.stock = input.stock;
+      changes.stock = input.stock;
+    }
+    if (input.status !== undefined) {
+      updateData.status = input.status;
+      changes.status = input.status;
+    }
 
     if (input.name !== undefined) {
       updateData.slug = input.name
@@ -180,6 +207,57 @@ export class ProductService {
       where: { id },
       data: updateData,
     });
+
+    this.websocketGateway.emitProductUpdated(sellerId, {
+      productId: product.id,
+      sellerId: product.seller_id,
+      changes,
+    });
+
+    if (input.stock !== undefined && input.stock !== existing.stock) {
+      this.websocketGateway.emitProductStockChanged(sellerId, {
+        productId: product.id,
+        sellerId: product.seller_id,
+        oldStock: existing.stock || 0,
+        newStock: input.stock,
+      });
+
+      if (input.stock <= 10 && input.stock > 0) {
+        this.websocketGateway.emitProductLowStock(sellerId, {
+          productId: product.id,
+          sellerId: product.seller_id,
+          name: product.name,
+          currentStock: input.stock,
+          threshold: 10,
+        });
+      }
+
+      if (input.stock === 0) {
+        this.websocketGateway.emitStockOut(sellerId, {
+          productId: product.id,
+          sellerId: product.seller_id,
+          productName: product.name,
+        });
+      }
+
+      if (existing.stock === 0 && input.stock > 0) {
+        this.websocketGateway.emitStockRestocked(sellerId, {
+          productId: product.id,
+          sellerId: product.seller_id,
+          productName: product.name,
+          newStock: input.stock,
+        });
+      }
+    }
+
+    if (input.price !== undefined && input.price.toString() !== existing.price.toString()) {
+      this.websocketGateway.emitProductPriceChanged(sellerId, {
+        productId: product.id,
+        sellerId: product.seller_id,
+        oldPrice: existing.price.toString(),
+        newPrice: input.price.toString(),
+      });
+    }
 
     return product;
   }
@@ -203,6 +281,11 @@ export class ProductService {
 
     await this.prisma.products.delete({
       where: { id },
+    });
+
+    this.websocketGateway.emitProductDeleted(sellerId, {
+      productId: existing.id,
+      sellerId: existing.seller_id,
     });
 
     return true;

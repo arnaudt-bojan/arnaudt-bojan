@@ -183,6 +183,13 @@ export class OrdersService {
     this.websocketGateway.emitOrderUpdate(userId, graphqlOrder);
     this.websocketGateway.emitOrderUpdate(cart.seller_id, graphqlOrder);
 
+    this.websocketGateway.emitAnalyticsSaleCompleted(cart.seller_id, {
+      sellerId: cart.seller_id,
+      orderId: order.id,
+      amount: order.total.toString(),
+      productId: items[0]?.id || undefined,
+    });
+
     return graphqlOrder;
   }
 
