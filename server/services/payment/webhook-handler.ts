@@ -413,6 +413,12 @@ export class WebhookHandler {
       await this.storage.updateOrderPaymentStatus(orderId, 'failed');
       await this.storage.updateOrderStatus(orderId, 'cancelled');
       logger.info(`[Webhook] Updated order ${orderId} to cancelled (payment failed)`);
+
+      // Broadcast WebSocket update
+      orderWebSocketService.broadcastOrderUpdate(orderId, {
+        status: 'cancelled',
+        paymentStatus: 'failed',
+      });
     }
   }
 
@@ -449,6 +455,12 @@ export class WebhookHandler {
       await this.storage.updateOrderPaymentStatus(orderId, 'failed');
       await this.storage.updateOrderStatus(orderId, 'cancelled');
       logger.info(`[Webhook] Updated order ${orderId} to cancelled (payment canceled)`);
+
+      // Broadcast WebSocket update
+      orderWebSocketService.broadcastOrderUpdate(orderId, {
+        status: 'cancelled',
+        paymentStatus: 'failed',
+      });
     }
   }
 
@@ -459,8 +471,20 @@ export class WebhookHandler {
     const charge = event.data.object as Stripe.Charge;
     logger.info(`Charge ${charge.id} refunded, amount: ${charge.amount_refunded}`);
     
-    // Additional refund processing logic can be added here
-    // For example, updating order status, sending notifications, etc.
+    // Extract orderId from charge metadata if available
+    const paymentIntent = charge.payment_intent;
+    if (paymentIntent && typeof paymentIntent === 'string') {
+      const intentRecord = await this.storage.getPaymentIntentByProviderIntentId(paymentIntent);
+      if (intentRecord && intentRecord.metadata) {
+        const metadata = intentRecord.metadata as any;
+        if (metadata.orderId) {
+          const orderId = metadata.orderId;
+          orderWebSocketService.broadcastOrderUpdate(orderId, {
+            paymentStatus: 'refunded',
+          });
+        }
+      }
+    }
   }
 
   /**

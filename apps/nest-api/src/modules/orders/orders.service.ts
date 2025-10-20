@@ -238,6 +238,7 @@ export class OrdersService {
     const graphqlOrder = this.mapOrderToGraphQL(updatedOrder);
 
     this.websocketGateway.emitOrderUpdate(updatedOrder.user_id, graphqlOrder);
+    this.websocketGateway.emitOrderUpdate(updatedOrder.seller_id, graphqlOrder);
 
     return graphqlOrder;
   }

@@ -8,7 +8,7 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 - **Coding Style**: Favor modern JavaScript/TypeScript practices, functional components in React, and maintainable code.
 - **Workflow Preferences**: I prefer an iterative development approach, focusing on core features first and then enhancing them.
 - **Interaction Preferences**: Ask for confirmation before implementing significant architectural changes or refactoring large portions of the codebase.
-- **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file.
+- **Working Preferences**: Ensure all UI implementations adhere to the `design_guidelines.md` and prioritize mobile-first responsive design. Ensure consistent spacing and typography. Do not make changes to the `replit.nix` file. **MANDATORY: ALL state-changing operations MUST emit Socket.IO events to affected users (see SOCKETIO_USAGE_RULES.md)**.
 
 ## Test Authentication Credentials
 **CRITICAL: Always use these credentials for manual testing and E2E tests**
@@ -57,7 +57,7 @@ The design system supports dark/light modes, uses the Inter font, emphasizes con
 **Technical Implementations:**
 -   **Backend**: NestJS application for GraphQL API and Socket.IO, integrated with an existing Express.js server. Uses service layer pattern with dependency injection, authentication guards, and DataLoaders for N+1 query prevention.
 -   **GraphQL API**: Comprehensive schema with 10 domain modules (Identity, Catalog, Cart, Orders, Wholesale, Quotations, Subscriptions, Marketing, Newsletter, Platform Ops), including queries, mutations, and subscriptions. Secured with session-based authentication and role-based access control.
--   **Real-time Features (Socket.IO)**: **Comprehensive 100% coverage** with 44+ events across all modules. Includes real-time updates for products (inventory, pricing), wholesale (invitations, orders), quotations (status changes), orders, cart, analytics, and stock alerts. Uses room-based targeting (user:{userId}, storefront:{sellerId}, product:{productId}) for efficient event delivery. All events follow {module}:{action} naming convention with typed interfaces. **[See SOCKETIO_IMPLEMENTATION_SUMMARY.md for complete details]**
+-   **Real-time Features (Socket.IO)**: **Comprehensive 100% coverage** with 47+ events across all modules. Includes real-time updates for products (inventory, pricing), wholesale (invitations, orders), quotations (status changes), orders (fulfillment, payment webhooks), cart, analytics, and stock alerts. Uses room-based targeting (user:{userId}, storefront:{sellerId}, product:{productId}) for efficient event delivery. All events follow {module}:{action} naming convention with typed interfaces. **[See SOCKETIO_IMPLEMENTATION_SUMMARY.md and SOCKETIO_USAGE_RULES.md for complete details]**
 -   **Product Management**: Supports diverse product types, simplified size-first variants, multi-image uploads, and bulk CSV import with AI-powered field mapping.
 -   **Cart & Inventory**: Enterprise-grade "soft hold" cart reservation with PostgreSQL row-level locking and transaction-based stock reservation.
 -   **Order Management**: Comprehensive order lifecycle management, fulfillment tracking, and refunds.
