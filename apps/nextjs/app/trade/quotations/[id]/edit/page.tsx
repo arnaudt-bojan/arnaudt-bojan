@@ -27,6 +27,7 @@ import {
   Divider,
   Skeleton,
   CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   Add,
@@ -95,7 +96,13 @@ export default function EditQuotation() {
     { description: '', unitPrice: 0, quantity: 1 },
   ]);
 
-  const [calculatedTotals, setCalculatedTotals] = useState<CalculatedQuotationTotals>(mockCalculatedTotals);
+  const [calculatedTotals, setCalculatedTotals] = useState<CalculatedQuotationTotals | null>(null);
+  const [calculationError, setCalculationError] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'error' as 'error' | 'success' | 'info' | 'warning',
+  });
 
   const { data, loading } = useQuery<{ getQuotation: Quotation }>(GET_QUOTATION, {
     variables: { id },
@@ -108,24 +115,17 @@ export default function EditQuotation() {
   >(CALCULATE_QUOTATION_TOTALS, {
     onCompleted: (data) => {
       setCalculatedTotals(data.calculateQuotationTotals);
+      setCalculationError(false);
     },
-    onError: () => {
-      const mockTotals: CalculatedQuotationTotals = {
-        lineItems: items.map(item => ({
-          description: item.description,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          lineTotal: item.unitPrice * item.quantity,
-        })),
-        subtotal: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0),
-        taxAmount: 0,
-        shippingAmount: 0,
-        total: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0),
-        depositAmount: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) * depositPercentage / 100,
-        depositPercentage,
-        balanceAmount: items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) * (1 - depositPercentage / 100),
-      };
-      setCalculatedTotals(mockTotals);
+    onError: (error) => {
+      console.error('Failed to calculate totals:', error);
+      setCalculationError(true);
+      setCalculatedTotals(null);
+      setSnackbar({
+        open: true,
+        message: 'Unable to calculate totals. Please check your connection and try again.',
+        severity: 'error',
+      });
     },
   });
 
@@ -171,7 +171,8 @@ export default function EditQuotation() {
           },
         });
       } else {
-        setCalculatedTotals(mockCalculatedTotals);
+        setCalculatedTotals(null);
+        setCalculationError(false);
       }
     }, 500);
 
@@ -337,8 +338,8 @@ export default function EditQuotation() {
               </TableHead>
               <TableBody>
                 {items.map((item, index) => {
-                  const calculatedItem = calculatedTotals.lineItems[index];
-                  const lineTotal = calculatedItem?.lineTotal || 0;
+                  const calculatedItem = calculatedTotals?.lineItems[index];
+                  const lineTotal = calculatedItem?.lineTotal;
 
                   return (
                     <TableRow key={index}>
@@ -376,7 +377,7 @@ export default function EditQuotation() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight="medium">
-                          {formatCurrency(lineTotal)}
+                          {lineTotal !== undefined ? formatCurrency(lineTotal) : '---'}
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
@@ -438,13 +439,21 @@ export default function EditQuotation() {
                 </Box>
               )}
 
+              {calculationError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    Unable to calculate totals. Please check your connection and try again.
+                  </Typography>
+                </Alert>
+              )}
+
               <Box sx={{ mb: 2 }}>
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography variant="body2" color="text.secondary">
                     Subtotal
                   </Typography>
                   <Typography variant="body2" fontWeight="medium" data-testid="text-subtotal">
-                    {formatCurrency(calculatedTotals.subtotal)}
+                    {calculatedTotals ? formatCurrency(calculatedTotals.subtotal) : '---'}
                   </Typography>
                 </Box>
 
@@ -452,10 +461,10 @@ export default function EditQuotation() {
 
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography variant="body2" color="text.secondary">
-                    Deposit ({calculatedTotals.depositPercentage}%)
+                    Deposit ({calculatedTotals?.depositPercentage || depositPercentage}%)
                   </Typography>
                   <Typography variant="body2" fontWeight="medium" data-testid="text-deposit">
-                    {formatCurrency(calculatedTotals.depositAmount)}
+                    {calculatedTotals ? formatCurrency(calculatedTotals.depositAmount) : '---'}
                   </Typography>
                 </Box>
 
@@ -464,7 +473,7 @@ export default function EditQuotation() {
                     Balance Due
                   </Typography>
                   <Typography variant="body2" fontWeight="medium" data-testid="text-balance">
-                    {formatCurrency(calculatedTotals.balanceAmount)}
+                    {calculatedTotals ? formatCurrency(calculatedTotals.balanceAmount) : '---'}
                   </Typography>
                 </Box>
 
@@ -473,7 +482,7 @@ export default function EditQuotation() {
                 <Box display="flex" justifyContent="space-between">
                   <Typography variant="h6">Total</Typography>
                   <Typography variant="h6" color="primary" data-testid="text-total">
-                    {formatCurrency(calculatedTotals.total)}
+                    {calculatedTotals ? formatCurrency(calculatedTotals.total) : '---'}
                   </Typography>
                 </Box>
               </Box>
@@ -483,7 +492,7 @@ export default function EditQuotation() {
                 fullWidth
                 startIcon={saving ? <CircularProgress size={16} /> : <Save />}
                 onClick={handleUpdate}
-                disabled={saving || items.every(i => !i.description)}
+                disabled={saving || items.every(i => !i.description) || calculationError || !calculatedTotals}
                 data-testid="button-update-quotation"
               >
                 {saving ? 'Updating...' : 'Update Quotation'}
@@ -492,6 +501,21 @@ export default function EditQuotation() {
           </Card>
         </Grid>
       </Grid>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
