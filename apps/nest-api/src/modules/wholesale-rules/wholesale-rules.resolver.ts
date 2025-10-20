@@ -1,5 +1,6 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
 import { WholesaleRulesService } from './wholesale-rules.service';
+import { WholesaleOrderItemInput } from './dto/wholesale-order-item.input';
 
 @Resolver()
 export class WholesaleRulesResolver {
@@ -24,7 +25,7 @@ export class WholesaleRulesResolver {
   @Query('validateWholesaleOrder')
   async validateWholesaleOrder(
     @Args('invitationId') invitationId: string,
-    @Args('items') items: any[],
+    @Args('items', { type: () => [WholesaleOrderItemInput] }) items: WholesaleOrderItemInput[],
     @Args('paymentTerms') paymentTerms: string,
   ) {
     return this.wholesaleRulesService.validateWholesaleOrder(invitationId, items, paymentTerms);

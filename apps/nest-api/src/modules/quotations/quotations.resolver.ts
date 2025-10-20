@@ -19,6 +19,7 @@ import { CreateQuotationInput } from './dto/create-quotation.input';
 import { UpdateQuotationInput } from './dto/update-quotation.input';
 import { CalculateQuotationTotalsInput } from './dto/calculate-quotation-totals.input';
 import { CalculatedQuotationTotals } from './dto/calculated-quotation-totals.output';
+import { BuyerInfoInput } from './dto/accept-quotation.args';
 
 @Resolver('Quotation')
 export class QuotationsResolver {
@@ -84,7 +85,7 @@ export class QuotationsResolver {
   @Mutation('acceptQuotation')
   async acceptQuotation(
     @Args('token') token: string,
-    @Args('buyerInfo') buyerInfo?: any,
+    @Args('buyerInfo', { nullable: true }) buyerInfo?: BuyerInfoInput,
   ) {
     return this.quotationsService.acceptQuotation(token, buyerInfo);
   }

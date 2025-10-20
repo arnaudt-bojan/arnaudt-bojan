@@ -19,6 +19,7 @@ import { CreateWholesaleInvitationInput } from './dto/create-wholesale-invitatio
 import { PlaceWholesaleOrderInput } from './dto/place-wholesale-order.input';
 import { AddToWholesaleCartInput } from './dto/add-to-wholesale-cart.input';
 import { UpdateWholesaleCartItemInput } from './dto/update-wholesale-cart-item.input';
+import { WholesaleOrderFilterInput } from './dto/list-wholesale-orders.args';
 
 @Resolver('WholesaleInvitation')
 export class WholesaleInvitationResolver {
@@ -166,7 +167,7 @@ export class WholesaleQueryResolver {
   @Query('listWholesaleOrders')
   @UseGuards(GqlAuthGuard)
   async listWholesaleOrders(
-    @Args('filter') filter: any,
+    @Args('filter', { nullable: true }) filter: WholesaleOrderFilterInput,
     @Args('first') first: number | undefined,
     @Args('after') after: string | undefined,
     @CurrentUser() userId: string,

@@ -19,6 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateFulfillmentInput } from './dto/update-fulfillment.input';
 import { IssueRefundInput } from './dto/issue-refund.input';
+import { OrderFilterInput, OrderSortInput } from './dto/list-orders.args';
 import { GqlRateLimitGuard, RateLimit } from '../auth/guards/gql-rate-limit.guard';
 
 @Resolver('Order')
@@ -44,8 +45,8 @@ export class OrdersResolver {
   @RequireUserType('seller')
   @RateLimit({ limit: 50, ttl: 60 })
   async listOrders(
-    @Args('filter') filter?: any,
-    @Args('sort') sort?: any,
+    @Args('filter', { nullable: true }) filter?: OrderFilterInput,
+    @Args('sort', { nullable: true }) sort?: OrderSortInput,
     @Args('first') first?: number,
     @Args('after') after?: string,
     @CurrentUser() userId?: string,

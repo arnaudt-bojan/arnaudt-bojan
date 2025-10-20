@@ -9,6 +9,7 @@ import { RequireUserType } from '../auth/decorators/require-user-type.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateProductInput } from './dto/create-product.input';
 import { UpdateProductInput } from './dto/update-product.input';
+import { ProductFilterInput, ProductSortInput } from './dto/list-products.args';
 import { GqlRateLimitGuard, RateLimit } from '../auth/guards/gql-rate-limit.guard';
 
 @Resolver('Product')
@@ -35,8 +36,8 @@ export class ProductResolver {
   @UseGuards(GqlRateLimitGuard)
   @RateLimit({ limit: 20, ttl: 60 })
   async listProducts(
-    @Args('filter') filter?: any,
-    @Args('sort') sort?: any,
+    @Args('filter', { nullable: true }) filter?: ProductFilterInput,
+    @Args('sort', { nullable: true }) sort?: ProductSortInput,
     @Args('first') first?: number,
     @Args('after') after?: string,
   ) {
