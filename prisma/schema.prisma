@@ -179,7 +179,7 @@ model carts {
   seller_id     String          @db.VarChar
   buyer_id      String?         @db.VarChar
   items         Json            @default("[]")
-  status        String?         @default("active") @db.VarChar
+  status        CartStatus      @default(active)
   created_at    DateTime        @default(now()) @db.Timestamp(6)
   updated_at    DateTime        @default(now()) @db.Timestamp(6)
   cart_sessions cart_sessions[]
@@ -884,7 +884,7 @@ model order_items {
   deposit_amount            Decimal?  @db.Decimal(10, 2)
   requires_deposit          Int?      @default(0)
   variant                   Json?
-  item_status               String    @default("pending")
+  item_status               OrderStatus @default(pending)
   tracking_number           String?   @db.VarChar
   tracking_carrier          String?   @db.VarChar
   tracking_url              String?
@@ -963,7 +963,7 @@ model orders {
   payment_status                   String?          @default("pending")
   stripe_payment_intent_id         String?          @db.VarChar
   stripe_balance_payment_intent_id String?          @db.VarChar
-  status                           String           @default("pending")
+  status                           OrderStatus      @default(pending)
   fulfillment_status               String?          @default("unfulfilled")
   tracking_number                  String?          @db.VarChar
   tracking_link                    String?
@@ -1095,7 +1095,7 @@ model products {
   shippo_width            Decimal?                  @db.Decimal(10, 2)
   shippo_height           Decimal?                  @db.Decimal(10, 2)
   shippo_template         String?                   @db.VarChar
-  status                  String?                   @default("draft")
+  status                  ProductStatus             @default(draft)
   has_colors              Int?                      @default(0)
   sku                     String?
   slug                    String?                   @db.VarChar
@@ -1976,6 +1976,12 @@ enum bulk_upload_status {
   rolled_back
 }
 
+enum CartStatus {
+  active
+  converted
+  expired
+}
+
 enum domain_status {
   pending_verification
   dns_verified
@@ -2049,11 +2055,32 @@ enum order_event_type {
   document_generated
 }
 
+enum OrderStatus {
+  pending
+  processing
+  fulfilled
+  cancelled
+  refunded
+  paid
+  awaiting_payment
+  awaiting_balance
+  balance_overdue
+  deposit_paid
+  in_production
+  ready_to_ship
+}
+
 enum refund_line_item_type {
   product
   shipping
   tax
   adjustment
+}
+
+enum ProductStatus {
+  draft
+  active
+  archived
 }
 
 enum seller_credit_ledger_source {
