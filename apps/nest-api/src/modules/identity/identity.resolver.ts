@@ -10,18 +10,13 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateProfileInput } from './dto/update-profile.input';
 import { UpdateSellerAccountInput } from './dto/update-seller-account.input';
 
+/**
+ * IdentityResolver - Thin layer that delegates to IdentityService
+ * Architecture 3 Compliance: All business logic moved to service
+ */
 @Resolver('User')
 export class IdentityResolver {
   constructor(private identityService: IdentityService) {}
-
-  private mapSubscriptionTier(plan: string | null): string {
-    if (!plan) return 'FREE';
-    const upperPlan = plan.toUpperCase();
-    if (['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(upperPlan)) {
-      return upperPlan;
-    }
-    return 'FREE';
-  }
 
   @Query('whoami')
   @UseGuards(GqlAuthGuard)
@@ -109,24 +104,8 @@ export class IdentityResolver {
   async sellerAccount(@Parent() user: any, @Context() context: GraphQLContext) {
     if (user.userType === 'SELLER' || user.role === 'seller') {
       const userData = await context.userLoader.load(user.id);
-      if (!userData) return null;
-      
-      return {
-        id: userData.id,
-        userId: userData.id,
-        storeName: userData.username || '',
-        storeSlug: userData.username || '',
-        businessName: userData.company_name,
-        businessEmail: userData.contact_email,
-        businessPhone: userData.business_phone,
-        stripeAccountId: userData.stripe_connected_account_id,
-        subscriptionTier: this.mapSubscriptionTier(userData.subscription_plan),
-        brandColor: userData.store_banner,
-        logoUrl: userData.store_logo,
-        notificationSettings: null,
-        createdAt: userData.created_at,
-        updatedAt: userData.updated_at,
-      };
+      // DELEGATE TO SERVICE: Business logic moved from resolver to service
+      return this.identityService.getSellerAccountForUser(user.id, userData);
     }
     return null;
   }

@@ -210,6 +210,31 @@ export class IdentityService {
     return this.mapBuyerProfileFromPrisma(buyerProfile);
   }
 
+  /**
+   * Get seller account for @ResolveField
+   * NEW METHOD: Extracted from resolver to service
+   */
+  async getSellerAccountForUser(userId: string, userData: any) {
+    if (!userData) return null;
+    
+    return {
+      id: userData.id,
+      userId: userData.id,
+      storeName: userData.username || '',
+      storeSlug: userData.username || '',
+      businessName: userData.company_name,
+      businessEmail: userData.contact_email,
+      businessPhone: userData.business_phone,
+      stripeAccountId: userData.stripe_connected_account_id,
+      subscriptionTier: this.mapSubscriptionTier(userData.subscription_plan),
+      brandColor: userData.store_banner,
+      logoUrl: userData.store_logo,
+      notificationSettings: null,
+      createdAt: userData.created_at,
+      updatedAt: userData.updated_at,
+    };
+  }
+
   private mapUserFromPrisma(user: any) {
     return {
       id: user.id,
@@ -258,7 +283,11 @@ export class IdentityService {
     };
   }
 
-  private mapSubscriptionTier(plan: string | null): string {
+  /**
+   * Map subscription tier helper
+   * MOVED FROM RESOLVER: This is business logic
+   */
+  mapSubscriptionTier(plan: string | null): string {
     if (!plan) return 'FREE';
     const upperPlan = plan.toUpperCase();
     if (['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(upperPlan)) {
