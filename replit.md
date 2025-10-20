@@ -59,3 +59,6 @@ The platform comprises three distinct, parallel platforms with all business logi
 -   **WebSocket**: Socket.IO
 -   **Charts**: Recharts
 -   **Date Pickers**: @mui/x-date-pickers
+
+## Technical Debt & Future Improvements
+-   **Logging Standardization** (Priority: Low, Post-deployment): Replace console.log statements with winston logger in production code. Current console.log usage found in server/routes.ts including bulk upload debugging (lines 3203-3215), NFT minting logs (lines 9473-9479), file upload debugging (lines 11046-11096), and WebSocket upgrade logs (lines 13615+). Not a deployment blocker but should be migrated to structured logging for better production observability.
