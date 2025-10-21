@@ -219,6 +219,7 @@ export class StripeWebhookService {
 
         await this.storage.upsertUser({
           ...user,
+          stripeCustomerId: session.customer as string, // CRITICAL: Save customer ID for sync
           stripeSubscriptionId: subscription.id,
           subscriptionStatus: status,
           subscriptionPlan: plan,

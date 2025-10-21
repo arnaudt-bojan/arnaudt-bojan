@@ -120,30 +120,69 @@ describe('Subscription Flow Tests - @integration', () => {
   });
 
   describe('Subscription Webhook Handlers', () => {
-    it('should handle checkout.session.completed webhook', async () => {
-      // Test webhook signature verification and processing
-      // In production, this would be called by Stripe with valid signature
+    it('should save stripeCustomerId after checkout.session.completed', async () => {
+      // CRITICAL TEST: Verifies Bug #3 fix - webhook must save stripeCustomerId
+      // This is the root cause of "No subscription found" errors after checkout
       
-      // Mock webhook event
-      const webhookEvent = {
-        id: 'evt_test_123',
+      const { seller } = await createTestUsers();
+      
+      // Simulate checkout completion (what Stripe sends via webhook)
+      const mockSubscription: any = {
+        id: 'sub_test_123',
+        status: 'trialing',
+        default_payment_method: {
+          id: 'pm_test_123',
+          card: {
+            brand: 'visa',
+            last4: '4242',
+            exp_month: 12,
+            exp_year: 2025,
+          },
+        },
+      };
+      
+      // Mock Stripe subscription retrieval
+      jest.spyOn(require('stripe').default.prototype.subscriptions, 'retrieve')
+        .mockResolvedValue(mockSubscription);
+      
+      // Simulate webhook processing
+      const { StripeWebhookService } = await import('../services/stripe-webhook.service');
+      const webhookService = new StripeWebhookService(mockStorage);
+      
+      await (webhookService as any).handleCheckoutSessionCompleted({
         type: 'checkout.session.completed',
         data: {
           object: {
             id: 'cs_test_123',
-            customer: 'cus_test_123',
+            customer: 'cus_test_123', // THIS is what we're testing gets saved
             subscription: 'sub_test_123',
             payment_status: 'paid',
             metadata: {
-              userId: 'test-user-id',
+              userId: seller.userId,
               plan: 'monthly',
             },
           },
         },
-      };
-
-      // This test validates that webhooks are properly routed
-      // Full webhook testing would require Stripe test mode
+      });
+      
+      // VERIFY: User should now have stripeCustomerId saved
+      const updatedUser = await mockStorage.getUser(seller.userId);
+      expect(updatedUser?.stripeCustomerId).toBe('cus_test_123');
+      expect(updatedUser?.stripeSubscriptionId).toBe('sub_test_123');
+      expect(updatedUser?.subscriptionStatus).toBe('trial');
+      expect(updatedUser?.subscriptionPlan).toBe('monthly');
+      
+      // VERIFY: Sync endpoint should now work (doesn't fail with "No Stripe customer found")
+      const syncResponse = await request(app)
+        .post('/api/subscription/sync')
+        .set('Cookie', seller.sessionCookie);
+      
+      // Should either succeed or return graceful error (not 500)
+      expect([200, 400]).toContain(syncResponse.status);
+      if (syncResponse.status === 400) {
+        // If error, should be a helpful message, not "No Stripe customer found"
+        expect(syncResponse.body.error).not.toContain('No Stripe customer found');
+      }
     });
 
     it('should handle customer.subscription.updated webhook', async () => {
