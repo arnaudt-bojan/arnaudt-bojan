@@ -879,7 +879,7 @@ export default function CampaignsPage() {
           <DialogContent>
             {campaignAnalytics && (
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid xs={12} md={6}>
                   <Card>
                     <CardContent>
                       <Typography variant="subtitle2" color="text.secondary">
@@ -895,7 +895,7 @@ export default function CampaignsPage() {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid xs={12} md={6}>
                   <Card>
                     <CardContent>
                       <Typography variant="subtitle2" color="text.secondary">
@@ -911,7 +911,7 @@ export default function CampaignsPage() {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid xs={12}>
                   <Card>
                     <CardContent>
                       <Typography variant="h6" gutterBottom>
@@ -931,7 +931,7 @@ export default function CampaignsPage() {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid xs={12} md={6}>
                   <Card>
                     <CardContent>
                       <Typography variant="h6" gutterBottom>
@@ -960,7 +960,7 @@ export default function CampaignsPage() {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid xs={12} md={6}>
                   <Card>
                     <CardContent>
                       <Typography variant="h6" gutterBottom>
