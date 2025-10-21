@@ -106,5 +106,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start production server
+# Start production server with tsx (TypeScript executor)
+# NOTE: tsx is in production dependencies, so this works correctly
+# For optimization, consider compiling TS to JS and using: node dist/server/index.js
 CMD ["npx", "tsx", "server/index.ts"]
