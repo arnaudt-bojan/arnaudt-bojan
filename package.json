@@ -9,7 +9,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=development node node_modules/tsx/dist/cli.mjs server/index.ts",
+    "dev": "concurrently \"npm run start:dev --workspace=@upfirst/backend\" \"npm run dev --workspace=@upfirst/frontend\"",
     "clean": "rm -rf node_modules && npm cache clean --force",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "npm run build --workspace=@upfirst/frontend",
