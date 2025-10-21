@@ -303,7 +303,7 @@ export default function DashboardPage() {
 
               <Grid container spacing={3}>
                 {productsData.listProducts.edges.map(({ node: product }: any) => (
-                  <Grid xs={12} sm={6} md={4} lg={3} key={product.id}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
                     <Card>
                       <CardMedia
                         component="img"

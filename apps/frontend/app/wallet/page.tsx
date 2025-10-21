@@ -288,7 +288,7 @@ export default function WalletPage() {
 
       {/* Stripe Connection Status */}
       <Grid container spacing={3} mb={4}>
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card data-testid="card-stripe-status">
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
@@ -316,7 +316,7 @@ export default function WalletPage() {
               {stripeStatus?.connected ? (
                 <Box>
                   <Grid container spacing={2}>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
                           Account ID
@@ -326,7 +326,7 @@ export default function WalletPage() {
                         </Typography>
                       </Box>
                     </Grid>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
                           Status
@@ -350,7 +350,7 @@ export default function WalletPage() {
                         </Box>
                       </Box>
                     </Grid>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
                           Capabilities
@@ -377,7 +377,7 @@ export default function WalletPage() {
                         </Box>
                       </Box>
                     </Grid>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
                           Payout Schedule
@@ -421,7 +421,7 @@ export default function WalletPage() {
 
       {/* Balance Overview */}
       <Grid container spacing={3} mb={4}>
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -445,7 +445,7 @@ export default function WalletPage() {
           </Card>
         </Grid>
 
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -469,7 +469,7 @@ export default function WalletPage() {
           </Card>
         </Grid>
 
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -497,7 +497,7 @@ export default function WalletPage() {
 
       {/* Payout Section */}
       <Grid container spacing={3} mb={4}>
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -524,7 +524,7 @@ export default function WalletPage() {
 
               {stripeStatus?.connected ? (
                 <Grid container spacing={3}>
-                  <Grid xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="body2" color="text.secondary" mb={1}>
                       Payout Method
                     </Typography>
@@ -535,7 +535,7 @@ export default function WalletPage() {
                       Update in Stripe Dashboard
                     </Typography>
                   </Grid>
-                  <Grid xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="body2" color="text.secondary" mb={1}>
                       Schedule
                     </Typography>
@@ -561,7 +561,7 @@ export default function WalletPage() {
 
       {/* Transaction History */}
       <Grid container spacing={3}>
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -616,7 +616,7 @@ export default function WalletPage() {
 
       {/* Payout History Table */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">

@@ -178,7 +178,7 @@ export default function TradeOrdersPage() {
         <CardHeader
           title={
             <Grid container spacing={2} alignItems="center">
-              <Grid xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -191,7 +191,7 @@ export default function TradeOrdersPage() {
                   data-testid="input-search-orders"
                 />
               </Grid>
-              <Grid xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <TextField
                   fullWidth
                   select

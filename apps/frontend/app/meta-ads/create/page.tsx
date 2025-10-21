@@ -245,7 +245,7 @@ export default function CreateAdCampaign() {
 
             <Grid container spacing={2} sx={{ mb: 3 }}>
               {objectives.map((obj) => (
-                <Grid xs={12} sm={6} key={obj.value}>
+                <Grid size={{ xs: 12, sm: 6 }} key={obj.value}>
                   <Card
                     sx={{
                       cursor: 'pointer',
@@ -297,7 +297,7 @@ export default function CreateAdCampaign() {
             ) : (
               <Grid container spacing={2}>
                 {products.map((product) => (
-                  <Grid xs={12} sm={6} md={4} key={product.id}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.id}>
                     <Card
                       sx={{
                         cursor: 'pointer',
@@ -354,7 +354,7 @@ export default function CreateAdCampaign() {
             </Button>
 
             <Grid container spacing={3}>
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   label="Headline"
@@ -396,7 +396,7 @@ export default function CreateAdCampaign() {
                 </FormControl>
               </Grid>
 
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
                   <Typography variant="subtitle2" gutterBottom>
                     Ad Preview
@@ -439,7 +439,7 @@ export default function CreateAdCampaign() {
             </Typography>
 
             <Grid container spacing={3}>
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth sx={{ mb: 3 }}>
                   <InputLabel>Target Countries</InputLabel>
                   <Select
@@ -497,7 +497,7 @@ export default function CreateAdCampaign() {
                 />
               </Grid>
 
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   label="Daily Budget"
@@ -554,7 +554,7 @@ export default function CreateAdCampaign() {
             </Typography>
 
             <Grid container spacing={3}>
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="subtitle1" gutterBottom fontWeight="bold">
                     Campaign Details
@@ -572,7 +572,7 @@ export default function CreateAdCampaign() {
                 </Paper>
               </Grid>
 
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="subtitle1" gutterBottom fontWeight="bold">
                     Ad Content
@@ -590,7 +590,7 @@ export default function CreateAdCampaign() {
                 </Paper>
               </Grid>
 
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="subtitle1" gutterBottom fontWeight="bold">
                     Targeting
@@ -608,7 +608,7 @@ export default function CreateAdCampaign() {
                 </Paper>
               </Grid>
 
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="subtitle1" gutterBottom fontWeight="bold">
                     Budget & Schedule

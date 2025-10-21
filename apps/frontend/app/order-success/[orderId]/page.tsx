@@ -105,10 +105,10 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Skeleton variant="text" width={300} height={60} sx={{ mb: 4 }} />
         <Grid container spacing={3}>
-          <Grid xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
           </Grid>
-          <Grid xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
           </Grid>
         </Grid>
@@ -151,7 +151,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
 
       <Grid container spacing={3}>
         {/* Left Column: Order Details */}
-        <Grid xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           {/* Order Info Card */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
@@ -165,7 +165,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
               </Box>
 
               <Grid container spacing={2}>
-                <Grid xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Order Number
                   </Typography>
@@ -173,7 +173,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
                     {order.orderNumber}
                   </Typography>
                 </Grid>
-                <Grid xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Order Date
                   </Typography>
@@ -181,7 +181,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
                     {format(new Date(order.createdAt), 'MMM dd, yyyy')}
                   </Typography>
                 </Grid>
-                <Grid xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Payment Status
                   </Typography>
@@ -189,7 +189,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
                     {order.paymentStatus}
                   </Typography>
                 </Grid>
-                <Grid xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Fulfillment Status
                   </Typography>
@@ -292,7 +292,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
         </Grid>
 
         {/* Right Column: Order Summary */}
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card sx={{ position: { md: 'sticky' }, top: { md: 24 } }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>

@@ -306,14 +306,14 @@ export default function QuickAccessPage() {
 
       <Grid container spacing={3}>
         {/* Quick Actions Panel */}
-        <Grid xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Quick Actions
             </Typography>
             <Grid container spacing={2} data-testid="panel-quick-actions">
               {quickActions.map((action) => (
-                <Grid xs={12} sm={6} md={4} key={action.id}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={action.id}>
                   <Card
                     sx={{
                       height: '100%',
@@ -387,7 +387,7 @@ export default function QuickAccessPage() {
         </Grid>
 
         {/* Sidebar */}
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           {/* Favorite Products */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
@@ -395,7 +395,7 @@ export default function QuickAccessPage() {
             </Typography>
             <Grid container spacing={2} data-testid="grid-favorite-products">
               {favoriteProducts.map((product) => (
-                <Grid xs={12} key={product.id}>
+                <Grid size={{ xs: 12 }} key={product.id}>
                   <Card variant="outlined">
                     <CardContent sx={{ p: 2 }}>
                       <Box sx={{ display: 'flex', gap: 2 }}>

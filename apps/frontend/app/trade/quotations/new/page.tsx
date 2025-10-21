@@ -212,7 +212,7 @@ export default function QuotationBuilder() {
         <CardHeader title="Quotation Details" />
         <CardContent>
           <Grid container spacing={3}>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 required
@@ -223,7 +223,7 @@ export default function QuotationBuilder() {
                 data-testid="input-buyer-email"
               />
             </Grid>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Valid Until"
@@ -234,7 +234,7 @@ export default function QuotationBuilder() {
                 data-testid="input-valid-until"
               />
             </Grid>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 select
@@ -250,7 +250,7 @@ export default function QuotationBuilder() {
                 ))}
               </TextField>
             </Grid>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 select
@@ -361,7 +361,7 @@ export default function QuotationBuilder() {
       </Card>
 
       <Grid container spacing={3}>
-        <Grid xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardHeader title="Payment Terms" />
             <CardContent>
@@ -390,7 +390,7 @@ export default function QuotationBuilder() {
           </Card>
         </Grid>
 
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardHeader title="Summary" />
             <CardContent>

@@ -228,7 +228,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
           <Skeleton variant="text" width="40%" />
           <Grid container spacing={3} sx={{ mt: 2 }}>
             {[...Array(6)].map((_, i) => (
-              <Grid xs={12} sm={6} md={4} lg={3} key={i}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
                 <Skeleton variant="rectangular" height={250} />
                 <Skeleton variant="text" sx={{ mt: 1 }} />
                 <Skeleton variant="text" width="60%" />
@@ -318,7 +318,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
         <Box sx={{ mb: 4 }}>
           <Grid container spacing={2} alignItems="center">
             {/* Search */}
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
                 placeholder="Search products..."
@@ -336,7 +336,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
             </Grid>
 
             {/* Category Filter */}
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -356,7 +356,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
             </Grid>
 
             {/* Sort */}
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Sort By</InputLabel>
                 <Select
@@ -376,7 +376,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
             </Grid>
 
             {/* Results Count */}
-            <Grid xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <Typography variant="body2" color="text.secondary" textAlign={{ xs: 'left', md: 'right' }}>
                 {totalCount} {totalCount === 1 ? 'product' : 'products'}
               </Typography>
@@ -388,7 +388,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
         {productsLoading ? (
           <Grid container spacing={3}>
             {[...Array(productsPerPage)].map((_, i) => (
-              <Grid xs={12} sm={6} md={4} lg={3} key={i}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
                 <Card>
                   <Skeleton variant="rectangular" height={250} />
                   <CardContent>
@@ -421,7 +421,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
             {/* Product Grid */}
             <Grid container spacing={3}>
               {products.map((product: any) => (
-                <Grid xs={12} sm={6} md={4} lg={3} key={product.id}>
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
                   <Card
                     sx={{
                       height: '100%',

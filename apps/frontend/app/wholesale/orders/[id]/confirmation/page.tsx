@@ -127,7 +127,7 @@ export default function WholesaleOrderConfirmationPage() {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={3}>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Order Number
               </Typography>
@@ -135,7 +135,7 @@ export default function WholesaleOrderConfirmationPage() {
                 {order.orderNumber}
               </Typography>
             </Grid>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Order Date
               </Typography>
@@ -162,7 +162,7 @@ export default function WholesaleOrderConfirmationPage() {
           </Alert>
 
           <Grid container spacing={2}>
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box
                 sx={{
                   p: 2,
@@ -179,7 +179,7 @@ export default function WholesaleOrderConfirmationPage() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box
                 sx={{
                   p: 2,
@@ -196,7 +196,7 @@ export default function WholesaleOrderConfirmationPage() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box
                 sx={{
                   p: 2,

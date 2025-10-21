@@ -182,12 +182,12 @@ export default function CartPage() {
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Skeleton variant="text" width={200} height={60} sx={{ mb: 4 }} />
         <Grid container spacing={4}>
-          <Grid xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} variant="rectangular" height={120} sx={{ mb: 2, borderRadius: 2 }} />
             ))}
           </Grid>
-          <Grid xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
           </Grid>
         </Grid>
@@ -259,7 +259,7 @@ export default function CartPage() {
 
       <Grid container spacing={4}>
         {/* Cart Items */}
-        <Grid xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: { xs: 2, md: 3 } }}>
             {/* Desktop: Table Layout */}
             {!isMobile && (
@@ -430,7 +430,7 @@ export default function CartPage() {
         </Grid>
 
         {/* Cart Summary */}
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper
             sx={{
               p: 3,

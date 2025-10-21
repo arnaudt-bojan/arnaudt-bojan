@@ -93,7 +93,7 @@ export default function WholesalePreview() {
       {loading ? (
         <Grid container spacing={3}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Grid xs={12} sm={6} md={4} key={i}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
               <Card>
                 <Skeleton variant="rectangular" height={200} />
                 <CardContent>
@@ -125,7 +125,7 @@ export default function WholesalePreview() {
       ) : (
         <Grid container spacing={3}>
           {activeProducts.map((product: any) => (
-            <Grid xs={12} sm={6} md={4} key={product.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.id}>
               <Card 
                 sx={{ 
                   height: '100%',

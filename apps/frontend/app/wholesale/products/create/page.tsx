@@ -111,7 +111,7 @@ export default function CreateWholesaleProduct() {
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
             {/* Name */}
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 required
@@ -123,7 +123,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* Description */}
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 required
@@ -137,7 +137,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* Category */}
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -157,7 +157,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* Wholesale Price */}
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 required
@@ -174,7 +174,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* MOQ */}
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 required
@@ -189,7 +189,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* Stock */}
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 required
@@ -203,7 +203,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* Deposit Checkbox */}
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -218,7 +218,7 @@ export default function CreateWholesaleProduct() {
 
             {/* Deposit Percentage */}
             {formData.requiresDeposit && (
-              <Grid xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   required
@@ -237,7 +237,7 @@ export default function CreateWholesaleProduct() {
             )}
 
             {/* Payment Terms */}
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Payment Terms</InputLabel>
                 <Select
@@ -255,7 +255,7 @@ export default function CreateWholesaleProduct() {
             </Grid>
 
             {/* Submit Button */}
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Box display="flex" gap={2} justifyContent="flex-end">
                 <Button
                   variant="outlined"

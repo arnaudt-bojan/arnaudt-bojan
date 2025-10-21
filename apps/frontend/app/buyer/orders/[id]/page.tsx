@@ -251,10 +251,10 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Skeleton variant="rectangular" width={120} height={40} sx={{ mb: 3 }} />
         <Grid container spacing={3}>
-          <Grid xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Skeleton variant="rectangular" width="100%" height={200} />
           </Grid>
-          <Grid xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Skeleton variant="rectangular" width="100%" height={400} />
           </Grid>
         </Grid>
@@ -302,7 +302,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
 
       <Grid container spacing={3}>
         {/* Order Header */}
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', gap: 2, mb: 3 }}>
@@ -398,7 +398,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
         </Grid>
 
         {/* Order Items */}
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
@@ -495,7 +495,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
         </Grid>
 
         {/* Shipping Address & Payment Info */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -536,7 +536,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
           </Card>
         </Grid>
 
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -560,7 +560,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
         </Grid>
 
         {/* Action Buttons */}
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>

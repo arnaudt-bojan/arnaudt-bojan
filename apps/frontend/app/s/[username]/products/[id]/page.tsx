@@ -137,10 +137,10 @@ export default function ProductDetailPage({ params }: PageProps) {
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 4 }} />
         <Grid container spacing={4}>
-          <Grid xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Skeleton variant="rectangular" width="100%" height={500} sx={{ borderRadius: 2 }} />
           </Grid>
-          <Grid xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Skeleton variant="text" width="80%" height={60} />
             <Skeleton variant="text" width="40%" height={40} sx={{ mt: 2 }} />
             <Skeleton variant="rectangular" width="100%" height={200} sx={{ mt: 4 }} />
@@ -218,7 +218,7 @@ export default function ProductDetailPage({ params }: PageProps) {
 
       <Grid container spacing={6}>
         {/* Image Gallery */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ mb: 2, overflow: 'hidden' }}>
             <CardMedia
               component="img"
@@ -237,7 +237,7 @@ export default function ProductDetailPage({ params }: PageProps) {
           {images.length > 1 && (
             <Grid container spacing={2}>
               {images.map((img: string, index: number) => (
-                <Grid xs={3} key={index}>
+                <Grid size={{ xs: 3 }} key={index}>
                   <Card
                     sx={{
                       cursor: 'pointer',
@@ -266,7 +266,7 @@ export default function ProductDetailPage({ params }: PageProps) {
         </Grid>
 
         {/* Product Details */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           {/* Product Type Badge */}
           <Chip
             label={product.product_type?.replace('-', ' ').toUpperCase()}

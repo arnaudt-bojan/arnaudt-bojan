@@ -103,7 +103,7 @@ export default function WholesaleProductDetailPage() {
 
       <Grid container spacing={4}>
         {/* Product Images */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardMedia
               component="img"
@@ -115,7 +115,7 @@ export default function WholesaleProductDetailPage() {
         </Grid>
 
         {/* Product Details */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
               {product.name}
@@ -246,7 +246,7 @@ export default function WholesaleProductDetailPage() {
 
         {/* Product Description */}
         {product.description && (
-          <Grid xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>

@@ -222,7 +222,7 @@ export default function QuotationsList() {
         <CardHeader
           title={
             <Grid container spacing={2} alignItems="center">
-              <Grid xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -235,7 +235,7 @@ export default function QuotationsList() {
                   data-testid="input-search-quotations"
                 />
               </Grid>
-              <Grid xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <TextField
                   fullWidth
                   select
