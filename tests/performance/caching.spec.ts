@@ -10,6 +10,11 @@ describe('API Caching & Performance @performance', () => {
     app = await getTestApp();
   });
 
+import { describe, it, expect } from 'vitest';
+import request from 'supertest';
+import { app } from '../../server/index';
+
+describe('API Caching & Performance @performance', () => {
   it('should serve cached responses faster', async () => {
     const endpoint = '/api/products';
 
