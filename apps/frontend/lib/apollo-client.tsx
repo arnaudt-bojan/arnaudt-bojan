@@ -24,10 +24,12 @@ export {
 // gql is in the core package
 export { gql } from '@apollo/client/core';
 
-// Note: ApolloError was removed in Apollo Client v4
-// For error handling, use the error types from the hooks directly
-// e.g., error parameter in onError callbacks is automatically typed
-export type { ApolloError } from '@apollo/client/errors';
+// Export error types from Apollo Client v4
+export { 
+  ServerError,
+  ServerParseError,
+  LinkError 
+} from '@apollo/client/errors';
 
 // Function to create Apollo Client instance for Next.js 14 App Router (Client Components/SSR)
 function makeClient() {
