@@ -17,11 +17,12 @@ You now have a professional multi-environment setup supporting:
     ├─ Status: ✅ Working
     └─ Use for: Daily development, code editing
 
-🌐 REPLIT STAGING (Ready to Deploy)
+🌐 REPLIT STAGING (Fix Required)
     ├─ Technology: Reserved VM (Nix-based)
     ├─ Database: Replit PostgreSQL (managed)
     ├─ Command: Deploy via Replit UI
-    ├─ Status: ⚠️ Needs manual .replit edit
+    ├─ Status: ⚠️ Needs .replit fix (npx tsx issue)
+    ├─ Fix: See REPLIT-DEPLOYMENT-FIX.md
     └─ Use for: Pre-production testing, team demos
 
 🐳 LOCAL DOCKER (Ready to Use)
@@ -152,19 +153,25 @@ services:
 
 ### Required Before Staging Deployment
 
-**You MUST edit `.replit` file** (lines 9-11):
+**1. Edit `.replit` file line 14** (Fix npx tsx issue):
 
 ```toml
-# BEFORE (will fail):
-# build = ["sh", "-c", "npm ci --omit=optional && npm run build"]
-# run = ["npm", "run", "start"]
+# BEFORE (will fail with "Cannot find package 'reflect-metadata'"):
+run = ["npm", "run", "start"]
 
 # AFTER (will work):
-build = ["sh", "-c", "npm install --legacy-peer-deps --include=optional && npm run build"]
-run = ["npm", "run", "start"]
+run = ["sh", "start.sh"]
 ```
 
-**Why:** Replit uses Nix, not Docker. The `--omit=optional` flag was blocking platform-specific binaries.
+**Why:** `npx tsx` uses a cached global version that doesn't have access to `node_modules`. The `start.sh` script uses the local tsx installation.
+
+👉 **Full details in `REPLIT-DEPLOYMENT-FIX.md`**
+
+**2. Verify build command** (should already be correct):
+
+```toml
+build = ["sh", "-c", "npm install --legacy-peer-deps --include=optional && npm run build"]
+```
 
 ---
 

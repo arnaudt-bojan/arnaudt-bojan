@@ -4,6 +4,16 @@ This guide explains how to deploy Upfirst to Replit's cloud as a **staging envir
 
 ---
 
+## 🔧 **DEPLOYMENT FIX REQUIRED** (October 2025)
+
+**Issue**: Cloud Run deployments fail with `Cannot find package 'reflect-metadata'`  
+**Cause**: `npx tsx` uses cached global version without access to `node_modules`  
+**Fix**: Edit `.replit` line 14 to use `start.sh` or local tsx  
+
+👉 **See `REPLIT-DEPLOYMENT-FIX.md` for complete step-by-step instructions.**
+
+---
+
 ## 🎯 **Important: Replit Uses Nix, NOT Docker**
 
 Replit deployments use **Nix package management**, not Docker. Your Dockerfile is only for local development and AWS production. Replit's deployment process:

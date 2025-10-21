@@ -1,0 +1,103 @@
+2025-10-21 17:55:59.86
+17f52f28
+User
+npm warn config optional Use `--omit=optional` to exclude optional dependencies, or
+2025-10-21 17:55:59.86
+17f52f28
+User
+npm warn config `--include=optional` to include them.
+2025-10-21 17:55:59.86
+17f52f28
+User
+npm warn config
+2025-10-21 17:55:59.86
+17f52f28
+User
+npm warn config Default value does install optional deps unless otherwise omitted.
+2025-10-21 17:56:00.07
+2faabe37
+User
+2025-10-21T15:56:00.077Z [INFO ] [WebSocket] Client disconnected
+2025-10-21 17:56:00.85
+17f52f28
+User
+node:internal/modules/run_main:123
+2025-10-21 17:56:00.85
+17f52f28
+User
+triggerUncaughtException(
+2025-10-21 17:56:00.85
+17f52f28
+User
+^
+2025-10-21 17:56:00.85
+17f52f28
+User
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'reflect-metadata' imported from /home/runner/workspace/server/index.ts
+2025-10-21 17:56:00.85
+17f52f28
+User
+at packageResolve (node:internal/modules/esm/resolve:873:9)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at moduleResolve (node:internal/modules/esm/resolve:946:18)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at nextResolve (node:internal/modules/esm/hooks:864:28)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at resolveBase (file:///home/runner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1761062160704:2:3744)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at resolveDirectory (file:///home/runner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1761062160704:2:4243)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at resolveTsPaths (file:///home/runner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1761062160704:2:4984)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at async resolve (file:///home/runner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1761062160704:2:5355)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2025-10-21 17:56:00.85
+17f52f28
+User
+at async Hooks.resolve (node:internal/modules/esm/hooks:306:24) {
+2025-10-21 17:56:00.85
+17f52f28
+User
+code: 'ERR_MODULE_NOT_FOUND'
+2025-10-21 17:56:00.85
+17f52f28
+User
+}
+2025-10-21 17:56:00.85
+17f52f28
+User
+2025-10-21 17:56:00.85
+17f52f28
+User
+Node.js v20.19.3
+2025-10-21 17:56:00.91
+17f52f28
+System
+command finished with error [npm run start]: exit status 1
+2025-10-21 17:56:04.09
+2faabe37
+User
+2025-10-21T15:56:04.095Z [INFO ] [WebSocket] Client connected
+2025-10-21 17:56:05.39
+17f52f28
+System
+crash loop detected
