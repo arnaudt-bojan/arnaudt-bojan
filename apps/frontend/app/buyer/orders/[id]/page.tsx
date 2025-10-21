@@ -157,6 +157,25 @@ interface Order {
   }[];
 }
 
+// GraphQL query response types
+interface GetOrderData {
+  getOrder: Order;
+}
+
+interface CancelOrderData {
+  cancelOrder: {
+    id: string;
+    status: string;
+  };
+}
+
+interface ReorderItemsData {
+  reorderItems: {
+    id: string;
+    itemsCount: number;
+  };
+}
+
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusLower = status.toLowerCase();
   if (statusLower === 'delivered' || statusLower === 'completed' || statusLower === 'fulfilled') return 'success';
@@ -195,12 +214,12 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
-  const { loading, error, data, refetch } = useQuery(GET_ORDER, {
+  const { loading, error, data, refetch } = useQuery<GetOrderData>(GET_ORDER, {
     variables: { id: params.id },
     fetchPolicy: 'network-only',
   });
 
-  const [cancelOrder, { loading: cancelLoading }] = useMutation(CANCEL_ORDER, {
+  const [cancelOrder, { loading: cancelLoading }] = useMutation<CancelOrderData>(CANCEL_ORDER, {
     onCompleted: () => {
       setSnackbarMessage('Order cancelled successfully');
       setSnackbarOpen(true);
@@ -213,7 +232,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
     },
   });
 
-  const [reorderItems, { loading: reorderLoading }] = useMutation(REORDER_ITEMS, {
+  const [reorderItems, { loading: reorderLoading }] = useMutation<ReorderItemsData>(REORDER_ITEMS, {
     onCompleted: () => {
       setSnackbarMessage('Items added to cart successfully');
       setSnackbarOpen(true);

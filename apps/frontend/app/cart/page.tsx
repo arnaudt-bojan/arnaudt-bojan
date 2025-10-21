@@ -107,6 +107,56 @@ const REMOVE_FROM_CART = gql`
   }
 `;
 
+// TypeScript Interfaces
+interface CartItem {
+  id: string;
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    images?: string[];
+  };
+}
+
+interface CartTotals {
+  subtotal: number;
+  tax: number;
+  shipping: number;
+  total: number;
+}
+
+interface Cart {
+  id: string;
+  items: CartItem[];
+  totals: CartTotals;
+}
+
+// GraphQL Response Types
+interface GetCartData {
+  cart: Cart | null;
+}
+
+interface UpdateCartItemData {
+  updateCartItem: {
+    success: boolean;
+    message: string;
+    cart: Cart;
+  };
+}
+
+interface RemoveFromCartData {
+  removeFromCart: {
+    success: boolean;
+    message: string;
+    cart: Cart;
+  };
+}
+
 export default function CartPage() {
   const router = useRouter();
   const theme = useTheme();
@@ -115,12 +165,12 @@ export default function CartPage() {
   const [couponCode, setCouponCode] = useState('');
 
   // GraphQL Query
-  const { data, loading, error, refetch } = useQuery(GET_CART, {
+  const { data, loading, error, refetch } = useQuery<GetCartData>(GET_CART, {
     fetchPolicy: 'network-only',
   });
 
   // GraphQL Mutations
-  const [updateCartItem, { loading: updating }] = useMutation(UPDATE_CART_ITEM, {
+  const [updateCartItem, { loading: updating }] = useMutation<UpdateCartItemData>(UPDATE_CART_ITEM, {
     onCompleted: () => {
       refetch();
     },
@@ -129,7 +179,7 @@ export default function CartPage() {
     },
   });
 
-  const [removeFromCart, { loading: removing }] = useMutation(REMOVE_FROM_CART, {
+  const [removeFromCart, { loading: removing }] = useMutation<RemoveFromCartData>(REMOVE_FROM_CART, {
     onCompleted: () => {
       refetch();
     },

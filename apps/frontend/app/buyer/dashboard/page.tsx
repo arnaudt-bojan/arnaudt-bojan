@@ -73,6 +73,15 @@ interface User {
   lastName?: string;
 }
 
+// GraphQL query response types
+interface GetCurrentUserData {
+  me: User;
+}
+
+interface ListOrdersData {
+  listOrders: Order[];
+}
+
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusLower = status.toLowerCase();
   if (statusLower === 'delivered' || statusLower === 'completed') return 'success';
@@ -90,11 +99,11 @@ export default function BuyerDashboard() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
-  const { loading: userLoading, data: userData } = useQuery(GET_CURRENT_USER, {
+  const { loading: userLoading, data: userData } = useQuery<GetCurrentUserData>(GET_CURRENT_USER, {
     fetchPolicy: 'network-only',
   });
 
-  const { loading: ordersLoading, error: ordersError, data: ordersData } = useQuery(LIST_ORDERS, {
+  const { loading: ordersLoading, error: ordersError, data: ordersData } = useQuery<ListOrdersData>(LIST_ORDERS, {
     variables: {
       first: 100,
       filter: statusFilter ? { status: statusFilter } : undefined,
