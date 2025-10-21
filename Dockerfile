@@ -1,8 +1,10 @@
 # Upfirst Production Dockerfile
-# Multi-stage build for optimized production deployment
+# Multi-stage build: development + production stages
 
-# Stage 1: Dependencies and Build
-FROM node:20-alpine AS builder
+# =============================================================================
+# STAGE 1: Development (for local docker-compose)
+# =============================================================================
+FROM node:20-alpine AS development
 
 # Install system dependencies for native modules
 RUN apk add --no-cache \
@@ -16,26 +18,40 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Set npm config to handle optional dependencies correctly
-ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
-ENV NPM_CONFIG_AUDIT=false
-ENV NPM_CONFIG_FUND=false
-ENV npm_config_optional=true
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including dev dependencies for hot reload)
+RUN npm install --legacy-peer-deps --include=optional
+
+# Prisma will be generated when container starts
+EXPOSE 5000
+
+# Default command (can be overridden by docker-compose)
+CMD ["npm", "run", "dev"]
+
+# =============================================================================
+# STAGE 2: Builder (for production builds)
+# =============================================================================
+FROM node:20-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev
+
+WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Create .npmrc that forces optional deps to be included
-RUN echo "engine-strict=false" > .npmrc && \
-    echo "legacy-peer-deps=true" >> .npmrc && \
-    echo "optional=true" >> .npmrc && \
-    echo "audit=false" >> .npmrc && \
-    echo "fund=false" >> .npmrc
-
-# CRITICAL: Clean everything and do fresh install with ALL optional deps
-RUN rm -rf node_modules package-lock.json && \
-    npm cache clean --force && \
-    npm install --legacy-peer-deps --include=optional --no-audit --no-fund
+# Install dependencies with proper platform binaries
+RUN npm install --legacy-peer-deps --include=optional --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -46,8 +62,10 @@ RUN npx prisma generate
 # Build frontend
 RUN npx vite build
 
-# Stage 2: Production Runtime
-FROM node:20-alpine AS runtime
+# =============================================================================
+# STAGE 3: Production Runtime (for AWS deployment)
+# =============================================================================
+FROM node:20-alpine AS production
 
 # Install runtime dependencies
 RUN apk add --no-cache \
@@ -59,30 +77,15 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Set npm config for production
-ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
-ENV NPM_CONFIG_AUDIT=false
-ENV NPM_CONFIG_FUND=false
-ENV npm_config_optional=true
-
 # Copy package files
 COPY package*.json ./
 
-# Create .npmrc for runtime
-RUN echo "engine-strict=false" > .npmrc && \
-    echo "legacy-peer-deps=true" >> .npmrc && \
-    echo "optional=true" >> .npmrc && \
-    echo "audit=false" >> .npmrc && \
-    echo "fund=false" >> .npmrc
-
-# Install production dependencies with optional deps included
-RUN rm -rf node_modules && \
-    npm cache clean --force && \
-    npm install --production --legacy-peer-deps --include=optional --no-audit --no-fund
+# Install production dependencies only
+RUN npm install --production --legacy-peer-deps --include=optional --no-audit --no-fund
 
 # Copy built artifacts from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/prisma ./prisma
 
 # Copy server code and shared code
@@ -96,12 +99,12 @@ ENV PORT=5000
 # Expose port
 EXPOSE 5000
 
-# Health check
+# Health check for AWS ECS/EKS
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:5000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); });"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start production server with tsx
+# Start production server
 CMD ["npx", "tsx", "server/index.ts"]
