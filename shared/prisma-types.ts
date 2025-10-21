@@ -487,6 +487,126 @@ export type InsertCampaign = InsertMetaAdCampaign;
 export type NewsletterSubscriber = Subscriber;
 export type InsertNewsletterSubscriber = InsertSubscriber;
 
+// ============================================================================
+// Missing Type Aliases (for compatibility with shared/schema.ts)
+// ============================================================================
+
+// Subscription: Stripe subscriptions are managed via API, not stored in database
+// This is a placeholder type for the subscription data structure
+export type Subscription = {
+  id: string;
+  userId: string;
+  stripeSubscriptionId: string;
+  stripeCustomerId?: string;
+  status: string;
+  currentPeriodEnd: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+export type InsertSubscription = {
+  userId: string;
+  stripeSubscriptionId: string;
+  stripeCustomerId?: string;
+  status: string;
+  currentPeriodEnd: string;
+  updatedAt?: string;
+};
+
+// ImportQueueItem: Maps to import_jobs table
+export type ImportJob = Prisma.import_jobsGetPayload<{}>;
+export type InsertImportJob = Prisma.import_jobsUncheckedCreateInput;
+export type ImportQueueItem = ImportJob;
+export type InsertImportQueueItem = InsertImportJob;
+
+// TaxSettings: Tax configuration (not a database table, stored as JSON or config)
+export type TaxSettings = {
+  id: string;
+  sellerId: string;
+  enabled: boolean;
+  taxRate?: number;
+  taxCountries?: string[];
+  settings?: { [key: string]: any };
+};
+export type InsertTaxSettings = {
+  sellerId: string;
+  enabled: boolean;
+  taxRate?: number;
+  taxCountries?: string[];
+  settings?: { [key: string]: any };
+};
+
+// TradePayment: Maps to trade_payment_schedules table
+export type TradePaymentSchedule = Prisma.trade_payment_schedulesGetPayload<{}>;
+export type InsertTradePaymentSchedule = Prisma.trade_payment_schedulesUncheckedCreateInput;
+export type TradePayment = TradePaymentSchedule;
+export type InsertTradePayment = InsertTradePaymentSchedule;
+
+// MetaAdSet: Meta ad set structure (part of Meta ad campaigns)
+export type MetaAdSet = {
+  id: string;
+  campaignId: string;
+  name: string;
+  status: string;
+  targeting?: { [key: string]: any };
+  bidAmount?: number;
+  dailyBudget?: number;
+  createdTime?: string;
+};
+export type InsertMetaAdSet = {
+  campaignId: string;
+  name: string;
+  status: string;
+  targeting?: { [key: string]: any };
+  bidAmount?: number;
+  dailyBudget?: number;
+  createdTime?: string;
+};
+
+// MetaAd: Individual Meta ad (part of Meta ad campaigns)
+export type MetaAd = {
+  id: string;
+  adSetId: string;
+  name: string;
+  status: string;
+  creative?: { [key: string]: any };
+  createdTime?: string;
+};
+export type InsertMetaAd = {
+  adSetId: string;
+  name: string;
+  status: string;
+  creative?: { [key: string]: any };
+  createdTime?: string;
+};
+
+// DomainSettings: Maps to domain_connections table
+export type DomainSettings = DomainConnection;
+export type InsertDomainSettings = InsertDomainConnection;
+
+// CartReservation: Maps to cart_items table with reservation data
+export type CartReservation = CartItem;
+export type InsertCartReservation = InsertCartItem;
+
+// ProductVariant: Product variants are stored inline in products table as JSON
+// This represents the structure of variant data
+export type ProductVariant = {
+  id: string;
+  productId: string;
+  size?: string;
+  color?: string;
+  price: number;
+  stockQuantity: number;
+  sku?: string;
+};
+export type InsertProductVariant = {
+  productId: string;
+  size?: string;
+  color?: string;
+  price: number;
+  stockQuantity: number;
+  sku?: string;
+};
+
 /**
  * Export all Prisma-generated types for advanced usage
  */

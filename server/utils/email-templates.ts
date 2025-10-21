@@ -251,11 +251,11 @@ export function generateUpfirstHeader(): string {
  * @returns HTML header string
  */
 export function generateSellerHeader(seller: User): string {
-  const storeName = seller.firstName || seller.username || 'Store';
+  const storeName = seller.first_name || seller.username || 'Store';
   
   // Priority 1: Store banner (full-width banner image)
-  if (seller.storeBanner) {
-    const bannerUrl = convertToAbsoluteUrl(seller.storeBanner);
+  if (seller.store_banner) {
+    const bannerUrl = convertToAbsoluteUrl(seller.store_banner);
     return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
   <tr>
@@ -268,8 +268,8 @@ export function generateSellerHeader(seller: User): string {
   }
   
   // Priority 2: Store logo (centered logo)
-  if (seller.storeLogo) {
-    const logoUrl = convertToAbsoluteUrl(seller.storeLogo);
+  if (seller.store_logo) {
+    const logoUrl = convertToAbsoluteUrl(seller.store_logo);
     return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #ffffff !important;" class="dark-mode-bg-white">
   <tr>
@@ -408,7 +408,7 @@ export async function generateSellerFooter(seller: User): Promise<string> {
   
   // Determine business/seller name
   const businessName = stripeDetails?.businessName || 
-                       [seller.firstName, seller.lastName].filter(Boolean).join(' ') || 
+                       [seller.first_name, seller.last_name].filter(Boolean).join(' ') || 
                        seller.username || 
                        'Store';
   
@@ -987,7 +987,7 @@ export async function generateRefundConfirmationEmail(data: RefundEmailData): Pr
   const { order, seller, refundAmount, currency, reason, lineItems, orderAccessToken } = data;
   
   // Get seller name for display
-  const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || "the seller";
+  const sellerName = [seller.first_name, seller.last_name].filter(Boolean).join(' ') || seller.username || "the seller";
   
   // CRITICAL: orderAccessToken is already a FULL magic link URL from generateMagicLinkForEmail
   // Don't reconstruct it - just use it directly
