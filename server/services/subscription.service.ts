@@ -164,6 +164,13 @@ export class SubscriptionService {
 
       logger.info(`[Subscription Sync] Updated user ${input.userId} with status: ${status}`);
 
+      // Emit Socket.IO event for real-time UI update
+      const { settingsSocketService } = await import('../websocket');
+      settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+        subscriptionStatus: status,
+        subscriptionPlan: plan,
+      });
+
       return {
         success: true,
         data: {

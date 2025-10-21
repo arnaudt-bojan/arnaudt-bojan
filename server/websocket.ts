@@ -18,6 +18,7 @@ interface ConnectionMetrics {
   eventsEmitted: {
     orders: number;
     settings: number;
+    subscriptions: number;
     total: number;
   };
   roomMemberships: Map<string, Set<string>>; // room -> Set of userIds
@@ -35,6 +36,7 @@ export const connectionMetrics: ConnectionMetrics = {
   eventsEmitted: {
     orders: 0,
     settings: 0,
+    subscriptions: 0,
     total: 0
   },
   roomMemberships: new Map(),
@@ -310,13 +312,19 @@ export class SettingsSocketService {
   }
 
   /**
-   * Emit internal settings (warehouse, payment provider, tax, shipping, domain)
+   * Emit internal settings (warehouse, payment provider, tax, shipping, domain, subscription)
    * Targets: Seller dashboard only
    */
   emitInternalSettingsUpdated(sellerId: string, settingType: string, data: any) {
     if (!this.io) return;
     this.io.to(`user:${sellerId}`).emit(`settings:${settingType}_updated`, data);
-    connectionMetrics.eventsEmitted.settings += 1;
+    
+    // Track subscription events separately
+    if (settingType === 'subscription') {
+      connectionMetrics.eventsEmitted.subscriptions += 1;
+    } else {
+      connectionMetrics.eventsEmitted.settings += 1;
+    }
     connectionMetrics.eventsEmitted.total += 1;
   }
 }

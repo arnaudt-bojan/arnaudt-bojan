@@ -63,14 +63,31 @@ The platform comprises three distinct, parallel platforms with all business logi
 ## Recent Changes
 
 ### October 2025 - Test Infrastructure Enhancement
--   **Test Suite Expansion**: Added 93+ test cases across 6 test files to catch runtime issues before production
+-   **Test Suite Expansion**: Added 93+ test cases across 7 test files to catch runtime issues before production
     -   Wallet contract tests (API shape validation)
     -   Wallet integration tests (failure condition handling)
     -   Stripe Connect tests (configuration + state validation)
     -   Stripe Connect UI tests (race condition prevention) ✨ **CAUGHT REAL BUG**
     -   Currency propagation tests (multi-platform consistency)
     -   Order route tests (blank screen prevention)
--   **Real Bug Caught & Fixed**: Stripe Connect modal never appeared after currency selection (race condition in user data refetch)
+    -   **Subscription flow tests** (webhooks, sync, Socket.IO) ✨ **NEW**
+-   **Real Bugs Caught & Fixed**:
+    -   **Bug #1**: Stripe Connect modal never appeared after currency selection (race condition in user data refetch)
+    -   **Bug #2**: "Continue to Stripe Setup" button not working (conditional rendering removed, store accountId in state)
+    -   **Bug #3**: Subscription sync failing after successful Stripe checkout ✨ **NEW**
+        - **Root Cause**: Subscription webhooks updated database but didn't emit Socket.IO events (frontend had to manually refresh)
+        - **Fix**: Added Socket.IO emissions to all subscription webhook handlers and sync endpoint
+        - **Impact**: Subscription status now updates in real-time via Socket.IO (consistent with orders/settings)
+-   **Subscription Socket.IO Integration** ✨ **NEW**: 
+    -   Added `settings:subscription_updated` event emitted on all subscription status changes
+    -   Webhook handlers now emit Socket.IO events for: checkout completion, subscription created/updated/deleted, invoice payment success/failure
+    -   Sync endpoint emits Socket.IO event after manual sync
+    -   Frontend listener automatically invalidates React Query cache for subscription status
+    -   Connection metrics now track subscription events separately
+-   **Subscription Sync Improvements** ✨ **NEW**:
+    -   Fixed "Sync Subscription" button to handle missing `stripeCustomerId` gracefully
+    -   Changed endpoints to return 200 status with `success: false` instead of 404 (allows frontend to show helpful messages)
+    -   Better error messages: "No subscription found. Please complete the checkout process first."
 -   **Pessimistic Mock System**: Default-to-failure mocks requiring explicit opt-in to success paths (tests/setup/pessimistic-mocks.ts)
 -   **Currency Centralization**: ESLint rule enforcing all currency values imported from shared/config/currency.ts
 -   **CI/CD Pipeline**: Non-blocking test gates detecting schema drift and regressions (.github/workflows/test-suite.yml)

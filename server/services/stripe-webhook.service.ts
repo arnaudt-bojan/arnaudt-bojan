@@ -223,6 +223,13 @@ export class StripeWebhookService {
           subscriptionStatus: status,
           subscriptionPlan: plan,
         });
+
+        // Emit Socket.IO event for real-time UI update
+        const { settingsSocketService } = await import('../websocket');
+        settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+          subscriptionStatus: status,
+          subscriptionPlan: plan,
+        });
       }
     }
   }
@@ -286,6 +293,12 @@ export class StripeWebhookService {
         subscriptionStatus: status,
       });
       logger.info(`[Webhook] Updated user ${user.id} subscription status to ${status}`);
+
+      // Emit Socket.IO event for real-time UI update
+      const { settingsSocketService } = await import('../websocket');
+      settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+        subscriptionStatus: status,
+      });
     }
   }
 
@@ -307,6 +320,12 @@ export class StripeWebhookService {
         storeActive: 0, // CRITICAL: Deactivate store when subscription is cancelled
       });
       logger.info(`[Webhook] Cancelled subscription for user ${user.id} and deactivated store`);
+
+      // Emit Socket.IO event for real-time UI update
+      const { settingsSocketService } = await import('../websocket');
+      settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+        subscriptionStatus: 'canceled',
+      });
     }
   }
 
@@ -341,6 +360,12 @@ export class StripeWebhookService {
         storeActive: shouldDeactivateStore ? 0 : user.storeActive, // Deactivate if subscription is dead
       });
       logger.info(`[Webhook] Marked user ${user.id} subscription as past_due${shouldDeactivateStore ? ' and deactivated store' : ''}`);
+
+      // Emit Socket.IO event for real-time UI update
+      const { settingsSocketService } = await import('../websocket');
+      settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+        subscriptionStatus: 'past_due',
+      });
       
       // TODO: Send notification email to user about failed payment
     }
@@ -370,12 +395,24 @@ export class StripeWebhookService {
           subscriptionStatus: 'active',
         });
         logger.info(`[Webhook] Activated user ${user.id} subscription (first payment succeeded)`);
+
+        // Emit Socket.IO event for real-time UI update
+        const { settingsSocketService } = await import('../websocket');
+        settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+          subscriptionStatus: 'active',
+        });
       } else if (user.subscriptionStatus === 'past_due') {
         await this.storage.upsertUser({
           ...user,
           subscriptionStatus: 'active',
         });
         logger.info(`[Webhook] Restored user ${user.id} subscription to active`);
+
+        // Emit Socket.IO event for real-time UI update
+        const { settingsSocketService } = await import('../websocket');
+        settingsSocketService.emitInternalSettingsUpdated(user.id, 'subscription', {
+          subscriptionStatus: 'active',
+        });
       }
 
       // Send invoice email for all successful subscription payments

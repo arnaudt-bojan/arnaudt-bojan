@@ -6746,11 +6746,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await subscriptionService.syncSubscription({ userId });
 
       if (!result.success) {
-        const statusCode = result.error === "No Stripe customer found" ? 404 : 500;
-        return res.status(statusCode).json({ error: result.error });
+        // Return 200 with success:false for missing customer (expected state)
+        // Only use error codes for unexpected errors
+        if (result.error === "No Stripe customer found") {
+          return res.status(200).json({ 
+            success: false,
+            message: "No subscription found. Please complete the checkout process first." 
+          });
+        }
+        return res.status(500).json({ error: result.error });
       }
 
-      res.json(result.data);
+      res.json({
+        success: true,
+        ...result.data
+      });
     } catch (error: any) {
       logger.error("Sync subscription error", error);
       res.status(500).json({ error: "Failed to sync subscription status" });
@@ -6765,8 +6775,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await subscriptionService.fixSubscription(userId);
 
       if (!result.success) {
-        const statusCode = result.error === "No Stripe customer found" ? 404 : 500;
-        return res.status(statusCode).json({ 
+        // Return 200 with success:false for missing customer (expected state)
+        // Only use error codes for unexpected errors
+        if (result.error === "No Stripe customer found") {
+          return res.status(200).json({ 
+            success: false,
+            message: "No subscription found. Please complete the checkout process first.",
+            customerId: result.customerId 
+          });
+        }
+        return res.status(500).json({ 
           success: false,
           error: result.error,
           customerId: result.customerId 

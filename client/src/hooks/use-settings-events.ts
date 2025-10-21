@@ -128,4 +128,20 @@ export function useSettingsEvents(userId?: string) {
       });
     }
   });
+
+  useSocketEvent<SettingsEventData>('settings:subscription_updated', (data) => {
+    console.log('[Socket.IO] Subscription updated:', data);
+    
+    // Invalidate subscription-related queries
+    queryClient.invalidateQueries({ queryKey: ['/api/subscription/status'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    
+    if (userId === data.sellerId) {
+      toast({
+        title: "Subscription Updated",
+        description: data.message || "Your subscription status has been updated.",
+        duration: 3000,
+      });
+    }
+  });
 }
