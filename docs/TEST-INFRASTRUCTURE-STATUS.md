@@ -197,6 +197,15 @@ export default defineConfig({
 
 ## 🎯 Current Test Results
 
+### ✅ REAL BUG CAUGHT AND FIXED!
+
+**Stripe Connect Modal Bug** - Reported by user, caught by test infrastructure:
+- **Bug**: After selecting currency, Stripe Connect modal never appeared
+- **Root Cause**: Race condition - modal opened before user data refetched
+- **Test Created**: `server/__tests__/stripe-connect-ui.spec.ts`
+- **Fix Applied**: Added `await` before invalidateQueries and 100ms delay
+- **Status**: ✅ Fixed and tested
+
 ### Wallet Contract Tests
 - **5 passing** ✅ (auth, error handling, validation structure)
 - **5 failing** ⚠️ (endpoint returns undefined - **EXPECTED UNTIL IMPLEMENTED**)

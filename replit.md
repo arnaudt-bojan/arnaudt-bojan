@@ -63,17 +63,19 @@ The platform comprises three distinct, parallel platforms with all business logi
 ## Recent Changes
 
 ### October 2025 - Test Infrastructure Enhancement
--   **Test Suite Expansion**: Added 93 new test cases across 5 test files to catch runtime issues before production
+-   **Test Suite Expansion**: Added 93+ test cases across 6 test files to catch runtime issues before production
     -   Wallet contract tests (API shape validation)
     -   Wallet integration tests (failure condition handling)
     -   Stripe Connect tests (configuration + state validation)
+    -   Stripe Connect UI tests (race condition prevention) ✨ **CAUGHT REAL BUG**
     -   Currency propagation tests (multi-platform consistency)
     -   Order route tests (blank screen prevention)
+-   **Real Bug Caught & Fixed**: Stripe Connect modal never appeared after currency selection (race condition in user data refetch)
 -   **Pessimistic Mock System**: Default-to-failure mocks requiring explicit opt-in to success paths (tests/setup/pessimistic-mocks.ts)
 -   **Currency Centralization**: ESLint rule enforcing all currency values imported from shared/config/currency.ts
 -   **CI/CD Pipeline**: Non-blocking test gates detecting schema drift and regressions (.github/workflows/test-suite.yml)
 -   **Documentation**: Comprehensive implementation roadmap (docs/TEST-INFRASTRUCTURE-STATUS.md, docs/TEST-SUITE-SUMMARY.md)
--   **Status**: Infrastructure complete, catches all manually identified bugs, awaits endpoint implementation
+-   **Status**: Infrastructure complete, actively catching production bugs ✅
 
 ## Technical Debt & Future Improvements
 -   **Logging Standardization** (Priority: Low, Post-deployment): Replace console.log statements with winston logger in production code. Current console.log usage found in server/routes.ts including bulk upload debugging (lines 3203-3215), NFT minting logs (lines 9473-9479), file upload debugging (lines 11046-11096), and WebSocket upgrade logs (lines 13615+). Not a deployment blocker but should be migrated to structured logging for better production observability.

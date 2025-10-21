@@ -3089,8 +3089,13 @@ export default function Settings() {
         throw new Error(accountData.message || accountData.error || "Failed to create Stripe account");
       }
 
-      setIsStripeModalOpen(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Wait for user data to refetch before opening modal
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
+      // Give React time to re-render with new user data
+      setTimeout(() => {
+        setIsStripeModalOpen(true);
+      }, 100);
       
       if (pendingStripeAction.reset) {
         toast({
