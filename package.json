@@ -47,6 +47,7 @@
     "bufferutil": "^4.0.8"
   },
   "dependencies": {
-    "@apollo/experimental-nextjs-app-support": "^0.14.0"
+    "@apollo/experimental-nextjs-app-support": "^0.14.0",
+    "concurrently": "^9.2.1"
   }
 }
