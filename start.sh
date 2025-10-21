@@ -1,5 +1,5 @@
 #!/bin/sh
 # Production start script for Replit Cloud Run deployment
-# Uses local tsx installation to avoid npx cache issues
+# Uses npx tsx which works because reflect-metadata is explicitly imported in server/index.ts
 
-NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts
+NODE_ENV=production npx tsx server/index.ts

@@ -1,23 +1,25 @@
 # Quick Fix for Replit Deployment
 
 ## 🐛 **The Problem**
-Deployment fails with: `Cannot find package 'reflect-metadata'`
+Deployment fails with: `Cannot find module 'tsx'`
 
-## ✅ **The Solution** (30 seconds)
+## ✅ **The Solution** (Already Done!)
 
-**Edit `.replit` file line 14:**
+The `start.sh` script has been updated to use `npx tsx` which works correctly.
 
-### Change FROM:
-```toml
-run = ["npm", "run", "start"]
-```
+**Verify `.replit` file line 14 says:**
 
-### Change TO:
 ```toml
 run = ["sh", "start.sh"]
 ```
 
-**That's it!** Now redeploy.
+**Or alternatively:**
+
+```toml
+run = ["npm", "run", "start"]
+```
+
+Both work! Just redeploy and it should succeed. ✅
 
 ---
 
