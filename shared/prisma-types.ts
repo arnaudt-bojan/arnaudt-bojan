@@ -161,6 +161,10 @@ export type InsertOrderBalancePayment = Prisma.order_balance_paymentsUncheckedCr
 export type BalanceRequest = Prisma.balance_requestsGetPayload<{}>;
 export type InsertBalanceRequest = Prisma.balance_requestsUncheckedCreateInput;
 
+// Alias for compatibility
+export type BalancePaymentRequest = BalanceRequest;
+export type InsertBalancePaymentRequest = InsertBalanceRequest;
+
 export type OrderAddressChange = Prisma.order_address_changesGetPayload<{}>;
 export type InsertOrderAddressChange = Prisma.order_address_changesUncheckedCreateInput;
 
@@ -462,6 +466,26 @@ export type InsertTrustpilotReview = Prisma.trustpilot_reviewsUncheckedCreateInp
 
 export type TrustpilotToken = Prisma.trustpilot_tokensGetPayload<{}>;
 export type InsertTrustpilotToken = Prisma.trustpilot_tokensUncheckedCreateInput;
+
+// ============================================================================
+// Additional Type Aliases for Compatibility
+// ============================================================================
+
+// Alias: "Store" refers to the user record when acting as a seller
+export type Store = User;
+export type InsertStore = InsertUser;
+
+// Alias: "Domain" is represented by DomainConnection
+export type Domain = DomainConnection;
+export type InsertDomain = InsertDomainConnection;
+
+// Alias: "Campaign" can refer to MetaCampaign or MetaAdCampaign
+export type Campaign = MetaAdCampaign;
+export type InsertCampaign = InsertMetaAdCampaign;
+
+// Alias: "NewsletterSubscriber" refers to Subscriber
+export type NewsletterSubscriber = Subscriber;
+export type InsertNewsletterSubscriber = InsertSubscriber;
 
 /**
  * Export all Prisma-generated types for advanced usage

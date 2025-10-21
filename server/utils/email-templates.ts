@@ -987,7 +987,7 @@ export async function generateRefundConfirmationEmail(data: RefundEmailData): Pr
   const { order, seller, refundAmount, currency, reason, lineItems, orderAccessToken } = data;
   
   // Get seller name for display
-  const sellerName = seller.companyName || seller.username || "the seller";
+  const sellerName = [seller.firstName, seller.lastName].filter(Boolean).join(' ') || seller.username || "the seller";
   
   // CRITICAL: orderAccessToken is already a FULL magic link URL from generateMagicLinkForEmail
   // Don't reconstruct it - just use it directly
