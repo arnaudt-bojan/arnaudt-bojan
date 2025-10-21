@@ -9,9 +9,9 @@ channel = "stable-24_05"
 build = [
   "sh",
   "-c",
-  "npm install --legacy-peer-deps --include=optional && npm run build && tsc -p tsconfig.server.json",
+  "npm install --legacy-peer-deps --include=optional && npm run build",
 ]
-run = ["sh", "start-compiled.sh"]
+run = ["sh", "start.sh"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
