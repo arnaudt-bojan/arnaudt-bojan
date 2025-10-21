@@ -18,12 +18,18 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY .npmrc ./
 
-# Clean install dependencies (prevents corruption)
+# Create .npmrc that allows optional deps and uses legacy-peer-deps
+RUN echo "engine-strict=false" > .npmrc && \
+    echo "legacy-peer-deps=true" >> .npmrc && \
+    echo "prefer-offline=false" >> .npmrc && \
+    echo "audit=false" >> .npmrc && \
+    echo "fund=false" >> .npmrc
+
+# Clean install dependencies - INCLUDE optional deps for platform binaries
 RUN rm -rf node_modules && \
     npm cache clean --force && \
-    npm ci --prefer-offline --no-audit --no-fund
+    npm install --legacy-peer-deps --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -49,12 +55,18 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY .npmrc ./
 
-# Install production dependencies only
+# Create .npmrc for runtime
+RUN echo "engine-strict=false" > .npmrc && \
+    echo "legacy-peer-deps=true" >> .npmrc && \
+    echo "prefer-offline=false" >> .npmrc && \
+    echo "audit=false" >> .npmrc && \
+    echo "fund=false" >> .npmrc
+
+# Install production dependencies only - INCLUDE optional deps for platform binaries
 RUN rm -rf node_modules && \
     npm cache clean --force && \
-    npm ci --prefer-offline --no-audit --no-fund --omit=dev
+    npm install --production --legacy-peer-deps --no-audit --no-fund
 
 # Copy built artifacts from builder
 COPY --from=builder /app/dist ./dist
