@@ -16,20 +16,26 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
+# Set npm config to handle optional dependencies correctly
+ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV npm_config_optional=true
+
 # Copy package files
 COPY package*.json ./
 
-# Create .npmrc that allows optional deps and uses legacy-peer-deps
+# Create .npmrc that forces optional deps to be included
 RUN echo "engine-strict=false" > .npmrc && \
     echo "legacy-peer-deps=true" >> .npmrc && \
-    echo "prefer-offline=false" >> .npmrc && \
+    echo "optional=true" >> .npmrc && \
     echo "audit=false" >> .npmrc && \
     echo "fund=false" >> .npmrc
 
-# Clean install dependencies - INCLUDE optional deps for platform binaries
-RUN rm -rf node_modules && \
+# CRITICAL: Clean everything and do fresh install with ALL optional deps
+RUN rm -rf node_modules package-lock.json && \
     npm cache clean --force && \
-    npm install --legacy-peer-deps --no-audit --no-fund
+    npm install --legacy-peer-deps --include=optional --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -53,20 +59,26 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
+# Set npm config for production
+ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV npm_config_optional=true
+
 # Copy package files
 COPY package*.json ./
 
 # Create .npmrc for runtime
 RUN echo "engine-strict=false" > .npmrc && \
     echo "legacy-peer-deps=true" >> .npmrc && \
-    echo "prefer-offline=false" >> .npmrc && \
+    echo "optional=true" >> .npmrc && \
     echo "audit=false" >> .npmrc && \
     echo "fund=false" >> .npmrc
 
-# Install production dependencies only - INCLUDE optional deps for platform binaries
+# Install production dependencies with optional deps included
 RUN rm -rf node_modules && \
     npm cache clean --force && \
-    npm install --production --legacy-peer-deps --no-audit --no-fund
+    npm install --production --legacy-peer-deps --include=optional --no-audit --no-fund
 
 # Copy built artifacts from builder
 COPY --from=builder /app/dist ./dist
