@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { LIST_QUOTATIONS, Quotation } from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 export default function TradeDashboard() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function TradeDashboard() {
     return <Chip label={config.label} color={config.color} size="small" data-testid={`badge-status-${status.toLowerCase()}`} />;
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
+  const formatCurrency = (amount: number, currency: string = DEFAULT_CURRENCY) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
@@ -204,7 +205,7 @@ export default function TradeDashboard() {
           ) : recentQuotations.length === 0 ? (
             <Alert severity="info">
               <AlertTitle>No quotations yet</AlertTitle>
-              Click "Send New Quotation" to create your first quotation.
+              Click &quot;Send New Quotation&quot; to create your first quotation.
             </Alert>
           ) : (
             <TableContainer component={Paper} variant="outlined">

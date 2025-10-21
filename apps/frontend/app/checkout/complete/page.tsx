@@ -94,16 +94,16 @@ export default function CheckoutCompletePage() {
             }}
           >
             <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-              What's Next?
+              What&apos;s Next?
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
-              • You'll receive an email confirmation shortly
+              • You&apos;ll receive an email confirmation shortly
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
               • Track your order status in your account
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              • We'll notify you when your order ships
+              • We&apos;ll notify you when your order ships
             </Typography>
           </Box>
 

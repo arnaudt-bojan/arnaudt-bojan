@@ -17,6 +17,7 @@ import {
 import Grid from '@mui/material/Grid';
 import { Eye, Package, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 const LIST_WHOLESALE_PRODUCTS = gql`
   query ListWholesaleProducts {
@@ -55,7 +56,7 @@ export default function WholesalePreview() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: DEFAULT_CURRENCY,
     }).format(amount / 100);
   };
 

@@ -43,6 +43,7 @@ import {
   Delete,
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@/../../shared/config/currency';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -80,7 +81,7 @@ export default function SettingsPage() {
   const [storeBanner, setStoreBanner] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
   const [taxId, setTaxId] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [timezone, setTimezone] = useState('America/New_York');
 
   // Storefront Settings
@@ -247,10 +248,9 @@ export default function SettingsPage() {
                   label="Currency"
                   onChange={(e) => setCurrency(e.target.value)}
                 >
-                  <MenuItem value="USD">USD - US Dollar</MenuItem>
-                  <MenuItem value="EUR">EUR - Euro</MenuItem>
-                  <MenuItem value="GBP">GBP - British Pound</MenuItem>
-                  <MenuItem value="JPY">JPY - Japanese Yen</MenuItem>
+                  {SUPPORTED_CURRENCIES.map((curr) => (
+                    <MenuItem key={curr} value={curr}>{curr}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>

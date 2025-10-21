@@ -187,7 +187,7 @@ export default function NewsletterPage() {
         const error = await response.json();
         showSnackbar(error.error || 'Failed to add subscriber', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       showSnackbar('Failed to add subscriber', 'error');
     }
   };
@@ -255,7 +255,7 @@ export default function NewsletterPage() {
         const error = await response.json();
         showSnackbar(error.error || 'Failed to import subscribers', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       showSnackbar('Failed to import CSV', 'error');
     } finally {
       setImportLoading(false);
@@ -293,7 +293,7 @@ export default function NewsletterPage() {
       } else {
         showSnackbar('Failed to remove subscriber', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       showSnackbar('Failed to remove subscriber', 'error');
     }
   };
@@ -316,7 +316,7 @@ export default function NewsletterPage() {
       showSnackbar(`Deleted ${selectedRows.length} subscribers`, 'success');
       setSelectedRows([]);
       fetchData();
-    } catch (error) {
+    } catch (_error) {
       showSnackbar('Failed to delete subscribers', 'error');
     }
   };

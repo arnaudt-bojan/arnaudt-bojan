@@ -210,7 +210,7 @@ export default function LoginPage() {
                 </Button>
 
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
-                  We'll send a 6-digit code to your email
+                  We&apos;ll send a 6-digit code to your email
                 </Typography>
               </form>
             )}

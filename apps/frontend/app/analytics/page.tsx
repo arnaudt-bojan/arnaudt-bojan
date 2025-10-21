@@ -41,6 +41,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 // Data fetch hook for analytics
 const useAnalyticsData = (period: string) => {
@@ -81,7 +82,7 @@ export default function AnalyticsPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: analytics?.currency || 'USD',
+      currency: analytics?.currency || DEFAULT_CURRENCY,
     }).format(amount);
   };
 
@@ -155,7 +156,7 @@ export default function AnalyticsPage() {
           Analytics Dashboard
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Track your store's performance and insights
+          Track your store&apos;s performance and insights
         </Typography>
       </Box>
 

@@ -183,12 +183,12 @@ export default function TermsPage() {
                   1. Acceptance of Terms
                 </Typography>
                 <Typography variant="body1" paragraph>
-                  By accessing and using Upfirst ("we," "our," or "the platform"), you accept and
+                  By accessing and using Upfirst (&quot;we,&quot; &quot;our,&quot; or &quot;the platform&quot;), you accept and
                   agree to be bound by the terms and conditions of this agreement. If you do not agree
                   to these terms, you should not use our platform.
                 </Typography>
                 <Typography variant="body1" paragraph>
-                  These Terms of Service ("Terms") constitute a legally binding agreement between you
+                  These Terms of Service (&quot;Terms&quot;) constitute a legally binding agreement between you
                   and Upfirst Inc. Your continued use of the platform constitutes your acceptance of
                   these Terms and any modifications to them.
                 </Typography>
@@ -488,7 +488,7 @@ export default function TermsPage() {
                   </ListItem>
                   <ListItem sx={{ display: 'list-item', listStyleType: 'disc' }}>
                     <Typography variant="body1">
-                      Reverse engineering or accessing the platform's source code
+                      Reverse engineering or accessing the platform&apos;s source code
                     </Typography>
                   </ListItem>
                 </List>
@@ -524,7 +524,7 @@ export default function TermsPage() {
                 <Typography variant="body1" paragraph>
                   All payments are processed through Stripe. Stripe charges separate payment processing
                   fees. Sellers must create a Stripe Connect account to receive payouts. By using our
-                  platform, you agree to Stripe's terms of service.
+                  platform, you agree to Stripe&apos;s terms of service.
                 </Typography>
 
                 <Typography variant="h6" gutterBottom fontWeight="bold" sx={{ mt: 3 }}>
@@ -689,7 +689,7 @@ export default function TermsPage() {
                 <Typography variant="body1" paragraph>
                   You agree to indemnify, defend, and hold harmless Upfirst, its officers, directors,
                   employees, and agents from and against any claims, liabilities, damages, losses, and
-                  expenses, including reasonable attorneys' fees, arising out of or in any way
+                  expenses, including reasonable attorneys&apos; fees, arising out of or in any way
                   connected with:
                 </Typography>
                 <List sx={{ pl: 4 }}>

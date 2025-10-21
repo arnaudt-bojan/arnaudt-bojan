@@ -34,6 +34,7 @@ import {
   OpenInNew,
   Refresh,
 } from '@mui/icons-material';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 interface StripeStatus {
   connected: boolean;
@@ -171,7 +172,7 @@ export default function WalletPage() {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: balance?.currency || 'USD',
+      currency: balance?.currency || DEFAULT_CURRENCY,
     }).format(num);
   };
 

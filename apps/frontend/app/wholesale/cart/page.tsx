@@ -33,6 +33,7 @@ import {
   UPDATE_WHOLESALE_CART_ITEM,
   REMOVE_FROM_WHOLESALE_CART,
 } from '@/lib/graphql/wholesale-buyer';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 const mockCartData = {
   wholesaleCart: {
@@ -43,7 +44,7 @@ const mockCartData = {
     depositCents: 14025,
     balanceDueCents: 32725,
     depositPercentage: 30,
-    currency: 'USD',
+    currency: DEFAULT_CURRENCY,
     updatedAt: new Date().toISOString(),
     items: [
       {

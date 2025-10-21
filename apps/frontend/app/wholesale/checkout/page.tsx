@@ -34,6 +34,7 @@ import {
   Payment as PaymentIcon,
   CheckCircle,
 } from '@mui/icons-material';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 // Mock cart data (would come from GraphQL)
 const mockOrderData = {
@@ -60,7 +61,7 @@ const mockOrderData = {
   depositAmountCents: 14025, // Server-calculated
   balanceDueCents: 32725, // Server-calculated
   totalCents: 46750, // Server-calculated
-  currency: 'USD',
+  currency: DEFAULT_CURRENCY,
   paymentTerms: 'Net 30',
 };
 

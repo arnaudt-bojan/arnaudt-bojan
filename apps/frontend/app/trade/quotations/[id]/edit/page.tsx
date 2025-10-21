@@ -45,6 +45,7 @@ import {
   CalculateQuotationTotalsInput,
   CalculatedQuotationTotals,
 } from '@/lib/graphql/trade-quotations';
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@/../../shared/config/currency';
 
 interface LineItem {
   description: string;
@@ -52,14 +53,20 @@ interface LineItem {
   quantity: number;
 }
 
-const CURRENCIES = [
-  { value: 'USD', label: 'USD - US Dollar' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
-  { value: 'AUD', label: 'AUD - Australian Dollar' },
-  { value: 'JPY', label: 'JPY - Japanese Yen' },
-];
+const CURRENCY_LABELS: Record<string, string> = {
+  USD: 'US Dollar',
+  EUR: 'Euro',
+  GBP: 'British Pound',
+  CAD: 'Canadian Dollar',
+  AUD: 'Australian Dollar',
+  JPY: 'Japanese Yen',
+  CHF: 'Swiss Franc',
+};
+
+const CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
+  value: curr,
+  label: `${curr} - ${CURRENCY_LABELS[curr] || curr}`
+}));
 
 const INCOTERMS = [
   { value: 'EXW', label: 'EXW - Ex Works' },
@@ -88,7 +95,7 @@ export default function EditQuotation() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState<string>(DEFAULT_CURRENCY);
   const [depositPercentage, setDepositPercentage] = useState(50);
   const [validUntil, setValidUntil] = useState('');
   const [deliveryTerms, setDeliveryTerms] = useState('');

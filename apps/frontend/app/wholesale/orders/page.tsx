@@ -17,6 +17,7 @@ import {
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 // GraphQL Response Types
 interface ListWholesaleOrdersData {
@@ -40,7 +41,7 @@ export default function WholesaleOrders() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: DEFAULT_CURRENCY,
     }).format(amount / 100);
   };
 

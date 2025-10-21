@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { LIST_QUOTATIONS, SEND_QUOTATION, Quotation } from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 export default function QuotationsList() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export default function QuotationsList() {
     return <Chip label={config.label} color={config.color} size="small" />;
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
+  const formatCurrency = (amount: number, currency: string = DEFAULT_CURRENCY) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,

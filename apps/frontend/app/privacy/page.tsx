@@ -471,7 +471,7 @@ export default function PrivacyPage() {
               {/* Section 9: Children's Privacy */}
               <Box id="children-privacy" data-testid="section-children-privacy" sx={{ mb: 6 }}>
                 <Typography variant="h4" gutterBottom fontWeight="bold">
-                  9. Children's Privacy
+                  9. Children&apos;s Privacy
                 </Typography>
                 <Typography variant="body1" paragraph>
                   Our service is not intended for use by children under the age of 13 (or 16 in the
@@ -493,8 +493,8 @@ export default function PrivacyPage() {
                 </Typography>
                 <Typography variant="body1" paragraph>
                   We may update our privacy policy from time to time. We will notify you of any
-                  changes by posting the new privacy policy on this page and updating the "Last
-                  updated" date at the top of this policy.
+                  changes by posting the new privacy policy on this page and updating the &quot;Last
+                  updated&quot; date at the top of this policy.
                 </Typography>
                 <Typography variant="body1" paragraph>
                   We will notify you via email and/or a prominent notice on our platform prior to the

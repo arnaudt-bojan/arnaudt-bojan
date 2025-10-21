@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { GET_QUOTATION_BY_TOKEN, ACCEPT_QUOTATION, Quotation } from '@/lib/graphql/trade-quotations';
 import { format, differenceInDays } from 'date-fns';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 export default function QuotationViewPage() {
   const params = useParams();
@@ -65,7 +66,7 @@ export default function QuotationViewPage() {
 
   const quotation = data?.getQuotationByToken;
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
+  const formatCurrency = (amount: number, currency: string = DEFAULT_CURRENCY) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,

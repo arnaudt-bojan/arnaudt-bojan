@@ -277,7 +277,7 @@ export default function CampaignsPage() {
         const error = await response.json();
         showSnackbar(error.error || 'Failed to create campaign', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       showSnackbar('Failed to create campaign', 'error');
     }
   };
@@ -309,7 +309,7 @@ export default function CampaignsPage() {
       } else {
         showSnackbar('Failed to delete campaign', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       showSnackbar('Failed to delete campaign', 'error');
     }
   };

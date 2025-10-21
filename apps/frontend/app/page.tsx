@@ -492,7 +492,7 @@ export default function HomePage() {
                     ))}
                   </Box>
                   <Typography variant="body1" paragraph>
-                    "{testimonial.text}"
+                    &quot;{testimonial.text}&quot;
                   </Typography>
                   <Typography variant="subtitle2" fontWeight="bold">
                     {testimonial.name}
@@ -515,7 +515,7 @@ export default function HomePage() {
               Simple, Transparent Pricing
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
-              Choose the plan that's right for your business
+              Choose the plan that&apos;s right for your business
             </Typography>
           </Box>
 

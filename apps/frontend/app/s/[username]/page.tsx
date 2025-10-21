@@ -190,10 +190,10 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
             Store Not Found
           </Typography>
           <Typography variant="body1" color="text.secondary" paragraph>
-            The store "@{username}" could not be found or is not currently active.
+            The store &quot;@{username}&quot; could not be found or is not currently active.
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Note: GraphQL endpoint "getSellerByUsername" may not be implemented yet.
+            Note: GraphQL endpoint &quot;getSellerByUsername&quot; may not be implemented yet.
             This is a placeholder for development.
           </Typography>
         </Paper>
