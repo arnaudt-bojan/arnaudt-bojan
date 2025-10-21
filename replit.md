@@ -60,7 +60,65 @@ The platform comprises three distinct, parallel platforms with all business logi
 -   **Charts**: Recharts
 -   **Date Pickers**: @mui/x-date-pickers
 
+## Deployment Strategy
+
+### Multi-Environment Setup (October 2025)
+Upfirst now supports three deployment environments:
+
+1. **Replit Development** (Active)
+   - Technology: Nix + npm
+   - Database: Replit PostgreSQL (auto-provisioned)
+   - Use: Daily development in Replit IDE
+   - Status: ✅ Working
+
+2. **Replit Staging** (Reserved VM)
+   - Technology: Nix-based Reserved VM
+   - Database: Replit PostgreSQL (managed)
+   - Use: Pre-production testing, team demos
+   - Deploy: Via Replit UI (Reserved VM with "Always On")
+   - Status: Documented in REPLIT-STAGING-SETUP.md
+   - **Note**: Background jobs require Reserved VM with "Always On" enabled
+
+3. **Local Docker Development**
+   - Technology: Docker Compose (PostgreSQL 16 + app container)
+   - Database: PostgreSQL container with persistent volumes
+   - Use: Offline development, contributors, testing
+   - Start: `docker-compose up`
+   - Status: Ready to use
+
+4. **AWS Production** (Planned)
+   - Technology: AWS ECS/EKS with Docker
+   - Database: RDS PostgreSQL (Multi-AZ)
+   - Infrastructure: ALB + ECR + Secrets Manager + CloudWatch
+   - Use: Live production traffic at upfirst.io
+   - Status: Fully documented in AWS-DEPLOYMENT.md
+   - Estimated cost: $300-500/month
+
+### Deployment Files
+- `Dockerfile` - Multi-stage build (development, builder, production)
+- `docker-compose.yml` - Local development environment
+- `.dockerignore` - Optimized Docker builds
+- `DEPLOYMENT.md` - Master deployment guide
+- `AWS-DEPLOYMENT.md` - AWS ECS production setup
+- `REPLIT-STAGING-SETUP.md` - Replit staging deployment
+- `QUICK-START.md` - Quick reference guide
+
+### Key Technical Decisions
+- **Replit uses Nix, not Docker**: Deployment to Replit uses Nix package management, not Dockerfile
+- **Platform-specific dependencies**: Explicitly includes `@esbuild/linux-x64` and `@rollup/rollup-linux-x64-gnu` in dependencies for Docker builds
+- **tsx in production**: Uses `tsx` (TypeScript executor) in production Docker; future optimization could compile to JavaScript
+- **Database persistence**: docker-compose uses named volumes for PostgreSQL data persistence
+
 ## Recent Changes
+
+### October 2025 - Multi-Environment Deployment Setup
+-   **Deployment Infrastructure**: Configured three-environment deployment strategy (Replit dev, Replit staging, Local Docker, AWS production)
+-   **Docker Configuration**: Created multi-stage Dockerfile supporting both local development and AWS production deployment
+-   **Local Development**: Updated docker-compose.yml for offline development with PostgreSQL container and hot-reload
+-   **Documentation**: Comprehensive deployment guides (DEPLOYMENT.md, AWS-DEPLOYMENT.md, REPLIT-STAGING-SETUP.md, QUICK-START.md)
+-   **Platform Dependencies**: Fixed platform-specific binary handling for esbuild and rollup in Docker Linux x64 environment
+-   **Database Persistence**: Fixed docker-compose to preserve database data (removed --force-reset flag)
+-   **Status**: All environments documented and ready to use ✅
 
 ### October 2025 - Test Infrastructure Enhancement
 -   **Test Suite Expansion**: Added 93+ test cases across 7 test files to catch runtime issues before production
