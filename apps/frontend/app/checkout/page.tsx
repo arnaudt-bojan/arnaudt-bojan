@@ -92,6 +92,42 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
+// GraphQL Response Types
+interface CartTotals {
+  subtotal: string | number;
+  tax: string | number;
+  shipping: string | number;
+  total: string | number;
+}
+
+interface CartItem {
+  id: string;
+  quantity: number;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    images?: string[];
+  };
+}
+
+interface Cart {
+  id: string;
+  items: CartItem[];
+  totals: CartTotals;
+}
+
+interface GetCartData {
+  cart: Cart | null;
+}
+
+interface CreateOrderData {
+  createOrder: {
+    id: string;
+    success: boolean;
+  };
+}
+
 // Countries list (simplified)
 const COUNTRIES = [
   { code: 'US', name: 'United States' },
@@ -116,12 +152,12 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
 
   // GraphQL Query
-  const { data, loading: cartLoading, error: cartError } = useQuery(GET_CART, {
+  const { data, loading: cartLoading, error: cartError } = useQuery<GetCartData>(GET_CART, {
     fetchPolicy: 'network-only',
   });
 
   // GraphQL Mutation
-  const [createOrder, { loading: creatingOrder }] = useMutation(CREATE_ORDER, {
+  const [createOrder, { loading: creatingOrder }] = useMutation<CreateOrderData>(CREATE_ORDER, {
     onCompleted: (data) => {
       // Redirect to checkout complete page
       router.push(`/checkout/complete?orderId=${data.createOrder.id}`);
@@ -460,7 +496,7 @@ export default function CheckoutPage() {
                         <Checkbox
                           {...field}
                           checked={field.value}
-                          inputProps={{ 'data-testid': 'checkbox-same-as-shipping' }}
+                          data-testid="checkbox-same-as-shipping"
                         />
                       }
                       label="Same as shipping address"
@@ -662,19 +698,19 @@ export default function CheckoutPage() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Subtotal</Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    ${parseFloat(totals.subtotal).toFixed(2)}
+                    ${parseFloat(totals.subtotal.toString()).toFixed(2)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Shipping</Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    ${parseFloat(totals.shipping).toFixed(2)}
+                    ${parseFloat(totals.shipping.toString()).toFixed(2)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                   <Typography variant="body2">Tax</Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    ${parseFloat(totals.tax).toFixed(2)}
+                    ${parseFloat(totals.tax.toString()).toFixed(2)}
                   </Typography>
                 </Box>
 
@@ -683,7 +719,7 @@ export default function CheckoutPage() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                   <Typography variant="h6">Total</Typography>
                   <Typography variant="h6" fontWeight="bold" data-testid="text-order-total">
-                    ${parseFloat(totals.total).toFixed(2)}
+                    ${parseFloat(totals.total.toString()).toFixed(2)}
                   </Typography>
                 </Box>
 

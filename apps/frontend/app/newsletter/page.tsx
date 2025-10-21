@@ -77,7 +77,7 @@ export default function NewsletterPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -590,8 +590,8 @@ export default function NewsletterPage() {
               columns={columns}
               checkboxSelection
               disableRowSelectionOnClick
-              onRowSelectionModelChange={setSelectedRows}
-              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={(newSelection) => setSelectedRows(newSelection as unknown as string[])}
+              rowSelectionModel={selectedRows as unknown as GridRowSelectionModel}
               pageSizeOptions={[10, 25, 50, 100]}
               initialState={{
                 pagination: { paginationModel: { pageSize: 25 } },

@@ -121,6 +121,7 @@ export default function CartPage() {
   const handleQuantityChange = (itemId: string, delta: number) => {
     const item = data?.cart?.items.find((i: any) => i.id === itemId);
     if (!item) return;
+    if (!data || !data.cart) return;
 
     const newQuantity = item.quantity + delta;
     if (newQuantity < 1) return;
@@ -426,7 +427,7 @@ export default function CartPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body1">Subtotal</Typography>
               <Typography variant="body1" fontWeight="medium" data-testid="text-cart-subtotal">
-                ${parseFloat(totals.subtotal).toFixed(2)}
+                ${parseFloat(totals.subtotal.toString()).toFixed(2)}
               </Typography>
             </Box>
 
@@ -434,7 +435,7 @@ export default function CartPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body1">Tax</Typography>
               <Typography variant="body1" fontWeight="medium" data-testid="text-cart-tax">
-                ${parseFloat(totals.tax).toFixed(2)}
+                ${parseFloat(totals.tax.toString()).toFixed(2)}
               </Typography>
             </Box>
 
@@ -442,7 +443,7 @@ export default function CartPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1">Shipping</Typography>
               <Typography variant="body1" fontWeight="medium" data-testid="text-cart-shipping">
-                ${parseFloat(totals.shipping).toFixed(2)}
+                ${parseFloat(totals.shipping.toString()).toFixed(2)}
               </Typography>
             </Box>
 
@@ -452,7 +453,7 @@ export default function CartPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
               <Typography variant="h6">Total</Typography>
               <Typography variant="h6" fontWeight="bold" data-testid="text-cart-total">
-                ${parseFloat(totals.total).toFixed(2)}
+                ${parseFloat(totals.total.toString()).toFixed(2)}
               </Typography>
             </Box>
 

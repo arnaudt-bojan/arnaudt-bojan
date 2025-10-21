@@ -58,23 +58,32 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
 
   const productsPerPage = 12;
 
+  // GraphQL Response Types
+  interface GetSellerData {
+    getSellerByUsername: any;
+  }
+
   // Fetch seller data
   // Note: This query might not exist yet in the backend
   // Using placeholder/fallback for now
-  const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery(GET_SELLER_BY_USERNAME, {
+  const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery<GetSellerData>(GET_SELLER_BY_USERNAME, {
     variables: { username },
-    // If query fails, we'll show a placeholder message
-    onError: (error) => {
-      console.warn('GraphQL getSellerByUsername not implemented yet:', error.message);
-    },
   });
 
   const seller = sellerData?.getSellerByUsername;
   const sellerId = seller?.id || 'placeholder-seller-id'; // Fallback for development
 
+  interface ListProductsData {
+    listProducts: {
+      edges: Array<{ node: any }>;
+      pageInfo: any;
+      totalCount: number;
+    };
+  }
+
   // Fetch products
   // Note: This query might not exist yet in the backend
-  const { data: productsData, loading: productsLoading, error: productsError } = useQuery(LIST_PRODUCTS, {
+  const { data: productsData, loading: productsLoading, error: productsError } = useQuery<ListProductsData>(LIST_PRODUCTS, {
     variables: {
       sellerId,
       search: search || undefined,
@@ -84,9 +93,6 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
       after: page > 1 ? `cursor-${(page - 1) * productsPerPage}` : undefined,
     },
     skip: !sellerId || sellerId === 'placeholder-seller-id', // Skip if no valid seller
-    onError: (error) => {
-      console.warn('GraphQL listProducts not implemented yet:', error.message);
-    },
   });
 
   const products = productsData?.listProducts?.edges?.map((edge: any) => edge.node) || [];
@@ -280,9 +286,9 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
                   data-testid="select-category-filter"
                 >
                   <MenuItem value="">All Categories</MenuItem>
-                  {categories.map((cat: string) => (
-                    <MenuItem key={cat} value={cat}>
-                      {cat}
+                  {categories.map((cat) => (
+                    <MenuItem key={cat as string} value={cat as string}>
+                      {cat as string}
                     </MenuItem>
                   ))}
                 </Select>

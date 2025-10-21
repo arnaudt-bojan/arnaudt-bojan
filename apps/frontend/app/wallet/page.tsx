@@ -227,7 +227,7 @@ export default function WalletPage() {
       field: 'metadata',
       headerName: 'Description',
       width: 200,
-      valueGetter: (params) => params?.note || '-',
+      valueGetter: (params) => (params as any)?.note || '-',
     },
     {
       field: 'amountUsd',

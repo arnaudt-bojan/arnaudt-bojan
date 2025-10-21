@@ -68,12 +68,31 @@ const GET_RECENT_WHOLESALE_ORDERS = gql`
   }
 `;
 
+// GraphQL Response Types
+interface WholesaleStatsData {
+  wholesaleStats: any;
+}
+
+interface ListWholesaleOrdersData {
+  listWholesaleOrders: {
+    edges: Array<{ node: any }>;
+  };
+}
+
+interface UserData {
+  me: {
+    id: string;
+    stripeConnectedAccountId?: string;
+    stripeChargesEnabled?: boolean;
+  };
+}
+
 export default function WholesaleDashboard() {
   const router = useRouter();
   
-  const { loading: statsLoading, data: statsData } = useQuery(GET_WHOLESALE_STATS);
-  const { loading: ordersLoading, data: ordersData } = useQuery(GET_RECENT_WHOLESALE_ORDERS);
-  const { data: userData } = useQuery(GET_CURRENT_USER);
+  const { loading: statsLoading, data: statsData } = useQuery<WholesaleStatsData>(GET_WHOLESALE_STATS);
+  const { loading: ordersLoading, data: ordersData } = useQuery<ListWholesaleOrdersData>(GET_RECENT_WHOLESALE_ORDERS);
+  const { data: userData } = useQuery<UserData>(GET_CURRENT_USER);
 
   const stats = statsData?.wholesaleStats;
   const recentOrders = ordersData?.listWholesaleOrders?.edges?.map((edge: any) => edge.node) || [];

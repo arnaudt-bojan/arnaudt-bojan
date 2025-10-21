@@ -33,13 +33,21 @@ import { LIST_WHOLESALE_PRODUCTS } from '@/lib/graphql/wholesale-buyer';
 
 type SortOption = 'newest' | 'price-low' | 'price-high' | 'name';
 
+// GraphQL Response Types
+interface ListWholesaleProductsData {
+  listProducts: {
+    edges: Array<{ node: any }>;
+    totalCount?: number;
+  };
+}
+
 export default function WholesaleCatalogPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  const { data, loading, error } = useQuery(LIST_WHOLESALE_PRODUCTS, {
+  const { data, loading, error } = useQuery<ListWholesaleProductsData>(LIST_WHOLESALE_PRODUCTS, {
     variables: {
       filter: {
         search: searchQuery || undefined,
@@ -57,7 +65,7 @@ export default function WholesaleCatalogPage() {
   const products = data?.listProducts?.edges?.map((edge: any) => edge.node) || [];
   const categories = Array.from(
     new Set(products.map((p: any) => p.category).filter(Boolean))
-  );
+  ) as string[];
 
   const handleProductClick = (productId: string) => {
     router.push(`/wholesale/catalog/${productId}`);
@@ -112,7 +120,7 @@ export default function WholesaleCatalogPage() {
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <MenuItem value="">All Categories</MenuItem>
-                {categories.map((cat: string) => (
+                {categories.map((cat) => (
                   <MenuItem key={cat} value={cat}>
                     {cat}
                   </MenuItem>

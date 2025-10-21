@@ -18,11 +18,10 @@ export {
   useLazyQuery,
   useSubscription,
   useSuspenseQuery,
-  type ApolloQueryResult,
 } from '@apollo/client/react';
 
-// gql is in the core package
-export { gql } from '@apollo/client/core';
+// gql and types are in the core package
+export { gql, type ApolloQueryResult } from '@apollo/client/core';
 
 // Export error types from Apollo Client v4
 export { 

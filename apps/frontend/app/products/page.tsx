@@ -57,18 +57,25 @@ interface Product {
   };
 }
 
+interface ListProductsData {
+  listProducts: {
+    edges: Array<{ node: Product }>;
+    totalCount: number;
+  };
+}
+
 export default function ProductsPage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [page, setPage] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
-  const { loading, error, data, refetch } = useQuery(LIST_PRODUCTS, {
+  const { loading, error, data, refetch } = useQuery<ListProductsData>(LIST_PRODUCTS, {
     variables: {
       first: pageSize,
       filter: {
@@ -120,11 +127,10 @@ export default function ProductsPage() {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const products: Product[] = data?.listProducts?.edges.map((edge: any) => edge.node) || [];
+  const products: Product[] = data?.listProducts?.edges.map((edge: { node: Product }) => edge.node) || [];
   const totalCount = data?.listProducts?.totalCount || 0;
 
-  // Extract unique categories from products
-  const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean);
+  const categories = Array.from(new Set(products.map((p: Product) => p.category))).filter(Boolean) as string[];
 
   const columns: GridColDef[] = [
     {
@@ -152,7 +158,7 @@ export default function ProductsPage() {
       headerName: 'Category',
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
-        <Chip label={params.value} size="small" color="primary" variant="outlined" />
+        <Chip label={params.value as string} size="small" color="primary" variant="outlined" />
       ),
     },
     {
@@ -161,7 +167,7 @@ export default function ProductsPage() {
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" fontWeight="600">
-          ${params.value?.toFixed(2) || '0.00'}
+          ${(params.value as number)?.toFixed(2) || '0.00'}
         </Typography>
       ),
     },
@@ -170,9 +176,9 @@ export default function ProductsPage() {
       headerName: 'Stock',
       width: 100,
       renderCell: (params: GridRenderCellParams) => {
-        const stock = params.value || 0;
+        const stock = (params.value as number) || 0;
         const color = stock > 10 ? 'success' : stock > 0 ? 'warning' : 'error';
-        return <Chip label={stock} size="small" color={color} />;
+        return <Chip label={stock.toString()} size="small" color={color} />;
       },
     },
     {
@@ -188,9 +194,9 @@ export default function ProductsPage() {
         };
         return (
           <Chip
-            label={params.value}
+            label={params.value as string}
             size="small"
-            color={typeColors[params.value] || 'default'}
+            color={typeColors[params.value as string] || 'default'}
           />
         );
       },
@@ -230,7 +236,7 @@ export default function ProductsPage() {
           <IconButton
             size="small"
             color="error"
-            onClick={() => handleDelete(params.row)}
+            onClick={() => handleDelete(params.row as Product)}
             data-testid={`button-delete-${params.row.id}`}
           >
             <DeleteIcon fontSize="small" />
@@ -242,7 +248,6 @@ export default function ProductsPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h4" gutterBottom data-testid="text-page-title">
@@ -262,13 +267,12 @@ export default function ProductsPage() {
         </Button>
       </Box>
 
-      {/* Filters */}
       <Card sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
             placeholder="Search products..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -289,7 +293,7 @@ export default function ProductsPage() {
               data-testid="select-category"
             >
               <MenuItem value="" data-testid="option-category-all">All Categories</MenuItem>
-              {categories.map((cat) => (
+              {categories.map((cat: string) => (
                 <MenuItem key={cat} value={cat} data-testid={`option-category-${cat}`}>
                   {cat}
                 </MenuItem>
@@ -315,14 +319,12 @@ export default function ProductsPage() {
         </Box>
       </Card>
 
-      {/* Error State */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} data-testid="alert-error">
           Error loading products: {error.message}
         </Alert>
       )}
 
-      {/* DataGrid */}
       <Card>
         <Box sx={{ height: 600, width: '100%' }}>
           <DataGrid
@@ -331,7 +333,7 @@ export default function ProductsPage() {
             loading={loading}
             pageSizeOptions={[5, 10, 25, 50]}
             paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
+            onPaginationModelChange={(model: { page: number; pageSize: number }) => {
               setPage(model.page);
               setPageSize(model.pageSize);
             }}
@@ -356,7 +358,6 @@ export default function ProductsPage() {
         </Box>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={handleCloseDialog}
@@ -389,7 +390,6 @@ export default function ProductsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

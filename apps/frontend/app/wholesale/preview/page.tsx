@@ -38,9 +38,16 @@ const LIST_WHOLESALE_PRODUCTS = gql`
   }
 `;
 
+// GraphQL Response Types
+interface ListWholesaleProductsData {
+  listWholesaleProducts: {
+    edges: Array<{ node: any }>;
+  };
+}
+
 export default function WholesalePreview() {
   const router = useRouter();
-  const { loading, data } = useQuery(LIST_WHOLESALE_PRODUCTS);
+  const { loading, data } = useQuery<ListWholesaleProductsData>(LIST_WHOLESALE_PRODUCTS);
 
   const products = data?.listWholesaleProducts?.edges?.map((edge: any) => edge.node) || [];
   const activeProducts = products.filter((p: any) => p.status === 'ACTIVE');

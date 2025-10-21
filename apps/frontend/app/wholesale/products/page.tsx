@@ -52,6 +52,13 @@ const DELETE_WHOLESALE_PRODUCT = gql`
   }
 `;
 
+// GraphQL Response Types
+interface ListWholesaleProductsData {
+  listWholesaleProducts: {
+    edges: Array<{ node: any }>;
+  };
+}
+
 export default function WholesaleProducts() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,7 +66,7 @@ export default function WholesaleProducts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
-  const { loading, data, refetch } = useQuery(LIST_WHOLESALE_PRODUCTS);
+  const { loading, data, refetch } = useQuery<ListWholesaleProductsData>(LIST_WHOLESALE_PRODUCTS);
   const [deleteProduct, { loading: deleting }] = useMutation(DELETE_WHOLESALE_PRODUCT, {
     onCompleted: () => {
       refetch();

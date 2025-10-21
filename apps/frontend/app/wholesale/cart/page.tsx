@@ -74,13 +74,16 @@ const mockCartData = {
   },
 };
 
+// GraphQL Response Types
+interface WholesaleCartData {
+  wholesaleCart: any;
+}
+
 export default function WholesaleCartPage() {
   const router = useRouter();
 
-  const { data, loading, refetch } = useQuery(GET_WHOLESALE_CART, {
+  const { data, loading, refetch } = useQuery<WholesaleCartData>(GET_WHOLESALE_CART, {
     fetchPolicy: 'cache-and-network',
-    onError: () => {
-    },
   });
 
   const [updateCartItem, { loading: updating }] = useMutation(UPDATE_WHOLESALE_CART_ITEM, {

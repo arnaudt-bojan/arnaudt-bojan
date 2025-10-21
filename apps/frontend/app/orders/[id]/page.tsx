@@ -62,7 +62,12 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const [newStatus, setNewStatus] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  const { loading, error, data, refetch } = useQuery(GET_ORDER, {
+  // GraphQL Response Types
+  interface GetOrderData {
+    getOrder: any;
+  }
+
+  const { loading, error, data, refetch } = useQuery<GetOrderData>(GET_ORDER, {
     variables: { id: params.id },
     fetchPolicy: 'network-only',
   });

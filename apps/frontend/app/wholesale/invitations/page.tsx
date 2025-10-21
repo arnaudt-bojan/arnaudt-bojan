@@ -25,13 +25,20 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { ArrowLeft, Mail, Copy, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+// GraphQL Response Types
+interface ListWholesaleInvitationsData {
+  listWholesaleInvitations: {
+    edges: Array<{ node: any }>;
+  };
+}
+
 export default function WholesaleInvitations() {
   const router = useRouter();
   const [buyerEmail, setBuyerEmail] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
 
-  const { loading, data, refetch } = useQuery(LIST_WHOLESALE_INVITATIONS);
+  const { loading, data, refetch } = useQuery<ListWholesaleInvitationsData>(LIST_WHOLESALE_INVITATIONS);
 
   const [createInvitation, { loading: creating, error: createError }] = useMutation(CREATE_WHOLESALE_INVITATION, {
     onCompleted: () => {

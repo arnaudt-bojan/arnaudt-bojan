@@ -105,7 +105,12 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
   const watchShippingType = watch('shippingType');
 
-  const { data, loading: queryLoading, error: queryError } = useQuery(GET_PRODUCT, {
+  // GraphQL Response Types
+  interface GetProductData {
+    getProduct: any;
+  }
+
+  const { data, loading: queryLoading, error: queryError } = useQuery<GetProductData>(GET_PRODUCT, {
     variables: { id: params.id },
     fetchPolicy: 'network-only',
   });

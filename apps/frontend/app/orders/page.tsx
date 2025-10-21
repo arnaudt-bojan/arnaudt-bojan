@@ -45,7 +45,8 @@ interface Order {
   };
 }
 
-const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+const getStatusColor = (status: string | undefined): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  if (!status) return 'default';
   const statusLower = status.toLowerCase();
   if (statusLower === 'fulfilled' || statusLower === 'paid' || statusLower === 'delivered') return 'success';
   if (statusLower === 'processing' || statusLower === 'in_production' || statusLower === 'in_transit') return 'info';
@@ -54,14 +55,18 @@ const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | '
   return 'default';
 };
 
+interface ListOrdersData {
+  listOrders: Order[];
+}
+
 export default function OrdersPage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [page, setPage] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  const { loading, error, data } = useQuery(LIST_ORDERS, {
+  const { loading, error, data } = useQuery<ListOrdersData>(LIST_ORDERS, {
     variables: {
       first: 100,
       filter: statusFilter ? { status: statusFilter } : undefined,
@@ -71,9 +76,9 @@ export default function OrdersPage() {
 
   const orders: Order[] = data?.listOrders || [];
 
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = orders.filter((order: Order) => {
     const matchesSearch = !searchQuery || 
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerEmail?.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -94,7 +99,7 @@ export default function OrdersPage() {
           onClick={() => router.push(`/orders/${params.row.id}`)}
           data-testid={`link-order-${params.row.id}`}
         >
-          {params.value}
+          {params.value as string}
         </Typography>
       ),
     },
@@ -104,7 +109,7 @@ export default function OrdersPage() {
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" data-testid={`text-date-${params.row.id}`}>
-          {format(new Date(params.value), 'MMM dd, yyyy')}
+          {format(new Date(params.value as string), 'MMM dd, yyyy')}
         </Typography>
       ),
     },
@@ -130,7 +135,7 @@ export default function OrdersPage() {
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" fontWeight="600" data-testid={`text-total-${params.row.id}`}>
-          ${params.value?.toFixed(2) || '0.00'} {params.row.currency}
+          ${(params.value as number)?.toFixed(2) || '0.00'} {params.row.currency}
         </Typography>
       ),
     },
@@ -140,9 +145,9 @@ export default function OrdersPage() {
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
         <Chip
-          label={params.value?.replace(/_/g, ' ')}
+          label={(params.value as string)?.replace(/_/g, ' ')}
           size="small"
-          color={getStatusColor(params.value)}
+          color={getStatusColor(params.value as string)}
           data-testid={`chip-status-${params.row.id}`}
         />
       ),
@@ -153,9 +158,9 @@ export default function OrdersPage() {
       width: 130,
       renderCell: (params: GridRenderCellParams) => (
         <Chip
-          label={params.value?.replace(/_/g, ' ')}
+          label={(params.value as string)?.replace(/_/g, ' ')}
           size="small"
-          color={getStatusColor(params.value)}
+          color={getStatusColor(params.value as string)}
           variant="outlined"
           data-testid={`chip-payment-${params.row.id}`}
         />
@@ -167,9 +172,9 @@ export default function OrdersPage() {
       width: 150,
       renderCell: (params: GridRenderCellParams) => (
         <Chip
-          label={params.value?.replace(/_/g, ' ')}
+          label={(params.value as string)?.replace(/_/g, ' ')}
           size="small"
-          color={getStatusColor(params.value)}
+          color={getStatusColor(params.value as string)}
           variant="outlined"
           data-testid={`chip-fulfillment-${params.row.id}`}
         />
@@ -211,7 +216,7 @@ export default function OrdersPage() {
           <TextField
             placeholder="Search by order #, customer name, or email..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -259,14 +264,14 @@ export default function OrdersPage() {
             loading={loading}
             pageSizeOptions={[5, 10, 25, 50]}
             paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
+            onPaginationModelChange={(model: { page: number; pageSize: number }) => {
               setPage(model.page);
               setPageSize(model.pageSize);
             }}
             rowCount={filteredOrders.length}
             paginationMode="client"
             disableRowSelectionOnClick
-            onRowClick={(params) => router.push(`/orders/${params.row.id}`)}
+            onRowClick={(params: { row: { id: string } }) => router.push(`/orders/${params.row.id}`)}
             sx={{
               border: 'none',
               '& .MuiDataGrid-cell': {

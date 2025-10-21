@@ -32,6 +32,11 @@ import {
 } from '@mui/icons-material';
 import { GET_WHOLESALE_PRODUCT } from '@/lib/graphql/wholesale-buyer';
 
+// GraphQL Response Types
+interface GetWholesaleProductData {
+  getProduct: any;
+}
+
 export default function WholesaleProductDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -39,7 +44,7 @@ export default function WholesaleProductDetailPage() {
 
   const [quantity, setQuantity] = useState(1);
 
-  const { data, loading, error } = useQuery(GET_WHOLESALE_PRODUCT, {
+  const { data, loading, error } = useQuery<GetWholesaleProductData>(GET_WHOLESALE_PRODUCT, {
     variables: { id: productId },
     skip: !productId,
   });

@@ -18,11 +18,18 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+// GraphQL Response Types
+interface ListWholesaleOrdersData {
+  listWholesaleOrders: {
+    edges: Array<{ node: any }>;
+  };
+}
+
 export default function WholesaleOrders() {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const { loading, data } = useQuery(LIST_WHOLESALE_ORDERS, {
+  const { loading, data } = useQuery<ListWholesaleOrdersData>(LIST_WHOLESALE_ORDERS, {
     variables: {
       filter: statusFilter !== 'all' ? { status: statusFilter.toUpperCase() } : undefined,
     },

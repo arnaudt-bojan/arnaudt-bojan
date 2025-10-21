@@ -23,12 +23,17 @@ import {
 } from '@mui/icons-material';
 import { GET_WHOLESALE_INVITATION, ACCEPT_WHOLESALE_INVITATION } from '@/lib/graphql/wholesale-buyer';
 
+// GraphQL Response Types
+interface GetWholesaleInvitationData {
+  getWholesaleInvitation: any;
+}
+
 export default function AcceptWholesaleInvitationPage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
 
-  const { data, loading, error } = useQuery(GET_WHOLESALE_INVITATION, {
+  const { data, loading, error } = useQuery<GetWholesaleInvitationData>(GET_WHOLESALE_INVITATION, {
     variables: { token },
     skip: !token,
   });

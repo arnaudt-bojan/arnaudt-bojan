@@ -149,8 +149,25 @@ export default function CreateAdCampaign() {
   const [startDate, setStartDate] = useState<Date | null>(new Date());
   const [endDate, setEndDate] = useState<Date | null>(null);
 
-  const { data: productsData, loading: productsLoading } = useQuery(GET_PRODUCTS);
-  const [generateAdCopy] = useMutation(GENERATE_AD_COPY);
+  // GraphQL Response Types
+  interface ListProductsData {
+    listProducts: {
+      edges: Array<{
+        node: Product;
+      }>;
+    };
+  }
+
+  interface GenerateAdCopyData {
+    generateAdCopy: {
+      headline: string;
+      description: string;
+      cta: string;
+    };
+  }
+
+  const { data: productsData, loading: productsLoading } = useQuery<ListProductsData>(GET_PRODUCTS);
+  const [generateAdCopy] = useMutation<GenerateAdCopyData>(GENERATE_AD_COPY);
   const [createCampaign] = useMutation(CREATE_CAMPAIGN);
 
   const products: Product[] = productsData?.listProducts?.edges?.map((edge: any) => edge.node) || [];
@@ -521,7 +538,7 @@ export default function CreateAdCampaign() {
                       textField: {
                         fullWidth: true,
                         sx: { mb: 2 },
-                        'data-testid': 'input-start-date',
+                        inputProps: { 'data-testid': 'input-start-date' },
                       },
                     }}
                   />
@@ -533,7 +550,7 @@ export default function CreateAdCampaign() {
                     slotProps={{
                       textField: {
                         fullWidth: true,
-                        'data-testid': 'input-end-date',
+                        inputProps: { 'data-testid': 'input-end-date' },
                       },
                     }}
                   />
