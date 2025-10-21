@@ -41,12 +41,22 @@ The platform features three distinct, parallel platforms with all business logic
 ## Recent Changes
 
 ### October 2025 - Material UI v7 Grid Component Migration
--   **Grid Component Upgrade**: Migrated all 35 frontend pages from deprecated GridLegacy to updated Grid component (MUI v7)
+-   **Grid Component Upgrade**: Migrated all 34 frontend pages from deprecated GridLegacy to updated Grid component (MUI v7)
     -   **Import change**: `import { Grid } from '@mui/material'` → `import Grid from '@mui/material/Grid'`
     -   **Removed deprecated props**: All `item` props removed (Grid auto-infers grid items in v7)
-    -   **Preserved layout props**: All responsive props (`xs`, `md`, `spacing`, `sx`, `container`) remain unchanged
+    -   **API change**: Responsive props now use `size` prop: `<Grid xs={12} md={6}>` → `<Grid size={{ xs: 12, md: 6 }}>`
+    -   **Migration scope**: 270 Grid instances converted across 34 files
     -   **Source**: Official MUI v7 documentation at mui.com/material-ui/migration/upgrade-to-grid-v2/
     -   **Files**: dashboard, buyer, wholesale, trade, cart, checkout, orders, settings, analytics, wallet, campaigns, newsletter, meta-ads, admin, help, bulk-upload, storefront pages
+
+### October 2025 - Monorepo Development Workflow Setup
+-   **Created dev.sh script**: Orchestrates concurrent execution of NestJS backend + Next.js frontend
+    -   Uses `concurrently` package to run both services with labeled output
+    -   Backend: `npm run start:dev --workspace=@upfirst/backend` (NestJS watch mode)
+    -   Frontend: `npm run dev --workspace=@upfirst/frontend` (Next.js dev mode on port 3000)
+-   **Workflow configuration**: Requires manual update to `.replit` file (see WORKFLOW_UPDATE_REQUIRED.md)
+    -   Change `args = "npm run dev"` → `args = "./dev.sh"`
+    -   Change `waitForPort = 5000` → `waitForPort = 3000`
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
