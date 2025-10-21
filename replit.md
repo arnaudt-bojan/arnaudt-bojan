@@ -74,10 +74,16 @@ The platform comprises three distinct, parallel platforms with all business logi
 -   **Real Bugs Caught & Fixed**:
     -   **Bug #1**: Stripe Connect modal never appeared after currency selection (race condition in user data refetch)
     -   **Bug #2**: "Continue to Stripe Setup" button not working (conditional rendering removed, store accountId in state)
-    -   **Bug #3**: Subscription sync failing after successful Stripe checkout ✨ **NEW**
-        - **Root Cause**: Subscription webhooks updated database but didn't emit Socket.IO events (frontend had to manually refresh)
-        - **Fix**: Added Socket.IO emissions to all subscription webhook handlers and sync endpoint
-        - **Impact**: Subscription status now updates in real-time via Socket.IO (consistent with orders/settings)
+    -   **Bug #3**: Subscription customer ID not saved after checkout ✨ **FIXED**
+        - **Root Cause**: `checkout.session.completed` webhook saved subscription ID but not `stripeCustomerId`
+        - **Fix**: Updated webhook handler (line 229 in stripe-webhook.service.ts) to save `stripeCustomerId: session.customer`
+        - **Impact**: Subscription sync endpoint now works correctly after checkout completion
+        - **Test**: Created comprehensive subscription flow test (server/__tests__/subscription-flow.spec.ts)
+    -   **Bug #4**: Stripe Connect onboarding race condition ✨ **FIXED**
+        - **Root Cause**: Backend queried database for accountId before frontend's account creation completed
+        - **Fix**: Backend now accepts optional `accountId` parameter, frontend passes it directly to eliminate database lookup
+        - **Impact**: Eliminates "No Stripe account found" error when opening onboarding modal
+        - **Files**: server/routes.ts, server/services/stripe-connect.service.ts, client/src/components/stripe-onboarding-modal.tsx
 -   **Subscription Socket.IO Integration** ✨ **NEW**: 
     -   Added `settings:subscription_updated` event emitted on all subscription status changes
     -   Webhook handlers now emit Socket.IO events for: checkout completion, subscription created/updated/deleted, invoice payment success/failure
