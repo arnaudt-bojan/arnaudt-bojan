@@ -1,0 +1,218 @@
+2025-10-21T09:07:37Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-21T09:07:37Z info: Connecting to builder
+2025-10-21T09:07:38Z info: Builder connected
+2025-10-21T09:07:38Z info: Installing packages
+--> npm install
+
+npm warn deprecated lodash.omit@4.5.0: This package is deprecated. Use destructuring assignment syntax instead.
+
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+
+npm warn deprecated json-schema-ref-parser@9.0.9: Please switch to @apidevtools/json-schema-ref-parser
+
+npm warn deprecated subscriptions-transport-ws@0.11.0: The `subscriptions-transport-ws` package is no longer maintained. We recommend you use `graphql-ws` instead. For help migrating Apollo software to `graphql-ws`, see https://www.apollographql.com/docs/apollo-server/data/subscriptions/#switching-from-subscriptions-transport-ws    For general help using `graphql-ws`, see https://github.com/enisdenjo/graphql-ws/blob/master/README.md
+
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated @apollo/server-gateway-interface@1.1.1: @apollo/server-gateway-interface v1 is part of Apollo Server v4, which is deprecated and will transition to end-of-life on January 26, 2026. As long as you are already using a non-EOL version of Node.js, upgrading to v2 should take only a few minutes. See https://www.apollographql.com/docs/apollo-server/previous-versions for details.
+
+npm warn deprecated @apollo/server-plugin-landing-page-graphql-playground@4.0.1: The use of GraphQL Playground in Apollo Server was supported in previous versions, but this is no longer the case as of December 31, 2022. This package exists for v4 migration purposes only. We do not intend to resolve security issues or other bugs with this package if they arise, so please migrate away from this to [Apollo Server's default Explorer](https://www.apollographql.com/docs/apollo-server/api/plugin/landing-pages) as soon as possible.
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated mkdirp@0.3.0: Legacy versions of mkdirp are no longer supported. Please update to mkdirp 1.x. (Note that the API surface has changed to use Promises in 1.x.)
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated aptos@1.8.5: Package aptos is no longer supported, please migrate to https://www.npmjs.com/package/@aptos-labs/ts-sdk
+
+npm warn deprecated @irys/sdk@0.0.2: Arweave support is deprecated - We recommend migrating to the Irys datachain: https://migrate-to.irys.xyz/
+
+npm warn deprecated @apollo/server@4.12.2: Apollo Server v4 is deprecated and will transition to end-of-life on January 26, 2026. As long as you are already using a non-EOL version of Node.js, upgrading to v5 should take only a few minutes. See https://www.apollographql.com/docs/apollo-server/previous-versions for details.
+
+npm warn deprecated @metaplex-foundation/js@0.20.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+
+> rest-express@1.0.0 postinstall
+> prisma generate
+
+
+Environment variables loaded from .env
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.17.1, engine=binary) to ./generated/prisma in 841ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+
+
+added 2686 packages in 2m
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+2025-10-21T09:09:32Z info: Starting Build
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+
+npm warn deprecated lodash.omit@4.5.0: This package is deprecated. Use destructuring assignment syntax instead.
+
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+
+npm warn deprecated json-schema-ref-parser@9.0.9: Please switch to @apidevtools/json-schema-ref-parser
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated mkdirp@0.3.0: Legacy versions of mkdirp are no longer supported. Please update to mkdirp 1.x. (Note that the API surface has changed to use Promises in 1.x.)
+
+npm warn deprecated @apollo/server-gateway-interface@1.1.1: @apollo/server-gateway-interface v1 is part of Apollo Server v4, which is deprecated and will transition to end-of-life on January 26, 2026. As long as you are already using a non-EOL version of Node.js, upgrading to v2 should take only a few minutes. See https://www.apollographql.com/docs/apollo-server/previous-versions for details.
+
+npm warn deprecated @apollo/server-plugin-landing-page-graphql-playground@4.0.1: The use of GraphQL Playground in Apollo Server was supported in previous versions, but this is no longer the case as of December 31, 2022. This package exists for v4 migration purposes only. We do not intend to resolve security issues or other bugs with this package if they arise, so please migrate away from this to [Apollo Server's default Explorer](https://www.apollographql.com/docs/apollo-server/api/plugin/landing-pages) as soon as possible.
+
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+npm warn deprecated subscriptions-transport-ws@0.11.0: The `subscriptions-transport-ws` package is no longer maintained. We recommend you use `graphql-ws` instead. For help migrating Apollo software to `graphql-ws`, see https://www.apollographql.com/docs/apollo-server/data/subscriptions/#switching-from-subscriptions-transport-ws    For general help using `graphql-ws`, see https://github.com/enisdenjo/graphql-ws/blob/master/README.md
+
+npm warn deprecated aptos@1.8.5: Package aptos is no longer supported, please migrate to https://www.npmjs.com/package/@aptos-labs/ts-sdk
+
+npm warn deprecated @irys/sdk@0.0.2: Arweave support is deprecated - We recommend migrating to the Irys datachain: https://migrate-to.irys.xyz/
+
+npm warn deprecated @apollo/server@4.12.2: Apollo Server v4 is deprecated and will transition to end-of-life on January 26, 2026. As long as you are already using a non-EOL version of Node.js, upgrading to v5 should take only a few minutes. See https://www.apollographql.com/docs/apollo-server/previous-versions for details.
+
+npm warn deprecated @metaplex-foundation/js@0.20.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+
+> rest-express@1.0.0 postinstall
+> prisma generate
+
+
+Environment variables loaded from .env
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.17.1, engine=binary) to ./generated/prisma in 801ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+
+
+added 2686 packages in 1m
+
+
+> rest-express@1.0.0 build
+> prisma generate && vite build
+
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.17.1, engine=binary) to ./generated/prisma in 887ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+vite v5.4.20 building for production...
+
+transforming...
+
+Browserslist: browsers data (caniuse-lite) is 12 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+
+✓ 4139 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                                   0.87 kB │ gzip:   0.49 kB
+
+✓ built in 17.48s
+
+2025-10-21T09:11:27Z info: Pushing pid1 binary layer...
+2025-10-21T09:11:29Z info: Pushing hosting layer...
+2025-10-21T09:11:29Z info: Pushing Repl layer...
+2025-10-21T09:11:29Z info: Created pid1 binary layer
+2025-10-21T09:14:07Z info: Created Repl layer
+2025-10-21T09:14:10Z info: Pushed image manifest
+2025-10-21T09:14:11Z info: Pushed soci index manifest
+2025-10-21T09:14:15Z info: Creating Autoscale service
+
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+  ^
+node:internal/modules/cjs/loader:1215
+  ^
+command finished with error [npm run start]: exit status 1
+> NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts
+Error: Cannot find module '/home/runner/workspace/node_modules/tsx/dist/cli.mjs'
+Node.js v20.19.3
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+}
+
+> rest-express@1.0.0 start
+crash loop detected
+  requireStack: []
+  requireStack: []
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+Error: Cannot find module '/home/runner/workspace/node_modules/tsx/dist/cli.mjs'
+node:internal/modules/cjs/loader:1215
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+
+> rest-express@1.0.0 start
+command finished with error [npm run start]: exit status 1
+command finished with error [npm run start]: exit status 1
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+crash loop detected
+command finished with error [npm run start]: exit status 1
+> NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts
+Node.js v20.19.3
+  requireStack: []
+Node.js v20.19.3
+  code: 'MODULE_NOT_FOUND',
+}
+    at node:internal/main/run_main_module:28:49 {
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+> NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts
+crash loop detected
+> rest-express@1.0.0 start
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+  code: 'MODULE_NOT_FOUND',
+command finished with error [npm run start]: exit status 1
+  throw err;
+
+Error: Cannot find module '/home/runner/workspace/node_modules/tsx/dist/cli.mjs'
+}
+    at node:internal/main/run_main_module:28:49 {
+crash loop detected
+Error: Cannot find module '/home/runner/workspace/node_modules/tsx/dist/cli.mjs'
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+2025-10-21T09:18:55Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.
