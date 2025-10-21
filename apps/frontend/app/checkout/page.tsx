@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { GET_CART } from '@/lib/graphql/queries/cart';
+import { CREATE_ORDER } from '@/lib/graphql/mutations/orders';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -43,46 +45,6 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import Link from 'next/link';
-
-// GraphQL Queries and Mutations
-const GET_CART = gql`
-  query GetCart {
-    cart: getCartBySession(sessionId: "") {
-      id
-      items {
-        id
-        productId
-        variantId
-        quantity
-        unitPrice
-        lineTotal
-        product {
-          id
-          name
-          price
-          images
-        }
-      }
-      totals {
-        subtotal
-        tax
-        shipping
-        total
-      }
-    }
-  }
-`;
-
-const CREATE_ORDER = gql`
-  mutation CreateOrder($input: CreateOrderInput!) {
-    createOrder(input: $input) {
-      id
-      orderNumber
-      status
-      totalAmount
-    }
-  }
-`;
 
 // Form validation schema
 const checkoutSchema = z.object({

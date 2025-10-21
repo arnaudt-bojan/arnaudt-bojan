@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { GET_PRODUCT } from '@/lib/graphql/queries/products';
+import { UPDATE_PRODUCT } from '@/lib/graphql/mutations/products';
 import { useForm, Controller } from 'react-hook-form';
 import {
   Container,
@@ -28,40 +30,6 @@ import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
-
-const GET_PRODUCT = gql`
-  query GetProduct($id: ID!) {
-    getProduct(id: $id) {
-      id
-      name
-      description
-      price
-      category
-      productType
-      stock
-      sku
-      image
-      images
-      shippingType
-      flatShippingRate
-      status
-    }
-  }
-`;
-
-const UPDATE_PRODUCT = gql`
-  mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
-    updateProduct(id: $id, input: $input) {
-      id
-      name
-      description
-      price
-      category
-      stock
-      status
-    }
-  }
-`;
 
 interface ProductFormData {
   name: string;

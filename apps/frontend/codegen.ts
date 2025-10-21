@@ -3,21 +3,28 @@ import type { CodegenConfig } from '@graphql-codegen/cli';
 /**
  * GraphQL Code Generator Configuration
  * 
- * Generates TypeScript types from the GraphQL schema.
- * These types can be used to manually type useQuery/useMutation calls.
+ * Now that queries are consolidated into shared files, we can use the client preset
+ * to generate fully typed hooks from both the schema and document operations.
  * 
  * Usage in components:
- *   import { GetOrderQuery, GetOrderQueryVariables } from '@/lib/generated/graphql';
- *   const { data } = useQuery<GetOrderQuery>(GET_ORDER, { variables });
+ *   import { useGetOrderQuery } from '@/lib/generated/graphql';
+ *   const { data, loading, error } = useGetOrderQuery({ variables: { id: '123' } });
  */
 const config: CodegenConfig = {
   // Point to your GraphQL schema
   schema: '../../docs/graphql-schema.graphql',
   
-  // Generate schema types only (no document-based generation to avoid duplicate name issues)
+  // Scan shared query/mutation files and components
+  documents: [
+    'lib/graphql/queries/**/*.ts',
+    'lib/graphql/mutations/**/*.ts',
+    'app/**/*.tsx',
+  ],
+  
+  // Use client preset for full type safety
   generates: {
-    './lib/generated/graphql.ts': {
-      plugins: ['typescript'],
+    './lib/generated/': {
+      preset: 'client',
       config: {
         // Use consistent naming
         namingConvention: {

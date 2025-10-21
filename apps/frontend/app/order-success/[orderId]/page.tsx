@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery, gql } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
+import { GET_ORDER } from '@/lib/graphql/queries/orders';
 import {
   Container,
   Card,
@@ -34,49 +35,6 @@ import {
 import Link from 'next/link';
 import { format } from 'date-fns';
 
-// GraphQL Query
-const GET_ORDER = gql`
-  query GetOrder($id: ID!) {
-    order: getOrder(id: $id) {
-      id
-      orderNumber
-      status
-      createdAt
-      customerName
-      customerEmail
-      customerPhone
-      shippingAddress {
-        fullName
-        addressLine1
-        addressLine2
-        city
-        state
-        postalCode
-        country
-      }
-      items {
-        id
-        productId
-        quantity
-        unitPrice
-        lineTotal
-        product {
-          id
-          name
-          images
-        }
-      }
-      subtotal
-      shippingCost
-      taxAmount
-      totalAmount
-      trackingNumber
-      paymentStatus
-      fulfillmentStatus
-    }
-  }
-`;
-
 // Status color mapping
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusMap: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
@@ -93,11 +51,13 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // GraphQL Query
+  // GraphQL Query (aliasing the result as 'order')
   const { data, loading, error } = useQuery(GET_ORDER, {
     variables: { id: params.orderId },
     fetchPolicy: 'network-only',
   });
+  
+  const order = data?.getOrder;
 
   // Loading state
   if (loading) {

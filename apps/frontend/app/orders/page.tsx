@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, gql } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
+import { LIST_ORDERS } from '@/lib/graphql/queries/orders';
 import {
   Container,
   Box,
@@ -25,28 +26,6 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-
-const LIST_ORDERS = gql`
-  query ListOrders($filter: OrderFilterInput, $sort: OrderSortInput, $first: Int, $after: String) {
-    listOrders(filter: $filter, sort: $sort, first: $first, after: $after) {
-      id
-      orderNumber
-      status
-      fulfillmentStatus
-      paymentStatus
-      totalAmount
-      currency
-      customerName
-      customerEmail
-      createdAt
-      buyer {
-        id
-        email
-        fullName
-      }
-    }
-  }
-`;
 
 interface Order {
   id: string;

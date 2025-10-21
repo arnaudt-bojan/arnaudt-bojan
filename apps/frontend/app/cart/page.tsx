@@ -1,6 +1,8 @@
 'use client';
 
-import { useQuery, useMutation, gql, ApolloError } from '@/lib/apollo-client';
+import { useQuery, useMutation, ApolloError } from '@/lib/apollo-client';
+import { GET_CART } from '@/lib/graphql/queries/cart';
+import { UPDATE_CART_ITEM, REMOVE_FROM_CART } from '@/lib/graphql/mutations/cart';
 import {
   Container,
   Paper,
@@ -33,79 +35,6 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-
-// GraphQL Queries and Mutations
-const GET_CART = gql`
-  query GetCart {
-    cart: getCartBySession(sessionId: "") {
-      id
-      items {
-        id
-        productId
-        variantId
-        quantity
-        unitPrice
-        lineTotal
-        product {
-          id
-          name
-          price
-          images
-        }
-      }
-      totals {
-        subtotal
-        tax
-        shipping
-        total
-      }
-    }
-  }
-`;
-
-const UPDATE_CART_ITEM = gql`
-  mutation UpdateCartItem($cartId: ID!, $itemId: ID!, $quantity: Int!) {
-    updateCartItem(cartId: $cartId, input: { itemId: $itemId, quantity: $quantity }) {
-      success
-      message
-      cart {
-        id
-        items {
-          id
-          quantity
-          lineTotal
-        }
-        totals {
-          subtotal
-          tax
-          shipping
-          total
-        }
-      }
-    }
-  }
-`;
-
-const REMOVE_FROM_CART = gql`
-  mutation RemoveFromCart($cartId: ID!, $productId: ID!, $variantId: ID) {
-    removeFromCart(cartId: $cartId, productId: $productId, variantId: $variantId) {
-      success
-      message
-      cart {
-        id
-        items {
-          id
-        }
-        totals {
-          subtotal
-          tax
-          shipping
-          total
-        }
-      }
-    }
-  }
-`;
 
 // TypeScript Interfaces
 interface CartItem {

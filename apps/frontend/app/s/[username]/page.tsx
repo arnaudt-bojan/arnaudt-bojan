@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { GET_SELLER_BY_USERNAME } from '@/lib/graphql/queries/wholesale';
+import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
+import { ADD_TO_CART } from '@/lib/graphql/mutations/cart';
 import {
   Container,
   Box,
@@ -34,75 +37,6 @@ import {
   FilterList,
   Store,
 } from '@mui/icons-material';
-
-// GraphQL Queries and Mutations
-const GET_SELLER_BY_USERNAME = gql`
-  query GetSellerByUsername($username: String!) {
-    getSellerByUsername(username: $username) {
-      id
-      displayName
-      storeName
-      description
-      banner
-      logo
-    }
-  }
-`;
-
-const LIST_PRODUCTS = gql`
-  query ListProducts(
-    $sellerId: ID!
-    $search: String
-    $category: String
-    $first: Int
-    $after: String
-    $sortBy: String
-  ) {
-    listProducts(
-      filter: { sellerId: $sellerId, search: $search, category: $category }
-      first: $first
-      after: $after
-      sortBy: $sortBy
-    ) {
-      edges {
-        node {
-          id
-          name
-          description
-          price
-          images
-          category
-          stock_quantity
-        }
-        cursor
-      }
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
-      }
-      totalCount
-    }
-  }
-`;
-
-const ADD_TO_CART = gql`
-  mutation AddToCart($productId: ID!, $quantity: Int!) {
-    addToCart(productId: $productId, quantity: $quantity) {
-      id
-      items {
-        id
-        product {
-          id
-          name
-          price
-        }
-        quantity
-      }
-    }
-  }
-`;
 
 interface SellerStorefrontPageProps {
   params: {

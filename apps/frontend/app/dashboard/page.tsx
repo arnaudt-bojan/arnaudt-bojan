@@ -1,6 +1,8 @@
 'use client';
 
-import { useQuery, gql } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
+import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
+import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
 import {
   Container,
   AppBar,
@@ -36,55 +38,6 @@ import {
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const GET_PRODUCTS = gql`
-  query ListProducts($first: Int) {
-    listProducts(first: $first) {
-      edges {
-        node {
-          id
-          name
-          description
-          price
-          image
-          category
-          productType
-          status
-          stock
-          inventoryStatus
-          presentation {
-            availabilityText
-            badges
-            availableForPurchase
-            isPreOrder
-            isMadeToOrder
-            stockQuantity
-          }
-        }
-        cursor
-      }
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
-      }
-      totalCount
-    }
-  }
-`;
-
-const GET_USER = gql`
-  query GetCurrentUser {
-    me {
-      id
-      email
-      username
-      fullName
-      userType
-    }
-  }
-`;
-
 const drawerWidth = 240;
 
 export default function DashboardPage() {
@@ -92,11 +45,11 @@ export default function DashboardPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   
-  const { loading: productsLoading, error: productsError, data: productsData } = useQuery(GET_PRODUCTS, {
+  const { loading: productsLoading, error: productsError, data: productsData } = useQuery(LIST_PRODUCTS, {
     variables: { first: 10 },
   });
 
-  const { loading: userLoading, error: userError, data: userData } = useQuery(GET_USER);
+  const { loading: userLoading, error: userError, data: userData } = useQuery(GET_CURRENT_USER);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

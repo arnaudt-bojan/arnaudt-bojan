@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery, gql } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
+import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
+import { LIST_ORDERS } from '@/lib/graphql/queries/orders';
 import {
   Container,
   Box,
@@ -32,30 +34,6 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-
-const GET_CURRENT_USER = gql`
-  query GetCurrentUser {
-    me {
-      id
-      email
-      firstName
-      lastName
-    }
-  }
-`;
-
-const LIST_ORDERS = gql`
-  query ListOrders($filter: OrderFilterInput, $first: Int, $after: String) {
-    listOrders(filter: $filter, first: $first, after: $after) {
-      id
-      orderNumber
-      status
-      createdAt
-      totalAmount
-      currency
-    }
-  }
-`;
 
 interface Order {
   id: string;

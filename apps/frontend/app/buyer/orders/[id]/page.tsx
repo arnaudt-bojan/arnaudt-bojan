@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { GET_ORDER } from '@/lib/graphql/queries/orders';
+import { CANCEL_ORDER, REORDER_ITEMS } from '@/lib/graphql/mutations/orders';
 import {
   Container,
   Box,
@@ -48,71 +50,6 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-
-const GET_ORDER = gql`
-  query GetOrder($id: ID!) {
-    getOrder(id: $id) {
-      id
-      orderNumber
-      status
-      paymentStatus
-      fulfillmentStatus
-      subtotal
-      shippingCost
-      taxAmount
-      totalAmount
-      currency
-      createdAt
-      updatedAt
-      shippingAddress {
-        fullName
-        addressLine1
-        addressLine2
-        city
-        state
-        postalCode
-        country
-        phone
-      }
-      trackingNumber
-      carrier
-      trackingUrl
-      estimatedDeliveryDate
-      lineItems {
-        id
-        productId
-        productName
-        quantity
-        unitPrice
-        totalPrice
-        variant
-        product {
-          id
-          name
-          images
-        }
-      }
-    }
-  }
-`;
-
-const CANCEL_ORDER = gql`
-  mutation CancelOrder($id: ID!) {
-    cancelOrder(id: $id) {
-      id
-      status
-    }
-  }
-`;
-
-const REORDER_ITEMS = gql`
-  mutation ReorderItems($orderId: ID!) {
-    reorderItems(orderId: $orderId) {
-      id
-      itemsCount
-    }
-  }
-`;
 
 interface Order {
   id: string;

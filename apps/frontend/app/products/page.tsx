@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
+import { DELETE_PRODUCT } from '@/lib/graphql/mutations/products';
 import {
   Container,
   Box,
@@ -34,48 +36,6 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-
-const LIST_PRODUCTS = gql`
-  query ListProducts($first: Int, $after: String, $filter: ProductFilterInput) {
-    listProducts(first: $first, after: $after, filter: $filter) {
-      edges {
-        node {
-          id
-          name
-          description
-          price
-          compare_at_price
-          category
-          productType
-          image
-          stock
-          inventoryStatus
-          created_at
-          presentation {
-            availabilityText
-            badges
-            stockLevelIndicator
-            availableForPurchase
-          }
-        }
-        cursor
-      }
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
-      }
-      totalCount
-    }
-  }
-`;
-
-const DELETE_PRODUCT = gql`
-  mutation DeleteProduct($id: ID!) {
-    deleteProduct(id: $id)
-  }
-`;
 
 interface Product {
   id: string;

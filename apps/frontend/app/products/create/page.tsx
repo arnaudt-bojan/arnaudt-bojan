@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, gql } from '@/lib/apollo-client';
+import { useMutation } from '@/lib/apollo-client';
+import { CREATE_PRODUCT } from '@/lib/graphql/mutations/products';
 import { useForm, Controller } from 'react-hook-form';
 import {
   Container,
@@ -27,22 +28,6 @@ import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
-
-const CREATE_PRODUCT = gql`
-  mutation CreateProduct($input: CreateProductInput!) {
-    createProduct(input: $input) {
-      id
-      name
-      description
-      price
-      category
-      productType
-      stock
-      image
-      images
-    }
-  }
-`;
 
 interface ProductFormData {
   name: string;

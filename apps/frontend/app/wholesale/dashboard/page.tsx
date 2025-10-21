@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, gql } from '@/lib/apollo-client';
+import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
 import {
   Container,
   Card,
@@ -67,24 +68,12 @@ const GET_RECENT_WHOLESALE_ORDERS = gql`
   }
 `;
 
-const GET_USER = gql`
-  query GetCurrentUser {
-    me {
-      id
-      email
-      username
-      fullName
-      userType
-    }
-  }
-`;
-
 export default function WholesaleDashboard() {
   const router = useRouter();
   
   const { loading: statsLoading, data: statsData } = useQuery(GET_WHOLESALE_STATS);
   const { loading: ordersLoading, data: ordersData } = useQuery(GET_RECENT_WHOLESALE_ORDERS);
-  const { data: userData } = useQuery(GET_USER);
+  const { data: userData } = useQuery(GET_CURRENT_USER);
 
   const stats = statsData?.wholesaleStats;
   const recentOrders = ordersData?.listWholesaleOrders?.edges?.map((edge: any) => edge.node) || [];

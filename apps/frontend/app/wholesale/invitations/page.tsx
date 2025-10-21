@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { LIST_WHOLESALE_INVITATIONS } from '@/lib/graphql/queries/wholesale';
+import { CREATE_WHOLESALE_INVITATION, CANCEL_INVITATION } from '@/lib/graphql/mutations/wholesale';
 import {
   Container,
   Box,
@@ -22,47 +24,6 @@ import {
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { ArrowLeft, Mail, Copy, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-const LIST_WHOLESALE_INVITATIONS = gql`
-  query ListWholesaleInvitations {
-    listWholesaleInvitations {
-      edges {
-        node {
-          id
-          buyerEmail
-          token
-          status
-          createdAt
-          expiresAt
-          acceptedAt
-          buyer {
-            id
-            email
-            fullName
-          }
-        }
-      }
-    }
-  }
-`;
-
-const CREATE_WHOLESALE_INVITATION = gql`
-  mutation CreateWholesaleInvitation($input: CreateWholesaleInvitationInput!) {
-    createWholesaleInvitation(input: $input) {
-      id
-      buyerEmail
-      token
-    }
-  }
-`;
-
-const CANCEL_INVITATION = gql`
-  mutation CancelInvitation($id: ID!) {
-    cancelInvitation(id: $id) {
-      success
-    }
-  }
-`;
 
 export default function WholesaleInvitations() {
   const router = useRouter();

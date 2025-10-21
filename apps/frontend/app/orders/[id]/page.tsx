@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, gql } from '@/lib/apollo-client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
+import { GET_ORDER } from '@/lib/graphql/queries/orders';
+import { UPDATE_FULFILLMENT } from '@/lib/graphql/mutations/orders';
 import {
   Container,
   Box,
@@ -41,78 +43,6 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-
-const GET_ORDER = gql`
-  query GetOrder($id: ID!) {
-    getOrder(id: $id) {
-      id
-      orderNumber
-      status
-      fulfillmentStatus
-      paymentStatus
-      subtotal
-      shippingCost
-      taxAmount
-      totalAmount
-      currency
-      customerName
-      customerEmail
-      customerPhone
-      shippingAddress {
-        fullName
-        addressLine1
-        addressLine2
-        city
-        state
-        postalCode
-        country
-        phone
-      }
-      billingAddress {
-        fullName
-        addressLine1
-        addressLine2
-        city
-        state
-        postalCode
-        country
-        phone
-      }
-      trackingNumber
-      carrier
-      createdAt
-      paidAt
-      buyer {
-        id
-        email
-        fullName
-      }
-      items {
-        id
-        productId
-        productName
-        productImage
-        quantity
-        unitPrice
-        lineTotal
-        fulfillmentStatus
-      }
-    }
-  }
-`;
-
-const UPDATE_FULFILLMENT = gql`
-  mutation UpdateFulfillment($input: UpdateOrderFulfillmentInput!) {
-    updateFulfillment(input: $input) {
-      id
-      orderNumber
-      status
-      fulfillmentStatus
-      trackingNumber
-      carrier
-    }
-  }
-`;
 
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusLower = status?.toLowerCase() || '';

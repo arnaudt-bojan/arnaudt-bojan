@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, gql, ApolloError } from '@/lib/apollo-client';
+import { useQuery, useMutation, ApolloError } from '@/lib/apollo-client';
+import { GET_PRODUCT } from '@/lib/graphql/queries/products';
+import { ADD_TO_CART } from '@/lib/graphql/mutations/cart';
 import {
   Container,
   Card,
@@ -38,43 +40,6 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
-// GraphQL Queries and Mutations
-const GET_PRODUCT = gql`
-  query GetProduct($id: ID!) {
-    getProduct(id: $id) {
-      id
-      name
-      description
-      price
-      compare_at_price
-      images
-      category
-      product_type
-      stock_quantity
-      variants
-      sku
-      seller {
-        id
-        username
-        displayName
-      }
-    }
-  }
-`;
-
-const ADD_TO_CART = gql`
-  mutation AddToCart($productId: ID!, $quantity: Int!, $variantId: ID) {
-    addToCart(input: { productId: $productId, quantity: $quantity, variantId: $variantId }) {
-      success
-      message
-      cart {
-        id
-        items_count
-      }
-    }
-  }
-`;
 
 interface PageProps {
   params: {
