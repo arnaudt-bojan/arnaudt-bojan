@@ -150,29 +150,48 @@ upfirst-monorepo@1.0.0
 
 After installation, verify everything works:
 
+**IMPORTANT**: All build commands should be run from the **ROOT directory**, not from individual app directories.
+
 ### 1. Test Frontend Build
 ```bash
-cd apps/frontend
-npm run build
+# Run from ROOT directory
+npm run build:frontend
 ```
 
 Expected: ✅ Build succeeds
 
 ### 2. Test Backend Build
 ```bash
-cd apps/backend
-npm run build
+# Run from ROOT directory
+npm run build:backend
 ```
 
 Expected: ✅ Build succeeds
 
-### 3. Test Development Server
+### 3. Test Both Builds
 ```bash
-# From root
+# Run from ROOT directory
+npm run build
+```
+
+Expected: ✅ Both builds succeed
+
+### 4. Test Development Server
+```bash
+# From ROOT directory
 npm run dev
 ```
 
 Expected: ✅ Server starts on port 5000
+
+---
+
+### Why Run From Root?
+
+In npm workspaces, dependencies are hoisted to the root `node_modules` directory. Running build commands from individual app directories won't find the executables. Always use the workspace-aware scripts from the root:
+
+- ✅ `npm run build:frontend` (from root)
+- ❌ `cd apps/frontend && npm run build` (won't work)
 
 ---
 
