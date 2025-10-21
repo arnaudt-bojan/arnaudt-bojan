@@ -88,12 +88,13 @@ router.post('/send-code', async (req: Request, res: Response) => {
       emailSent = false;
     }
 
-    // Only log verification code when email FAILS (security: don't expose codes in logs when emails work)
+    // Only log verification code in test/dev environments (security: never expose codes in production logs)
     if (!emailSent) {
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST;
       logger.warn('Email delivery failed - fallback code available', {
         module: 'auth-email',
         email,
-        code,
+        ...(isTestEnv && { code }),
         validFor: '15 minutes',
         hint: 'Check Resend domain verification'
       });
@@ -102,23 +103,33 @@ router.post('/send-code', async (req: Request, res: Response) => {
     }
 
     // Return accurate status based on email delivery
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST || process.env.NODE_ENV === 'development';
+    const failureMessage = isTestEnv
+      ? '❌ Email delivery failed. This usually means the sending domain is not verified in Resend. Check server logs for the verification code.'
+      : '❌ Email delivery failed. This usually means the sending domain is not verified in Resend. Please try again or contact support.';
+    
     res.json({ 
       success: emailSent, // TRUE only if email was actually sent
       message: emailSent 
         ? 'Authentication code sent to your email. Check your inbox and spam folder.'
-        : '❌ Email delivery failed. This usually means the sending domain is not verified in Resend. Check server logs for the verification code.',
+        : failureMessage,
       email,
       emailSent,
-      // In dev, include code for convenience. In production, include if email failed
-      ...(((process.env.NODE_ENV === 'development') || !emailSent) && { devCode: code })
+      // SECURITY: Only include code in test/dev environments, never in production
+      ...((process.env.NODE_ENV === 'test' || process.env.VITEST) && { devCode: code })
     });
   } catch (error) {
     logger.error('Critical error in send-code endpoint', { error, module: 'auth-email', email });
-    // Return failure status but include fallback code if available
+    
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST || process.env.NODE_ENV === 'development';
+    const errorMessage = isTestEnv 
+      ? 'An error occurred while generating your authentication code. Check server logs for the verification code or try again.'
+      : 'An error occurred while generating your authentication code. Please try again or contact support.';
+
     res.status(500).json({ 
       success: false, 
       error: 'Failed to process authentication request',
-      message: 'An error occurred while generating your authentication code. Please try again or contact support.',
+      message: errorMessage,
       email
     });
   }
@@ -141,6 +152,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
     const normalizedCode = String(code).trim();
     
     let authToken;
+    let isTestAccount = false;
     
     // SECURITY: Only allow test account bypass in test/development environments
     const isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.VITEST || process.env.NODE_ENV === 'development';
@@ -157,7 +169,7 @@ router.post('/verify-code', async (req: any, res: Response) => {
         'testbuyer@test.com'
       ];
       
-      const isTestAccount = testAccounts.includes(normalizedEmailForTest);
+      isTestAccount = testAccounts.includes(normalizedEmailForTest);
       
       logger.info('Auth verification attempt', { 
         email: normalizedEmailForTest, 
@@ -424,12 +436,13 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
       emailSent = false;
     }
 
-    // Only log magic link when email FAILS (security: don't expose auth links in logs when emails work)
+    // Only log magic link in test/dev environments (security: never expose auth links in production logs)
     if (!emailSent) {
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST;
       logger.warn('Magic link email delivery failed - fallback link available', {
         module: 'auth-email',
         email,
-        magicLink,
+        ...(isTestEnv && { magicLink }),
         validFor: '6 months',
         hint: 'Check Resend domain verification'
       });
@@ -445,8 +458,8 @@ router.post('/send-magic-link', async (req: Request, res: Response) => {
         : '❌ Email delivery failed. This usually means the sending domain is not verified in Resend. Please use the verification code method instead.',
       email,
       emailSent,
-      // If email failed, provide the magic link in response for manual access
-      ...(!emailSent && { magicLink })
+      // SECURITY: Only include magic link in test/dev environments, never in production
+      ...((process.env.NODE_ENV === 'test' || process.env.VITEST) && { magicLink })
     });
   } catch (error) {
     logger.error('Critical error in send-magic-link endpoint', { error, module: 'auth-email', email });
