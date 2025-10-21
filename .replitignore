@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.vite
+.cache
+coverage
+test-results
+playwright-report
+tmp
+*.log
