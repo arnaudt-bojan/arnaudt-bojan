@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, gql } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
+import { LIST_WHOLESALE_ORDERS } from '@/lib/graphql/wholesale-buyer';
 import {
   Container,
   Box,
@@ -16,40 +17,6 @@ import {
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-const LIST_WHOLESALE_ORDERS = gql`
-  query ListWholesaleOrders($filter: WholesaleOrderFilter) {
-    listWholesaleOrders(filter: $filter) {
-      edges {
-        node {
-          id
-          orderNumber
-          status
-          totalAmount
-          depositAmount
-          balanceAmount
-          paymentTerms
-          createdAt
-          buyer {
-            id
-            email
-            fullName
-          }
-          items {
-            id
-            quantity
-            product {
-              id
-              name
-            }
-          }
-          calculatedDepositAmount
-          calculatedBalanceAmount
-        }
-      }
-    }
-  }
-`;
 
 export default function WholesaleOrders() {
   const router = useRouter();

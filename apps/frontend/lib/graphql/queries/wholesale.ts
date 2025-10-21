@@ -20,33 +20,3 @@ export const LIST_WHOLESALE_INVITATIONS = gql`
     }
   }
 `;
-
-export const LIST_WHOLESALE_BUYERS = gql`
-  query ListWholesaleBuyers {
-    listWholesaleBuyers {
-      id
-      buyerId
-      sellerId
-      status
-      createdAt
-      buyer {
-        id
-        email
-        fullName
-      }
-    }
-  }
-`;
-
-export const GET_SELLER_BY_USERNAME = gql`
-  query GetSellerByUsername($username: String!) {
-    getSellerByUsername(username: $username) {
-      id
-      displayName
-      storeName
-      description
-      banner
-      logo
-    }
-  }
-`;

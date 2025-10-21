@@ -5,7 +5,6 @@ export const GET_CART = gql`
     cart: getCartBySession(sessionId: "") {
       id
       items {
-        id
         productId
         variantId
         quantity
@@ -21,8 +20,8 @@ export const GET_CART = gql`
       totals {
         subtotal
         tax
-        shipping
         total
+        currency
       }
     }
   }

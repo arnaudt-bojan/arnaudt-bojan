@@ -77,7 +77,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
   }
 
   // Error state
-  if (error || !data?.order) {
+  if (error || !order) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Alert severity="error" sx={{ mb: 4 }}>
@@ -89,8 +89,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
       </Container>
     );
   }
-
-  const order = data.order;
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>

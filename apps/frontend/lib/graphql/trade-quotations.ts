@@ -30,7 +30,7 @@ export const QUOTATION_FRAGMENT = gql`
 `;
 
 export const LINE_ITEM_FRAGMENT = gql`
-  fragment LineItemFields on QuotationItem {
+  fragment LineItemFields on QuotationLineItem {
     id
     quotationId
     lineNumber
@@ -67,37 +67,30 @@ export const GET_QUOTATION = gql`
   }
 `;
 
-export const GET_QUOTATION_BY_TOKEN = gql`
-  ${QUOTATION_FRAGMENT}
-  ${LINE_ITEM_FRAGMENT}
-  query GetQuotationByToken($token: String!) {
-    getQuotationByToken(token: $token) {
-      ...QuotationFields
-      items {
-        ...LineItemFields
-      }
-      seller {
-        id
-        username
-        email
-      }
-    }
-  }
-`;
-
 export const LIST_QUOTATIONS = gql`
   ${QUOTATION_FRAGMENT}
   query ListQuotations {
     listQuotations {
-      ...QuotationFields
-      seller {
-        id
-        username
+      edges {
+        node {
+          ...QuotationFields
+          seller {
+            id
+            username
+          }
+          buyer {
+            id
+            email
+          }
+        }
       }
-      buyer {
-        id
-        email
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
       }
+      totalCount
     }
   }
 `;
@@ -121,41 +114,11 @@ export const UPDATE_QUOTATION = gql`
   }
 `;
 
-export const SEND_QUOTATION = gql`
-  ${QUOTATION_FRAGMENT}
-  mutation SendQuotation($id: ID!) {
-    sendQuotation(id: $id) {
-      ...QuotationFields
-    }
-  }
-`;
-
 export const ACCEPT_QUOTATION = gql`
   ${QUOTATION_FRAGMENT}
-  mutation AcceptQuotation($token: String!, $buyerInfo: BuyerInfoInput) {
-    acceptQuotation(token: $token, buyerInfo: $buyerInfo) {
+  mutation AcceptQuotation($id: ID!) {
+    acceptQuotation(id: $id) {
       ...QuotationFields
-    }
-  }
-`;
-
-// Mutation for live calculation of quotation totals
-export const CALCULATE_QUOTATION_TOTALS = gql`
-  mutation CalculateQuotationTotals($input: CalculateQuotationTotalsInput!) {
-    calculateQuotationTotals(input: $input) {
-      lineItems {
-        description
-        unitPrice
-        quantity
-        lineTotal
-      }
-      subtotal
-      taxAmount
-      shippingAmount
-      total
-      depositAmount
-      depositPercentage
-      balanceAmount
     }
   }
 `;

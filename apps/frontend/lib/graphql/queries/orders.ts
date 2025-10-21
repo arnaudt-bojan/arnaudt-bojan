@@ -3,21 +3,32 @@ import { gql } from '@/lib/apollo-client';
 export const LIST_ORDERS = gql`
   query ListOrders($filter: OrderFilterInput, $sort: OrderSortInput, $first: Int, $after: String) {
     listOrders(filter: $filter, sort: $sort, first: $first, after: $after) {
-      id
-      orderNumber
-      status
-      fulfillmentStatus
-      paymentStatus
-      totalAmount
-      currency
-      customerName
-      customerEmail
-      createdAt
-      buyer {
-        id
-        email
-        fullName
+      edges {
+        node {
+          id
+          orderNumber
+          status
+          fulfillmentStatus
+          paymentStatus
+          totalAmount
+          currency
+          customerName
+          customerEmail
+          createdAt
+          buyer {
+            id
+            email
+            fullName
+          }
+        }
       }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      totalCount
     }
   }
 `;
@@ -60,8 +71,6 @@ export const GET_ORDER = gql`
       }
       trackingNumber
       carrier
-      trackingUrl
-      estimatedDeliveryDate
       createdAt
       updatedAt
       paidAt
@@ -78,7 +87,6 @@ export const GET_ORDER = gql`
         quantity
         unitPrice
         lineTotal
-        totalPrice
         fulfillmentStatus
         variantId
         product {
