@@ -6,7 +6,6 @@ import {
   Box,
   Typography,
   Paper,
-  Grid,
   Card,
   CardContent,
   TextField,
@@ -23,6 +22,7 @@ import {
   Divider,
   LinearProgress,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import {
   People,
@@ -295,7 +295,7 @@ export default function AdminPage() {
 
       {/* Platform Overview Stats */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid xs={12} sm={6} md={2.4}>
           <Card data-testid="card-stat-total-sellers">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -314,7 +314,7 @@ export default function AdminPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -333,7 +333,7 @@ export default function AdminPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid xs={12} sm={6} md={2.4}>
           <Card data-testid="card-stat-platform-revenue">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -352,7 +352,7 @@ export default function AdminPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -371,7 +371,7 @@ export default function AdminPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -393,7 +393,7 @@ export default function AdminPage() {
 
       <Grid container spacing={3}>
         {/* Sellers Management */}
-        <Grid item xs={12} lg={8}>
+        <Grid xs={12} lg={8}>
           <Paper sx={{ mb: 3 }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
               <Typography variant="h6" gutterBottom>
@@ -456,7 +456,7 @@ export default function AdminPage() {
               Revenue Analytics
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" variant="body2">
@@ -471,7 +471,7 @@ export default function AdminPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" variant="body2">
@@ -486,7 +486,7 @@ export default function AdminPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" variant="body2">
@@ -501,7 +501,7 @@ export default function AdminPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" variant="body2">
@@ -521,7 +521,7 @@ export default function AdminPage() {
         </Grid>
 
         {/* Platform Health & System Logs */}
-        <Grid item xs={12} lg={4}>
+        <Grid xs={12} lg={4}>
           <Paper sx={{ p: 3, mb: 3 }} data-testid="chart-platform-health">
             <Typography variant="h6" gutterBottom>
               Platform Health

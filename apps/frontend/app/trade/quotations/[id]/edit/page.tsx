@@ -5,7 +5,6 @@ import { useQuery, useMutation } from '@apollo/client';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   CardHeader,
@@ -29,6 +28,7 @@ import {
   CircularProgress,
   Snackbar,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Add,
   Delete,
@@ -259,7 +259,7 @@ export default function EditQuotation() {
         <CardHeader title="Quotation Details" />
         <CardContent>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Buyer Email"
@@ -269,7 +269,7 @@ export default function EditQuotation() {
                 data-testid="input-buyer-email"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Valid Until"
@@ -280,7 +280,7 @@ export default function EditQuotation() {
                 data-testid="input-valid-until"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Currency"
@@ -289,7 +289,7 @@ export default function EditQuotation() {
                 data-testid="select-currency"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 select
@@ -400,7 +400,7 @@ export default function EditQuotation() {
       </Card>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+        <Grid xs={12} md={8}>
           <Card>
             <CardHeader title="Payment Terms" />
             <CardContent>
@@ -429,7 +429,7 @@ export default function EditQuotation() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           <Card>
             <CardHeader title="Summary" />
             <CardContent>

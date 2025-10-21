@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -17,6 +16,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   TrendingUp,
   TrendingDown,
@@ -192,7 +192,7 @@ export default function AnalyticsPage() {
       {/* Stats Cards */}
       <Grid container spacing={3} mb={4}>
         {/* Total Revenue */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-revenue">
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
         </Grid>
 
         {/* Total Orders */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-orders">
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -252,7 +252,7 @@ export default function AnalyticsPage() {
         </Grid>
 
         {/* Average Order Value */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-aov">
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -272,7 +272,7 @@ export default function AnalyticsPage() {
         </Grid>
 
         {/* Conversion Rate */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-conversion">
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -294,7 +294,7 @@ export default function AnalyticsPage() {
 
       {/* Revenue Over Time Chart */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12}>
+        <Grid xs={12}>
           <Card data-testid="chart-revenue-over-time">
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -339,7 +339,7 @@ export default function AnalyticsPage() {
       {/* Charts Row */}
       <Grid container spacing={3} mb={4}>
         {/* Top Selling Products */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card data-testid="chart-top-products">
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -382,7 +382,7 @@ export default function AnalyticsPage() {
         </Grid>
 
         {/* Order Status Distribution */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card data-testid="chart-revenue-by-category">
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -430,7 +430,7 @@ export default function AnalyticsPage() {
 
       {/* Customer Insights */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -462,7 +462,7 @@ export default function AnalyticsPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -527,7 +527,7 @@ export default function AnalyticsPage() {
 
       {/* Platform Breakdown */}
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">
@@ -563,7 +563,7 @@ export default function AnalyticsPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">

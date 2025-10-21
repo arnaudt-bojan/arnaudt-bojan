@@ -7,7 +7,6 @@ import {
   Box,
   Typography,
   TextField,
-  Grid,
   Card,
   CardContent,
   CardActionArea,
@@ -25,6 +24,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Search,
   ChevronDown,

@@ -4,7 +4,6 @@ import { useQuery, useMutation, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -24,6 +23,7 @@ import {
   Menu,
   MenuItem,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   TrendingUp as TrendingUpIcon,
   CampaignOutlined,
@@ -306,7 +306,7 @@ export default function MetaAdsDashboard() {
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Active Campaigns"
             value={stats?.activeCampaigns?.toString() || '0'}
@@ -314,7 +314,7 @@ export default function MetaAdsDashboard() {
             testId="card-stat-active-campaigns"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Spend"
             value={`$${stats?.totalSpend?.toFixed(2) || '0.00'}`}
@@ -322,7 +322,7 @@ export default function MetaAdsDashboard() {
             testId="card-stat-total-spend"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Impressions"
             value={stats?.totalImpressions?.toLocaleString() || '0'}
@@ -330,7 +330,7 @@ export default function MetaAdsDashboard() {
             testId="card-stat-impressions"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Clicks"
             value={stats?.totalClicks?.toLocaleString() || '0'}
@@ -342,7 +342,7 @@ export default function MetaAdsDashboard() {
 
       {/* Charts */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -361,7 +361,7 @@ export default function MetaAdsDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>

@@ -26,11 +26,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Card,
   CardContent,
   IconButton,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   CloudUpload,
   Download,
@@ -378,7 +378,7 @@ export default function BulkUploadPage() {
               </Typography>
               <Grid container spacing={2}>
                 {[...REQUIRED_FIELDS, ...OPTIONAL_FIELDS].map(field => (
-                  <Grid item xs={12} sm={6} md={3} key={field}>
+                  <Grid xs={12} sm={6} md={3} key={field}>
                     <FormControl fullWidth size="small">
                       <InputLabel>{field} {REQUIRED_FIELDS.includes(field) && '*'}</InputLabel>
                       <Select
@@ -490,7 +490,7 @@ export default function BulkUploadPage() {
               Import Summary
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid xs={12} sm={6} md={3}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" gutterBottom variant="body2">
@@ -500,7 +500,7 @@ export default function BulkUploadPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid xs={12} sm={6} md={3}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" gutterBottom variant="body2">
@@ -512,7 +512,7 @@ export default function BulkUploadPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid xs={12} sm={6} md={3}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" gutterBottom variant="body2">
@@ -524,7 +524,7 @@ export default function BulkUploadPage() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid xs={12} sm={6} md={3}>
                 <Card variant="outlined">
                   <CardContent>
                     <Typography color="text.secondary" gutterBottom variant="body2">

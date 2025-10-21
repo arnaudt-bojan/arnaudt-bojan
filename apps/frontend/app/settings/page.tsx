@@ -10,7 +10,6 @@ import {
   Paper,
   Tabs,
   Tab,
-  Grid,
   Switch,
   FormControlLabel,
   Select,
@@ -28,6 +27,7 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Store,
   Palette,
@@ -179,12 +179,12 @@ export default function SettingsPage() {
         {/* Store Settings Tab */}
         <TabPanel value={currentTab} index={0}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 Store Information
               </Typography>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Business Name"
@@ -193,7 +193,7 @@ export default function SettingsPage() {
                 data-testid="input-business-name"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Contact Email"
@@ -202,7 +202,7 @@ export default function SettingsPage() {
                 onChange={(e) => setContactEmail(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Phone Number"
@@ -210,7 +210,7 @@ export default function SettingsPage() {
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Tax ID"
@@ -218,7 +218,7 @@ export default function SettingsPage() {
                 onChange={(e) => setTaxId(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Store Description"
@@ -229,7 +229,7 @@ export default function SettingsPage() {
                 data-testid="input-store-description"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Business Address"
@@ -239,7 +239,7 @@ export default function SettingsPage() {
                 onChange={(e) => setBusinessAddress(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Currency</InputLabel>
                 <Select
@@ -254,7 +254,7 @@ export default function SettingsPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Timezone</InputLabel>
                 <Select
@@ -269,7 +269,7 @@ export default function SettingsPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button variant="contained" startIcon={<Save />} onClick={handleSave} data-testid="button-save-settings">
                   Save Changes
@@ -285,12 +285,12 @@ export default function SettingsPage() {
         {/* Storefront Settings Tab */}
         <TabPanel value={currentTab} index={1}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 Domain & Branding
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Subdomain"
@@ -302,7 +302,7 @@ export default function SettingsPage() {
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Custom Domain"
@@ -316,13 +316,13 @@ export default function SettingsPage() {
                 </Alert>
               )}
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom>
                 Theme Customization
               </Typography>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Primary Color"
@@ -331,13 +331,13 @@ export default function SettingsPage() {
                 onChange={(e) => setThemeColor(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom>
                 SEO Settings
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Meta Title"
@@ -346,7 +346,7 @@ export default function SettingsPage() {
                 helperText="Recommended: 50-60 characters"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Meta Description"
@@ -357,13 +357,13 @@ export default function SettingsPage() {
                 helperText="Recommended: 150-160 characters"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom>
                 Social Media Links
               </Typography>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Instagram"
@@ -372,7 +372,7 @@ export default function SettingsPage() {
                 placeholder="@username"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Twitter"
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                 placeholder="@username"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Footer Content"
@@ -391,7 +391,7 @@ export default function SettingsPage() {
                 onChange={(e) => setFooterContent(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Button variant="contained" startIcon={<Save />} onClick={handleSave}>
                 Save Changes
               </Button>
@@ -402,12 +402,12 @@ export default function SettingsPage() {
         {/* Shipping Settings Tab */}
         <TabPanel value={currentTab} index={2}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 Shipping Configuration
               </Typography>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Default Shipping Rate"
@@ -419,7 +419,7 @@ export default function SettingsPage() {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Free Shipping Threshold"
@@ -432,7 +432,7 @@ export default function SettingsPage() {
                 helperText="Orders above this amount get free shipping"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Card variant="outlined">
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Processing Time</InputLabel>
                 <Select
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Return Policy"
@@ -477,7 +477,7 @@ export default function SettingsPage() {
                 onChange={(e) => setReturnPolicy(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Button variant="contained" startIcon={<Save />} onClick={handleSave}>
                 Save Changes
               </Button>
@@ -488,12 +488,12 @@ export default function SettingsPage() {
         {/* Payment Settings Tab */}
         <TabPanel value={currentTab} index={3}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 Payment Configuration
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Card variant="outlined">
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -519,7 +519,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -533,7 +533,7 @@ export default function SettingsPage() {
                 Automatically calculate sales tax based on customer location
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Button variant="contained" startIcon={<Save />} onClick={handleSave}>
                 Save Changes
               </Button>
@@ -544,12 +544,12 @@ export default function SettingsPage() {
         {/* Notification Settings Tab */}
         <TabPanel value={currentTab} index={4}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 Email Notifications
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -560,7 +560,7 @@ export default function SettingsPage() {
                 label="New order received"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -571,7 +571,7 @@ export default function SettingsPage() {
                 label="Low stock alerts"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -582,13 +582,13 @@ export default function SettingsPage() {
                 label="Customer messages"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom>
                 SMS Notifications
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -599,7 +599,7 @@ export default function SettingsPage() {
                 label="Enable SMS notifications (Premium feature)"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Button variant="contained" startIcon={<Save />} onClick={handleSave}>
                 Save Changes
               </Button>
@@ -610,12 +610,12 @@ export default function SettingsPage() {
         {/* Advanced Settings Tab */}
         <TabPanel value={currentTab} index={5}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 API Configuration
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="API Key"
@@ -631,7 +631,7 @@ export default function SettingsPage() {
                 helperText="Read-only API key for integrations"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Webhook URL"
@@ -640,13 +640,13 @@ export default function SettingsPage() {
                 helperText="Receive real-time updates about orders and products"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom>
                 Data Management
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Button variant="outlined" startIcon={<CloudUpload />}>
                   Export Data
@@ -656,13 +656,13 @@ export default function SettingsPage() {
                 </Button>
               </Box>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom color="error.main">
                 Danger Zone
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Alert severity="error">
                 Deleting your account is permanent and cannot be undone. All your data will be permanently deleted.
               </Alert>

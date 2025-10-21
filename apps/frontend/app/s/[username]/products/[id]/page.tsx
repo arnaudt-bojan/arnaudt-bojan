@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, gql, ApolloError } from '@apollo/client';
 import {
   Container,
-  Grid,
   Card,
   CardMedia,
   Typography,
@@ -27,6 +26,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Add,
   Remove,

@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -40,6 +39,7 @@ import {
   Tab,
   Tabs,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   DataGrid,
   GridColDef,
@@ -476,7 +476,7 @@ export default function CampaignsPage() {
         <Container maxWidth="xl" sx={{ py: 4 }}>
           {/* Stats Cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid xs={12} sm={6} md={3}>
               <Card data-testid="card-stat-total-campaigns">
                 <CardContent>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -495,7 +495,7 @@ export default function CampaignsPage() {
               </Card>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid xs={12} sm={6} md={3}>
               <Card data-testid="card-stat-open-rate">
                 <CardContent>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -511,7 +511,7 @@ export default function CampaignsPage() {
               </Card>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid xs={12} sm={6} md={3}>
               <Card>
                 <CardContent>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -527,7 +527,7 @@ export default function CampaignsPage() {
               </Card>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid xs={12} sm={6} md={3}>
               <Card>
                 <CardContent>
                   <Box display="flex" alignItems="center" justifyContent="space-between">

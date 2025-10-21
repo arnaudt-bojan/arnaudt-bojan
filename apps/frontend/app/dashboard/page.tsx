@@ -9,7 +9,6 @@ import {
   Card,
   CardContent,
   CardMedia,
-  Grid,
   Box,
   Chip,
   CircularProgress,
@@ -23,6 +22,7 @@ import {
   IconButton,
   Button,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Dashboard as DashboardIcon,
   Inventory as InventoryIcon,
@@ -303,7 +303,7 @@ export default function DashboardPage() {
 
               <Grid container spacing={3}>
                 {productsData.listProducts.edges.map(({ node: product }: any) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+                  <Grid xs={12} sm={6} md={4} lg={3} key={product.id}>
                     <Card>
                       <CardMedia
                         component="img"

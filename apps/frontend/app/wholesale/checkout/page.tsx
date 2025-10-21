@@ -10,7 +10,6 @@ import {
   Button,
   Box,
   TextField,
-  Grid,
   Alert,
   Divider,
   Table,
@@ -28,6 +27,7 @@ import {
   StepLabel,
   Checkbox,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   ShoppingCart,
   LocalShipping,
@@ -181,7 +181,7 @@ export default function WholesaleCheckoutPage() {
                 </FormControl>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Contact Name"
@@ -192,7 +192,7 @@ export default function WholesaleCheckoutPage() {
                       required
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Company Name"
@@ -203,7 +203,7 @@ export default function WholesaleCheckoutPage() {
                       required
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Contact Email"
@@ -215,7 +215,7 @@ export default function WholesaleCheckoutPage() {
                       required
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Contact Phone"
@@ -229,7 +229,7 @@ export default function WholesaleCheckoutPage() {
 
                   {shippingType === 'freight_collect' && (
                     <>
-                      <Grid item xs={12} md={6}>
+                      <Grid xs={12} md={6}>
                         <TextField
                           fullWidth
                           label="Carrier Name"
@@ -239,7 +239,7 @@ export default function WholesaleCheckoutPage() {
                           }
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid xs={12} md={6}>
                         <TextField
                           fullWidth
                           label="Freight Account Number"
@@ -256,7 +256,7 @@ export default function WholesaleCheckoutPage() {
                   )}
 
                   {shippingType === 'buyer_pickup' && (
-                    <Grid item xs={12}>
+                    <Grid xs={12}>
                       <TextField
                         fullWidth
                         label="Pickup Instructions"

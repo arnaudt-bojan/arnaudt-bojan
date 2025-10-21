@@ -8,7 +8,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   CircularProgress,
   Alert,
   Button,
@@ -34,6 +33,7 @@ import {
   DialogContentText,
   Snackbar,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   ArrowBack as ArrowBackIcon,
   LocalShipping as LocalShippingIcon,
@@ -284,7 +284,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
       </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+        <Grid xs={12} md={8}>
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -376,7 +376,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>

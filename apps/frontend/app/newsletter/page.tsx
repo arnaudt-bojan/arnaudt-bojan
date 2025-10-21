@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -31,6 +30,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   DataGrid,
   GridColDef,
@@ -432,7 +432,7 @@ export default function NewsletterPage() {
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Stats Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <Card data-testid="card-stat-total-subscribers">
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -448,7 +448,7 @@ export default function NewsletterPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <Card data-testid="card-stat-active-subscribers">
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -464,7 +464,7 @@ export default function NewsletterPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -480,7 +480,7 @@ export default function NewsletterPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">

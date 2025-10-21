@@ -5,7 +5,6 @@ import { useQuery, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -26,6 +25,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   TrendingUp,
   TrendingDown,
@@ -279,7 +279,7 @@ export default function MetaAdsAnalytics() {
         {/* Filters */}
         <Paper sx={{ p: 3, mb: 4 }}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <FormControl fullWidth>
                 <InputLabel>Campaign</InputLabel>
                 <Select
@@ -298,7 +298,7 @@ export default function MetaAdsAnalytics() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <FormControl fullWidth>
                 <InputLabel>Date Range</InputLabel>
                 <Select
@@ -317,7 +317,7 @@ export default function MetaAdsAnalytics() {
 
             {dateRange === 'custom' && (
               <>
-                <Grid item xs={12} md={2}>
+                <Grid xs={12} md={2}>
                   <DatePicker
                     label="Start Date"
                     value={startDate}
@@ -329,7 +329,7 @@ export default function MetaAdsAnalytics() {
                     }}
                   />
                 </Grid>
-                <Grid item xs={12} md={2}>
+                <Grid xs={12} md={2}>
                   <DatePicker
                     label="End Date"
                     value={endDate}
@@ -348,7 +348,7 @@ export default function MetaAdsAnalytics() {
 
         {/* Key Metrics */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="Total Spend"
               value={`$${analytics?.totalSpend?.toFixed(2) || '0.00'}`}
@@ -357,7 +357,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-spend"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="Impressions"
               value={analytics?.totalImpressions?.toLocaleString() || '0'}
@@ -366,7 +366,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-impressions"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="Clicks"
               value={analytics?.totalClicks?.toLocaleString() || '0'}
@@ -375,7 +375,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-clicks"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="CTR"
               value={`${((analytics?.ctr || 0) * 100).toFixed(2)}%`}
@@ -384,7 +384,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-ctr"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="Conversions"
               value={analytics?.totalConversions?.toLocaleString() || '0'}
@@ -393,7 +393,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-conversions"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="CPC"
               value={`$${analytics?.cpc?.toFixed(2) || '0.00'}`}
@@ -402,7 +402,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-cpc"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="CPM"
               value={`$${analytics?.cpm?.toFixed(2) || '0.00'}`}
@@ -411,7 +411,7 @@ export default function MetaAdsAnalytics() {
               testId="card-metric-cpm"
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <MetricCard
               title="ROAS"
               value={`${analytics?.roas?.toFixed(2) || '0.00'}x`}
@@ -424,7 +424,7 @@ export default function MetaAdsAnalytics() {
 
         {/* Charts */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} lg={6}>
+          <Grid xs={12} lg={6}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -444,7 +444,7 @@ export default function MetaAdsAnalytics() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} lg={6}>
+          <Grid xs={12} lg={6}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -466,7 +466,7 @@ export default function MetaAdsAnalytics() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} lg={6}>
+          <Grid xs={12} lg={6}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -486,7 +486,7 @@ export default function MetaAdsAnalytics() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} lg={6}>
+          <Grid xs={12} lg={6}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>

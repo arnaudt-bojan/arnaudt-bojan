@@ -4,7 +4,6 @@ import { useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   CardHeader,
@@ -23,6 +22,7 @@ import {
   Alert,
   AlertTitle,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Description,
   AttachMoney,
@@ -114,7 +114,7 @@ export default function TradeDashboard() {
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Quotations"
             value={totalQuotations}
@@ -122,7 +122,7 @@ export default function TradeDashboard() {
             testId="card-stat-total-quotations"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Pending"
             value={pendingQuotations}
@@ -130,7 +130,7 @@ export default function TradeDashboard() {
             testId="card-stat-pending-quotations"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Accepted"
             value={acceptedQuotations}
@@ -138,7 +138,7 @@ export default function TradeDashboard() {
             testId="card-stat-accepted-quotations"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Revenue"
             value={formatCurrency(totalRevenue)}
@@ -153,7 +153,7 @@ export default function TradeDashboard() {
         <CardHeader title="Quick Actions" />
         <CardContent>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Button
                 variant="contained"
                 color="primary"
@@ -165,7 +165,7 @@ export default function TradeDashboard() {
                 Send New Quotation
               </Button>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Button
                 variant="outlined"
                 fullWidth
@@ -176,7 +176,7 @@ export default function TradeDashboard() {
                 View All Quotations
               </Button>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Button
                 variant="outlined"
                 fullWidth

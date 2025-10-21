@@ -7,7 +7,6 @@ import {
   Typography,
   TextField,
   Paper,
-  Grid,
   Card,
   CardContent,
   CardActions,
@@ -28,6 +27,7 @@ import {
   IconButton,
   Divider,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Search,
   Add,
@@ -306,14 +306,14 @@ export default function QuickAccessPage() {
 
       <Grid container spacing={3}>
         {/* Quick Actions Panel */}
-        <Grid item xs={12} md={8}>
+        <Grid xs={12} md={8}>
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Quick Actions
             </Typography>
             <Grid container spacing={2} data-testid="panel-quick-actions">
               {quickActions.map((action) => (
-                <Grid item xs={12} sm={6} md={4} key={action.id}>
+                <Grid xs={12} sm={6} md={4} key={action.id}>
                   <Card
                     sx={{
                       height: '100%',
@@ -387,7 +387,7 @@ export default function QuickAccessPage() {
         </Grid>
 
         {/* Sidebar */}
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           {/* Favorite Products */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
@@ -395,7 +395,7 @@ export default function QuickAccessPage() {
             </Typography>
             <Grid container spacing={2} data-testid="grid-favorite-products">
               {favoriteProducts.map((product) => (
-                <Grid item xs={12} key={product.id}>
+                <Grid xs={12} key={product.id}>
                   <Card variant="outlined">
                     <CardContent sx={{ p: 2 }}>
                       <Box sx={{ display: 'flex', gap: 2 }}>

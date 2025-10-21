@@ -3,7 +3,6 @@
 import { useQuery, gql } from '@apollo/client';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -21,6 +20,7 @@ import {
   Paper,
   Chip,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Package,
   Users,
@@ -172,7 +172,7 @@ export default function WholesaleDashboard() {
 
       {/* Stats Cards */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-products">
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
@@ -192,7 +192,7 @@ export default function WholesaleDashboard() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-buyers">
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
@@ -212,7 +212,7 @@ export default function WholesaleDashboard() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-orders">
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
@@ -232,7 +232,7 @@ export default function WholesaleDashboard() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card data-testid="card-stat-revenue">
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
@@ -255,7 +255,7 @@ export default function WholesaleDashboard() {
 
       <Grid container spacing={3}>
         {/* Recent Orders */}
-        <Grid item xs={12} lg={8}>
+        <Grid xs={12} lg={8}>
           <Card data-testid="card-recent-orders">
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -332,7 +332,7 @@ export default function WholesaleDashboard() {
         </Grid>
 
         {/* Quick Actions */}
-        <Grid item xs={12} lg={4}>
+        <Grid xs={12} lg={4}>
           <Card data-testid="card-quick-actions">
             <CardContent>
               <Typography variant="h6" fontWeight="bold" mb={2}>

@@ -5,7 +5,6 @@ import { useQuery, useMutation } from '@apollo/client';
 import { useParams } from 'next/navigation';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   CardHeader,
@@ -30,6 +29,7 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   CheckCircle,
   Cancel,
@@ -159,7 +159,7 @@ export default function QuotationViewPage() {
           <Grid container spacing={2}>
             {quotation.seller && (
               <>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Business color="action" />
                     <Box>
@@ -172,7 +172,7 @@ export default function QuotationViewPage() {
                     </Box>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Email color="action" />
                     <Box>
@@ -187,7 +187,7 @@ export default function QuotationViewPage() {
                 </Grid>
               </>
             )}
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarToday color="action" />
                 <Box>
@@ -201,7 +201,7 @@ export default function QuotationViewPage() {
               </Box>
             </Grid>
             {quotation.validUntil && (
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CalendarToday color="action" />
                   <Box>
@@ -216,7 +216,7 @@ export default function QuotationViewPage() {
               </Grid>
             )}
             {quotation.deliveryTerms && (
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <LocalShipping color="action" />
                   <Box>
@@ -271,7 +271,7 @@ export default function QuotationViewPage() {
 
           {/* Totals */}
           <Grid container spacing={2} justifyContent="flex-end">
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid xs={12} sm={6} md={4}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body1">Subtotal:</Typography>
                 <Typography variant="body1" fontWeight="medium" data-testid="text-subtotal">
@@ -311,7 +311,7 @@ export default function QuotationViewPage() {
         <CardHeader title="Payment Terms" />
         <CardContent>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Box sx={{ p: 2, bgcolor: 'primary.50', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Deposit ({quotation.depositPercentage}%)
@@ -324,7 +324,7 @@ export default function QuotationViewPage() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Balance

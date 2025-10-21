@@ -5,7 +5,6 @@ import { useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   CardMedia,
@@ -23,6 +22,7 @@ import {
   InputAdornment,
   Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Search,
   ShoppingCart,
@@ -88,7 +88,7 @@ export default function WholesaleCatalogPage() {
       {/* Filters */}
       <Box sx={{ mb: 4 }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={5}>
+          <Grid xs={12} md={5}>
             <TextField
               fullWidth
               placeholder="Search products..."
@@ -103,7 +103,7 @@ export default function WholesaleCatalogPage() {
               }}
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid xs={12} md={4}>
             <FormControl fullWidth>
               <InputLabel>Category</InputLabel>
               <Select
@@ -120,7 +120,7 @@ export default function WholesaleCatalogPage() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid xs={12} md={3}>
             <FormControl fullWidth>
               <InputLabel>Sort By</InputLabel>
               <Select
@@ -155,7 +155,7 @@ export default function WholesaleCatalogPage() {
       {!loading && products.length > 0 && (
         <Grid container spacing={3}>
           {products.map((product: any) => (
-            <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
+            <Grid key={product.id} xs={12} sm={6} md={4} lg={3}>
               <Card
                 data-testid={`card-product-${product.id}`}
                 sx={{

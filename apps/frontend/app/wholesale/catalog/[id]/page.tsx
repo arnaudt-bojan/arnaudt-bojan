@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   CardMedia,
@@ -22,6 +21,7 @@ import {
   TableCell,
   TableRow,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   ArrowBack,
   ShoppingCart,
@@ -103,7 +103,7 @@ export default function WholesaleProductDetailPage() {
 
       <Grid container spacing={4}>
         {/* Product Images */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardMedia
               component="img"
@@ -115,7 +115,7 @@ export default function WholesaleProductDetailPage() {
         </Grid>
 
         {/* Product Details */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
               {product.name}
@@ -246,7 +246,7 @@ export default function WholesaleProductDetailPage() {
 
         {/* Product Description */}
         {product.description && (
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>

@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   Container,
-  Grid,
   Card,
   CardContent,
   CardHeader,
@@ -35,6 +34,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   ShoppingCart,
   LocalShipping,
@@ -248,10 +248,10 @@ export default function CheckoutPage() {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Grid container spacing={4}>
-          <Grid item xs={12} md={8}>
+          <Grid xs={12} md={8}>
             <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid xs={12} md={4}>
             <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
           </Grid>
         </Grid>
@@ -318,7 +318,7 @@ export default function CheckoutPage() {
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={4}>
           {/* Left Column: Forms */}
-          <Grid item xs={12} md={8}>
+          <Grid xs={12} md={8}>
             {/* Shipping Address */}
             <Card sx={{ mb: 3 }}>
               <CardHeader
@@ -331,7 +331,7 @@ export default function CheckoutPage() {
               />
               <CardContent>
                 <Grid container spacing={2}>
-                  <Grid item xs={12}>
+                  <Grid xs={12}>
                     <Controller
                       name="shippingName"
                       control={control}
@@ -347,7 +347,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid xs={12}>
                     <Controller
                       name="shippingAddress"
                       control={control}
@@ -363,7 +363,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid xs={12} sm={6}>
                     <Controller
                       name="shippingCity"
                       control={control}
@@ -379,7 +379,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid xs={12} sm={6}>
                     <Controller
                       name="shippingState"
                       control={control}
@@ -404,7 +404,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid xs={12} sm={6}>
                     <Controller
                       name="shippingZip"
                       control={control}
@@ -420,7 +420,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid xs={12} sm={6}>
                     <Controller
                       name="shippingCountry"
                       control={control}
@@ -441,7 +441,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid xs={12}>
                     <Controller
                       name="shippingPhone"
                       control={control}
@@ -457,7 +457,7 @@ export default function CheckoutPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid xs={12}>
                     <Controller
                       name="customerEmail"
                       control={control}
@@ -508,7 +508,7 @@ export default function CheckoutPage() {
 
                 {!billingSameAsShipping && (
                   <Grid container spacing={2} sx={{ mt: 2 }}>
-                    <Grid item xs={12}>
+                    <Grid xs={12}>
                       <Controller
                         name="billingName"
                         control={control}
@@ -523,7 +523,7 @@ export default function CheckoutPage() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid xs={12}>
                       <Controller
                         name="billingAddress"
                         control={control}
@@ -538,7 +538,7 @@ export default function CheckoutPage() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <Controller
                         name="billingCity"
                         control={control}
@@ -553,7 +553,7 @@ export default function CheckoutPage() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <Controller
                         name="billingState"
                         control={control}
@@ -574,7 +574,7 @@ export default function CheckoutPage() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <Controller
                         name="billingZip"
                         control={control}
@@ -589,7 +589,7 @@ export default function CheckoutPage() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <Controller
                         name="billingCountry"
                         control={control}
@@ -655,7 +655,7 @@ export default function CheckoutPage() {
           </Grid>
 
           {/* Right Column: Order Summary */}
-          <Grid item xs={12} md={4}>
+          <Grid xs={12} md={4}>
             <Card sx={{ position: { md: 'sticky' }, top: { md: 24 } }}>
               <CardHeader title="Order Summary" />
               <CardContent>

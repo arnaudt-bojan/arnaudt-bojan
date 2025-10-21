@@ -15,7 +15,6 @@ import {
   TextField,
   Divider,
   Box,
-  Grid,
   Card,
   CardContent,
   Skeleton,
@@ -23,6 +22,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Add,
   Remove,
