@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "NODE_ENV=development node node_modules/tsx/dist/cli.mjs server/index.ts",
     "clean": "rm -rf node_modules && npm cache clean --force",
-    "prebuild": "npm run clean && npm ci --prefer-offline --no-audit --no-fund",
     "build": "prisma generate && vite build",
     "start": "NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts",
     "check": "tsc",
