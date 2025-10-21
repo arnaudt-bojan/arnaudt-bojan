@@ -1,31 +1,58 @@
-# ⚠️ URGENT: Workflow Configuration Update Required
+# ⚠️ URGENT: Configuration Update Required (2 Files)
 
 **Status**: Workflow "Start application" is FAILING  
 **Cause**: Trying to run OLD Express server instead of NEW monorepo structure  
-**Fix Time**: 30 seconds  
+**Fix Time**: 1 minute  
 
 ---
 
 ## The Problem
 
-Your workflow is still configured to run:
+Your workflow is running:
 ```bash
 npm run dev  # → runs old server/index.ts (FAILS with missing prom-client)
 ```
 
-But should run:
+Should run:
 ```bash
-./dev.sh     # → runs new NestJS backend + Next.js frontend concurrently
+npm run dev  # → runs new NestJS backend + Next.js frontend concurrently
 ```
 
 ---
 
-## The Fix (Manual Edit Required)
+## Fix 1: Update package.json
 
-**File**: `.replit` (line 98)  
-**Action**: Change ONE line
+**File**: `package.json` (line 12)  
+**Action**: Replace the "dev" script
 
-### BEFORE (Current - BROKEN):
+### BEFORE (Broken):
+```json
+{
+  "scripts": {
+    "dev": "NODE_ENV=development node node_modules/tsx/dist/cli.mjs server/index.ts",
+    ...
+  }
+}
+```
+
+### AFTER (Fixed):
+```json
+{
+  "scripts": {
+    "dev": "concurrently \"npm run start:dev --workspace=@upfirst/backend\" \"npm run dev --workspace=@upfirst/frontend\"",
+    ...
+  }
+}
+```
+
+---
+
+## Fix 2: Update .replit
+
+**File**: `.replit` (line 99)  
+**Action**: Change the port number
+
+### BEFORE:
 ```toml
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -33,52 +60,48 @@ args = "npm run dev"
 waitForPort = 5000
 ```
 
-### AFTER (Fixed - WORKING):
+### AFTER:
 ```toml
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "./dev.sh"
+args = "npm run dev"
 waitForPort = 3000
 ```
 
 ---
 
-## Steps
+## Quick Steps
 
-1. Open `.replit` file in the root directory
-2. Find line 98: `args = "npm run dev"`
-3. Change to: `args = "./dev.sh"`
-4. Change line 99: `waitForPort = 5000` → `waitForPort = 3000`
-5. Save the file
-6. Click "Run" button (or refresh page)
+1. Open `package.json` → Replace line 12 with the new "dev" script
+2. Open `.replit` → Change line 99 from `5000` to `3000`
+3. Save both files
+4. Click "Run" button
 
 ---
 
 ## What You'll See After Fix
 
 ```
-[BACKEND]  [Nest] Starting Nest application...
-[FRONTEND] ▲ Next.js 14.2.33
-[BACKEND]  [Nest] GraphQL server on http://localhost:4000/graphql
-[FRONTEND] - Local: http://localhost:3000
+[0] [BACKEND]  [Nest] Starting Nest application...
+[1] [FRONTEND] ▲ Next.js 14.2.33
+[0] [BACKEND]  [Nest] GraphQL server on http://localhost:4000/graphql
+[1] [FRONTEND] - Local: http://localhost:3000
 ```
 
 Both services will run concurrently! ✅
 
 ---
 
-## Why This is Manual
+## Why Manual Edits?
 
-The `.replit` file is protected by the Replit environment and cannot be edited by the agent. This is the ONLY manual step required to complete the monorepo migration.
+Both `package.json` and `.replit` are protected by the Replit environment to prevent accidental breakage. These are the ONLY manual steps required to complete the monorepo migration.
 
 ---
 
 ## After You Update
 
-Once you make this change, the workflow will:
-- ✅ Start NestJS backend (port 4000)
-- ✅ Start Next.js frontend (port 3000)
-- ✅ Auto-restart on file changes
-- ✅ Show labeled output for each service
-
-The `dev.sh` script has already been created and made executable for you!
+✅ NestJS backend runs on port 4000  
+✅ Next.js frontend runs on port 3000  
+✅ Auto-restart on file changes  
+✅ Labeled output for each service  
+✅ No more prom-client error!

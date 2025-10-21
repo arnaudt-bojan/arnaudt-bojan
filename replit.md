@@ -50,13 +50,13 @@ The platform features three distinct, parallel platforms with all business logic
     -   **Files**: dashboard, buyer, wholesale, trade, cart, checkout, orders, settings, analytics, wallet, campaigns, newsletter, meta-ads, admin, help, bulk-upload, storefront pages
 
 ### October 2025 - Monorepo Development Workflow Setup
--   **Created dev.sh script**: Orchestrates concurrent execution of NestJS backend + Next.js frontend
+-   **Updated npm dev script**: Orchestrates concurrent execution of NestJS backend + Next.js frontend
     -   Uses `concurrently` package to run both services with labeled output
     -   Backend: `npm run start:dev --workspace=@upfirst/backend` (NestJS watch mode)
     -   Frontend: `npm run dev --workspace=@upfirst/frontend` (Next.js dev mode on port 3000)
--   **Workflow configuration**: Requires manual update to `.replit` file (see WORKFLOW_UPDATE_REQUIRED.md)
-    -   Change `args = "npm run dev"` → `args = "./dev.sh"`
-    -   Change `waitForPort = 5000` → `waitForPort = 3000`
+-   **Configuration**: Requires manual updates to 2 protected files (see WORKFLOW_UPDATE_REQUIRED.md)
+    -   `package.json`: Update "dev" script to use concurrently with workspace commands
+    -   `.replit`: Change `waitForPort` from 5000 to 3000 (Next.js frontend port)
 
 ## External Dependencies
 -   **Database**: PostgreSQL (Neon)
