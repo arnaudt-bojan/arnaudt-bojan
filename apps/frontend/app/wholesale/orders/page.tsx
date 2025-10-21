@@ -90,8 +90,8 @@ export default function WholesaleOrders() {
       field: 'items',
       headerName: 'Products',
       width: 100,
-      align: 'center',
-      headerAlign: 'center',
+      align: 'center' as const,
+      headerAlign: 'center' as const,
       renderCell: (params: GridRenderCellParams) => params.row.items?.length || 0,
     },
     {

@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { gql } from '@/lib/apollo-client';
 
 // Query to get wholesale invitation by token
 export const GET_WHOLESALE_INVITATION = gql`

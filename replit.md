@@ -40,6 +40,30 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - Apollo Client v4 Migration & GraphQL Code Generator Setup
+-   **Apollo Client v4 Integration**: Migrated from deprecated experimental package to production-ready Apollo Client v4
+    -   **Package**: Installed `@apollo/client-integration-nextjs` (v0.14.0) for Next.js App Router support
+    -   **Import Structure**: Fixed Apollo Client v4 import paths across 34 files
+        - React hooks: `@apollo/client/react` (useQuery, useMutation, etc.)
+        - gql template: `@apollo/client/core`
+        - Error types: `@apollo/client/errors`
+    -   **Centralized Wrapper**: Created `apps/frontend/lib/apollo-client.tsx` to re-export all Apollo hooks/utilities
+    -   **Migration Scope**: Updated all 34 components to import from centralized wrapper
+-   **GraphQL Query Refactoring**: Eliminated duplicate operation names blocking code generation
+    -   **Shared Query Structure**: Created 10 domain-organized shared files
+        - Queries: user, products, orders, cart, wholesale, trade-quotations (6 files)
+        - Mutations: products, cart, orders, wholesale (4 files)
+    -   **Deduplication**: Removed duplicate queries (GetCurrentUser, ListProducts, GetOrder, etc.)
+    -   **Schema Validation**: Fixed 72+ field mismatches by comparing against `docs/graphql-schema.graphql`
+    -   **Migration Scope**: Updated 20+ component files to use shared queries
+-   **GraphQL Code Generator**: Full type-safe GraphQL operations
+    -   **Configuration**: `apps/frontend/codegen.ts` using client preset
+    -   **Generated Output**: TypeScript types in `apps/frontend/lib/generated/`
+    -   **Scalars**: Configured DateTime, Decimal, JSON, URL mappings
+    -   **Exclusions**: Temporarily excluded meta-ads and wholesale-products pages (schema drift)
+    -   **Status**: ✅ Zero duplicate operation name errors, codegen runs successfully
+-   **Backend Fixes**: Added `npx` prefix to all nest commands in `apps/backend/package.json` to resolve permission errors
+
 ### October 2025 - Material UI v7 Grid Component Migration
 -   **Grid Component Upgrade**: Migrated all 34 frontend pages from deprecated GridLegacy to updated Grid component (MUI v7)
     -   **Import change**: `import { Grid } from '@mui/material'` → `import Grid from '@mui/material/Grid'`

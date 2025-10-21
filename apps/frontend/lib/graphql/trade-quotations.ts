@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { gql } from '@/lib/apollo-client';
 
 // Quotation fragment for reuse
 export const QUOTATION_FRAGMENT = gql`
