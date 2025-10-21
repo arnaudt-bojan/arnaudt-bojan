@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "prebuild": "npm run codegen",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "codegen": "graphql-codegen --config codegen.ts"
+    "typecheck": "tsc --noEmit",
+    "codegen": "graphql-codegen --config codegen.ts",
+    "check": "npm run typecheck && npm run lint"
   },
   "dependencies": {
     "next": "14.2.33",

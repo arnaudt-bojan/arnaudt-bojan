@@ -54,8 +54,12 @@
     "@graphql-codegen/typescript": "^5.0.2",
     "@graphql-codegen/typescript-operations": "^5.0.2",
     "@graphql-codegen/typescript-react-apollo": "^4.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
     "@whatwg-node/fetch": "^0.10.11",
     "@whatwg-node/node-fetch": "^0.8.1",
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^15.5.6"
   }
 }
