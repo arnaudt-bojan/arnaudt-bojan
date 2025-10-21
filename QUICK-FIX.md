@@ -1,25 +1,29 @@
 # Quick Fix for Replit Deployment
 
 ## 🐛 **The Problem**
-Deployment fails with: `Cannot find module 'tsx'`
+Deployment fails with: `Missing 'reflect-metadata' dependency - package not found during runtime`
 
-## ✅ **The Solution** (Already Done!)
+## ✅ **The Solution** (Try These in Order)
 
-The `start.sh` script has been updated to use `npx tsx` which works correctly.
+### Solution A: Preload reflect-metadata (Already Done!)
 
-**Verify `.replit` file line 14 says:**
+The `start.sh` script has been updated to preload reflect-metadata:
 
-```toml
-run = ["sh", "start.sh"]
+```bash
+NODE_ENV=production node --require reflect-metadata ./node_modules/.bin/tsx server/index.ts
 ```
 
-**Or alternatively:**
+**Just redeploy** via Publishing → Publish. It should work! ✅
 
-```toml
-run = ["npm", "run", "start"]
-```
+### Solution B: If That Fails
 
-Both work! Just redeploy and it should succeed. ✅
+Compile TypeScript to JavaScript for more reliable Cloud Run deployment.
+
+**Edit `.replit` file:**
+- **Line 12**: Add `&& tsc -p tsconfig.server.json` to build command
+- **Line 14**: Change run to `["sh", "start-compiled.sh"]`
+
+Then redeploy.
 
 ---
 

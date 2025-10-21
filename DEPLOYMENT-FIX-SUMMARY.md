@@ -16,23 +16,27 @@
 
 ## 🔧 **What Was Changed**
 
-### Updated File: `start.sh`
+### Updated Files:
 
-**Before:**
-```bash
-NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts
-```
+**1. `start.sh`** (Solution A - Quick Fix)
 
-**After:**
 ```bash
-NODE_ENV=production npx tsx server/index.ts
+# Now preloads reflect-metadata before running tsx
+NODE_ENV=production node --require reflect-metadata ./node_modules/.bin/tsx server/index.ts
 ```
 
 **Why this works:**
-- ✅ `npx` automatically finds tsx in node_modules
-- ✅ Works in all deployment environments (Cloud Run, Reserved VM, local Docker)
-- ✅ No hardcoded paths that break in different environments
-- ✅ `reflect-metadata` is already imported in server/index.ts
+- ✅ `--require reflect-metadata` preloads the package before tsx runs
+- ✅ Direct path to tsx binary ensures it's found
+- ✅ No dependency on npx in Cloud Run environment
+
+**2. Created `tsconfig.server.json` + `start-compiled.sh`** (Solution B - More Reliable)
+
+If Solution A fails, compile TypeScript to JavaScript:
+- `tsconfig.server.json` - Compiles server code to JavaScript
+- `start-compiled.sh` - Runs compiled JavaScript instead of TypeScript
+
+See `CLOUD-RUN-FIXES.md` for complete instructions.
 
 ---
 
