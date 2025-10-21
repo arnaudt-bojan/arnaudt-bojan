@@ -31,6 +31,14 @@ export {
   LinkError 
 } from '@apollo/client/errors';
 
+// Apollo Client v4 removed ApolloError as a standalone class
+// Create a type alias for backwards compatibility
+export type ApolloError = Error & {
+  graphQLErrors?: ReadonlyArray<any>;
+  networkError?: Error | null;
+  message: string;
+};
+
 // Function to create Apollo Client instance for Next.js 14 App Router (Client Components/SSR)
 function makeClient() {
   const httpLink = new HttpLink({
