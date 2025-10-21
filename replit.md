@@ -111,6 +111,17 @@ Upfirst now supports three deployment environments:
 
 ## Recent Changes
 
+### October 2025 - Material UI v7 Grid2 Migration
+-   **Grid to Grid2 Migration**: Completed migration of all 35 frontend page files from deprecated Grid component to Grid2 (MUI v7)
+    -   Migrated imports: `import { Grid } from '@mui/material'` → `import Grid from '@mui/material/Grid2'`
+    -   Removed deprecated `item` prop from all Grid components (Grid2 infers grid items automatically)
+    -   Preserved all responsive layout props (`xs`, `md`, `spacing`, `sx`, etc.)
+    -   **Files migrated**: dashboard, buyer, wholesale, trade, cart, checkout, orders, settings, analytics, wallet, campaigns, newsletter, meta-ads, admin, help, bulk-upload, and all storefront pages
+-   **Apollo Client SSR Fix**: Updated Next.js 14 App Router Apollo Client setup using `@apollo/experimental-nextjs-app-support`
+    -   Replaced standard Apollo classes with NextSSRApolloClient, NextSSRInMemoryCache, SSRMultipartLink
+    -   Fixed lib/apollo-client.ts → lib/apollo-client.tsx (JSX syntax requires .tsx extension)
+-   **Status**: All Grid2 migrations verified (0 deprecated Grid patterns remaining) ✅
+
 ### October 2025 - Multi-Environment Deployment Setup
 -   **Deployment Infrastructure**: Configured three-environment deployment strategy (Replit dev, Replit staging, Local Docker, AWS production)
 -   **Docker Configuration**: Created multi-stage Dockerfile supporting both local development and AWS production deployment

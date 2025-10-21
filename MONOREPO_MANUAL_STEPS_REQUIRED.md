@@ -18,6 +18,8 @@ The monorepo refactoring has been **90% automated**. Only **ONE file** requires 
 | **Rename apps/nest-api → apps/backend** | ✅ Complete | Directory renamed successfully |
 | **Update frontend package name** | ✅ Complete | Now `@upfirst/frontend` |
 | **Update backend package name** | ✅ Complete | Now `@upfirst/backend` |
+| **MUI v7 Grid2 Migration** | ✅ Complete | All 35 files migrated from Grid to Grid2 |
+| **Apollo Client SSR Setup** | ✅ Complete | Using @apollo/experimental-nextjs-app-support |
 | **Create deprecation notices** | ✅ Complete | client/DEPRECATED.md, server/DEPRECATED.md |
 | **Documentation** | ✅ Complete | MONOREPO_REFACTOR_PLAN.md |
 
