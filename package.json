@@ -49,6 +49,13 @@
   "dependencies": {
     "@apollo/client-integration-nextjs": "^0.14.0",
     "@apollo/client-react-streaming": "^0.14.0",
+    "@graphql-codegen/cli": "^6.0.1",
+    "@graphql-codegen/client-preset": "^5.1.0",
+    "@graphql-codegen/typescript": "^5.0.2",
+    "@graphql-codegen/typescript-operations": "^5.0.2",
+    "@graphql-codegen/typescript-react-apollo": "^4.3.3",
+    "@whatwg-node/fetch": "^0.10.11",
+    "@whatwg-node/node-fetch": "^0.8.1",
     "concurrently": "^9.2.1"
   }
 }
