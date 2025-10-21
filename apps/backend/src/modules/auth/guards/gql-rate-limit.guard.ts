@@ -1,7 +1,6 @@
-import { CanActivate, ExecutionContext, Injectable, Logger, SetMetadata } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, Logger, SetMetadata, HttpException, HttpStatus } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { ThrottlerException } from '@nestjs/common';
 
 const RATE_LIMIT_KEY = 'rateLimit';
 
@@ -82,8 +81,9 @@ export class GqlRateLimitGuard implements CanActivate {
       const resetIn = Math.ceil((entry.resetTime - now) / 1000);
       this.logger.warn(`Rate limit exceeded for ${key} on ${context.getHandler().name}. Reset in ${resetIn}s`);
       
-      throw new ThrottlerException(
-        `Too many requests. Please try again in ${resetIn} seconds.`
+      throw new HttpException(
+        `Too many requests. Please try again in ${resetIn} seconds.`,
+        HttpStatus.TOO_MANY_REQUESTS
       );
     }
 

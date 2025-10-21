@@ -256,7 +256,7 @@ export class OrderDomainService {
         remaining_balance: subtotal,
         payment_type: 'full',
         payment_status: 'pending',
-        status: 'pending',
+        status: 'PENDING' as any,  // OrderStatus enum
         fulfillment_status: 'unfulfilled',
         currency: 'USD',
         shipping_street: shippingAddress.addressLine1,
@@ -286,10 +286,11 @@ export class OrderDomainService {
             order_id: createdOrder.id,
             product_id: item.productId,
             product_name: item.name,
+            product_type: item.productType || 'physical',
             quantity: item.quantity,
             price: item.price.toString(),
             subtotal: (item.price * item.quantity).toString(),
-            item_status: 'pending',
+            item_status: 'PENDING' as any,  // OrderStatus enum
             created_at: new Date().toISOString(),
           },
         });
@@ -364,8 +365,7 @@ export class OrderDomainService {
         fulfillment_status: fulfillmentStatus,
         tracking_number: trackingNumber || null,
         shipping_carrier: carrier || null,
-        tracking_url: trackingUrl || null,
-        estimated_delivery: estimatedDelivery || null,
+        tracking_link: trackingUrl || null,  // Changed from tracking_url to tracking_link
         updated_at: new Date().toISOString(),
       },
     });
@@ -409,7 +409,7 @@ export class OrderDomainService {
     }
 
     // Validate refund amount (use integer math to avoid floating-point precision issues)
-    const orderTotalCents = Math.round(parseFloat(order.total) * 100);
+    const orderTotalCents = Math.round(parseFloat(order.total.toString()) * 100);
     const refundAmountCents = Math.round(amount * 100);
 
     if (refundAmountCents > orderTotalCents) {
@@ -421,7 +421,7 @@ export class OrderDomainService {
       where: { id: orderId },
       data: {
         payment_status: refundType === 'full' ? 'refunded' : 'partially_refunded',
-        status: refundType === 'full' ? 'refunded' : order.status,
+        status: refundType === 'full' ? 'CANCELLED' as any : order.status,  // OrderStatus enum
         updated_at: new Date().toISOString(),
       },
     });

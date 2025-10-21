@@ -158,7 +158,7 @@ export class ProductService {
       variants: input.variants || null,
       shipping_type: input.shippingType || 'flat',
       flat_shipping_rate: input.flatShippingRate || null,
-      status: 'ACTIVE',
+      status: 'ACTIVE' as any,  // ProductStatus enum
       promotion_active: 0,
       requires_deposit: 0,
       slug: input.name

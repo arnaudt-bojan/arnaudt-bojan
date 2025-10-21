@@ -112,11 +112,14 @@ export class OrdersService {
         return sum + parseFloat(item.amount);
       }, 0);
 
+      const firstItemAmount = parseFloat(input.lineItems[0]?.amount || '0');
+      const refundType = totalRefundAmount >= firstItemAmount ? 'full' as const : 'partial' as const;
+      
       const domainInput = {
         orderId: input.orderId,
         amount: totalRefundAmount,
         reason: input.reason,
-        refundType: totalRefundAmount >= parseFloat(input.lineItems[0]?.amount || '0') ? 'full' : 'partial' as const,
+        refundType: refundType,
       };
 
       return await this.domainService.issueRefund(domainInput, sellerId);
@@ -135,7 +138,8 @@ export class OrdersService {
       orderBy: { created_at: 'asc' },
     });
 
-    return items.map(item => this.mapOrderItemToGraphQL(item));
+    const mappedItems = items.map(item => this.mapOrderItemToGraphQL(item));
+    return mappedItems;
   }
 
   private mapOrderItemToGraphQL(item: any) {

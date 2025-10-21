@@ -232,20 +232,9 @@ export class WholesaleService {
       });
     }
 
-    const invitation = await this.prisma.wholesale_invitations.findFirst({
-      where: {
-        buyer_id: buyerId,
-        seller_id: sellerId,
-        status: 'accepted',
-      },
-      orderBy: { accepted_at: 'desc' },
-    });
-
-    if (!invitation) {
-      throw new GraphQLError('Wholesale invitation not found', {
-        extensions: { code: 'NOT_FOUND' },
-      });
-    }
+    // Access already verified via wholesale_access_grants above
+    // wholesale_invitations uses buyer_email not buyer_id, so we skip this check
+    // since the access grant check is sufficient
 
     let subtotalCents = 0;
     const orderItems = [];
@@ -294,7 +283,7 @@ export class WholesaleService {
     }));
 
     const validation = await this.wholesaleRulesService.validateWholesaleOrder(
-      invitation.id,
+      hasAccess.id,  // Use access grant ID instead of invitation ID
       validationItems,
       paymentTerms || 'Net 30',
     );

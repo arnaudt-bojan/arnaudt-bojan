@@ -158,7 +158,7 @@ export class SellerAccountResolver {
       fullName: [userData.first_name, userData.last_name].filter(Boolean).join(' ') || null,
       userType: userData.user_type || (userData.role === 'seller' ? 'SELLER' : 'BUYER'),
       profileImageUrl: userData.profile_image_url,
-      phoneNumber: userData.phone_number || null,
+      phoneNumber: null, // TODO: Add phone_number field to users table
       createdAt: userData.created_at,
       updatedAt: userData.updated_at,
     };
@@ -191,7 +191,7 @@ export class BuyerProfileResolver {
       fullName: [userData.first_name, userData.last_name].filter(Boolean).join(' ') || null,
       userType: userData.user_type || (userData.role === 'seller' ? 'SELLER' : 'BUYER'),
       profileImageUrl: userData.profile_image_url,
-      phoneNumber: userData.phone_number || null,
+      phoneNumber: null, // TODO: Add phone_number field to users table
       createdAt: userData.created_at,
       updatedAt: userData.updated_at,
     };
