@@ -6500,11 +6500,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/stripe/account-session", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { purpose = 'onboarding' } = req.body;
+      const { purpose = 'onboarding', accountId } = req.body;
 
       const result = await stripeConnectService.createAccountSession({
         userId,
         purpose,
+        accountId, // Pass accountId if provided (fixes race condition)
       });
 
       if (!result.success) {

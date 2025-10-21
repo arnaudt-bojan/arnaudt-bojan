@@ -230,6 +230,7 @@ export class StripeConnectService {
   async createAccountSession(params: {
     userId: string;
     purpose?: 'onboarding' | 'payouts';
+    accountId?: string;
   }): Promise<{
     success: boolean;
     data?: {
@@ -244,14 +245,19 @@ export class StripeConnectService {
         return { success: false, error: "Stripe is not configured" };
       }
 
-      const { userId, purpose = 'onboarding' } = params;
-      const user = await this.storage.getUser(userId);
-
-      if (!user || !user.stripeConnectedAccountId) {
-        return { success: false, error: "No Stripe account found. Create one first." };
+      const { userId, purpose = 'onboarding', accountId } = params;
+      
+      // Use provided accountId if available, otherwise look up from database
+      let stripeAccountId = accountId;
+      if (!stripeAccountId) {
+        const user = await this.storage.getUser(userId);
+        if (!user || !user.stripeConnectedAccountId) {
+          return { success: false, error: "No Stripe account found. Create one first." };
+        }
+        stripeAccountId = user.stripeConnectedAccountId;
       }
 
-      const account = await this.stripe.accounts.retrieve(user.stripeConnectedAccountId);
+      const account = await this.stripe.accounts.retrieve(stripeAccountId);
       console.log(`[Stripe Account Session] Account ${account.id} country: ${account.country}, default_currency: ${account.default_currency}`);
 
       const components: any = {
@@ -267,7 +273,7 @@ export class StripeConnectService {
       }
 
       const accountSession = await this.stripe.accountSessions.create({
-        account: user.stripeConnectedAccountId,
+        account: stripeAccountId,
         components,
       });
 
@@ -275,7 +281,7 @@ export class StripeConnectService {
         success: true,
         data: {
           clientSecret: accountSession.client_secret!,
-          accountId: user.stripeConnectedAccountId,
+          accountId: stripeAccountId,
           country: account.country,
         },
       };

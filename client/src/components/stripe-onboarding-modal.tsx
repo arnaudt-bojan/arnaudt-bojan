@@ -23,7 +23,10 @@ export function StripeOnboardingModal({ isOpen, onClose, accountId, onComplete, 
 
     const fetchClientSecret = async () => {
       try {
-        const response = await apiRequest("POST", "/api/stripe/account-session", { purpose });
+        const response = await apiRequest("POST", "/api/stripe/account-session", { 
+          purpose,
+          accountId // Pass accountId to avoid race condition
+        });
         const data = await response.json();
         return data.clientSecret;
       } catch (error) {
