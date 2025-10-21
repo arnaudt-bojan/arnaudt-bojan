@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "NODE_ENV=development node node_modules/tsx/dist/cli.mjs server/index.ts",
     "clean": "rm -rf node_modules && npm cache clean --force",
-    "build": "prisma generate && node scripts/build-server.js && vite build",
-    "start": "NODE_ENV=production node dist/index.js",
+    "build": "prisma generate && vite build",
+    "start": "NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts",
     "check": "tsc",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
