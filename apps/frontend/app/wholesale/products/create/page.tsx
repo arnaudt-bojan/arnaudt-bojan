@@ -18,7 +18,7 @@ import {
   InputAdornment,
   Alert,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 

@@ -22,7 +22,7 @@ import {
   IconButton,
   Button,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import {
   Dashboard as DashboardIcon,
   Inventory as InventoryIcon,

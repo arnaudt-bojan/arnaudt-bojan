@@ -20,7 +20,7 @@ import {
   InputAdornment,
   Skeleton,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
   Search as SearchIcon,

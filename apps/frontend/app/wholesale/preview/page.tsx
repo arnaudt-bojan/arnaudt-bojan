@@ -14,7 +14,7 @@ import {
   Button,
   Skeleton,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import { Eye, Package, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
