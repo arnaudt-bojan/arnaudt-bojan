@@ -11,7 +11,7 @@ build = [
   "-c",
   "npm install --legacy-peer-deps --include=optional && npm run build",
 ]
-run = ["npm", "run", "start"]
+run = ["sh", "start.sh"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
