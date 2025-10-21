@@ -6501,6 +6501,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { purpose = 'onboarding', accountId } = req.body;
+      
+      logger.info(`[Stripe Account Session] Request received`, { 
+        userId, 
+        purpose, 
+        accountId, 
+        hasAccountId: !!accountId,
+        bodyKeys: Object.keys(req.body)
+      });
 
       const result = await stripeConnectService.createAccountSession({
         userId,
