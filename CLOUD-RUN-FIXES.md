@@ -104,16 +104,24 @@ run = ["sh", "start-compiled.sh"]
 
 ## 🚀 **Recommended Approach**
 
+### ⚠️ IMPORTANT: Try Solution A First!
+
+**Solution A does NOT compile TypeScript** - it's simpler and faster to deploy.
+
 ### Try This Order:
 
 1. **First**: Try Solution A (already done!)
+   - **Verify your `.replit` build command does NOT have `tsc -p tsconfig.server.json`**
+   - Should be: `npm install --legacy-peer-deps --include=optional && npm run build`
+   - Run command should be: `["sh", "start.sh"]`
    - Just redeploy - takes 30 seconds
    - If it works, you're done! ✅
 
 2. **If that fails**: Switch to Solution B
-   - Edit `.replit` as shown above
+   - `tsconfig.server.json` has been fixed (no longer extends parent config)
+   - Edit `.replit` to add TypeScript compilation
    - Redeploy
-   - More reliable for Cloud Run
+   - More reliable for Cloud Run but slower to build
 
 ---
 

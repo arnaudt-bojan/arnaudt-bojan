@@ -17,13 +17,17 @@ NODE_ENV=production node --require reflect-metadata ./node_modules/.bin/tsx serv
 
 ### Solution B: If That Fails
 
-Compile TypeScript to JavaScript for more reliable Cloud Run deployment.
+Compile TypeScript to JavaScript (more complex but more reliable).
+
+**Important**: `tsconfig.server.json` has been fixed to work properly!
 
 **Edit `.replit` file:**
 - **Line 12**: Add `&& tsc -p tsconfig.server.json` to build command
 - **Line 14**: Change run to `["sh", "start-compiled.sh"]`
 
 Then redeploy.
+
+See `DEPLOYMENT-INSTRUCTIONS.md` for detailed steps.
 
 ---
 
