@@ -115,8 +115,8 @@ async function upsertUser(claims: Record<string, unknown>, intendedRole?: string
 // Setup test users for local authentication
 async function setupTestUsers(): Promise<void> {
   const testUsers = [
-    { email: "testbuyer@test.com", password: "123456", role: "buyer" as const, firstName: "Test", lastName: "Buyer" },
-    { email: "testseller@test.com", password: "123456", role: "admin" as const, firstName: "Test", lastName: "Seller" }
+    { email: "testbuyer@test.com", password: "123456", role: "buyer" as const, userType: "buyer" as const, firstName: "Test", lastName: "Buyer" },
+    { email: "testseller@test.com", password: "123456", role: "admin" as const, userType: "seller" as const, firstName: "Test", lastName: "Seller" }
   ];
 
   for (const testUser of testUsers) {
@@ -140,6 +140,7 @@ async function setupTestUsers(): Promise<void> {
           lastName: testUser.lastName,
           profileImageUrl: existingUser.profileImageUrl,
           role: testUser.role,
+          userType: testUser.userType,
           password: testUser.password
         });
       } else {
@@ -159,6 +160,7 @@ async function setupTestUsers(): Promise<void> {
           lastName: testUser.lastName,
           profileImageUrl: null,
           role: testUser.role,
+          userType: testUser.userType,
           password: testUser.password
         });
       }

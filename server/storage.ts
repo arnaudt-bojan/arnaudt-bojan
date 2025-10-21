@@ -1784,8 +1784,10 @@ export class DatabaseStorage implements IStorage {
     if (userData.email !== undefined) mapped.email = userData.email;
     if (userData.username !== undefined) mapped.username = userData.username;
     if (userData.role !== undefined) mapped.role = userData.role;
+    if (userData.password !== undefined) mapped.password = userData.password;
     
     // CamelCase to snake_case transformations
+    if (userData.userType !== undefined) mapped.user_type = userData.userType;
     if (userData.firstName !== undefined) mapped.first_name = userData.firstName;
     if (userData.lastName !== undefined) mapped.last_name = userData.lastName;
     if (userData.profileImageUrl !== undefined) mapped.profile_image_url = userData.profileImageUrl;
@@ -1809,6 +1811,7 @@ export class DatabaseStorage implements IStorage {
     if (userData.welcomeEmailSent !== undefined) mapped.welcome_email_sent = userData.welcomeEmailSent;
     
     // Handle already snake_case fields (in case they're passed that way)
+    if (userData.user_type !== undefined) mapped.user_type = userData.user_type;
     if (userData.first_name !== undefined) mapped.first_name = userData.first_name;
     if (userData.last_name !== undefined) mapped.last_name = userData.last_name;
     if (userData.profile_image_url !== undefined) mapped.profile_image_url = userData.profile_image_url;
