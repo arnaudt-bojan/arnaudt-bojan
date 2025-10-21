@@ -128,7 +128,11 @@ export class StripeWebhookService {
         const { CreditLedgerService } = await import('./credit-ledger.service');
         const creditLedgerService = new CreditLedgerService(this.storage);
         
-        await creditLedgerService.creditWalletTopup(sellerId, amount, session.id);
+        await creditLedgerService.creditWalletTopup({
+          sellerId,
+          amountUsd: amount,
+          stripeSessionId: session.id,
+        });
         
         logger.info('[Webhook] Wallet top-up credited', {
           sellerId,
@@ -197,7 +201,7 @@ export class StripeWebhookService {
           if (!alreadySaved) {
             // Save the new payment method as default
             await this.storage.createSavedPaymentMethod({
-              userId,
+              userId: userId,
               stripePaymentMethodId: paymentMethod.id,
               cardBrand: paymentMethod.card?.brand || null,
               cardLast4: paymentMethod.card?.last4 || null,
@@ -351,7 +355,7 @@ export class StripeWebhookService {
             shouldDeactivateStore = true;
           }
         } catch (error) {
-          logger.error(`[Webhook] Error retrieving subscription:`, error);
+          logger.error(`[Webhook] Error retrieving subscription:`, error as Record<string, any>);
         }
       }
 
@@ -433,7 +437,7 @@ export class StripeWebhookService {
         
         logger.info(`[Webhook] Subscription invoice email sent to ${user.email}`);
       } catch (emailError) {
-        logger.error(`[Webhook] Failed to send invoice email:`, emailError);
+        logger.error(`[Webhook] Failed to send invoice email:`, emailError as Record<string, any>);
         // Continue processing - don't fail webhook if email fails
       }
     }
