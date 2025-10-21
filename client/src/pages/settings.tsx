@@ -3089,6 +3089,10 @@ export default function Settings() {
         throw new Error(accountData.message || accountData.error || "Failed to create Stripe account");
       }
 
+      // Store the account ID from the response
+      const accountId = accountData.accountId;
+      setCurrentStripeAccountId(accountId);
+
       // Wait for user data to refetch before opening modal
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
@@ -3153,6 +3157,7 @@ export default function Settings() {
   const [isPayoutsModalOpen, setIsPayoutsModalOpen] = useState(false);
   const [isCountrySelectorOpen, setIsCountrySelectorOpen] = useState(false);
   const [pendingStripeAction, setPendingStripeAction] = useState<{ reset: boolean } | null>(null);
+  const [currentStripeAccountId, setCurrentStripeAccountId] = useState<string>('');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'ipad' | 'iphone'>('iphone');
   
   // LOGGING: Track form state on EVERY render
@@ -5008,30 +5013,28 @@ export default function Settings() {
       />
 
       {/* Stripe Embedded Onboarding Modal */}
-      {user?.stripeConnectedAccountId && (
-        <>
-          <StripeOnboardingModal
-            isOpen={isStripeModalOpen}
-            onClose={() => setIsStripeModalOpen(false)}
-            accountId={user.stripeConnectedAccountId}
-            purpose="onboarding"
-            onComplete={() => {
-              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-              setIsStripeModalOpen(false);
-            }}
-          />
-          <StripeOnboardingModal
-            isOpen={isPayoutsModalOpen}
-            onClose={() => setIsPayoutsModalOpen(false)}
-            accountId={user.stripeConnectedAccountId}
-            purpose="payouts"
-            onComplete={() => {
-              queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-              setIsPayoutsModalOpen(false);
-            }}
-          />
-        </>
-      )}
+      <StripeOnboardingModal
+        isOpen={isStripeModalOpen}
+        onClose={() => setIsStripeModalOpen(false)}
+        accountId={currentStripeAccountId || user?.stripeConnectedAccountId || ''}
+        purpose="onboarding"
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          setIsStripeModalOpen(false);
+          setCurrentStripeAccountId('');
+        }}
+      />
+      <StripeOnboardingModal
+        isOpen={isPayoutsModalOpen}
+        onClose={() => setIsPayoutsModalOpen(false)}
+        accountId={currentStripeAccountId || user?.stripeConnectedAccountId || ''}
+        purpose="payouts"
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          setIsPayoutsModalOpen(false);
+          setCurrentStripeAccountId('');
+        }}
+      />
     </div>
   );
 }

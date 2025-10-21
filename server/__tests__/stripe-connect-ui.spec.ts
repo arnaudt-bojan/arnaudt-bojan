@@ -10,14 +10,22 @@ import type { Prisma } from '../../generated/prisma/index.js';
  * Stripe Connect UI Flow Tests
  * 
  * Purpose: Catch UI bugs in Stripe Connect onboarding flow
- * Bug Caught: Modal never appears after selecting currency (race condition)
+ * 
+ * Bugs Caught:
+ * 1. Modal never appears after selecting currency (race condition)
+ *    - Fix: await queryClient.invalidateQueries() + setTimeout(100ms)
+ * 
+ * 2. "Continue to Stripe Setup" button does nothing (conditional rendering)
+ *    - Fix: Always render modal (remove {user?.stripeConnectedAccountId && ...})
+ *    - Fix: Store accountId from API response in state (not just user object)
  * 
  * This test validates the end-to-end flow:
  * 1. User clicks "Connect Stripe Account"
- * 2. User selects country/currency
+ * 2. User selects country/currency  
  * 3. Backend creates Express account and updates user record
  * 4. Frontend refetches user data
- * 5. Modal opens with onboarding flow
+ * 5. Modal renders (even if user data hasn't updated yet)
+ * 6. Modal opens with onboarding flow and calls /api/stripe/account-session
  */
 
 let app: Express;
