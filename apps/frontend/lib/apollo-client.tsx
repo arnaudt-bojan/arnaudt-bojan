@@ -1,14 +1,18 @@
 'use client';
 
-import { ApolloClient, InMemoryCache, HttpLink, ApolloProvider as BaseApolloProvider } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client';
+import { ApolloNextAppProvider } from '@apollo/experimental-nextjs-app-support/ssr';
 import { ReactNode } from 'react';
 
-// Create Apollo Client instance
-const createApolloClient = () => {
+// Function to create Apollo Client instance
+function makeClient() {
   return new ApolloClient({
     link: new HttpLink({
       uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
       credentials: 'include',
+      fetchOptions: {
+        cache: 'no-store',
+      },
     }),
     cache: new InMemoryCache({
       typePolicies: {
@@ -44,16 +48,13 @@ const createApolloClient = () => {
       },
     },
   });
-};
+}
 
-// Export singleton client instance
-export const apolloClient = createApolloClient();
-
-// ApolloProvider wrapper component
+// ApolloProvider wrapper component for Next.js 14 App Router
 export function ApolloProvider({ children }: { children: ReactNode }) {
   return (
-    <BaseApolloProvider client={apolloClient}>
+    <ApolloNextAppProvider makeClient={makeClient}>
       {children}
-    </BaseApolloProvider>
+    </ApolloNextAppProvider>
   );
 }
