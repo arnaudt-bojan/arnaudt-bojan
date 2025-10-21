@@ -1,6 +1,7 @@
 # Node modules (install fresh in container)
 node_modules
 npm-debug.log
+pnpm-lock.yaml
 
 # Git
 .git
