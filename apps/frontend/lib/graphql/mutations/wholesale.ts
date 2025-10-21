@@ -9,3 +9,12 @@ export const CREATE_WHOLESALE_INVITATION = gql`
     }
   }
 `;
+
+export const CANCEL_INVITATION = gql`
+  mutation CancelInvitation($invitationId: ID!) {
+    cancelInvitation(invitationId: $invitationId) {
+      id
+      status
+    }
+  }
+`;
