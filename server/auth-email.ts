@@ -136,35 +136,70 @@ router.post('/verify-code', async (req: any, res: Response) => {
       return res.status(400).json({ error: 'Email and code are required' });
     }
 
-    // E2E test account bypass: Allow fixed code "111111" for test accounts
+    // E2E test account bypass: Allow fixed code "111111" for test accounts (TEST MODE ONLY)
     const normalizedEmailForTest = email.toLowerCase().trim();
     const normalizedCode = String(code).trim();
     
-    // E2E test accounts that bypass authentication
-    const testAccounts = [
-      'mirtorabi+seller1@gmail.com',
-      'mirtorabi+seller2@gmail.com', 
-      'mirtorabi+buyer1@gmail.com',
-      'mirtorabi+buyer2@gmail.com',
-      'mirtorabi+testseller@gmail.com', // Legacy test account
-      'testseller@test.com' // Legacy test account
-    ];
-    
-    const isTestAccount = testAccounts.includes(normalizedEmailForTest);
     let authToken;
     
-    logger.info('Auth verification attempt', { 
-      email: normalizedEmailForTest, 
-      code: normalizedCode,
-      isTestAccount 
-    });
+    // SECURITY: Only allow test account bypass in test/development environments
+    const isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.VITEST || process.env.NODE_ENV === 'development';
     
-    if (isTestAccount && normalizedCode === '111111') {
-      // For E2E test accounts, skip token validation (no need for exact code match)
-      authToken = null; // Will trigger user creation/lookup below
-      logger.info('✅ E2E test account authentication with fixed code 111111', { email: normalizedEmailForTest });
+    if (isTestEnvironment) {
+      // E2E test accounts that bypass authentication (TEST MODE ONLY)
+      const testAccounts = [
+        'mirtorabi+seller1@gmail.com',
+        'mirtorabi+seller2@gmail.com', 
+        'mirtorabi+buyer1@gmail.com',
+        'mirtorabi+buyer2@gmail.com',
+        'mirtorabi+testseller@gmail.com',
+        'testseller@test.com',
+        'testbuyer@test.com'
+      ];
+      
+      const isTestAccount = testAccounts.includes(normalizedEmailForTest);
+      
+      logger.info('Auth verification attempt', { 
+        email: normalizedEmailForTest, 
+        code: normalizedCode,
+        isTestAccount,
+        environment: process.env.NODE_ENV
+      });
+      
+      if (isTestAccount && normalizedCode === '111111') {
+        // For E2E test accounts, skip token validation (no need for exact code match)
+        authToken = null; // Will trigger user creation/lookup below
+        logger.info('✅ TEST ENVIRONMENT: E2E test account authentication with fixed code 111111', { email: normalizedEmailForTest });
+      } else {
+        // Normal flow: Find auth token by code
+        authToken = await storage.getAuthTokenByCode(email, code);
+        
+        if (!authToken) {
+          return res.status(401).json({ error: 'Invalid code' });
+        }
+        
+        // Check if already used (magic_link tokens are reusable, everything else is single-use)
+        if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
+          return res.status(401).json({ error: 'Code already used' });
+        }
+
+        // Check if expired
+        if (new Date() > new Date(authToken.expiresAt)) {
+          return res.status(401).json({ error: 'Code expired' });
+        }
+
+        // Mark as used (only magic_link tokens are reusable)
+        if (authToken.tokenType !== 'magic_link') {
+          await storage.markAuthTokenAsUsed(authToken.id);
+        }
+      }
     } else {
-      // Normal flow: Find auth token by code
+      // PRODUCTION: Always validate auth tokens, no bypass
+      logger.info('Auth verification attempt (production mode)', { 
+        email: normalizedEmailForTest,
+        environment: process.env.NODE_ENV
+      });
+      
       authToken = await storage.getAuthTokenByCode(email, code);
       
       if (!authToken) {
@@ -172,7 +207,6 @@ router.post('/verify-code', async (req: any, res: Response) => {
       }
       
       // Check if already used (magic_link tokens are reusable, everything else is single-use)
-      // Treat null/unknown tokenType as single-use for security (legacy tokens)
       if (authToken.tokenType !== 'magic_link' && authToken.used === 1) {
         return res.status(401).json({ error: 'Code already used' });
       }

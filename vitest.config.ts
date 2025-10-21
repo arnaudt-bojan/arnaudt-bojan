@@ -41,6 +41,9 @@ export default defineConfig({
     sequence: {
       shuffle: false,
     },
+    env: {
+      NODE_ENV: 'test',
+    },
   },
   resolve: {
     alias: {

@@ -16,35 +16,23 @@ export async function createAuthSession(
   userType: 'buyer' | 'seller' | 'admin',
   tx: Prisma.TransactionClient
 ): Promise<AuthContext> {
-  const fixtures = createFixtures(tx);
+  // Use pre-configured test users that bypass auth token validation
+  const email = userType === 'buyer' ? 'testbuyer@test.com' : 'testseller@test.com';
+  const code = '111111'; // Fixed code that test accounts accept
   
-  const email = `test-${userType}-${randomBytes(4).toString('hex')}@example.com`;
-  
-  let user;
-  switch (userType) {
-    case 'seller':
-    case 'admin':
-      const { user: sellerUser } = await fixtures.createSeller();
-      user = await tx.users.update({
-        where: { id: sellerUser.id },
-        data: { email },
-      });
-      break;
-    case 'buyer':
-      const { user: buyerUser } = await fixtures.createBuyer();
-      user = await tx.users.update({
-        where: { id: buyerUser.id },
-        data: { email },
-      });
-      break;
-    default:
-      throw new Error(`Unknown user type: ${userType}`);
+  // Get the pre-configured test user (created by setupTestUsers in replitAuth.ts)
+  const user = await tx.users.findFirst({
+    where: { email },
+  });
+
+  if (!user) {
+    throw new Error(`Test user not found: ${email}. Ensure setupAuth() has been called.`);
   }
 
   const agent = request.agent(app);
   const res = await agent
     .post('/api/auth/email/verify-code')
-    .send({ email, code: '111111' });
+    .send({ email, code });
 
   if (res.status !== 200) {
     throw new Error(`Failed to create auth session: ${res.status} ${JSON.stringify(res.body)}`);
