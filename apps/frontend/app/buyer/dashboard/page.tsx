@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery, gql } from '@apollo/client';
+import { useQuery, gql } from '@/lib/apollo-client';
 import {
   Container,
   Box,

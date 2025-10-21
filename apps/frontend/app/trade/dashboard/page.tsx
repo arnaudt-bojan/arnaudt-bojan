@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@/lib/apollo-client';
 import { useRouter } from 'next/navigation';
 import {
   Container,

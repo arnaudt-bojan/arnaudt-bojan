@@ -1,15 +1,35 @@
 'use client';
 
-import { ApolloLink, HttpLink } from '@apollo/client';
+import { HttpLink } from '@apollo/client';
 import {
   ApolloNextAppProvider,
-  NextSSRInMemoryCache,
-  NextSSRApolloClient,
+  ApolloClient,
+  InMemoryCache,
   SSRMultipartLink,
-} from '@apollo/experimental-nextjs-app-support/ssr';
+} from '@apollo/client-integration-nextjs';
 import { ReactNode } from 'react';
 
-// Function to create Apollo Client instance for Next.js 14 App Router
+// Re-export Apollo Client hooks for convenience
+// These work fine in Client Components
+// React hooks are in @apollo/client/react subpath in Apollo Client v4
+export {
+  useQuery,
+  useMutation,
+  useLazyQuery,
+  useSubscription,
+  useSuspenseQuery,
+  type ApolloQueryResult,
+} from '@apollo/client/react';
+
+// gql is in the core package
+export { gql } from '@apollo/client/core';
+
+// Note: ApolloError was removed in Apollo Client v4
+// For error handling, use the error types from the hooks directly
+// e.g., error parameter in onError callbacks is automatically typed
+export type { ApolloError } from '@apollo/client/errors';
+
+// Function to create Apollo Client instance for Next.js 14 App Router (Client Components/SSR)
 function makeClient() {
   const httpLink = new HttpLink({
     uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
@@ -19,8 +39,8 @@ function makeClient() {
     },
   });
 
-  return new NextSSRApolloClient({
-    cache: new NextSSRInMemoryCache({
+  return new ApolloClient({
+    cache: new InMemoryCache({
       typePolicies: {
         Query: {
           fields: {
@@ -47,23 +67,10 @@ function makeClient() {
             httpLink,
           ])
         : httpLink,
-    defaultOptions: {
-      watchQuery: {
-        fetchPolicy: 'cache-and-network',
-        errorPolicy: 'all',
-      },
-      query: {
-        fetchPolicy: 'network-only',
-        errorPolicy: 'all',
-      },
-      mutate: {
-        errorPolicy: 'all',
-      },
-    },
   });
 }
 
-// ApolloProvider wrapper component for Next.js 14 App Router
+// ApolloProvider wrapper component for Next.js 14 App Router (Client Components/SSR)
 export function ApolloProvider({ children }: { children: ReactNode }) {
   return (
     <ApolloNextAppProvider makeClient={makeClient}>

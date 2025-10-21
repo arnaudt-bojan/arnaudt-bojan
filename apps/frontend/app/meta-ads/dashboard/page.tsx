@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { useQuery, useMutation, gql } from '@/lib/apollo-client';
 import { useRouter } from 'next/navigation';
 import {
   Container,

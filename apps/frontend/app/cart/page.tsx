@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, gql, ApolloError } from '@apollo/client';
+import { useQuery, useMutation, gql, ApolloError } from '@/lib/apollo-client';
 import {
   Container,
   Paper,

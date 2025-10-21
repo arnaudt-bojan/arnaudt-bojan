@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, gql } from '@apollo/client';
+import { useMutation, gql } from '@/lib/apollo-client';
 import { useForm, Controller } from 'react-hook-form';
 import {
   Container,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, gql } from '@apollo/client';
+import { useMutation, gql } from '@/lib/apollo-client';
 import {
   Container,
   Box,

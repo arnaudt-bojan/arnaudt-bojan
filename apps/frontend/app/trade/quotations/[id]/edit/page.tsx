@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation } from '@/lib/apollo-client';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Container,
