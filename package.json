@@ -4,17 +4,17 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "NODE_ENV=development node node_modules/tsx/dist/cli.mjs server/index.ts",
     "clean": "rm -rf node_modules && npm cache clean --force",
     "prebuild": "npm run clean && npm ci --prefer-offline --no-audit --no-fund",
     "build": "prisma generate && vite build",
-    "start": "NODE_ENV=production tsx server/index.ts",
+    "start": "NODE_ENV=production node node_modules/tsx/dist/cli.mjs server/index.ts",
     "check": "tsc",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx server/scripts/seed.ts",
+    "db:seed": "node node_modules/tsx/dist/cli.mjs server/scripts/seed.ts",
     "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
