@@ -55,3 +55,17 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
 -   **AI Services**: Google Gemini API
 -   **UI Components**: Material UI v7
 -   **WebSocket**: Socket.IO
+
+## Recent Changes
+
+### October 2025 - Deployment Fixes
+-   **Production Build Fix**: Fixed TypeScript compilation failing during deployment
+    -   Created `typecheck:build` script in backend using `tsconfig.build.json`
+    -   Production builds now exclude test files (apps/backend/test/)
+    -   Prevents build failures from missing dev dependencies (nock, vitest)
+    -   Updated `prebuild` script to use `typecheck:build` instead of `typecheck`
+-   **Production Start Script Fix**: Fixed deployment crash loop ("concurrently: not found")
+    -   Updated root `package.json` start and dev scripts to use `npx concurrently`
+    -   Ensures `concurrently` executable is found in production environment
+    -   Changed: `"start": "concurrently ..."` → `"start": "npx concurrently ..."`
+    -   Resolves Replit deployment promote stage crash loop
