@@ -142,14 +142,14 @@ export class OrdersService {
       }
 
       // Only the buyer who placed the order can cancel it
-      if (order.buyer_id !== userId) {
+      if (order.user_id !== userId) {
         throw new GraphQLError('Access denied', {
           extensions: { code: 'FORBIDDEN' },
         });
       }
 
       // Check if order can be cancelled (only pending/processing orders)
-      if (order.status === 'cancelled' || order.status === 'completed' || order.status === 'shipped') {
+      if (order.status === 'cancelled' || order.status === 'fulfilled' || order.status === 'refunded') {
         throw new GraphQLError('Order cannot be cancelled', {
           extensions: { code: 'BAD_REQUEST' },
         });
@@ -165,9 +165,9 @@ export class OrdersService {
       });
 
       // Emit socket event for real-time updates
-      this.websocketGateway.emitOrderCancelled(userId, {
+      this.websocketGateway.emitNotification(userId, {
+        type: 'order_cancelled',
         orderId: updatedOrder.id,
-        buyerId: updatedOrder.buyer_id,
         sellerId: updatedOrder.seller_id,
       });
 
@@ -176,18 +176,18 @@ export class OrdersService {
       await this.cacheService.delPattern(`orders:buyer:${userId}`);
       await this.cacheService.delPattern(`orders:seller:${order.seller_id}`);
 
-      // Map to GraphQL format
+      // Map to GraphQL format (simplified return with available fields)
       return {
         id: updatedOrder.id,
-        orderNumber: updatedOrder.order_number,
+        orderNumber: `ORD-${updatedOrder.id.substring(0, 8).toUpperCase()}`,
         status: updatedOrder.status.toUpperCase(),
         fulfillmentStatus: updatedOrder.fulfillment_status?.toUpperCase() || 'UNFULFILLED',
-        totalAmount: parseFloat(updatedOrder.total_amount.toString()) / 100,
-        subtotalAmount: parseFloat(updatedOrder.subtotal_amount.toString()) / 100,
-        taxAmount: parseFloat(updatedOrder.tax_amount.toString()) / 100,
-        shippingAmount: parseFloat(updatedOrder.shipping_amount.toString()) / 100,
-        currency: updatedOrder.currency,
-        buyerId: updatedOrder.buyer_id,
+        totalAmount: parseFloat(updatedOrder.total.toString()),
+        subtotalAmount: parseFloat((updatedOrder.subtotal_before_tax || updatedOrder.total).toString()),
+        taxAmount: parseFloat((updatedOrder.tax_amount || 0).toString()),
+        shippingAmount: parseFloat((updatedOrder.shipping_cost || 0).toString()),
+        currency: updatedOrder.currency || 'USD',
+        buyerId: updatedOrder.user_id,
         sellerId: updatedOrder.seller_id,
         createdAt: updatedOrder.created_at,
         updatedAt: updatedOrder.updated_at,
@@ -211,7 +211,7 @@ export class OrdersService {
       }
 
       // Only the buyer who placed the order can reorder
-      if (order.buyer_id !== userId) {
+      if (order.user_id !== userId) {
         throw new GraphQLError('Access denied', {
           extensions: { code: 'FORBIDDEN' },
         });
@@ -240,47 +240,44 @@ export class OrdersService {
         cart = await this.prismaService.carts.create({
           data: {
             buyer_id: userId,
+            seller_id: order.seller_id,
             status: 'active',
-            currency: order.currency,
+            items: [],
           },
         });
       }
 
-      // Add items to cart
-      for (const item of orderItems) {
-        // Check if item already exists in cart
-        const existingCartItem = await this.prismaService.cart_items.findFirst({
-          where: {
-            cart_id: cart.id,
-            product_id: item.product_id,
-          },
-        });
+      // Parse existing cart items from JSON
+      const existingItems = Array.isArray(cart.items) ? cart.items : [];
+      const updatedItems: any[] = [...existingItems];
 
-        if (existingCartItem) {
+      // Add order items to cart
+      for (const item of orderItems) {
+        const existingIndex = updatedItems.findIndex(
+          (cartItem: any) => cartItem.productId === item.product_id
+        );
+
+        if (existingIndex >= 0) {
           // Update quantity
-          await this.prismaService.cart_items.update({
-            where: { id: existingCartItem.id },
-            data: {
-              quantity: existingCartItem.quantity + item.quantity,
-              updated_at: new Date(),
-            },
-          });
+          (updatedItems[existingIndex] as any).quantity += item.quantity;
         } else {
-          // Create new cart item
-          await this.prismaService.cart_items.create({
-            data: {
-              cart_id: cart.id,
-              product_id: item.product_id,
-              quantity: item.quantity,
-              price_cents: item.price,
-            },
+          // Add new item - convert Decimal to number for JSON storage
+          updatedItems.push({
+            id: `item_${Date.now()}_${Math.random()}`,
+            productId: item.product_id,
+            quantity: item.quantity,
+            priceCents: parseFloat(item.price.toString()),
           });
         }
       }
 
-      // Get updated cart items
-      const cartItems = await this.prismaService.cart_items.findMany({
-        where: { cart_id: cart.id },
+      // Update cart with new items
+      await this.prismaService.carts.update({
+        where: { id: cart.id },
+        data: {
+          items: updatedItems as any,
+          updated_at: new Date(),
+        },
       });
 
       // Invalidate cart cache
@@ -288,18 +285,18 @@ export class OrdersService {
       await this.cacheService.delPattern(`cart:buyer:${userId}`);
 
       // Emit socket event
-      this.websocketGateway.emitCartUpdated(userId, {
+      this.websocketGateway.emitCartUpdate(userId, {
         cartId: cart.id,
         buyerId: userId,
-        itemCount: cartItems.length,
+        itemCount: updatedItems.length,
       });
 
       // Return cart with items
       return {
         id: cart.id,
-        items: cartItems.map(item => ({
+        items: updatedItems.map((item: any) => ({
           id: item.id,
-          productId: item.product_id,
+          productId: item.productId,
           quantity: item.quantity,
         })),
       };

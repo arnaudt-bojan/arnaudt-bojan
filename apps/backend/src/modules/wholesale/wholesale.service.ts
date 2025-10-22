@@ -188,17 +188,16 @@ export class WholesaleService {
       where: { id: invitationId },
       data: {
         status: 'cancelled',
-        updated_at: new Date(),
       },
     });
 
     // Cache invalidation
     await this.cacheService.delPattern(`wholesale:invitations:seller:${sellerId}`);
 
-    // Emit socket event
-    this.websocketGateway.emitWholesaleInvitationCancelled(sellerId, {
+    // Emit socket event (notification)
+    this.websocketGateway.emitNotification(sellerId, {
+      type: 'wholesale_invitation_cancelled',
       invitationId: updatedInvitation.id,
-      sellerId: updatedInvitation.seller_id,
       buyerEmail: updatedInvitation.buyer_email,
     });
 

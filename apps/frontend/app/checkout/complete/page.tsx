@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Container,
@@ -14,14 +14,13 @@ import {
 import { CheckCircle, ShoppingBag, Home } from '@mui/icons-material';
 import Link from 'next/link';
 
-export default function CheckoutCompletePage() {
+function CheckoutCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate payment processing check
     const timer = setTimeout(() => {
       setLoading(false);
     }, 1500);
@@ -51,7 +50,6 @@ export default function CheckoutCompletePage() {
     <Container maxWidth="sm" sx={{ py: 8 }}>
       <Card>
         <CardContent sx={{ textAlign: 'center', py: 6 }}>
-          {/* Success Icon */}
           <Box
             sx={{
               width: 80,
@@ -68,7 +66,6 @@ export default function CheckoutCompletePage() {
             <CheckCircle sx={{ fontSize: 48, color: 'white' }} />
           </Box>
 
-          {/* Thank You Message */}
           <Typography variant="h4" gutterBottom data-testid="text-order-confirmed">
             Thank you for your order!
           </Typography>
@@ -83,7 +80,6 @@ export default function CheckoutCompletePage() {
             </Typography>
           )}
 
-          {/* Next Steps */}
           <Box
             sx={{
               bgcolor: 'background.default',
@@ -107,7 +103,6 @@ export default function CheckoutCompletePage() {
             </Typography>
           </Box>
 
-          {/* Action Buttons */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {orderId && (
               <Button
@@ -135,5 +130,26 @@ export default function CheckoutCompletePage() {
         </CardContent>
       </Card>
     </Container>
+  );
+}
+
+export default function CheckoutCompletePage() {
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="sm" sx={{ py: 8 }}>
+          <Card>
+            <CardContent sx={{ textAlign: 'center', py: 8 }}>
+              <CircularProgress size={60} sx={{ mb: 3 }} />
+              <Typography variant="h5" gutterBottom>
+                Loading...
+              </Typography>
+            </CardContent>
+          </Card>
+        </Container>
+      }
+    >
+      <CheckoutCompleteContent />
+    </Suspense>
   );
 }
