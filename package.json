@@ -9,12 +9,12 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"npm run start:dev --workspace=@upfirst/backend\" \"npm run dev --workspace=@upfirst/frontend\"",
-    "clean": "rm -rf node_modules && npm cache clean --force",
-    "start": "concurrently \"npm run start:prod --workspace=@upfirst/backend\" \"npm run start --workspace=@upfirst/frontend\"",
-    "build": "concurrently \"npm run build:frontend\" \"npm run build:backend\"",
-    "build:frontend": "npm run build --workspace=@upfirst/frontend",
-    "build:backend": "npm run build --workspace=@upfirst/backend",
+    "dev": "concurrently \"yarn workspace @upfirst/backend start:dev\" \"yarn workspace @upfirst/frontend dev\"",
+    "clean": "rm -rf node_modules .yarn/cache && yarn cache clean --all",
+    "start": "concurrently \"yarn workspace @upfirst/backend start:prod\" \"yarn workspace @upfirst/frontend start\"",
+    "build": "concurrently \"yarn build:frontend\" \"yarn build:backend\"",
+    "build:frontend": "yarn workspace @upfirst/frontend build",
+    "build:backend": "yarn workspace @upfirst/backend build",
     "check": "tsc",
     "postinstall": "prisma generate --schema=apps/backend/prisma/schema.prisma",
     "db:push": "prisma db push --schema=apps/backend/prisma/schema.prisma",
@@ -22,8 +22,8 @@
     "db:studio": "prisma studio --schema=apps/backend/prisma/schema.prisma",
     "db:reset": "prisma migrate reset --force --schema=apps/backend/prisma/schema.prisma",
     "contracts:generate": "tsx scripts/generate-openapi-nestjs.ts && tsx scripts/generate-graphql-schema.ts",
-    "contracts:diff": "npm run contracts:generate && tsx scripts/contract-diff.ts",
-    "contracts:update-baseline": "npm run contracts:generate && mkdir -p contracts/baseline && cp contracts/openapi-nestjs.json contracts/baseline/ && cp contracts/graphql-schema.graphql contracts/baseline/"
+    "contracts:diff": "yarn contracts:generate && tsx scripts/contract-diff.ts",
+    "contracts:update-baseline": "yarn contracts:generate && mkdir -p contracts/baseline && cp contracts/openapi-nestjs.json contracts/baseline/ && cp contracts/graphql-schema.graphql contracts/baseline/"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.0.1",
