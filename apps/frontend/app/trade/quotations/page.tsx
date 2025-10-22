@@ -35,7 +35,12 @@ import {
   Visibility,
   Search,
 } from '@mui/icons-material';
-import { LIST_QUOTATIONS, SEND_QUOTATION, Quotation } from '@/lib/graphql/trade-quotations';
+import { 
+  LIST_QUOTATIONS, 
+  // TODO: Backend schema gap - this mutation doesn't exist yet
+  // SEND_QUOTATION, 
+  Quotation 
+} from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
@@ -49,12 +54,16 @@ export default function QuotationsList() {
 
   const { data, loading, refetch } = useQuery<{ listQuotations: Quotation[] }>(LIST_QUOTATIONS);
 
-  const [sendQuotation] = useMutation(SEND_QUOTATION, {
-    onCompleted: () => {
-      refetch();
-      setAnchorEl(null);
-    },
-  });
+  // TODO: Backend schema gap - comment out until backend implements SEND_QUOTATION
+  // const [sendQuotation] = useMutation(SEND_QUOTATION, {
+  //   onCompleted: () => {
+  //     refetch();
+  //     setAnchorEl(null);
+  //   },
+  // });
+  const sendQuotation = (_params?: any) => {
+    console.warn('Send quotation feature not yet implemented - backend schema gap');
+  };
 
   const quotations = data?.listQuotations || [];
 

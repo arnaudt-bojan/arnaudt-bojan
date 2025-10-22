@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
-import { GET_SELLER_BY_USERNAME } from '@/lib/graphql/queries/wholesale';
+// TODO: Backend schema gap - this query doesn't exist yet
+// import { GET_SELLER_BY_USERNAME } from '@/lib/graphql/queries/wholesale';
 import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
 import { ADD_TO_CART } from '@/lib/graphql/mutations/cart';
 import {
@@ -63,12 +64,13 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     getSellerByUsername: any;
   }
 
-  // Fetch seller data
-  // Note: This query might not exist yet in the backend
-  // Using placeholder/fallback for now
-  const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery<GetSellerData>(GET_SELLER_BY_USERNAME, {
-    variables: { username },
-  });
+  // TODO: Backend schema gap - comment out until backend implements GET_SELLER_BY_USERNAME
+  // const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery<GetSellerData>(GET_SELLER_BY_USERNAME, {
+  //   variables: { username },
+  // });
+  const sellerLoading = false;
+  const sellerError = null;
+  const sellerData: any = null;
 
   const seller = sellerData?.getSellerByUsername;
   const sellerId = seller?.id || 'placeholder-seller-id'; // Fallback for development

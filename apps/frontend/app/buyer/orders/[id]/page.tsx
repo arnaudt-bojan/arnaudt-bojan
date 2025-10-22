@@ -109,6 +109,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
   //     setSnackbarOpen(true);
   //   },
   // });
+  const cancelLoading = false;
 
   // const [reorderItems, { loading: reorderLoading }] = useMutation(REORDER_ITEMS, {
   //   onCompleted: () => {
@@ -121,15 +122,21 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
   //     setSnackbarOpen(true);
   //   },
   // });
+  const reorderLoading = false;
 
   const order = data?.getOrder || null;
 
+  // TODO: Backend schema gaps - implement these handlers after backend is ready
   const handleCancelOrder = () => {
-    cancelOrder({ variables: { id: params.id } });
+    // cancelOrder({ variables: { id: params.id } });
+    setSnackbarMessage('Cancel order feature coming soon - backend implementation needed');
+    setSnackbarOpen(true);
   };
 
   const handleReorder = () => {
-    reorderItems({ variables: { orderId: params.id } });
+    // reorderItems({ variables: { orderId: params.id } });
+    setSnackbarMessage('Reorder feature coming soon - backend implementation needed');
+    setSnackbarOpen(true);
   };
 
   const handleDownloadInvoice = () => {

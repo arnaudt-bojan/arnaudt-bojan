@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { LIST_WHOLESALE_INVITATIONS } from '@/lib/graphql/queries/wholesale';
-import { CREATE_WHOLESALE_INVITATION, CANCEL_INVITATION } from '@/lib/graphql/mutations/wholesale';
+import { 
+  CREATE_WHOLESALE_INVITATION, 
+  // TODO: Backend schema gap - this mutation doesn't exist yet
+  // CANCEL_INVITATION 
+} from '@/lib/graphql/mutations/wholesale';
 import { ListWholesaleInvitationsQuery } from '@/lib/generated/graphql';
 import {
   Container,
@@ -41,13 +45,16 @@ export default function WholesaleInvitations() {
     },
   });
 
-  const [cancelInvitation, { loading: cancelling }] = useMutation(CANCEL_INVITATION, {
-    onCompleted: () => {
-      refetch();
-      setDeleteDialogOpen(false);
-      setInvitationToDelete(null);
-    },
-  });
+  // TODO: Backend schema gap - comment out until backend implements CANCEL_INVITATION
+  // const [cancelInvitation, { loading: cancelling }] = useMutation(CANCEL_INVITATION, {
+  //   onCompleted: () => {
+  //     refetch();
+  //     setDeleteDialogOpen(false);
+  //     setInvitationToDelete(null);
+  //   },
+  // });
+  const cancelInvitation = (_params?: any) => console.warn('Cancel invitation not implemented - backend schema gap');
+  const cancelling = false;
 
   const invitations = data?.listWholesaleInvitations?.edges?.map((edge: any) => edge.node) || [];
 

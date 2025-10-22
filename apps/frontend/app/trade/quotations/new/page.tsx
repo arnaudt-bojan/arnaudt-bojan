@@ -37,10 +37,11 @@ import {
 } from '@mui/icons-material';
 import {
   CREATE_QUOTATION,
-  CALCULATE_QUOTATION_TOTALS,
+  // TODO: Backend schema gap - this query doesn't exist yet
+  // CALCULATE_QUOTATION_TOTALS,
   CreateQuotationInput,
-  CalculateQuotationTotalsInput,
-  CalculatedQuotationTotals,
+  // CalculateQuotationTotalsInput,
+  // CalculatedQuotationTotals,
 } from '@/lib/graphql/trade-quotations';
 import { SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
@@ -76,16 +77,17 @@ const INCOTERMS = [
   { value: 'Other', label: 'Other' },
 ];
 
-const mockCalculatedTotals: CalculatedQuotationTotals = {
-  lineItems: [],
-  subtotal: 0,
-  taxAmount: 0,
-  shippingAmount: 0,
-  total: 0,
-  depositAmount: 0,
-  depositPercentage: 50,
-  balanceAmount: 0,
-};
+// TODO: Backend schema gap - type doesn't exist yet
+// const mockCalculatedTotals: CalculatedQuotationTotals = {
+//   lineItems: [],
+//   subtotal: 0,
+//   taxAmount: 0,
+//   shippingAmount: 0,
+//   total: 0,
+//   depositAmount: 0,
+//   depositPercentage: 50,
+//   balanceAmount: 0,
+// };
 
 export default function QuotationBuilder() {
   const router = useRouter();
@@ -98,7 +100,8 @@ export default function QuotationBuilder() {
     { description: '', unitPrice: 0, quantity: 1 },
   ]);
 
-  const [calculatedTotals, setCalculatedTotals] = useState<CalculatedQuotationTotals | null>(null);
+  // TODO: Backend schema gap - using local state instead of server calculation until backend is ready
+  const [calculatedTotals, setCalculatedTotals] = useState<any>(null);
   const [calculationError, setCalculationError] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -106,25 +109,26 @@ export default function QuotationBuilder() {
     severity: 'error' as 'error' | 'success' | 'info' | 'warning',
   });
 
-  const [calculateTotals, { loading: calculating }] = useMutation<
-    { calculateQuotationTotals: CalculatedQuotationTotals },
-    { input: CalculateQuotationTotalsInput }
-  >(CALCULATE_QUOTATION_TOTALS, {
-    onCompleted: (data) => {
-      setCalculatedTotals(data.calculateQuotationTotals);
-      setCalculationError(false);
-    },
-    onError: (error) => {
-      console.error('Failed to calculate totals:', error);
-      setCalculationError(true);
-      setCalculatedTotals(null);
-      setSnackbar({
-        open: true,
-        message: 'Unable to calculate totals. Please check your connection and try again.',
-        severity: 'error',
-      });
-    },
-  });
+  // const [calculateTotals, { loading: calculating }] = useMutation<
+  //   { calculateQuotationTotals: CalculatedQuotationTotals },
+  //   { input: CalculateQuotationTotalsInput }
+  // >(CALCULATE_QUOTATION_TOTALS, {
+  //   onCompleted: (data) => {
+  //     setCalculatedTotals(data.calculateQuotationTotals);
+  //     setCalculationError(false);
+  //   },
+  //   onError: (error) => {
+  //     console.error('Failed to calculate totals:', error);
+  //     setCalculationError(true);
+  //     setCalculatedTotals(null);
+  //     setSnackbar({
+  //       open: true,
+  //       message: 'Unable to calculate totals. Please check your connection and try again.',
+  //       severity: 'error',
+  //     });
+  //   },
+  // });
+  const calculating = false;
 
   const [createQuotation, { loading: saving }] = useMutation(CREATE_QUOTATION, {
     onCompleted: (data) => {
@@ -132,29 +136,30 @@ export default function QuotationBuilder() {
     },
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (items.some(item => item.description && item.quantity > 0)) {
-        calculateTotals({
-          variables: {
-            input: {
-              lineItems: items.map(item => ({
-                description: item.description,
-                unitPrice: item.unitPrice,
-                quantity: item.quantity,
-              })),
-              depositPercentage,
-            },
-          },
-        });
-      } else {
-        setCalculatedTotals(null);
-        setCalculationError(false);
-      }
-    }, 500);
+  // TODO: Backend schema gap - comment out until backend implements real-time quotation calculation
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     if (items.some(item => item.description && item.quantity > 0)) {
+  //       calculateTotals({
+  //         variables: {
+  //           input: {
+  //             lineItems: items.map(item => ({
+  //               description: item.description,
+  //               unitPrice: item.unitPrice,
+  //               quantity: item.quantity,
+  //             })),
+  //             depositPercentage,
+  //           },
+  //         },
+  //       });
+  //     } else {
+  //       setCalculatedTotals(null);
+  //       setCalculationError(false);
+  //     }
+  //   }, 500);
 
-    return () => clearTimeout(timer);
-  }, [items, depositPercentage, calculateTotals]);
+  //   return () => clearTimeout(timer);
+  // }, [items, depositPercentage, calculateTotals]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

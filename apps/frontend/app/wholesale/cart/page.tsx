@@ -28,11 +28,12 @@ import {
   ArrowForward,
   Warning,
 } from '@mui/icons-material';
-import {
-  GET_WHOLESALE_CART,
-  UPDATE_WHOLESALE_CART_ITEM,
-  REMOVE_FROM_WHOLESALE_CART,
-} from '@/lib/graphql/wholesale-buyer';
+// TODO: Backend schema gaps - these queries don't exist yet
+// import {
+//   GET_WHOLESALE_CART,
+//   UPDATE_WHOLESALE_CART_ITEM,
+//   REMOVE_FROM_WHOLESALE_CART,
+// } from '@/lib/graphql/wholesale-buyer';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 const mockCartData = {
@@ -78,27 +79,35 @@ const mockCartData = {
 export default function WholesaleCartPage() {
   const router = useRouter();
 
-  const { data, loading, refetch } = useQuery<any>(GET_WHOLESALE_CART, {
-    fetchPolicy: 'cache-and-network',
-  });
+  // TODO: Backend schema gaps - comment out until backend implements wholesale cart operations
+  // const { data, loading, refetch } = useQuery<any>(GET_WHOLESALE_CART, {
+  //   fetchPolicy: 'cache-and-network',
+  // });
+  const data: any = { wholesaleCart: null };
+  const loading = false;
+  const refetch = () => {};
 
-  const [updateCartItem, { loading: updating }] = useMutation(UPDATE_WHOLESALE_CART_ITEM, {
-    onCompleted: () => {
-      refetch();
-    },
-    onError: (error) => {
-      console.error('Error updating cart item:', error);
-    },
-  });
+  // const [updateCartItem, { loading: updating }] = useMutation(UPDATE_WHOLESALE_CART_ITEM, {
+  //   onCompleted: () => {
+  //     refetch();
+  //   },
+  //   onError: (error) => {
+  //     console.error('Error updating cart item:', error);
+  //   },
+  // });
+  const updateCartItem = (_params?: any) => console.warn('Update cart not implemented - backend schema gap');
+  const updating = false;
 
-  const [removeCartItem, { loading: removing }] = useMutation(REMOVE_FROM_WHOLESALE_CART, {
-    onCompleted: () => {
-      refetch();
-    },
-    onError: (error) => {
-      console.error('Error removing cart item:', error);
-    },
-  });
+  // const [removeCartItem, { loading: removing }] = useMutation(REMOVE_FROM_WHOLESALE_CART, {
+  //   onCompleted: () => {
+  //     refetch();
+  //   },
+  //   onError: (error) => {
+  //     console.error('Error removing cart item:', error);
+  //   },
+  // });
+  const removeCartItem = (_params?: any) => console.warn('Remove from cart not implemented - backend schema gap');
+  const removing = false;
 
   const cart = data?.wholesaleCart || mockCartData.wholesaleCart;
 

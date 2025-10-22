@@ -41,7 +41,12 @@ import {
   AttachMoney,
   Description,
 } from '@mui/icons-material';
-import { GET_QUOTATION_BY_TOKEN, ACCEPT_QUOTATION, Quotation } from '@/lib/graphql/trade-quotations';
+import { 
+  // TODO: Backend schema gap - this query doesn't exist yet
+  // GET_QUOTATION_BY_TOKEN, 
+  ACCEPT_QUOTATION, 
+  Quotation 
+} from '@/lib/graphql/trade-quotations';
 import { format, differenceInDays } from 'date-fns';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
@@ -52,10 +57,14 @@ export default function QuotationViewPage() {
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
-  const { data, loading, refetch } = useQuery<{ getQuotationByToken: Quotation }>(GET_QUOTATION_BY_TOKEN, {
-    variables: { token },
-    skip: !token,
-  });
+  // TODO: Backend schema gap - comment out until backend implements GET_QUOTATION_BY_TOKEN
+  // const { data, loading, refetch } = useQuery<{ getQuotationByToken: Quotation }>(GET_QUOTATION_BY_TOKEN, {
+  //   variables: { token },
+  //   skip: !token,
+  // });
+  const data: any = null;
+  const loading = false;
+  const refetch = () => {};
 
   const [acceptQuotation, { loading: accepting }] = useMutation(ACCEPT_QUOTATION, {
     onCompleted: () => {
@@ -250,7 +259,7 @@ export default function QuotationViewPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {quotation.items?.map((item, index) => (
+                {quotation.items?.map((item: any, index: number) => (
                   <TableRow key={item.id || index}>
                     <TableCell>{item.description}</TableCell>
                     <TableCell align="right">{item.quantity}</TableCell>
