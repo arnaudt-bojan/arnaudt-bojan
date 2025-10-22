@@ -14,7 +14,8 @@
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "npm run build --workspace=@upfirst/frontend",
     "build:backend": "npm run build --workspace=@upfirst/backend",
-    "start": "npm run start:prod --workspace=@upfirst/backend",
+    "start": "concurrently \"npm run start:prod --workspace=@upfirst/backend\" \"npm run start --workspace=@upfirst/frontend\"",
+    "start:prod": "npm run build && npm start"
     "check": "tsc",
     "postinstall": "prisma generate --schema=apps/backend/prisma/schema.prisma",
     "db:push": "prisma db push --schema=apps/backend/prisma/schema.prisma",
