@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "prebuild": "npm run codegen && npm run typecheck && npm run lint",
+    "prebuild": "npm run codegen "prebuild": "npm run codegen && npm run typecheck && npm run lint""prebuild": "npm run codegen && npm run typecheck && npm run lint" npm run typecheck",
     "build": "npx next build",
     "start": "npx next start -p 3000",
     "lint": "next lint --max-warnings=0",

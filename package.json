@@ -12,7 +12,7 @@
     "dev": "npx concurrently \"npm run start:dev --workspace=@upfirst/backend\" \"npm run dev --workspace=@upfirst/frontend\"",
     "clean": "rm -rf node_modules && npm cache clean --force",
     "start": "npx concurrently \"npm run start:prod --workspace=@upfirst/backend\" \"npm run start --workspace=@upfirst/frontend\"",
-    "build": "npm run build:frontend && npm run build:backend",
+    "build": "npx concurrently \"npm run build:frontend\" \"npm run build:backend\"",
     "build:frontend": "npm run build --workspace=@upfirst/frontend",
     "build:backend": "npm run build --workspace=@upfirst/backend",
     "check": "tsc",
