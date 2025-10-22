@@ -30,16 +30,9 @@ import {
   LocalOffer,
 } from '@mui/icons-material';
 import { LIST_WHOLESALE_PRODUCTS } from '@/lib/graphql/wholesale-buyer';
+import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 type SortOption = 'newest' | 'price-low' | 'price-high' | 'name';
-
-// GraphQL Response Types
-interface ListWholesaleProductsData {
-  listProducts: {
-    edges: Array<{ node: any }>;
-    totalCount?: number;
-  };
-}
 
 export default function WholesaleCatalogPage() {
   const router = useRouter();
@@ -47,7 +40,7 @@ export default function WholesaleCatalogPage() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  const { data, loading, error } = useQuery<ListWholesaleProductsData>(LIST_WHOLESALE_PRODUCTS, {
+  const { data, loading, error } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS, {
     variables: {
       filter: {
         search: searchQuery || undefined,

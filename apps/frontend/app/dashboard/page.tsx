@@ -3,6 +3,7 @@
 import { useQuery } from '@/lib/apollo-client';
 import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
 import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
+import { ListProductsQuery, GetCurrentUserQuery } from '@/lib/generated/graphql';
 import {
   Container,
   AppBar,
@@ -40,51 +41,16 @@ import { useRouter } from 'next/navigation';
 
 const drawerWidth = 240;
 
-// GraphQL Response Types
-interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image?: string;
-  category?: string;
-  productType?: string;
-  stock?: number;
-  inventoryStatus?: string;
-  presentation?: {
-    badges?: string[];
-    availabilityText?: string;
-    availableForPurchase?: boolean;
-    stockQuantity?: number;
-  };
-}
-
-interface ListProductsData {
-  listProducts: {
-    totalCount: number;
-    edges: Array<{
-      node: Product;
-    }>;
-  };
-}
-
-interface UserData {
-  me: {
-    id: string;
-    email: string;
-  };
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   
-  const { loading: productsLoading, error: productsError, data: productsData } = useQuery<ListProductsData>(LIST_PRODUCTS, {
+  const { loading: productsLoading, error: productsError, data: productsData } = useQuery<ListProductsQuery>(LIST_PRODUCTS, {
     variables: { first: 10 },
   });
 
-  const { loading: userLoading, error: userError, data: userData } = useQuery<UserData>(GET_CURRENT_USER);
+  const { loading: userLoading, error: userError, data: userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -185,10 +151,10 @@ export default function DashboardPage() {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Product Dashboard
           </Typography>
-          {userData?.me ? (
+          {userData?.getCurrentUser ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2">
-                {userData.me.email}
+                {userData.getCurrentUser.email}
               </Typography>
               <Button
                 color="inherit"

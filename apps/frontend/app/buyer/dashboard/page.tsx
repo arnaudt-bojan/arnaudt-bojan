@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@/lib/apollo-client';
 import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
 import { LIST_ORDERS } from '@/lib/graphql/queries/orders';
+import { GetCurrentUserQuery, ListOrdersQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -35,31 +36,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  status: string;
-  createdAt: string;
-  totalAmount: number;
-  currency: string;
-}
-
-interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-}
-
-// GraphQL query response types
-interface GetCurrentUserData {
-  me: User;
-}
-
-interface ListOrdersData {
-  listOrders: Order[];
-}
-
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusLower = status.toLowerCase();
   if (statusLower === 'delivered' || statusLower === 'completed') return 'success';
@@ -77,21 +53,21 @@ export default function BuyerDashboard() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
-  const { loading: userLoading, data: userData } = useQuery<GetCurrentUserData>(GET_CURRENT_USER, {
+  const { loading: userLoading, data: userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER, {
     fetchPolicy: 'network-only',
   });
 
-  const { loading: ordersLoading, error: ordersError, data: ordersData } = useQuery<ListOrdersData>(LIST_ORDERS, {
+  const { loading: ordersLoading, error: ordersError, data: ordersData } = useQuery<ListOrdersQuery>(LIST_ORDERS, {
     variables: {
       first: 100,
       filter: statusFilter ? { status: statusFilter } : undefined,
     },
     fetchPolicy: 'network-only',
-    skip: !userData?.me,
+    skip: !userData?.getCurrentUser,
   });
 
-  const user: User | null = userData?.me || null;
-  const orders: Order[] = ordersData?.listOrders || [];
+  const user = userData?.getCurrentUser || null;
+  const orders = ordersData?.listOrders?.edges?.map(edge => edge.node) || [];
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { GET_ORDER } from '@/lib/graphql/queries/orders';
 import { CANCEL_ORDER, REORDER_ITEMS } from '@/lib/graphql/mutations/orders';
+import { GetOrderQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -51,68 +52,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  status: string;
-  paymentStatus: string;
-  fulfillmentStatus?: string;
-  subtotal: number;
-  shippingCost: number;
-  taxAmount: number;
-  totalAmount: number;
-  currency: string;
-  createdAt: string;
-  updatedAt: string;
-  shippingAddress?: {
-    fullName: string;
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    phone?: string;
-  };
-  trackingNumber?: string;
-  carrier?: string;
-  trackingUrl?: string;
-  estimatedDeliveryDate?: string;
-  lineItems: {
-    id: string;
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    variant?: string;
-    product?: {
-      id: string;
-      name: string;
-      images?: string[];
-    };
-  }[];
-}
-
-// GraphQL query response types
-interface GetOrderData {
-  getOrder: Order;
-}
-
-interface CancelOrderData {
-  cancelOrder: {
-    id: string;
-    status: string;
-  };
-}
-
-interface ReorderItemsData {
-  reorderItems: {
-    id: string;
-    itemsCount: number;
-  };
-}
-
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusLower = status.toLowerCase();
   if (statusLower === 'delivered' || statusLower === 'completed' || statusLower === 'fulfilled') return 'success';
@@ -151,12 +90,12 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
-  const { loading, error, data, refetch } = useQuery<GetOrderData>(GET_ORDER, {
+  const { loading, error, data, refetch } = useQuery<GetOrderQuery>(GET_ORDER, {
     variables: { id: params.id },
     fetchPolicy: 'network-only',
   });
 
-  const [cancelOrder, { loading: cancelLoading }] = useMutation<CancelOrderData>(CANCEL_ORDER, {
+  const [cancelOrder, { loading: cancelLoading }] = useMutation(CANCEL_ORDER, {
     onCompleted: () => {
       setSnackbarMessage('Order cancelled successfully');
       setSnackbarOpen(true);
@@ -169,7 +108,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
     },
   });
 
-  const [reorderItems, { loading: reorderLoading }] = useMutation<ReorderItemsData>(REORDER_ITEMS, {
+  const [reorderItems, { loading: reorderLoading }] = useMutation(REORDER_ITEMS, {
     onCompleted: () => {
       setSnackbarMessage('Items added to cart successfully');
       setSnackbarOpen(true);
@@ -181,7 +120,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
     },
   });
 
-  const order: Order | null = data?.getOrder || null;
+  const order = data?.getOrder || null;
 
   const handleCancelOrder = () => {
     cancelOrder({ variables: { id: params.id } });

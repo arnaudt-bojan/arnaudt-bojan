@@ -2,6 +2,7 @@
 
 import { useQuery } from '@/lib/apollo-client';
 import { GET_ORDER } from '@/lib/graphql/queries/orders';
+import { GetOrderQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Card,
@@ -47,17 +48,12 @@ const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | '
   return statusMap[status] || 'default';
 };
 
-// GraphQL Response Types
-interface GetOrderData {
-  getOrder: any;
-}
-
 export default function OrderSuccessPage({ params }: { params: { orderId: string } }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // GraphQL Query (aliasing the result as 'order')
-  const { data, loading, error } = useQuery<GetOrderData>(GET_ORDER, {
+  const { data, loading, error } = useQuery<GetOrderQuery>(GET_ORDER, {
     variables: { id: params.orderId },
     fetchPolicy: 'network-only',
   });

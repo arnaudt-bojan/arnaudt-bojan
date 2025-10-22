@@ -34,6 +34,7 @@ import {
   REMOVE_FROM_WHOLESALE_CART,
 } from '@/lib/graphql/wholesale-buyer';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { GetWholesaleCartQuery } from '@/lib/generated/graphql';
 
 const mockCartData = {
   wholesaleCart: {
@@ -75,15 +76,10 @@ const mockCartData = {
   },
 };
 
-// GraphQL Response Types
-interface WholesaleCartData {
-  wholesaleCart: any;
-}
-
 export default function WholesaleCartPage() {
   const router = useRouter();
 
-  const { data, loading, refetch } = useQuery<WholesaleCartData>(GET_WHOLESALE_CART, {
+  const { data, loading, refetch } = useQuery<GetWholesaleCartQuery>(GET_WHOLESALE_CART, {
     fetchPolicy: 'cache-and-network',
   });
 

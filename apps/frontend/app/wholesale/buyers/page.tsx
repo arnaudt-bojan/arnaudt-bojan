@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { LIST_WHOLESALE_INVITATIONS, LIST_WHOLESALE_BUYERS } from '@/lib/graphql/queries/wholesale';
 import { CREATE_WHOLESALE_INVITATION } from '@/lib/graphql/mutations/wholesale';
+import { ListWholesaleInvitationsQuery, ListWholesaleBuyersQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -21,24 +22,13 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { UserPlus, Eye, Ban, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-// GraphQL Response Types
-interface ListWholesaleInvitationsData {
-  listWholesaleInvitations: {
-    edges: Array<{ node: any }>;
-  };
-}
-
-interface ListWholesaleBuyersData {
-  listWholesaleBuyers: any[];
-}
-
 export default function WholesaleBuyers() {
   const router = useRouter();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [buyerEmail, setBuyerEmail] = useState('');
 
-  const { loading: loadingInvitations, data: invitationsData, refetch: refetchInvitations } = useQuery<ListWholesaleInvitationsData>(LIST_WHOLESALE_INVITATIONS);
-  const { loading: loadingBuyers, data: buyersData } = useQuery<ListWholesaleBuyersData>(LIST_WHOLESALE_BUYERS);
+  const { loading: loadingInvitations, data: invitationsData, refetch: refetchInvitations } = useQuery<ListWholesaleInvitationsQuery>(LIST_WHOLESALE_INVITATIONS);
+  const { loading: loadingBuyers, data: buyersData } = useQuery<ListWholesaleBuyersQuery>(LIST_WHOLESALE_BUYERS);
 
   const [createInvitation, { loading: creating, error: createError }] = useMutation(CREATE_WHOLESALE_INVITATION, {
     onCompleted: () => {

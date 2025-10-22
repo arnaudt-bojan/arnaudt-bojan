@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
 import { DELETE_PRODUCT } from '@/lib/graphql/mutations/products';
+import { ListProductsQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -37,33 +38,6 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  compare_at_price?: number;
-  category: string;
-  productType: string;
-  image?: string;
-  stock: number;
-  inventoryStatus: string;
-  created_at: string;
-  presentation?: {
-    availabilityText: string;
-    badges: string[];
-    stockLevelIndicator: string;
-    availableForPurchase: boolean;
-  };
-}
-
-interface ListProductsData {
-  listProducts: {
-    edges: Array<{ node: Product }>;
-    totalCount: number;
-  };
-}
-
 export default function ProductsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -72,10 +46,10 @@ export default function ProductsPage() {
   const [page, setPage] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<any>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
-  const { loading, error, data, refetch } = useQuery<ListProductsData>(LIST_PRODUCTS, {
+  const { loading, error, data, refetch } = useQuery<ListProductsQuery>(LIST_PRODUCTS, {
     variables: {
       first: pageSize,
       filter: {

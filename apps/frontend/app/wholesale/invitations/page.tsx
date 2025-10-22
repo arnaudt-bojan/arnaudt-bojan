@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { LIST_WHOLESALE_INVITATIONS } from '@/lib/graphql/queries/wholesale';
 import { CREATE_WHOLESALE_INVITATION, CANCEL_INVITATION } from '@/lib/graphql/mutations/wholesale';
+import { ListWholesaleInvitationsQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -25,20 +26,13 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { ArrowLeft, Mail, Copy, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-// GraphQL Response Types
-interface ListWholesaleInvitationsData {
-  listWholesaleInvitations: {
-    edges: Array<{ node: any }>;
-  };
-}
-
 export default function WholesaleInvitations() {
   const router = useRouter();
   const [buyerEmail, setBuyerEmail] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
 
-  const { loading, data, refetch } = useQuery<ListWholesaleInvitationsData>(LIST_WHOLESALE_INVITATIONS);
+  const { loading, data, refetch } = useQuery<ListWholesaleInvitationsQuery>(LIST_WHOLESALE_INVITATIONS);
 
   const [createInvitation, { loading: creating, error: createError }] = useMutation(CREATE_WHOLESALE_INVITATION, {
     onCompleted: () => {

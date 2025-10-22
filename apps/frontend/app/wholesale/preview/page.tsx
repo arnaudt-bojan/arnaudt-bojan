@@ -18,6 +18,7 @@ import Grid from '@mui/material/Grid';
 import { Eye, Package, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 const LIST_WHOLESALE_PRODUCTS = gql`
   query ListWholesaleProducts {
@@ -39,16 +40,9 @@ const LIST_WHOLESALE_PRODUCTS = gql`
   }
 `;
 
-// GraphQL Response Types
-interface ListWholesaleProductsData {
-  listWholesaleProducts: {
-    edges: Array<{ node: any }>;
-  };
-}
-
 export default function WholesalePreview() {
   const router = useRouter();
-  const { loading, data } = useQuery<ListWholesaleProductsData>(LIST_WHOLESALE_PRODUCTS);
+  const { loading, data } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);
 
   const products = data?.listWholesaleProducts?.edges?.map((edge: any) => edge.node) || [];
   const activeProducts = products.filter((p: any) => p.status === 'ACTIVE');

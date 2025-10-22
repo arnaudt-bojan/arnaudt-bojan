@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, ApolloError } from '@/lib/apollo-client';
 import { GET_PRODUCT } from '@/lib/graphql/queries/products';
 import { ADD_TO_CART } from '@/lib/graphql/mutations/cart';
+import { GetProductQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Card,
@@ -48,17 +49,6 @@ interface PageProps {
   };
 }
 
-// GraphQL Response Types
-interface GetProductData {
-  getProduct: any;
-}
-
-interface AddToCartData {
-  addToCart: {
-    success: boolean;
-  };
-}
-
 export default function ProductDetailPage({ params }: PageProps) {
   const router = useRouter();
   const { username, id } = params;
@@ -70,12 +60,12 @@ export default function ProductDetailPage({ params }: PageProps) {
   const [quantity, setQuantity] = useState(1);
 
   // GraphQL Query
-  const { data, loading, error } = useQuery<GetProductData>(GET_PRODUCT, {
+  const { data, loading, error } = useQuery<GetProductQuery>(GET_PRODUCT, {
     variables: { id },
   });
 
   // GraphQL Mutation
-  const [addToCart, { loading: addingToCart }] = useMutation<AddToCartData>(ADD_TO_CART, {
+  const [addToCart, { loading: addingToCart }] = useMutation(ADD_TO_CART, {
     onCompleted: (data) => {
       if (data.addToCart.success) {
         alert('Product added to cart!');

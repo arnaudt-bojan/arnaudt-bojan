@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@/lib/apollo-client';
 import { LIST_ORDERS } from '@/lib/graphql/queries/orders';
+import { ListOrdersQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -27,24 +28,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  status: string;
-  fulfillmentStatus: string;
-  paymentStatus: string;
-  totalAmount: number;
-  currency: string;
-  customerName: string;
-  customerEmail: string;
-  createdAt: string;
-  buyer?: {
-    id: string;
-    email: string;
-    fullName?: string;
-  };
-}
-
 const getStatusColor = (status: string | undefined): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   if (!status) return 'default';
   const statusLower = status.toLowerCase();
@@ -55,10 +38,6 @@ const getStatusColor = (status: string | undefined): 'default' | 'primary' | 'se
   return 'default';
 };
 
-interface ListOrdersData {
-  listOrders: Order[];
-}
-
 export default function OrdersPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -66,7 +45,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  const { loading, error, data } = useQuery<ListOrdersData>(LIST_ORDERS, {
+  const { loading, error, data } = useQuery<ListOrdersQuery>(LIST_ORDERS, {
     variables: {
       first: 100,
       filter: statusFilter ? { status: statusFilter } : undefined,
@@ -74,9 +53,9 @@ export default function OrdersPage() {
     fetchPolicy: 'network-only',
   });
 
-  const orders: Order[] = data?.listOrders || [];
+  const orders = data?.listOrders?.edges?.map(edge => edge.node) || [];
 
-  const filteredOrders = orders.filter((order: Order) => {
+  const filteredOrders = orders.filter((order: any) => {
     const matchesSearch = !searchQuery || 
       order.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||

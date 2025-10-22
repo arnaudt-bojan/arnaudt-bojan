@@ -24,6 +24,7 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { PlusCircle, Search, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 const LIST_WHOLESALE_PRODUCTS = gql`
   query ListWholesaleProducts {
@@ -53,13 +54,6 @@ const DELETE_WHOLESALE_PRODUCT = gql`
   }
 `;
 
-// GraphQL Response Types
-interface ListWholesaleProductsData {
-  listWholesaleProducts: {
-    edges: Array<{ node: any }>;
-  };
-}
-
 export default function WholesaleProducts() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,7 +61,7 @@ export default function WholesaleProducts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
-  const { loading, data, refetch } = useQuery<ListWholesaleProductsData>(LIST_WHOLESALE_PRODUCTS);
+  const { loading, data, refetch } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);
   const [deleteProduct, { loading: deleting }] = useMutation(DELETE_WHOLESALE_PRODUCT, {
     onCompleted: () => {
       refetch();

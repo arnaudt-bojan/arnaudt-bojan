@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { GET_CART } from '@/lib/graphql/queries/cart';
 import { CREATE_ORDER } from '@/lib/graphql/mutations/orders';
+import { GetCartQuery } from '@/lib/generated/graphql';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -92,42 +93,6 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
-// GraphQL Response Types
-interface CartTotals {
-  subtotal: string | number;
-  tax: string | number;
-  shipping: string | number;
-  total: string | number;
-}
-
-interface CartItem {
-  id: string;
-  quantity: number;
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    images?: string[];
-  };
-}
-
-interface Cart {
-  id: string;
-  items: CartItem[];
-  totals: CartTotals;
-}
-
-interface GetCartData {
-  cart: Cart | null;
-}
-
-interface CreateOrderData {
-  createOrder: {
-    id: string;
-    success: boolean;
-  };
-}
-
 // Countries list (simplified)
 const COUNTRIES = [
   { code: 'US', name: 'United States' },
@@ -152,12 +117,12 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
 
   // GraphQL Query
-  const { data, loading: cartLoading, error: cartError } = useQuery<GetCartData>(GET_CART, {
+  const { data, loading: cartLoading, error: cartError } = useQuery<GetCartQuery>(GET_CART, {
     fetchPolicy: 'network-only',
   });
 
   // GraphQL Mutation
-  const [createOrder, { loading: creatingOrder }] = useMutation<CreateOrderData>(CREATE_ORDER, {
+  const [createOrder, { loading: creatingOrder }] = useMutation(CREATE_ORDER, {
     onCompleted: (data) => {
       // Redirect to checkout complete page
       router.push(`/checkout/complete?orderId=${data.createOrder.id}`);
