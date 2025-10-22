@@ -58,6 +58,25 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - Shared Package Export Structure Fix
+-   **Eliminated Duplicate Exports**: Fixed TypeScript build errors caused by duplicate exports in `packages/shared`
+    -   Removed duplicate export of `prisma-types.ts` from `index.ts` (already re-exported by `schema.ts`)
+    -   Fixed import paths in `schema.ts` from `@shared/` aliases to relative paths (`./prisma-types`, `./validation-schemas`)
+    -   Corrected Prisma import path in `prisma-types.ts` from `../generated/prisma` to `../../generated/prisma`
+    -   Removed duplicate `formatCurrency` function from `pricing-service.ts` (consolidated in `config/currency.ts`)
+    -   Simplified `index.ts` export strategy: `schema.ts` acts as compatibility layer, `index.ts` exports schema + utilities
+-   **Build Validation Success**: All pre-build validation steps passing
+    -   GraphQL Codegen: ✅ Generated types successfully
+    -   TypeScript Check: ✅ Zero errors (`tsc --noEmit`)
+    -   ESLint: ✅ Zero warnings (`--max-warnings=0`)
+    -   Dev Environment: ✅ Backend (port 4000) + Frontend (port 3000) running without errors
+    -   Production Build: ✅ Pre-build validation complete (codegen → typecheck → lint)
+-   **Export Strategy**: Clean monorepo module organization
+    -   `schema.ts`: Compatibility layer re-exporting Prisma types and validation schemas
+    -   `index.ts`: Single entry point exporting schema and utility modules (no duplicates)
+    -   All imports use relative paths (no `@shared/` aliases within package)
+    -   `pricing-service.ts` marked for deprecation once all references removed
+
 ### October 2025 - Legacy Code Cleanup & Backend Migration
 -   **Backend Domain Services Migration**: Completed migration from legacy server/ directory to proper NestJS structure
     -   Created `DomainError` class at `apps/backend/src/common/errors/domain-error.ts`
