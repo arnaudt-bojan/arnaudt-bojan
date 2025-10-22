@@ -58,15 +58,13 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
-### October 2025 - Test Organization & Workspace Migration
--   **Test Infrastructure Reorganization**: Organized tests by workspace and removed obsolete files
+### October 2025 - Test Organization & Cleanup
+-   **Test Infrastructure Reorganization**: Organized tests by workspace and removed all obsolete files
     -   Migrated backend test mocks to `apps/backend/test/mocks/` (Stripe, PayPal, Resend, message queue)
     -   Kept E2E tests in root `tests/e2e/` (test full Next.js + NestJS integration)
-    -   Archived vitest-specific files to `tests/archive/` (vitest not installed, backend uses Jest)
-    -   Archived: `tests/setup/` → `tests/archive/vitest-setup/` (35 files)
-    -   Archived: `tests/db/` → `tests/archive/vitest-db/` (database utilities)
-    -   Archived: `tests/debug/` → `tests/archive/debug-tools/` (auto-debug utilities)
+    -   Removed obsolete vitest files (vitest not installed, backend uses Jest)
     -   Removed build artifacts: `tests/frontend/routes-manifest.json` (obsolete)
+    -   Removed unused `scripts/auto-debug.ts` (not in package.json)
     -   Archived test documentation: Summary files moved to `docs/archive/test-summaries/`
 -   **Backend Test Infrastructure**: Created proper documentation
     -   Added `apps/backend/test/README.md` documenting Jest-based testing
@@ -75,7 +73,7 @@ The platform features three distinct, parallel platforms with all business logic
 -   **Clean Test Structure**: Final organization
     -   `tests/e2e/` - Playwright E2E tests (testing full app integration)
     -   `apps/backend/test/` - Backend Jest tests, mocks, and utilities
-    -   `tests/archive/` - Archived vitest tests and utilities (preserved for reference)
+    -   All obsolete files removed (45+ vitest files, auto-debug tools)
 -   **Validation Results**: All systems operational
     -   Dev Environment: ✅ Running (Backend port 4000, Frontend port 3000)
     -   TypeScript Check: ✅ Zero errors
