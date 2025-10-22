@@ -5,6 +5,8 @@ import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/700.css";
 import { ApolloProvider } from "@/lib/apollo-client";
+import { AuthProvider } from "@/lib/auth-context";
+import { SocketProvider } from "@/lib/socket-context";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 const inter = Inter({
@@ -26,9 +28,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.variable}>
         <ApolloProvider>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <ThemeProvider>
+                {children}
+              </ThemeProvider>
+            </SocketProvider>
+          </AuthProvider>
         </ApolloProvider>
       </body>
     </html>

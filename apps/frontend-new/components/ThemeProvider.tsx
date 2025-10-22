@@ -42,18 +42,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('theme', newMode);
   };
 
-  // Prevent flash of wrong theme
-  if (!mounted) {
-    return null;
-  }
-
   const theme = mode === 'light' ? lightTheme : darkTheme;
 
   return (
     <ThemeContext.Provider value={{ mode, toggleTheme }}>
       <MuiThemeProvider theme={theme}>
         <CssBaseline />
-        {children}
+        <div style={{ visibility: mounted ? 'visible' : 'hidden' }}>
+          {children}
+        </div>
       </MuiThemeProvider>
     </ThemeContext.Provider>
   );
