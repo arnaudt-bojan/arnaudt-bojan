@@ -46,7 +46,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { EMPTY_TOTALS } from '@/../../shared/config/currency';
 
 // Form validation schema
 const checkoutSchema = z.object({
@@ -239,7 +239,7 @@ export default function CheckoutPage() {
 
   const cart = data?.cart;
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: '0', tax: '0', total: '0', currency: DEFAULT_CURRENCY };
+  const totals = cart?.totals || EMPTY_TOTALS;
 
   // Empty cart
   if (items.length === 0) {

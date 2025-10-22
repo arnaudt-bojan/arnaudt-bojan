@@ -36,7 +36,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { EMPTY_TOTALS } from '@/../../shared/config/currency';
 
 export default function CartPage() {
   const router = useRouter();
@@ -143,7 +143,7 @@ export default function CartPage() {
 
   const cart = data?.cart;
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: '0', tax: '0', total: '0', currency: DEFAULT_CURRENCY };
+  const totals = cart?.totals || EMPTY_TOTALS;
   const isEmpty = items.length === 0;
 
   // Empty cart state

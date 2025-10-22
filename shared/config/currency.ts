@@ -61,3 +61,25 @@ export function formatCurrency(amount: number, currency: Currency): string {
   
   return `${symbol}${formatted}`;
 }
+
+/**
+ * Empty/default totals object for cart and checkout
+ * Use this as the single source of truth for empty state totals
+ */
+export const EMPTY_TOTALS = {
+  subtotal: '0',
+  tax: '0',
+  total: '0',
+  currency: DEFAULT_CURRENCY,
+} as const;
+
+/**
+ * Empty/default wholesale totals (includes shipping)
+ */
+export const EMPTY_WHOLESALE_TOTALS = {
+  subtotal: '0',
+  tax: '0',
+  shipping: '0',
+  total: '0',
+  currency: DEFAULT_CURRENCY,
+} as const;
