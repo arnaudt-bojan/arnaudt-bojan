@@ -1245,6 +1245,37 @@ type WholesaleInvitationConnection {
   totalCount: Int!
 }
 
+type WholesaleBuyersConnection {
+  edges: [WholesaleBuyerEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type WholesaleBuyerEdge {
+  node: WholesaleAccessGrant!
+  cursor: String!
+}
+
+type WholesaleCart {
+  id: ID!
+  sellerId: ID
+  buyerId: ID!
+  items: [WholesaleCartItem!]!
+  subtotal: Float!
+  itemCount: Int!
+  updatedAt: DateTime!
+}
+
+type WholesaleCartItem {
+  id: ID!
+  productId: ID!
+  productName: String!
+  quantity: Int!
+  unitPrice: Float!
+  lineTotal: Float!
+  product: Product
+}
+
 # ============================================================================
 # Module 5.1: Wholesale Rules & Validation
 # ============================================================================
@@ -1460,6 +1491,35 @@ type QuotationConnection {
   edges: [QuotationEdge!]!
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type CalculatedQuotationTotals {
+  lineItems: [CalculatedLineItem!]!
+  subtotal: Float!
+  taxAmount: Float!
+  shippingAmount: Float!
+  total: Float!
+  depositAmount: Float!
+  depositPercentage: Float!
+  balanceAmount: Float!
+}
+
+type CalculatedLineItem {
+  description: String!
+  unitPrice: Float!
+  quantity: Int!
+  lineTotal: Float!
+}
+
+type ReorderedCart {
+  id: ID!
+  items: [ReorderedCartItem!]!
+}
+
+type ReorderedCartItem {
+  id: ID!
+  productId: ID!
+  quantity: Int!
 }
 
 # ============================================================================
@@ -2352,6 +2412,24 @@ input UpdateQuotationInput {
   validUntil: DateTime
 }
 
+input CalculateQuotationTotalsInput {
+  lineItems: [QuotationLineItemInput!]!
+  depositPercentage: Float
+  taxRate: Float
+  shippingAmount: Float
+}
+
+input UpdateWholesaleCartItemInput {
+  itemId: ID!
+  quantity: Int!
+}
+
+input AddToWholesaleCartInput {
+  sellerId: ID!
+  productId: ID!
+  quantity: Int!
+}
+
 input LaunchMetaCampaignInput {
   campaignName: String!
   productIds: [ID!]!
@@ -2469,6 +2547,9 @@ type Query {
   
   """Get seller account by slug"""
   getStore(slug: String!): SellerAccount
+  
+  """Get seller by username (public query)"""
+  getSellerByUsername(username: String!): User
   
   """Get buyer profile"""
   getBuyerProfile(userId: ID!): BuyerProfile
@@ -2588,6 +2669,12 @@ type Query {
   """Get wholesale invitation by token"""
   getWholesaleInvitation(token: String!): WholesaleInvitation
   
+  """List wholesale buyers for a seller"""
+  listWholesaleBuyers: WholesaleBuyersConnection!
+  
+  """Get wholesale cart"""
+  getWholesaleCart(sellerId: ID): WholesaleCart
+  
   """Calculate wholesale deposit amount"""
   calculateWholesaleDeposit(orderValue: Float!, depositPercentage: Float!): DepositCalculation!
   
@@ -2610,6 +2697,9 @@ type Query {
   """Get quotation by number"""
   getQuotationByNumber(quotationNumber: String!): Quotation
   
+  """Get quotation by secure token (for buyer view)"""
+  getQuotationByToken(token: String!): Quotation
+  
   """List quotations"""
   listQuotations(
     sellerId: ID
@@ -2618,6 +2708,9 @@ type Query {
     first: Int
     after: String
   ): QuotationConnection!
+  
+  """Calculate quotation totals server-side"""
+  calculateQuotationTotals(input: CalculateQuotationTotalsInput!): CalculatedQuotationTotals!
   
   # ========================================
   # Module 7: Subscriptions & Billing
@@ -2832,6 +2925,12 @@ type Mutation {
   """Update order fulfillment"""
   updateFulfillment(input: UpdateOrderFulfillmentInput!): Order!
   
+  """Cancel order (buyer only)"""
+  cancelOrder(orderId: ID!): Order!
+  
+  """Reorder items from previous order"""
+  reorderItems(orderId: ID!): ReorderedCart!
+  
   """Generate invoice for order"""
   generateInvoice(orderId: ID!): Invoice!
   
@@ -2854,6 +2953,18 @@ type Mutation {
   """Reject wholesale invitation"""
   rejectInvitation(token: String!): Boolean!
   
+  """Cancel wholesale invitation (seller only)"""
+  cancelInvitation(invitationId: ID!): WholesaleInvitation!
+  
+  """Add item to wholesale cart"""
+  addToWholesaleCart(input: AddToWholesaleCartInput!): WholesaleCart!
+  
+  """Update wholesale cart item quantity"""
+  updateWholesaleCartItem(input: UpdateWholesaleCartItemInput!): WholesaleCart!
+  
+  """Remove item from wholesale cart"""
+  removeFromWholesaleCart(itemId: ID!): WholesaleCart!
+  
   """Place wholesale order"""
   placeWholesaleOrder(input: PlaceWholesaleOrderInput!): WholesaleOrder!
   
@@ -2869,6 +2980,9 @@ type Mutation {
   
   """Update quotation"""
   updateQuotation(id: ID!, input: UpdateQuotationInput!): Quotation!
+  
+  """Send quotation to buyer via email"""
+  sendQuotation(id: ID!): Quotation!
   
   """Submit quotation to buyer"""
   submitQuotation(id: ID!): Quotation!
