@@ -40,6 +40,26 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - Build Validation Pipeline
+-   **Pre-Build Validation**: Build process now includes comprehensive validation before compilation
+    -   **Frontend**: `prebuild` hook runs codegen → typecheck → lint (with --max-warnings=0)
+    -   **Backend**: `prebuild` hook runs typecheck
+    -   **Early Failure**: Build fails immediately on any TypeScript errors or ESLint warnings
+    -   **Zero Warnings Policy**: ESLint configured with `--max-warnings=0` to enforce clean code
+    -   **Documentation**: Added `BUILD_VALIDATION.md` with detailed build pipeline documentation
+
+### October 2025 - TypeScript & ESLint Cleanup
+-   **Zero Errors**: Fixed all 34+ TypeScript errors across frontend codebase
+    -   Cart items now use `productId` instead of `id` (matches GraphQL schema)
+    -   Migrated from custom interfaces to GraphQL generated types
+    -   Extended interfaces where GraphQL types were missing properties
+    -   Fixed MUI Select onChange handlers with proper type signatures
+-   **Zero Warnings**: Fixed all 40+ ESLint warnings
+    -   Removed unused imports, variables, and type definitions
+    -   Eliminated all `any` types in favor of proper TypeScript interfaces
+    -   Prefixed unused variables with underscore per ESLint rules
+-   **Critical Fix**: Restored Stripe requirements warning by using snake_case `currently_due` property
+
 ### October 2025 - Apollo Client v4 Migration & GraphQL Code Generator Setup
 -   **Apollo Client v4 Integration**: Migrated from deprecated experimental package to production-ready Apollo Client v4
     -   **Package**: Installed `@apollo/client-integration-nextjs` (v0.14.0) for Next.js App Router support

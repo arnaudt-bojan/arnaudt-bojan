@@ -4,6 +4,7 @@
   "type": "commonjs",
   "private": true,
   "scripts": {
+    "prebuild": "npm run typecheck",
     "build": "npx nest build",
     "start": "npx nest start",
     "start:dev": "npx nest start --watch",
