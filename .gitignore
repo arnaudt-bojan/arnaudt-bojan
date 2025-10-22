@@ -8,3 +8,10 @@ vite.config.ts.*
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Yarn Berry
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
