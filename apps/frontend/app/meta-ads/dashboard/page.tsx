@@ -29,7 +29,6 @@ import {
   CampaignOutlined,
   Visibility,
   MouseOutlined,
-  PercentOutlined,
   Add,
   BarChart,
   MoreVert,
@@ -126,7 +125,7 @@ interface Campaign {
   endDate?: string;
 }
 
-function StatCard({ title, value, icon: Icon, testId }: { title: string; value: string; icon: any; testId: string }) {
+function StatCard({ title, value, icon: Icon, testId }: { title: string; value: string; icon: React.ComponentType<{ sx?: object }>; testId: string }) {
   return (
     <Card data-testid={testId}>
       <CardContent>

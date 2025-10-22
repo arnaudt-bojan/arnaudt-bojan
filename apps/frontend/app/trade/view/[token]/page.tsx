@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@/lib/apollo-client';
+import { useMutation } from '@/lib/apollo-client';
 import { useParams } from 'next/navigation';
 import {
   Container,
@@ -18,7 +18,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
   Alert,
   AlertTitle,
   Divider,
@@ -38,17 +37,32 @@ import {
   Email,
   CalendarToday,
   LocalShipping,
-  AttachMoney,
-  Description,
 } from '@mui/icons-material';
 import { 
   // TODO: Backend schema gap - this query doesn't exist yet
   // GET_QUOTATION_BY_TOKEN, 
-  ACCEPT_QUOTATION, 
-  Quotation 
+  ACCEPT_QUOTATION,
 } from '@/lib/graphql/trade-quotations';
 import { format, differenceInDays } from 'date-fns';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+
+interface QuotationItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: string | number;
+  lineTotal?: string | number;
+}
+
+interface QuotationData {
+  id: string;
+  quotationNumber: string;
+  status: string;
+  validUntil?: string;
+  total: number;
+  currency: string;
+  depositPercentage: number;
+}
 
 export default function QuotationViewPage() {
   const params = useParams();
@@ -58,11 +72,11 @@ export default function QuotationViewPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
   // TODO: Backend schema gap - comment out until backend implements GET_QUOTATION_BY_TOKEN
-  // const { data, loading, refetch } = useQuery<{ getQuotationByToken: Quotation }>(GET_QUOTATION_BY_TOKEN, {
+  // const { data, loading, refetch } = useQuery<{ getQuotationByToken: QuotationData }>(GET_QUOTATION_BY_TOKEN, {
   //   variables: { token },
   //   skip: !token,
   // });
-  const data: any = null;
+  const data: { getQuotationByToken?: QuotationData } | null = null;
   const loading = false;
   const refetch = () => {};
 
@@ -259,7 +273,7 @@ export default function QuotationViewPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {quotation.items?.map((item: any, index: number) => (
+                {quotation.items?.map((item: QuotationItem, index: number) => (
                   <TableRow key={item.id || index}>
                     <TableCell>{item.description}</TableCell>
                     <TableCell align="right">{item.quantity}</TableCell>

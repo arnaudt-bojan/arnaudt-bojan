@@ -39,18 +39,21 @@ const LIST_WHOLESALE_PRODUCTS = gql`
   }
 `;
 
+type ProductNode = NonNullable<NonNullable<NonNullable<ListWholesaleProductsQuery['listProducts']>['edges']>[number]['node']>;
+
 export default function WholesalePreview() {
   const router = useRouter();
   const { loading, data } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);
 
-  const products = data?.listProducts?.edges?.map((edge: any) => edge.node) || [];
-  const activeProducts = products.filter((p: any) => p.status === 'ACTIVE');
+  const products = data?.listProducts?.edges?.map(edge => edge.node) || [];
+  const activeProducts = products.filter((p) => p.status === 'ACTIVE');
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: string | number) => {
+    const cents = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: DEFAULT_CURRENCY,
-    }).format(amount / 100);
+    }).format(cents / 100);
   };
 
   return (
@@ -125,7 +128,7 @@ export default function WholesalePreview() {
         </Box>
       ) : (
         <Grid container spacing={3}>
-          {activeProducts.map((product: any) => (
+          {activeProducts.map((product) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.id}>
               <Card 
                 sx={{ 
@@ -193,7 +196,7 @@ export default function WholesalePreview() {
 
                   <Box>
                     <Typography variant="h5" color="primary" fontWeight="bold" gutterBottom>
-                      {formatCurrency(product.wholesalePrice)}
+                      {formatCurrency(product.price)}
                     </Typography>
                     <Box display="flex" gap={2} flexWrap="wrap">
                       <Box>
@@ -201,17 +204,19 @@ export default function WholesalePreview() {
                           Minimum Order
                         </Typography>
                         <Typography variant="body2" fontWeight="bold">
-                          {product.moq} units
+                          1 unit
                         </Typography>
                       </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          Available Stock
-                        </Typography>
-                        <Typography variant="body2" fontWeight="bold">
-                          {product.stock} units
-                        </Typography>
-                      </Box>
+                      {product.stock && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Available Stock
+                          </Typography>
+                          <Typography variant="body2" fontWeight="bold">
+                            {product.stock} units
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
                   </Box>
 

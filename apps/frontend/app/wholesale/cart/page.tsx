@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation } from '@/lib/apollo-client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
@@ -79,34 +77,58 @@ const mockCartData = {
 export default function WholesaleCartPage() {
   const router = useRouter();
 
+  interface CartData {
+    wholesaleCart: {
+      id: string;
+      items: Array<{
+        id: string;
+        moqCompliant: boolean;
+      }>;
+    } | null;
+  }
+
   // TODO: Backend schema gaps - comment out until backend implements wholesale cart operations
-  // const { data, loading, refetch } = useQuery<any>(GET_WHOLESALE_CART, {
+  // const { data, loading, refetch } = useQuery<CartData>(GET_WHOLESALE_CART, {
   //   fetchPolicy: 'cache-and-network',
   // });
-  const data: any = { wholesaleCart: null };
+  const data: CartData = { wholesaleCart: null };
+  interface MoqError {
+    id: string;
+    productName: string;
+    quantity: number;
+    moq: number;
+  }
+
   const loading = false;
-  const refetch = () => {};
+  const _refetch = () => {};
+
+  interface CartMutationParams {
+    variables?: {
+      itemId?: string;
+      quantity?: number;
+    };
+  }
 
   // const [updateCartItem, { loading: updating }] = useMutation(UPDATE_WHOLESALE_CART_ITEM, {
   //   onCompleted: () => {
-  //     refetch();
+  //     _refetch();
   //   },
   //   onError: (error) => {
   //     console.error('Error updating cart item:', error);
   //   },
   // });
-  const updateCartItem = (_params?: any) => console.warn('Update cart not implemented - backend schema gap');
+  const updateCartItem = (_params?: CartMutationParams) => console.warn('Update cart not implemented - backend schema gap');
   const updating = false;
 
   // const [removeCartItem, { loading: removing }] = useMutation(REMOVE_FROM_WHOLESALE_CART, {
   //   onCompleted: () => {
-  //     refetch();
+  //     _refetch();
   //   },
   //   onError: (error) => {
   //     console.error('Error removing cart item:', error);
   //   },
   // });
-  const removeCartItem = (_params?: any) => console.warn('Remove from cart not implemented - backend schema gap');
+  const removeCartItem = (_params?: CartMutationParams) => console.warn('Remove from cart not implemented - backend schema gap');
   const removing = false;
 
   const cart = data?.wholesaleCart || mockCartData.wholesaleCart;
@@ -130,8 +152,13 @@ export default function WholesaleCartPage() {
     });
   };
 
+  interface CartItem {
+    id: string;
+    moqCompliant: boolean;
+  }
+
   const handleCheckout = () => {
-    const hasErrors = cart.items.some((item: any) => !item.moqCompliant);
+    const hasErrors = cart.items.some((item: CartItem) => !item.moqCompliant);
     if (hasErrors) {
       alert('Please fix MOQ errors before proceeding to checkout');
       return;
@@ -143,7 +170,7 @@ export default function WholesaleCartPage() {
     return `$${(cents / 100).toFixed(2)}`;
   };
 
-  const moqErrors = cart.items.filter((item: any) => !item.moqCompliant);
+  const moqErrors = cart.items.filter((item: CartItem) => !item.moqCompliant);
 
   if (loading) {
     return (
@@ -195,7 +222,7 @@ export default function WholesaleCartPage() {
           <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
             MOQ Requirements Not Met
           </Typography>
-          {moqErrors.map((item: any) => (
+          {moqErrors.map((item: MoqError) => (
             <Typography key={item.id} variant="body2">
               • {item.productName}: Quantity {item.quantity} is below MOQ of {item.moq}
             </Typography>
@@ -222,7 +249,7 @@ export default function WholesaleCartPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {cart.items.map((item: any) => (
+                  {cart.items.map((item: MoqError & { unitPriceCents: number; lineTotalCents: number; productImage: string; moqCompliant: boolean }) => (
                     <TableRow
                       key={item.id}
                       sx={{

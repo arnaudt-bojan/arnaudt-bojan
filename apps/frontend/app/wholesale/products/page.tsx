@@ -12,7 +12,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -60,6 +59,8 @@ export default function WholesaleProducts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
+  type ProductNode = NonNullable<NonNullable<NonNullable<ListWholesaleProductsQuery['listProducts']>['edges']>[number]['node']>;
+
   const { loading, data, refetch } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);
   const [deleteProduct, { loading: deleting }] = useMutation(DELETE_WHOLESALE_PRODUCT, {
     onCompleted: () => {
@@ -69,22 +70,23 @@ export default function WholesaleProducts() {
     },
   });
 
-  const products = data?.listProducts?.edges?.map((edge: any) => edge.node) || [];
+  const products = data?.listProducts?.edges?.map(edge => edge.node) || [];
 
-  const categories = Array.from(new Set(products.map((p: any) => p.category)));
+  const categories = Array.from(new Set(products.map((p) => p.category)));
 
-  const filteredProducts = products.filter((product: any) => {
+  const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
+                         (product.description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: string | number) => {
+    const cents = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: DEFAULT_CURRENCY,
-    }).format(amount / 100);
+    }).format(cents / 100);
   };
 
   const handleDelete = (id: string) => {
@@ -211,7 +213,7 @@ export default function WholesaleProducts() {
             data-testid="select-category"
           >
             <MenuItem value="all">All Categories</MenuItem>
-            {categories.map((category: any) => (
+            {categories.map((category: string | undefined) => (
               <MenuItem key={category} value={category}>
                 {category}
               </MenuItem>

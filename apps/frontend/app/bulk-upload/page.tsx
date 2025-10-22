@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Container,
   Box,
@@ -37,7 +37,6 @@ import {
   Close,
   CheckCircle,
   Error,
-  Warning,
   FileDownload,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -68,7 +67,7 @@ const OPTIONAL_FIELDS = ['Description', 'Stock', 'Category', 'Images'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export default function BulkUploadPage() {
-  const router = useRouter();
+  const _router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCSVData] = useState<CSVRow[]>([]);
   const [csvHeaders, setCSVHeaders] = useState<string[]>([]);

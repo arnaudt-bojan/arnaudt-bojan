@@ -26,7 +26,6 @@ import {
   Chip,
   Paper,
   CircularProgress,
-  Alert,
   InputAdornment,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -35,7 +34,6 @@ import {
   ArrowForward,
   AutoAwesome,
   Send,
-  Campaign,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -170,7 +168,7 @@ export default function CreateAdCampaign() {
   const [generateAdCopy] = useMutation<GenerateAdCopyData>(GENERATE_AD_COPY);
   const [createCampaign] = useMutation(CREATE_CAMPAIGN);
 
-  const products: Product[] = productsData?.listProducts?.edges?.map((edge: any) => edge.node) || [];
+  const products: Product[] = productsData?.listProducts?.edges?.map((edge) => edge.node) || [];
 
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);

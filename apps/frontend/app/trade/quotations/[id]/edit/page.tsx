@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { useRouter, useParams } from 'next/navigation';
 import {
@@ -33,7 +33,6 @@ import {
   Add,
   Delete,
   Save,
-  Send,
   ArrowBack,
 } from '@mui/icons-material';
 import {
@@ -64,7 +63,7 @@ const CURRENCY_LABELS: Record<string, string> = {
   CHF: 'Swiss Franc',
 };
 
-const CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
+const _CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
   value: curr,
   label: `${curr} - ${CURRENCY_LABELS[curr] || curr}`
 }));
@@ -105,9 +104,16 @@ export default function EditQuotation() {
     { description: '', unitPrice: 0, quantity: 1 },
   ]);
 
+  interface CalculatedTotals {
+    subtotal: number;
+    total: number;
+    depositAmount: number;
+    balanceAmount: number;
+  }
+
   // TODO: Backend schema gap - using any type until backend implements CALCULATE_QUOTATION_TOTALS
-  const [calculatedTotals, setCalculatedTotals] = useState<any>(null);
-  const [calculationError, setCalculationError] = useState(false);
+  const [calculatedTotals, _setCalculatedTotals] = useState<CalculatedTotals | null>(null);
+  const [calculationError, _setCalculationError] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -209,7 +215,7 @@ export default function EditQuotation() {
     }
   };
 
-  const updateItem = (index: number, field: keyof LineItem, value: any) => {
+  const updateItem = (index: number, field: keyof LineItem, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);

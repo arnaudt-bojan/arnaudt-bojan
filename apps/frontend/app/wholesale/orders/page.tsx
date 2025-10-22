@@ -20,9 +20,27 @@ import { useRouter } from 'next/navigation';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 // GraphQL Response Types
+interface WholesaleOrderNode {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  depositAmount: number;
+  balanceAmount: number;
+  calculatedDepositAmount?: number;
+  calculatedBalanceAmount?: number;
+  paymentTerms: string;
+  createdAt: string;
+  items?: Array<{ id: string }>;
+  buyer?: {
+    fullName?: string;
+    email?: string;
+  };
+}
+
 interface ListWholesaleOrdersData {
   listWholesaleOrders: {
-    edges: Array<{ node: any }>;
+    edges: Array<{ node: WholesaleOrderNode }>;
   };
 }
 
@@ -36,7 +54,7 @@ export default function WholesaleOrders() {
     },
   });
 
-  const orders = data?.listWholesaleOrders?.edges?.map((edge: any) => edge.node) || [];
+  const orders = data?.listWholesaleOrders?.edges?.map((edge) => edge.node) || [];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

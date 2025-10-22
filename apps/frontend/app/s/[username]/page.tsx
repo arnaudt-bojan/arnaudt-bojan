@@ -59,26 +59,46 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
 
   const productsPerPage = 12;
 
-  // GraphQL Response Types
-  interface GetSellerData {
-    getSellerByUsername: any;
-  }
-
   // TODO: Backend schema gap - comment out until backend implements GET_SELLER_BY_USERNAME
   // const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery<GetSellerData>(GET_SELLER_BY_USERNAME, {
   //   variables: { username },
   // });
+  interface SellerData {
+    id: string;
+    username: string;
+    storeName?: string;
+    displayName?: string;
+    description?: string;
+    logo?: string;
+    banner?: string;
+  }
+
   const sellerLoading = false;
   const sellerError = null;
-  const sellerData: any = null;
+  const sellerData: { getSellerByUsername: SellerData } | null = null;
 
   const seller = sellerData?.getSellerByUsername;
   const sellerId = seller?.id || 'placeholder-seller-id'; // Fallback for development
 
+  interface ProductNode {
+    id: string;
+    name: string;
+    description?: string;
+    price: string | number;
+    category?: string;
+    images?: string[];
+    stock_quantity?: number;
+  }
+
+  interface PageInfo {
+    hasNextPage: boolean;
+    endCursor?: string;
+  }
+
   interface ListProductsData {
     listProducts: {
-      edges: Array<{ node: any }>;
-      pageInfo: any;
+      edges: Array<{ node: ProductNode }>;
+      pageInfo: PageInfo;
       totalCount: number;
     };
   }
@@ -97,8 +117,8 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     skip: !sellerId || sellerId === 'placeholder-seller-id', // Skip if no valid seller
   });
 
-  const products = productsData?.listProducts?.edges?.map((edge: any) => edge.node) || [];
-  const pageInfo = productsData?.listProducts?.pageInfo;
+  const products = productsData?.listProducts?.edges?.map((edge) => edge.node) || [];
+  const _pageInfo = productsData?.listProducts?.pageInfo;
   const totalCount = productsData?.listProducts?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / productsPerPage);
 
@@ -121,7 +141,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
   });
 
   // Extract unique categories from products
-  const categories = Array.from(new Set(products.map((p: any) => p.category).filter(Boolean)));
+  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
 
   const handleAddToCart = async (productId: string) => {
     try {
@@ -141,12 +161,12 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     setPage(1); // Reset to first page on search
   };
 
-  const handleCategoryChange = (event: any) => {
+  const handleCategoryChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCategory(event.target.value);
     setPage(1); // Reset to first page on filter
   };
 
-  const handleSortChange = (event: any) => {
+  const handleSortChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setSortBy(event.target.value);
     setPage(1); // Reset to first page on sort
   };
@@ -289,8 +309,8 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
                 >
                   <MenuItem value="">All Categories</MenuItem>
                   {categories.map((cat) => (
-                    <MenuItem key={cat as string} value={cat as string}>
-                      {cat as string}
+                    <MenuItem key={String(cat)} value={String(cat)}>
+                      {String(cat)}
                     </MenuItem>
                   ))}
                 </Select>
@@ -362,7 +382,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
           <>
             {/* Product Grid */}
             <Grid container spacing={3}>
-              {products.map((product: any) => (
+              {products.map((product: ProductNode) => (
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
                   <Card
                     sx={{

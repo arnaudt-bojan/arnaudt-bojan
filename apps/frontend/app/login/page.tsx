@@ -56,8 +56,8 @@ export default function LoginPage() {
 
       setSuccess('Verification code sent! Check your email (including spam folder).');
       setStep('code');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send verification code');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send verification code');
     } finally {
       setLoading(false);
     }
@@ -95,8 +95,8 @@ export default function LoginPage() {
       setTimeout(() => {
         router.push('/dashboard');
       }, 500);
-    } catch (err: any) {
-      setError(err.message || 'Invalid verification code');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid verification code');
     } finally {
       setLoading(false);
     }

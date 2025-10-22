@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Container,
   Card,
@@ -24,18 +24,13 @@ import {
   Alert,
   CircularProgress,
   LinearProgress,
-  Switch,
-  FormControlLabel,
   Snackbar,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   DataGrid,
   GridColDef,
   GridRowSelectionModel,
-  GridToolbar,
 } from '@mui/x-data-grid';
 import {
   Add as AddIcon,
@@ -87,30 +82,25 @@ export default function NewsletterPage() {
   // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [_settingsDialogOpen, _setSettingsDialogOpen] = useState(false);
 
   // Form states
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newTags, setNewTags] = useState('');
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [csvPreview, setCsvPreview] = useState<any[]>([]);
+  const [csvPreview, setCsvPreview] = useState<Record<string, string>[]>([]);
   const [importLoading, setImportLoading] = useState(false);
 
   // Settings states
-  const [checkoutSubscription, setCheckoutSubscription] = useState(true);
-  const [subscriptionMessage, setSubscriptionMessage] = useState('Subscribe to our newsletter for updates and exclusive offers');
-  const [privacyPolicyLink, setPrivacyPolicyLink] = useState('');
+  const [_checkoutSubscription, _setCheckoutSubscription] = useState(true);
+  const [_subscriptionMessage, _setSubscriptionMessage] = useState('Subscribe to our newsletter for updates and exclusive offers');
+  const [_privacyPolicyLink, _setPrivacyPolicyLink] = useState('');
 
-  // Fetch subscribers and stats
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [subscribersRes, analyticsRes] = await Promise.all([
+      const [subscribersRes, _analyticsRes] = await Promise.all([
         fetch('/api/subscribers', { credentials: 'include' }),
         fetch('/api/newsletter-analytics', { credentials: 'include' }),
       ]);
@@ -152,7 +142,12 @@ export default function NewsletterPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch subscribers and stats
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
@@ -187,7 +182,7 @@ export default function NewsletterPage() {
         const error = await response.json();
         showSnackbar(error.error || 'Failed to add subscriber', 'error');
       }
-    } catch (_error) {
+    } catch {
       showSnackbar('Failed to add subscriber', 'error');
     }
   };
@@ -203,7 +198,7 @@ export default function NewsletterPage() {
     
     const preview = lines.slice(1, 6).map(line => {
       const values = line.split(',');
-      const obj: any = {};
+      const obj: Record<string, string> = {};
       headers.forEach((header, index) => {
         obj[header] = values[index]?.trim() || '';
       });
@@ -227,7 +222,7 @@ export default function NewsletterPage() {
       
       const subscribers = lines.slice(1).map(line => {
         const values = line.split(',');
-        const obj: any = {};
+        const obj: Record<string, string> = {};
         headers.forEach((header, index) => {
           obj[header] = values[index]?.trim() || '';
         });
@@ -255,7 +250,7 @@ export default function NewsletterPage() {
         const error = await response.json();
         showSnackbar(error.error || 'Failed to import subscribers', 'error');
       }
-    } catch (_error) {
+    } catch {
       showSnackbar('Failed to import CSV', 'error');
     } finally {
       setImportLoading(false);
@@ -293,7 +288,7 @@ export default function NewsletterPage() {
       } else {
         showSnackbar('Failed to remove subscriber', 'error');
       }
-    } catch (_error) {
+    } catch {
       showSnackbar('Failed to remove subscriber', 'error');
     }
   };
@@ -316,7 +311,7 @@ export default function NewsletterPage() {
       showSnackbar(`Deleted ${selectedRows.length} subscribers`, 'success');
       setSelectedRows([]);
       fetchData();
-    } catch (_error) {
+    } catch {
       showSnackbar('Failed to delete subscribers', 'error');
     }
   };
@@ -678,7 +673,7 @@ export default function NewsletterPage() {
                 <Box sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
                   {csvPreview.map((row, index) => (
                     <Typography key={index} variant="body2">
-                      {row.email || row.Email} - {row.name || row.Name || 'No name'}
+                      {row['email'] || row['Email']} - {row['name'] || row['Name'] || 'No name'}
                     </Typography>
                   ))}
                 </Box>

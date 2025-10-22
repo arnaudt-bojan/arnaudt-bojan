@@ -12,8 +12,6 @@ import {
   Box,
   Button,
   Skeleton,
-  Alert,
-  AlertTitle,
   Table,
   TableBody,
   TableCell,
@@ -30,7 +28,6 @@ import {
   ShoppingCart,
   DollarSign,
   PlusCircle,
-  AlertTriangle,
   Eye,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -73,12 +70,45 @@ const GET_RECENT_WHOLESALE_ORDERS = gql`
 export default function WholesaleDashboard() {
   const router = useRouter();
   
-  const { loading: statsLoading, data: statsData } = useQuery<any>(GET_WHOLESALE_STATS);
-  const { loading: ordersLoading, data: ordersData } = useQuery<any>(GET_RECENT_WHOLESALE_ORDERS);
-  const { data: userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER);
+  interface StatsData {
+    wholesaleStats?: {
+      totalProducts: number;
+      totalBuyers: number;
+      totalOrders: number;
+      totalRevenue: number;
+      pendingOrders: number;
+    };
+  }
+
+  interface OrderEdge {
+    node: {
+      id: string;
+      orderNumber: string;
+      status: string;
+      totalAmount: number;
+      depositAmount: number;
+      balanceAmount: number;
+      createdAt: string;
+      buyer: {
+        id: string;
+        email: string;
+        fullName?: string;
+      };
+    };
+  }
+
+  interface OrdersData {
+    listWholesaleOrders?: {
+      edges: OrderEdge[];
+    };
+  }
+
+  const { loading: statsLoading, data: statsData } = useQuery<StatsData>(GET_WHOLESALE_STATS);
+  const { loading: ordersLoading, data: ordersData } = useQuery<OrdersData>(GET_RECENT_WHOLESALE_ORDERS);
+  const { data: _userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER);
 
   const stats = statsData?.wholesaleStats;
-  const recentOrders = ordersData?.listWholesaleOrders?.edges?.map((edge: any) => edge.node) || [];
+  const recentOrders = ordersData?.listWholesaleOrders?.edges?.map((edge) => edge.node) || [];
 
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
@@ -264,7 +294,7 @@ export default function WholesaleDashboard() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {recentOrders.map((order: any) => (
+                      {recentOrders.map((order) => (
                         <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
                           <TableCell>{order.orderNumber}</TableCell>
                           <TableCell>{order.buyer?.fullName || order.buyer?.email || 'Unknown'}</TableCell>

@@ -12,7 +12,6 @@ import {
   FormControl,
   InputLabel,
   Button,
-  Chip,
   CircularProgress,
   Alert,
 } from '@mui/material';
@@ -43,9 +42,55 @@ import {
 } from 'recharts';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
+interface OrderStatusEntry {
+  status: string;
+  count: number;
+}
+
+interface AnalyticsData {
+  currency: string;
+  revenue: {
+    totalRevenue: number;
+    revenueGrowth: number;
+    averageOrderValue: number;
+    revenueByPeriod: Array<{ date: string; revenue: number }>;
+  };
+  orders: {
+    totalOrders: number;
+    orderGrowth: number;
+    orderCompletionRate: number;
+    refundRate: number;
+    ordersByStatus: OrderStatusEntry[];
+  };
+  customers: {
+    totalCustomers: number;
+    customerGrowth: number;
+    newCustomers: number;
+    repeatCustomers: number;
+    repeatRate: number;
+  };
+  products: {
+    activeProducts: number;
+    totalProducts: number;
+    topSellingProducts: Array<{ name: string; unitsSold: number }>;
+  };
+  platforms: {
+    b2c: {
+      orders: number;
+      revenue: number;
+      averageOrderValue: number;
+    };
+    wholesale: {
+      orders: number;
+      revenue: number;
+      averageOrderValue: number;
+    };
+  };
+}
+
 // Data fetch hook for analytics
 const useAnalyticsData = (period: string) => {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,8 +105,8 @@ const useAnalyticsData = (period: string) => {
         const result = await response.json();
         setData(result);
         setError(null);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
         setData(null);
       } finally {
         setLoading(false);
@@ -404,7 +449,7 @@ export default function AnalyticsPage() {
                       outerRadius={100}
                       label={(entry) => `${entry.status}: ${entry.count}`}
                     >
-                      {analytics.orders.ordersByStatus.map((entry: any, index: number) => (
+                      {analytics.orders.ordersByStatus.map((entry: OrderStatusEntry, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>

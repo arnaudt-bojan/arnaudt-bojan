@@ -36,11 +36,8 @@ import {
   Public as Globe,
   Bolt as Zap,
   Check,
-  TrendingUp,
   Palette,
   Inventory as Package,
-  CreditCard,
-  BarChart,
   ExpandMore,
 } from '@mui/icons-material';
 

@@ -50,7 +50,7 @@ interface PageProps {
 }
 
 export default function ProductDetailPage({ params }: PageProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const { username, id } = params;
 
   // State
@@ -141,7 +141,7 @@ export default function ProductDetailPage({ params }: PageProps) {
   const displayImage = images[selectedImageIndex] || images[0];
 
   // Parse variants - variants field doesn't exist in schema, so we skip this for now
-  const variants = null;
+  const _variants = null;
   const sizes: string[] = [];
   const colors: string[] = [];
 

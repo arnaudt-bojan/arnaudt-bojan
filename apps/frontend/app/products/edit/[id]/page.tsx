@@ -106,8 +106,23 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const watchShippingType = watch('shippingType');
 
   // GraphQL Response Types
+  interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    category: string;
+    productType: string;
+    stock: number;
+    sku?: string;
+    image: string;
+    images?: string[];
+    shippingType?: string;
+    flatShippingRate?: number;
+  }
+
   interface GetProductData {
-    getProduct: any;
+    getProduct: Product;
   }
 
   const { data, loading: queryLoading, error: queryError } = useQuery<GetProductData>(GET_PRODUCT, {
@@ -194,7 +209,17 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       ? formData.images.split(',').map((url) => url.trim()).filter(Boolean)
       : [];
 
-    const input: any = {
+    interface ProductUpdateInput {
+      name: string;
+      description: string;
+      price: number;
+      category: string;
+      stock: number;
+      image: string;
+      images: string[];
+    }
+
+    const input: ProductUpdateInput = {
       name: formData.name.trim(),
       description: formData.description.trim(),
       price: parseFloat(formData.price.toString()),

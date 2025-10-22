@@ -23,7 +23,6 @@ import {
   Paper,
   Chip,
   CircularProgress,
-  Alert,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
@@ -127,7 +126,7 @@ function MetricCard({
   title: string;
   value: string;
   change?: { value: string; isPositive: boolean };
-  icon: any;
+  icon: React.ComponentType<{ sx?: object }>;
   testId: string;
 }) {
   return (
@@ -477,7 +476,7 @@ export default function MetaAdsAnalytics() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip formatter={(value: any) => `${(value * 100).toFixed(2)}%`} />
+                    <Tooltip formatter={(value: number) => `${(value * 100).toFixed(2)}%`} />
                     <Legend />
                     <Line type="monotone" dataKey="ctr" stroke="#9c27b0" strokeWidth={2} name="CTR (%)" />
                   </LineChart>

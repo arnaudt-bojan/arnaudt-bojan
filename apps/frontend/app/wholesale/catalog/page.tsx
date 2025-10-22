@@ -27,7 +27,6 @@ import {
   Search,
   ShoppingCart,
   Inventory,
-  LocalOffer,
 } from '@mui/icons-material';
 import { LIST_WHOLESALE_PRODUCTS } from '@/lib/graphql/wholesale-buyer';
 import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
@@ -55,9 +54,19 @@ export default function WholesaleCatalogPage() {
     },
   });
 
-  const products = data?.listProducts?.edges?.map((edge: any) => edge.node) || [];
+  interface ProductNode {
+    id: string;
+    name: string;
+    category?: string;
+    price: number;
+    minOrderQuantity?: number;
+    productType?: string;
+    images?: string[];
+  }
+
+  const products = data?.listProducts?.edges?.map((edge: { node: ProductNode }) => edge.node) || [];
   const categories = Array.from(
-    new Set(products.map((p: any) => p.category).filter(Boolean))
+    new Set(products.map((p) => p.category).filter(Boolean))
   ) as string[];
 
   const handleProductClick = (productId: string) => {
@@ -155,7 +164,7 @@ export default function WholesaleCatalogPage() {
 
       {!loading && products.length > 0 && (
         <Grid container spacing={3}>
-          {products.map((product: any) => (
+          {products.map((product: ProductNode & { sku?: string; description?: string; image?: string }) => (
             <Grid key={product.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
               <Card
                 data-testid={`card-product-${product.id}`}

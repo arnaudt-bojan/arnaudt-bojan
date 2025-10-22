@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@/lib/apollo-client';
 import { useRouter } from 'next/navigation';
 import {
@@ -32,7 +32,6 @@ import {
   Add,
   Delete,
   Save,
-  Send,
   ArrowBack,
 } from '@mui/icons-material';
 import {
@@ -61,7 +60,7 @@ const CURRENCY_LABELS: Record<string, string> = {
   CHF: 'Swiss Franc',
 };
 
-const CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
+const _CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
   value: curr,
   label: `${curr} - ${CURRENCY_LABELS[curr] || curr}`
 }));
@@ -100,9 +99,16 @@ export default function QuotationBuilder() {
     { description: '', unitPrice: 0, quantity: 1 },
   ]);
 
+  interface CalculatedTotals {
+    subtotal: number;
+    total: number;
+    depositAmount: number;
+    balanceAmount: number;
+  }
+
   // TODO: Backend schema gap - using local state instead of server calculation until backend is ready
-  const [calculatedTotals, setCalculatedTotals] = useState<any>(null);
-  const [calculationError, setCalculationError] = useState(false);
+  const [calculatedTotals, _setCalculatedTotals] = useState<CalculatedTotals | null>(null);
+  const [calculationError, _setCalculationError] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -131,7 +137,7 @@ export default function QuotationBuilder() {
   const calculating = false;
 
   const [createQuotation, { loading: saving }] = useMutation(CREATE_QUOTATION, {
-    onCompleted: (data) => {
+    onCompleted: (_data) => {
       router.push('/trade/quotations');
     },
   });
@@ -178,13 +184,13 @@ export default function QuotationBuilder() {
     }
   };
 
-  const updateItem = (index: number, field: keyof LineItem, value: any) => {
+  const updateItem = (index: number, field: keyof LineItem, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
   };
 
-  const handleSave = (asDraft: boolean) => {
+  const handleSave = (_asDraft: boolean) => {
     const input: CreateQuotationInput = {
       buyerEmail,
       currency,

@@ -20,7 +20,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,14 +31,12 @@ import {
   InputLabel,
   Divider,
   Avatar,
-  DialogContentText,
   Snackbar,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   ArrowBack as ArrowBackIcon,
   LocalShipping as LocalShippingIcon,
-  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -63,8 +60,54 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   // GraphQL Response Types
+  interface OrderItem {
+    id: string;
+    productName: string;
+    productImage?: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    fulfillmentStatus?: string;
+  }
+
+  interface ShippingAddress {
+    fullName: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+  }
+
+  interface Order {
+    id: string;
+    orderNumber: string;
+    createdAt: string;
+    status: string;
+    paymentStatus: string;
+    fulfillmentStatus: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    buyer?: {
+      fullName?: string;
+      email?: string;
+    };
+    items: OrderItem[];
+    subtotal: number;
+    shippingCost: number;
+    taxAmount: number;
+    totalAmount: number;
+    currency: string;
+    shippingAddress?: ShippingAddress;
+    trackingNumber?: string;
+    carrier?: string;
+  }
+
   interface GetOrderData {
-    getOrder: any;
+    getOrder: Order;
   }
 
   const { loading, error, data, refetch } = useQuery<GetOrderData>(GET_ORDER, {
@@ -165,7 +208,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     );
   }
 
-  const itemsTotal = order.items?.reduce((sum: number, item: any) => sum + item.lineTotal, 0) || 0;
+  const _itemsTotal = order.items?.reduce((sum: number, item: OrderItem) => sum + item.lineTotal, 0) || 0;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -238,7 +281,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {order.items?.map((item: any) => (
+                    {order.items?.map((item: OrderItem) => (
                       <TableRow key={item.id} data-testid={`row-item-${item.id}`}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -266,9 +309,9 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={item.fulfillmentStatus?.replace(/_/g, ' ')}
+                            label={item.fulfillmentStatus?.replace(/_/g, ' ') || 'N/A'}
                             size="small"
-                            color={getStatusColor(item.fulfillmentStatus)}
+                            color={getStatusColor(item.fulfillmentStatus || '')}
                             data-testid={`chip-item-status-${item.id}`}
                           />
                         </TableCell>

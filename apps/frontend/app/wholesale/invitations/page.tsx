@@ -52,11 +52,28 @@ export default function WholesaleInvitations() {
   //     setDeleteDialogOpen(false);
   //     setInvitationToDelete(null);
   //   },
+  interface CancelInvitationParams {
+    variables?: {
+      id: string;
+    };
+  }
+
+  interface InvitationEdge {
+    node: {
+      id: string;
+      buyerEmail: string;
+      status: string;
+      token: string;
+      createdAt: string;
+      acceptedAt?: string;
+    };
+  }
+
   // });
-  const cancelInvitation = (_params?: any) => console.warn('Cancel invitation not implemented - backend schema gap');
+  const cancelInvitation = (_params?: CancelInvitationParams) => console.warn('Cancel invitation not implemented - backend schema gap');
   const cancelling = false;
 
-  const invitations = data?.listWholesaleInvitations?.edges?.map((edge: any) => edge.node) || [];
+  const invitations = data?.listWholesaleInvitations?.edges?.map((edge: InvitationEdge) => edge.node) || [];
 
   const handleSendInvitation = () => {
     if (buyerEmail) {

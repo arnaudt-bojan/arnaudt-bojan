@@ -51,9 +51,13 @@ export default function CreateWholesaleProduct() {
     },
   });
 
-  const handleChange = (field: string) => (e: any) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+  const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = (e.target as HTMLInputElement).type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
     setFormData({ ...formData, [field]: value });
+  };
+
+  const handleSelectChange = (field: string) => (e: any) => {
+    setFormData({ ...formData, [field]: e.target.value });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -142,7 +146,7 @@ export default function CreateWholesaleProduct() {
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={formData.category}
-                  onChange={handleChange('category')}
+                  onChange={handleSelectChange('category')}
                   label="Category"
                   data-testid="select-category"
                 >
@@ -242,7 +246,7 @@ export default function CreateWholesaleProduct() {
                 <InputLabel>Payment Terms</InputLabel>
                 <Select
                   value={formData.paymentTerms}
-                  onChange={handleChange('paymentTerms')}
+                  onChange={handleSelectChange('paymentTerms')}
                   label="Payment Terms"
                   data-testid="select-paymentTerms"
                 >

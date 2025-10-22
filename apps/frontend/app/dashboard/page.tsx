@@ -50,7 +50,7 @@ export default function DashboardPage() {
     variables: { first: 10 },
   });
 
-  const { loading: userLoading, error: userError, data: userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER);
+  const { loading: _userLoading, error: userError, data: userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -256,7 +256,7 @@ export default function DashboardPage() {
               </Box>
 
               <Grid container spacing={3}>
-                {productsData.listProducts.edges.map(({ node: product }: any) => (
+                {productsData.listProducts.edges.map(({ node: product }) => (
                   <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
                     <Card>
                       <CardMedia
@@ -288,7 +288,7 @@ export default function DashboardPage() {
                             ${product.price}
                           </Typography>
                           <Chip
-                            label={product.presentation?.availabilityText || product.inventoryStatus}
+                            label={product.presentation?.availabilityText || product.status}
                             size="small"
                             color={product.presentation?.availableForPurchase ? 'success' : 'default'}
                           />

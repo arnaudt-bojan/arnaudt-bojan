@@ -16,7 +16,6 @@ import {
   InputLabel,
   Button,
   Card,
-  CircularProgress,
   Alert,
   Dialog,
   DialogTitle,
@@ -46,7 +45,7 @@ export default function ProductsPage() {
   const [page, setPage] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-  const [productToDelete, setProductToDelete] = useState<any>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
   const { loading, error, data, refetch } = useQuery<ListProductsQuery>(LIST_PRODUCTS, {

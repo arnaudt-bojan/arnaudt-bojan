@@ -20,7 +20,6 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
   Visibility,
   Search,
-  LocalShipping,
 } from '@mui/icons-material';
 import { LIST_QUOTATIONS, Quotation } from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';

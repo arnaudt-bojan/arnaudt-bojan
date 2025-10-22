@@ -23,10 +23,6 @@ import {
   Box,
   Alert,
   CircularProgress,
-  Table,
-  TableBody,
-  TableRow,
-  TableCell,
   Avatar,
   MenuItem,
   Select,
@@ -114,7 +110,7 @@ const US_STATES = [
 export default function CheckoutPage() {
   const router = useRouter();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const _isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [orderError, setOrderError] = useState<string | null>(null);
 
   // GraphQL Query
@@ -625,9 +621,9 @@ export default function CheckoutPage() {
               <CardContent>
                 {/* Cart Items */}
                 <Box sx={{ mb: 3 }}>
-                  {items.map((item: any) => (
+                  {items.map((item) => (
                     <Box
-                      key={item.id}
+                      key={item.productId}
                       sx={{
                         display: 'flex',
                         gap: 2,

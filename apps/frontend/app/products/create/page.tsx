@@ -165,7 +165,21 @@ export default function CreateProductPage() {
       : [];
 
     // Prepare input for GraphQL mutation
-    const input: any = {
+    interface ProductInput {
+      name: string;
+      description: string;
+      price: number;
+      category: string;
+      productType: string;
+      stock: number;
+      image: string;
+      images: string[];
+      sku?: string;
+      shippingType?: string;
+      flatShippingRate?: number;
+    }
+
+    const input: ProductInput = {
       name: data.name.trim(),
       description: data.description.trim(),
       price: parseFloat(data.price.toString()),

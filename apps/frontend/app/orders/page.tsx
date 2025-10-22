@@ -14,7 +14,6 @@ import {
   FormControl,
   InputLabel,
   Card,
-  CircularProgress,
   Alert,
   IconButton,
   Chip,
@@ -53,9 +52,26 @@ export default function OrdersPage() {
     fetchPolicy: 'network-only',
   });
 
+  interface OrderNode {
+    id: string;
+    orderNumber?: string;
+    customerName?: string;
+    customerEmail?: string;
+    buyer?: {
+      fullName?: string;
+      email?: string;
+    } | null;
+    createdAt: string;
+    totalAmount: number;
+    currency: string;
+    status: string;
+    paymentStatus: string;
+    fulfillmentStatus: string;
+  }
+
   const orders = data?.listOrders?.edges?.map(edge => edge.node) || [];
 
-  const filteredOrders = orders.filter((order: any) => {
+  const filteredOrders = orders.filter((order: OrderNode) => {
     const matchesSearch = !searchQuery || 
       order.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||

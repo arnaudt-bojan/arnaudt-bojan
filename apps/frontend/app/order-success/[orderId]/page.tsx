@@ -19,7 +19,6 @@ import {
   Avatar,
   Skeleton,
   Alert,
-  Paper,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -48,9 +47,20 @@ const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | '
   return statusMap[status] || 'default';
 };
 
+interface OrderItem {
+  id: string;
+  product?: {
+    name: string;
+    images?: string[];
+  };
+  quantity: number;
+  lineTotal: string | number;
+  unitPrice: string | number;
+}
+
 export default function OrderSuccessPage({ params }: { params: { orderId: string } }) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const _isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // GraphQL Query (aliasing the result as 'order')
   const { data, loading, error } = useQuery<GetOrderQuery>(GET_ORDER, {
@@ -169,7 +179,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
 
               <Table data-testid="table-order-items">
                 <TableBody>
-                  {order.items.map((item: any) => (
+                  {order.items.map((item: OrderItem) => (
                     <TableRow key={item.id}>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -191,10 +201,10 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body1" fontWeight="medium">
-                          ${parseFloat(item.lineTotal).toFixed(2)}
+                          ${parseFloat(String(item.lineTotal)).toFixed(2)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          ${parseFloat(item.unitPrice).toFixed(2)} each
+                          ${parseFloat(String(item.unitPrice)).toFixed(2)} each
                         </Typography>
                       </TableCell>
                     </TableRow>

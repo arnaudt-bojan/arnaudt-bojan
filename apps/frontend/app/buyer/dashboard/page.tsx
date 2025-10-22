@@ -67,9 +67,13 @@ export default function BuyerDashboard() {
   });
 
   const user = userData?.getCurrentUser || null;
-  const orders = ordersData?.listOrders?.edges?.map(edge => edge.node) || [];
+  const orders = useMemo(() => 
+    ordersData?.listOrders?.edges?.map(edge => edge.node) || [],
+    [ordersData]
+  );
 
   const filteredOrders = useMemo(() => {
+    if (!orders) return [];
     return orders.filter((order) => {
       const matchesSearch = !searchQuery || 
         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase());

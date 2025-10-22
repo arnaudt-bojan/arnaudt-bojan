@@ -77,8 +77,8 @@ export default function SettingsPage() {
   const [storeDescription, setStoreDescription] = useState('');
   const [contactEmail, setContactEmail] = useState('contact@mystore.com');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [storeLogo, setStoreLogo] = useState('');
-  const [storeBanner, setStoreBanner] = useState('');
+  const [_storeLogo, _setStoreLogo] = useState('');
+  const [_storeBanner, _setStoreBanner] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
   const [taxId, setTaxId] = useState('');
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
@@ -97,12 +97,12 @@ export default function SettingsPage() {
   // Shipping Settings
   const [defaultShippingRate, setDefaultShippingRate] = useState('10.00');
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('50.00');
-  const [shippoConnected, setShippoConnected] = useState(false);
+  const [shippoConnected, _setShippoConnected] = useState(false);
   const [processingTime, setProcessingTime] = useState('1-3');
   const [returnPolicy, setReturnPolicy] = useState('');
 
   // Payment Settings
-  const [stripeConnected, setStripeConnected] = useState(true);
+  const [stripeConnected, _setStripeConnected] = useState(true);
   const [autoTax, setAutoTax] = useState(true);
 
   // Notification Settings

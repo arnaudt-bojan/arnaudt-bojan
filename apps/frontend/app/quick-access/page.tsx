@@ -76,10 +76,17 @@ interface KeyboardShortcut {
   description: string;
 }
 
+interface SearchResult {
+  id: string;
+  type: string;
+  name: string;
+  description?: string;
+}
+
 export default function QuickAccessPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 
   const quickActions: QuickAction[] = [
     {

@@ -26,7 +26,6 @@ import {
   ArrowBack,
   ShoppingCart,
   Inventory,
-  LocalOffer,
   Info,
   Payment,
 } from '@mui/icons-material';

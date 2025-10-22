@@ -32,7 +32,6 @@ import {
   ShoppingCart,
   LocalShipping,
   Payment as PaymentIcon,
-  CheckCircle,
 } from '@mui/icons-material';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 

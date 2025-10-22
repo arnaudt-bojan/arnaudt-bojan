@@ -71,7 +71,7 @@ export default function CartPage() {
 
   // Handlers
   const handleQuantityChange = (itemId: string, delta: number) => {
-    const item = data?.cart?.items.find((i: any) => i.id === itemId);
+    const item = data?.cart?.items.find((i) => i.productId === itemId);
     if (!item) return;
     if (!data || !data.cart) return;
 
@@ -197,8 +197,8 @@ export default function CartPage() {
             {!isMobile && (
               <Table>
                 <TableBody>
-                  {items.map((item: any) => (
-                    <TableRow key={item.id} data-testid={`cart-item-${item.id}`}>
+                  {items.map((item) => (
+                    <TableRow key={item.productId} data-testid={`cart-item-${item.productId}`}>
                       {/* Product Image */}
                       <TableCell>
                         <Avatar
@@ -229,9 +229,9 @@ export default function CartPage() {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <IconButton
                             size="small"
-                            onClick={() => handleQuantityChange(item.id, -1)}
+                            onClick={() => handleQuantityChange(item.productId, -1)}
                             disabled={item.quantity <= 1 || updating}
-                            data-testid={`button-decrease-quantity-${item.id}`}
+                            data-testid={`button-decrease-quantity-${item.productId}`}
                           >
                             <Remove fontSize="small" />
                           </IconButton>
@@ -240,9 +240,9 @@ export default function CartPage() {
                           </Typography>
                           <IconButton
                             size="small"
-                            onClick={() => handleQuantityChange(item.id, 1)}
+                            onClick={() => handleQuantityChange(item.productId, 1)}
                             disabled={updating}
-                            data-testid={`button-increase-quantity-${item.id}`}
+                            data-testid={`button-increase-quantity-${item.productId}`}
                           >
                             <Add fontSize="small" />
                           </IconButton>
@@ -260,9 +260,9 @@ export default function CartPage() {
                       <TableCell>
                         <IconButton
                           color="error"
-                          onClick={() => handleRemoveItem(item.productId, item.variantId)}
+                          onClick={() => handleRemoveItem(item.productId, item.variantId || undefined)}
                           disabled={removing}
-                          data-testid={`button-remove-item-${item.id}`}
+                          data-testid={`button-remove-item-${item.productId}`}
                         >
                           <Delete />
                         </IconButton>
@@ -276,8 +276,8 @@ export default function CartPage() {
             {/* Mobile: Card Layout */}
             {isMobile && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {items.map((item: any) => (
-                  <Card key={item.id} variant="outlined" data-testid={`cart-item-${item.id}`}>
+                {items.map((item) => (
+                  <Card key={item.productId} variant="outlined" data-testid={`cart-item-${item.productId}`}>
                     <CardContent>
                       <Box sx={{ display: 'flex', gap: 2 }}>
                         <Avatar
@@ -303,9 +303,9 @@ export default function CartPage() {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <IconButton
                                 size="small"
-                                onClick={() => handleQuantityChange(item.id, -1)}
+                                onClick={() => handleQuantityChange(item.productId, -1)}
                                 disabled={item.quantity <= 1 || updating}
-                                data-testid={`button-decrease-quantity-${item.id}`}
+                                data-testid={`button-decrease-quantity-${item.productId}`}
                               >
                                 <Remove fontSize="small" />
                               </IconButton>
@@ -314,9 +314,9 @@ export default function CartPage() {
                               </Typography>
                               <IconButton
                                 size="small"
-                                onClick={() => handleQuantityChange(item.id, 1)}
+                                onClick={() => handleQuantityChange(item.productId, 1)}
                                 disabled={updating}
-                                data-testid={`button-increase-quantity-${item.id}`}
+                                data-testid={`button-increase-quantity-${item.productId}`}
                               >
                                 <Add fontSize="small" />
                               </IconButton>
@@ -332,9 +332,9 @@ export default function CartPage() {
                             color="error"
                             size="small"
                             startIcon={<Delete />}
-                            onClick={() => handleRemoveItem(item.productId, item.variantId)}
+                            onClick={() => handleRemoveItem(item.productId, item.variantId || undefined)}
                             disabled={removing}
-                            data-testid={`button-remove-item-${item.id}`}
+                            data-testid={`button-remove-item-${item.productId}`}
                             sx={{ mt: 1 }}
                           >
                             Remove

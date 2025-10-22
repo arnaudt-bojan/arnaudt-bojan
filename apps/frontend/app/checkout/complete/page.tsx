@@ -15,7 +15,7 @@ import { CheckCircle, ShoppingBag, Home } from '@mui/icons-material';
 import Link from 'next/link';
 
 function CheckoutCompleteContent() {
-  const router = useRouter();
+  const _router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const [loading, setLoading] = useState(true);

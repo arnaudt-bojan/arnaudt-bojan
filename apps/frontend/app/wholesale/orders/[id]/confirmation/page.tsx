@@ -1,7 +1,6 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@/lib/apollo-client';
 import {
   Container,
   Card,
@@ -17,7 +16,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   CircularProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -29,7 +27,6 @@ import {
   Payment as PaymentIcon,
   Email,
 } from '@mui/icons-material';
-import { GET_WHOLESALE_ORDER } from '@/lib/graphql/wholesale-buyer';
 
 // Mock order data (would come from GraphQL)
 const mockOrderData = {
@@ -76,7 +73,7 @@ const mockOrderData = {
 export default function WholesaleOrderConfirmationPage() {
   const params = useParams();
   const router = useRouter();
-  const orderId = params.id as string;
+  const _orderId = params.id as string;
 
   // In real implementation, would use GraphQL query
   const loading = false;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
 import { useRouter } from 'next/navigation';
 import {
   Container,
@@ -22,7 +22,6 @@ import {
   DialogContentText,
   DialogActions,
   Chip,
-  Alert,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -52,16 +51,16 @@ export default function QuotationsList() {
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const { data, loading, refetch } = useQuery<{ listQuotations: Quotation[] }>(LIST_QUOTATIONS);
+  const { data, loading, refetch: _refetch } = useQuery<{ listQuotations: Quotation[] }>(LIST_QUOTATIONS);
 
   // TODO: Backend schema gap - comment out until backend implements SEND_QUOTATION
   // const [sendQuotation] = useMutation(SEND_QUOTATION, {
   //   onCompleted: () => {
-  //     refetch();
+  //     _refetch();
   //     setAnchorEl(null);
   //   },
   // });
-  const sendQuotation = (_params?: any) => {
+  const sendQuotation = (_params?: { variables?: { id: string } }) => {
     console.warn('Send quotation feature not yet implemented - backend schema gap');
   };
 

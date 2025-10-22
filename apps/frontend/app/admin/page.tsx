@@ -20,7 +20,6 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
@@ -75,7 +74,7 @@ interface SystemLog {
 
 export default function AdminPage() {
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(true); // This should come from auth context
+  const [isAdmin, _setIsAdmin] = useState(true); // This should come from auth context
   const [filterPlan, setFilterPlan] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -232,7 +231,7 @@ export default function AdminPage() {
       type: 'actions',
       headerName: 'Actions',
       width: 120,
-      getActions: (params) => [
+      getActions: (_params) => [
         <GridActionsCellItem
           key="view"
           icon={<Visibility />}

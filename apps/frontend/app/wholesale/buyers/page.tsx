@@ -23,7 +23,7 @@ import {
   Chip,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { UserPlus, Eye, Ban, Trash2 } from 'lucide-react';
+import { UserPlus, Eye, Ban } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function WholesaleBuyers() {
@@ -31,11 +31,21 @@ export default function WholesaleBuyers() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [buyerEmail, setBuyerEmail] = useState('');
 
+  interface BuyersData {
+    listWholesaleBuyers: Array<{
+      id: string;
+      buyer?: {
+        fullName?: string;
+        email?: string;
+      };
+    }>;
+  }
+
   const { loading: loadingInvitations, data: invitationsData, refetch: refetchInvitations } = useQuery<ListWholesaleInvitationsQuery>(LIST_WHOLESALE_INVITATIONS);
   // TODO: Backend schema gap - comment out until backend implements LIST_WHOLESALE_BUYERS
-  // const { loading: loadingBuyers, data: buyersData } = useQuery<any>(LIST_WHOLESALE_BUYERS);
+  // const { loading: loadingBuyers, data: buyersData } = useQuery<BuyersData>(LIST_WHOLESALE_BUYERS);
   const loadingBuyers = false;
-  const buyersData: any = { listWholesaleBuyers: [] };
+  const buyersData: BuyersData = { listWholesaleBuyers: [] };
 
   const [createInvitation, { loading: creating, error: createError }] = useMutation(CREATE_WHOLESALE_INVITATION, {
     onCompleted: () => {
@@ -45,7 +55,17 @@ export default function WholesaleBuyers() {
     },
   });
 
-  const invitations = invitationsData?.listWholesaleInvitations?.edges?.map((edge: any) => edge.node) || [];
+  interface InvitationEdge {
+    node: {
+      id: string;
+      buyerEmail: string;
+      status: string;
+      createdAt: string;
+      acceptedAt?: string;
+    };
+  }
+
+  const invitations = invitationsData?.listWholesaleInvitations?.edges?.map((edge: InvitationEdge) => edge.node) || [];
   const buyers = buyersData?.listWholesaleBuyers || [];
 
   const handleInvite = () => {

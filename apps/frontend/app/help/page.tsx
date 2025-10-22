@@ -16,10 +16,6 @@ import {
   AccordionDetails,
   InputAdornment,
   Chip,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
   Paper,
   useTheme,
   useMediaQuery,
@@ -181,7 +177,7 @@ const faqs = [
 
 export default function HelpPage() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const _isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchQuery, setSearchQuery] = useState('');
 
   return (

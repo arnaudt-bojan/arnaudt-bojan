@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Container,
   Card,
@@ -36,14 +36,11 @@ import {
   ListItem,
   ListItemText,
   Paper,
-  Tab,
-  Tabs,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   DataGrid,
   GridColDef,
-  GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -53,15 +50,12 @@ import {
   Send as SendIcon,
   Schedule as ScheduleIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
-  FileCopy as FileCopyIcon,
   Search as SearchIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   Email as EmailIcon,
   TrendingUp as TrendingUpIcon,
   BarChart as BarChartIcon,
-  Visibility as VisibilityIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
@@ -135,7 +129,7 @@ const CAMPAIGN_TEMPLATES: Template[] = [
 
 export default function CampaignsPage() {
   const router = useRouter();
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<{ setContent: (content: string) => void } | null>(null);
   
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [analytics, setAnalytics] = useState<CampaignAnalytics[]>([]);
@@ -168,11 +162,7 @@ export default function CampaignsPage() {
 
   const steps = ['Campaign Details', 'Select Recipients', 'Create Content', 'Schedule & Send'];
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [campaignsRes, analyticsRes] = await Promise.all([
@@ -195,7 +185,11 @@ export default function CampaignsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
@@ -219,7 +213,13 @@ export default function CampaignsPage() {
 
   const handleCreateCampaign = async () => {
     try {
-      const campaignData: any = {
+      const campaignData: {
+        subject: string;
+        content: string;
+        htmlContent: string;
+        sendToAll?: boolean;
+        tags?: string[];
+      } = {
         subject,
         content,
         htmlContent: content,
@@ -277,7 +277,7 @@ export default function CampaignsPage() {
         const error = await response.json();
         showSnackbar(error.error || 'Failed to create campaign', 'error');
       }
-    } catch (_error) {
+    } catch {
       showSnackbar('Failed to create campaign', 'error');
     }
   };
@@ -309,7 +309,7 @@ export default function CampaignsPage() {
       } else {
         showSnackbar('Failed to delete campaign', 'error');
       }
-    } catch (_error) {
+    } catch {
       showSnackbar('Failed to delete campaign', 'error');
     }
   };
@@ -354,7 +354,7 @@ export default function CampaignsPage() {
       flex: 0.5,
       minWidth: 120,
       renderCell: (params) => {
-        const colorMap: any = {
+        const colorMap: Record<string, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
           draft: 'default',
           scheduled: 'info',
           sending: 'warning',

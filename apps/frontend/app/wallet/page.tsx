@@ -36,6 +36,12 @@ import {
 } from '@mui/icons-material';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
+interface StripeRequirements {
+  currentlyDue?: string[];
+  eventuallyDue?: string[];
+  pastDue?: string[];
+}
+
 interface StripeStatus {
   connected: boolean;
   accountId?: string;
@@ -44,7 +50,7 @@ interface StripeStatus {
   detailsSubmitted?: boolean;
   currency?: string;
   country?: string;
-  requirements?: any;
+  requirements?: StripeRequirements;
   capabilities?: {
     card_payments?: string;
     transfers?: string;
@@ -60,13 +66,18 @@ interface WalletBalance {
   currency: string;
 }
 
+interface TransactionMetadata {
+  note?: string;
+  [key: string]: unknown;
+}
+
 interface Transaction {
   id: string;
   type: 'debit' | 'credit' | 'adjustment';
   amountUsd: string;
   balanceAfter: string;
   source: string;
-  metadata: any;
+  metadata: TransactionMetadata;
   createdAt: string;
   orderId?: string;
 }
@@ -110,8 +121,8 @@ export default function WalletPage() {
         const transactionsData = await transactionsRes.json();
         setTransactions(transactionsData.ledgerEntries || []);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load wallet data');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load wallet data');
     } finally {
       setLoading(false);
     }
@@ -153,7 +164,7 @@ export default function WalletPage() {
         throw new Error('Failed to create onboarding session');
       }
 
-      const sessionData = await sessionRes.json();
+      const _sessionData = await sessionRes.json();
       
       // In a real implementation, you would embed the Stripe Connect UI here
       // For now, we'll show a message
@@ -161,8 +172,8 @@ export default function WalletPage() {
       
       // Refresh data
       await fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect Stripe account');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect Stripe account');
     } finally {
       setConnecting(false);
     }
@@ -186,7 +197,7 @@ export default function WalletPage() {
     });
   };
 
-  const getSourceLabel = (source: string, metadata: any) => {
+  const getSourceLabel = (source: string, metadata: TransactionMetadata) => {
     const isRollback = metadata?.note && 
       (metadata.note.toLowerCase().includes('rollback') || 
        metadata.note.toLowerCase().includes('failure'));
@@ -228,7 +239,7 @@ export default function WalletPage() {
       field: 'metadata',
       headerName: 'Description',
       width: 200,
-      valueGetter: (params) => (params as any)?.note || '-',
+      valueGetter: (params) => (params as TransactionMetadata)?.note || '-',
     },
     {
       field: 'amountUsd',

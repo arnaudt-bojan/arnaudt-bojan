@@ -27,7 +27,6 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -42,7 +41,6 @@ import Grid from '@mui/material/Grid';
 import {
   ArrowBack as ArrowBackIcon,
   LocalShipping as LocalShippingIcon,
-  CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   ShoppingCart as ShoppingCartIcon,
   Download as DownloadIcon,
@@ -91,7 +89,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
-  const { loading, error, data, refetch } = useQuery<GetOrderQuery>(GET_ORDER, {
+  const { loading, error, data, refetch: _refetch } = useQuery<GetOrderQuery>(GET_ORDER, {
     variables: { id: params.id },
     fetchPolicy: 'network-only',
   });
@@ -246,7 +244,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                     sx={{ mt: 2 }}
                     data-testid="stepper-order-timeline"
                   >
-                    {steps.map((label, index) => (
+                    {steps.map((label, _index) => (
                       <Step key={label}>
                         <StepLabel>{label}</StepLabel>
                       </Step>

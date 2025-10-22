@@ -30,10 +30,17 @@ export {
   LinkError 
 } from '@apollo/client/errors';
 
+interface GraphQLError {
+  message: string;
+  locations?: Array<{ line: number; column: number }>;
+  path?: string[];
+  extensions?: Record<string, unknown>;
+}
+
 // Apollo Client v4 removed ApolloError as a standalone class
 // Create a type alias for backwards compatibility
 export type ApolloError = Error & {
-  graphQLErrors?: ReadonlyArray<any>;
+  graphQLErrors?: ReadonlyArray<GraphQLError>;
   networkError?: Error | null;
   message: string;
 };

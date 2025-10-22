@@ -209,7 +209,7 @@ export interface Quotation {
   dataSheetUrl?: string;
   termsAndConditionsUrl?: string;
   orderId?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   items?: QuotationItem[];

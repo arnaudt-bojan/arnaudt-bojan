@@ -29,9 +29,6 @@ import {
   Send,
   CheckCircle,
   Visibility,
-  Add,
-  List as ListIcon,
-  Warning,
 } from '@mui/icons-material';
 import { LIST_QUOTATIONS, Quotation } from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';
@@ -39,7 +36,7 @@ import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 export default function TradeDashboard() {
   const router = useRouter();
-  const { data, loading, error } = useQuery<{ listQuotations: Quotation[] }>(LIST_QUOTATIONS);
+  const { data, loading, error: _error } = useQuery<{ listQuotations: Quotation[] }>(LIST_QUOTATIONS);
 
   const quotations = data?.listQuotations || [];
 
