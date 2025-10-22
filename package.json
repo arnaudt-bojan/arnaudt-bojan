@@ -55,8 +55,8 @@
     "bufferutil": "^4.0.8"
   },
   "dependencies": {
-    "@apollo/client-integration-nextjs": "^0.14.0",
-    "@apollo/client-react-streaming": "^0.14.0",
+    "@apollo/client-integration-nextjs": "0.13.2",
+    "@apollo/client-react-streaming": "0.13.2",
     "@whatwg-node/fetch": "^0.10.11",
     "@whatwg-node/node-fetch": "^0.8.1",
     "concurrently": "^9.2.1",
