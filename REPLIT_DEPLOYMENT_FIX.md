@@ -16,27 +16,47 @@ GPT-5 was correct! This is a Replit deployment limitation.
 
 ---
 
-## ✅ Solution: Install Dependencies at Runtime
+## ✅ Solution: Clean Up Dependencies First
 
-You need to manually edit the `.replit` file with this exact configuration:
+### **IMPORTANT: The Real Problem**
 
-### **Step 1: Edit `.replit` file**
+Many build-time packages are in `dependencies` instead of `devDependencies`. This is why you needed `--include=dev` for production!
 
-**Find this section:**
+### **Step 1: Fix Dependencies (Manual Edit Required)**
+
+See **MANUAL_DEPENDENCY_FIX.md** for complete instructions.
+
+**Quick summary:**
+1. Move build-time packages to `devDependencies` in `package.json`
+2. Run `npm install` to update lock file
+
+### **Step 2: Edit `.replit` file**
+
+**After cleaning up dependencies, use this optimal config:**
+
 ```toml
 [deployment]
-build = ["sh", "-c", "npm install && npm run build"]
-run = ["sh", "-c", "npm start"]
+build = "npm ci && npm run build && npm prune --omit=dev"
+run = "npm start"
 deploymentTarget = "cloudrun"
 ```
 
-**Replace with this:**
+**Why this is better:**
+- Build installs all deps (including dev for compilation)
+- Build compiles everything
+- `npm prune --omit=dev` removes devDependencies
+- Runtime just starts (no install = fast!)
+
+### **Fallback (if node_modules don't persist):**
+
 ```toml
 [deployment]
-build = ["sh", "-c", "npm ci --include=dev && npm run build"]
-run = ["sh", "-c", "npm ci --include=dev && npm start"]
+build = "npm ci && npm run build"
+run = "npm ci --omit=dev && npm start"
 deploymentTarget = "cloudrun"
 ```
+
+**Note:** Use `--omit=dev` (NOT `--include=dev`) after dependency cleanup!
 
 ---
 
