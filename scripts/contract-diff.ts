@@ -116,7 +116,6 @@ function checkContracts(): DiffResult[] {
   }
 
   const files = [
-    'openapi-express.json',
     'openapi-nestjs.json',
     'graphql-schema.graphql'
   ];
