@@ -74,9 +74,12 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   Updated backend `start:prod` script: `node dist/apps/backend/src/main` → `node dist/main`
     -   Backend now starts correctly in production
 -   **NPX Binary Resolution Fix**: Fixed deployment crash with wrong package versions
-    -   Issue: `npx next` downloaded Next.js 16.0.0 instead of using local 14.2.33
     -   Issue: `npx` bypassed local workspace dependencies causing MODULE_NOT_FOUND errors
-    -   Solution: Removed `npx` from frontend/backend scripts to use local binaries directly
-    -   Changed frontend: `npx next build/start` → `next build/start` (uses local node_modules/.bin)
+    -   Issue: `npx next` downloaded Next.js 16.0.0 instead of using local 14.2.33
+    -   Issue: `npx concurrently` in root spawned subprocesses without workspace PATH
+    -   Solution: Removed `npx` from ALL scripts (root + workspaces) to use local binaries
+    -   Changed root: `npx concurrently` → `concurrently`
+    -   Changed frontend: `npx next build/start` → `next build/start`
     -   Changed backend: `npx nest build` → `nest build`, `npx prisma` → `prisma`
-    -   Local binaries now resolved correctly from workspace node_modules
+    -   Local binaries now resolved correctly from workspace node_modules/.bin
+    -   **CRITICAL**: npm scripts automatically add node_modules/.bin to PATH, making `npx` unnecessary and problematic in monorepos
