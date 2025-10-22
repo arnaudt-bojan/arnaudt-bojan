@@ -25,26 +25,60 @@ function compareJSON(current: any, baseline: any, path: string = ''): { breaking
     return { breaking, nonBreaking };
   }
 
-  if (typeof current === 'object' && typeof baseline === 'object') {
-    for (const key in baseline) {
-      if (!(key in current)) {
-        breaking.push(`${path}.${key}: Removed (BREAKING)`);
-      } else if (typeof baseline[key] !== typeof current[key]) {
-        breaking.push(`${path}.${key}: Type changed from ${typeof baseline[key]} to ${typeof current[key]} (BREAKING)`);
-      } else if (typeof baseline[key] === 'object') {
-        const nested = compareJSON(current[key], baseline[key], `${path}.${key}`);
+  if (typeof current === 'object' && current !== null && typeof baseline === 'object' && baseline !== null) {
+    // Handle arrays
+    if (Array.isArray(current) && Array.isArray(baseline)) {
+      // Check if this is a semantically breaking array (e.g., 'required' fields)
+      const isBreakingArray = path.endsWith('.required') || path.includes('.required[');
+      
+      // For arrays, check length changes and compare elements
+      if (baseline.length > current.length) {
+        breaking.push(`${path}: Array reduced from ${baseline.length} to ${current.length} elements (BREAKING)`);
+      } else if (current.length > baseline.length) {
+        // Array expansion can be breaking if it's a 'required' array
+        if (isBreakingArray) {
+          breaking.push(`${path}: Required fields array expanded from ${baseline.length} to ${current.length} - new required field added (BREAKING)`);
+        } else {
+          nonBreaking.push(`${path}: Array expanded from ${baseline.length} to ${current.length} elements`);
+        }
+      }
+      
+      // Compare common elements
+      const minLength = Math.min(current.length, baseline.length);
+      for (let i = 0; i < minLength; i++) {
+        const nested = compareJSON(current[i], baseline[i], `${path}[${i}]`);
         breaking.push(...nested.breaking);
         nonBreaking.push(...nested.nonBreaking);
       }
-    }
-
-    for (const key in current) {
-      if (!(key in baseline)) {
-        nonBreaking.push(`${path}.${key}: Added`);
+    } else if (!Array.isArray(current) && !Array.isArray(baseline)) {
+      // Handle objects
+      for (const key in baseline) {
+        if (!(key in current)) {
+          breaking.push(`${path}.${key}: Removed (BREAKING)`);
+        } else if (typeof baseline[key] !== typeof current[key]) {
+          breaking.push(`${path}.${key}: Type changed from ${typeof baseline[key]} to ${typeof current[key]} (BREAKING)`);
+        } else if (typeof baseline[key] === 'object' && baseline[key] !== null) {
+          const nested = compareJSON(current[key], baseline[key], `${path}.${key}`);
+          breaking.push(...nested.breaking);
+          nonBreaking.push(...nested.nonBreaking);
+        } else if (baseline[key] !== current[key]) {
+          // Primitive value changed
+          breaking.push(`${path}.${key}: Value changed from "${baseline[key]}" to "${current[key]}" (BREAKING)`);
+        }
       }
+
+      for (const key in current) {
+        if (!(key in baseline)) {
+          nonBreaking.push(`${path}.${key}: Added`);
+        }
+      }
+    } else {
+      // One is array, other is object
+      breaking.push(`${path}: Type changed from ${Array.isArray(baseline) ? 'array' : 'object'} to ${Array.isArray(current) ? 'array' : 'object'} (BREAKING)`);
     }
   } else if (current !== baseline) {
-    breaking.push(`${path}: Value changed (BREAKING)`);
+    // Primitive values or null
+    breaking.push(`${path}: Value changed from "${baseline}" to "${current}" (BREAKING)`);
   }
 
   return { breaking, nonBreaking };
