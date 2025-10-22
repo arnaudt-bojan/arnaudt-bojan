@@ -106,6 +106,26 @@ export class OrdersResolver {
     return this.ordersService.issueRefund(input, userId);
   }
 
+  @Mutation('cancelOrder')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async cancelOrder(
+    @Args('orderId') orderId: string,
+    @CurrentUser() userId: string,
+  ) {
+    return this.ordersService.cancelOrder(orderId, userId);
+  }
+
+  @Mutation('reorderItems')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('buyer')
+  async reorderItems(
+    @Args('orderId') orderId: string,
+    @CurrentUser() userId: string,
+  ) {
+    return this.ordersService.reorderItems(orderId, userId);
+  }
+
   @ResolveField('seller')
   async seller(@Parent() order: any, @Context() context: GraphQLContext) {
     if (!order.sellerId) return null;

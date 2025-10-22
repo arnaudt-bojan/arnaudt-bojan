@@ -160,6 +160,51 @@ export class WholesaleService {
     return this.mapAccessGrantToGraphQL(grant);
   }
 
+  async cancelInvitation(invitationId: string, sellerId: string) {
+    const invitation = await this.prisma.wholesale_invitations.findUnique({
+      where: { id: invitationId },
+    });
+
+    if (!invitation) {
+      throw new GraphQLError('Invitation not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    // Only the seller who created the invitation can cancel it
+    if (invitation.seller_id !== sellerId) {
+      throw new GraphQLError('Access denied', {
+        extensions: { code: 'FORBIDDEN' },
+      });
+    }
+
+    if (invitation.status !== 'pending') {
+      throw new GraphQLError('Only pending invitations can be cancelled', {
+        extensions: { code: 'BAD_REQUEST' },
+      });
+    }
+
+    const updatedInvitation = await this.prisma.wholesale_invitations.update({
+      where: { id: invitationId },
+      data: {
+        status: 'cancelled',
+        updated_at: new Date(),
+      },
+    });
+
+    // Cache invalidation
+    await this.cacheService.delPattern(`wholesale:invitations:seller:${sellerId}`);
+
+    // Emit socket event
+    this.websocketGateway.emitWholesaleInvitationCancelled(sellerId, {
+      invitationId: updatedInvitation.id,
+      sellerId: updatedInvitation.seller_id,
+      buyerEmail: updatedInvitation.buyer_email,
+    });
+
+    return this.mapInvitationToGraphQL(updatedInvitation);
+  }
+
   async rejectWholesaleInvitation(token: string) {
     const invitation = await this.prisma.wholesale_invitations.findUnique({
       where: { token },
@@ -213,6 +258,32 @@ export class WholesaleService {
     });
 
     return grants.map(grant => this.mapAccessGrantToGraphQL(grant));
+  }
+
+  async listWholesaleBuyers(sellerId: string) {
+    const grants = await this.prisma.wholesale_access_grants.findMany({
+      where: {
+        seller_id: sellerId,
+        status: 'active',
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const mappedGrants = grants.map(grant => this.mapAccessGrantToGraphQL(grant));
+
+    return {
+      edges: mappedGrants.map(node => ({
+        cursor: Buffer.from(JSON.stringify({ id: node.id })).toString('base64'),
+        node,
+      })),
+      pageInfo: {
+        hasNextPage: false,
+        hasPreviousPage: false,
+        startCursor: null,
+        endCursor: null,
+      },
+      totalCount: mappedGrants.length,
+    };
   }
 
   async placeWholesaleOrder(input: any, buyerId: string) {

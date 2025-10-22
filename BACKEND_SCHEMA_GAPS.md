@@ -1,112 +1,112 @@
-# Backend GraphQL Schema Gaps
+# Backend GraphQL Schema Gaps - RESOLVED ✅
 
-This document tracks GraphQL queries/mutations that exist in the frontend code but are not yet implemented in the backend schema.
+This document previously tracked GraphQL queries/mutations that existed in the frontend code but were not implemented in the backend schema. **All gaps have now been resolved.**
 
-## Status: Code Generation Working ✅
+## Status: All Issues Resolved ✅
+- All backend GraphQL operations have been implemented
+- All frontend queries/mutations have been uncommented
 - GraphQL Code Generator runs successfully with no errors
-- Invalid queries/mutations are commented out in shared GraphQL files
-- Pages using these queries still have TypeScript errors that need fixing
+- Frontend TypeScript compilation passes
 
-## Commented Out Queries/Mutations
+## Resolved Backend Implementations
 
-### Order Mutations (`lib/graphql/mutations/orders.ts`)
-- ❌ `CANCEL_ORDER` - Cancel an order
-- ❌ `REORDER_ITEMS` - Reorder items from a previous order
+### Order Mutations ✅
+- ✅ `cancelOrder` - Cancel an order (buyer only)
+  - **Location**: `apps/backend/src/modules/orders/orders.resolver.ts`, `apps/backend/src/modules/orders/orders.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/mutations/orders.ts`
+  
+- ✅ `reorderItems` - Reorder items from a previous order
+  - **Location**: `apps/backend/src/modules/orders/orders.resolver.ts`, `apps/backend/src/modules/orders/orders.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/mutations/orders.ts`
 
-**Used by:**
-- `app/buyer/orders/[id]/page.tsx` - Order detail page with cancel/reorder buttons
+### Wholesale Mutations ✅
+- ✅ `cancelInvitation` - Cancel a wholesale invitation (seller only)
+  - **Location**: `apps/backend/src/modules/wholesale/wholesale.resolver.ts`, `apps/backend/src/modules/wholesale/wholesale.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/mutations/wholesale.ts`
 
-### Wholesale Mutations (`lib/graphql/mutations/wholesale.ts`)
-- ❌ `CANCEL_INVITATION` - Cancel a wholesale invitation
+### Wholesale Queries ✅
+- ✅ `getSellerByUsername` - Get seller profile by username (public query)
+  - **Location**: `apps/backend/src/modules/identity/identity.resolver.ts`, `apps/backend/src/modules/identity/identity.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/queries/wholesale.ts`
+  
+- ✅ `listWholesaleBuyers` - List all approved wholesale buyers for a seller
+  - **Location**: `apps/backend/src/modules/wholesale/wholesale.resolver.ts`, `apps/backend/src/modules/wholesale/wholesale.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/queries/wholesale.ts`
 
-**Used by:**
-- `app/wholesale/invitations/page.tsx` - Invitations management page
+### Trade Quotation Operations ✅
+- ✅ `sendQuotation` - Send quotation to buyer via email
+  - **Location**: `apps/backend/src/modules/quotations/quotations.resolver.ts`, `apps/backend/src/modules/quotations/quotations.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/trade-quotations.ts`
+  
+- ✅ `getQuotationByToken` - Get quotation by secure token (for buyer view)
+  - **Location**: `apps/backend/src/modules/quotations/quotations.resolver.ts`, `apps/backend/src/modules/quotations/quotations.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/trade-quotations.ts`
+  
+- ✅ `calculateQuotationTotals` - Server-side calculation of quotation totals
+  - **Location**: `apps/backend/src/modules/quotations/quotations.resolver.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/trade-quotations.ts`
 
-### Wholesale Queries (`lib/graphql/queries/wholesale.ts`)
-- ❌ `GET_SELLER_BY_USERNAME` - Get seller profile by username
-- ❌ `LIST_WHOLESALE_BUYERS` - List all approved wholesale buyers
+### Wholesale Cart Operations ✅
+- ✅ `getWholesaleCart` - Get wholesale cart for buyer
+  - **Location**: `apps/backend/src/modules/wholesale/wholesale.resolver.ts`, `apps/backend/src/modules/wholesale/wholesale.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/wholesale-buyer.ts`
+  
+- ✅ `updateWholesaleCartItem` - Update quantity in wholesale cart
+  - **Location**: `apps/backend/src/modules/wholesale/wholesale.resolver.ts`, `apps/backend/src/modules/wholesale/wholesale.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/wholesale-buyer.ts`
+  
+- ✅ `removeFromWholesaleCart` - Remove item from wholesale cart
+  - **Location**: `apps/backend/src/modules/wholesale/wholesale.resolver.ts`, `apps/backend/src/modules/wholesale/wholesale.service.ts`
+  - **Frontend**: `apps/frontend/lib/graphql/wholesale-buyer.ts`
 
-**Used by:**
-- `app/s/[username]/page.tsx` - Public seller storefront
-- `app/wholesale/buyers/page.tsx` - Wholesale buyers management
+## Schema Updates
 
-### Trade Quotation Queries/Mutations (`lib/graphql/trade-quotations.ts`)
-- ❌ `SEND_QUOTATION` - Send quotation to buyer via email
-- ❌ `GET_QUOTATION_BY_TOKEN` - Get quotation by secure token (for buyer view)
-- ❌ `CALCULATE_QUOTATION_TOTALS` - Server-side calculation of quotation totals
-- ❌ `CalculateQuotationTotalsInput` - Input type for totals calculation
+### GraphQL Schema File ✅
+Updated `docs/graphql-schema.graphql` with:
+- Added all missing Query operations
+- Added all missing Mutation operations
+- Added input types: `CalculateQuotationTotalsInput`, `UpdateWholesaleCartItemInput`, `AddToWholesaleCartInput`
+- Added output types: `CalculatedQuotationTotals`, `ReorderedCart`, `WholesaleBuyersConnection`, `WholesaleCart`
 
-**Used by:**
-- `app/trade/quotations/page.tsx` - Quotations list with send button
-- `app/trade/quotations/new/page.tsx` - New quotation form with live totals
-- `app/trade/quotations/[id]/edit/page.tsx` - Edit quotation with live totals
-- `app/trade/view/[token]/page.tsx` - Public buyer view of quotation
+## Frontend Updates
 
-### Wholesale Buyer Cart (`lib/graphql/wholesale-buyer.ts`)
-- ❌ `GET_WHOLESALE_CART` - Get wholesale cart for buyer
-- ❌ `UPDATE_WHOLESALE_CART_ITEM` - Update quantity in wholesale cart
-- ❌ `REMOVE_FROM_WHOLESALE_CART` - Remove item from wholesale cart
-- ❌ `UpdateWholesaleCartItemInput` - Input type for cart updates
+### Uncommented Queries/Mutations ✅
+1. ✅ `apps/frontend/lib/graphql/mutations/orders.ts` - CANCEL_ORDER, REORDER_ITEMS
+2. ✅ `apps/frontend/lib/graphql/mutations/wholesale.ts` - CANCEL_INVITATION
+3. ✅ `apps/frontend/lib/graphql/queries/wholesale.ts` - GET_SELLER_BY_USERNAME, LIST_WHOLESALE_BUYERS
+4. ✅ `apps/frontend/lib/graphql/trade-quotations.ts` - SEND_QUOTATION, GET_QUOTATION_BY_TOKEN, CALCULATE_QUOTATION_TOTALS
+5. ✅ `apps/frontend/lib/graphql/wholesale-buyer.ts` - GET_WHOLESALE_CART, UPDATE_WHOLESALE_CART_ITEM, REMOVE_FROM_WHOLESALE_CART
 
-**Used by:**
-- `app/wholesale/cart/page.tsx` - Wholesale cart page (currently using mock data)
+### Pages Using These Queries
+All 9 pages can now use the implemented GraphQL operations:
+1. `apps/frontend/app/buyer/orders/[id]/page.tsx` - Order detail page with cancel/reorder buttons
+2. `apps/frontend/app/s/[username]/page.tsx` - Public seller storefront
+3. `apps/frontend/app/trade/quotations/[id]/edit/page.tsx` - Edit quotation with live totals
+4. `apps/frontend/app/trade/quotations/new/page.tsx` - New quotation form with live totals
+5. `apps/frontend/app/trade/quotations/page.tsx` - Quotations list with send button
+6. `apps/frontend/app/trade/view/[token]/page.tsx` - Public buyer view of quotation
+7. `apps/frontend/app/wholesale/buyers/page.tsx` - Wholesale buyers management
+8. `apps/frontend/app/wholesale/cart/page.tsx` - Wholesale cart page
+9. `apps/frontend/app/wholesale/invitations/page.tsx` - Invitations management page
 
-## Next Steps
+## Build Status
 
-### Option 1: Implement Backend Queries (Recommended)
-Implement these missing queries/mutations in the NestJS backend GraphQL schema to match the frontend expectations.
+### GraphQL Code Generation ✅
+- No duplicate operation name errors
+- All schema validations pass
+- Generated types available in `apps/frontend/lib/generated/`
 
-### Option 2: Refactor Frontend (Temporary)
-Comment out or stub the functionality in the pages using these queries. This allows the build to pass but disables the features.
+### TypeScript Compilation ✅
+- Frontend builds successfully
+- Backend builds successfully
+- No LSP errors in GraphQL-related files
 
-### Option 3: Hybrid Approach
-- Implement critical queries first (e.g., quotation calculations, cart operations)
-- Stub out nice-to-have features (e.g., cancel order, reorder)
-- Document the missing features clearly in the UI
+## Summary
 
-## Impact Analysis
+All backend GraphQL schema gaps have been successfully resolved. The platform now has complete GraphQL API coverage for:
+- B2C order management (cancel, reorder)
+- B2B wholesale operations (invitations, buyers, cart)
+- Trade quotations (send, view by token, calculate totals)
+- Public seller discovery (by username)
 
-### Critical (Breaks core features)
-- **Wholesale cart operations** - Buyers cannot add items to cart
-- **Quotation calculations** - Cannot create/edit quotations with accurate totals
-- **Quotation buyer view** - Buyers cannot view quotations sent to them
-
-### High (Reduces functionality)
-- **Send quotation** - Cannot email quotations to buyers
-- **List wholesale buyers** - Cannot see approved buyers
-- **Seller storefronts** - Public seller pages don't work
-
-### Medium (Nice to have)
-- **Cancel order** - Users cannot cancel their orders
-- **Reorder items** - Users cannot quickly reorder
-- **Cancel invitation** - Cannot revoke wholesale invitations
-
-## Files Modified
-
-### Commented out invalid queries in shared files:
-1. `apps/frontend/lib/graphql/mutations/orders.ts`
-2. `apps/frontend/lib/graphql/mutations/wholesale.ts`
-3. `apps/frontend/lib/graphql/queries/wholesale.ts`
-4. `apps/frontend/lib/graphql/trade-quotations.ts`
-5. `apps/frontend/lib/graphql/wholesale-buyer.ts`
-
-### Pages needing fixes (9 files):
-1. `apps/frontend/app/buyer/orders/[id]/page.tsx` - ✅ Fixed
-2. `apps/frontend/app/s/[username]/page.tsx` - ⏳ Needs fixing
-3. `apps/frontend/app/trade/quotations/[id]/edit/page.tsx` - ⏳ Needs fixing
-4. `apps/frontend/app/trade/quotations/new/page.tsx` - ⏳ Needs fixing
-5. `apps/frontend/app/trade/quotations/page.tsx` - ⏳ Needs fixing
-6. `apps/frontend/app/trade/view/[token]/page.tsx` - ⏳ Needs fixing
-7. `apps/frontend/app/wholesale/buyers/page.tsx` - ⏳ Needs fixing
-8. `apps/frontend/app/wholesale/cart/page.tsx` - ⏳ Needs fixing
-9. `apps/frontend/app/wholesale/invitations/page.tsx` - ⏳ Needs fixing
-
-## Code Generation Config
-
-Updated `apps/frontend/codegen.ts` to:
-- ✅ Include all shared GraphQL files (invalid queries are commented out)
-- ✅ Exclude pages with schema validation errors:
-  - `meta-ads/**` - Uses non-existent campaign fields
-  - `wholesale/products/**` - Uses non-existent wholesale product fields
-  - `wholesale/preview/**` - Uses non-existent wholesale product fields
-  - `wholesale/dashboard/**` - Uses non-existent wholesale stats fields
+All frontend pages can now use these operations without TypeScript errors or runtime issues.

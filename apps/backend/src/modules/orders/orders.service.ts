@@ -128,6 +128,186 @@ export class OrdersService {
     }
   }
 
+  async cancelOrder(orderId: string, userId: string) {
+    try {
+      // Verify order exists and user has access (buyer can cancel their own orders)
+      const order = await this.prismaService.orders.findUnique({
+        where: { id: orderId },
+      });
+
+      if (!order) {
+        throw new GraphQLError('Order not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      // Only the buyer who placed the order can cancel it
+      if (order.buyer_id !== userId) {
+        throw new GraphQLError('Access denied', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      // Check if order can be cancelled (only pending/processing orders)
+      if (order.status === 'cancelled' || order.status === 'completed' || order.status === 'shipped') {
+        throw new GraphQLError('Order cannot be cancelled', {
+          extensions: { code: 'BAD_REQUEST' },
+        });
+      }
+
+      // Update order status to cancelled
+      const updatedOrder = await this.prismaService.orders.update({
+        where: { id: orderId },
+        data: { 
+          status: 'cancelled',
+          updated_at: new Date(),
+        },
+      });
+
+      // Emit socket event for real-time updates
+      this.websocketGateway.emitOrderCancelled(userId, {
+        orderId: updatedOrder.id,
+        buyerId: updatedOrder.buyer_id,
+        sellerId: updatedOrder.seller_id,
+      });
+
+      // Invalidate caches
+      await this.cacheService.del(`order:${orderId}`);
+      await this.cacheService.delPattern(`orders:buyer:${userId}`);
+      await this.cacheService.delPattern(`orders:seller:${order.seller_id}`);
+
+      // Map to GraphQL format
+      return {
+        id: updatedOrder.id,
+        orderNumber: updatedOrder.order_number,
+        status: updatedOrder.status.toUpperCase(),
+        fulfillmentStatus: updatedOrder.fulfillment_status?.toUpperCase() || 'UNFULFILLED',
+        totalAmount: parseFloat(updatedOrder.total_amount.toString()) / 100,
+        subtotalAmount: parseFloat(updatedOrder.subtotal_amount.toString()) / 100,
+        taxAmount: parseFloat(updatedOrder.tax_amount.toString()) / 100,
+        shippingAmount: parseFloat(updatedOrder.shipping_amount.toString()) / 100,
+        currency: updatedOrder.currency,
+        buyerId: updatedOrder.buyer_id,
+        sellerId: updatedOrder.seller_id,
+        createdAt: updatedOrder.created_at,
+        updatedAt: updatedOrder.updated_at,
+      };
+    } catch (error) {
+      throw this.convertDomainErrorToGraphQL(error);
+    }
+  }
+
+  async reorderItems(orderId: string, userId: string) {
+    try {
+      // Verify order exists and user has access
+      const order = await this.prismaService.orders.findUnique({
+        where: { id: orderId },
+      });
+
+      if (!order) {
+        throw new GraphQLError('Order not found', {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      // Only the buyer who placed the order can reorder
+      if (order.buyer_id !== userId) {
+        throw new GraphQLError('Access denied', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      // Get order items
+      const orderItems = await this.prismaService.order_items.findMany({
+        where: { order_id: orderId },
+      });
+
+      if (!orderItems || orderItems.length === 0) {
+        throw new GraphQLError('Order has no items', {
+          extensions: { code: 'BAD_REQUEST' },
+        });
+      }
+
+      // Get or create active cart for the buyer
+      let cart = await this.prismaService.carts.findFirst({
+        where: {
+          buyer_id: userId,
+          status: 'active',
+        },
+      });
+
+      if (!cart) {
+        cart = await this.prismaService.carts.create({
+          data: {
+            buyer_id: userId,
+            status: 'active',
+            currency: order.currency,
+          },
+        });
+      }
+
+      // Add items to cart
+      for (const item of orderItems) {
+        // Check if item already exists in cart
+        const existingCartItem = await this.prismaService.cart_items.findFirst({
+          where: {
+            cart_id: cart.id,
+            product_id: item.product_id,
+          },
+        });
+
+        if (existingCartItem) {
+          // Update quantity
+          await this.prismaService.cart_items.update({
+            where: { id: existingCartItem.id },
+            data: {
+              quantity: existingCartItem.quantity + item.quantity,
+              updated_at: new Date(),
+            },
+          });
+        } else {
+          // Create new cart item
+          await this.prismaService.cart_items.create({
+            data: {
+              cart_id: cart.id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price_cents: item.price,
+            },
+          });
+        }
+      }
+
+      // Get updated cart items
+      const cartItems = await this.prismaService.cart_items.findMany({
+        where: { cart_id: cart.id },
+      });
+
+      // Invalidate cart cache
+      await this.cacheService.del(`cart:${cart.id}`);
+      await this.cacheService.delPattern(`cart:buyer:${userId}`);
+
+      // Emit socket event
+      this.websocketGateway.emitCartUpdated(userId, {
+        cartId: cart.id,
+        buyerId: userId,
+        itemCount: cartItems.length,
+      });
+
+      // Return cart with items
+      return {
+        id: cart.id,
+        items: cartItems.map(item => ({
+          id: item.id,
+          productId: item.product_id,
+          quantity: item.quantity,
+        })),
+      };
+    } catch (error) {
+      throw this.convertDomainErrorToGraphQL(error);
+    }
+  }
+
   // ============================================================================
   // Helper Methods - GraphQL-specific
   // ============================================================================

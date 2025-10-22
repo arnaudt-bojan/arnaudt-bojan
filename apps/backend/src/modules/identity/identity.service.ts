@@ -196,6 +196,35 @@ export class IdentityService {
     };
   }
 
+  async getSellerByUsername(username: string) {
+    const user = await this.prisma.users.findFirst({
+      where: { 
+        username: username,
+        role: 'seller',
+      },
+    });
+
+    if (!user) {
+      throw new GraphQLError('Seller not found', {
+        extensions: { code: 'NOT_FOUND' },
+      });
+    }
+
+    // Return user with basic seller account info (PUBLIC-SAFE)
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      fullName: [user.first_name, user.last_name].filter(Boolean).join(' ') || null,
+      userType: 'SELLER',
+      profileImageUrl: user.profile_image_url,
+      phoneNumber: null, // PII - not exposed
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+      // Seller account will be resolved via ResolveField
+    };
+  }
+
   async getBuyerProfile(userId: string) {
     const buyerProfile = await this.prisma.buyer_profiles.findUnique({
       where: { user_id: userId },

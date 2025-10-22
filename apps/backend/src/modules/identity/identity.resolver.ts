@@ -66,6 +66,12 @@ export class IdentityResolver {
     return this.identityService.getStorePublicProfile(slug);
   }
 
+  @Query('getSellerByUsername')
+  async getSellerByUsername(@Args('username') username: string) {
+    // PUBLIC QUERY: Returns seller user with public seller account info
+    return this.identityService.getSellerByUsername(username);
+  }
+
   @Query('getBuyerProfile')
   @UseGuards(GqlAuthGuard)
   async getBuyerProfile(

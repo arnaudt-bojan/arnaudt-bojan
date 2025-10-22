@@ -200,6 +200,13 @@ export class WholesaleQueryResolver {
   ) {
     return this.wholesaleService.getWholesaleCart(userId, sellerId);
   }
+
+  @Query('listWholesaleBuyers')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
+  async listWholesaleBuyers(@CurrentUser() userId: string) {
+    return this.wholesaleService.listWholesaleBuyers(userId);
+  }
 }
 
 @Resolver('Mutation')
@@ -278,5 +285,15 @@ export class WholesaleMutationResolver {
     @CurrentUser() userId: string,
   ) {
     return this.wholesaleService.removeFromWholesaleCart(itemId, userId);
+  }
+
+  @Mutation('cancelInvitation')
+  @UseGuards(GqlAuthGuard, UserTypeGuard)
+  @RequireUserType('seller')
+  async cancelInvitation(
+    @Args('invitationId') invitationId: string,
+    @CurrentUser() userId: string,
+  ) {
+    return this.wholesaleService.cancelInvitation(invitationId, userId);
   }
 }
