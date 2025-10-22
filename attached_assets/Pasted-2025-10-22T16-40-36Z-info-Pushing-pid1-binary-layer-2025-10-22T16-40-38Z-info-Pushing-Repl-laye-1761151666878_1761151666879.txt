@@ -1,0 +1,43 @@
+2025-10-22T16:40:36Z info: Pushing pid1 binary layer...
+2025-10-22T16:40:38Z info: Pushing Repl layer...
+2025-10-22T16:40:38Z info: Pushing hosting layer...
+2025-10-22T16:40:38Z info: Created hosting layer
+2025-10-22T16:40:38Z info: Created pid1 binary layer
+2025-10-22T16:43:21Z info: Created Repl layer
+2025-10-22T16:43:24Z info: Pushed image manifest
+2025-10-22T16:43:25Z info: Pushed soci index manifest
+2025-10-22T16:43:29Z info: Creating Autoscale service
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+sh: 1: concurrently: not found
+sh: 1: concurrently: not found
+> upfirst-monorepo@1.0.0 start
+command finished with error [sh -c npm start]: exit status 127
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+sh: 1: concurrently: not found
+sh: 1: concurrently: not found
+crash loop detected
+command finished with error [sh -c npm start]: exit status 127
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+> upfirst-monorepo@1.0.0 start
+sh: 1: concurrently: not found
+command finished with error [sh -c npm start]: exit status 127
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+> upfirst-monorepo@1.0.0 start
+command finished with error [sh -c npm start]: exit status 127
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+sh: 1: concurrently: not found
+command finished with error [sh -c npm start]: exit status 127
+crash loop detected
+command finished with error [sh -c npm start]: exit status 127
+sh: 1: concurrently: not found
+sh: 1: concurrently: not found
+command finished with error [sh -c npm start]: exit status 127
+> upfirst-monorepo@1.0.0 start
+> upfirst-monorepo@1.0.0 start
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+command finished with error [sh -c npm start]: exit status 127
+crash loop detected
+> upfirst-monorepo@1.0.0 start
+> concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+command finished with error [sh -c npm start]: exit status 127
+sh: 1: concurrently: not found

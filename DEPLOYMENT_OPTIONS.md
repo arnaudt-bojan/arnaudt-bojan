@@ -1,19 +1,17 @@
 # Replit Deployment Configuration Options
 
-## Current Setup (Already Configured)
+## ❌ Current Setup (DOES NOT WORK)
 ```toml
 [deployment]
 build = ["sh", "-c", "npm install && npm run build"]
 run = ["sh", "-c", "npm start"]
 ```
 
-**Pros:**
-- ✅ Clean separation of build and runtime
-- ✅ Faster startup (deps installed once during build)
-- ✅ Standard Replit deployment pattern
-
-**Cons:**
-- ⚠️ Might not persist node_modules to runtime in some deployment types
+**Why it fails:**
+- ❌ Build phase installs node_modules
+- ❌ Runtime phase does NOT have those node_modules
+- ❌ Replit doesn't persist node_modules from build to runtime
+- **Confirmed with deployment logs: "sh: 1: concurrently: not found"**
 
 ---
 

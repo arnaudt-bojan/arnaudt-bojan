@@ -64,11 +64,6 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   Production builds now exclude test files (apps/backend/test/)
     -   Prevents build failures from missing dev dependencies (nock, vitest)
     -   Updated `prebuild` script to use `typecheck:build` instead of `typecheck`
--   **Production Start Script Fix**: Fixed deployment crash loop ("concurrently: not found")
-    -   Updated root `package.json` start and dev scripts to use `npx concurrently`
-    -   Ensures `concurrently` executable is found in production environment
-    -   Changed: `"start": "concurrently ..."` → `"start": "npx concurrently ..."`
-    -   Resolves Replit deployment promote stage crash loop
 -   **Backend Start Path Fix**: Fixed backend crash ("Cannot find module dist/apps/backend/src/main")
     -   NestJS builds to `apps/backend/dist/main.js` not `dist/apps/backend/src/main`
     -   Updated backend `start:prod` script: `node dist/apps/backend/src/main` → `node dist/main`
@@ -83,3 +78,16 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   Changed backend: `npx nest build` → `nest build`, `npx prisma` → `prisma`
     -   Local binaries now resolved correctly from workspace node_modules/.bin
     -   **CRITICAL**: npm scripts automatically add node_modules/.bin to PATH, making `npx` unnecessary and problematic in monorepos
+-   **Replit Deployment node_modules Persistence Issue**: Fixed "concurrently: not found" at runtime
+    -   Issue: Replit deployments do NOT persist `node_modules` from build phase to runtime phase
+    -   Build phase runs `npm install` successfully, but runtime has no `node_modules`
+    -   Solution: Install dependencies at runtime in `.replit` configuration
+    -   Required `.replit` change:
+      ```toml
+      [deployment]
+      build = ["sh", "-c", "npm ci --include=dev && npm run build"]
+      run = ["sh", "-c", "npm ci --include=dev && npm start"]
+      ```
+    -   `--include=dev` required because build tools (TypeScript, NestJS CLI) are in devDependencies
+    -   Trade-off: Adds 30-60s to cold start time, but guarantees dependency availability
+    -   This is a Replit platform limitation for Autoscale deployments
