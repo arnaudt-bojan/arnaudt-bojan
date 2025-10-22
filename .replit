@@ -6,8 +6,8 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 channel = "stable-24_05"
 
 [deployment]
-build = ["sh", "-c", "npm ci --include=dev && npm run build"]
-run = ["sh", "-c", "npm ci --include=dev && npm start"]
+build = "npm ci && npm run build && npm prune --omit=dev"
+run = "npm start"
 deploymentTarget = "cloudrun"
 
 [[ports]]
@@ -33,10 +33,6 @@ externalPort = 4200
 [[ports]]
 localPort = 35347
 externalPort = 5000
-
-[[ports]]
-localPort = 36203
-externalPort = 8080
 
 [[ports]]
 localPort = 36493

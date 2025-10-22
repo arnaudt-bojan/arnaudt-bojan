@@ -26,6 +26,12 @@
     "contracts:update-baseline": "npm run contracts:generate && mkdir -p contracts/baseline && cp contracts/openapi-nestjs.json contracts/baseline/ && cp contracts/graphql-schema.graphql contracts/baseline/"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "^6.0.1",
+    "@graphql-codegen/client-preset": "^5.1.0",
+    "@graphql-codegen/typescript": "^5.0.2",
+    "@graphql-codegen/typescript-operations": "^5.0.2",
+    "@graphql-codegen/typescript-react-apollo": "^4.3.3",
+    "@playwright/test": "^1.56.1",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "4.17.21",
     "@types/express-session": "^1.18.0",
@@ -36,11 +42,14 @@
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.5.13",
     "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.6",
     "esbuild": "^0.25.0",
     "postcss": "^8.4.47",
     "tsx": "^4.20.5",
     "typescript": "5.6.3",
     "glob": "^11.0.3",
+    "nodemon": "^3.1.10"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
@@ -51,7 +60,6 @@
     "@whatwg-node/fetch": "^0.10.11",
     "@whatwg-node/node-fetch": "^0.8.1",
     "concurrently": "^9.2.1",
-    "nodemon": "^3.1.10",
     "sass": "^1.93.2",
     "tsconfig-paths": "^4.2.0"
   }
