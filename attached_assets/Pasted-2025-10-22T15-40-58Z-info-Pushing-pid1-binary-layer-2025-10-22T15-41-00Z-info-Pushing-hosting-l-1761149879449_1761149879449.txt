@@ -1,0 +1,120 @@
+2025-10-22T15:40:58Z info: Pushing pid1 binary layer...
+2025-10-22T15:41:00Z info: Pushing hosting layer...
+2025-10-22T15:41:00Z info: Pushing Repl layer...
+2025-10-22T15:41:00Z info: Created hosting layer
+2025-10-22T15:41:00Z info: Created pid1 binary layer
+2025-10-22T15:43:43Z info: Created Repl layer
+2025-10-22T15:43:45Z info: Pushed image manifest
+2025-10-22T15:43:47Z info: Pushed soci index manifest
+2025-10-22T15:43:47Z info: Pushed referrer manifest
+2025-10-22T15:43:51Z info: Creating Autoscale service
+[1] 
+npm warn exec The following package was not found and will be installed: concurrently@9.2.1
+npm error code 127
+[1] 
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+> upfirst-monorepo@1.0.0 start
+[0] 
+[0]   throw err;
+[1] npm error path /home/runner/workspace/apps/frontend
+[0]   ^
+[0]   ^
+[0] 
+[0] npm run start:prod --workspace=@upfirst/backend exited with code 1
+[0] 
+> upfirst-monorepo@1.0.0 start
+[0] 
+[0] 
+[0] Node.js v20.19.3
+[1] 
+[0]     at require (node:internal/modules/helpers:182:18)
+npm error code 1
+[0] 
+npm error workspace @upfirst/frontend@0.1.0
+npm error Lifecycle script `start` failed with error:
+[1] 
+[0]   code: 'MODULE_NOT_FOUND',
+[1] > @upfirst/frontend@0.1.0 start
+[1] 
+> upfirst-monorepo@1.0.0 start
+[0] > node dist/main
+[0]     at Module._load (node:internal/modules/cjs/loader:1096:12)
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+> upfirst-monorepo@1.0.0 start
+[0] 
+sh: 1: next: not found
+[0]     at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+[1] npm error location /home/runner/workspace/apps/frontend
+npm warn exec The following package was not found and will be installed: concurrently@9.2.1
+[0] 
+[0] > @upfirst/backend@1.0.0 start:prod
+[0]     at Module._compile (node:internal/modules/cjs/loader:1529:14)
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[0] 
+npm error code 127
+[1] 
+[0] npm error command failed
+[0] npm error location /home/runner/workspace/apps/backend
+[0]   requireStack: [ '/home/runner/workspace/apps/backend/dist/main.js' ]
+[0]     at Module.require (node:internal/modules/cjs/loader:1298:19)
+[0] npm error command failed
+[0] 
+[0] 
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[0]   code: 'MODULE_NOT_FOUND',
+[0] > @upfirst/backend@1.0.0 start:prod
+[0] 
+node:internal/modules/cjs/loader:1215
+[1] 
+[0] > @upfirst/backend@1.0.0 start:prod
+[1] npm error location /home/runner/workspace/apps/frontend
+[1] > next start -p 3000
+npm error code 127
+[0] npm error command failed
+[0] Require stack:
+[1] 
+[1] npm error command sh -c next start -p 3000
+npm error code 127
+[0]   ^
+[0] npm run start:prod --workspace=@upfirst/backend exited with code 1
+[1] > @upfirst/frontend@0.1.0 start
+[1] 
+[0] 
+[0] 
+[0]     at Module._compile (node:internal/modules/cjs/loader:1529:14)
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+npm warn exec The following package was not found and will be installed: concurrently@9.2.1
+[0] 
+[0]     at Module._compile (node:internal/modules/cjs/loader:1529:14)
+[1] > next start -p 3000
+[0] Require stack:
+[0]   throw err;
+[1] 
+[0]     at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+[0]   code: 'MODULE_NOT_FOUND',
+> upfirst-monorepo@1.0.0 start
+[0]     at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+npm error code 127
+[0]     at Module.require (node:internal/modules/cjs/loader:1298:19)
+[0] 
+[0]   requireStack: [ '/home/runner/workspace/apps/backend/dist/main.js' ]
+[0] 
+[1] npm error command sh -c next start -p 3000
+npm error code 127
+sh: 1: next: not found
+npm error code 1
+[0] npm error location /home/runner/workspace/apps/backend
+starting up user application
+> upfirst-monorepo@1.0.0 start
+npm warn exec The following package was not found and will be installed: concurrently@9.2.1
+> upfirst-monorepo@1.0.0 start
+[1] > @upfirst/frontend@0.1.0 start
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+sh: 1: next: not found
+[1] npm error workspace @upfirst/frontend@0.1.0
+npm error command failed
+[0] 
+[1] 
+[1] npm error command failed
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+2025-10-22T15:48:51Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.
