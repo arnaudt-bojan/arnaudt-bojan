@@ -94,23 +94,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/client-integration-nextjs@npm:0.14.0, @apollo/client-integration-nextjs@npm:^0.14.0":
-  version: 0.14.0
-  resolution: "@apollo/client-integration-nextjs@npm:0.14.0"
+"@apollo/client-integration-nextjs@npm:0.13.2":
+  version: 0.13.2
+  resolution: "@apollo/client-integration-nextjs@npm:0.13.2"
   dependencies:
-    "@apollo/client-react-streaming": "npm:0.14.0"
+    "@apollo/client-react-streaming": "npm:0.13.2"
   peerDependencies:
     "@apollo/client": ^4.0.0
     next: ^15.2.3
     react: ^19
     rxjs: ^7.3.0
-  checksum: 10c0/3b88b0caee832001d67f4eac9663f08ccb5bd4cbaf443f383f7a75f5c766e5a2afa89a76fa57ef28d68ca1b4a3ce02fa61b5e4582e189100254a8a34fc050379
+  checksum: 10c0/ad689718364bc285444dac70d693c32778cea35a4e3e40edd313aa45576a5b62c41df25f73567a0383f2c1d04907410a797017ad613d06a32520e87397871a0d
   languageName: node
   linkType: hard
 
-"@apollo/client-react-streaming@npm:0.14.0, @apollo/client-react-streaming@npm:^0.14.0":
-  version: 0.14.0
-  resolution: "@apollo/client-react-streaming@npm:0.14.0"
+"@apollo/client-react-streaming@npm:0.13.2":
+  version: 0.13.2
+  resolution: "@apollo/client-react-streaming@npm:0.13.2"
   dependencies:
     "@types/react-dom": "npm:^19.0.0"
     "@wry/equality": "npm:^0.5.6"
@@ -120,7 +120,7 @@ __metadata:
     react: ^19
     react-dom: ^19
     rxjs: ^7.3.0
-  checksum: 10c0/4c6490a0a0b2e2eefd05a490ac6038df86ed4364ebb698d9c060e3e5879c4cab1635c1b287495dcee1029b83bdb5b12413330cbdb80d85d7e35550ac8e6fdeb1
+  checksum: 10c0/1938a704a0e6a7712f9c499129e281e5966f37adc08bdae382bdb6e21b4d0556cd1d2e5cb0cac95d265304a87e59388798ab5ee0f85de29c4c2408a3c7cb6c53
   languageName: node
   linkType: hard
 
@@ -155,17 +155,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@apollo/experimental-nextjs-app-support@npm:^0.14.0":
-  version: 0.14.0
-  resolution: "@apollo/experimental-nextjs-app-support@npm:0.14.0"
+"@apollo/experimental-nextjs-app-support@npm:0.13.2":
+  version: 0.13.2
+  resolution: "@apollo/experimental-nextjs-app-support@npm:0.13.2"
   dependencies:
-    "@apollo/client-integration-nextjs": "npm:0.14.0"
+    "@apollo/client-integration-nextjs": "npm:0.13.2"
   peerDependencies:
     "@apollo/client": ^4.0.0
     next: ^15.2.3
     react: ^19
     rxjs: ^7.3.0
-  checksum: 10c0/557d20d7d241e493848b22bd00eeac909448ed57bbe11817b2d74f16ce98039d0d2e7d260bd8ff58c0b4b537c2d354f07c2fb4e88e3570cb346729474a62337a
+  checksum: 10c0/00eeca213f0f04a6333f18a3b24ff00928616e3138e0eaf60ce8fe1f0395ebb95bed860d8503d34d2ffeaa0096c68f046db8a3f028e663738657f2d56c7ea3f7
   languageName: node
   linkType: hard
 
@@ -7848,7 +7848,7 @@ __metadata:
   resolution: "@upfirst/frontend@workspace:apps/frontend"
   dependencies:
     "@apollo/client": "npm:^4.0.7"
-    "@apollo/experimental-nextjs-app-support": "npm:^0.14.0"
+    "@apollo/experimental-nextjs-app-support": "npm:0.13.2"
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.1"
     "@hookform/resolvers": "npm:^3.10.0"
@@ -8267,15 +8267,15 @@ __metadata:
   linkType: hard
 
 "@uppy/webcam@npm:^5.0.1":
-  version: 5.0.1
-  resolution: "@uppy/webcam@npm:5.0.1"
+  version: 5.0.2
+  resolution: "@uppy/webcam@npm:5.0.2"
   dependencies:
-    "@uppy/utils": "npm:^7.0.2"
+    "@uppy/utils": "npm:^7.1.1"
     is-mobile: "npm:^4.0.0"
     preact: "npm:^10.5.13"
   peerDependencies:
-    "@uppy/core": ^5.0.2
-  checksum: 10c0/a3f110b7427ef2ab6245c0fa49b70aba050eedabf5e3d325356445685f06bf4115143d969dc5d53361e652c75e10ed951d1f39b512e2eaa983cf1e4d43c973d1
+    "@uppy/core": ^5.1.1
+  checksum: 10c0/3f22d7f96051fce20d550e0ee6ed4ff3c293f160d53b920267b50cfcf883e3da0cfc6d36ad1fcb3f4c6e66c991862d2e1ea53405283b75eac70b2f446c03790a
   languageName: node
   linkType: hard
 
@@ -19966,8 +19966,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "upfirst-monorepo@workspace:."
   dependencies:
-    "@apollo/client-integration-nextjs": "npm:^0.14.0"
-    "@apollo/client-react-streaming": "npm:^0.14.0"
+    "@apollo/client-integration-nextjs": "npm:0.13.2"
+    "@apollo/client-react-streaming": "npm:0.13.2"
     "@graphql-codegen/cli": "npm:^6.0.1"
     "@graphql-codegen/client-preset": "npm:^5.1.0"
     "@graphql-codegen/typescript": "npm:^5.0.2"
