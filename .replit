@@ -15,7 +15,7 @@ run = ["sh", "start-compiled.sh"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
-localPort = 3000
+localPort = 4000
 externalPort = 3002
 
 [[ports]]
