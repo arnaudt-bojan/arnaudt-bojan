@@ -49,14 +49,11 @@ services:
         condition: service_healthy
     volumes:
       # Mount source code for hot reload
-      - ./server:/app/server
-      - ./client:/app/client
-      - ./shared:/app/shared
-      - ./prisma:/app/prisma
+      - ./apps:/app/apps
+      - ./packages:/app/packages
       # Persist node_modules
       - node_modules:/app/node_modules
-      - prisma_generated:/app/generated
-    command: sh -c "npx prisma db push && npm run dev"
+    command: sh -c "npx prisma db push --schema=apps/backend/prisma/schema.prisma && npm run dev"
     networks:
       - upfirst-network
 
@@ -64,8 +61,6 @@ volumes:
   postgres_data:
     driver: local
   node_modules:
-    driver: local
-  prisma_generated:
     driver: local
 
 networks:

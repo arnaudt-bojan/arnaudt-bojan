@@ -108,20 +108,20 @@ This ensures:
 ### OpenAPI (Express)
 
 Generated from Zod validation schemas in:
-- `server/dtos/rest/*.dto.ts` - Request/response DTOs
-- `server/routes.ts` - Route definitions with validation
+- `apps/backend/src/**/*.dto.ts` - Request/response DTOs
+- `apps/backend/src/**/*.controller.ts` - Route definitions with validation
 
 ### OpenAPI (NestJS)
 
 Generated from NestJS Swagger decorators in:
-- `apps/nest-api/src/**/*.controller.ts` - REST controllers
-- `apps/nest-api/src/**/*.dto.ts` - DTO classes
+- `apps/backend/src/**/*.controller.ts` - REST controllers
+- `apps/backend/src/**/*.dto.ts` - DTO classes
 
 ### GraphQL
 
 Generated from NestJS GraphQL schema in:
-- `apps/nest-api/src/**/*.resolver.ts` - GraphQL resolvers
-- `apps/nest-api/src/**/*.dto.ts` - Input/Output types
+- `apps/backend/src/**/*.resolver.ts` - GraphQL resolvers
+- `apps/backend/src/**/*.dto.ts` - Input/Output types
 
 ## Breaking vs Non-Breaking Changes
 

@@ -23,16 +23,12 @@ contracts/
 
 ### 2. Test Suites
 
-- **`server/__tests__/auth-matrix.spec.ts`** - 30+ test cases covering:
+- **Auth tests** - Archived in `tests/archive/` (vitest not currently installed):
   - B2C platform auth (products, cart, orders, checkout)
   - B2B wholesale platform auth
   - Trade quotations platform auth
   - Cross-platform auth isolation
-
-- **`server/__tests__/auth-flows.spec.ts`** - 25+ test cases covering:
-  - Registration flows (buyer & seller)
-  - Login flows
-  - Logout flows
+  - Registration, login, logout flows
   - Session management
   - Password reset
   - Magic link authentication
@@ -81,15 +77,12 @@ This creates:
 ### 2. Run Auth Tests
 
 ```bash
-# Run all auth tests
-vitest run server/__tests__/auth-matrix.spec.ts server/__tests__/auth-flows.spec.ts
+# Note: Auth tests are currently archived (vitest not installed)
+# They are located in tests/archive/vitest-tests/
+# To use them, install vitest and update test configuration
 
-# Or use the helper script
-./scripts/contracts.sh test:auth
-
-# Run specific test suites
-vitest run server/__tests__/auth-matrix.spec.ts
-vitest run server/__tests__/auth-flows.spec.ts
+# Backend uses Jest for testing:
+npm run test --workspace=@upfirst/backend
 ```
 
 ### 3. Check for Breaking Changes
