@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "prebuild": "npx prisma generate --schema=./prisma/schema.prisma && npm run typecheck:build",
+    "prebuild:fast": "npm run typecheck:build",
     "build": "npx nest build",
+    "build:fast": "npm run prebuild:fast && npm run build",
     "start": "npx nest start",
     "start:dev": "npx nest start --watch",
     "start:debug": "npx nest start --debug --watch",
