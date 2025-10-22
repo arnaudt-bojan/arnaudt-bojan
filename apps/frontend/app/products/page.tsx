@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
 import { DELETE_PRODUCT } from '@/lib/graphql/mutations/products';
-import { ListProductsQuery } from '@/lib/generated/graphql';
+import { ListProductsQuery, Product } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -101,7 +101,7 @@ export default function ProductsPage() {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const products: Product[] = data?.listProducts?.edges.map((edge: { node: Product }) => edge.node) || [];
+  const products: Product[] = data?.listProducts?.edges.map((edge) => edge.node as Product) || [];
   const totalCount = data?.listProducts?.totalCount || 0;
 
   const categories = Array.from(new Set(products.map((p: Product) => p.category))).filter(Boolean) as string[];
@@ -141,7 +141,7 @@ export default function ProductsPage() {
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" fontWeight="600">
-          ${(params.value as number)?.toFixed(2) || '0.00'}
+          ${parseFloat(params.value as string || '0').toFixed(2)}
         </Typography>
       ),
     },

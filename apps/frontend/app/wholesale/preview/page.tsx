@@ -22,14 +22,13 @@ import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 const LIST_WHOLESALE_PRODUCTS = gql`
   query ListWholesaleProducts {
-    listWholesaleProducts {
+    listProducts {
       edges {
         node {
           id
           name
           description
-          wholesalePrice
-          moq
+          price
           stock
           status
           category
@@ -44,7 +43,7 @@ export default function WholesalePreview() {
   const router = useRouter();
   const { loading, data } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);
 
-  const products = data?.listWholesaleProducts?.edges?.map((edge: any) => edge.node) || [];
+  const products = data?.listProducts?.edges?.map((edge: any) => edge.node) || [];
   const activeProducts = products.filter((p: any) => p.status === 'ACTIVE');
 
   const formatCurrency = (amount: number) => {

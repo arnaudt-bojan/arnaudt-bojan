@@ -146,7 +146,7 @@ export default function AcceptWholesaleInvitationPage() {
               <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                 <Business fontSize="small" color="action" />
                 <Typography variant="body1" fontWeight="medium">
-                  {invitation.seller?.businessName || invitation.seller?.storeName || 'Seller'}
+                  {invitation.seller?.sellerAccount?.businessName || invitation.seller?.sellerAccount?.storeName || 'Seller'}
                 </Typography>
               </Box>
             </Box>

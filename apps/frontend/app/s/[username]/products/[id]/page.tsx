@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, ApolloError } from '@/lib/apollo-client';
 import { GET_PRODUCT } from '@/lib/graphql/queries/products';
 import { ADD_TO_CART } from '@/lib/graphql/mutations/cart';
-import { GetProductQuery } from '@/lib/generated/graphql';
+import { GetProductQuery, AddToCartMutation } from '@/lib/generated/graphql';
 import {
   Container,
   Card,
@@ -65,9 +65,9 @@ export default function ProductDetailPage({ params }: PageProps) {
   });
 
   // GraphQL Mutation
-  const [addToCart, { loading: addingToCart }] = useMutation(ADD_TO_CART, {
+  const [addToCart, { loading: addingToCart }] = useMutation<AddToCartMutation>(ADD_TO_CART, {
     onCompleted: (data) => {
-      if (data.addToCart.success) {
+      if (data.addToCart.id) {
         alert('Product added to cart!');
       }
     },
@@ -140,18 +140,18 @@ export default function ProductDetailPage({ params }: PageProps) {
   const images = product.images || [product.image];
   const displayImage = images[selectedImageIndex] || images[0];
 
-  // Parse variants
-  const variants = product.variants ? (typeof product.variants === 'string' ? JSON.parse(product.variants) : product.variants) : null;
-  const sizes = variants?.sizes || [];
-  const colors = variants?.colors || [];
+  // Parse variants - variants field doesn't exist in schema, so we skip this for now
+  const variants = null;
+  const sizes: string[] = [];
+  const colors: string[] = [];
 
   // Stock status
-  const isInStock = product.product_type === 'in-stock' ? (product.stock_quantity || 0) > 0 : true;
-  const stockLabel = product.product_type === 'in-stock'
+  const isInStock = product.productType === 'in-stock' ? (product.stock || 0) > 0 : true;
+  const stockLabel = product.productType === 'in-stock'
     ? isInStock
-      ? `${product.stock_quantity} in stock`
+      ? `${product.stock} in stock`
       : 'Out of stock'
-    : product.product_type === 'pre-order'
+    : product.productType === 'pre-order'
     ? 'Pre-order'
     : 'Made to order';
 
@@ -235,7 +235,7 @@ export default function ProductDetailPage({ params }: PageProps) {
         <Grid size={{ xs: 12, md: 6 }}>
           {/* Product Type Badge */}
           <Chip
-            label={product.product_type?.replace('-', ' ').toUpperCase()}
+            label={product.productType?.replace('-', ' ').toUpperCase()}
             size="small"
             color="primary"
             sx={{ mb: 2 }}
@@ -256,18 +256,8 @@ export default function ProductDetailPage({ params }: PageProps) {
           {/* Price */}
           <Box sx={{ my: 3 }}>
             <Typography variant="h4" component="div" fontWeight="bold" data-testid="text-product-price">
-              ${parseFloat(product.price).toFixed(2)}
+              ${parseFloat(product.price as string).toFixed(2)}
             </Typography>
-            {product.compare_at_price && parseFloat(product.compare_at_price) > parseFloat(product.price) && (
-              <Typography
-                variant="h6"
-                component="div"
-                color="text.secondary"
-                sx={{ textDecoration: 'line-through', mt: 1 }}
-              >
-                ${parseFloat(product.compare_at_price).toFixed(2)}
-              </Typography>
-            )}
           </Box>
 
           {/* Stock Status */}
@@ -278,13 +268,6 @@ export default function ProductDetailPage({ params }: PageProps) {
             sx={{ mb: 3 }}
             data-testid="badge-stock-status"
           />
-
-          {/* SKU */}
-          {product.sku && (
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              SKU: {product.sku}
-            </Typography>
-          )}
 
           {/* Description */}
           <Typography variant="body1" paragraph sx={{ mt: 3 }} data-testid="text-product-description">
@@ -372,18 +355,6 @@ export default function ProductDetailPage({ params }: PageProps) {
             {addingToCart ? 'Adding...' : 'Add to Cart'}
           </Button>
 
-          {/* Seller Information */}
-          {product.seller && (
-            <Box sx={{ mt: 4, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-              <Typography variant="h6" gutterBottom>
-                Seller Information
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Sold by: <strong>{product.seller.displayName || product.seller.username}</strong>
-              </Typography>
-            </Box>
-          )}
-
           {/* Product Specifications */}
           <Box sx={{ mt: 4 }}>
             <Typography variant="h6" gutterBottom>
@@ -395,16 +366,8 @@ export default function ProductDetailPage({ params }: PageProps) {
                   <TableCell component="th" scope="row">
                     Product Type
                   </TableCell>
-                  <TableCell>{product.product_type}</TableCell>
+                  <TableCell>{product.productType}</TableCell>
                 </TableRow>
-                {product.sku && (
-                  <TableRow>
-                    <TableCell component="th" scope="row">
-                      SKU
-                    </TableCell>
-                    <TableCell>{product.sku}</TableCell>
-                  </TableRow>
-                )}
                 {product.category && (
                   <TableRow>
                     <TableCell component="th" scope="row">

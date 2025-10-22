@@ -36,6 +36,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 export default function CartPage() {
   const router = useRouter();
@@ -142,7 +143,7 @@ export default function CartPage() {
 
   const cart = data?.cart;
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: '0', tax: '0', shipping: '0', total: '0' };
+  const totals = cart?.totals || { subtotal: '0', tax: '0', total: '0', currency: DEFAULT_CURRENCY };
   const isEmpty = items.length === 0;
 
   // Empty cart state
@@ -383,18 +384,10 @@ export default function CartPage() {
             </Box>
 
             {/* Tax */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1">Tax</Typography>
               <Typography variant="body1" fontWeight="medium" data-testid="text-cart-tax">
                 ${parseFloat(totals.tax.toString()).toFixed(2)}
-              </Typography>
-            </Box>
-
-            {/* Shipping */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="body1">Shipping</Typography>
-              <Typography variant="body1" fontWeight="medium" data-testid="text-cart-shipping">
-                ${parseFloat(totals.shipping.toString()).toFixed(2)}
               </Typography>
             </Box>
 

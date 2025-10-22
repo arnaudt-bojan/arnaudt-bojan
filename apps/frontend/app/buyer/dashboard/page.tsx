@@ -84,7 +84,7 @@ export default function BuyerDashboard() {
     const completedOrders = orders.filter(o => 
       o.status.toLowerCase() === 'delivered' || o.status.toLowerCase() === 'completed'
     ).length;
-    const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const totalSpent = orders.reduce((sum, order) => sum + parseFloat(order.totalAmount || '0'), 0);
 
     return { totalOrders, pendingOrders, completedOrders, totalSpent };
   }, [orders]);
@@ -122,7 +122,7 @@ export default function BuyerDashboard() {
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" fontWeight="600">
-          ${params.value?.toFixed(2) || '0.00'}
+          ${parseFloat(params.value as string || '0').toFixed(2)}
         </Typography>
       ),
     },
@@ -181,7 +181,7 @@ export default function BuyerDashboard() {
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom data-testid="text-welcome-message">
-          Welcome back, {user.firstName || user.email}!
+          Welcome back, {user.fullName || user.email}!
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Track and manage your orders

@@ -267,23 +267,8 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                             {order.carrier && `${order.carrier}: `}
                             {order.trackingNumber}
                           </Typography>
-                          {order.trackingUrl && (
-                            <Link
-                              href={order.trackingUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              data-testid="link-tracking-url"
-                            >
-                              Track Package
-                            </Link>
-                          )}
                         </Box>
                       </Box>
-                      {order.estimatedDeliveryDate && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                          Estimated Delivery: {format(new Date(order.estimatedDeliveryDate), 'PPP')}
-                        </Typography>
-                      )}
                     </CardContent>
                   </Card>
                 </Box>
@@ -310,7 +295,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {order.lineItems.map((item) => (
+                    {order.items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -326,9 +311,9 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                               <Typography variant="body2" fontWeight="500">
                                 {item.productName}
                               </Typography>
-                              {item.variant && (
+                              {item.variantId && (
                                 <Typography variant="caption" color="text.secondary">
-                                  {item.variant}
+                                  Variant: {item.variantId}
                                 </Typography>
                               )}
                             </Box>
@@ -336,10 +321,10 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                         </TableCell>
                         <TableCell align="center">{item.quantity}</TableCell>
                         <TableCell align="right">
-                          ${item.unitPrice.toFixed(2)}
+                          ${parseFloat(item.unitPrice as string).toFixed(2)}
                         </TableCell>
                         <TableCell align="right">
-                          ${item.totalPrice.toFixed(2)}
+                          ${parseFloat(item.lineTotal as string).toFixed(2)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -356,7 +341,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                     Subtotal:
                   </Typography>
                   <Typography variant="body2" data-testid="text-order-subtotal">
-                    ${order.subtotal.toFixed(2)}
+                    ${parseFloat(order.subtotal as string).toFixed(2)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', width: { xs: '100%', sm: 300 } }}>
@@ -364,7 +349,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                     Shipping:
                   </Typography>
                   <Typography variant="body2" data-testid="text-order-shipping">
-                    ${order.shippingCost.toFixed(2)}
+                    ${parseFloat(order.shippingCost as string).toFixed(2)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', width: { xs: '100%', sm: 300 } }}>
@@ -372,7 +357,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                     Tax:
                   </Typography>
                   <Typography variant="body2" data-testid="text-order-tax">
-                    ${order.taxAmount.toFixed(2)}
+                    ${parseFloat(order.taxAmount as string).toFixed(2)}
                   </Typography>
                 </Box>
                 <Divider sx={{ width: { xs: '100%', sm: 300 }, my: 1 }} />
@@ -381,7 +366,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                     Total:
                   </Typography>
                   <Typography variant="h6" fontWeight="600" data-testid="text-order-total">
-                    ${order.totalAmount.toFixed(2)} {order.currency}
+                    ${parseFloat(order.totalAmount as string).toFixed(2)} {order.currency}
                   </Typography>
                 </Box>
               </Box>

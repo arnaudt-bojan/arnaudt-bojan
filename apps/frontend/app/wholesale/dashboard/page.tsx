@@ -3,7 +3,7 @@
 import { useQuery, gql } from '@/lib/apollo-client';
 import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
 import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
-import { GetWholesaleStatsQuery, GetCurrentUserQuery } from '@/lib/generated/graphql';
+import { GetCurrentUserQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Card,
@@ -73,8 +73,8 @@ const GET_RECENT_WHOLESALE_ORDERS = gql`
 export default function WholesaleDashboard() {
   const router = useRouter();
   
-  const { loading: statsLoading, data: statsData } = useQuery<GetWholesaleStatsQuery>(GET_WHOLESALE_STATS);
-  const { loading: ordersLoading, data: ordersData } = useQuery(GET_RECENT_WHOLESALE_ORDERS);
+  const { loading: statsLoading, data: statsData } = useQuery<any>(GET_WHOLESALE_STATS);
+  const { loading: ordersLoading, data: ordersData } = useQuery<any>(GET_RECENT_WHOLESALE_ORDERS);
   const { data: userData } = useQuery<GetCurrentUserQuery>(GET_CURRENT_USER);
 
   const stats = statsData?.wholesaleStats;
@@ -135,31 +135,6 @@ export default function WholesaleDashboard() {
         </Typography>
       </Box>
 
-      {/* Stripe Connection Alert */}
-      {userData?.me && (!userData.me.stripeConnectedAccountId || !userData.me.stripeChargesEnabled) && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 4 }} 
-          data-testid="alert-stripe-not-connected-wholesale"
-          icon={<AlertTriangle />}
-        >
-          <AlertTitle>Payment Setup Required</AlertTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
-            <Typography variant="body2">
-              You must connect a payment provider before accepting wholesale orders. 
-              Without this, buyers won&apos;t be able to complete checkout.
-            </Typography>
-            <Button 
-              variant="outlined" 
-              size="small"
-              onClick={() => router.push('/settings?tab=payment')}
-              data-testid="button-setup-payments"
-            >
-              Setup Payments
-            </Button>
-          </Box>
-        </Alert>
-      )}
 
       {/* Stats Cards */}
       <Grid container spacing={3} mb={4}>

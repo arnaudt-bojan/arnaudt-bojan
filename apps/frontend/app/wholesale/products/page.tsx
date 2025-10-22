@@ -28,14 +28,13 @@ import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 const LIST_WHOLESALE_PRODUCTS = gql`
   query ListWholesaleProducts {
-    listWholesaleProducts {
+    listProducts {
       edges {
         node {
           id
           name
           description
-          wholesalePrice
-          moq
+          price
           stock
           status
           category
@@ -70,7 +69,7 @@ export default function WholesaleProducts() {
     },
   });
 
-  const products = data?.listWholesaleProducts?.edges?.map((edge: any) => edge.node) || [];
+  const products = data?.listProducts?.edges?.map((edge: any) => edge.node) || [];
 
   const categories = Array.from(new Set(products.map((p: any) => p.category)));
 

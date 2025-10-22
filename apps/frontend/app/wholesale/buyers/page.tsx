@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { LIST_WHOLESALE_INVITATIONS, LIST_WHOLESALE_BUYERS } from '@/lib/graphql/queries/wholesale';
 import { CREATE_WHOLESALE_INVITATION } from '@/lib/graphql/mutations/wholesale';
-import { ListWholesaleInvitationsQuery, ListWholesaleBuyersQuery } from '@/lib/generated/graphql';
+import { ListWholesaleInvitationsQuery } from '@/lib/generated/graphql';
 import {
   Container,
   Box,
@@ -28,7 +28,7 @@ export default function WholesaleBuyers() {
   const [buyerEmail, setBuyerEmail] = useState('');
 
   const { loading: loadingInvitations, data: invitationsData, refetch: refetchInvitations } = useQuery<ListWholesaleInvitationsQuery>(LIST_WHOLESALE_INVITATIONS);
-  const { loading: loadingBuyers, data: buyersData } = useQuery<ListWholesaleBuyersQuery>(LIST_WHOLESALE_BUYERS);
+  const { loading: loadingBuyers, data: buyersData } = useQuery<any>(LIST_WHOLESALE_BUYERS);
 
   const [createInvitation, { loading: creating, error: createError }] = useMutation(CREATE_WHOLESALE_INVITATION, {
     onCompleted: () => {

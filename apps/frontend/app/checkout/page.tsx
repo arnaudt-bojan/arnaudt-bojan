@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { GET_CART } from '@/lib/graphql/queries/cart';
 import { CREATE_ORDER } from '@/lib/graphql/mutations/orders';
-import { GetCartQuery } from '@/lib/generated/graphql';
+import { GetCartQuery, CreateOrderMutation } from '@/lib/generated/graphql';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,6 +46,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
 
 // Form validation schema
 const checkoutSchema = z.object({
@@ -122,7 +123,7 @@ export default function CheckoutPage() {
   });
 
   // GraphQL Mutation
-  const [createOrder, { loading: creatingOrder }] = useMutation(CREATE_ORDER, {
+  const [createOrder, { loading: creatingOrder }] = useMutation<CreateOrderMutation>(CREATE_ORDER, {
     onCompleted: (data) => {
       // Redirect to checkout complete page
       router.push(`/checkout/complete?orderId=${data.createOrder.id}`);
@@ -238,7 +239,7 @@ export default function CheckoutPage() {
 
   const cart = data?.cart;
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: '0', tax: '0', shipping: '0', total: '0' };
+  const totals = cart?.totals || { subtotal: '0', tax: '0', total: '0', currency: DEFAULT_CURRENCY };
 
   // Empty cart
   if (items.length === 0) {
@@ -664,12 +665,6 @@ export default function CheckoutPage() {
                   <Typography variant="body2">Subtotal</Typography>
                   <Typography variant="body2" fontWeight="medium">
                     ${parseFloat(totals.subtotal.toString()).toFixed(2)}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Shipping</Typography>
-                  <Typography variant="body2" fontWeight="medium">
-                    ${parseFloat(totals.shipping.toString()).toFixed(2)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>

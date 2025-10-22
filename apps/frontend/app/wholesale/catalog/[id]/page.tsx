@@ -142,23 +142,14 @@ export default function WholesaleProductDetailPage() {
                   per unit
                 </Typography>
               </Typography>
-              {product.compareAtPrice && parseFloat(product.compareAtPrice) > parseFloat(product.price) && (
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  sx={{ textDecoration: 'line-through' }}
-                >
-                  ${parseFloat(product.compareAtPrice).toFixed(2)}
-                </Typography>
-              )}
             </Box>
 
             {/* Stock Status */}
             <Box sx={{ mb: 3 }}>
-              {product.stockQuantity > 0 ? (
+              {product.stock > 0 ? (
                 <Chip
                   icon={<Inventory />}
-                  label={`${product.stockQuantity} units in stock`}
+                  label={`${product.stock} units in stock`}
                   color="success"
                 />
               ) : (
@@ -237,10 +228,10 @@ export default function WholesaleProductDetailPage() {
               fullWidth
               startIcon={<ShoppingCart />}
               onClick={handleAddToCart}
-              disabled={!moqMet || product.stockQuantity === 0}
+              disabled={!moqMet || product.stock === 0}
               data-testid="button-add-to-cart"
             >
-              {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
+              {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
             </Button>
           </Box>
         </Grid>
