@@ -59,9 +59,21 @@ interface QuotationData {
   quotationNumber: string;
   status: string;
   validUntil?: string;
+  createdAt?: string;
   total: number;
   currency: string;
   depositPercentage: number;
+  deliveryTerms?: string;
+  items?: QuotationItem[];
+  subtotal?: number;
+  taxAmount?: number;
+  shippingAmount?: number;
+  depositAmount?: number;
+  balanceAmount?: number;
+  seller?: {
+    username: string;
+    email: string;
+  };
 }
 
 export default function QuotationViewPage() {
@@ -76,7 +88,7 @@ export default function QuotationViewPage() {
   //   variables: { token },
   //   skip: !token,
   // });
-  const data: { getQuotationByToken?: QuotationData } | null = null;
+  const data: { getQuotationByToken?: QuotationData } = {};
   const loading = false;
   const refetch = () => {};
 
@@ -211,19 +223,21 @@ export default function QuotationViewPage() {
                 </Grid>
               </>
             )}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CalendarToday color="action" />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Quotation Date
-                  </Typography>
-                  <Typography variant="body1" fontWeight="medium">
-                    {format(new Date(quotation.createdAt), 'MMMM dd, yyyy')}
-                  </Typography>
+            {quotation.createdAt && (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CalendarToday color="action" />
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Quotation Date
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {format(new Date(quotation.createdAt), 'MMMM dd, yyyy')}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
-            </Grid>
+              </Grid>
+            )}
             {quotation.validUntil && (
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -299,10 +313,10 @@ export default function QuotationViewPage() {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body1">Subtotal:</Typography>
                 <Typography variant="body1" fontWeight="medium" data-testid="text-subtotal">
-                  {formatCurrency(parseFloat(quotation.subtotal.toString()), quotation.currency)}
+                  {formatCurrency(parseFloat((quotation.subtotal || 0).toString()), quotation.currency)}
                 </Typography>
               </Box>
-              {parseFloat(quotation.taxAmount.toString()) > 0 && (
+              {quotation.taxAmount && parseFloat(quotation.taxAmount.toString()) > 0 && (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body1">Tax:</Typography>
                   <Typography variant="body1" fontWeight="medium" data-testid="text-tax">
@@ -310,7 +324,7 @@ export default function QuotationViewPage() {
                   </Typography>
                 </Box>
               )}
-              {parseFloat(quotation.shippingAmount.toString()) > 0 && (
+              {quotation.shippingAmount && parseFloat(quotation.shippingAmount.toString()) > 0 && (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body1">Shipping:</Typography>
                   <Typography variant="body1" fontWeight="medium">
@@ -341,7 +355,7 @@ export default function QuotationViewPage() {
                   Deposit ({quotation.depositPercentage}%)
                 </Typography>
                 <Typography variant="h5" color="primary">
-                  {formatCurrency(parseFloat(quotation.depositAmount.toString()), quotation.currency)}
+                  {formatCurrency(parseFloat((quotation.depositAmount || 0).toString()), quotation.currency)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   Due upon acceptance
@@ -354,7 +368,7 @@ export default function QuotationViewPage() {
                   Balance
                 </Typography>
                 <Typography variant="h5">
-                  {formatCurrency(parseFloat(quotation.balanceAmount.toString()), quotation.currency)}
+                  {formatCurrency(parseFloat((quotation.balanceAmount || 0).toString()), quotation.currency)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   Due before delivery
@@ -405,7 +419,7 @@ export default function QuotationViewPage() {
         <DialogContent>
           <DialogContentText>
             By accepting this quotation, you agree to the terms and will be required to pay a deposit of{' '}
-            <strong>{formatCurrency(parseFloat(quotation.depositAmount.toString()), quotation.currency)}</strong>.
+            <strong>{formatCurrency(parseFloat((quotation.depositAmount || 0).toString()), quotation.currency)}</strong>.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

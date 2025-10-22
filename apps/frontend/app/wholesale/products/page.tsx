@@ -59,8 +59,6 @@ export default function WholesaleProducts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
-  type ProductNode = NonNullable<NonNullable<NonNullable<ListWholesaleProductsQuery['listProducts']>['edges']>[number]['node']>;
-
   const { loading, data, refetch } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);
   const [deleteProduct, { loading: deleting }] = useMutation(DELETE_WHOLESALE_PRODUCT, {
     onCompleted: () => {

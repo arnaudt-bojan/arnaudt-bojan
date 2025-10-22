@@ -54,17 +54,7 @@ export default function WholesaleCatalogPage() {
     },
   });
 
-  interface ProductNode {
-    id: string;
-    name: string;
-    category?: string;
-    price: number;
-    minOrderQuantity?: number;
-    productType?: string;
-    images?: string[];
-  }
-
-  const products = data?.listProducts?.edges?.map((edge: { node: ProductNode }) => edge.node) || [];
+  const products = (data?.listProducts?.edges || []).map((edge) => edge.node);
   const categories = Array.from(
     new Set(products.map((p) => p.category).filter(Boolean))
   ) as string[];
@@ -164,7 +154,7 @@ export default function WholesaleCatalogPage() {
 
       {!loading && products.length > 0 && (
         <Grid container spacing={3}>
-          {products.map((product: ProductNode & { sku?: string; description?: string; image?: string }) => (
+          {products.map((product) => (
             <Grid key={product.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
               <Card
                 data-testid={`card-product-${product.id}`}
@@ -201,21 +191,12 @@ export default function WholesaleCatalogPage() {
                     <Typography variant="h6" color="primary" fontWeight="bold">
                       ${parseFloat(product.price).toFixed(2)}
                     </Typography>
-                    {product.compareAtPrice && parseFloat(product.compareAtPrice) > parseFloat(product.price) && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ textDecoration: 'line-through' }}
-                      >
-                        ${parseFloat(product.compareAtPrice).toFixed(2)}
-                      </Typography>
-                    )}
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                    {product.stockQuantity > 0 ? (
+                    {product.stock && product.stock > 0 ? (
                       <Chip
-                        label={`${product.stockQuantity} in stock`}
+                        label={`${product.stock} in stock`}
                         size="small"
                         color="success"
                         icon={<Inventory />}

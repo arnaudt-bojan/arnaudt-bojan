@@ -60,7 +60,7 @@ const CURRENCY_LABELS: Record<string, string> = {
   CHF: 'Swiss Franc',
 };
 
-const _CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
+const CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
   value: curr,
   label: `${curr} - ${CURRENCY_LABELS[curr] || curr}`
 }));
@@ -104,6 +104,8 @@ export default function QuotationBuilder() {
     total: number;
     depositAmount: number;
     balanceAmount: number;
+    lineItems: Array<{ lineTotal: number }>;
+    depositPercentage: number;
   }
 
   // TODO: Backend schema gap - using local state instead of server calculation until backend is ready

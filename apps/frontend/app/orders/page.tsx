@@ -62,16 +62,16 @@ export default function OrdersPage() {
       email?: string;
     } | null;
     createdAt: string;
-    totalAmount: number;
+    totalAmount: string;
     currency: string;
     status: string;
     paymentStatus: string;
     fulfillmentStatus: string;
   }
 
-  const orders = data?.listOrders?.edges?.map(edge => edge.node) || [];
+  const orders = (data?.listOrders?.edges || []).map(edge => edge.node as OrderNode);
 
-  const filteredOrders = orders.filter((order: OrderNode) => {
+  const filteredOrders = orders.filter((order) => {
     const matchesSearch = !searchQuery || 
       order.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,7 +130,7 @@ export default function OrdersPage() {
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" fontWeight="600" data-testid={`text-total-${params.row.id}`}>
-          ${(params.value as number)?.toFixed(2) || '0.00'} {params.row.currency}
+          ${parseFloat(params.value as string || '0').toFixed(2)} {params.row.currency}
         </Typography>
       ),
     },

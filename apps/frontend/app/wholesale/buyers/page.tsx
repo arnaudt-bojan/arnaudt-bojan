@@ -55,17 +55,7 @@ export default function WholesaleBuyers() {
     },
   });
 
-  interface InvitationEdge {
-    node: {
-      id: string;
-      buyerEmail: string;
-      status: string;
-      createdAt: string;
-      acceptedAt?: string;
-    };
-  }
-
-  const invitations = invitationsData?.listWholesaleInvitations?.edges?.map((edge: InvitationEdge) => edge.node) || [];
+  const invitations = (invitationsData?.listWholesaleInvitations?.edges || []).map((edge) => edge.node);
   const buyers = buyersData?.listWholesaleBuyers || [];
 
   const handleInvite = () => {

@@ -39,8 +39,6 @@ const LIST_WHOLESALE_PRODUCTS = gql`
   }
 `;
 
-type ProductNode = NonNullable<NonNullable<NonNullable<ListWholesaleProductsQuery['listProducts']>['edges']>[number]['node']>;
-
 export default function WholesalePreview() {
   const router = useRouter();
   const { loading, data } = useQuery<ListWholesaleProductsQuery>(LIST_WHOLESALE_PRODUCTS);

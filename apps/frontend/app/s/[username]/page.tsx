@@ -17,6 +17,7 @@ import {
   Button,
   TextField,
   Select,
+  SelectChangeEvent,
   MenuItem,
   FormControl,
   InputLabel,
@@ -75,7 +76,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
 
   const sellerLoading = false;
   const sellerError = null;
-  const sellerData: { getSellerByUsername: SellerData } | null = null;
+  const sellerData: { getSellerByUsername?: SellerData } = {};
 
   const seller = sellerData?.getSellerByUsername;
   const sellerId = seller?.id || 'placeholder-seller-id'; // Fallback for development
@@ -161,12 +162,12 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     setPage(1); // Reset to first page on search
   };
 
-  const handleCategoryChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleCategoryChange = (event: SelectChangeEvent) => {
     setCategory(event.target.value);
     setPage(1); // Reset to first page on filter
   };
 
-  const handleSortChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleSortChange = (event: SelectChangeEvent) => {
     setSortBy(event.target.value);
     setPage(1); // Reset to first page on sort
   };

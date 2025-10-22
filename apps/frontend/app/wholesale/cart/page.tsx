@@ -77,14 +77,28 @@ const mockCartData = {
 export default function WholesaleCartPage() {
   const router = useRouter();
 
+  interface CartItem {
+    id: string;
+    moqCompliant: boolean;
+    productName: string;
+    quantity: number;
+    moq: number;
+    unitPriceCents: number;
+    lineTotalCents: number;
+    productImage: string;
+  }
+
+  interface Cart {
+    id: string;
+    items: CartItem[];
+    subtotalCents: number;
+    depositCents: number;
+    balanceDueCents: number;
+    depositPercentage: number;
+  }
+
   interface CartData {
-    wholesaleCart: {
-      id: string;
-      items: Array<{
-        id: string;
-        moqCompliant: boolean;
-      }>;
-    } | null;
+    wholesaleCart: Cart | null;
   }
 
   // TODO: Backend schema gaps - comment out until backend implements wholesale cart operations
@@ -92,12 +106,6 @@ export default function WholesaleCartPage() {
   //   fetchPolicy: 'cache-and-network',
   // });
   const data: CartData = { wholesaleCart: null };
-  interface MoqError {
-    id: string;
-    productName: string;
-    quantity: number;
-    moq: number;
-  }
 
   const loading = false;
   const _refetch = () => {};
@@ -151,11 +159,6 @@ export default function WholesaleCartPage() {
       },
     });
   };
-
-  interface CartItem {
-    id: string;
-    moqCompliant: boolean;
-  }
 
   const handleCheckout = () => {
     const hasErrors = cart.items.some((item: CartItem) => !item.moqCompliant);
@@ -222,7 +225,7 @@ export default function WholesaleCartPage() {
           <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
             MOQ Requirements Not Met
           </Typography>
-          {moqErrors.map((item: MoqError) => (
+          {moqErrors.map((item: CartItem) => (
             <Typography key={item.id} variant="body2">
               • {item.productName}: Quantity {item.quantity} is below MOQ of {item.moq}
             </Typography>
@@ -249,7 +252,7 @@ export default function WholesaleCartPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {cart.items.map((item: MoqError & { unitPriceCents: number; lineTotalCents: number; productImage: string; moqCompliant: boolean }) => (
+                  {cart.items.map((item: CartItem) => (
                     <TableRow
                       key={item.id}
                       sx={{

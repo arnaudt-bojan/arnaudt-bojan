@@ -401,7 +401,7 @@ export default function WalletPage() {
                     </Grid>
                   </Grid>
 
-                  {stripeStatus.requirements && stripeStatus.requirements.currently_due?.length > 0 && (
+                  {stripeStatus.requirements && (stripeStatus.requirements as { currently_due?: string[] }).currently_due && ((stripeStatus.requirements as { currently_due?: string[] }).currently_due?.length || 0) > 0 && (
                     <Alert severity="warning" sx={{ mt: 2 }}>
                       <Typography variant="body2" fontWeight="bold" mb={1}>
                         Action Required

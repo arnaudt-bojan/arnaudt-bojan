@@ -56,7 +56,7 @@ export default function CreateWholesaleProduct() {
     setFormData({ ...formData, [field]: value });
   };
 
-  const handleSelectChange = (field: string) => (e: any) => {
+  const handleSelectChange = (field: string) => (e: { target: { value: string } }) => {
     setFormData({ ...formData, [field]: e.target.value });
   };
 

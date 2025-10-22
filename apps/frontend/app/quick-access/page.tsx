@@ -81,6 +81,9 @@ interface SearchResult {
   type: string;
   name: string;
   description?: string;
+  price?: string;
+  status?: string;
+  email?: string;
 }
 
 export default function QuickAccessPage() {

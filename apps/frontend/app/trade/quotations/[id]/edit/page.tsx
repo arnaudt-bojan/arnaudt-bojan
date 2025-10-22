@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@/lib/apollo-client';
 import { useRouter, useParams } from 'next/navigation';
 import {
@@ -109,6 +109,8 @@ export default function EditQuotation() {
     total: number;
     depositAmount: number;
     balanceAmount: number;
+    lineItems: Array<{ lineTotal: number }>;
+    depositPercentage: number;
   }
 
   // TODO: Backend schema gap - using any type until backend implements CALCULATE_QUOTATION_TOTALS
