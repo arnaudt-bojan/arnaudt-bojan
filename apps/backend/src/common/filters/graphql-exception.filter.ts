@@ -1,8 +1,8 @@
 import { Catch, ArgumentsHost, HttpException } from '@nestjs/common';
 import { GqlArgumentsHost, GqlExceptionFilter } from '@nestjs/graphql';
 import { GraphQLError } from 'graphql';
-import { DomainError } from '../../../../../server/services/domain/errors/domain-error';
-import { logger } from '../../../../../server/logger';
+import { DomainError } from '../errors/domain-error';
+import { logger } from '../utils/logger';
 
 @Catch()
 export class GraphQLExceptionFilter implements GqlExceptionFilter {

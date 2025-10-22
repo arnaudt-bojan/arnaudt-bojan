@@ -16,7 +16,7 @@ import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AddToCartInput } from './dto/add-to-cart.input';
 import { UpdateCartItemInput } from './dto/update-cart-item.input';
-import { DomainError } from '../../../../../server/services/domain/errors/domain-error';
+import { DomainError } from '../../common/errors/domain-error';
 
 @Resolver('Cart')
 export class CartResolver {

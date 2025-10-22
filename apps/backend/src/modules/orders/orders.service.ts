@@ -3,8 +3,8 @@ import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { OrderDomainService } from '../../../../../server/services/domain/orders.domain-service';
-import { DomainError } from '../../../../../server/services/domain/errors/domain-error';
+import { OrderDomainService } from './domain/orders.domain-service';
+import { DomainError } from '../../common/errors/domain-error';
 
 /**
  * GraphQL OrdersService - Thin layer that delegates to OrderDomainService

@@ -1,15 +1,21 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import {
-  CacheService as ServerCacheService,
-  getCache,
-  initializeCache,
-  CacheMetrics,
-} from '../../../../../server/cache';
+
+export interface CacheMetrics {
+  hits: number;
+  misses: number;
+  sets: number;
+  deletes: number;
+  size: number;
+}
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
 
 /**
- * NestJS Cache Service Wrapper
+ * NestJS Cache Service
  * 
- * Wraps the server/cache.ts service for use in NestJS modules.
  * Provides caching for high-frequency queries to reduce database load.
  * 
  * Cache TTL Guidelines:
@@ -29,11 +35,21 @@ import {
 @Injectable()
 export class CacheService implements OnModuleInit {
   private readonly logger = new Logger(CacheService.name);
-  private cache: ServerCacheService;
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private metrics: CacheMetrics = {
+    hits: 0,
+    misses: 0,
+    sets: 0,
+    deletes: 0,
+    size: 0,
+  };
 
   async onModuleInit() {
-    this.cache = initializeCache();
-    this.logger.log(`Cache service initialized with backend: ${this.cache.getBackend()}`);
+    this.logger.log('Cache service initialized with in-memory backend');
+    
+    setInterval(() => {
+      this.cleanupExpired();
+    }, 60000);
   }
 
   /**
@@ -43,7 +59,21 @@ export class CacheService implements OnModuleInit {
    */
   async get<T = any>(key: string): Promise<T | null> {
     try {
-      return await this.cache.get<T>(key);
+      const entry = this.cache.get(key);
+      
+      if (!entry) {
+        this.metrics.misses++;
+        return null;
+      }
+
+      if (Date.now() > entry.expiresAt) {
+        this.cache.delete(key);
+        this.metrics.misses++;
+        return null;
+      }
+
+      this.metrics.hits++;
+      return entry.value as T;
     } catch (error) {
       this.logger.error(`Cache get error for key ${key}:`, error);
       return null;
@@ -56,9 +86,12 @@ export class CacheService implements OnModuleInit {
    * @param value Value to cache
    * @param ttlSeconds Time-to-live in seconds (default: 300 = 5 minutes)
    */
-  async set<T = any>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+  async set<T = any>(key: string, value: T, ttlSeconds: number = 300): Promise<void> {
     try {
-      await this.cache.set(key, value, ttlSeconds);
+      const expiresAt = Date.now() + (ttlSeconds * 1000);
+      this.cache.set(key, { value, expiresAt });
+      this.metrics.sets++;
+      this.metrics.size = this.cache.size;
     } catch (error) {
       this.logger.error(`Cache set error for key ${key}:`, error);
     }
@@ -68,25 +101,55 @@ export class CacheService implements OnModuleInit {
    * Delete a specific key from the cache
    * @param key Cache key to delete
    */
-  async del(key: string): Promise<void> {
+  async delete(key: string): Promise<void> {
     try {
-      await this.cache.delete(key);
+      this.cache.delete(key);
+      this.metrics.deletes++;
+      this.metrics.size = this.cache.size;
     } catch (error) {
       this.logger.error(`Cache delete error for key ${key}:`, error);
     }
   }
 
   /**
+   * Legacy method - alias for delete
+   */
+  async del(key: string): Promise<void> {
+    return this.delete(key);
+  }
+
+  /**
    * Delete all keys matching a pattern
    * @param pattern Pattern to match (e.g., "product:*")
    */
-  async delPattern(pattern: string): Promise<void> {
+  async deletePattern(pattern: string): Promise<void> {
     try {
-      await this.cache.deletePattern(pattern);
-      this.logger.debug(`Deleted cache pattern: ${pattern}`);
+      const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+      const keysToDelete: string[] = [];
+      
+      for (const key of this.cache.keys()) {
+        if (regex.test(key)) {
+          keysToDelete.push(key);
+        }
+      }
+
+      for (const key of keysToDelete) {
+        this.cache.delete(key);
+        this.metrics.deletes++;
+      }
+      
+      this.metrics.size = this.cache.size;
+      this.logger.debug(`Deleted cache pattern: ${pattern} (${keysToDelete.length} keys)`);
     } catch (error) {
       this.logger.error(`Cache delete pattern error for ${pattern}:`, error);
     }
+  }
+
+  /**
+   * Legacy method - alias for deletePattern
+   */
+  async delPattern(pattern: string): Promise<void> {
+    return this.deletePattern(pattern);
   }
 
   /**
@@ -94,7 +157,8 @@ export class CacheService implements OnModuleInit {
    */
   async clear(): Promise<void> {
     try {
-      await this.cache.clear();
+      this.cache.clear();
+      this.metrics.size = 0;
       this.logger.log('Cache cleared');
     } catch (error) {
       this.logger.error('Cache clear error:', error);
@@ -105,13 +169,53 @@ export class CacheService implements OnModuleInit {
    * Get cache metrics for monitoring
    */
   getMetrics(): CacheMetrics {
-    return this.cache.getMetrics();
+    return { ...this.metrics };
   }
 
   /**
    * Get cache backend name
    */
   getBackend(): string {
-    return this.cache.getBackend();
+    return 'in-memory';
   }
+
+  /**
+   * Clean up expired entries
+   */
+  private cleanupExpired(): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+    
+    for (const [key, entry] of this.cache.entries()) {
+      if (now > entry.expiresAt) {
+        keysToDelete.push(key);
+      }
+    }
+
+    for (const key of keysToDelete) {
+      this.cache.delete(key);
+    }
+
+    if (keysToDelete.length > 0) {
+      this.metrics.size = this.cache.size;
+      this.logger.debug(`Cleaned up ${keysToDelete.length} expired cache entries`);
+    }
+  }
+}
+
+let cacheInstance: CacheService | null = null;
+
+export function initializeCache(): CacheService {
+  if (!cacheInstance) {
+    cacheInstance = new CacheService();
+    cacheInstance.onModuleInit();
+  }
+  return cacheInstance;
+}
+
+export function getCache(): CacheService {
+  if (!cacheInstance) {
+    return initializeCache();
+  }
+  return cacheInstance;
 }
