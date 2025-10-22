@@ -91,7 +91,7 @@ npm run contracts:update-baseline
 
 ### Generate Contracts
 
-Generate all three contract files from your current code:
+Generate both contract files from your current code:
 
 ```bash
 npm run contracts:generate

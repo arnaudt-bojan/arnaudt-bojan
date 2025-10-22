@@ -17,7 +17,7 @@ The platform features three distinct, parallel platforms with all business logic
 
 ### Technology Stack
 -   **Frontend**: Next.js 14 with Material UI v7 and Apollo Client.
--   **Backend**: NestJS GraphQL API and Socket.IO, with an Express.js REST API for authentication and legacy support.
+-   **Backend**: NestJS with GraphQL API (primary) and minimal REST endpoints (health checks).
 -   **Database**: PostgreSQL (Neon) with Prisma ORM.
 -   **Real-time**: Socket.IO for comprehensive real-time updates across all modules.
 
@@ -61,12 +61,14 @@ The platform features three distinct, parallel platforms with all business logic
 ### October 2025 - Contract Testing & Cleanup
 -   **Contract Testing Infrastructure**: Added comprehensive API contract testing system
     -   Created `scripts/contract-diff.ts` for detecting breaking changes in APIs
-    -   Contract generation for Express REST API, NestJS API, and GraphQL schema
+    -   Contract generation for NestJS REST (health endpoints) and GraphQL schema (primary API)
     -   Baseline comparison system to prevent accidental breaking changes
     -   Scripts: `contracts:generate`, `contracts:diff`, `contracts:update-baseline`
-    -   Initial baselines created for all three API contracts (OpenAPI Express, OpenAPI NestJS, GraphQL)
+    -   Initial baselines created for OpenAPI (NestJS) and GraphQL schema
+    -   Removed fake Express contract generation (Express not used in architecture)
 -   **File Cleanup**: Removed obsolete development artifacts
     -   Removed `attached_assets/` folder (saved 118 MB of temporary screenshots and pasted files)
+    -   Removed `scripts/generate-openapi-express.ts` (fake/manual contract)
     -   All contract generation and diff scripts tested and working
 
 ### October 2025 - Test Organization & Cleanup
