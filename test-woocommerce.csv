@@ -1,7 +1,0 @@
-ID,Type,SKU,Name,Published,Is featured?,Visibility in catalog,Short description,Description,Tax status,In stock?,Stock,Regular price,Categories,Tags,Images,Position,Meta: total_sales,Parent,Attribute 1 name,Attribute 1 value(s),Attribute 2 name,Attribute 2 value(s)
-1,variable,TSHIRT-VAR,Classic T-Shirt,1,0,visible,"Comfortable cotton t-shirt","Classic cotton t-shirt perfect for everyday wear",taxable,1,,,Clothing,casual,"https://example.com/tshirt.jpg",0,0,,Color,"Red, Blue",Size,"S, M, L"
-,variation,TSHIRT-RED-S,,,,,,,taxable,1,10,29.99,,,,0,,1,Color,Red,Size,S
-,variation,TSHIRT-RED-M,,,,,,,taxable,1,15,29.99,,,,1,,1,Color,Red,Size,M
-,variation,TSHIRT-BLUE-S,,,,,,,taxable,1,8,29.99,,,,2,,1,Color,Blue,Size,S
-,variation,TSHIRT-BLUE-M,,,,,,,taxable,1,12,29.99,,,,3,,1,Color,Blue,Size,M
-2,simple,HOODIE-001,Classic Hoodie,1,0,visible,"Warm fleece hoodie","Warm and comfortable fleece hoodie",taxable,1,25,59.99,Clothing,casual,"https://example.com/hoodie.jpg",0,0,,,,,

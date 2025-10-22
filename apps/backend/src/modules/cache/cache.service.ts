@@ -119,6 +119,14 @@ export class CacheService implements OnModuleInit {
   }
 
   /**
+   * Invalidate a cache key (alias for delete)
+   * Used by domain services for cache invalidation
+   */
+  async invalidate(key: string): Promise<void> {
+    return this.delete(key);
+  }
+
+  /**
    * Delete all keys matching a pattern
    * @param pattern Pattern to match (e.g., "product:*")
    */
