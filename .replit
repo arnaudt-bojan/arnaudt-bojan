@@ -6,12 +6,8 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 channel = "stable-24_05"
 
 [deployment]
-build = [
-  "sh",
-  "-c",
-  "npm install --legacy-peer-deps --include=optional && npm run build && tsc -p tsconfig.server.json",
-]
-run = ["sh", "start-compiled.sh"]
+build = ["sh", "-c", "npm install && npm run build"]
+run = ["sh", "-c", "npm start"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
