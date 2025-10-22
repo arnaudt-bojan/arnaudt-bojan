@@ -19,9 +19,9 @@ Since `package.json` is system-protected in Replit, you need to manually add the
 ```json
 {
   "scripts": {
-    "contracts:generate": "tsx scripts/generate-openapi-express.ts && tsx scripts/generate-openapi-nestjs.ts && tsx scripts/generate-graphql-schema.ts",
+    "contracts:generate": "tsx scripts/generate-openapi-nestjs.ts && tsx scripts/generate-graphql-schema.ts",
     "contracts:diff": "npm run contracts:generate && tsx scripts/contract-diff.ts",
-    "contracts:update-baseline": "npm run contracts:generate && mkdir -p contracts/baseline && cp contracts/openapi-express.json contracts/baseline/ && cp contracts/openapi-nestjs.json contracts/baseline/ && cp contracts/graphql-schema.graphql contracts/baseline/"
+    "contracts:update-baseline": "npm run contracts:generate && mkdir -p contracts/baseline && cp contracts/openapi-nestjs.json contracts/baseline/ && cp contracts/graphql-schema.graphql contracts/baseline/"
   }
 }
 ```
@@ -38,7 +38,7 @@ The baseline contracts have already been created for you! You can verify them:
 
 ```bash
 ls -la contracts/baseline/
-# Should show: openapi-express.json, openapi-nestjs.json, graphql-schema.graphql
+# Should show: openapi-nestjs.json, graphql-schema.graphql
 ```
 
 If baselines are missing, run:
@@ -98,9 +98,8 @@ npm run contracts:generate
 ```
 
 **Generates:**
-- `contracts/openapi-express.json` - Express REST API specification
-- `contracts/openapi-nestjs.json` - NestJS API specification  
-- `contracts/graphql-schema.graphql` - GraphQL schema (3100+ lines)
+- `contracts/openapi-nestjs.json` - NestJS REST API specification (health endpoints)
+- `contracts/graphql-schema.graphql` - GraphQL schema (3100+ lines, primary API)
 
 ### Check for Breaking Changes
 
@@ -238,15 +237,6 @@ npm run contracts:update-baseline
 
 ## 📊 Contract Files Explained
 
-### contracts/openapi-express.json
-
-Express REST API specification with:
-- **B2C Retail**: Products, cart, orders, checkout
-- **B2B Wholesale**: Wholesale products, orders, pricing
-- **Trade Quotations**: Professional quotation system
-
-**Generated from:** Static OpenAPI document in `scripts/generate-openapi-express.ts`
-
 ### contracts/openapi-nestjs.json
 
 NestJS API specification with:
@@ -286,7 +276,7 @@ A: Not recommended! Breaking changes can crash production.
 A: Review impact, consider API versioning, update baselines, and document migration.
 
 **Q: How do I add more endpoints to the contracts?**
-A: Edit `scripts/generate-openapi-express.ts` or add NestJS controllers, then regenerate.
+A: Add NestJS REST controllers (for OpenAPI) or GraphQL resolvers (for GraphQL schema), then regenerate.
 
 ---
 
