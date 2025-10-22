@@ -16,7 +16,7 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 The platform comprises three distinct, parallel platforms: B2C Retail, B2B Wholesale, and Professional Quotations. All business logic, calculations, and data transformations are strictly implemented server-side. The system is designed mobile-first and is Docker-ready, utilizing a monorepo structure.
 
 ### Technology Stack
--   **Frontend**: Next.js 16 (React 19) with Material UI v7 and Apollo Client (migrating from Next.js 14 - 19/42 pages migrated)
+-   **Frontend**: Next.js 14 (React 18) with Material UI v7 and Apollo Client - **Migration to Next.js 16 COMPLETED (51/51 pages)**
 -   **Backend**: NestJS with GraphQL API (primary) and minimal REST endpoints for health checks.
 -   **Database**: PostgreSQL (Neon) with Prisma ORM.
 -   **Real-time**: Socket.IO for comprehensive real-time updates across all modules.
@@ -58,11 +58,11 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
 
 ## Recent Changes
 
-### October 2025 - Next.js 16 Migration (Wave 2 Growth Completed)
+### October 2025 - Next.js 16 Migration COMPLETE (All 51 Pages Migrated)
 -   **Migration Strategy**: Progressive 3-phase migration from Next.js 14 to Next.js 16 with React 19
     -   Phase 1: Foundation (DashboardLayout, AuthContext, Socket.IO) ✅
-    -   Phase 2: Domain Modules via 4 Waves (Commerce ✅, Growth ✅, B2B/Trade next, Ancillary remaining)
-    -   Phase 3: Testing, deployment, archive old frontend
+    -   Phase 2: Domain Modules via 4 Waves (ALL COMPLETED) ✅
+    -   Phase 3: Testing, deployment, archive old frontend (IN PROGRESS)
 -   **Wave 1 Commerce (10 pages) ✅**: Products (list, create, edit, bulk-upload), Orders (list, detail, order-success), Cart & Checkout (cart, checkout, checkout-complete)
 -   **Wave 2 Growth (9 pages) ✅**: Meta Ads (create, dashboard, analytics), Campaigns, Newsletter, Analytics Dashboard
     -   Created 3 shared growth components: GrowthStatsGrid, ChartPanel, CampaignListTable
@@ -71,11 +71,29 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   Apollo Client + REST API hybrid approach maintained
     -   CSV import/export for newsletter subscribers
     -   Multi-step campaign builders with templates and scheduling
+-   **Wave 3 B2B Wholesale (13 pages) ✅**: 
+    -   Seller pages (8): Dashboard, Products, Buyers, Orders, Invitations, Preview, Confirmation, Products Create
+    -   Buyer pages (5): Catalog, Catalog Detail, Accept Invitation, Cart, Checkout
+    -   Created shared GraphQL operations: `/lib/graphql/wholesale.ts`, `/lib/graphql/wholesale-buyer.ts`
+    -   Fixed critical mock data regression: Replaced all mock data with real GraphQL queries/mutations
+    -   MOQ validation, deposit calculations, invitation flows fully functional
+-   **Wave 3 Trade Quotations (6 pages) ✅**:
+    -   Seller pages (5): Dashboard, Quotations List, New Quotation, Edit Quotation, Orders
+    -   Buyer page (1): Token View (public quotation access)
+    -   Created shared GraphQL operations: `/lib/graphql/trade.ts`
+    -   Excel-like line item builder, real-time calculations, Incoterms support
+    -   Backend design note: `getQuotationByToken` uses quotation ID (not separate token) for simplicity
+-   **Wave 4 Ancillary (13 pages) ✅**:
+    -   Legal/Help (3): Privacy policy, Terms of service, Help/FAQ
+    -   Settings/Admin (3): Settings (6 tabs), Admin dashboard, Quick access
+    -   Auth/Team/Wallet (3): Email-based login, Team management, Stripe wallet
+    -   Buyer Storefront (4): Buyer dashboard, Order detail, Storefront landing `/s/[username]`, Product detail
+    -   Fixed critical storefront regression: Now loads real seller data via `GET_SELLER_BY_USERNAME`
 -   **Critical SSR Fix**: Meta Ads Dashboard had direct Recharts imports causing "window is not defined" errors
     -   Solution: Changed all Recharts components to dynamic imports with `{ ssr: false }`
-    -   Pattern now consistent across all 9 Growth pages/components
--   **Build Status**: Frontend compiles 13,431 modules with 0 TypeScript errors, backend running on port 4000
--   **Next Steps**: Wave 3 B2B/Wholesale + Trade Quotations migration
+    -   Pattern now consistent across all Growth pages/components
+-   **Build Status**: Frontend compiles 13,408 modules with 0 TypeScript errors, backend running on port 4000
+-   **Next Steps**: Phase 3 E2E testing, final verification, deploy new frontend
 
 ### October 2025 - Deployment Fixes
 -   **Production Build Fix**: Fixed TypeScript compilation failing during deployment
