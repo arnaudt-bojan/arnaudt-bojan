@@ -55,3 +55,46 @@ The platform features three distinct, parallel platforms with all business logic
 -   **AI Services**: Google Gemini API
 -   **UI Components**: Material UI v7
 -   **WebSocket**: Socket.IO
+
+## Recent Changes
+
+### October 2025 - Legacy Code Cleanup & Backend Migration
+-   **Backend Domain Services Migration**: Completed migration from legacy server/ directory to proper NestJS structure
+    -   Created `DomainError` class at `apps/backend/src/common/errors/domain-error.ts`
+    -   Created `logger` utility at `apps/backend/src/common/utils/logger.ts`
+    -   Migrated cache functionality to `apps/backend/src/modules/cache/cache.service.ts`
+    -   Created `OrderDomainService` at `apps/backend/src/modules/orders/domain/orders.domain-service.ts`
+    -   Updated all backend imports to use proper NestJS module paths (eliminated `../../../../../server/` references)
+    -   Added `invalidate()` method to CacheService for domain service cache invalidation
+-   **Comprehensive Cleanup**: Removed all legacy, redundant, and unused files
+    -   Deleted legacy directories: `client/`, `server/`, `shared/` (replaced by `apps/frontend`, `apps/backend`, `packages/shared`)
+    -   Removed corrupted backup: `node_modules_corrupted_1761031198/`
+    -   Deleted 6 unused config files: `tailwind.config.ts`, `tsconfig.server.json`, `components.json`, `*.backup` files, `Dockerfile.legacy`
+    -   Removed 17 screenshot files from root directory
+    -   Archived 53 historical documentation files to `docs/archive/`
+    -   Kept 7 essential docs in root: `replit.md`, `BUILD_VALIDATION.md`, `SOCKETIO_USAGE_RULES.md`, `DEPLOYMENT_GUIDE.md`, `AWS-DEPLOYMENT.md`, `DOCKER_SETUP.md`, `design_guidelines.md`
+    -   Removed test CSV files: `test-shopify.csv`, `test-woocommerce.csv`
+-   **Result**: Clean monorepo structure with proper NestJS architecture
+    -   Backend follows NestJS module patterns ✅
+    -   Zero TypeScript errors ✅
+    -   Zero runtime errors ✅
+    -   Clean root directory with only essential files ✅
+    -   All historical documentation preserved in `docs/archive/` ✅
+
+### October 2025 - Vite Removal & Monorepo Build System
+-   **Vite Dependencies Removed**: Eliminated unused Vite build system (monorepo uses Next.js + NestJS)
+    -   Removed dependencies: `vite`, `@replit/vite-plugin-cartographer`, `@replit/vite-plugin-dev-banner`, `@replit/vite-plugin-runtime-error-modal`
+    -   Deleted `vite.config.ts` and `server/vite.ts` (legacy middleware)
+    -   Updated `server/index.ts` to remove Vite imports (`setupVite`, `serveStatic`)
+    -   Added inline `log()` function to replace imported logger
+    -   Total: 4 packages removed from dependency tree
+-   **Build System Clarification**: Project now exclusively uses:
+    -   **Development**: Monorepo apps via `npm run dev` (NestJS backend + Next.js frontend)
+    -   **Frontend**: Next.js 14 with built-in dev server and production build
+    -   **Backend**: NestJS with TypeScript watch mode and production compilation
+    -   No Vite configuration or middleware required
+-   **Verification**: Application runs successfully without Vite
+    -   Backend: NestJS GraphQL API on port 4000 ✅
+    -   Frontend: Next.js dev server on port 3000 ✅
+    -   Zero TypeScript errors ✅
+    -   Zero runtime errors ✅
