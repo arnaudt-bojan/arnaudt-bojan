@@ -20,7 +20,10 @@
     "db:push": "prisma db push --schema=apps/backend/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=apps/backend/prisma/schema.prisma",
     "db:studio": "prisma studio --schema=apps/backend/prisma/schema.prisma",
-    "db:reset": "prisma migrate reset --force --schema=apps/backend/prisma/schema.prisma"
+    "db:reset": "prisma migrate reset --force --schema=apps/backend/prisma/schema.prisma",
+    "contracts:generate": "tsx scripts/generate-openapi-express.ts && tsx scripts/generate-openapi-nestjs.ts && tsx scripts/generate-graphql-schema.ts",
+    "contracts:diff": "tsx scripts/contract-diff.ts",
+    "contracts:update-baseline": "npm run contracts:generate && cp contracts/current/*.json contracts/baseline/ && cp contracts/current/*.graphql contracts/baseline/ && echo '✅ Baseline contracts updated'"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",
