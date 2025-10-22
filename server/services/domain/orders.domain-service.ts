@@ -13,8 +13,8 @@
  * Design: Standalone service (not NestJS Injectable) for maximum portability
  */
 
-import type { PrismaClient } from '../../../generated/prisma';
-import { Prisma } from '../../../generated/prisma';
+import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   OrderNotFoundError,
   UnauthorizedOrderAccessError,
@@ -308,7 +308,6 @@ export class OrderDomainService {
       return createdOrder;
     }, {
       timeout: 30000, // 30 second timeout
-      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
     });
 
     // Map to GraphQL format

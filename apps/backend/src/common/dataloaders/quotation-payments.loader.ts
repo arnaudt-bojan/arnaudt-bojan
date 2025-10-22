@@ -1,7 +1,7 @@
 import { Injectable, Scope } from '@nestjs/common';
 import DataLoader from 'dataloader';
 import { PrismaService } from '../../modules/prisma/prisma.service';
-import { trade_payment_schedules } from '../../../../../generated/prisma';
+import { trade_payment_schedules } from '@prisma/client';
 
 @Injectable({ scope: Scope.REQUEST })
 export class QuotationPaymentsLoader {

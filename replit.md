@@ -40,6 +40,23 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - NestJS Build Configuration & Prisma Integration Fix
+-   **NestJS Build Structure**: Fixed nested dist output structure preventing application startup
+    -   Removed `rootDir` from `apps/backend/tsconfig.json` to allow imports from root `/server` directory
+    -   Updated `apps/backend/package.json` start scripts to use correct dist path: `dist/apps/backend/src/main`
+    -   Created `tsconfig.build.json` for NestJS build configuration
+    -   Updated `nest-cli.json` with proper entry file configuration
+-   **Prisma Client Integration**: Migrated to standard node_modules generation
+    -   Removed custom `output` path from `prisma/schema.prisma` generator
+    -   Prisma now generates to standard `node_modules/@prisma/client` location
+    -   Updated all Prisma imports across backend to use `@prisma/client`
+    -   Updated DataLoader type annotations with explicit return types for type safety
+    -   Fixed wholesale-rules Map typing to use proper `wholesale_products` type
+-   **Result**: Application now starts successfully with zero TypeScript errors
+    -   Backend: NestJS GraphQL API running on port 4000
+    -   Frontend: Next.js dev server running on port 3000
+    -   Build validation pipeline fully functional with clean builds
+
 ### October 2025 - TypeScript & npm Configuration Cleanup
 -   **TypeScript Deprecation Warnings Fixed**: Suppressed deprecation warnings for TypeScript 5.x
     -   Added `"ignoreDeprecations": "5.0"` to `tsconfig.json` and `apps/backend/tsconfig.json`

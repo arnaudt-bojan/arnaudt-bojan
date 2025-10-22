@@ -1,7 +1,7 @@
 import { Injectable, Scope } from '@nestjs/common';
 import DataLoader from 'dataloader';
 import { PrismaService } from '../../modules/prisma/prisma.service';
-import { trade_quotation_items } from '../../../../../generated/prisma';
+import { trade_quotation_items } from '@prisma/client';
 
 @Injectable({ scope: Scope.REQUEST })
 export class QuotationLineItemsLoader {

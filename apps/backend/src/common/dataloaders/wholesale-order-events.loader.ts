@@ -1,7 +1,7 @@
 import { Injectable, Scope } from '@nestjs/common';
 import DataLoader from 'dataloader';
 import { PrismaService } from '../../modules/prisma/prisma.service';
-import { wholesale_order_events } from '../../../../../generated/prisma';
+import { wholesale_order_events } from '@prisma/client';
 
 @Injectable({ scope: Scope.REQUEST })
 export class WholesaleOrderEventsLoader {

@@ -2,7 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
-import { Prisma } from '../../../../../generated/prisma';
+import { Prisma } from '@prisma/client';
 import { WholesaleRulesService } from '../wholesale-rules/wholesale-rules.service';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { PricingService } from '../pricing/pricing.service';

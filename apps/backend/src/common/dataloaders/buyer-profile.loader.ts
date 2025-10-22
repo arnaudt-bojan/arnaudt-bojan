@@ -1,14 +1,14 @@
 import { Injectable, Scope } from '@nestjs/common';
 import DataLoader from 'dataloader';
 import { PrismaService } from '../../modules/prisma/prisma.service';
-import { buyer_profiles } from '../../../../../generated/prisma';
+import { buyer_profiles } from '@prisma/client';
 
 @Injectable({ scope: Scope.REQUEST })
 export class BuyerProfileLoader {
   private loader: DataLoader<string, buyer_profiles | null>;
 
   constructor(private prisma: PrismaService) {
-    this.loader = new DataLoader<string, buyer_profiles | null>(async (userIds) => {
+    this.loader = new DataLoader<string, buyer_profiles | null>(async (userIds): Promise<(buyer_profiles | null)[]> => {
       const profiles = await this.prisma.buyer_profiles.findMany({
         where: { user_id: { in: [...userIds] } },
       });

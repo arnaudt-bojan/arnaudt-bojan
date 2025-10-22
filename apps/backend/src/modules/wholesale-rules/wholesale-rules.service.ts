@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PrismaService } from '../prisma/prisma.service';
+import { wholesale_products } from '@prisma/client';
 import {
   DepositCalculation,
   BalanceCalculation,
@@ -151,7 +152,7 @@ export class WholesaleRulesService {
       },
     });
 
-    const wholesaleProductMap = new Map(
+    const wholesaleProductMap = new Map<string, wholesale_products>(
       wholesaleProducts.map(wp => [wp.product_id, wp])
     );
 
@@ -188,7 +189,7 @@ export class WholesaleRulesService {
 
   private validateMOQWithFetchedData(
     items: WholesaleOrderItem[],
-    wholesaleProductMap: Map<string, any>,
+    wholesaleProductMap: Map<string, wholesale_products>,
   ): MOQValidationResult {
     const errors: string[] = [];
     const itemsFailingMOQ: Array<{
@@ -332,7 +333,7 @@ export class WholesaleRulesService {
       },
     });
 
-    const wholesaleProductMap = new Map(
+    const wholesaleProductMap = new Map<string, wholesale_products>(
       wholesaleProducts.map(wp => [wp.product_id, wp])
     );
 
