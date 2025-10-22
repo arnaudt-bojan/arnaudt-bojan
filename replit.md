@@ -16,7 +16,7 @@ Upfirst is a D2C e-commerce platform designed to empower creators and brands wit
 The platform comprises three distinct, parallel platforms: B2C Retail, B2B Wholesale, and Professional Quotations. All business logic, calculations, and data transformations are strictly implemented server-side. The system is designed mobile-first and is Docker-ready, utilizing a monorepo structure.
 
 ### Technology Stack
--   **Frontend**: Next.js 14 with Material UI v7 and Apollo Client.
+-   **Frontend**: Next.js 16 (React 19) with Material UI v7 and Apollo Client (migrating from Next.js 14 - 19/42 pages migrated)
 -   **Backend**: NestJS with GraphQL API (primary) and minimal REST endpoints for health checks.
 -   **Database**: PostgreSQL (Neon) with Prisma ORM.
 -   **Real-time**: Socket.IO for comprehensive real-time updates across all modules.
@@ -57,6 +57,25 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
 -   **WebSocket**: Socket.IO
 
 ## Recent Changes
+
+### October 2025 - Next.js 16 Migration (Wave 2 Growth Completed)
+-   **Migration Strategy**: Progressive 3-phase migration from Next.js 14 to Next.js 16 with React 19
+    -   Phase 1: Foundation (DashboardLayout, AuthContext, Socket.IO) ✅
+    -   Phase 2: Domain Modules via 4 Waves (Commerce ✅, Growth ✅, B2B/Trade next, Ancillary remaining)
+    -   Phase 3: Testing, deployment, archive old frontend
+-   **Wave 1 Commerce (10 pages) ✅**: Products (list, create, edit, bulk-upload), Orders (list, detail, order-success), Cart & Checkout (cart, checkout, checkout-complete)
+-   **Wave 2 Growth (9 pages) ✅**: Meta Ads (create, dashboard, analytics), Campaigns, Newsletter, Analytics Dashboard
+    -   Created 3 shared growth components: GrowthStatsGrid, ChartPanel, CampaignListTable
+    -   Fixed critical Recharts SSR issue: All chart components use dynamic imports with `{ ssr: false }`
+    -   TinyMCE editor integration: Dynamic import with SSR disabled
+    -   Apollo Client + REST API hybrid approach maintained
+    -   CSV import/export for newsletter subscribers
+    -   Multi-step campaign builders with templates and scheduling
+-   **Critical SSR Fix**: Meta Ads Dashboard had direct Recharts imports causing "window is not defined" errors
+    -   Solution: Changed all Recharts components to dynamic imports with `{ ssr: false }`
+    -   Pattern now consistent across all 9 Growth pages/components
+-   **Build Status**: Frontend compiles 13,431 modules with 0 TypeScript errors, backend running on port 4000
+-   **Next Steps**: Wave 3 B2B/Wholesale + Trade Quotations migration
 
 ### October 2025 - Deployment Fixes
 -   **Production Build Fix**: Fixed TypeScript compilation failing during deployment
