@@ -1,0 +1,123 @@
+ npx nest build
+
+
+2025-10-22T14:59:51Z info: Pushing pid1 binary layer...
+2025-10-22T14:59:53Z info: Pushing hosting layer...
+2025-10-22T14:59:53Z info: Pushing Repl layer...
+2025-10-22T14:59:53Z info: Created hosting layer
+2025-10-22T14:59:53Z info: Created pid1 binary layer
+2025-10-22T15:02:47Z info: Created Repl layer
+2025-10-22T15:02:50Z info: Pushed image manifest
+2025-10-22T15:02:51Z info: Pushed soci index manifest
+2025-10-22T15:02:51Z info: Pushed referrer manifest
+2025-10-22T15:02:55Z info: Creating Autoscale service
+[1] 
+[0]   ^
+[1] 
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[1] 
+[0] 
+[0] > node dist/apps/backend/src/main
+[0]     at node:internal/main/run_main_module:28:49 {
+[0]   requireStack: []
+[0]   requireStack: []
+[0] 
+[0] > @upfirst/backend@1.0.0 start:prod
+npm error code 127
+npm error path /home/runner/workspace/apps/frontend
+[0] 
+[0] 
+[0]     at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+> upfirst-monorepo@1.0.0 start
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[1] 
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+command finished with error [sh -c npm start]: exit status 1
+> upfirst-monorepo@1.0.0 start
+[1] npm run start --workspace=@upfirst/frontend exited with code 127
+[0]   throw err;
+[0] Error: Cannot find module '/home/runner/workspace/apps/backend/dist/apps/backend/src/main'
+[1] 
+[0]   requireStack: []
+[0] 
+[1] > next start -p 3000
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[1] 
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+[0] }
+[0] 
+crash loop detected
+> upfirst-monorepo@1.0.0 start
+npm warn exec The following package was not found and will be installed: concurrently@9.2.1
+[1] 
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[0] npm error location /home/runner/workspace/apps/backend
+[0]   requireStack: []
+[1] > @upfirst/frontend@0.1.0 start
+[1] 
+[0] npm error command failed
+[0]     at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+command finished with error [sh -c npm start]: exit status 1
+[0]     at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+[0] 
+[0] 
+[0] 
+[0] Error: Cannot find module '/home/runner/workspace/apps/backend/dist/apps/backend/src/main'
+[0]     at node:internal/main/run_main_module:28:49 {
+[0] 
+[0] npm error path /home/runner/workspace/apps/backend
+sh: 1: next: not found
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+[1] npm error Lifecycle script `start` failed with error:
+[0]   throw err;
+command finished with error [sh -c npm start]: exit status 1
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+npm error Lifecycle script `start` failed with error:
+[1] 
+[0]   ^
+[0]   requireStack: []
+[0] > @upfirst/backend@1.0.0 start:prod
+[0] 
+[1] npm error workspace @upfirst/frontend@0.1.0
+[0] npm error workspace @upfirst/backend@1.0.0
+crash loop detected
+starting up user application
+[1] > @upfirst/frontend@0.1.0 start
+[1] sh: 1: next: not found
+[0] 
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+[1] > @upfirst/frontend@0.1.0 start
+[0] > node dist/apps/backend/src/main
+[1] npm error path /home/runner/workspace/apps/frontend
+[1] > @upfirst/frontend@0.1.0 start
+[1] > next start -p 3000
+forwarding local port 5000 to external port 80 (mapped as 1104)
+[0] 
+[0] 
+sh: 1: next: not found
+command finished with error [sh -c npm start]: exit status 1
+npm error code 127
+[1] npm error command failed
+[0] 
+[0] }
+npm error code 1
+[1] > @upfirst/frontend@0.1.0 start
+[1] npm run start --workspace=@upfirst/frontend exited with code 127
+[1] npm error location /home/runner/workspace/apps/frontend
+[1] npm error path /home/runner/workspace/apps/frontend
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[1] npm run start --workspace=@upfirst/frontend exited with code 127
+[0] npm error command sh -c node dist/apps/backend/src/main
+[1] > next start -p 3000
+[0] 
+[1] 
+npm error code 127
+sh: 1: next: not found
+[0] 
+[0] node:internal/modules/cjs/loader:1215
+[1] npm error command failed
+> upfirst-monorepo@1.0.0 start
+[1] 
+[1] npm run start --workspace=@upfirst/frontend exited with code 127
+2025-10-22T15:07:55Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.

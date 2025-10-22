@@ -9,7 +9,7 @@
     "start": "npx nest start",
     "start:dev": "npx nest start --watch",
     "start:debug": "npx nest start --debug --watch",
-    "start:prod": "node dist/apps/backend/src/main",
+    "start:prod": "node dist/main",
     "typecheck": "tsc --noEmit",
     "typecheck:build": "tsc --noEmit --project tsconfig.build.json",
     "codegen": "graphql-codegen --config codegen.ts",
