@@ -4,13 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "prebuild": "npm run codegen && npm run typecheck",
+    "prebuild": "yarn codegen && yarn typecheck",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "codegen": "graphql-codegen --config codegen.ts",
-    "check": "npm run typecheck && npm run lint"
+    "check": "yarn typecheck && yarn lint"
   },
   "dependencies": {
     "@apollo/client": "^4.0.7",

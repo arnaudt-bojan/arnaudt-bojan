@@ -91,3 +91,21 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   `--include=dev` required because build tools (TypeScript, NestJS CLI) are in devDependencies
     -   Trade-off: Adds 30-60s to cold start time, but guarantees dependency availability
     -   This is a Replit platform limitation for Autoscale deployments
+
+### October 2025 - Yarn Berry Migration (v4.10.3)
+-   **Package Manager Migration**: Successfully migrated from npm to Yarn Berry v4.10.3
+    -   Fixed root cause: Package version conflicts, not Yarn itself
+    -   Key insight: `.yarn/install-state.gz` should be committed when `packageManager` field is fixed
+-   **Critical Fixes Applied**:
+    1. **Removed `.yarn/install-state.gz` from .gitignore** - State file must be committed when Yarn version is pinned
+    2. **Fixed backend package.json scripts** - Changed `npm run` → `yarn` in all scripts (prebuild, prebuild:fast, build:fast, check)
+    3. **Fixed frontend package.json scripts** - Changed `npm run` → `yarn` in all scripts (prebuild, check)
+    4. **Generated Prisma Client** - Root cause of TypeScript errors was missing Prisma Client generation
+-   **Configuration**:
+    -   `.yarnrc.yml`: `nodeLinker: node-modules`, `nmMode: hardlinks-local`, `enableGlobalCache: false`
+    -   `package.json`: `"packageManager": "yarn@4.10.3"` (via Corepack)
+    -   Generated `yarn.lock` (739KB) with all dependencies resolved
+-   **Benefits**:
+    -   Faster installation with hardlinks and local cache
+    -   Deterministic builds with fixed Yarn version
+    -   Better monorepo support with workspace protocol
