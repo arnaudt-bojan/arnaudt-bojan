@@ -40,6 +40,17 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - TypeScript & npm Configuration Cleanup
+-   **TypeScript Deprecation Warnings Fixed**: Suppressed deprecation warnings for TypeScript 5.x
+    -   Added `"ignoreDeprecations": "5.0"` to `tsconfig.json` and `apps/backend/tsconfig.json`
+    -   Suppresses warnings about `baseUrl` and `moduleResolution: "node"` deprecations
+    -   These options remain functional until TypeScript 7.0
+    -   Migration plan documented in `TSCONFIG_NPM_FIXES.md`
+-   **npm Warnings Eliminated**: Removed redundant optional dependency configuration
+    -   Removed `optional=true` and `include=optional` from `.npmrc`
+    -   These were redundant with npm default behavior and causing warnings
+    -   Build process now runs completely clean
+
 ### October 2025 - Build Validation Pipeline
 -   **Pre-Build Validation**: Build process now includes comprehensive validation before compilation
     -   **Frontend**: `prebuild` hook runs codegen → typecheck → lint (with --max-warnings=0)
