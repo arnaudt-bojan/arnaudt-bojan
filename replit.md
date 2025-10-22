@@ -73,7 +73,10 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   NestJS builds to `apps/backend/dist/main.js` not `dist/apps/backend/src/main`
     -   Updated backend `start:prod` script: `node dist/apps/backend/src/main` → `node dist/main`
     -   Backend now starts correctly in production
--   **Frontend Next.js Binary Fix**: Fixed frontend crash ("next: not found")
-    -   Production environment couldn't find `next` binary from workspace dependencies
-    -   Updated frontend scripts to use `npx next start` and `npx next build`
-    -   Ensures Next.js CLI is found in production monorepo deployment
+-   **NPX Binary Resolution Fix**: Fixed deployment crash with wrong package versions
+    -   Issue: `npx next` downloaded Next.js 16.0.0 instead of using local 14.2.33
+    -   Issue: `npx` bypassed local workspace dependencies causing MODULE_NOT_FOUND errors
+    -   Solution: Removed `npx` from frontend/backend scripts to use local binaries directly
+    -   Changed frontend: `npx next build/start` → `next build/start` (uses local node_modules/.bin)
+    -   Changed backend: `npx nest build` → `nest build`, `npx prisma` → `prisma`
+    -   Local binaries now resolved correctly from workspace node_modules

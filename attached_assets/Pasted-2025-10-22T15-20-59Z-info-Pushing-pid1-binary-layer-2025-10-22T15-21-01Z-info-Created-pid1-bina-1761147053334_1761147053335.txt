@@ -1,0 +1,193 @@
+2025-10-22T15:20:59Z info: Pushing pid1 binary layer...
+2025-10-22T15:21:01Z info: Created pid1 binary layer
+2025-10-22T15:21:02Z info: Pushing Repl layer...
+2025-10-22T15:21:02Z info: Pushing hosting layer...
+2025-10-22T15:21:02Z info: Created hosting layer
+2025-10-22T15:24:22Z info: Created Repl layer
+2025-10-22T15:24:25Z info: Pushed image manifest
+2025-10-22T15:24:26Z info: Pushed soci index manifest
+2025-10-22T15:24:29Z info: Creating Autoscale service
+[0] 
+[0]   ^
+[0] - /home/runner/workspace/apps/backend/dist/main.js
+[1] 
+[0] npm error command failed
+[1] npm warn exec The following package was not found and will be installed: next@16.0.0
+[1] }
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/router-server.js
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/app-render/dynamic-rendering.js
+[1]     at ignore-listed frames {
+[1]   requireStack: [Array]
+npm notice To update run: npm install -g npm@11.6.2
+[1] > @upfirst/frontend@0.1.0 start
+[0] 
+[1]   code: 'MODULE_NOT_FOUND',
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/router-server.js
+[0] 
+command finished with error [sh -c npm start]: exit status 1
+[0] > @upfirst/backend@1.0.0 start:prod
+npm error code 1
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/start-server.js
+[1]     at ignore-listed frames {
+[1] Require stack:
+[0] 
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[0]     at Module._load (node:internal/modules/cjs/loader:1096:12)
+[0]     at require (node:internal/modules/helpers:182:18)
+npm error code 1
+[1] 
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[1] The module 'react' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react'
+[1]     at ignore-listed frames {
+[1] > npx next start -p 3000
+[0] npm error Lifecycle script `start:prod` failed with error:
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+[0] npm error location /home/runner/workspace/apps/backend
+[1] Require stack:
+[1]   code: 'MODULE_NOT_FOUND',
+[1] The module 'react' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react'
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/start-server.js
+The module 'react-dom' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react-dom'
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/node-environment-extensions/utils.js
+[1]     at ignore-listed frames {
+[0]     at Module._load (node:internal/modules/cjs/loader:1096:12)
+[0] npm error Lifecycle script `start:prod` failed with error:
+[0]     at Object.<anonymous> (/home/runner/workspace/apps/backend/dist/main.js:3:16)
+[1]   requireStack: [Array]
+[0] npm error command sh -c node dist/main
+[1] }
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/router-server.js
+a port configuration was specified but the required port was never opened
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/node-environment-extensions/utils.js
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[0]     at Module._load (node:internal/modules/cjs/loader:1096:12)
+[0] > node dist/main
+forwarding local port 5000 to external port 80 (mapped as 1104)
+[0] npm run start:prod --workspace=@upfirst/backend exited with code 1
+[1] npm warn exec The following package was not found and will be installed: next@16.0.0
+[1] 
+The module 'react' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react'
+[1] Unhandled Rejection: Error: Cannot find module 'react'
+command finished with error [sh -c npm start]: exit status 1
+[0] > @upfirst/backend@1.0.0 start:prod
+[0] npm error location /home/runner/workspace/apps/backend
+[1] Require stack:
+[1] The module 'react' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react'
+[1]   requireStack: [Array]
+command finished with error [sh -c npm start]: exit status 1
+[1]     at ignore-listed frames {
+[0] > @upfirst/backend@1.0.0 start:prod
+[0]   throw err;
+[0]     at Module._compile (node:internal/modules/cjs/loader:1529:14)
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/cli/next-start.js
+[0] 
+[0] 
+[0]   throw err;
+[0] 
+[0] npm run start:prod --workspace=@upfirst/backend exited with code 1
+[1] The module 'react' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react'
+> upfirst-monorepo@1.0.0 start
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/cli/next-start.js
+[0] > node dist/main
+[1] Unhandled Rejection: Error: Cannot find module 'react'
+[0] 
+[0] > @upfirst/backend@1.0.0 start:prod
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/node-environment.js
+[1] 
+[0]   throw err;
+[0] 
+> upfirst-monorepo@1.0.0 start
+[0]     at Module._compile (node:internal/modules/cjs/loader:1529:14)
+[0]     at Module.load (node:internal/modules/cjs/loader:1275:32)
+[0] Require stack:
+[0]   code: 'MODULE_NOT_FOUND',
+[1] > @upfirst/frontend@0.1.0 start
+[1] 
+[0]     at Module._compile (node:internal/modules/cjs/loader:1529:14)
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/node-environment.js
+crash loop detected
+npm warn exec The following package was not found and will be installed: next@16.0.0
+[1] 
+npm notice To update run: npm install -g npm@11.6.2
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/router-server.js
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+[0] 
+[0] Require stack:
+[0]     at Module.require (node:internal/modules/cjs/loader:1298:19)
+npm error path /home/runner/workspace/apps/backend
+[0]   requireStack: [ '/home/runner/workspace/apps/backend/dist/main.js' ]
+[0] Error: Cannot find module '@nestjs/core'
+[0]     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+[0] npm error location /home/runner/workspace/apps/backend
+[1] 
+[0] 
+npm error code 1
+[1] The module 'react' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react'
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/app-render/dynamic-rendering.js
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/start-server.js
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/lib/router-server.js
+node:internal/modules/cjs/loader:1215
+[0] npm error command failed
+[0]     at Module._load (node:internal/modules/cjs/loader:1096:12)
+[1] > @upfirst/frontend@0.1.0 start
+[0] npm error Lifecycle script `start:prod` failed with error:
+[0]   throw err;
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[1] > npx next start -p 3000
+[0] Node.js v20.19.3
+[0]     at Module.load (node:internal/modules/cjs/loader:1275:32)
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[0] }
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/app-render/dynamic-rendering.js
+[1] 
+[0]     at Module._load (node:internal/modules/cjs/loader:1043:27)
+[0]   ^
+[1] }
+[1] 
+> upfirst-monorepo@1.0.0 start
+[0] }
+[0]     at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+[0] Require stack:
+[0]   throw err;
+> upfirst-monorepo@1.0.0 start
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+The module 'react-dom' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react-dom'
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/node-environment.js
+[1] - /home/runner/.npm/_npx/8b377f6eec906bc4/node_modules/next/dist/server/node-environment-extensions/random.js
+[1]     at ignore-listed frames {
+[1]   code: 'MODULE_NOT_FOUND',
+[0]   code: 'MODULE_NOT_FOUND',
+[0] 
+[0] > @upfirst/backend@1.0.0 start:prod
+[1] 
+[0] 
+[0]   ^
+[0]   requireStack: [ '/home/runner/workspace/apps/backend/dist/main.js' ]
+[0]   code: 'MODULE_NOT_FOUND',
+[0] 
+[0]     at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+[0]     at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+The module 'react-dom' was not found. Next.js requires that you include it in 'dependencies' of your 'package.json'. To add it, run 'npm install react-dom'
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[0] 
+[0]   throw err;
+[1] > npx next start -p 3000
+[0] 
+[0] 
+[1] > @upfirst/frontend@0.1.0 start
+[0]     at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+[1]   code: 'MODULE_NOT_FOUND',
+a port configuration was specified but the required port was never opened
+> npx concurrently "npm run start:prod --workspace=@upfirst/backend" "npm run start --workspace=@upfirst/frontend"
+[0]   throw err;
+> upfirst-monorepo@1.0.0 start
+npm error code 1
+[1]   code: 'MODULE_NOT_FOUND',
+[0] > node dist/main
+[0]     at Module._load (node:internal/modules/cjs/loader:1096:12)
+[0]   code: 'MODULE_NOT_FOUND',
+[0]   ^
+> upfirst-monorepo@1.0.0 start
+[1] npm warn exec The following package was not found and will be installed: next@16.0.0
+2025-10-22T15:29:03Z error: The deployment failed because the application failed to open a port in time. This can happen because the application takes to long to open a server, or doesn't open one at all on the expected port. Note that this doesn't mean that the application is crashing, only that it's not opening a port in time. The application must serve traffic on the first port specified as 'localPort' in the port configuration specified in the .replit file. Make sure that the application opens a port quickly and that there are no operations taking too long on startup. Check the logs for more information.
