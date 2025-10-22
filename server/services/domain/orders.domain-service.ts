@@ -164,7 +164,7 @@ export class OrderDomainService {
 
     const hasNextPage = orders.length > first;
     const nodes = hasNextPage ? orders.slice(0, first) : orders;
-    const mappedOrders = nodes.map(order => this.mapOrderToGraphQL(order));
+    const mappedOrders = nodes.map((order: any) => this.mapOrderToGraphQL(order));
 
     // Calculate endCursor from the last item
     const endCursor = nodes.length > 0
@@ -191,7 +191,7 @@ export class OrderDomainService {
       orderBy: { created_at: 'desc' },
     });
 
-    return orders.map(order => this.mapOrderToGraphQL(order));
+    return orders.map((order: any) => this.mapOrderToGraphQL(order));
   }
 
   /**
@@ -204,7 +204,7 @@ export class OrderDomainService {
       orderBy: { created_at: 'desc' },
     });
 
-    return orders.map(order => this.mapOrderToGraphQL(order));
+    return orders.map((order: any) => this.mapOrderToGraphQL(order));
   }
 
   /**
@@ -240,7 +240,7 @@ export class OrderDomainService {
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
     // ATOMIC TRANSACTION
-    const order = await this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx: any) => {
       const orderData = {
         user_id: userId,
         seller_id: cart.seller_id,

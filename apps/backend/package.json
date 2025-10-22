@@ -4,7 +4,7 @@
   "type": "commonjs",
   "private": true,
   "scripts": {
-    "prebuild": "npm run typecheck",
+    "prebuild": "cd ../.. && npx prisma generate && cd apps/backend && npm run typecheck",
     "build": "npx nest build",
     "start": "npx nest start",
     "start:dev": "npx nest start --watch",
