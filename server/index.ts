@@ -2,8 +2,18 @@ import "reflect-metadata"; // Required for class-validator decorators
 import express, { type Request, Response, NextFunction } from "express";
 import fileUpload from "express-fileupload";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
 import { importQueue } from "./import-queue";
+
+// Simple logger function
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
 import { processShopifyImport } from "./adapters/shopify";
 import { importSources } from "@shared/schema";
 import { securityHeadersMiddleware, sanitizeInputMiddleware } from "./security";
@@ -673,16 +683,8 @@ function generateRateLimiterRecommendations(metrics: any): string[] {
   const { errorHandlerMiddleware } = await import("./middleware/error-handler");
   app.use(errorHandlerMiddleware);
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  const env = app.get("env") || process.env.NODE_ENV;
-  if (env === "development") {
-    await setupVite(app, server);
-  } else if (env !== "test") {
-    // Skip static serving in test environment
-    serveStatic(app);
-  }
+  // Note: Frontend is now served by Next.js (apps/frontend) in development and production
+  // This legacy server no longer serves static files - all frontend routing handled by Next.js
 
   // Background jobs
   let cleanupJob: ReservationCleanupJob | null = null;
@@ -694,6 +696,7 @@ function generateRateLimiterRecommendations(metrics: any): string[] {
   let proxyStatsInterval: NodeJS.Timeout | null = null;
 
   // Skip server startup and background jobs in test environment
+  const env = app.get("env") || process.env.NODE_ENV;
   if (env === "test" || process.env.VITEST) {
     return; // Exit IIFE early for tests
   }
