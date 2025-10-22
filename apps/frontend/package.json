@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@apollo/client": "^4.0.7",
-    "@apollo/experimental-nextjs-app-support": "^0.14.0",
+    "@apollo/experimental-nextjs-app-support": "0.13.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^3.10.0",
