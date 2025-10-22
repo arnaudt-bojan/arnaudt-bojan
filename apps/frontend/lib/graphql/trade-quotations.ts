@@ -123,56 +123,57 @@ export const ACCEPT_QUOTATION = gql`
   }
 `;
 
-export const SEND_QUOTATION = gql`
-  ${QUOTATION_FRAGMENT}
-  mutation SendQuotation($id: ID!) {
-    sendQuotation(id: $id) {
-      ...QuotationFields
-    }
-  }
-`;
+// TODO: Backend schema gaps - these quotation queries/mutations don't exist yet
+// export const SEND_QUOTATION = gql`
+//   ${QUOTATION_FRAGMENT}
+//   mutation SendQuotation($id: ID!) {
+//     sendQuotation(id: $id) {
+//       ...QuotationFields
+//     }
+//   }
+// `;
 
-export const GET_QUOTATION_BY_TOKEN = gql`
-  ${QUOTATION_FRAGMENT}
-  ${LINE_ITEM_FRAGMENT}
-  query GetQuotationByToken($token: String!) {
-    getQuotationByToken(token: $token) {
-      ...QuotationFields
-      items {
-        ...LineItemFields
-      }
-      seller {
-        id
-        username
-        email
-        sellerAccount {
-          businessName
-          storeName
-        }
-      }
-    }
-  }
-`;
+// export const GET_QUOTATION_BY_TOKEN = gql`
+//   ${QUOTATION_FRAGMENT}
+//   ${LINE_ITEM_FRAGMENT}
+//   query GetQuotationByToken($token: String!) {
+//     getQuotationByToken(token: $token) {
+//       ...QuotationFields
+//       items {
+//         ...LineItemFields
+//       }
+//       seller {
+//         id
+//         username
+//         email
+//         sellerAccount {
+//           businessName
+//           storeName
+//         }
+//       }
+//     }
+//   }
+// `;
 
-export const CALCULATE_QUOTATION_TOTALS = gql`
-  query CalculateQuotationTotals($input: CalculateQuotationTotalsInput!) {
-    calculateQuotationTotals(input: $input) {
-      lineItems {
-        description
-        unitPrice
-        quantity
-        lineTotal
-      }
-      subtotal
-      taxAmount
-      shippingAmount
-      total
-      depositAmount
-      depositPercentage
-      balanceAmount
-    }
-  }
-`;
+// export const CALCULATE_QUOTATION_TOTALS = gql`
+//   query CalculateQuotationTotals($input: CalculateQuotationTotalsInput!) {
+//     calculateQuotationTotals(input: $input) {
+//       lineItems {
+//         description
+//         unitPrice
+//         quantity
+//         lineTotal
+//       }
+//       subtotal
+//       taxAmount
+//       shippingAmount
+//       total
+//       depositAmount
+//       depositPercentage
+//       balanceAmount
+//     }
+//   }
+// `;
 
 // Types
 export interface QuotationItem {

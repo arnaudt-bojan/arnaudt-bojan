@@ -10,11 +10,12 @@ export const CREATE_WHOLESALE_INVITATION = gql`
   }
 `;
 
-export const CANCEL_INVITATION = gql`
-  mutation CancelInvitation($invitationId: ID!) {
-    cancelInvitation(invitationId: $invitationId) {
-      id
-      status
-    }
-  }
-`;
+// TODO: Backend schema gap - this mutation doesn't exist yet
+// export const CANCEL_INVITATION = gql`
+//   mutation CancelInvitation($invitationId: ID!) {
+//     cancelInvitation(invitationId: $invitationId) {
+//       id
+//       status
+//     }
+//   }
+// `;

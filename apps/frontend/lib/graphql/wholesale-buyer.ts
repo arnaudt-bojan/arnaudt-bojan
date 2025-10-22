@@ -229,66 +229,67 @@ export const PLACE_WHOLESALE_ORDER = gql`
   }
 `;
 
-// Query to get wholesale cart
-export const GET_WHOLESALE_CART = gql`
-  query GetWholesaleCart {
-    getWholesaleCart {
-      id
-      sellerId
-      buyerId
-      items {
-        id
-        productId
-        productName
-        quantity
-        unitPrice
-        lineTotal
-        product {
-          id
-          name
-          price
-          image
-          stock
-        }
-      }
-      subtotal
-      itemCount
-      updatedAt
-    }
-  }
-`;
+// TODO: Backend schema gaps - these wholesale cart queries/mutations don't exist yet
+// // Query to get wholesale cart
+// export const GET_WHOLESALE_CART = gql`
+//   query GetWholesaleCart {
+//     getWholesaleCart {
+//       id
+//       sellerId
+//       buyerId
+//       items {
+//         id
+//         productId
+//         productName
+//         quantity
+//         unitPrice
+//         lineTotal
+//         product {
+//           id
+//           name
+//           price
+//           image
+//           stock
+//         }
+//       }
+//       subtotal
+//       itemCount
+//       updatedAt
+//     }
+//   }
+// `;
 
-// Mutation to update wholesale cart item
-export const UPDATE_WHOLESALE_CART_ITEM = gql`
-  mutation UpdateWholesaleCartItem($input: UpdateWholesaleCartItemInput!) {
-    updateWholesaleCartItem(input: $input) {
-      id
-      items {
-        id
-        productId
-        quantity
-        unitPrice
-        lineTotal
-      }
-      subtotal
-      itemCount
-    }
-  }
-`;
+// // Mutation to update wholesale cart item
+// export const UPDATE_WHOLESALE_CART_ITEM = gql`
+//   mutation UpdateWholesaleCartItem($input: UpdateWholesaleCartItemInput!) {
+//     updateWholesaleCartItem(input: $input) {
+//       id
+//       items {
+//         id
+//         productId
+//         quantity
+//         unitPrice
+//         lineTotal
+//       }
+//       subtotal
+//       itemCount
+//     }
+//   }
+// `;
 
-// Mutation to remove from wholesale cart
-export const REMOVE_FROM_WHOLESALE_CART = gql`
-  mutation RemoveFromWholesaleCart($productId: ID!) {
-    removeFromWholesaleCart(productId: $productId) {
-      id
-      items {
-        id
-        productId
-        quantity
-      }
-      subtotal
-      itemCount
-    }
-  }
-`;
+// // Mutation to remove from wholesale cart
+// export const REMOVE_FROM_WHOLESALE_CART = gql`
+//   mutation RemoveFromWholesaleCart($productId: ID!) {
+//     removeFromWholesaleCart(productId: $productId) {
+//       id
+//       items {
+//         id
+//         productId
+//         quantity
+//       }
+//       subtotal
+//       itemCount
+//     }
+//   }
+// `;
 

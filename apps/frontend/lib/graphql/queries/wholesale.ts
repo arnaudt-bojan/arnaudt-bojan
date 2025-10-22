@@ -21,41 +21,42 @@ export const LIST_WHOLESALE_INVITATIONS = gql`
   }
 `;
 
-export const GET_SELLER_BY_USERNAME = gql`
-  query GetSellerByUsername($username: String!) {
-    getSellerByUsername(username: $username) {
-      id
-      username
-      email
-      fullName
-      sellerAccount {
-        id
-        businessName
-        storeName
-        description
-      }
-    }
-  }
-`;
+// TODO: Backend schema gaps - these queries don't exist yet
+// export const GET_SELLER_BY_USERNAME = gql`
+//   query GetSellerByUsername($username: String!) {
+//     getSellerByUsername(username: $username) {
+//       id
+//       username
+//       email
+//       fullName
+//       sellerAccount {
+//         id
+//         businessName
+//         storeName
+//         description
+//       }
+//     }
+//   }
+// `;
 
-export const LIST_WHOLESALE_BUYERS = gql`
-  query ListWholesaleBuyers {
-    listWholesaleBuyers {
-      edges {
-        node {
-          id
-          buyerId
-          sellerId
-          status
-          grantedAt
-          buyer {
-            id
-            email
-            fullName
-          }
-        }
-      }
-      totalCount
-    }
-  }
-`;
+// export const LIST_WHOLESALE_BUYERS = gql`
+//   query ListWholesaleBuyers {
+//     listWholesaleBuyers {
+//       edges {
+//         node {
+//           id
+//           buyerId
+//           sellerId
+//           status
+//           grantedAt
+//           buyer {
+//             id
+//             email
+//             fullName
+//           }
+//         }
+//       }
+//       totalCount
+//     }
+//   }
+// `;

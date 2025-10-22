@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@/lib/apollo-client';
+import { useQuery } from '@/lib/apollo-client';
 import { GET_ORDER } from '@/lib/graphql/queries/orders';
-import { CANCEL_ORDER, REORDER_ITEMS } from '@/lib/graphql/mutations/orders';
+// TODO: Backend schema gaps - these mutations don't exist yet
+// import { CANCEL_ORDER, REORDER_ITEMS } from '@/lib/graphql/mutations/orders';
 import { GetOrderQuery } from '@/lib/generated/graphql';
 import {
   Container,
@@ -95,30 +96,31 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
     fetchPolicy: 'network-only',
   });
 
-  const [cancelOrder, { loading: cancelLoading }] = useMutation(CANCEL_ORDER, {
-    onCompleted: () => {
-      setSnackbarMessage('Order cancelled successfully');
-      setSnackbarOpen(true);
-      setCancelDialogOpen(false);
-      refetch();
-    },
-    onError: (err) => {
-      setSnackbarMessage(`Failed to cancel order: ${err.message}`);
-      setSnackbarOpen(true);
-    },
-  });
+  // TODO: Backend schema gaps - these mutations don't exist yet
+  // const [cancelOrder, { loading: cancelLoading }] = useMutation(CANCEL_ORDER, {
+  //   onCompleted: () => {
+  //     setSnackbarMessage('Order cancelled successfully');
+  //     setSnackbarOpen(true);
+  //     setCancelDialogOpen(false);
+  //     refetch();
+  //   },
+  //   onError: (err) => {
+  //     setSnackbarMessage(`Failed to cancel order: ${err.message}`);
+  //     setSnackbarOpen(true);
+  //   },
+  // });
 
-  const [reorderItems, { loading: reorderLoading }] = useMutation(REORDER_ITEMS, {
-    onCompleted: () => {
-      setSnackbarMessage('Items added to cart successfully');
-      setSnackbarOpen(true);
-      router.push('/cart');
-    },
-    onError: (err) => {
-      setSnackbarMessage(`Failed to reorder: ${err.message}`);
-      setSnackbarOpen(true);
-    },
-  });
+  // const [reorderItems, { loading: reorderLoading }] = useMutation(REORDER_ITEMS, {
+  //   onCompleted: () => {
+  //     setSnackbarMessage('Items added to cart successfully');
+  //     setSnackbarOpen(true);
+  //     router.push('/cart');
+  //   },
+  //   onError: (err) => {
+  //     setSnackbarMessage(`Failed to reorder: ${err.message}`);
+  //     setSnackbarOpen(true);
+  //   },
+  // });
 
   const order = data?.getOrder || null;
 
