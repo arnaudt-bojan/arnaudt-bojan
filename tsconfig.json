@@ -1,24 +1,21 @@
 {
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "include": ["scripts/**/*", "packages/shared/**/*"],
+  "exclude": ["node_modules", "build", "dist", "apps", "tests", "**/*.test.ts", "**/*.spec.ts"],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
     "module": "ESNext",
     "strict": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "jsx": "preserve",
+    "lib": ["ES2022"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
     "ignoreDeprecations": "5.0",
-    "types": ["node", "vite/client"],
+    "types": ["node"],
     "paths": {
-      "@/*": ["./client/src/*"],
-      "@shared/*": ["./shared/*"],
-      "@tests/*": ["./tests/*"]
+      "@upfirst/shared": ["./packages/shared"]
     },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
