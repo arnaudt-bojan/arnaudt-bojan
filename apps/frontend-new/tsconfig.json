@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@upfirst/shared": ["../../packages/shared"],
+      "@upfirst/shared/*": ["../../packages/shared/*"]
     }
   },
   "include": [
