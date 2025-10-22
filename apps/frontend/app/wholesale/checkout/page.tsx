@@ -33,7 +33,7 @@ import {
   LocalShipping,
   Payment as PaymentIcon,
 } from '@mui/icons-material';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 // Mock cart data (would come from GraphQL)
 const mockOrderData = {

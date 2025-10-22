@@ -87,10 +87,6 @@ export type {
   WholesaleShippingDetail,
   InsertWholesaleShippingDetail,
   
-  // Payment types
-  BalancePaymentRequest,
-  InsertBalancePaymentRequest,
-  
   // Refund types
   Refund,
   InsertRefund,
@@ -101,27 +97,11 @@ export type {
   SavedAddress,
   InsertSavedAddress,
   
-  // Subscription types
-  Subscription,
-  InsertSubscription,
-  
   // Newsletter types
   Newsletter,
   InsertNewsletter,
-  NewsletterSubscriber,
-  InsertNewsletterSubscriber,
-  Campaign,
-  InsertCampaign,
   NewsletterTemplate,
   InsertNewsletterTemplate,
-  
-  // Import queue types
-  ImportQueueItem,
-  InsertImportQueueItem,
-  
-  // Tax types
-  TaxSettings,
-  InsertTaxSettings,
   
   // Quotation types
   TradeQuotation,
@@ -130,41 +110,17 @@ export type {
   InsertTradeQuotationItem,
   TradeQuotationEvent,
   InsertTradeQuotationEvent,
-  TradePayment,
-  InsertTradePayment,
   
   // Meta Ads types
   MetaAdAccount,
   InsertMetaAdAccount,
   MetaAdCampaign,
   InsertMetaAdCampaign,
-  MetaAdSet,
-  InsertMetaAdSet,
-  MetaAd,
-  InsertMetaAd,
-  
-  // Domain types
-  Domain,
-  InsertDomain,
-  DomainSettings,
-  InsertDomainSettings,
-  
-  // Store types
-  Store,
-  InsertStore,
   
   // Warehouse types
   WarehouseAddress,
   InsertWarehouseAddress,
-  
-  // Cart reservation types
-  CartReservation,
-  InsertCartReservation,
-  
-  // Product Variant types
-  ProductVariant,
-  InsertProductVariant,
-} from '@shared/prisma-types';
+} from './prisma-types';
 
 // Re-export all validation schemas and enums
 export {
@@ -229,7 +185,7 @@ export {
   type TradePaymentType,
   tradePaymentStatusEnum,
   type TradePaymentStatus,
-} from '@shared/validation-schemas';
+} from './validation-schemas';
 
 // Import sources enum (still needed for some imports)
 export const importSources = {

@@ -40,7 +40,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 interface OrderStatusEntry {
   status: string;

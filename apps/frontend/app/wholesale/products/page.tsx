@@ -22,7 +22,7 @@ import {
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { PlusCircle, Search, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 const LIST_WHOLESALE_PRODUCTS = gql`

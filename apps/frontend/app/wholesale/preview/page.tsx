@@ -17,7 +17,7 @@ import {
 import Grid from '@mui/material/Grid';
 import { Eye, Package, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 import { ListWholesaleProductsQuery } from '@/lib/generated/graphql';
 
 const LIST_WHOLESALE_PRODUCTS = gql`

@@ -44,7 +44,7 @@ import {
   ACCEPT_QUOTATION,
 } from '@/lib/graphql/trade-quotations';
 import { format, differenceInDays } from 'date-fns';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 interface QuotationItem {
   id: string;

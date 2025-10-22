@@ -32,7 +32,7 @@ import {
 //   UPDATE_WHOLESALE_CART_ITEM,
 //   REMOVE_FROM_WHOLESALE_CART,
 // } from '@/lib/graphql/wholesale-buyer';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 const mockCartData = {
   wholesaleCart: {

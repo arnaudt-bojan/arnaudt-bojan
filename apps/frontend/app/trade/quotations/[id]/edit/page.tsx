@@ -45,7 +45,7 @@ import {
   // CalculateQuotationTotalsInput,
   // CalculatedQuotationTotals,
 } from '@/lib/graphql/trade-quotations';
-import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@upfirst/shared';
 
 interface LineItem {
   description: string;
@@ -64,8 +64,8 @@ const CURRENCY_LABELS: Record<string, string> = {
 };
 
 const _CURRENCIES = SUPPORTED_CURRENCIES.map(curr => ({
-  value: curr,
-  label: `${curr} - ${CURRENCY_LABELS[curr] || curr}`
+  value: curr.code,
+  label: `${curr.code} - ${CURRENCY_LABELS[curr.code] || curr.code}`
 }));
 
 const INCOTERMS = [

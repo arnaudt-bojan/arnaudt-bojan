@@ -2,7 +2,7 @@
 
 import { useQuery, gql } from '@/lib/apollo-client';
 import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 import { GetCurrentUserQuery } from '@/lib/generated/graphql';
 import {
   Container,

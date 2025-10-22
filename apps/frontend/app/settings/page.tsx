@@ -43,7 +43,7 @@ import {
   Delete,
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@upfirst/shared';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -249,7 +249,7 @@ export default function SettingsPage() {
                   onChange={(e) => setCurrency(e.target.value)}
                 >
                   {SUPPORTED_CURRENCIES.map((curr) => (
-                    <MenuItem key={curr} value={curr}>{curr}</MenuItem>
+                    <MenuItem key={curr.code} value={curr.code}>{curr.code}</MenuItem>
                   ))}
                 </Select>
               </FormControl>

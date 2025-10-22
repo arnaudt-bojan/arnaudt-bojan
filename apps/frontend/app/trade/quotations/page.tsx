@@ -41,7 +41,7 @@ import {
   Quotation 
 } from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 export default function QuotationsList() {
   const router = useRouter();

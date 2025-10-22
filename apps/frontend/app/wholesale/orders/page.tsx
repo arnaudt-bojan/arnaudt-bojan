@@ -17,7 +17,7 @@ import {
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 // GraphQL Response Types
 interface WholesaleOrderNode {

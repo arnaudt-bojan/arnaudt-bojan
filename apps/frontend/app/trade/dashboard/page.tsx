@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { LIST_QUOTATIONS, Quotation } from '@/lib/graphql/trade-quotations';
 import { format } from 'date-fns';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 export default function TradeDashboard() {
   const router = useRouter();

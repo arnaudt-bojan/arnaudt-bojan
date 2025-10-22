@@ -36,7 +36,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { EMPTY_TOTALS } from '@/../../shared/config/currency';
+import { EMPTY_TOTALS } from '@upfirst/shared';
 
 export default function CartPage() {
   const router = useRouter();

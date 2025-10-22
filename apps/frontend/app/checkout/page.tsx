@@ -42,7 +42,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { EMPTY_TOTALS } from '@/../../shared/config/currency';
+import { EMPTY_TOTALS } from '@upfirst/shared';
 
 // Form validation schema
 const checkoutSchema = z.object({

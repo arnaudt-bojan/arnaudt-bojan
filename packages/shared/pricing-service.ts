@@ -180,13 +180,6 @@ export function validateChargeAmount(
 }
 
 /**
- * Format a number as currency
- */
-export function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
-/**
  * Calculate tax estimate (8% default)
  * Note: Actual tax is calculated by Stripe Tax based on shipping address
  */

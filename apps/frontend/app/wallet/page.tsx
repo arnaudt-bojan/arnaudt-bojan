@@ -34,7 +34,7 @@ import {
   OpenInNew,
   Refresh,
 } from '@mui/icons-material';
-import { DEFAULT_CURRENCY } from '@/../../shared/config/currency';
+import { DEFAULT_CURRENCY } from '@upfirst/shared';
 
 interface StripeRequirements {
   currentlyDue?: string[];
