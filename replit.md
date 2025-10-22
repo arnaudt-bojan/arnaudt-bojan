@@ -58,6 +58,33 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - Comprehensive Configuration Cleanup
+-   **Root Configuration Updates**: Fixed all references to deleted legacy directories
+    -   Updated `tsconfig.json`: Removed `client/`, `server/`, `shared/` includes; Added `scripts/**/*`, `packages/shared/**/*`
+    -   Updated path aliases: Removed `@/*`, `@shared/*`; Added `"@upfirst/shared": ["./packages/shared"]`
+    -   Removed `vite/client` types from root tsconfig
+-   **Deleted Obsolete Test Configs**: Removed unused/redundant test configuration files
+    -   Deleted `vitest.config.ts` (vitest not used, referenced deleted paths)
+    -   Deleted `jest.config.js` (backend has its own at `apps/backend/test/jest-e2e.json`)
+    -   Deleted `playwright.config.optimized.ts` (duplicate of `playwright.config.ts`)
+    -   Deleted `tests/setup/vitest-setup.ts` (vitest not installed)
+-   **CI Workflow Updates**: Updated `.github/workflows/test-suite.yml`
+    -   Removed all references to deleted `server/__tests__/` directory
+    -   Updated to use monorepo workspace test commands
+    -   Updated Stripe config checks to reference `apps/frontend/` and `apps/backend/`
+-   **Restored Missing Dependencies**: Installed required packages for E2E testing
+    -   Installed `@playwright/test` (for E2E tests in `tests/e2e/`)
+    -   Installed `glob` (for scripts utilities)
+-   **Validation Results**: All build systems operational
+    -   TypeScript Check: ✅ Zero errors (`npm run check`)
+    -   LSP Diagnostics: ✅ Zero errors
+    -   Backend: ✅ NestJS running on port 4000
+    -   Frontend: ✅ Next.js running on port 3000
+    -   Playwright: ✅ E2E test framework ready
+-   **Known Issue**: `package.json` scripts (system protected - requires manual fix)
+    -   Line 17: `"start"` references `server/index.ts` (deleted) - Should use `npm run start:prod --workspace=@upfirst/backend`
+    -   Line 23: `"db:seed"` references `server/scripts/seed.ts` (deleted) - Should be removed or updated
+
 ### October 2025 - Shared Package Export Structure Fix
 -   **Eliminated Duplicate Exports**: Fixed TypeScript build errors caused by duplicate exports in `packages/shared`
     -   Removed duplicate export of `prisma-types.ts` from `index.ts` (already re-exported by `schema.ts`)
