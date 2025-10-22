@@ -58,6 +58,17 @@ The platform features three distinct, parallel platforms with all business logic
 
 ## Recent Changes
 
+### October 2025 - Contract Testing & Cleanup
+-   **Contract Testing Infrastructure**: Added comprehensive API contract testing system
+    -   Created `scripts/contract-diff.ts` for detecting breaking changes in APIs
+    -   Contract generation for Express REST API, NestJS API, and GraphQL schema
+    -   Baseline comparison system to prevent accidental breaking changes
+    -   Scripts: `contracts:generate`, `contracts:diff`, `contracts:update-baseline`
+    -   Initial baselines created for all three API contracts (OpenAPI Express, OpenAPI NestJS, GraphQL)
+-   **File Cleanup**: Removed obsolete development artifacts
+    -   Removed `attached_assets/` folder (saved 118 MB of temporary screenshots and pasted files)
+    -   All contract generation and diff scripts tested and working
+
 ### October 2025 - Test Organization & Cleanup
 -   **Test Infrastructure Reorganization**: Organized tests by workspace and removed all obsolete files
     -   Migrated backend test mocks to `apps/backend/test/mocks/` (Stripe, PayPal, Resend, message queue)
