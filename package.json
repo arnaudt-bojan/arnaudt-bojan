@@ -55,10 +55,14 @@
     "bufferutil": "^4.0.8"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@tinymce/tinymce-react": "^6.3.0",
     "@whatwg-node/fetch": "^0.10.11",
     "@whatwg-node/node-fetch": "^0.8.1",
     "concurrently": "^9.2.1",
     "graphql": "^16.11.0",
+    "react-hook-form": "^7.65.0",
+    "recharts": "^3.3.0",
     "sass": "^1.93.2",
     "tsconfig-paths": "^4.2.0"
   },
