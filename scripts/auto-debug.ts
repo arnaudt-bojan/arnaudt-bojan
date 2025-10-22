@@ -2,8 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { classifyFailure } from '../tests/debug/pattern-classifier';
-import { generateFixProposal } from '../tests/debug/auto-fix-proposals';
+import { classifyFailure } from '../tests/archive/debug-tools/pattern-classifier';
+import { generateFixProposal } from '../tests/archive/debug-tools/auto-fix-proposals';
 
 const failuresDir = path.join(process.cwd(), '.test-failures');
 
@@ -39,7 +39,7 @@ const proposal = generateFixProposal(classification.pattern, snapshot.error);
 console.log('=== FIX PROPOSAL ===\n');
 console.log(`Automated: ${proposal.automated ? 'YES' : 'NO'}\n`);
 console.log('Steps:');
-proposal.steps.forEach(step => console.log(`  ${step}`));
+proposal.steps.forEach((step: string) => console.log(`  ${step}`));
 
 if (proposal.code) {
   console.log('\nSuggested Code:');
