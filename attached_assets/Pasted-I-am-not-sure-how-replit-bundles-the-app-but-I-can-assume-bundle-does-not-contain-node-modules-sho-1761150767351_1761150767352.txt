@@ -1,0 +1,72 @@
+I am not sure how replit bundles the app but I can assume bundle does not contain node_modules ?
+should I instruct it to do npm install before start ?
+ChatGPT је рекао:
+Размишљао сам 18s
+
+Short answer: yes—you must install before start (or, better, bake the install into the image during promote). Your crash (next: not found) happens because the runtime doesn’t have node_modules for the frontend.
+
+Here’s the safe setup (monorepo-friendly):
+
+Recommended (install & build during promote, then start)
+
+Put this in your .replit so the deploy image is built with deps already installed:
+
+# .replit
+run = ["bash", "-lc", "npm ci && npm run build && npm prune --omit=dev && npm start"]
+
+
+Why this works:
+
+npm ci installs all workspaces (from the repo root).
+
+npm run build builds both backend and frontend.
+
+npm prune --omit=dev strips devDeps to keep the final image smaller.
+
+npm start runs what you’ve defined at the root (your concurrently command).
+
+If your build truly needs devDeps (TypeScript, Nest CLI, etc.), keep them in devDependencies. The sequence above installs them, builds, then prunes them out before starting.
+
+Minimal alternative (install on every boot)
+
+If you don’t want to bake them into the image (slower cold starts), do:
+
+run = ["bash", "-lc", "npm ci --omit=dev=false && npm run build && npm start"]
+
+
+This installs on each start. It’s fine for testing, but slower and can hide missing-dependency issues.
+
+Must-do checks
+
+Frontend: next, react, react-dom in dependencies, and:
+
+"start": "next start -p $PORT"
+
+
+Backend: anything required at runtime in dependencies (not dev).
+
+Root:
+
+Workspaces are declared.
+
+Add concurrently to dependencies so Replit doesn’t try to “install on the fly”.
+
+Example root scripts:
+
+{
+  "scripts": {
+    "build": "npm run build --workspace=@upfirst/backend && npm run build --workspace=@upfirst/frontend",
+    "start": "concurrently \"npm run start:prod --workspace=@upfirst/backend\" \"npm run start --workspace=@upfirst/frontend\""
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
+
+TL;DR
+
+Replit won’t magically have node_modules unless you install them in your build/run command.
+
+Use .replit to run npm ci && npm run build before npm start.
+
+Keep all runtime imports in dependencies so they exist in production.
