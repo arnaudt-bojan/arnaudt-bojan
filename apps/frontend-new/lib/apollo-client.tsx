@@ -60,6 +60,9 @@ function makeClient() {
             httpLink,
           ])
         : httpLink,
+    devtools: {
+      enabled: typeof window !== 'undefined' && process.env.NODE_ENV === 'development',
+    },
   });
 }
 
