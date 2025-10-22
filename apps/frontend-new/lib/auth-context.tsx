@@ -12,6 +12,11 @@ export type AuthUser = {
   username: string | null;
   fullName: string | null;
   userType: UserType;
+  sellerId: string | null;
+  storeName: string | null;
+  storeSlug: string | null;
+  buyerId: string | null;
+  companyName: string | null;
 };
 
 interface AuthContextValue {
@@ -38,6 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: data.getCurrentUser.username,
         fullName: data.getCurrentUser.fullName,
         userType: data.getCurrentUser.userType,
+        sellerId: data.getCurrentUser.sellerAccount?.id ?? null,
+        storeName: data.getCurrentUser.sellerAccount?.storeName ?? null,
+        storeSlug: data.getCurrentUser.sellerAccount?.storeSlug ?? null,
+        buyerId: data.getCurrentUser.buyerProfile?.id ?? null,
+        companyName: data.getCurrentUser.buyerProfile?.companyName ?? null,
       }
     : null;
 

@@ -19,7 +19,7 @@ const SocketContext = createContext<SocketContextValue | undefined>(undefined);
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     function onConnect() {
@@ -51,8 +51,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.io.on('reconnect', onReconnect);
     socket.io.on('reconnect_attempt', onReconnectAttempt);
 
-    if (user) {
+    // Only connect after auth is resolved (not loading) and user exists
+    if (!loading && user) {
       socket.connect();
+      console.log('[Socket.IO] Connecting with authenticated user');
+    } else if (!loading && !user) {
+      // Ensure disconnected when not authenticated
+      if (socket.connected) {
+        socket.disconnect();
+        console.log('[Socket.IO] Disconnecting - no authenticated user');
+      }
     }
 
     return () => {
@@ -66,7 +74,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         socket.disconnect();
       }
     };
-  }, [user]);
+  }, [user, loading]);
 
   const joinSeller = useCallback((sellerId: string) => {
     if (socket.connected) {
