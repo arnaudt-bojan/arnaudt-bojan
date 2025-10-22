@@ -92,10 +92,23 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   Trade-off: Adds 30-60s to cold start time, but guarantees dependency availability
     -   This is a Replit platform limitation for Autoscale deployments
 
-### October 2025 - Yarn Berry Migration (v4.10.3)
+### October 2025 - Yarn Berry Migration & Apollo Integration Fix (v4.10.3)
 -   **Package Manager Migration**: Successfully migrated from npm to Yarn Berry v4.10.3
-    -   Fixed root cause: Package version conflicts, not Yarn itself
+    -   Fixed root cause: Package version conflicts AND incorrect package placement (Apollo in root vs frontend)
     -   Key insight: `.yarn/install-state.gz` should be committed when `packageManager` field is fixed
+-   **Apollo Integration Fix**: Resolved peer dependency errors and Next.js 14 compatibility
+    -   **Version Downgrade**: Apollo packages 0.13.2 require Next.js 15+, downgraded to versions supporting Next.js 14
+        - `@apollo/client`: 4.0.7 → **3.10.4** (v3 API compatibility)
+        - `@apollo/client-integration-nextjs`: 0.13.2 → **0.12.0** (supports Next.js 14)
+        - `@apollo/client-react-streaming`: 0.13.2 → **0.11.11** (supports Next.js 14)
+        - `@apollo/experimental-nextjs-app-support`: 0.13.2 → **0.11.11** (supports Next.js 14)
+    -   **Package Relocation**: Moved Apollo packages from root to `apps/frontend/package.json` (proper peer dependency resolution)
+    -   **Missing Peer Dependencies Added**:
+        - Frontend: `@mui/system@7.3.3`, `rxjs@7.8.1`
+        - Backend: `rxjs@7.8.1`
+        - Root: `graphql@16.11.0`
+    -   **Import Errors Fixed**: Updated `apps/frontend/lib/apollo-client.tsx` for Apollo v3 API (removed v4-specific exports)
+    -   **Cleanup**: Removed unused packages (`@solana/spl-token`, `@solana/web3.js`) saving ~50MB
 -   **Critical Fixes Applied**:
     1. **Removed `.yarn/install-state.gz` from .gitignore** - State file must be committed when Yarn version is pinned
     2. **Fixed backend package.json scripts** - Changed `npm run` → `yarn` in all scripts (prebuild, prebuild:fast, build:fast, check)
@@ -105,7 +118,13 @@ The platform comprises three distinct, parallel platforms: B2C Retail, B2B Whole
     -   `.yarnrc.yml`: `nodeLinker: node-modules`, `nmMode: hardlinks-local`, `enableGlobalCache: false`
     -   `package.json`: `"packageManager": "yarn@4.10.3"` (via Corepack)
     -   Generated `yarn.lock` (739KB) with all dependencies resolved
+-   **Results**:
+    -   Zero critical peer dependency errors (YN0002)
+    -   Backend running on port 4000 with 0 errors
+    -   Frontend compiled 13,408 modules successfully
+    -   Dev mode fully operational
 -   **Benefits**:
     -   Faster installation with hardlinks and local cache
     -   Deterministic builds with fixed Yarn version
     -   Better monorepo support with workspace protocol
+    -   Apollo Client fully functional with Next.js 14

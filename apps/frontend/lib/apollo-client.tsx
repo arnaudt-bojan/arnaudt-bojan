@@ -21,29 +21,7 @@ export {
 } from '@apollo/client/react';
 
 // gql and types are in the core package
-export { gql, type ApolloQueryResult } from '@apollo/client/core';
-
-// Export error types from Apollo Client v4
-export { 
-  ServerError,
-  ServerParseError,
-  LinkError 
-} from '@apollo/client/errors';
-
-interface GraphQLError {
-  message: string;
-  locations?: Array<{ line: number; column: number }>;
-  path?: string[];
-  extensions?: Record<string, unknown>;
-}
-
-// Apollo Client v4 removed ApolloError as a standalone class
-// Create a type alias for backwards compatibility
-export type ApolloError = Error & {
-  graphQLErrors?: ReadonlyArray<GraphQLError>;
-  networkError?: Error | null;
-  message: string;
-};
+export { gql, type ApolloQueryResult, ApolloError } from '@apollo/client/core';
 
 // Function to create Apollo Client instance for Next.js 14 App Router (Client Components/SSR)
 function makeClient() {
