@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
@@ -17,10 +13,4 @@
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
 }
