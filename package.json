@@ -11,18 +11,17 @@
   "scripts": {
     "dev": "yarn concurrently \"yarn workspace @upfirst/backend start:dev\" \"yarn workspace @upfirst/frontend dev\"",
     "clean": "rm -rf node_modules .yarn/cache && yarn cache clean --all",
-    "start": "yarn concurrently \"yarn workspace @upfirst/backend start:prod\" \"yarn workspace @upfirst/frontend start\""
+    "start": "yarn concurrently \"yarn workspace @upfirst/backend start:prod\" \"yarn workspace @upfirst/frontend start\"",
     "build": "concurrently \"yarn build:frontend\" \"yarn build:backend\"",
     "build:frontend": "yarn workspace @upfirst/frontend build",
     "build:backend": "yarn workspace @upfirst/backend build",
     "check": "tsc",
-    "postinstall": "prisma generate --schema=apps/backend/prisma/schema.prisma",
-    "db:push": "prisma db push --schema=apps/backend/prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema=apps/backend/prisma/schema.prisma",
-    "db:studio": "prisma studio --schema=apps/backend/prisma/schema.prisma",
-    "db:reset": "prisma migrate reset --force --schema=apps/backend/prisma/schema.prisma",
-    "contracts:generate": "tsx scripts/generate-openapi-nestjs.ts && tsx scripts/generate-graphql-schema.ts",
-    "contracts:diff": "yarn contracts:generate && tsx scripts/contract-diff.ts",
+    "db:push": "yarn prisma db push --schema=apps/backend/prisma/schema.prisma",
+    "db:migrate": "yarn prisma migrate dev --schema=apps/backend/prisma/schema.prisma",
+    "db:studio": "yarn prisma studio --schema=apps/backend/prisma/schema.prisma",
+    "db:reset": "yarn prisma migrate reset --force --schema=apps/backend/prisma/schema.prisma",
+    "contracts:generate": "yarn tsx scripts/generate-openapi-nestjs.ts && yarn tsx scripts/generate-graphql-schema.ts",
+    "contracts:diff": "yarn contracts:generate && yarn tsx scripts/contract-diff.ts",
     "contracts:update-baseline": "yarn contracts:generate && mkdir -p contracts/baseline && cp contracts/openapi-nestjs.json contracts/baseline/ && cp contracts/graphql-schema.graphql contracts/baseline/"
   },
   "devDependencies": {
@@ -59,6 +58,9 @@
     "@whatwg-node/node-fetch": "^0.8.1",
     "concurrently": "^9.2.1",
     "graphql": "^16.11.0",
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "sass": "^1.93.2",
     "tsconfig-paths": "^4.2.0"
   },
