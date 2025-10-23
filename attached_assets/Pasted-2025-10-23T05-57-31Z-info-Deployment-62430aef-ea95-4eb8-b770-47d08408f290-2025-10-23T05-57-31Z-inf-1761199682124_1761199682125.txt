@@ -1,0 +1,149 @@
+2025-10-23T05:57:31Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T05:57:31Z info: Connecting to builder
+2025-10-23T05:57:31Z info: Builder connected
+2025-10-23T05:57:31Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 3s 605ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 440ms
+
+➤ YN0000: · Done in 4s 206ms
+
+2025-10-23T05:57:38Z info: Starting Build
+🏗️  Building Upfirst for production...
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 212ms
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 8s 550ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 4s 305ms
+
+➤ YN0000: · Done with warnings in 13s 319ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.07s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 7s 754ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 704ms
+
+➤ YN0000: · Done with warnings in 8s 686ms
+
+   Building with Next.js (this may take several minutes)...
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/runner/workspace/yarn.lock as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+
+
+   ▲ Next.js 16.0.0 (Turbopack)
+
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+
+ ✓ Compiled successfully in 16.1s
+
+   Running TypeScript ...
+
+Failed to compile.
+
+
+./codegen.ts:1:36
+Type error: Cannot find module '@graphql-codegen/cli' or its corresponding type declarations.
+
+> 1 | import type { CodegenConfig } from '@graphql-codegen/cli';
+    |                                    ^
+  2 |
+  3 | /**
+  4 |  * GraphQL Code Generator Configuration for Next.js 16 Frontend
+
+Next.js build worker exited with code: 1 and signal: null
+
+⚠️  Frontend build timed out or failed
+   Frontend will run in development mode
+
+   Frontend: Ready in development mode
+
+2025-10-23T05:59:09Z info: Pushing pid1 binary layer...
+2025-10-23T05:59:10Z info: Pushing Repl layer...
+2025-10-23T05:59:10Z info: Pushing hosting layer...
+2025-10-23T05:59:10Z info: Created hosting layer
+2025-10-23T05:59:10Z info: Created pid1 binary layer
+2025-10-23T06:03:23Z info: Created Repl layer
+2025-10-23T06:03:25Z info: Pushed image manifest
+2025-10-23T06:03:27Z info: Pushed soci index manifest
+2025-10-23T06:03:30Z info: Creating Autoscale service
+https://nextjs.org/telemetry
+starting up user application
+   * /home/runner/workspace/frontend/yarn.lock
+[Nest] 35  - 10/23/2025, 6:04:19 AM     LOG [InstanceLoader] GraphQLModule dependencies initialized +0ms
+[Nest] 35  - 10/23/2025, 6:04:19 AM     LOG [InstanceLoader] ProductsModule dependencies initialized +0ms
+[Nest] 35  - 10/23/2025, 6:04:20 AM     LOG [NestApplication] Nest application successfully started +4ms
+[Nest] 35  - 10/23/2025, 6:04:20 AM     LOG [Bootstrap] 🏥 Health check available at http://localhost:4000/health
+ ✓ Ready in 6.3s
+a port configuration was specified but the required port was never opened
+   Frontend Application: http://localhost:3000 (mode: dev)
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+[Nest] 33  - 10/23/2025, 6:05:38 AM     LOG [InstanceLoader] GraphQLModule dependencies initialized +0ms
+2025-10-23T06:05:49Z error: The deployment failed because the application failed to open a port in time. This can happen because the application takes to long to open a server, or doesn't open one at all on the expected port. Note that this doesn't mean that the application is crashing, only that it's not opening a port in time. The application must serve traffic on the first port specified as 'localPort' in the port configuration specified in the .replit file. Make sure that the application opens a port quickly and that there are no operations taking too long on startup. Check the logs for more information.

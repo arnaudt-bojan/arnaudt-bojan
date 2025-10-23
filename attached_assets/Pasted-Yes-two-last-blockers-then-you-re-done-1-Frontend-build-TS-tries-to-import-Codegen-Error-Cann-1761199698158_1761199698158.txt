@@ -1,0 +1,93 @@
+Yes—two last blockers, then you’re done.
+
+1) Frontend build: TS tries to import Codegen
+
+Error: Cannot find module '@graphql-codegen/cli' (from frontend build scanning ../codegen.ts).
+
+Fix (pick ONE):
+
+A. Exclude dev file from frontend TS
+	•	frontend/tsconfig.json → add:
+
+{
+  "exclude": ["../codegen.ts"]
+}
+
+OR B. Keep it, add dev dep to frontend
+
+yarn workspace frontend add -D @graphql-codegen/cli
+
+(Do A if codegen.ts lives at repo root and isn’t needed at runtime.)
+
+Also keep the minor TS fixes you already hit:
+
+onEditorChange={(newContent: string) => setContent(newContent)}
+label={(entry: {name: string}) => entry.name}
+
+2) Port not opened / crash loop
+
+Your Deploy expects the app to open $PORT (Replit sets it). Backend must listen on it, and your start script must not cd ../frontend.
+
+Backend (Nest) main.ts — ensure:
+
+const port = Number(process.env.PORT) || 4000;
+await app.listen(port);
+
+scripts/start-production.sh — single server (recommended):
+
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="./node_modules/.bin:$PATH"
+node backend/dist/main.js
+
+(If you insist on running Next separately, use concurrently and be sure one of them listens on $PORT. Easiest is backend only, and serve built static files from backend later.)
+
+3) Prisma engine mismatch (you already surfaced it)
+
+Keep this in backend/prisma/schema.prisma:
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native","debian-openssl-1.1.x","debian-openssl-3.0.x"]
+}
+
+And regenerate during build:
+
+yarn workspace backend prisma generate --schema backend/prisma/schema.prisma
+
+4) Workspace hygiene
+	•	Root package.json:
+
+{ "private": true, "workspaces": ["backend","frontend"] }
+
+	•	Delete frontend/yarn.lock from the repo.
+	•	.yarnrc.yml at root:
+
+nodeLinker: node-modules
+
+5) Build + Deploy sequence (clean)
+
+# from repo root
+rm -f frontend/yarn.lock
+printf 'nodeLinker: node-modules\n' > .yarnrc.yml
+
+# If you chose option B earlier, install it; if option A, skip this line
+yarn workspace frontend add -D @graphql-codegen/cli
+
+rm -rf node_modules .yarn/cache .yarn/install-state.gz backend/node_modules/.prisma
+yarn install
+
+# prisma + builds
+yarn workspace backend prisma generate --schema backend/prisma/schema.prisma
+yarn workspace backend build
+yarn workspace frontend build   # will succeed if A or B done
+
+# Deploy/Promote
+
+That addresses:
+	•	Codegen import during Next build ✅
+	•	Single process opening $PORT fast ✅
+	•	Prisma engine runtime mismatch ✅
+	•	Lockfile/workspace conflicts ✅
+
+If you later want the frontend served too: either serve the built Next static from the backend, or run both with concurrently (ensure backend listens on $PORT and Next on another internal port).

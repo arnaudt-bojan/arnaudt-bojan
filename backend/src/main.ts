@@ -37,7 +37,8 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
 
-  const port = process.env.NESTJS_PORT || 4000;
+  // Replit sets PORT env var - use it for deployment
+  const port = Number(process.env.PORT) || Number(process.env.NESTJS_PORT) || 4000;
   
   await app.listen(port, '0.0.0.0');
   
