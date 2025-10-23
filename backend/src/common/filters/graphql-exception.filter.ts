@@ -11,13 +11,17 @@ export class GraphQLExceptionFilter implements GqlExceptionFilter {
     const info = gqlHost.getInfo();
     const context = gqlHost.getContext();
 
+    // Guard against non-GraphQL requests (e.g., health probes on "/")
+    const fieldName = info?.fieldName;
+    const path = info?.path;
+
     if (exception instanceof DomainError) {
       logger.info('Domain error in GraphQL', {
         errorCode: exception.code,
         message: exception.message,
-        fieldName: info.fieldName,
-        path: info.path,
-        userId: context.req?.session?.userId,
+        fieldName,
+        path,
+        userId: context?.req?.session?.userId,
       });
 
       return new GraphQLError(exception.message, {
@@ -36,8 +40,8 @@ export class GraphQLExceptionFilter implements GqlExceptionFilter {
       logger.info('HTTP exception in GraphQL', {
         statusCode: status,
         message,
-        fieldName: info.fieldName,
-        path: info.path,
+        fieldName,
+        path,
       });
 
       return new GraphQLError(message, {
@@ -53,9 +57,9 @@ export class GraphQLExceptionFilter implements GqlExceptionFilter {
     logger.error('Unexpected error in GraphQL', {
       error: error.message,
       stack: error.stack,
-      fieldName: info.fieldName,
-      path: info.path,
-      userId: context.req?.session?.userId,
+      fieldName,
+      path,
+      userId: context?.req?.session?.userId,
     });
 
     return new GraphQLError('Internal server error', {

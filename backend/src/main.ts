@@ -37,6 +37,16 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
 
+  // Add root "/" endpoint for Replit health probe
+  const adapter = app.getHttpAdapter();
+  adapter.get('/', (_req: any, res: any) => {
+    res.status(200).json({ 
+      status: 'ok', 
+      service: 'Upfirst API',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Replit sets PORT env var - use it for deployment
   const port = Number(process.env.PORT) || Number(process.env.NESTJS_PORT) || 4000;
   
@@ -44,6 +54,7 @@ async function bootstrap() {
   
   Logger.log(`🚀 NestJS GraphQL API running on http://localhost:${port}/graphql`, 'Bootstrap');
   Logger.log(`🏥 Health check available at http://localhost:${port}/health`, 'Bootstrap');
+  Logger.log(`🏥 Root health endpoint at http://localhost:${port}/`, 'Bootstrap');
 }
 
 bootstrap();

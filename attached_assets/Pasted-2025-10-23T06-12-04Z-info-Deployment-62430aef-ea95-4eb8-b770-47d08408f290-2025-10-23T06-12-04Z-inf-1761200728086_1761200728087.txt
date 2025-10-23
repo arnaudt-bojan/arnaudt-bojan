@@ -1,0 +1,422 @@
+2025-10-23T06:12:04Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T06:12:04Z info: Build: f12e00a7-9ba8-4863-a0f2-e2af7818bca0
+2025-10-23T06:12:04Z info: Connecting to builder
+2025-10-23T06:12:04Z info: Builder connected
+2025-10-23T06:12:04Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 3s 403ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 528ms
+
+➤ YN0000: · Done in 4s 108ms
+
+2025-10-23T06:12:11Z info: Starting Build
+🏗️  Building Upfirst for production...
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 332ms
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 10s 386ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 4s 803ms
+
+➤ YN0000: · Done with warnings in 15s 787ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.16s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 5s 819ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 878ms
+
+➤ YN0000: · Done with warnings in 7s 11ms
+
+   Building with Next.js (this may take several minutes)...
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/runner/workspace/yarn.lock as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+
+
+   ▲ Next.js 16.0.0 (Turbopack)
+
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+
+ ✓ Compiled successfully in 21.7s
+
+   Running TypeScript ...
+
+   Collecting page data ...
+
+   Generating static pages (0/42) ...
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+   Generating static pages (10/42) 
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+   Generating static pages (20/42) 
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+   Generating static pages (31/42) 
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+ ✓ Generating static pages (42/42) in 2.3s
+
+   Finalizing page optimization ...
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+✅ Frontend build complete
+
+
+✅ Production build complete!
+   Backend: Built and ready (dist/main.js)
+
+   Frontend: Built and ready (.next/ directory)
+
+2025-10-23T06:13:59Z info: Pushing pid1 binary layer...
+2025-10-23T06:14:01Z info: Pushing hosting layer...
+2025-10-23T06:14:01Z info: Pushing Repl layer...
+2025-10-23T06:14:01Z info: Created hosting layer
+2025-10-23T06:14:01Z info: Created pid1 binary layer
+2025-10-23T06:19:01Z info: Created Repl layer
+2025-10-23T06:19:04Z info: Pushed image manifest
+2025-10-23T06:19:05Z info: Pushed soci index manifest
+2025-10-23T06:19:09Z info: Creating Autoscale service
+[Nest] 27  - 10/23/2025, 6:21:13 AM     LOG [InstanceLoader] CacheModule dependencies initialized +0ms
+[Nest] 27  - 10/23/2025, 6:21:13 AM     LOG [InstanceLoader] ProductsModule dependencies initialized +0ms
+[Nest] 27  - 10/23/2025, 6:21:13 AM     LOG [InstanceLoader] QuotationsModule dependencies initialized +0ms
+[Nest] 27  - 10/23/2025, 6:21:13 AM     LOG [RouterExplorer] Mapped {/health/ready, GET} route +0ms
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+[Nest] 28  - 10/23/2025, 6:22:44 AM     LOG [NestFactory] Starting Nest application...
+   Backend will listen on PORT=5000
+starting up user application
+[Nest] 28  - 10/23/2025, 6:22:44 AM     LOG [WebSocketsController] AppWebSocketGateway subscribed to the "join:storefront" message +0ms
+[Nest] 28  - 10/23/2025, 6:22:44 AM     LOG [CacheService] Cache service initialized with in-memory backend
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+forwarding local port 5000 to external port 80 (mapped as 1104)
+[Nest] 26  - 10/23/2025, 6:23:14 AM     LOG [InstanceLoader] OrderPresentationModule dependencies initialized +0ms
+[Nest] 26  - 10/23/2025, 6:23:14 AM     LOG [InstanceLoader] AuthModule dependencies initialized +0ms
+[Nest] 26  - 10/23/2025, 6:23:14 AM     LOG [InstanceLoader] GraphQLModule dependencies initialized +1ms
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+[Nest] 26  - 10/23/2025, 6:23:16 AM     LOG [NestApplication] Nest application successfully started +3ms
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at /home/runner/workspace/backend/node_modules/@nestjs/core/router/router-proxy.js:25:35
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at trimPrefix (/home/runner/workspace/backend/node_modules/router/index.js:340:13)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at next (/home/runner/workspace/backend/node_modules/router/index.js:291:5)
+    at /home/runner/workspace/backend/node_modules/router/lib/layer.js:161:9
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at Layer.handleError (/home/runner/workspace/backend/node_modules/router/lib/layer.js:116:17)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at ExceptionsHandler.next (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:14:18)
+TypeError: Cannot read properties of undefined (reading 'fieldName')
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+    at ExceptionsHandler.invokeCustomFilters (/home/runner/workspace/backend/node_modules/@nestjs/core/exceptions/exceptions-handler.js:30:26)
+    at processParams (/home/runner/workspace/backend/node_modules/router/index.js:582:12)
+    at GraphQLExceptionFilter.catch (/home/runner/workspace/backend/dist/common/filters/graphql-exception.filter.js:56:29)
+    at /home/runner/workspace/backend/node_modules/router/index.js:297:9
+2025-10-23T06:24:09Z error: The deployment is failing health checks. This can happen if the application isn't responding, responds with an error, or doesn't respond in time. Health checks are sent to the / endpoint by default and must respond as soon as possible. Make sure that the / endpoint is implemented and returns a 200 status code in a timely manner. Avoid doing expensive or long running operations on the / endpoint, prefer deferring them to a different route. Check the logs for more information.
