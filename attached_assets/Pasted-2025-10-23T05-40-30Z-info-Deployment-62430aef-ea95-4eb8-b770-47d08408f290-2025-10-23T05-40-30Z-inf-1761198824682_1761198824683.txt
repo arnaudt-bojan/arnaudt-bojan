@@ -1,0 +1,239 @@
+2025-10-23T05:40:30Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T05:40:30Z info: Builder connected
+2025-10-23T05:40:30Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 535ms
+
+➤ YN0000: · Done in 4s 758ms
+
+2025-10-23T05:40:38Z info: Starting Build
+🏗️  Building Upfirst for production...
+
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 356ms
+➤ YN0000: ┌ Post-resolution validation
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: └ Completed
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 9s 533ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 3s 850ms
+
+➤ YN0000: · Done with warnings in 14s 66ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.14s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0060: │ next is listed by your project with version 16.0.0 (pd90448), which doesn't satisfy what @apollo/experimental-nextjs-app-support and other dependencies request (^13.4.1 || ^14.0.0 || ^15.0.0).
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 5s 210ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 880ms
+
+➤ YN0000: · Done with warnings in 6s 354ms
+
+   Building with Next.js (this may take several minutes)...
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/runner/workspace/yarn.lock as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+
+
+   ▲ Next.js 16.0.0 (Turbopack)
+
+   - Environments: .env.local
+
+
+   Creating an optimized production build ...
+
+ ✓ Compiled successfully in 42s
+
+   Running TypeScript ...
+
+Failed to compile.
+
+./app/(dashboard)/campaigns/page.tsx:921:37
+Type error: Parameter 'entry' implicitly has an 'any' type.
+
+  919 |                             cy="50%"
+  920 |                             labelLine={false}
+> 921 |                             label={(entry) => entry.name}
+      |                                     ^
+  922 |                             outerRadius={80}
+  923 |                             fill="#8884d8"
+  924 |                             dataKey="value"
+
+Failed to compile.
+
+./app/(dashboard)/campaigns/page.tsx:921:37
+Type error: Parameter 'entry' implicitly has an 'any' type.
+
+  919 |                             cy="50%"
+  920 |                             labelLine={false}
+> 921 |                             label={(entry) => entry.name}
+      |                                     ^
+  922 |                             outerRadius={80}
+  923 |                             fill="#8884d8"
+  924 |                             dataKey="value"
+
+Failed to compile.
+
+./app/(dashboard)/campaigns/page.tsx:921:37
+Type error: Parameter 'entry' implicitly has an 'any' type.
+
+  919 |                             cy="50%"
+  920 |                             labelLine={false}
+> 921 |                             label={(entry) => entry.name}
+      |                                     ^
+  922 |                             outerRadius={80}
+  923 |                             fill="#8884d8"
+  924 |                             dataKey="value"
+
+Next.js build worker exited with code: 1 and signal: null
+
+⚠️  Frontend build timed out or failed
+   Frontend will run in development mode
+
+
+✅ Production build complete!
+   Backend: Built and ready (dist/main.js)
+
+   Frontend: Ready in development mode
+
+2025-10-23T05:42:58Z info: Pushing pid1 binary layer...
+2025-10-23T05:43:00Z info: Created pid1 binary layer
+2025-10-23T05:43:00Z info: Pushing Repl layer...
+2025-10-23T05:43:00Z info: Pushing hosting layer...
+2025-10-23T05:43:01Z info: Created hosting layer
+2025-10-23T05:48:49Z info: Created Repl layer
+2025-10-23T05:48:52Z info: Pushed image manifest
+2025-10-23T05:48:53Z info: Pushed soci index manifest
+2025-10-23T05:48:53Z info: Pushed referrer manifest
+2025-10-23T05:48:57Z info: Creating Autoscale service
+scripts/start-production.sh: line 52: cd: ../frontend: No such file or directory
+forwarding local port 5000 to external port 80 (mapped as 1104)
+⚠️  Frontend will run in development mode (production build unavailable)
+generator client {
+  binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
+[Nest] 45  - 10/23/2025, 5:51:17 AM     LOG [InstanceLoader] PrismaModule dependencies initialized +1ms
+[Nest] 45  - 10/23/2025, 5:51:17 AM     LOG [RouterExplorer] Mapped {/health/ready, GET} route +0ms
+  retryable: undefined
+[Nest] 60  - 10/23/2025, 5:51:18 AM     LOG [NestFactory] Starting Nest application...
+[Nest] 60  - 10/23/2025, 5:51:18 AM     LOG [InstanceLoader] WebSocketModule dependencies initialized +0ms
+[Nest] 60  - 10/23/2025, 5:51:18 AM     LOG [InstanceLoader] AppModule dependencies initialized +24ms
+[Nest] 60  - 10/23/2025, 5:51:18 AM     LOG [InstanceLoader] HealthModule dependencies initialized +1ms
+[Nest] 60  - 10/23/2025, 5:51:18 AM     LOG [InstanceLoader] DataloaderModule dependencies initialized +1ms
+[Nest] 75  - 10/23/2025, 5:51:19 AM     LOG [InstanceLoader] HealthModule dependencies initialized +1ms
+[Nest] 90  - 10/23/2025, 5:51:20 AM     LOG [InstanceLoader] CartModule dependencies initialized +0ms
+  provider      = "prisma-client-js"
+/home/runner/workspace/backend/node_modules/@prisma/client/runtime/binary.js:192
+[Nest] 105  - 10/23/2025, 5:51:21 AM     LOG [InstanceLoader] OrdersModule dependencies initialized +1ms
+This happened because Prisma Client was generated for "debian-openssl-3.0.x", but the actual deployment required "debian-openssl-1.1.x".
+[Nest] 120  - 10/23/2025, 5:51:25 AM     LOG [InstanceLoader] PrismaModule dependencies initialized +0ms
+   Frontend Application: http://localhost:3000 (mode: dev)
+[Nest] 120  - 10/23/2025, 5:51:25 AM     LOG [InstanceLoader] PricingModule dependencies initialized +1ms
+[Nest] 120  - 10/23/2025, 5:51:25 AM     LOG [InstanceLoader] CartValidationModule dependencies initialized +0ms
+scripts/start-production.sh: line 52: cd: ../frontend: No such file or directory
+🚀 Starting Upfirst in production mode...
+${Yr(t)}`}var xk=ce("prisma:client:engines:resolveEnginePath"),Uk=()=>new RegExp("runtime[\\\\/]binary\\.m?js$");async function gg(t,e){let r={binary:process.env.PRISMA_QUERY_ENGINE_BINARY,library:process.env.PRISMA_QUERY_ENGINE_LIBRARY}[t]??e.prismaPath;if(r!==void 0)return r;let{enginePath:n,searchedLocations:A}=await kk(t,e);if(xk("enginePath",n),n!==void 0&&t==="binary"&&Du(n),n!==void 0)return e.prismaPath=n;let i=await rn(),s=e.generator?.binaryTargets??[],o=s.some(g=>g.native),a=!s.some(g=>g.value===i),c=__filename.match(Uk())===null,l={searchedLocations:A,generatorBinaryTargets:s,generator:e.generator,runtimeBinaryTarget:i,queryEngineName:HI(t,i),expectedLocation:Vi.default.relative(process.cwd(),e.dirname),errorStack:new Error().stack},u;throw o&&a?u=GI(l):a?u=PI(l):c?u=YI(l):u=OI(l),new Z(u,e.clientVersion)}async function kk(t,e){let r=await rn(),n=[],A=[e.dirname,Vi.default.resolve(__dirname,".."),e.generator?.output?.value??__dirname,Vi.default.resolve(__dirname,"../../../....
+  clientVersion: '6.18.0',
+🚀 Starting Upfirst in production mode...
+scripts/start-production.sh: line 52: cd: ../frontend: No such file or directory
+[Nest] 150  - 10/23/2025, 5:51:38 AM     LOG [InstanceLoader] WebSocketModule dependencies initialized +0ms
+[Nest] 150  - 10/23/2025, 5:51:38 AM     LOG [InstanceLoader] AppModule dependencies initialized +24ms
+[Nest] 150  - 10/23/2025, 5:51:38 AM     LOG [NestFactory] Starting Nest application...
+  errorCode: undefined,
+   Frontend Application: http://localhost:3000 (mode: dev)
+[Nest] 165  - 10/23/2025, 5:51:47 AM     LOG [InstanceLoader] WholesaleRulesModule dependencies initialized +0ms
+[Nest] 165  - 10/23/2025, 5:51:47 AM     LOG [InstanceLoader] PricingModule dependencies initialized +1ms
+}
+crash loop detected
+forwarding local port 5000 to external port 80 (mapped as 1104)
+[Nest] 28  - 10/23/2025, 5:52:03 AM     LOG [InstanceLoader] WebSocketModule dependencies initialized +0ms
+[Nest] 28  - 10/23/2025, 5:52:03 AM     LOG [NestFactory] Starting Nest application...
+  provider      = "prisma-client-js"
+[Nest] 43  - 10/23/2025, 5:52:04 AM     LOG [InstanceLoader] WebSocketModule dependencies initialized +0ms
+    at async /home/runner/workspace/backend/node_modules/@prisma/client/runtime/binary.js:239:2649 {
+[Nest] 58  - 10/23/2025, 5:52:05 AM     LOG [InstanceLoader] OrderPresentationModule dependencies initialized +0ms
+  /home/runner/workspace/backend/node_modules/.prisma/client
+[Nest] 91  - 10/23/2025, 5:52:07 AM     LOG [InstanceLoader] PrismaModule dependencies initialized +0ms
+[Nest] 91  - 10/23/2025, 5:52:07 AM     LOG [InstanceLoader] OrdersModule dependencies initialized +0ms
+[Nest] 91  - 10/23/2025, 5:52:07 AM     LOG [InstanceLoader] WebSocketModule dependencies initialized +0ms
+[Nest] 91  - 10/23/2025, 5:52:07 AM     LOG [NestFactory] Starting Nest application...
+This happened because Prisma Client was generated for "debian-openssl-3.0.x", but the actual deployment required "debian-openssl-1.1.x".
+   Frontend Application: http://localhost:3000 (mode: dev)
+🚀 Starting Upfirst in production mode...
+[Nest] 121  - 10/23/2025, 5:52:12 AM     LOG [InstanceLoader] AppModule dependencies initialized +24ms
+[Nest] 121  - 10/23/2025, 5:52:12 AM     LOG [InstanceLoader] WebSocketModule dependencies initialized +0ms
+[Nest] 121  - 10/23/2025, 5:52:12 AM     LOG [InstanceLoader] CacheModule dependencies initialized +0ms
+  /home/runner/workspace/backend/node_modules/@prisma/client
+[Nest] 136  - 10/23/2025, 5:52:16 AM     LOG [WebSocketsController] AppWebSocketGateway subscribed to the "leave:seller" message +0ms
+
+
+[Nest] 151  - 10/23/2025, 5:52:21 AM     LOG [InstanceLoader] GraphQLConfigModule dependencies initialized +0ms
+[Nest] 151  - 10/23/2025, 5:52:21 AM     LOG [InstanceLoader] ProductPresentationModule dependencies initialized +0ms
+[Nest] 151  - 10/23/2025, 5:52:21 AM     LOG [InstanceLoader] PricingModule dependencies initialized +1ms
+  clientVersion: '6.18.0',
+   Backend GraphQL API: http://localhost:4000/graphql
+[Nest] 166  - 10/23/2025, 5:52:23 AM     LOG [InstanceLoader] GraphQLConfigModule dependencies initialized +0ms
+[Nest] 166  - 10/23/2025, 5:52:23 AM     LOG [InstanceLoader] ProductPresentationModule dependencies initialized +0ms
+[Nest] 166  - 10/23/2025, 5:52:23 AM     LOG [InstanceLoader] AuthModule dependencies initialized +0ms
+[Nest] 166  - 10/23/2025, 5:52:23 AM     LOG [WebSocketsController] AppWebSocketGateway subscribed to the "join:product" message +0ms
+
+2025-10-23T05:52:31Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.
