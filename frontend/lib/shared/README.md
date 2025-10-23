@@ -1,6 +1,10 @@
-# @upfirst/shared
+# Frontend Shared Utilities
 
-Shared utilities and types used across the Upfirst monorepo.
+Shared utilities and types used within the Next.js frontend service.
+
+## Overview
+
+This directory contains frontend-specific shared code copied from the original workspace setup. The frontend is now an independent service with its own dependencies.
 
 ## Contents
 
@@ -19,14 +23,16 @@ Shared utilities and types used across the Upfirst monorepo.
 
 ## Usage
 
-Import from this package using the workspace name:
+Import from this directory using relative paths:
 
 ```typescript
-import { schema, validationSchemas } from '@upfirst/shared';
+import { schema } from '@/lib/shared/schema';
+import { validationSchemas } from '@/lib/shared/validation-schemas';
 ```
 
 ## Dependencies
 
+All dependencies are declared in `frontend/package.json`:
 - **zod** - Schema validation
 - **date-fns** - Date utilities
-- **@prisma/client** (peer dependency) - Database types
+- **@prisma/client** - Database types

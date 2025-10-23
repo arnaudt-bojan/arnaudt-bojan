@@ -92,14 +92,22 @@ The platform features three distinct, parallel platforms: B2C Retail, B2B Wholes
     -   **Files**: `analytics/page.tsx`, `meta-ads/dashboard/page.tsx`, `campaigns/page.tsx`, `newsletter/page.tsx`
     -   **Solution**: Added type casting (`as any`) to Recharts and TinyMCE dynamic imports
     -   **Impact**: Frontend build now proceeds without type errors
--   **Legacy Code Removal** (~27 files/directories, 800KB+ cleaned):
+-   **Legacy Code Removal - Phase 1** (~27 files/directories, 800KB+ cleaned):
     -   **Removed `/shared` directory** (140KB): Not referenced by backend or frontend, workspace leftover
     -   **Removed legacy configs**: `tsconfig.json` (referenced non-existent `packages/shared`), `package-lock.json`, `package.json.tmp`
     -   **Removed legacy scripts**: `deploy.sh`, `deploy-clean.sh`, `start.sh`, `start-compiled.sh`, `debug-dev.sh`
     -   **Removed Docker files**: `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, `nginx.conf`, `nginx.conf.gateway-backup`
     -   **Removed redundant docs** (11 files): Migration summaries, old deployment guides, manual fix instructions
     -   **Removed test artifacts**: `playwright-report/`, `test-results/` directories
+-   **Legacy Code Removal - Phase 2** (5+ files/directories, ~1.4MB cleaned):
+    -   **Removed `frontend/lib/shared/package.json`**: Obsolete workspace artifact defining `@upfirst/shared` package
+    -   **Removed `scripts/docker-dev.sh`** (196 lines): Referenced removed `docker-compose.yml` and non-existent services
+    -   **Removed `docs/archive/`** (716KB, 50+ files): Outdated migration docs, deployment guides, phase summaries
+    -   **Removed `DOCKER_SETUP.md`** (439 lines): Referenced old monorepo structure (`apps/`, `packages/`) and removed docker-compose files
+    -   **Removed `docs/DOCKER.md`**: Referenced removed `docker-compose.dev.yml` file
+    -   **Known Issue**: Root `package.json` has broken `"check": "tsc"` script (no root tsconfig.json exists)
     -   **Kept essential docs**: `DEPLOYMENT.md`, `replit.md`, `design_guidelines.md`, `SOCKETIO_USAGE_RULES.md`, `BUILD_VALIDATION.md`
+    -   **Kept legitimate Docker files**: `backend/Dockerfile`, `backend/.dockerignore` (needed for Docker builds)
 
 ### October 2025 - Next.js 16 Migration (51/51 Pages COMPLETE)
 -   **Migration Completion**: All pages successfully migrated from Next.js 14 to Next.js 16 with React 19
