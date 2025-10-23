@@ -1,0 +1,40 @@
+~/workspace$ rm -rf node_modules .yarn/cache .yarn/install-state.gz
+yarn install
+yarn workspace backend build
+yarn workspace frontend build
+➤ YN0000: · Yarn 4.10.3
+➤ YN0000: ┌ Resolution step
+➤ YN0085: │ + @apollo/client-react-streaming@npm:0.11.11, and 1368 more.
+➤ YN0000: └ Completed in 7s 121ms
+➤ YN0000: ┌ Post-resolution validation
+➤ YN0060: │ @apollo/server is listed by your project with version 4.12.2 (p83090d), which doesn't satisfy what @nestjs/apollo and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ next is listed by your project with version 16.0.0 (p8c4a3b), which doesn't satisfy what @apollo/experimental-nextjs-app-support and other dependencies request (^13.4.1 || ^14.0.0 || ^15.0.0).
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+➤ YN0000: └ Completed
+➤ YN0000: ┌ Fetch step
+➤ YN0013: │ 1421 packages were added to the project (+ 1011.21 MiB).
+➤ YN0000: └ Completed in 5s 287ms
+➤ YN0000: ┌ Link step
+➤ YN0004: │ @apollo/protobufjs@npm:1.2.7 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @nestjs/core@npm:11.1.7 [93b36] lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @prisma/client@npm:6.18.0 [93b36] lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @prisma/engines@npm:6.18.0 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ bufferutil@npm:4.0.9 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ es5-ext@npm:0.10.64 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ esbuild@npm:0.25.11 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ prisma@npm:6.18.0 [93b36] lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ sharp@npm:0.34.4 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ unrs-resolver@npm:1.11.1 lists build scripts, but all build scripts have been disabled.
+➤ YN0007: │ upfirst@workspace:. must be built because it never has been before or the last one failed
+➤ YN0000: └ Completed in 1m 33s
+➤ YN0000: · Done with warnings in 1m 46s
+Usage Error: Workspace 'backend' not found. Did you mean any of the following:
+  - upfirst-monorepo?
+
+$ yarn workspace <workspaceName> <commandName> ...
+Usage Error: Workspace 'frontend' not found. Did you mean any of the following:
+  - upfirst-monorepo?
+
+$ yarn workspace <workspaceName> <commandName> ...
+~/workspace$ 
