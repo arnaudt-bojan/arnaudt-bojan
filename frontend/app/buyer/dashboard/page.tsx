@@ -23,7 +23,7 @@ import {
   InputAdornment,
   Skeleton,
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
   Search as SearchIcon,
@@ -193,8 +193,8 @@ export default function BuyerDashboard() {
       </Box>
 
       {/* Stats Cards */}
-      <Grid2 container spacing={3} sx={{ mb: 4 }}>
-        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-total-orders">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -219,9 +219,9 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid2>
+        </Grid>
 
-        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-pending">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -246,9 +246,9 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid2>
+        </Grid>
 
-        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-completed">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -273,9 +273,9 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid2>
+        </Grid>
 
-        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-total-spent">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -300,8 +300,8 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
 
       {/* Orders Table */}
       <Card>
@@ -312,8 +312,8 @@ export default function BuyerDashboard() {
             </Typography>
 
             {/* Filters */}
-            <Grid2 container spacing={2} sx={{ mt: 2 }}>
-              <Grid2 size={{ xs: 12, sm: 6, md: 4 }}>
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -329,9 +329,9 @@ export default function BuyerDashboard() {
                   }}
                   data-testid="input-search-orders"
                 />
-              </Grid2>
+              </Grid>
 
-              <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Status</InputLabel>
                   <Select
@@ -348,8 +348,8 @@ export default function BuyerDashboard() {
                     <MenuItem value="CANCELLED">Cancelled</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid2>
-            </Grid2>
+              </Grid>
+            </Grid>
           </Box>
 
           {/* Data Grid */}

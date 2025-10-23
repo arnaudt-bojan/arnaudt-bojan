@@ -31,7 +31,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import {
   Search,
   ShoppingCart,
@@ -191,15 +191,15 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
           <Skeleton variant="rectangular" height={200} />
           <Skeleton variant="text" width="60%" height={40} />
           <Skeleton variant="text" width="40%" />
-          <Grid2 container spacing={3} sx={{ mt: 2 }}>
+          <Grid container spacing={3} sx={{ mt: 2 }}>
             {[...Array(6)].map((_, i) => (
-              <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
                 <Skeleton variant="rectangular" height={250} />
                 <Skeleton variant="text" sx={{ mt: 1 }} />
                 <Skeleton variant="text" width="60%" />
-              </Grid2>
+              </Grid>
             ))}
-          </Grid2>
+          </Grid>
         </Box>
       </Container>
     );
@@ -277,8 +277,8 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Box sx={{ mb: 4 }}>
-          <Grid2 container spacing={2} alignItems="center">
-            <Grid2 size={{ xs: 12, md: 4 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
                 placeholder="Search products..."
@@ -293,9 +293,9 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
                 }}
                 data-testid="input-search"
               />
-            </Grid2>
+            </Grid>
 
-            <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -317,9 +317,9 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
                   ))}
                 </Select>
               </FormControl>
-            </Grid2>
+            </Grid>
 
-            <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Sort By</InputLabel>
                 <Select
@@ -334,14 +334,14 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
                   <MenuItem value="name">Name: A to Z</MenuItem>
                 </Select>
               </FormControl>
-            </Grid2>
-          </Grid2>
+            </Grid>
+          </Grid>
         </Box>
 
         {productsLoading ? (
-          <Grid2 container spacing={3}>
+          <Grid container spacing={3}>
             {[...Array(8)].map((_, i) => (
-              <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
                 <Card>
                   <Skeleton variant="rectangular" height={250} />
                   <CardContent>
@@ -349,9 +349,9 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
                     <Skeleton variant="text" width="60%" />
                   </CardContent>
                 </Card>
-              </Grid2>
+              </Grid>
             ))}
-          </Grid2>
+          </Grid>
         ) : productsError ? (
           <Alert severity="error" sx={{ mt: 3 }}>
             Failed to load products. Please try again later.
@@ -368,9 +368,9 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
           </Paper>
         ) : (
           <>
-            <Grid2 container spacing={3}>
+            <Grid container spacing={3}>
               {products.map((product) => (
-                <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
                   <Card
                     sx={{
                       height: '100%',
@@ -440,9 +440,9 @@ export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) 
                       </Button>
                     </CardActions>
                   </Card>
-                </Grid2>
+                </Grid>
               ))}
-            </Grid2>
+            </Grid>
 
             {totalPages > 1 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>

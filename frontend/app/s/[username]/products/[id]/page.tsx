@@ -29,7 +29,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import {
   Add,
   Remove,
@@ -100,16 +100,16 @@ export default function ProductDetailPage(_props: PageProps) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 4 }} />
-        <Grid2 container spacing={4}>
-          <Grid2 size={{ xs: 12, md: 6 }}>
+        <Grid container spacing={4}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Skeleton variant="rectangular" width="100%" height={500} sx={{ borderRadius: 2 }} />
-          </Grid2>
-          <Grid2 size={{ xs: 12, md: 6 }}>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Skeleton variant="text" width="80%" height={60} />
             <Skeleton variant="text" width="40%" height={40} sx={{ mt: 2 }} />
             <Skeleton variant="rectangular" width="100%" height={200} sx={{ mt: 4 }} />
-          </Grid2>
-        </Grid2>
+          </Grid>
+        </Grid>
       </Container>
     );
   }
@@ -177,8 +177,8 @@ export default function ProductDetailPage(_props: PageProps) {
         <Typography color="text.primary">{product.name}</Typography>
       </Breadcrumbs>
 
-      <Grid2 container spacing={6}>
-        <Grid2 size={{ xs: 12, md: 6 }}>
+      <Grid container spacing={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ mb: 2, overflow: 'hidden' }}>
             <CardMedia
               component="img"
@@ -194,9 +194,9 @@ export default function ProductDetailPage(_props: PageProps) {
           </Card>
 
           {images.length > 1 && (
-            <Grid2 container spacing={2}>
+            <Grid container spacing={2}>
               {images.map((img: string, index: number) => (
-                <Grid2 size={{ xs: 3 }} key={index}>
+                <Grid size={{ xs: 3 }} key={index}>
                   <Card
                     sx={{
                       cursor: 'pointer',
@@ -218,13 +218,13 @@ export default function ProductDetailPage(_props: PageProps) {
                       }}
                     />
                   </Card>
-                </Grid2>
+                </Grid>
               ))}
-            </Grid2>
+            </Grid>
           )}
-        </Grid2>
+        </Grid>
 
-        <Grid2 size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Chip
             label={product.productType?.replace('-', ' ').toUpperCase()}
             size="small"
@@ -396,8 +396,8 @@ export default function ProductDetailPage(_props: PageProps) {
               )}
             </TableBody>
           </Table>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
     </Container>
   );
 }

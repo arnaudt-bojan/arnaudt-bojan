@@ -35,7 +35,7 @@ import {
   useTheme,
   Skeleton,
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import {
   ArrowBack as ArrowBackIcon,
   LocalShipping as LocalShippingIcon,
@@ -124,14 +124,14 @@ export default function BuyerOrderDetailsPage() {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Skeleton variant="rectangular" width={120} height={40} sx={{ mb: 3 }} />
-        <Grid2 container spacing={3}>
-          <Grid2 size={{ xs: 12 }}>
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12 }}>
             <Skeleton variant="rectangular" width="100%" height={200} />
-          </Grid2>
-          <Grid2 size={{ xs: 12 }}>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
             <Skeleton variant="rectangular" width="100%" height={400} />
-          </Grid2>
-        </Grid2>
+          </Grid>
+        </Grid>
       </Container>
     );
   }
@@ -174,9 +174,9 @@ export default function BuyerOrderDetailsPage() {
         Back to Orders
       </Button>
 
-      <Grid2 container spacing={3}>
+      <Grid container spacing={3}>
         {/* Order Header */}
-        <Grid2 size={{ xs: 12 }}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', gap: 2, mb: 3 }}>
@@ -275,10 +275,10 @@ export default function BuyerOrderDetailsPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid2>
+        </Grid>
 
         {/* Order Items */}
-        <Grid2 size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -331,10 +331,10 @@ export default function BuyerOrderDetailsPage() {
               </TableContainer>
             </CardContent>
           </Card>
-        </Grid2>
+        </Grid>
 
         {/* Order Summary */}
-        <Grid2 size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -405,8 +405,8 @@ export default function BuyerOrderDetailsPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
 
       {/* Cancel Order Dialog */}
       <Dialog
