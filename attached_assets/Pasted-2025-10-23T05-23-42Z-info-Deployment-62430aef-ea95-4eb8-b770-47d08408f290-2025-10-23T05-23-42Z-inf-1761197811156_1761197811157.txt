@@ -1,0 +1,207 @@
+2025-10-23T05:23:42Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T05:23:42Z info: Connecting to builder
+2025-10-23T05:23:42Z info: Builder connected
+2025-10-23T05:23:43Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 3s 285ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 456ms
+
+➤ YN0000: · Done in 3s 943ms
+
+2025-10-23T05:23:49Z info: Starting Build
+🏗️  Building Upfirst for production...
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 347ms
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 8s 895ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 3s 137ms
+
+➤ YN0000: · Done with warnings in 12s 506ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.19s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0085: │ + @apollo/client-react-streaming@npm:0.11.11, @apollo/client@npm:3.14.0, @apollo/experimental-nextjs-app-support@npm:0.11.11, @emotion/cache@npm:11.14.0, and 541 more.
+
+➤ YN0000: └ Completed in 3s 747ms
+
+➤ YN0000: ┌ Post-resolution validation
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0013: │ 473 packages were added to the project (+ 419.31 MiB).
+
+➤ YN0000: └ Completed in 5s 317ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 700ms
+
+➤ YN0000: · Done with warnings in 9s 877ms
+
+   Building with Next.js (this may take several minutes)...
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/runner/workspace/yarn.lock as the root directory.
+ To silence this warning, set turbopack.root in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+
+   ▲ Next.js 16.0.0 (Turbopack)
+
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+
+ ✓ Compiled successfully in 25.0s
+
+   Running TypeScript ...
+
+Failed to compile.
+
+./app/(dashboard)/campaigns/page.tsx:726:40
+Type error: Parameter 'newContent' implicitly has an 'any' type.
+
+  724 |                     <Editor
+  725 |                       value={content}
+> 726 |                       onEditorChange={(newContent) => setContent(newContent)}
+      |                                        ^
+  727 |                       init={{
+  728 |                         height: 400,
+  729 |                         menubar: false,
+
+Next.js build worker exited with code: 1 and signal: null
+
+⚠️  Frontend build timed out or failed
+   Frontend will run in development mode
+
+✅ Production build complete!
+   Backend: Built and ready (dist/main.js)
+
+   Frontend: Ready in development mode
+
+2025-10-23T05:25:39Z info: Pushing pid1 binary layer...
+2025-10-23T05:25:41Z info: Pushing Repl layer...
+2025-10-23T05:25:41Z info: Pushing hosting layer...
+2025-10-23T05:25:41Z info: Created pid1 binary layer
+2025-10-23T05:25:41Z info: Created hosting layer
+2025-10-23T05:29:52Z info: Created Repl layer
+2025-10-23T05:29:54Z info: Pushed image manifest
+2025-10-23T05:29:55Z info: Pushed soci index manifest
+2025-10-23T05:30:10Z info: Creating Autoscale service
+🚀 Starting Upfirst in production mode...
+   Frontend Application: http://localhost:3000 (mode: dev)
+🚀 Starting services...
+🚀 Starting services...
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+🚀 Starting services...
+
+scripts/start-production.sh: line 50: concurrently: command not found
+   Frontend Application: http://localhost:3000 (mode: dev)
+🚀 Starting services...
+⚠️  Frontend will run in development mode (production build unavailable)
+crash loop detected
+⚠️  Frontend will run in development mode (production build unavailable)
+   Backend GraphQL API: http://localhost:4000/graphql
+starting up user application
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+🚀 Starting services...
+   Frontend Application: http://localhost:3000 (mode: dev)
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+   Backend GraphQL API: http://localhost:4000/graphql
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+   Frontend Application: http://localhost:3000 (mode: dev)
+🚀 Starting services...
+⚠️  Frontend will run in development mode (production build unavailable)
+crash loop detected
+
+   Backend GraphQL API: http://localhost:4000/graphql
+🚀 Starting services...
+⚠️  Frontend will run in development mode (production build unavailable)
+🚀 Starting services...
+   Backend GraphQL API: http://localhost:4000/graphql
+   Frontend Application: http://localhost:3000 (mode: dev)
+⚠️  Frontend will run in development mode (production build unavailable)
+⚠️  Frontend will run in development mode (production build unavailable)
+🚀 Starting services...
+scripts/start-production.sh: line 50: concurrently: command not found
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+starting up user application
+⚠️  Frontend will run in development mode (production build unavailable)
+⚠️  Frontend will run in development mode (production build unavailable)
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+scripts/start-production.sh: line 50: concurrently: command not found
+🚀 Starting Upfirst in production mode...
+   Frontend Application: http://localhost:3000 (mode: dev)
+⚠️  Frontend will run in development mode (production build unavailable)
+⚠️  Frontend will run in development mode (production build unavailable)
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+🚀 Starting Upfirst in production mode...
+🚀 Starting Upfirst in production mode...
+crash loop detected
+
+   Backend GraphQL API: http://localhost:4000/graphql
+⚠️  Frontend will run in development mode (production build unavailable)
+scripts/start-production.sh: line 50: concurrently: command not found
+🚀 Starting services...
+🚀 Starting services...
+   Frontend Application: http://localhost:3000 (mode: dev)
+   Backend GraphQL API: http://localhost:4000/graphql
+scripts/start-production.sh: line 50: concurrently: command not found
+🚀 Starting Upfirst in production mode...
+scripts/start-production.sh: line 50: concurrently: command not found
+crash loop detected
+scripts/start-production.sh: line 50: concurrently: command not found
+🚀 Starting services...
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+   Backend GraphQL API: http://localhost:4000/graphql
+2025-10-23T05:35:10Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.
+
+New log and error on promote 

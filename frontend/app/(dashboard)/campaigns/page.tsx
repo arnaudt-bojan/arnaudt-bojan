@@ -723,7 +723,7 @@ export default function CampaignsPage() {
                   <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
                     <Editor
                       value={content}
-                      onEditorChange={(newContent) => setContent(newContent)}
+                      onEditorChange={(newContent: string) => setContent(newContent)}
                       init={{
                         height: 400,
                         menubar: false,

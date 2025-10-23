@@ -39,16 +39,26 @@ if [ -f "frontend/.build-mode" ] && [ "$(cat frontend/.build-mode)" = "developme
   echo "⚠️  Frontend will run in development mode (production build unavailable)"
 fi
 
-# Start both services using concurrently
+# Start both services
 echo "🚀 Starting services..."
 echo "   Backend GraphQL API: http://localhost:4000/graphql"
 echo "   Frontend Application: http://localhost:3000 (mode: $FRONTEND_MODE)"
 echo ""
 
+# Start both processes (without concurrently to avoid dependency issues)
+cd backend && node dist/main.js &
+BACKEND_PID=$!
+
+cd ../frontend
 if [ "$FRONTEND_MODE" = "dev" ]; then
-  # Run frontend in dev mode, backend in prod
-  concurrently "cd backend && yarn start:prod" "cd frontend && yarn dev"
+  yarn dev &
 else
-  # Run both in production mode
-  yarn start
+  yarn start &
 fi
+FRONTEND_PID=$!
+
+# Wait for either process to exit
+wait -n $BACKEND_PID $FRONTEND_PID
+
+# Kill remaining process
+kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
