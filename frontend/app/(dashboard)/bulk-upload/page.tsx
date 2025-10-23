@@ -265,7 +265,7 @@ export default function BulkUploadPage() {
 
   const downloadErrorLog = () => {
     const errorLog = validationErrors.map(error => 
-      \`Row \${error.row}: \${error.field} - \${error.message}\`
+      `Row ${error.row}: ${error.field} - ${error.message}`
     ).join('\n');
     
     const blob = new Blob([errorLog], { type: 'text/plain' });
@@ -374,7 +374,7 @@ export default function BulkUploadPage() {
                         <InputLabel>{field} {REQUIRED_FIELDS.includes(field) && '*'}</InputLabel>
                         <Select
                           value={columnMapping[field] || ''}
-                          label={\`\${field} \${REQUIRED_FIELDS.includes(field) ? '*' : ''}\`}
+                          label={`${field} ${REQUIRED_FIELDS.includes(field) ? '*' : ''}`}
                           onChange={(e) => {
                             setColumnMapping({
                               ...columnMapping,
@@ -566,12 +566,12 @@ export default function BulkUploadPage() {
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Chip
                       icon={<CheckCircle />}
-                      label={\`Success: \${importResult.success}\`}
+                      label={`Success: ${importResult.success}`}
                       color="success"
                     />
                     <Chip
                       icon={<Error />}
-                      label={\`Failed: \${importResult.failed}\`}
+                      label={`Failed: ${importResult.failed}`}
                       color="error"
                     />
                     {importResult.failed > 0 && (
