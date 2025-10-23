@@ -1,0 +1,77 @@
+2025-10-23T05:10:05Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T05:10:05Z info: Connecting to builder
+2025-10-23T05:10:06Z info: Builder connected
+2025-10-23T05:10:06Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 4s 102ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 488ms
+
+➤ YN0000: · Done in 4s 734ms
+
+2025-10-23T05:10:13Z info: Starting Build
+🏗️  Building Upfirst for production...
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 339ms
+
+➤ YN0000: ┌ Post-resolution validation
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 9s 316ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 2s 407ms
+
+➤ YN0000: · Done with warnings in 12s 213ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.23s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+Usage Error: The nearest package directory (/home/runner/workspace/frontend) doesn't seem to be part of the project declared in /home/runner/workspace.
+
+- If /home/runner/workspace isn't intended to be a project, remove any yarn.lock and/or package.json file there.
+- If /home/runner/workspace is intended to be a project, it might be that you forgot to list frontend in its workspace configuration.
+- Finally, if /home/runner/workspace is fine and you intend frontend to be treated as a completely separate project (not even a workspace), create an empty yarn.lock file in it.
+
+$ yarn install [--json] [--immutable] [--immutable-cache] [--refresh-lockfile] [--check-cache] [--check-resolutions] [--inline-builds] [--mode #0]
+

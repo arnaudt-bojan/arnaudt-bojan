@@ -20,7 +20,12 @@ echo ""
 # Build Frontend
 echo "📦 Building frontend..."
 cd frontend
-yarn install --immutable
+
+# Create empty yarn.lock for independent service
+touch yarn.lock
+
+# Install dependencies (not immutable since this is independent service)
+yarn install
 
 # Try building with Next.js
 echo "   Building with Next.js (this may take several minutes)..."
@@ -32,6 +37,10 @@ else
   echo "   Frontend will run in development mode"
   echo "development" > .build-mode
 fi
+
+# Clean up temporary lockfile
+rm -f yarn.lock
+
 cd ..
 echo ""
 
