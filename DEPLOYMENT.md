@@ -1,10 +1,28 @@
 # Replit Deployment Configuration
 
-## Required .replit File Updates
+## IMPORTANT: Manual Publishing UI Configuration Required
 
-To successfully publish your Upfirst e-commerce platform on Replit with the new independent services architecture, you need to manually update your `.replit` file.
+The `.replit` file cannot be edited programmatically. When you publish your Upfirst e-commerce platform, you **MUST** manually configure the build and run commands in the Replit Publishing UI.
 
-### Current Configuration (Outdated)
+### Publishing UI Configuration Steps
+
+When you click the "Publish" button in Replit, you will see fields for "Build command" and "Run command". Enter the following:
+
+**Build Command:**
+```bash
+bash scripts/build-production.sh
+```
+
+**Run Command:**
+```bash
+bash scripts/start-production.sh
+```
+
+**Deployment Target:**
+- Keep as `cloudrun` (Cloud Run - autoscale)
+
+### Current .replit File Configuration (Outdated)
+The `.replit` file currently has outdated npm-based commands:
 ```toml
 [deployment]
 build = "npm ci && npm run build && npm prune --omit=dev"
@@ -12,13 +30,10 @@ run = "npm start"
 deploymentTarget = "cloudrun"
 ```
 
-### New Configuration (Required for Independent Services)
-```toml
-[deployment]
-build = ["sh", "-c", "bash scripts/build-production.sh"]
-run = ["sh", "-c", "bash scripts/start-production.sh"]
-deploymentTarget = "cloudrun"
-```
+These will NOT work because:
+- ❌ Project uses Yarn Berry v4.10.3, not npm
+- ❌ Independent services architecture requires custom build process
+- ❌ Commands don't handle frontend build timeout/fallback logic
 
 ## What Changed?
 
@@ -85,16 +100,66 @@ curl http://localhost:4000/health
 curl http://localhost:3000
 ```
 
-## Deployment Checklist
+## Pre-Publish Verification Checklist
 
-Before clicking "Publish" on Replit:
+Complete ALL steps before clicking "Publish":
 
-1. ✅ Update `.replit` file with new `[deployment]` configuration
-2. ✅ Verify `scripts/build-production.sh` exists and is executable
-3. ✅ Verify `scripts/start-production.sh` exists and is executable
-4. ✅ Test locally using the scripts above
-5. ✅ Ensure all environment secrets are configured
-6. ✅ Click "Publish" in Replit
+### 1. ✅ Verify Production Scripts Exist
+```bash
+ls -la scripts/build-production.sh scripts/start-production.sh
+```
+Both scripts should be executable (rwxr-xr-x).
+
+### 2. ✅ Verify All Critical Environment Variables
+Required secrets (all present and configured):
+- `DATABASE_URL` - PostgreSQL connection
+- `SESSION_SECRET` - Session encryption
+- `STRIPE_SECRET_KEY` - Payment processing
+- `VITE_STRIPE_PUBLIC_KEY` - Frontend Stripe integration
+- `RESEND_API_KEY` - Email service
+- `GEMINI_API_KEY` - AI optimization
+- Plus 20+ additional service integrations
+
+### 3. ✅ Verify Services Currently Running
+```bash
+# Check backend health
+curl http://localhost:4000/health
+
+# Check frontend
+curl http://localhost:3000
+```
+Both should return HTTP 200.
+
+### 4. ✅ Publishing UI Configuration (CRITICAL)
+When you click "Publish" in Replit:
+
+**STEP 1:** Click the "Publish" button in the Replit workspace
+
+**STEP 2:** In the Publishing configuration screen, enter these commands:
+- **Build Command:** `bash scripts/build-production.sh`
+- **Run Command:** `bash scripts/start-production.sh`
+- **Deployment Target:** Keep as `cloudrun`
+
+**STEP 3:** Review all other settings and click "Deploy"
+
+### 5. ✅ Verify Build Process (Optional Local Test)
+```bash
+# Test build process (this may take 10+ minutes)
+bash scripts/build-production.sh
+
+# Expected output:
+# ✅ Backend build complete (dist/main.js created)
+# ✅ Frontend build complete OR development mode fallback
+```
+
+### 6. ✅ Post-Deployment Verification
+After publishing, your application will be available at:
+- `https://[your-repl-name].[your-username].repl.co`
+
+Verify:
+- Homepage loads correctly
+- GraphQL API is accessible at `/graphql`
+- Health check responds at `/health`
 
 ## Build Modes
 
