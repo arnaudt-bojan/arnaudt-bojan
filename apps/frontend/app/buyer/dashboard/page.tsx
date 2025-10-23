@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery } from '@/lib/apollo-client';
+import { useQuery } from '@apollo/client';
 import { GET_CURRENT_USER } from '@/lib/graphql/queries/user';
 import { LIST_ORDERS } from '@/lib/graphql/queries/orders';
 import { GetCurrentUserQuery, ListOrdersQuery } from '@/lib/generated/graphql';
@@ -23,7 +23,7 @@ import {
   InputAdornment,
   Skeleton,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
+import Grid2 from '@mui/material/Grid2';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
   Search as SearchIcon,
@@ -193,8 +193,8 @@ export default function BuyerDashboard() {
       </Box>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+      <Grid2 container spacing={3} sx={{ mb: 4 }}>
+        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-total-orders">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -219,9 +219,9 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-pending">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -246,9 +246,9 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-completed">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -273,9 +273,9 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid2>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
           <Card data-testid="card-stat-total-spent">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -300,96 +300,93 @@ export default function BuyerDashboard() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
-
-      {/* Search and Filter */}
-      <Card sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <TextField
-            placeholder="Search by order number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ flex: 1, minWidth: 300 }}
-            data-testid="input-search-orders"
-          />
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel id="status-filter-label">Status</InputLabel>
-            <Select
-              labelId="status-filter-label"
-              value={statusFilter}
-              label="Status"
-              onChange={(e) => setStatusFilter(e.target.value)}
-              data-testid="select-status-filter"
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="PENDING">Pending</MenuItem>
-              <MenuItem value="PROCESSING">Processing</MenuItem>
-              <MenuItem value="SHIPPED">Shipped</MenuItem>
-              <MenuItem value="DELIVERED">Delivered</MenuItem>
-              <MenuItem value="CANCELLED">Cancelled</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </Card>
+        </Grid2>
+      </Grid2>
 
       {/* Orders Table */}
-      {ordersError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to load orders. Please try again later.
-        </Alert>
-      )}
+      <Card>
+        <CardContent>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Your Orders
+            </Typography>
 
-      {ordersLoading ? (
-        <Card sx={{ p: 3 }}>
-          <CircularProgress />
-        </Card>
-      ) : filteredOrders.length === 0 ? (
-        <Card sx={{ p: 6, textAlign: 'center' }}>
-          <ShoppingBagIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            No Orders Found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {searchQuery || statusFilter
-              ? 'Try adjusting your filters'
-              : 'You haven\'t placed any orders yet'}
-          </Typography>
-        </Card>
-      ) : (
-        <Card>
-          <DataGrid
-            rows={filteredOrders}
-            columns={columns}
-            pagination
-            paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
-              setPage(model.page);
-              setPageSize(model.pageSize);
-            }}
-            pageSizeOptions={[10, 25, 50]}
-            autoHeight
-            disableRowSelectionOnClick
-            sx={{
-              border: 'none',
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-row': {
-                cursor: 'pointer',
-              },
-            }}
-            data-testid="datagrid-orders"
-          />
-        </Card>
-      )}
+            {/* Filters */}
+            <Grid2 container spacing={2} sx={{ mt: 2 }}>
+              <Grid2 size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by order number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  data-testid="input-search-orders"
+                />
+              </Grid2>
+
+              <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    label="Status"
+                    data-testid="select-status-filter"
+                  >
+                    <MenuItem value="">All Statuses</MenuItem>
+                    <MenuItem value="PENDING">Pending</MenuItem>
+                    <MenuItem value="PROCESSING">Processing</MenuItem>
+                    <MenuItem value="SHIPPED">Shipped</MenuItem>
+                    <MenuItem value="DELIVERED">Delivered</MenuItem>
+                    <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid2>
+            </Grid2>
+          </Box>
+
+          {/* Data Grid */}
+          {ordersLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : ordersError ? (
+            <Alert severity="error">
+              Failed to load orders. Please try again later.
+            </Alert>
+          ) : (
+            <Box sx={{ height: 600, width: '100%' }}>
+              <DataGrid
+                rows={filteredOrders}
+                columns={columns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page, pageSize },
+                  },
+                }}
+                pageSizeOptions={[5, 10, 25, 50]}
+                onPaginationModelChange={(model) => {
+                  setPage(model.page);
+                  setPageSize(model.pageSize);
+                }}
+                disableRowSelectionOnClick
+                sx={{
+                  '& .MuiDataGrid-cell:focus': {
+                    outline: 'none',
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
     </Container>
   );
 }

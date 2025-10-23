@@ -1,29 +1,28 @@
 'use client';
 
-import { HttpLink, ApolloLink } from '@apollo/client';
+import { HttpLink } from '@apollo/client';
 import {
   ApolloNextAppProvider,
   ApolloClient,
   InMemoryCache,
   SSRMultipartLink,
-} from '@apollo/client-integration-nextjs';
+} from '@apollo/experimental-nextjs-app-support';
+import { ApolloLink } from '@apollo/client/core';
 import { ReactNode } from 'react';
 
 // Re-export Apollo Client hooks for convenience
-// These work fine in Client Components
-// React hooks are in @apollo/client/react subpath in Apollo Client v4
 export {
   useQuery,
   useMutation,
   useLazyQuery,
   useSubscription,
   useSuspenseQuery,
-} from '@apollo/client/react';
+} from '@apollo/client';
 
-// gql and types are in the core package
+// gql and types are in the core package  
 export { gql, type ApolloQueryResult, ApolloError } from '@apollo/client/core';
 
-// Function to create Apollo Client instance for Next.js 14 App Router (Client Components/SSR)
+// Function to create Apollo Client instance for Next.js 16 App Router
 function makeClient() {
   const httpLink = new HttpLink({
     uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
@@ -61,10 +60,13 @@ function makeClient() {
             httpLink,
           ])
         : httpLink,
+    devtools: {
+      enabled: typeof window !== 'undefined' && process.env.NODE_ENV === 'development',
+    },
   });
 }
 
-// ApolloProvider wrapper component for Next.js 14 App Router (Client Components/SSR)
+// ApolloProvider wrapper component for Next.js 16 App Router
 export function ApolloProvider({ children }: { children: ReactNode }) {
   return (
     <ApolloNextAppProvider makeClient={makeClient}>

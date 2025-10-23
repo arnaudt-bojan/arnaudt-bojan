@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@/lib/apollo-client';
+import { useQuery } from '@apollo/client';
 import { GET_ORDER } from '@/lib/graphql/queries/orders';
-// TODO: Backend schema gaps - these mutations don't exist yet
-// import { CANCEL_ORDER, REORDER_ITEMS } from '@/lib/graphql/mutations/orders';
 import { GetOrderQuery } from '@/lib/generated/graphql';
 import {
   Container,
@@ -37,7 +35,7 @@ import {
   useTheme,
   Skeleton,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
+import Grid2 from '@mui/material/Grid2';
 import {
   ArrowBack as ArrowBackIcon,
   LocalShipping as LocalShippingIcon,
@@ -48,7 +46,7 @@ import {
   LocationOn as LocationOnIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -81,70 +79,44 @@ const getActiveStep = (status: string, fulfillmentStatus?: string) => {
   return 0;
 };
 
-export default function BuyerOrderDetailsPage({ params }: { params: { id: string } }) {
+export default function BuyerOrderDetailsPage() {
   const router = useRouter();
+  const params = useParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  const id = params?.id as string;
+
   const { loading, error, data, refetch: _refetch } = useQuery<GetOrderQuery>(GET_ORDER, {
-    variables: { id: params.id },
+    variables: { id },
     fetchPolicy: 'network-only',
+    skip: !id,
   });
 
-  // TODO: Backend schema gaps - these mutations don't exist yet
-  // const [cancelOrder, { loading: cancelLoading }] = useMutation(CANCEL_ORDER, {
-  //   onCompleted: () => {
-  //     setSnackbarMessage('Order cancelled successfully');
-  //     setSnackbarOpen(true);
-  //     setCancelDialogOpen(false);
-  //     refetch();
-  //   },
-  //   onError: (err) => {
-  //     setSnackbarMessage(`Failed to cancel order: ${err.message}`);
-  //     setSnackbarOpen(true);
-  //   },
-  // });
   const cancelLoading = false;
-
-  // const [reorderItems, { loading: reorderLoading }] = useMutation(REORDER_ITEMS, {
-  //   onCompleted: () => {
-  //     setSnackbarMessage('Items added to cart successfully');
-  //     setSnackbarOpen(true);
-  //     router.push('/cart');
-  //   },
-  //   onError: (err) => {
-  //     setSnackbarMessage(`Failed to reorder: ${err.message}`);
-  //     setSnackbarOpen(true);
-  //   },
-  // });
   const reorderLoading = false;
 
   const order = data?.getOrder || null;
 
-  // TODO: Backend schema gaps - implement these handlers after backend is ready
   const handleCancelOrder = () => {
-    // cancelOrder({ variables: { id: params.id } });
     setSnackbarMessage('Cancel order feature coming soon - backend implementation needed');
     setSnackbarOpen(true);
   };
 
   const handleReorder = () => {
-    // reorderItems({ variables: { orderId: params.id } });
     setSnackbarMessage('Reorder feature coming soon - backend implementation needed');
     setSnackbarOpen(true);
   };
 
   const handleDownloadInvoice = () => {
-    // This would typically generate and download a PDF invoice
     setSnackbarMessage('Invoice download feature coming soon');
     setSnackbarOpen(true);
   };
 
   const handleContactSupport = () => {
-    // This would typically open a support dialog or redirect to support page
     window.location.href = `mailto:support@example.com?subject=Order Support - ${order?.orderNumber}`;
   };
 
@@ -152,14 +124,14 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Skeleton variant="rectangular" width={120} height={40} sx={{ mb: 3 }} />
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12 }}>
+        <Grid2 container spacing={3}>
+          <Grid2 size={{ xs: 12 }}>
             <Skeleton variant="rectangular" width="100%" height={200} />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
+          </Grid2>
+          <Grid2 size={{ xs: 12 }}>
             <Skeleton variant="rectangular" width="100%" height={400} />
-          </Grid>
-        </Grid>
+          </Grid2>
+        </Grid2>
       </Container>
     );
   }
@@ -202,9 +174,9 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
         Back to Orders
       </Button>
 
-      <Grid container spacing={3}>
+      <Grid2 container spacing={3}>
         {/* Order Header */}
-        <Grid size={{ xs: 12 }}>
+        <Grid2 size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', gap: 2, mb: 3 }}>
@@ -253,204 +225,17 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                 </Box>
               )}
 
-              {activeStep === -1 && (
-                <Alert severity="error" sx={{ mb: 3 }}>
-                  This order has been cancelled
-                </Alert>
-              )}
-
-              {/* Tracking Information */}
-              {order.trackingNumber && (
-                <Box sx={{ mt: 3 }}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <LocalShippingIcon color="primary" />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            Tracking Information
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" data-testid="text-tracking-number">
-                            {order.carrier && `${order.carrier}: `}
-                            {order.trackingNumber}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Order Items */}
-        <Grid size={{ xs: 12 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight="600" gutterBottom>
-                Order Items
-              </Typography>
-              <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }} data-testid="table-order-items">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Product</TableCell>
-                      <TableCell align="center">Quantity</TableCell>
-                      <TableCell align="right">Price</TableCell>
-                      <TableCell align="right">Subtotal</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {order.items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            {item.product?.images?.[0] && (
-                              <Box
-                                component="img"
-                                src={item.product.images[0]}
-                                alt={item.productName}
-                                sx={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 1 }}
-                              />
-                            )}
-                            <Box>
-                              <Typography variant="body2" fontWeight="500">
-                                {item.productName}
-                              </Typography>
-                              {item.variantId && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Variant: {item.variantId}
-                                </Typography>
-                              )}
-                            </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center">{item.quantity}</TableCell>
-                        <TableCell align="right">
-                          ${parseFloat(item.unitPrice as string).toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right">
-                          ${parseFloat(item.lineTotal as string).toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Divider sx={{ my: 3 }} />
-
-              {/* Order Totals */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: { xs: '100%', sm: 300 } }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Subtotal:
-                  </Typography>
-                  <Typography variant="body2" data-testid="text-order-subtotal">
-                    ${parseFloat(order.subtotal as string).toFixed(2)}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: { xs: '100%', sm: 300 } }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Shipping:
-                  </Typography>
-                  <Typography variant="body2" data-testid="text-order-shipping">
-                    ${parseFloat(order.shippingCost as string).toFixed(2)}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: { xs: '100%', sm: 300 } }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Tax:
-                  </Typography>
-                  <Typography variant="body2" data-testid="text-order-tax">
-                    ${parseFloat(order.taxAmount as string).toFixed(2)}
-                  </Typography>
-                </Box>
-                <Divider sx={{ width: { xs: '100%', sm: 300 }, my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: { xs: '100%', sm: 300 } }}>
-                  <Typography variant="h6" fontWeight="600">
-                    Total:
-                  </Typography>
-                  <Typography variant="h6" fontWeight="600" data-testid="text-order-total">
-                    ${parseFloat(order.totalAmount as string).toFixed(2)} {order.currency}
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Shipping Address & Payment Info */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <LocationOnIcon color="primary" />
-                <Typography variant="h6" fontWeight="600">
-                  Shipping Address
-                </Typography>
-              </Box>
-              {order.shippingAddress ? (
-                <Box data-testid="text-shipping-address">
-                  <Typography variant="body2">{order.shippingAddress.fullName}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {order.shippingAddress.addressLine1}
-                  </Typography>
-                  {order.shippingAddress.addressLine2 && (
-                    <Typography variant="body2" color="text.secondary">
-                      {order.shippingAddress.addressLine2}
-                    </Typography>
-                  )}
-                  <Typography variant="body2" color="text.secondary">
-                    {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {order.shippingAddress.country}
-                  </Typography>
-                  {order.shippingAddress.phone && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Phone: {order.shippingAddress.phone}
-                    </Typography>
-                  )}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No shipping address provided
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <PaymentIcon color="primary" />
-                <Typography variant="h6" fontWeight="600">
-                  Payment Information
-                </Typography>
-              </Box>
-              <Box data-testid="text-payment-method">
-                <Typography variant="body2" color="text.secondary">
-                  Payment Status:{' '}
-                  <Chip
-                    label={order.paymentStatus.replace(/_/g, ' ')}
-                    size="small"
-                    color={getStatusColor(order.paymentStatus)}
-                  />
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Action Buttons */}
-        <Grid size={{ xs: 12 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {/* Action Buttons */}
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                {order.trackingNumber && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<LocalShippingIcon />}
+                    data-testid="button-track-shipment"
+                  >
+                    Track Shipment
+                  </Button>
+                )}
                 <Button
                   variant="outlined"
                   startIcon={<DownloadIcon />}
@@ -466,7 +251,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
                   disabled={reorderLoading}
                   data-testid="button-reorder"
                 >
-                  Reorder
+                  Reorder Items
                 </Button>
                 {canCancelOrder && (
                   <Button
@@ -490,8 +275,138 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Grid2>
+
+        {/* Order Items */}
+        <Grid2 size={{ xs: 12, md: 8 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Order Items
+              </Typography>
+              <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Product</TableCell>
+                      <TableCell align="right">Quantity</TableCell>
+                      <TableCell align="right">Price</TableCell>
+                      <TableCell align="right">Subtotal</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {order.items?.map((item: any, index: number) => (
+                      <TableRow key={index} data-testid={`row-order-item-${index}`}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            {item.product?.image && (
+                              <Box
+                                component="img"
+                                src={item.product.image}
+                                alt={item.product.name}
+                                sx={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 1 }}
+                              />
+                            )}
+                            <Box>
+                              <Typography variant="body2" fontWeight="600">
+                                {item.product?.name || 'Product'}
+                              </Typography>
+                              {item.variantName && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {item.variantName}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell align="right">${parseFloat(item.price || '0').toFixed(2)}</TableCell>
+                        <TableCell align="right">
+                          ${(parseFloat(item.price || '0') * item.quantity).toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
+        </Grid2>
+
+        {/* Order Summary */}
+        <Grid2 size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Order Summary
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Subtotal
+                  </Typography>
+                  <Typography variant="body2" fontWeight="600">
+                    ${parseFloat(order.subtotal || order.totalAmount || '0').toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Shipping
+                  </Typography>
+                  <Typography variant="body2" fontWeight="600">
+                    ${parseFloat(order.shippingCost || '0').toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Tax
+                  </Typography>
+                  <Typography variant="body2" fontWeight="600">
+                    ${parseFloat(order.taxAmount || '0').toFixed(2)}
+                  </Typography>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="h6">Total</Typography>
+                  <Typography variant="h6" fontWeight="700" data-testid="text-order-total">
+                    ${parseFloat(order.totalAmount || '0').toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+
+              {/* Shipping Address */}
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <LocationOnIcon fontSize="small" color="action" />
+                  <Typography variant="subtitle2" fontWeight="600">
+                    Shipping Address
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" data-testid="text-shipping-address">
+                  {order.shippingAddress?.street}<br />
+                  {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.postalCode}<br />
+                  {order.shippingAddress?.country}
+                </Typography>
+              </Box>
+
+              {/* Payment Method */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <PaymentIcon fontSize="small" color="action" />
+                  <Typography variant="subtitle2" fontWeight="600">
+                    Payment Method
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" data-testid="text-payment-method">
+                  {order.paymentMethod || 'Credit Card'}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid2>
+      </Grid2>
 
       {/* Cancel Order Dialog */}
       <Dialog
@@ -505,7 +420,7 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>
+          <Button onClick={() => setCancelDialogOpen(false)} data-testid="button-cancel-dialog-close">
             No, Keep Order
           </Button>
           <Button
@@ -513,8 +428,9 @@ export default function BuyerOrderDetailsPage({ params }: { params: { id: string
             color="error"
             variant="contained"
             disabled={cancelLoading}
+            data-testid="button-confirm-cancel"
           >
-            {cancelLoading ? <CircularProgress size={24} /> : 'Yes, Cancel Order'}
+            Yes, Cancel Order
           </Button>
         </DialogActions>
       </Dialog>

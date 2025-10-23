@@ -121,7 +121,6 @@ export default function CheckoutPage() {
   // GraphQL Mutation
   const [createOrder, { loading: creatingOrder }] = useMutation<CreateOrderMutation>(CREATE_ORDER, {
     onCompleted: (data) => {
-      // Redirect to checkout complete page
       router.push(`/checkout/complete?orderId=${data.createOrder.id}`);
     },
     onError: (error) => {
@@ -193,8 +192,6 @@ export default function CheckoutPage() {
             billingAddress,
             customerEmail: formData.customerEmail,
             customerName: formData.shippingName,
-            // In real implementation, paymentIntentId would come from Stripe
-            // paymentIntentId: 'pi_xxx',
           },
         },
       });
@@ -429,7 +426,7 @@ export default function CheckoutPage() {
                           type="email"
                           error={!!errors.customerEmail}
                           helperText={errors.customerEmail?.message}
-                          inputProps={{ 'data-testid': 'input-email' }}
+                          inputProps={{ 'data-testid': 'input-customer-email' }}
                         />
                       )}
                     />
@@ -454,13 +451,7 @@ export default function CheckoutPage() {
                   control={control}
                   render={({ field }) => (
                     <FormControlLabel
-                      control={
-                        <Checkbox
-                          {...field}
-                          checked={field.value}
-                          data-testid="checkbox-same-as-shipping"
-                        />
-                      }
+                      control={<Checkbox {...field} checked={field.value} data-testid="checkbox-billing-same-as-shipping" />}
                       label="Same as shipping address"
                     />
                   )}
@@ -479,6 +470,7 @@ export default function CheckoutPage() {
                             label="Full Name"
                             error={!!errors.billingName}
                             helperText={errors.billingName?.message}
+                            inputProps={{ 'data-testid': 'input-billing-name' }}
                           />
                         )}
                       />
@@ -494,6 +486,7 @@ export default function CheckoutPage() {
                             label="Street Address"
                             error={!!errors.billingAddress}
                             helperText={errors.billingAddress?.message}
+                            inputProps={{ 'data-testid': 'input-billing-address' }}
                           />
                         )}
                       />
@@ -509,6 +502,7 @@ export default function CheckoutPage() {
                             label="City"
                             error={!!errors.billingCity}
                             helperText={errors.billingCity?.message}
+                            inputProps={{ 'data-testid': 'input-billing-city' }}
                           />
                         )}
                       />
@@ -520,7 +514,11 @@ export default function CheckoutPage() {
                         render={({ field }) => (
                           <FormControl fullWidth error={!!errors.billingState}>
                             <InputLabel>State</InputLabel>
-                            <Select {...field} label="State">
+                            <Select
+                              {...field}
+                              label="State"
+                              inputProps={{ 'data-testid': 'input-billing-state' }}
+                            >
                               {US_STATES.map((state) => (
                                 <MenuItem key={state} value={state}>
                                   {state}
@@ -545,6 +543,7 @@ export default function CheckoutPage() {
                             label="ZIP Code"
                             error={!!errors.billingZip}
                             helperText={errors.billingZip?.message}
+                            inputProps={{ 'data-testid': 'input-billing-zip' }}
                           />
                         )}
                       />
@@ -595,10 +594,10 @@ export default function CheckoutPage() {
                       <Select
                         {...field}
                         label="Payment Method"
-                        inputProps={{ 'data-testid': 'select-payment-method' }}
+                        inputProps={{ 'data-testid': 'input-payment-method' }}
                       >
-                        <MenuItem value="stripe">Credit Card (Stripe)</MenuItem>
-                        <MenuItem value="paypal">PayPal</MenuItem>
+                        <MenuItem value="stripe">Credit/Debit Card (Stripe)</MenuItem>
+                        <MenuItem value="paypal" disabled>PayPal (Coming Soon)</MenuItem>
                       </Select>
                       {errors.paymentMethod && (
                         <FormHelperText>{errors.paymentMethod.message}</FormHelperText>
@@ -606,10 +605,9 @@ export default function CheckoutPage() {
                     </FormControl>
                   )}
                 />
-
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  Your payment information is secure and encrypted. Powered by Stripe.
-                </Alert>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                  Your payment information is secure and encrypted.
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -619,19 +617,13 @@ export default function CheckoutPage() {
             <Card sx={{ position: { md: 'sticky' }, top: { md: 24 } }}>
               <CardHeader title="Order Summary" />
               <CardContent>
-                {/* Cart Items */}
+                {/* Items List */}
                 <Box sx={{ mb: 3 }}>
                   {items.map((item) => (
                     <Box
                       key={item.productId}
-                      sx={{
-                        display: 'flex',
-                        gap: 2,
-                        mb: 2,
-                        pb: 2,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                      }}
+                      sx={{ display: 'flex', gap: 2, mb: 2 }}
+                      data-testid={`order-item-${item.productId}`}
                     >
                       <Avatar
                         src={item.product?.images?.[0]}
@@ -659,14 +651,20 @@ export default function CheckoutPage() {
                 {/* Totals */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Subtotal</Typography>
-                  <Typography variant="body2" fontWeight="medium">
+                  <Typography variant="body2" fontWeight="medium" data-testid="text-order-subtotal">
                     ${parseFloat(totals.subtotal.toString()).toFixed(2)}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Tax</Typography>
-                  <Typography variant="body2" fontWeight="medium">
+                  <Typography variant="body2" fontWeight="medium" data-testid="text-order-tax">
                     ${parseFloat(totals.tax.toString()).toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2">Shipping</Typography>
+                  <Typography variant="body2" fontWeight="medium">
+                    FREE
                   </Typography>
                 </Box>
 
@@ -692,20 +690,15 @@ export default function CheckoutPage() {
                   fullWidth
                   variant="contained"
                   size="large"
+                  startIcon={creatingOrder ? <CircularProgress size={20} color="inherit" /> : <CheckCircle />}
                   disabled={creatingOrder}
                   data-testid="button-place-order"
-                  sx={{ py: 1.5 }}
-                  startIcon={creatingOrder ? <CircularProgress size={20} /> : <CheckCircle />}
                 >
                   {creatingOrder ? 'Processing...' : 'Place Order'}
                 </Button>
 
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: 'block', mt: 2, textAlign: 'center' }}
-                >
-                  By placing this order, you agree to our terms and conditions.
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2, textAlign: 'center' }}>
+                  By placing your order, you agree to our terms and conditions.
                 </Typography>
               </CardContent>
             </Card>

@@ -91,7 +91,6 @@ export default function LoginPage() {
 
       setSuccess('Login successful! Redirecting...');
       
-      // Redirect to dashboard after successful login
       setTimeout(() => {
         router.push('/dashboard');
       }, 500);
@@ -132,7 +131,6 @@ export default function LoginPage() {
               </Typography>
             </Box>
 
-            {/* User Type Toggle */}
             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
               <ToggleButtonGroup
                 value={userType}
@@ -156,21 +154,18 @@ export default function LoginPage() {
               </ToggleButtonGroup>
             </Box>
 
-            {/* Error Alert */}
             {error && (
               <Alert severity="error" sx={{ mb: 3 }} data-testid="alert-error">
                 {error}
               </Alert>
             )}
 
-            {/* Success Alert */}
             {success && (
               <Alert severity="success" sx={{ mb: 3 }} data-testid="alert-success">
                 {success}
               </Alert>
             )}
 
-            {/* Step 1: Email Input */}
             {step === 'email' && (
               <form onSubmit={handleSendCode}>
                 <Box sx={{ mb: 3 }}>
@@ -215,7 +210,6 @@ export default function LoginPage() {
               </form>
             )}
 
-            {/* Step 2: Code Verification */}
             {step === 'code' && (
               <form onSubmit={handleVerifyCode}>
                 <Box sx={{ mb: 3 }}>
@@ -276,7 +270,6 @@ export default function LoginPage() {
               </form>
             )}
 
-            {/* Test Credentials Hint (Development Only) */}
             {process.env.NODE_ENV === 'development' && step === 'email' && (
               <Box sx={{ mt: 4, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>

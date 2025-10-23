@@ -100,7 +100,6 @@ export default function CartPage() {
   };
 
   const handleApplyCoupon = () => {
-    // Placeholder for coupon functionality
     alert(`Applying coupon: ${couponCode}`);
   };
 
@@ -410,13 +409,12 @@ export default function CartPage() {
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
                 data-testid="input-coupon-code"
-                sx={{ mb: 1 }}
               />
               <Button
                 fullWidth
                 variant="outlined"
                 onClick={handleApplyCoupon}
-                disabled={!couponCode}
+                sx={{ mt: 1 }}
                 data-testid="button-apply-coupon"
               >
                 Apply Coupon
@@ -429,16 +427,18 @@ export default function CartPage() {
               variant="contained"
               size="large"
               onClick={handleCheckout}
-              data-testid="button-checkout"
-              sx={{ py: 1.5 }}
+              disabled={isEmpty}
+              data-testid="button-proceed-checkout"
             >
               Proceed to Checkout
             </Button>
 
-            {/* Security Notice */}
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2, textAlign: 'center' }}>
-              Secure checkout powered by Stripe
-            </Typography>
+            {/* Payment Methods */}
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary">
+                Secure checkout powered by Stripe
+              </Typography>
+            </Box>
           </Paper>
         </Grid>
       </Grid>

@@ -291,4 +291,3 @@ export const REMOVE_FROM_WHOLESALE_CART = gql`
     }
   }
 `;
-

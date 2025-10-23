@@ -35,7 +35,6 @@ import {
 import Link from 'next/link';
 import { format } from 'date-fns';
 
-// Status color mapping
 const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   const statusMap: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
     PENDING: 'warning',
@@ -62,7 +61,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
   const theme = useTheme();
   const _isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // GraphQL Query (aliasing the result as 'order')
   const { data, loading, error } = useQuery<GetOrderQuery>(GET_ORDER, {
     variables: { id: params.orderId },
     fetchPolicy: 'network-only',
@@ -70,7 +68,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
   
   const order = data?.getOrder;
 
-  // Loading state
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -87,7 +84,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
     );
   }
 
-  // Error state
   if (error || !order) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -103,7 +99,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <CheckCircle sx={{ fontSize: 48, color: 'success.main' }} />
@@ -119,9 +114,7 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
       </Box>
 
       <Grid container spacing={3}>
-        {/* Left Column: Order Details */}
         <Grid size={{ xs: 12, md: 8 }}>
-          {/* Order Info Card */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -170,7 +163,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
             </CardContent>
           </Card>
 
-          {/* Order Items */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -214,7 +206,6 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
             </CardContent>
           </Card>
 
-          {/* Shipping Address */}
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -251,89 +242,117 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
                   <Typography variant="caption" color="text.secondary">
                     Tracking Number
                   </Typography>
-                  <Typography variant="body2" fontWeight="medium" data-testid="text-tracking-number">
+                  <Typography variant="body2" fontFamily="monospace" fontWeight="medium">
                     {order.trackingNumber}
                   </Typography>
+                  {order.carrier && (
+                    <Typography variant="caption" color="text.secondary">
+                      Carrier: {order.carrier}
+                    </Typography>
+                  )}
                 </Box>
               )}
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Right Column: Order Summary */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ position: { md: 'sticky' }, top: { md: 24 } }}>
+          <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Order Summary
               </Typography>
+              <Divider sx={{ mb: 2 }} />
 
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2">Subtotal</Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  ${parseFloat(order.subtotal).toFixed(2)}
-                </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Subtotal</Typography>
+                  <Typography variant="body2" fontWeight="medium">
+                    ${parseFloat(String(order.subtotal)).toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Shipping</Typography>
+                  <Typography variant="body2" fontWeight="medium">
+                    ${parseFloat(String(order.shippingCost)).toFixed(2)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Tax</Typography>
+                  <Typography variant="body2" fontWeight="medium">
+                    ${parseFloat(String(order.taxAmount)).toFixed(2)}
+                  </Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="h6">Total</Typography>
+                  <Typography variant="h6" color="primary" data-testid="text-total-amount">
+                    ${parseFloat(String(order.totalAmount)).toFixed(2)} {order.currency}
+                  </Typography>
+                </Box>
               </Box>
+            </CardContent>
+          </Card>
 
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2">Shipping</Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  ${parseFloat(order.shippingCost).toFixed(2)}
-                </Typography>
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Customer Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {(order.customerEmail || order.buyer?.email) && (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Email sx={{ fontSize: 20, color: 'text.secondary' }} />
+                    <Typography variant="body2" data-testid="text-customer-email">
+                      {order.customerEmail || order.buyer?.email}
+                    </Typography>
+                  </Box>
+                )}
+                {order.customerPhone && (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Phone sx={{ fontSize: 20, color: 'text.secondary' }} />
+                    <Typography variant="body2" data-testid="text-customer-phone">
+                      {order.customerPhone}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
+            </CardContent>
+          </Card>
 
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="body2">Tax</Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  ${parseFloat(order.taxAmount).toFixed(2)}
-                </Typography>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h6">Total</Typography>
-                <Typography variant="h6" fontWeight="bold" data-testid="text-order-total">
-                  ${parseFloat(order.totalAmount).toFixed(2)}
-                </Typography>
-              </Box>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Next Steps
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<Download />}
-                  data-testid="button-download-invoice"
-                >
-                  Download Invoice
-                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  We&apos;ve sent a confirmation email to your inbox. You&apos;ll receive shipping updates as your order is processed.
+                </Typography>
 
                 <Button
                   variant="outlined"
+                  startIcon={<Download />}
                   fullWidth
+                  data-testid="button-download-receipt"
+                >
+                  Download Receipt
+                </Button>
+
+                <Button
+                  variant="contained"
                   startIcon={<Home />}
+                  fullWidth
                   component={Link}
                   href="/"
+                  data-testid="button-continue-shopping"
                 >
                   Continue Shopping
                 </Button>
-              </Box>
-
-              {/* Contact Info */}
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                  Need Help?
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                  <Email sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  <Typography variant="body2">support@example.com</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Phone sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  <Typography variant="body2">1-800-123-4567</Typography>
-                </Box>
               </Box>
             </CardContent>
           </Card>

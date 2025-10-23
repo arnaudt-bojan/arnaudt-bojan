@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@/lib/apollo-client';
-// TODO: Backend schema gap - this query doesn't exist yet
-// import { GET_SELLER_BY_USERNAME } from '@/lib/graphql/queries/wholesale';
+import { useQuery, useMutation } from '@apollo/client';
 import { LIST_PRODUCTS } from '@/lib/graphql/queries/products';
 import { ADD_TO_CART } from '@/lib/graphql/mutations/cart';
+import { GET_SELLER_BY_USERNAME } from '@/lib/graphql/queries/wholesale';
 import {
   Container,
   Box,
@@ -32,13 +31,14 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
+import Grid2 from '@mui/material/Grid2';
 import {
   Search,
   ShoppingCart,
   FilterList,
   Store,
 } from '@mui/icons-material';
+import { useParams } from 'next/navigation';
 
 interface SellerStorefrontPageProps {
   params: {
@@ -46,12 +46,12 @@ interface SellerStorefrontPageProps {
   };
 }
 
-export default function SellerStorefrontPage({ params }: SellerStorefrontPageProps) {
+export default function SellerStorefrontPage(_props: SellerStorefrontPageProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { username } = params;
+  const params = useParams();
+  const username = params?.username as string;
 
-  // State management
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -60,26 +60,33 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
 
   const productsPerPage = 12;
 
-  // TODO: Backend schema gap - comment out until backend implements GET_SELLER_BY_USERNAME
-  // const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery<GetSellerData>(GET_SELLER_BY_USERNAME, {
-  //   variables: { username },
-  // });
-  interface SellerData {
-    id: string;
-    username: string;
-    storeName?: string;
-    displayName?: string;
-    description?: string;
-    logo?: string;
-    banner?: string;
+  interface GetSellerByUsernameData {
+    getSellerByUsername: {
+      id: string;
+      username: string;
+      email: string;
+      fullName?: string;
+      sellerAccount?: {
+        id: string;
+        businessName?: string;
+        storeName?: string;
+        storeSlug?: string;
+        logoUrl?: string;
+        brandColor?: string;
+      };
+    };
   }
 
-  const sellerLoading = false;
-  const sellerError = null;
-  const sellerData: { getSellerByUsername?: SellerData } = {};
+  const { data: sellerData, loading: sellerLoading, error: sellerError } = useQuery<GetSellerByUsernameData>(
+    GET_SELLER_BY_USERNAME,
+    {
+      variables: { username },
+      skip: !username,
+    }
+  );
 
   const seller = sellerData?.getSellerByUsername;
-  const sellerId = seller?.id || 'placeholder-seller-id'; // Fallback for development
+  const sellerId = seller?.id;
 
   interface ProductNode {
     id: string;
@@ -104,8 +111,6 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     };
   }
 
-  // Fetch products
-  // Note: This query might not exist yet in the backend
   const { data: productsData, loading: productsLoading, error: productsError } = useQuery<ListProductsData>(LIST_PRODUCTS, {
     variables: {
       sellerId,
@@ -115,7 +120,7 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
       first: productsPerPage,
       after: page > 1 ? `cursor-${(page - 1) * productsPerPage}` : undefined,
     },
-    skip: !sellerId || sellerId === 'placeholder-seller-id', // Skip if no valid seller
+    skip: !sellerId,
   });
 
   const products = productsData?.listProducts?.edges?.map((edge) => edge.node) || [];
@@ -123,7 +128,6 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
   const totalCount = productsData?.listProducts?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / productsPerPage);
 
-  // Add to cart mutation
   const [addToCart, { loading: addingToCart }] = useMutation(ADD_TO_CART, {
     onCompleted: () => {
       setSnackbar({
@@ -141,7 +145,6 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     },
   });
 
-  // Extract unique categories from products
   const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
 
   const handleAddToCart = async (productId: string) => {
@@ -159,17 +162,17 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(event.target.value);
-    setPage(1); // Reset to first page on search
+    setPage(1);
   };
 
   const handleCategoryChange = (event: SelectChangeEvent) => {
     setCategory(event.target.value);
-    setPage(1); // Reset to first page on filter
+    setPage(1);
   };
 
   const handleSortChange = (event: SelectChangeEvent) => {
     setSortBy(event.target.value);
-    setPage(1); // Reset to first page on sort
+    setPage(1);
   };
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
@@ -181,7 +184,6 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
     return `$${parseFloat(price.toString()).toFixed(2)}`;
   };
 
-  // Loading state
   if (sellerLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -189,21 +191,20 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
           <Skeleton variant="rectangular" height={200} />
           <Skeleton variant="text" width="60%" height={40} />
           <Skeleton variant="text" width="40%" />
-          <Grid container spacing={3} sx={{ mt: 2 }}>
+          <Grid2 container spacing={3} sx={{ mt: 2 }}>
             {[...Array(6)].map((_, i) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
+              <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
                 <Skeleton variant="rectangular" height={250} />
                 <Skeleton variant="text" sx={{ mt: 1 }} />
                 <Skeleton variant="text" width="60%" />
-              </Grid>
+              </Grid2>
             ))}
-          </Grid>
+          </Grid2>
         </Box>
       </Container>
     );
   }
 
-  // Error or seller not found
   if (sellerError || !seller) {
     return (
       <Container maxWidth="md" sx={{ py: 8 }}>
@@ -215,24 +216,24 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
           <Typography variant="body1" color="text.secondary" paragraph>
             The store &quot;@{username}&quot; could not be found or is not currently active.
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Note: GraphQL endpoint &quot;getSellerByUsername&quot; may not be implemented yet.
-            This is a placeholder for development.
-          </Typography>
         </Paper>
       </Container>
     );
   }
 
+  const storeName = seller?.sellerAccount?.storeName || seller?.username;
+  const businessName = seller?.sellerAccount?.businessName;
+  const logoUrl = seller?.sellerAccount?.logoUrl;
+  const brandColor = seller?.sellerAccount?.brandColor;
+
   return (
     <>
-      {/* Seller Banner */}
-      {seller.banner && (
+      {brandColor && (
         <Box
           sx={{
             width: '100%',
             height: { xs: 200, md: 300 },
-            backgroundImage: `url(${seller.banner})`,
+            backgroundImage: `url(${brandColor})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             position: 'relative',
@@ -241,7 +242,6 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
         />
       )}
 
-      {/* Seller Header */}
       <Box
         sx={{
           bgcolor: 'background.paper',
@@ -252,21 +252,21 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
       >
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            {seller.logo && (
+            {logoUrl && (
               <Avatar
-                src={seller.logo}
-                alt={seller.storeName || seller.displayName}
+                src={logoUrl}
+                alt={storeName || seller.fullName}
                 sx={{ width: { xs: 64, md: 96 }, height: { xs: 64, md: 96 } }}
                 data-testid="img-seller-logo"
               />
             )}
             <Box>
               <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" data-testid="text-store-name">
-                {seller.storeName || seller.displayName}
+                {storeName || seller.fullName}
               </Typography>
-              {seller.description && (
+              {businessName && (
                 <Typography variant="body1" color="text.secondary" data-testid="text-store-description">
-                  {seller.description}
+                  {businessName}
                 </Typography>
               )}
               <Chip label={`@${username}`} size="small" sx={{ mt: 1 }} />
@@ -275,13 +275,10 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
         </Container>
       </Box>
 
-      {/* Products Section */}
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Filters and Search Bar */}
         <Box sx={{ mb: 4 }}>
-          <Grid container spacing={2} alignItems="center">
-            {/* Search */}
-            <Grid size={{ xs: 12, md: 4 }}>
+          <Grid2 container spacing={2} alignItems="center">
+            <Grid2 size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
                 placeholder="Search products..."
@@ -294,103 +291,92 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
                     </InputAdornment>
                   ),
                 }}
-                data-testid="input-search-products"
+                data-testid="input-search"
               />
-            </Grid>
+            </Grid2>
 
-            {/* Category Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={category}
                   onChange={handleCategoryChange}
                   label="Category"
-                  data-testid="select-category-filter"
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <FilterList />
+                    </InputAdornment>
+                  }
+                  data-testid="select-category"
                 >
                   <MenuItem value="">All Categories</MenuItem>
                   {categories.map((cat) => (
-                    <MenuItem key={String(cat)} value={String(cat)}>
-                      {String(cat)}
+                    <MenuItem key={cat} value={cat}>
+                      {cat}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid2>
 
-            {/* Sort */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Grid2 size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth>
                 <InputLabel>Sort By</InputLabel>
                 <Select
                   value={sortBy}
                   onChange={handleSortChange}
                   label="Sort By"
-                  data-testid="select-sort-products"
+                  data-testid="select-sort"
                 >
                   <MenuItem value="newest">Newest First</MenuItem>
                   <MenuItem value="price-low">Price: Low to High</MenuItem>
                   <MenuItem value="price-high">Price: High to Low</MenuItem>
-                  <MenuItem value="name-asc">Name: A-Z</MenuItem>
-                  <MenuItem value="name-desc">Name: Z-A</MenuItem>
-                  <MenuItem value="popular">Most Popular</MenuItem>
+                  <MenuItem value="name">Name: A to Z</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-
-            {/* Results Count */}
-            <Grid size={{ xs: 12, md: 2 }}>
-              <Typography variant="body2" color="text.secondary" textAlign={{ xs: 'left', md: 'right' }}>
-                {totalCount} {totalCount === 1 ? 'product' : 'products'}
-              </Typography>
-            </Grid>
-          </Grid>
+            </Grid2>
+          </Grid2>
         </Box>
 
-        {/* Products Grid or Loading/Error States */}
         {productsLoading ? (
-          <Grid container spacing={3}>
-            {[...Array(productsPerPage)].map((_, i) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
+          <Grid2 container spacing={3}>
+            {[...Array(8)].map((_, i) => (
+              <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={i}>
                 <Card>
                   <Skeleton variant="rectangular" height={250} />
                   <CardContent>
-                    <Skeleton variant="text" />
+                    <Skeleton variant="text" height={30} />
                     <Skeleton variant="text" width="60%" />
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid2>
             ))}
-          </Grid>
+          </Grid2>
         ) : productsError ? (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            GraphQL listProducts endpoint not yet implemented. This is a placeholder for development.
-            Error: {productsError.message}
+          <Alert severity="error" sx={{ mt: 3 }}>
+            Failed to load products. Please try again later.
           </Alert>
         ) : products.length === 0 ? (
           <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <FilterList sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              No Products Found
+            <Store sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              No products found
             </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {search || category
-                ? 'Try adjusting your search or filters'
-                : 'This store has no products available yet'}
+            <Typography variant="body2" color="text.secondary">
+              Try adjusting your search or filters
             </Typography>
           </Paper>
         ) : (
           <>
-            {/* Product Grid */}
-            <Grid container spacing={3}>
-              {products.map((product: ProductNode) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
+            <Grid2 container spacing={3}>
+              {products.map((product) => (
+                <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={product.id}>
                   <Card
                     sx={{
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
-                      transition: 'transform 0.3s, box-shadow 0.3s',
+                      transition: 'transform 0.2s',
                       '&:hover': {
                         transform: 'translateY(-4px)',
                         boxShadow: 4,
@@ -398,21 +384,25 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
                     }}
                     data-testid={`card-product-${product.id}`}
                   >
-                    {product.images && product.images.length > 0 && (
-                      <CardMedia
-                        component="img"
-                        height="250"
-                        image={product.images[0]}
-                        alt={product.name}
-                        sx={{ objectFit: 'cover' }}
-                      />
-                    )}
+                    <CardMedia
+                      component="img"
+                      height="250"
+                      image={product.images?.[0] || '/placeholder.png'}
+                      alt={product.name}
+                      sx={{ objectFit: 'cover' }}
+                    />
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Typography
                         variant="h6"
                         component="h3"
                         gutterBottom
-                        noWrap
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                        }}
                         data-testid={`text-product-name-${product.id}`}
                       >
                         {product.name}
@@ -433,21 +423,9 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
                           {product.description}
                         </Typography>
                       )}
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
-                        <Typography
-                          variant="h6"
-                          color="primary"
-                          fontWeight="bold"
-                          data-testid={`text-product-price-${product.id}`}
-                        >
-                          {formatPrice(product.price)}
-                        </Typography>
-                        {product.stock_quantity !== undefined && (
-                          <Typography variant="caption" color={product.stock_quantity > 0 ? 'success.main' : 'error.main'}>
-                            {product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : 'Out of stock'}
-                          </Typography>
-                        )}
-                      </Box>
+                      <Typography variant="h6" color="primary" fontWeight="bold" data-testid={`text-product-price-${product.id}`}>
+                        {formatPrice(product.price)}
+                      </Typography>
                     </CardContent>
                     <CardActions sx={{ p: 2, pt: 0 }}>
                       <Button
@@ -455,32 +433,26 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
                         variant="contained"
                         startIcon={<ShoppingCart />}
                         onClick={() => handleAddToCart(product.id)}
-                        disabled={addingToCart || (product.stock_quantity !== undefined && product.stock_quantity <= 0)}
+                        disabled={addingToCart}
                         data-testid={`button-add-to-cart-${product.id}`}
                       >
-                        {product.stock_quantity !== undefined && product.stock_quantity <= 0
-                          ? 'Out of Stock'
-                          : 'Add to Cart'}
+                        Add to Cart
                       </Button>
                     </CardActions>
                   </Card>
-                </Grid>
+                </Grid2>
               ))}
-            </Grid>
+            </Grid2>
 
-            {/* Pagination */}
             {totalPages > 1 && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                 <Pagination
                   count={totalPages}
                   page={page}
                   onChange={handlePageChange}
                   color="primary"
-                  size={isMobile ? 'small' : 'large'}
-                  showFirstButton
-                  showLastButton
+                  size={isMobile ? 'small' : 'medium'}
                   data-testid="pagination-products"
-                  siblingCount={isMobile ? 0 : 1}
                 />
               </Box>
             )}
@@ -488,32 +460,12 @@ export default function SellerStorefrontPage({ params }: SellerStorefrontPagePro
         )}
       </Container>
 
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-
-      {/* Footer */}
-      <Box sx={{ bgcolor: 'background.paper', py: 4, borderTop: 1, borderColor: 'divider', mt: 8 }}>
-        <Container maxWidth="lg">
-          <Box textAlign="center">
-            <Typography variant="body2" color="text.secondary">
-              © 2025 {seller.storeName || seller.displayName}. Powered by Upfirst.
-            </Typography>
-          </Box>
-        </Container>
-      </Box>
+        message={snackbar.message}
+      />
     </>
   );
 }

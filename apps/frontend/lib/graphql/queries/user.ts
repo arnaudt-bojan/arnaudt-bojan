@@ -8,6 +8,15 @@ export const GET_CURRENT_USER = gql`
       username
       fullName
       userType
+      sellerAccount {
+        id
+        storeName
+        storeSlug
+      }
+      buyerProfile {
+        id
+        companyName
+      }
     }
   }
 `;
