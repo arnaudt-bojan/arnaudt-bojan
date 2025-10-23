@@ -291,13 +291,13 @@ export default function BulkUploadPage() {
               Import products in bulk using CSV files
             </Typography>
           </Box>
-          <Button
-            component={Link}
-            href="/dashboard"
-            variant="outlined"
-          >
-            Back to Dashboard
-          </Button>
+          <Link href="/dashboard">
+            <Button
+              variant="outlined"
+            >
+              Back to Dashboard
+            </Button>
+          </Link>
         </Box>
 
         <Paper sx={{ p: 3, mb: 3 }}>

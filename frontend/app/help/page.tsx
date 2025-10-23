@@ -500,14 +500,14 @@ export default function HelpPage() {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
             Can&apos;t find the answer you&apos;re looking for? Reach out to our support team.
           </Typography>
-          <Button
-            component={Link}
-            href="/"
-            variant="text"
-            sx={{ mr: 2 }}
-          >
-            Back to Home
-          </Button>
+          <Link href="/">
+            <Button
+              variant="text"
+              sx={{ mr: 2 }}
+            >
+              Back to Home
+            </Button>
+          </Link>
           <Button
             variant="contained"
             href="mailto:support@upfirst.com"

@@ -105,27 +105,27 @@ function CheckoutCompleteContent() {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {orderId && (
-              <Button
-                variant="contained"
-                size="large"
-                startIcon={<ShoppingBag />}
-                component={Link}
-                href={`/order-success/${orderId}`}
-                data-testid="button-view-order"
-              >
-                View Order Details
-              </Button>
+              <Link href={`/order-success/${orderId}`}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<ShoppingBag />}
+                  data-testid="button-view-order"
+                >
+                  View Order Details
+                </Button>
+              </Link>
             )}
-            <Button
-              variant="outlined"
-              size="large"
-              startIcon={<Home />}
-              component={Link}
-              href="/"
-              data-testid="button-continue-shopping"
-            >
-              Continue Shopping
-            </Button>
+            <Link href="/">
+              <Button
+                variant="outlined"
+                size="large"
+                startIcon={<Home />}
+                data-testid="button-continue-shopping"
+              >
+                Continue Shopping
+              </Button>
+            </Link>
           </Box>
         </CardContent>
       </Card>

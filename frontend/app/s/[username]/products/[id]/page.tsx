@@ -120,15 +120,15 @@ export default function ProductDetailPage(_props: PageProps) {
         <Typography variant="h4" gutterBottom>
           Product not found
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<ArrowBack />}
-          component={Link}
-          href={`/s/${username}`}
-          sx={{ mt: 2 }}
-        >
-          Back to Storefront
-        </Button>
+        <Link href={`/s/${username}`}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBack />}
+            sx={{ mt: 2 }}
+          >
+            Back to Storefront
+          </Button>
+        </Link>
       </Container>
     );
   }
@@ -152,21 +152,23 @@ export default function ProductDetailPage(_props: PageProps) {
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
-      <Button
-        variant="text"
-        startIcon={<ArrowBack />}
-        component={Link}
-        href={`/s/${username}`}
-        sx={{ mb: 3 }}
-        data-testid="button-back"
-      >
-        Back to Storefront
-      </Button>
+      <Link href={`/s/${username}`}>
+        <Button
+          variant="text"
+          startIcon={<ArrowBack />}
+          sx={{ mb: 3 }}
+          data-testid="button-back"
+        >
+          Back to Storefront
+        </Button>
+      </Link>
 
       <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 4 }}>
-        <MuiLink component={Link} href={`/s/${username}`} underline="hover" color="inherit">
-          Home
-        </MuiLink>
+        <Link href={`/s/${username}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+          <MuiLink underline="hover" color="inherit" sx={{ cursor: 'pointer' }}>
+            Home
+          </MuiLink>
+        </Link>
         {product.category && (
           <MuiLink underline="hover" color="inherit">
             {product.category}

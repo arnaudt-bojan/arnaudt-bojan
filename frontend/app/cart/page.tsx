@@ -133,9 +133,11 @@ export default function CartPage() {
         <Alert severity="error" sx={{ mb: 4 }}>
           Error loading cart: {error.message}
         </Alert>
-        <Button variant="contained" component={Link} href="/">
-          Back to Shopping
-        </Button>
+        <Link href="/">
+          <Button variant="contained">
+            Back to Shopping
+          </Button>
+        </Link>
       </Container>
     );
   }
@@ -162,15 +164,15 @@ export default function CartPage() {
           <Typography variant="body1" color="text.secondary" paragraph>
             Add some products to get started!
           </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            component={Link}
-            href="/"
-            sx={{ mt: 2 }}
-          >
-            Continue Shopping
-          </Button>
+          <Link href="/">
+            <Button
+              variant="contained"
+              size="large"
+              sx={{ mt: 2 }}
+            >
+              Continue Shopping
+            </Button>
+          </Link>
         </Box>
       </Container>
     );
@@ -348,14 +350,14 @@ export default function CartPage() {
 
             {/* Continue Shopping */}
             <Box sx={{ mt: 3 }}>
-              <Button
-                variant="text"
-                startIcon={<ArrowBack />}
-                component={Link}
-                href="/"
-              >
-                Continue Shopping
-              </Button>
+              <Link href="/">
+                <Button
+                  variant="text"
+                  startIcon={<ArrowBack />}
+                >
+                  Continue Shopping
+                </Button>
+              </Link>
             </Box>
           </Paper>
         </Grid>

@@ -50,22 +50,22 @@ export default function HomePage() {
         </Paper>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-          <Button
-            component={Link}
-            href="/dashboard"
-            variant="contained"
-            size="large"
-          >
-            Go to Dashboard
-          </Button>
-          <Button
-            component={Link}
-            href="/products"
-            variant="outlined"
-            size="large"
-          >
-            View Products
-          </Button>
+          <Link href="/dashboard">
+            <Button
+              variant="contained"
+              size="large"
+            >
+              Go to Dashboard
+            </Button>
+          </Link>
+          <Link href="/products">
+            <Button
+              variant="outlined"
+              size="large"
+            >
+              View Products
+            </Button>
+          </Link>
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 4 }}>

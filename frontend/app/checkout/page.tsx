@@ -223,9 +223,11 @@ export default function CheckoutPage() {
         <Alert severity="error" sx={{ mb: 4 }}>
           Error loading cart: {cartError.message}
         </Alert>
-        <Button variant="contained" component={Link} href="/cart">
-          Back to Cart
-        </Button>
+        <Link href="/cart">
+          <Button variant="contained">
+            Back to Cart
+          </Button>
+        </Link>
       </Container>
     );
   }
@@ -246,9 +248,11 @@ export default function CheckoutPage() {
           <Typography variant="body1" color="text.secondary" paragraph>
             Add some products before checking out.
           </Typography>
-          <Button variant="contained" size="large" component={Link} href="/">
-            Continue Shopping
-          </Button>
+          <Link href="/">
+            <Button variant="contained" size="large">
+              Continue Shopping
+            </Button>
+          </Link>
         </Box>
       </Container>
     );
@@ -261,15 +265,15 @@ export default function CheckoutPage() {
         <Typography variant="h3" component="h1" gutterBottom>
           Checkout
         </Typography>
-        <Button
-          variant="text"
-          startIcon={<ArrowBack />}
-          component={Link}
-          href="/cart"
-          sx={{ mb: 2 }}
-        >
-          Back to Cart
-        </Button>
+        <Link href="/cart">
+          <Button
+            variant="text"
+            startIcon={<ArrowBack />}
+            sx={{ mb: 2 }}
+          >
+            Back to Cart
+          </Button>
+        </Link>
       </Box>
 
       <form onSubmit={handleSubmit(onSubmit)}>

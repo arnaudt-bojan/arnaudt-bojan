@@ -90,9 +90,11 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
         <Alert severity="error" sx={{ mb: 4 }}>
           {error?.message || 'Order not found'}
         </Alert>
-        <Button variant="contained" component={Link} href="/">
-          Back to Home
-        </Button>
+        <Link href="/">
+          <Button variant="contained">
+            Back to Home
+          </Button>
+        </Link>
       </Container>
     );
   }
@@ -343,16 +345,16 @@ export default function OrderSuccessPage({ params }: { params: { orderId: string
                   Download Receipt
                 </Button>
 
-                <Button
-                  variant="contained"
-                  startIcon={<Home />}
-                  fullWidth
-                  component={Link}
-                  href="/"
-                  data-testid="button-continue-shopping"
-                >
-                  Continue Shopping
-                </Button>
+                <Link href="/">
+                  <Button
+                    variant="contained"
+                    startIcon={<Home />}
+                    fullWidth
+                    data-testid="button-continue-shopping"
+                  >
+                    Continue Shopping
+                  </Button>
+                </Link>
               </Box>
             </CardContent>
           </Card>
