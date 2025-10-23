@@ -12,7 +12,7 @@
     "build:frontend": "cd frontend && yarn build",
     "build:backend": "cd backend && yarn build",
     "check": "tsc",
-    "postinstall": "cd backend && prisma generate --schema=./prisma/schema.prisma",
+    "postinstall": "bash scripts/safe-postinstall.sh",
     "db:push": "cd backend && prisma db push --schema=./prisma/schema.prisma",
     "db:migrate": "cd backend && prisma migrate dev --schema=./prisma/schema.prisma",
     "db:studio": "cd backend && prisma studio --schema=./prisma/schema.prisma",
