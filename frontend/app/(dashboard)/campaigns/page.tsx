@@ -63,54 +63,54 @@ import GrowthStatsGrid, { StatItem } from '@/components/growth/GrowthStatsGrid';
 import ChartPanel from '@/components/growth/ChartPanel';
 
 const Editor = dynamic(
-  () => import('@tinymce/tinymce-react').then((mod) => mod.Editor),
+  () => import('@tinymce/tinymce-react').then((mod) => mod.Editor as any),
   { ssr: false }
-);
+) as any;
 
 const ResponsiveContainer = dynamic(
-  () => import('recharts').then((mod) => mod.ResponsiveContainer),
+  () => import('recharts').then((mod) => mod.ResponsiveContainer as any),
   { ssr: false }
-);
+) as any;
 const LineChart = dynamic(
-  () => import('recharts').then((mod) => mod.LineChart),
+  () => import('recharts').then((mod) => mod.LineChart as any),
   { ssr: false }
-);
+) as any;
 const Line = dynamic(
-  () => import('recharts').then((mod) => mod.Line),
+  () => import('recharts').then((mod) => mod.Line as any),
   { ssr: false }
-);
+) as any;
 const XAxis = dynamic(
-  () => import('recharts').then((mod) => mod.XAxis),
+  () => import('recharts').then((mod) => mod.XAxis as any),
   { ssr: false }
-);
+) as any;
 const YAxis = dynamic(
-  () => import('recharts').then((mod) => mod.YAxis),
+  () => import('recharts').then((mod) => mod.YAxis as any),
   { ssr: false }
-);
+) as any;
 const CartesianGrid = dynamic(
-  () => import('recharts').then((mod) => mod.CartesianGrid),
+  () => import('recharts').then((mod) => mod.CartesianGrid as any),
   { ssr: false }
-);
+) as any;
 const Tooltip = dynamic(
-  () => import('recharts').then((mod) => mod.Tooltip),
+  () => import('recharts').then((mod) => mod.Tooltip as any),
   { ssr: false }
-);
+) as any;
 const Legend = dynamic(
-  () => import('recharts').then((mod) => mod.Legend),
+  () => import('recharts').then((mod) => mod.Legend as any),
   { ssr: false }
-);
+) as any;
 const PieChart = dynamic(
-  () => import('recharts').then((mod) => mod.PieChart),
+  () => import('recharts').then((mod) => mod.PieChart as any),
   { ssr: false }
-);
+) as any;
 const Pie = dynamic(
-  () => import('recharts').then((mod) => mod.Pie),
+  () => import('recharts').then((mod) => mod.Pie as any),
   { ssr: false }
-);
+) as any;
 const Cell = dynamic(
-  () => import('recharts').then((mod) => mod.Cell),
+  () => import('recharts').then((mod) => mod.Cell as any),
   { ssr: false }
-);
+) as any;
 
 interface Campaign {
   id: string;

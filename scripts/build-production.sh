@@ -4,9 +4,6 @@ set -e
 echo "🏗️  Building Upfirst for production..."
 echo ""
 
-# Enable Corepack for Yarn Berry
-corepack enable
-
 # Build Backend
 echo "📦 Building backend..."
 cd backend
@@ -22,13 +19,23 @@ echo "📦 Building frontend..."
 cd frontend
 yarn install --immutable
 
-# Try Next.js build with webpack (skip Turbopack due to timeout)
-echo "⚠️  Note: Using webpack build (Turbopack has timeout issues with Next.js 16)"
-TURBOPACK=0 yarn build || {
-  echo "⚠️  Frontend build failed/timed out - this is expected with Next.js 16"
-  echo "    Frontend will run in development mode for now"
-}
+# Try building with Next.js
+echo "   Building with Next.js (this may take several minutes)..."
+if timeout 600 yarn build; then
+  echo "✅ Frontend build complete"
+  echo "production" > .build-mode
+else
+  echo "⚠️  Frontend build timed out or failed"
+  echo "   Frontend will run in development mode"
+  echo "development" > .build-mode
+fi
 cd ..
 echo ""
 
 echo "✅ Production build complete!"
+echo "   Backend: Built and ready (dist/main.js)"
+if [ -f "frontend/.build-mode" ] && [ "$(cat frontend/.build-mode)" = "production" ]; then
+  echo "   Frontend: Built and ready (.next/ directory)"
+else
+  echo "   Frontend: Ready in development mode"
+fi

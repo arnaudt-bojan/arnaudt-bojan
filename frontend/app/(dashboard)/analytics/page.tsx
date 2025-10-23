@@ -29,19 +29,19 @@ import dynamic from 'next/dynamic';
 import { DEFAULT_CURRENCY } from '@/lib/shared/config/currency';
 
 // Dynamic import for Recharts to avoid SSR issues
-const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false });
-const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
-const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false });
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
-const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
-const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
-const Legend = dynamic(() => import('recharts').then(mod => mod.Legend), { ssr: false });
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
+const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart as any), { ssr: false }) as any;
+const Line = dynamic(() => import('recharts').then(mod => mod.Line as any), { ssr: false }) as any;
+const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart as any), { ssr: false }) as any;
+const Bar = dynamic(() => import('recharts').then(mod => mod.Bar as any), { ssr: false }) as any;
+const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart as any), { ssr: false }) as any;
+const Pie = dynamic(() => import('recharts').then(mod => mod.Pie as any), { ssr: false }) as any;
+const Cell = dynamic(() => import('recharts').then(mod => mod.Cell as any), { ssr: false }) as any;
+const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis as any), { ssr: false }) as any;
+const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis as any), { ssr: false }) as any;
+const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid as any), { ssr: false }) as any;
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip as any), { ssr: false }) as any;
+const Legend = dynamic(() => import('recharts').then(mod => mod.Legend as any), { ssr: false }) as any;
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer as any), { ssr: false }) as any;
 
 interface OrderStatusEntry {
   status: string;
@@ -360,7 +360,7 @@ export default function AnalyticsPage() {
                     height={80}
                     tick={{ fontSize: 12 }}
                   />
-                  <YAxis tickFormatter={(value) => `$${value}`} tick={{ fontSize: 12 }} />
+                  <YAxis tickFormatter={(value: any) => `$${value}`} tick={{ fontSize: 12 }} />
                   <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
                     labelFormatter={formatDate}
@@ -447,7 +447,7 @@ export default function AnalyticsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
-                      label={(entry) => `${entry.status}: ${entry.count}`}
+                      label={(entry: any) => `${entry.status}: ${entry.count}`}
                     >
                       {analytics.orders.ordersByStatus.map((entry: OrderStatusEntry, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
