@@ -385,7 +385,7 @@ export default function BuyerOrderDetailsPage() {
                   </Typography>
                 </Box>
                 <Typography variant="body2" color="text.secondary" data-testid="text-shipping-address">
-                  {order.shippingAddress?.street}<br />
+                  {order.shippingAddress?.addressLine1}<br />
                   {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.postalCode}<br />
                   {order.shippingAddress?.country}
                 </Typography>
@@ -400,7 +400,7 @@ export default function BuyerOrderDetailsPage() {
                   </Typography>
                 </Box>
                 <Typography variant="body2" color="text.secondary" data-testid="text-payment-method">
-                  {order.paymentMethod || 'Credit Card'}
+                  {order.paymentStatus === 'PAID' ? 'Credit Card' : 'Pending Payment'}
                 </Typography>
               </Box>
             </CardContent>

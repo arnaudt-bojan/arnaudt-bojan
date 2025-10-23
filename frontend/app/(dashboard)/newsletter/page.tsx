@@ -103,7 +103,7 @@ export default function NewsletterPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -313,22 +313,23 @@ export default function NewsletterPage() {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedRows.length === 0) {
+    const selectedArray = Array.from(selectedRows.ids);
+    if (selectedArray.length === 0) {
       showSnackbar('No subscribers selected', 'error');
       return;
     }
 
     try {
       await Promise.all(
-        selectedRows.map(id =>
+        selectedArray.map((id) =>
           fetch(`/api/subscribers/${id}`, {
             method: 'DELETE',
             credentials: 'include',
           })
         )
       );
-      showSnackbar(`Deleted ${selectedRows.length} subscribers`, 'success');
-      setSelectedRows([]);
+      showSnackbar(`Deleted ${selectedArray.length} subscribers`, 'success');
+      setSelectedRows({ type: 'include', ids: new Set() });
       fetchData();
     } catch {
       showSnackbar('Failed to delete subscribers', 'error');
@@ -532,17 +533,17 @@ export default function NewsletterPage() {
             </Grid>
           </Grid>
 
-          {selectedRows.length > 0 && (
+          {selectedRows.ids.size > 0 && (
             <Box sx={{ mb: 2 }}>
               <Alert 
                 severity="info"
                 action={
                   <Button color="inherit" size="small" onClick={handleBulkDelete}>
-                    Delete Selected ({selectedRows.length})
+                    Delete Selected ({selectedRows.ids.size})
                   </Button>
                 }
               >
-                {selectedRows.length} subscriber(s) selected
+                {selectedRows.ids.size} subscriber(s) selected
               </Alert>
             </Box>
           )}

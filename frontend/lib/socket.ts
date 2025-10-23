@@ -11,7 +11,7 @@ export interface ServerToClientEvents {
   'quotation:created': (data: { quotationId: string }) => void;
   'quotation:updated': (data: { quotationId: string; status: string }) => void;
   'notification': (data: { message: string; type: string }) => void;
-  'analytics:update': (data: Record<string, any>) => void;
+  'analytics:update': (data: Record<string, unknown>) => void;
   'wholesale:order:created': (data: { orderId: string; sellerId: string }) => void;
   pong: () => void;
 }

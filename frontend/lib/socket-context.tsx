@@ -147,8 +147,10 @@ export function useSocketEvent<K extends keyof ServerToClientEvents>(
   const { socket } = useSocket();
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socket.on(event, handler as any);
     return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       socket.off(event, handler as any);
     };
   }, [socket, event, handler]);

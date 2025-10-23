@@ -10,7 +10,7 @@
  * - Storage layer can use these types instead of Drizzle inferred types
  */
 
-import type { Prisma } from "../../apps/backend/generated/prisma";
+import type { Prisma } from "../../../backend/generated/prisma";
 
 // ============================================================================
 // Core User Types

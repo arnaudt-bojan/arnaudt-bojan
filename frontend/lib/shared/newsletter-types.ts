@@ -96,13 +96,13 @@ export interface CreateSubscriberDTO {
   email: string;
   name?: string;
   groupIds?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateSubscriberDTO {
   name?: string;
   status?: SubscriberStatus;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BulkImportResult {
@@ -136,8 +136,8 @@ export interface CreateTemplateDTO {
 export interface ContentBlock {
   id: string;
   type: BlockType;
-  content: string | Record<string, any>;
-  styles?: Record<string, any>;
+  content: string | Record<string, unknown>;
+  styles?: Record<string, unknown>;
   order: number;
 }
 
@@ -163,14 +163,14 @@ export interface RenderContext {
   subscriber?: {
     email: string;
     name?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   campaign?: {
     id: string;
     subject: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  customVariables?: Record<string, any>;
+  customVariables?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -324,7 +324,7 @@ export type TriggerType =
 export interface TriggerCondition {
   field: string;
   operator: string;
-  value: any;
+  value: unknown;
 }
 
 export interface WorkflowAction {
@@ -354,13 +354,13 @@ export interface ActionConfig {
   segmentId?: string;
   
   // For update_subscriber
-  updates?: Record<string, any>;
+  updates?: Record<string, unknown>;
   
   // For webhook
   url?: string;
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
-  body?: Record<string, any>;
+  body?: Record<string, unknown>;
 }
 
 export interface WorkflowExecution {
@@ -455,7 +455,7 @@ export interface SubscriberDataExport {
     name?: string;
     status: string;
     createdAt: Date;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
   engagement?: {
     totalOpens: number;
@@ -507,7 +507,7 @@ export interface BatchEmailMessage {
   subject: string;
   html: string;
   text?: string;
-  personalizations?: Record<string, any>;
+  personalizations?: Record<string, unknown>;
 }
 
 export interface BatchEmailResult {
@@ -527,7 +527,7 @@ export interface BatchEmailError {
 // Job Queue DTOs
 // ============================================================================
 
-export interface QueueJob<T = any> {
+export interface QueueJob<T = unknown> {
   id: string;
   type: JobType;
   data: T;
@@ -565,7 +565,7 @@ export interface JobProgress {
 // API Response Types
 // ============================================================================
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

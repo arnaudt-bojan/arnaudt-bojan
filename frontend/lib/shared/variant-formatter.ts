@@ -5,7 +5,7 @@
  * - Plain strings: "Medium / Red" (legacy data)
  */
 
-export function formatVariant(variant: any): string | null {
+export function formatVariant(variant: unknown): string | null {
   if (!variant) return null;
 
   // If it's already a formatted string, return it
@@ -30,8 +30,9 @@ export function formatVariant(variant: any): string | null {
   // If it's an object, format it
   if (typeof variant === 'object' && variant !== null) {
     const parts = [];
-    if (variant.size) parts.push(variant.size);
-    if (variant.color) parts.push(variant.color);
+    const variantObj = variant as { size?: string; color?: string };
+    if (variantObj.size) parts.push(variantObj.size);
+    if (variantObj.color) parts.push(variantObj.color);
     return parts.length > 0 ? parts.join(' / ') : null;
   }
 
