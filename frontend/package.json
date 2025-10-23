@@ -26,6 +26,8 @@
     "@mui/x-data-grid": "^8.14.1",
     "@mui/x-date-pickers": "^8.14.1",
     "@tinymce/tinymce-react": "^6.3.0",
+    "browserslist": "^4.27.0",
+    "caniuse-lite": "^1.0.30001751",
     "date-fns": "^3.6.0",
     "graphql": "^16.11.0",
     "lucide-react": "^0.546.0",
@@ -41,6 +43,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/caniuse-lite": "^1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -4924,6 +4924,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/caniuse-lite@npm:^1":
+  version: 1.0.5
+  resolution: "@types/caniuse-lite@npm:1.0.5"
+  checksum: 10c0/510f06241bc8274dbf41abf7658e2a72aec519f120b1ad89552a1d76d52a96fd549318d63120c89190d48ed831896b444d7ce773d1c042627cae504cf9a65023
+  languageName: node
+  linkType: hard
+
 "@types/caseless@npm:*":
   version: 0.12.5
   resolution: "@types/caseless@npm:0.12.5"
@@ -6897,7 +6904,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"browserslist@npm:^4.24.0, browserslist@npm:^4.24.4":
+"browserslist@npm:^4.24.0, browserslist@npm:^4.24.4, browserslist@npm:^4.27.0":
   version: 4.27.0
   resolution: "browserslist@npm:4.27.0"
   dependencies:
@@ -9861,10 +9868,13 @@ __metadata:
     "@mui/x-date-pickers": "npm:^8.14.1"
     "@tailwindcss/postcss": "npm:^4"
     "@tinymce/tinymce-react": "npm:^6.3.0"
+    "@types/caniuse-lite": "npm:^1"
     "@types/node": "npm:^20"
     "@types/react": "npm:^19"
     "@types/react-dom": "npm:^19"
     "@types/react-is": "npm:^19"
+    browserslist: "npm:^4.27.0"
+    caniuse-lite: "npm:^1.0.30001751"
     date-fns: "npm:^3.6.0"
     eslint: "npm:^9"
     eslint-config-next: "npm:16.0.0"

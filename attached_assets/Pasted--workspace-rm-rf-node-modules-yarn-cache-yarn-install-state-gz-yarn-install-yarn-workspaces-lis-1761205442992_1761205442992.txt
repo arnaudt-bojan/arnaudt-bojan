@@ -1,0 +1,106 @@
+~/workspace$ rm -rf node_modules .yarn/cache .yarn/install-state.gz
+yarn install
+yarn workspaces list          # Should now show: ., backend, frontend
+yarn workspace backend build
+yarn workspace frontend build
+➤ YN0000: · Yarn 4.10.3
+➤ YN0000: ┌ Resolution step
+➤ YN0085: │ + @graphql-codegen/typescript-react-apollo@npm:4.3.3, and 109 more.
+➤ YN0085: │ - upfirst@workspace:.
+➤ YN0000: └ Completed in 1s 741ms
+➤ YN0000: ┌ Post-resolution validation
+➤ YN0060: │ @apollo/server is listed by your project with version 4.12.2 (p83090d), which doesn't satisfy what @nestjs/apollo and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ next is listed by your project with version 16.0.0 (p8c4a3b), which doesn't satisfy what @apollo/experimental-nextjs-app-support and other dependencies request (^13.4.1 || ^14.0.0 || ^15.0.0).
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+➤ YN0000: └ Completed
+➤ YN0000: ┌ Fetch step
+➤ YN0013: │ 1518 packages were added to the project (+ 1.01 GiB).
+➤ YN0000: └ Completed in 3s 233ms
+➤ YN0000: ┌ Link step
+➤ YN0004: │ @apollo/protobufjs@npm:1.2.7 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @nestjs/core@npm:11.1.7 [93b36] lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @parcel/watcher@npm:2.5.1 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @prisma/client@npm:6.18.0 [93b36] lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ @prisma/engines@npm:6.18.0 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ bufferutil@npm:4.0.9 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ es5-ext@npm:0.10.64 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ esbuild@npm:0.25.11 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ prisma@npm:6.18.0 [93b36] lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ sharp@npm:0.34.4 lists build scripts, but all build scripts have been disabled.
+➤ YN0004: │ unrs-resolver@npm:1.11.1 lists build scripts, but all build scripts have been disabled.
+➤ YN0007: │ upfirst-monorepo@workspace:. must be built because it never has been before or the last one failed
+➤ YN0009: │ upfirst-monorepo@workspace:. couldn't be built successfully (exit code 1, logs can be found here: /tmp/xfs-a4dcd6da/build.log)
+➤ YN0000: └ Completed in 45s 979ms
+➤ YN0000: · Failed with errors in 51s 401ms
+➤ YN0000: .
+➤ YN0000: backend
+➤ YN0000: frontend
+➤ YN0000: Done in 0s 2ms
+   ▲ Next.js 16.0.0 (Turbopack)
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 25.6s
+ ✓ Finished TypeScript in 19.4s    
+   Collecting page data  .node:internal/modules/cjs/loader:1404
+  throw err;
+  ^
+
+Error: Cannot find module 'caniuse-lite/dist/unpacker/feature'
+Require stack:
+- /home/runner/workspace/frontend/node_modules/next/dist/compiled/browserslist/index.js
+- /home/runner/workspace/frontend/node_modules/next/dist/build/utils.js
+- /home/runner/workspace/frontend/node_modules/next/dist/build/worker.js
+- /home/runner/workspace/frontend/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1401:15)
+    at /home/runner/workspace/frontend/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1487:12)
+    at mod.require (/home/runner/workspace/frontend/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/runner/workspace/frontend/node_modules/next/dist/compiled/browserslist/index.js',
+    '/home/runner/workspace/frontend/node_modules/next/dist/build/utils.js',
+    '/home/runner/workspace/frontend/node_modules/next/dist/build/worker.js',
+    '/home/runner/workspace/frontend/node_modules/next/dist/compiled/jest-worker/processChild.js'
+  ]
+}
+
+Node.js v22.17.0
+node:internal/modules/cjs/loader:1404
+  throw err;
+  ^
+
+Error: Cannot find module 'caniuse-lite/dist/unpacker/agents'
+Require stack:
+- /home/runner/workspace/frontend/node_modules/next/dist/compiled/browserslist/index.js
+- /home/runner/workspace/frontend/node_modules/next/dist/build/utils.js
+- /home/runner/workspace/frontend/node_modules/next/dist/build/worker.js
+- /home/runner/workspace/frontend/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1401:15)
+    at /home/runner/workspace/frontend/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+    at Function._load (node:internal/modules/cjs/loader:1211:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1487:12)
+    at mod.require (/home/runner/workspace/frontend/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/runner/workspace/frontend/node_modules/next/dist/compiled/browserslist/index.js',
+    '/home/runner/workspace/frontend/node_modules/next/dist/build/utils.js',
+    '/home/runner/workspace/frontend/node_modules/next/dist/build/worker.js',
+    '/home/runner/workspace/frontend/node_modules/next/dist/compiled/jest-worker/processChild.js'
+  ]
+}
+
+Node.js v22.17.0
+ ⨯ Next.js build worker exited with code: 1 and signal: null
