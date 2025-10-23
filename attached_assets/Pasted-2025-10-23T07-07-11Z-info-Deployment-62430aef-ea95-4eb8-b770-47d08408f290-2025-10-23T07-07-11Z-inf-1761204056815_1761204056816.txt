@@ -1,0 +1,281 @@
+2025-10-23T07:07:11Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T07:07:11Z info: Build: 885c562b-ad2a-4ddf-9f23-e571997ab9cc
+2025-10-23T07:07:11Z info: Connecting to builder
+2025-10-23T07:07:11Z info: Builder connected
+2025-10-23T07:07:12Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 468ms
+
+🏗️  Building Upfirst for production...
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 405ms
+➤ YN0000: ┌ Post-resolution validation
+➤ YN0060: │ @apollo/server is listed by your project with version 4.12.2 (pb62557), which doesn't satisfy what @nestjs/apollo and other dependencies request (but they have non-overlapping ranges!).
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: └ Completed
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 9s 664ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 3s 491ms
+
+➤ YN0000: · Done with warnings in 13s 889ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.08s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 210ms
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 8s 648ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 814ms
+
+➤ YN0000: · Done with warnings in 9s 881ms
+
+   Building with Next.js (this may take several minutes)...
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/runner/workspace/yarn.lock as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+
+
+   ▲ Next.js 16.0.0 (Turbopack)
+
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+
+ ✓ Compiled successfully in 20.5s
+
+   Running TypeScript ...
+
+   Collecting page data ...
+
+   Generating static pages (0/42) ...
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+   Generating static pages (10/42) 
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+   Generating static pages (20/42) 
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+   Generating static pages (31/42) 
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A104%2C%22args%22%3A%5B%22ApolloClient%22%2C%22connectToDevTools%22%2C%22Please%20use%20%60devtools.enabled%60%20instead.%22%5D%7D
+
+ ✓ Generating static pages (42/42) in 3.4s
+
+   Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /analytics
+├ ○ /bulk-upload
+├ ○ /buyer/dashboard
+├ ƒ /buyer/orders/[id]
+├ ○ /campaigns
+├ ○ /cart
+├ ○ /checkout
+├ ○ /checkout/complete
+├ ○ /dashboard
+├ ○ /help
+├ ○ /login
+├ ○ /meta-ads/analytics
+├ ○ /meta-ads/create
+├ ○ /meta-ads/dashboard
+├ ○ /newsletter
+├ ƒ /order-success/[orderId]
+├ ○ /orders
+├ ƒ /orders/[id]
+├ ○ /privacy
+├ ○ /products
+├ ○ /products/create
+├ ƒ /products/edit/[id]
+├ ○ /quick-access
+├ ƒ /s/[username]
+├ ƒ /s/[username]/products/[id]
+├ ○ /settings
+├ ○ /team
+├ ○ /terms
+├ ○ /trade/dashboard
+├ ○ /trade/orders
+├ ○ /trade/quotations
+├ ƒ /trade/quotations/[id]/edit
+├ ○ /trade/quotations/new
+├ ƒ /trade/view/[token]
+├ ○ /wallet
+├ ƒ /wholesale/accept/[token]
+├ ○ /wholesale/buyers
+├ ○ /wholesale/cart
+├ ○ /wholesale/catalog
+├ ƒ /wholesale/catalog/[id]
+├ ○ /wholesale/checkout
+├ ○ /wholesale/dashboard
+├ ○ /wholesale/invitations
+├ ○ /wholesale/orders
+├ ƒ /wholesale/orders/[id]/confirmation
+├ ○ /wholesale/preview
+├ ○ /wholesale/products
+└ ○ /wholesale/products/create
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+✅ Frontend build complete
+
+
+✅ Production build complete!
+   Backend: Built and ready (dist/main.js)
+
+   Frontend: Built and ready (.next/ directory)
+
+2025-10-23T07:09:13Z info: Pushing pid1 binary layer...
+2025-10-23T07:09:15Z info: Pushing Repl layer...
+2025-10-23T07:09:15Z info: Pushing hosting layer...
+2025-10-23T07:09:15Z info: Created hosting layer
+2025-10-23T07:09:15Z info: Created pid1 binary layer
+2025-10-23T07:14:29Z info: Created Repl layer
+2025-10-23T07:14:31Z info: Pushed image manifest
+2025-10-23T07:14:32Z info: Pushed soci index manifest
+2025-10-23T07:14:36Z info: Creating Autoscale service
+forwarding local port 5000 to external port 80 (mapped as 1104)
+🚀 Starting Upfirst in production mode...
+[Nest] 28  - 10/23/2025, 7:19:13 AM     LOG [InstanceLoader] AppModule dependencies initialized +32ms
+[Nest] 28  - 10/23/2025, 7:19:13 AM     LOG [InstanceLoader] HealthModule dependencies initialized +0ms
+[Nest] 28  - 10/23/2025, 7:19:13 AM     LOG [RouterExplorer] Mapped {/health, GET} route +3ms
+[Nest] 28  - 10/23/2025, 7:19:13 AM     LOG [InstanceLoader] PricingModule dependencies initialized +1ms
+2025-10-23T07:19:36Z error: The deployment is failing health checks. This can happen if the application isn't responding, responds with an error, or doesn't respond in time. Health checks are sent to the / endpoint by default and must respond as soon as possible. Make sure that the / endpoint is implemented and returns a 200 status code in a timely manner. Avoid doing expensive or long running operations on the / endpoint, prefer deferring them to a different route. Check the logs for more information.
