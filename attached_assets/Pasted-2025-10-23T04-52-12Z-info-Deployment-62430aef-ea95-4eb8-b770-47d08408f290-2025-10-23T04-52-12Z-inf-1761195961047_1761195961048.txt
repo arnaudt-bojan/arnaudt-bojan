@@ -1,0 +1,882 @@
+2025-10-23T04:52:12Z info: Deployment: 62430aef-ea95-4eb8-b770-47d08408f290
+2025-10-23T04:52:12Z info: Connecting to builder
+2025-10-23T04:52:13Z info: Builder connected
+2025-10-23T04:52:13Z info: Installing packages
+--> yarn install
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 3s 469ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 441ms
+
+➤ YN0000: · Done in 4s 114ms
+
+2025-10-23T04:52:19Z info: Starting Build
+🏗️  Building Upfirst for production...
+
+📦 Building backend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed in 0s 298ms
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 10s 415ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 1s 987ms
+
+➤ YN0000: · Done with warnings in 12s 871ms
+
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.18.0, engine=binary) to ./node_modules/@prisma/client in 1.27s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+npm notice To update run: npm install -g npm@11.6.2
+npm notice
+
+✅ Backend build complete
+
+📦 Building frontend...
+
+➤ YN0000: · Yarn 4.10.3
+
+➤ YN0000: ┌ Resolution step
+
+➤ YN0000: └ Completed
+
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+
+➤ YN0000: └ Completed
+
+➤ YN0000: ┌ Fetch step
+
+➤ YN0000: └ Completed in 3s 843ms
+
+➤ YN0000: ┌ Link step
+
+➤ YN0000: └ Completed in 0s 611ms
+
+➤ YN0000: · Done with warnings in 4s 718ms
+
+   Building with Next.js (this may take several minutes)...
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/runner/workspace/yarn.lock as the root directory.
+ To silence this warning, set turbopack.root in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/runner/workspace/frontend/yarn.lock
+
+   ▲ Next.js 16.0.0 (Turbopack)
+
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+
+> Build error occurred
+
+Error: Turbopack build failed with 63 errors:
+./frontend/app/checkout/page.tsx:10:1
+Module not found: Can't resolve '@hookform/resolvers/zod'
+   8 | import { GetCartQuery, CreateOrderMutation } from '@/lib/generated/graphql';
+   9 | import { useForm, Controller } from 'react-hook-form';
+> 10 | import { zodResolver } from '@hookform/resolvers/zod';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { z } from 'zod';
+  12 | import {
+  13 |   Container,
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/checkout/page.tsx [Client Component Browser]
+    ./frontend/app/checkout/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/checkout/page.tsx [Client Component SSR]
+    ./frontend/app/checkout/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx
+Module not found: Can't resolve '@tinymce/tinymce-react'
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:66:9
+Module not found: Can't resolve '@tinymce/tinymce-react'
+  64 |
+  65 | const Editor = dynamic(
+> 66 |   () => import('@tinymce/tinymce-react').then((mod) => mod.Editor as any),
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  67 |   { ssr: false }
+  68 | ) as any;
+  69 |
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component
+Error: Turbopack build failed with 63 errors:
+./frontend/app/checkout/page.tsx:10:1
+Module not found: Can't resolve '@hookform/resolvers/zod'
+   8 | import { GetCartQuery, CreateOrderMutation } from '@/lib/generated/graphql';
+   9 | import { useForm, Controller } from 'react-hook-form';
+> 10 | import { zodResolver } from '@hookform/resolvers/zod';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { z } from 'zod';
+  12 | import {
+  13 |   Container,
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/checkout/page.tsx [Client Component Browser]
+    ./frontend/app/checkout/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/checkout/page.tsx [Client Component SSR]
+    ./frontend/app/checkout/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx
+Module not found: Can't resolve '@tinymce/tinymce-react'
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:66:9
+Module not found: Can't resolve '@tinymce/tinymce-react'
+  64 |
+  65 | const Editor = dynamic(
+> 66 |   () => import('@tinymce/tinymce-react').then((mod) => mod.Editor as any),
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  67 |   { ssr: false }
+  68 | ) as any;
+  69 |
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component
+|   PlusCircle,
+     | ^^^^^^^^^^
+> 30 |   Eye,
+     | ^^^^^^^^^^
+> 31 | } from 'lucide-react';
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+  32 | import {
+  33 |   GET_WHOLESALE_STATS,
+  34 |   GET_RECENT_WHOLESALE_ORDERS,
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/wholesale/dashboard/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/wholesale/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/wholesale/dashboard/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/wholesale/dashboard/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/wholesale/invitations/page.tsx:30:1
+Module not found: Can't resolve 'lucide-react'
+  28 | } from '@mui/material';
+  29 | import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+> 30 | import { ArrowLeft, Mail, Copy, Trash2 } from 'lucide-react';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  31 |
+  32 | interface WholesaleInvitation {
+  33 |   id: string;
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/wholesale/invitations/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/wholesale/invitations/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/wholesale/invitations/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/wholesale/invitations/page.tsx [Server Component]
+
+htt
+le/preview/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/wholesale/products/create/page.tsx:25:1
+Module not found: Can't resolve 'lucide-react'
+  23 | } from '@mui/material';
+  24 | import Grid from '@mui/material/Grid';
+> 25 | import { ArrowLeft, Save } from 'lucide-react';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  26 |
+  27 | export default function CreateWholesaleProduct() {
+  28 |   const router = useRouter();
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/wholesale/products/create/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/wholesale/products/create/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/wholesale/products/create/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/wholesale/products/create/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/wholesale/products/page.tsx:29:1
+Module not found: Can't resolve 'lucide-react'
+  27 | } from '@mui/material';
+  28 | import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+> 29 | import { PlusCircle, Search, Pencil, Trash2 } from 'lucide-react';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   MessageCircle,
+     | ^^^^^^^^^
+> 37 |   Clock,
+     | ^^^^^^^^^
+> 38 |   Play,
+     | ^^^^^^^^^
+> 39 | } from 'lucide-react';
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+  40 |
+  41 | const categories = [
+  42 |   {
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/help/page.tsx [Client Component Browser]
+    ./frontend/app/help/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/help/page.tsx [Client Component SSR]
+    ./frontend/app/help/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/privacy/page.tsx:20:1
+Module not found: Can't resolve 'lucide-react'
+  18 |   IconButton,
+  19 | } from '@mui/material';
+> 20 | import { Menu as MenuIcon, ArrowLeft } from 'lucide-react';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  21 |
+  22 | const sections = [
+  23 |   { id: 'introduction', title: 'Introduction' },
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/privacy/page.tsx [Client Component Browser]
+    ./frontend/app/privacy/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/privacy/page.tsx [Client Component SSR]
+    ./frontend/app/privacy/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/terms/page.tsx:21:1
+Module not found: Can't resolve 'lucide-react'
+  19 |   IconButton,
+  20 | } from
+m^^^^^
+  37 | const Pie = dynamic(() => import('recharts').then(mod => mod.Pie as any), { ssr: false }) as any;
+  38 | const Cell = dynamic(() => import('recharts').then(mod => mod.Cell as any), { ssr: false }) as any;
+  39 | const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis as any), { ssr: false }) as any;
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/analytics/page.tsx:37:27
+Module not found: Can't resolve 'recharts'
+  35 | const Bar = dynamic(() => import('recharts').then(mod => mod.Bar as any), { ssr: false }) as any;
+  36 | const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart as any), { ssr: false }) as any;
+> 37 | const Pie = dynamic(() => import('recharts').then(mod => mod.Pie as any), { ssr: false }) as any;
+     |                           ^^^^^^^^^^^^^^^^^^
+  38 | const Cell = dynamic(() => import('recharts').then(mod => mod.Cell as any), { ssr: false }) as any;
+  39 | const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis as any), { ssr: false }) as any;
+  40 | const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis as any), { ssr: false }) as any;
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/analytics/page.tsx:38:28
+Module not found: Can't resolve 'recharts'
+  36 | const Pi
+as any;
+  41 | const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid as any), { ssr: false }) as any;
+  42 | const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip as any), { ssr: false }) as any;
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/analytics/page.tsx:40:29
+Module not found: Can't resolve 'recharts'
+  38 | const Cell = dynamic(() => import('recharts').then(mod => mod.Cell as any), { ssr: false }) as any;
+  39 | const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis as any), { ssr: false }) as any;
+> 40 | const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis as any), { ssr: false }) as any;
+     |                             ^^^^^^^^^^^^^^^^^^
+  41 | const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid as any), { ssr: false }) as any;
+  42 | const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip as any), { ssr: false }) as any;
+  43 | const Legend = dynamic(() => import('recharts').then(mod => mod.Legend as any), { ssr: false }) as any;
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/analytics/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/analytics/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/analytics/page.tsx:41:37
+Module not found: Can't resolve 'recharts'
+  39 | const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis as any), { ssr: false }) as any;
+  40 | const YAxis = d
+ |   () => import('recharts').then((mod) => mod.Line as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  80 |   { ssr: false }
+  81 | ) as any;
+  82 | const XAxis = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:83:9
+Module not found: Can't resolve 'recharts'
+  81 | ) as any;
+  82 | const XAxis = dynamic(
+> 83 |   () => import('recharts').then((mod) => mod.XAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  84 |   { ssr: false }
+  85 | ) as any;
+  86 | const YAxis = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:87:9
+Module not found: Can't resolve 'recharts'
+  85 | ) as any;
+  86 | const YAxis = dynamic(
+> 87 |   () => import('recharts').then((mod) => mod.YAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  88 |   { ssr: false }
+  89 | ) as any;
+  90 | const CartesianGrid = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:91:9
+Module not found: Can't resolve 'recharts'
+  89 | ) as any;
+  90 | const CartesianGrid =
+   () => import('recharts').then((mod) => mod.Line as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  80 |   { ssr: false }
+  81 | ) as any;
+  82 | const XAxis = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:83:9
+Module not found: Can't resolve 'recharts'
+  81 | ) as any;
+  82 | const XAxis = dynamic(
+> 83 |   () => import('recharts').then((mod) => mod.XAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  84 |   { ssr: false }
+  85 | ) as any;
+  86 | const YAxis = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:87:9
+Module not found: Can't resolve 'recharts'
+  85 | ) as any;
+  86 | const YAxis = dynamic(
+> 87 |   () => import('recharts').then((mod) => mod.YAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  88 |   { ssr: false }
+  89 | ) as any;
+  90 | const CartesianGrid = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:91:9
+Module not found: Can't resolve 'recharts'
+  89 | ) as any;
+  90 | const CartesianGrid =
+   () => import('recharts').then((mod) => mod.Line as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  80 |   { ssr: false }
+  81 | ) as any;
+  82 | const XAxis = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:83:9
+Module not found: Can't resolve 'recharts'
+  81 | ) as any;
+  82 | const XAxis = dynamic(
+> 83 |   () => import('recharts').then((mod) => mod.XAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  84 |   { ssr: false }
+  85 | ) as any;
+  86 | const YAxis = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:87:9
+Module not found: Can't resolve 'recharts'
+  85 | ) as any;
+  86 | const YAxis = dynamic(
+> 87 |   () => import('recharts').then((mod) => mod.YAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  88 |   { ssr: false }
+  89 | ) as any;
+  90 | const CartesianGrid = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:91:9
+Module not found: Can't resolve 'recharts'
+  89 | ) as any;
+  90 | const CartesianGrid =
+90m 102 | const PieChart = dynamic(
+> 103 |   () => import('recharts').then((mod) => mod.PieChart as any),
+      |         ^^^^^^^^^^^^^^^^^^
+  104 |   { ssr: false }
+  105 | ) as any;
+  106 | const Pie = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:107:9
+Module not found: Can't resolve 'recharts'
+  105 | ) as any;
+  106 | const Pie = dynamic(
+> 107 |   () => import('recharts').then((mod) => mod.Pie as any),
+      |         ^^^^^^^^^^^^^^^^^^
+  108 |   { ssr: false }
+  109 | ) as any;
+  110 | const Cell = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/campaigns/page.tsx:111:9
+Module not found: Can't resolve 'recharts'
+  109 | ) as any;
+  110 | const Cell = dynamic(
+> 111 |   () => import('recharts').then((mod) => mod.Cell as any),
+      |         ^^^^^^^^^^^^^^^^^^
+  112 |   { ssr: false }
+  113 | ) as any;
+  114 |
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/campaigns/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/meta-ads/analytics/page.tsx:43:1
+Module not found: Can't resolve 'recharts'
+  41 |   Insights,
+'t resolve 'recharts'
+  61 | const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip as any), { ssr: false }) as any;
+  62 | const Legend = dynamic(() => import('recharts').then(mod => mod.Legend as any), { ssr: false }) as any;
+> 63 | const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer as any), { ssr: false }) as any;
+     |                                           ^^^^^^^^^^^^^^^^^^
+  64 |
+  65 | interface MetaAdsStats {
+  66 |   activeCampaigns: number;
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/meta-ads/dashboard/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/meta-ads/dashboard/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/meta-ads/dashboard/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/meta-ads/dashboard/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx
+Module not found: Can't resolve 'recharts'
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:50:9
+Module not found: Can't resolve 'recharts'
+  48 |
+  49 | const ResponsiveContainer = dynamic(
+> 50 |   () => import('recharts').then((mod) => mod.ResponsiveContainer as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  51 |   { ssr: false }
+  52 | ) as any;
+  53 | const LineChart = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:54:9
+Module not found: Can't resolve 'recharts'
+  52 | ) as any;
+  53 | const LineChart = dynamic(
+> 54 |   () => 
+39m 66 |   () => import('recharts').then((mod) => mod.YAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  67 |   { ssr: false }
+  68 | ) as any;
+  69 | const CartesianGrid = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:70:9
+Module not found: Can't resolve 'recharts'
+  68 | ) as any;
+  69 | const CartesianGrid = dynamic(
+> 70 |   () => import('recharts').then((mod) => mod.CartesianGrid as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  71 |   { ssr: false }
+  72 | ) as any;
+  73 | const Tooltip = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:74:9
+Module not found: Can't resolve 'recharts'
+  72 | ) as any;
+  73 | const Tooltip = dynamic(
+> 74 |   () => import('recharts').then((mod) => mod.Tooltip as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  75 |   { ssr: false }
+  76 | ) as any;
+  77 | const Legend = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:78:9
+Module not found: Can't resolve 'recharts'
+  76 | ) as any;
+  77 |
+ 66 |   () => import('recharts').then((mod) => mod.YAxis as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  67 |   { ssr: false }
+  68 | ) as any;
+  69 | const CartesianGrid = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:70:9
+Module not found: Can't resolve 'recharts'
+  68 | ) as any;
+  69 | const CartesianGrid = dynamic(
+> 70 |   () => import('recharts').then((mod) => mod.CartesianGrid as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  71 |   { ssr: false }
+  72 | ) as any;
+  73 | const Tooltip = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:74:9
+Module not found: Can't resolve 'recharts'
+  72 | ) as any;
+  73 | const Tooltip = dynamic(
+> 74 |   () => import('recharts').then((mod) => mod.Tooltip as any),
+     |         ^^^^^^^^^^^^^^^^^^
+  75 |   { ssr: false }
+  76 | ) as any;
+  77 | const Legend = dynamic(
+
+Import traces:
+  Client Component Browser:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component Browser]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Client Component SSR]
+    ./frontend/app/(dashboard)/newsletter/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+./frontend/app/(dashboard)/newsletter/page.tsx:78:9
+Module not found: Can't resolve 'recharts'
+  76 | ) as any;
+  77 |
+2025-10-23T04:53:46Z info: Pushing pid1 binary layer...
+2025-10-23T04:53:48Z info: Created pid1 binary layer
+2025-10-23T04:53:48Z info: Pushing Repl layer...
+2025-10-23T04:53:48Z info: Pushing hosting layer...
+2025-10-23T04:53:49Z info: Created hosting layer
+2025-10-23T04:58:26Z info: Created Repl layer
+2025-10-23T04:58:28Z info: Pushed image manifest
+2025-10-23T04:58:29Z info: Pushed soci index manifest
+2025-10-23T04:58:33Z info: Creating Autoscale service
+forwarding local port 5000 to external port 80 (mapped as 1104)
+   Backend GraphQL API: http://localhost:4000/graphql
+⚠️  Frontend will run in development mode (production build unavailable)
+   Frontend Application: http://localhost:3000 (mode: dev)
+🚀 Starting services...
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+   Frontend Application: http://localhost:3000 (mode: dev)
+   Backend GraphQL API: http://localhost:4000/graphql
+scripts/start-production.sh: line 50: concurrently: command not found
+   Frontend Application: http://localhost:3000 (mode: dev)
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+crash loop detected
+🚀 Starting services...
+🚀 Starting Upfirst in production mode...
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+   Backend GraphQL API: http://localhost:4000/graphql
+   Frontend Application: http://localhost:3000 (mode: dev)
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+⚠️  Frontend will run in development mode (production build unavailable)
+command finished with error [sh -c bash scripts/start-production.sh]: exit status 127
+⚠️  Frontend will run in development mode (production build unavailable)
+crash loop detected
+scripts/start-production.sh: line 50: concurrently: command not found
+   Frontend Application: http://localhost:3000 (mode: dev)
+⚠️  Frontend will run in development mode (production build unavailable)
+scripts/start-production.sh: line 50: concurrently: command not found
+🚀 Starting Upfirst in production mode...
+   Frontend Application: http://localhost:3000 (mode: dev)
+🚀 Starting Upfirst in production mode...
+⚠️  Frontend will run in development mode (production build unavailable)
+2025-10-23T05:03:33Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.
+
+Sorry this is full log
