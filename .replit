@@ -6,7 +6,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 channel = "stable-24_05"
 
 [deployment]
-build = ["sh", "-c", "bash scripts/build-production.sh"]
+build = ["sh", "-c", "cd backend && yarn install --immutable && npx prisma generate && yarn build"]
 run = ["sh", "-c", "bash scripts/start-production.sh"]
 deploymentTarget = "cloudrun"
 
