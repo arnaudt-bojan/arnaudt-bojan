@@ -1,11 +1,13 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 echo "🚀 Starting Upfirst in production mode..."
 echo ""
 
 # Get absolute path to project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"
 
 # Re-enable Yarn scripts for our controlled installs
 export YARN_ENABLE_SCRIPTS=1
@@ -34,26 +36,16 @@ if [ ! -d "$PROJECT_ROOT/frontend/node_modules" ]; then
   cd "$PROJECT_ROOT/frontend" && yarn install --immutable
 fi
 
-# Start backend on port 4000 (internal GraphQL API)
-echo "🚀 Starting backend on port 4000..."
+# Start backend on port 4000 (background - internal GraphQL API)
+echo "🚀 Starting backend on port 4000 (internal)..."
 cd "$PROJECT_ROOT/backend"
-NESTJS_PORT=4000 node dist/main.js &
+PORT=4000 node dist/main.js &
 BACKEND_PID=$!
 
 # Give backend a moment to start
 sleep 2
 
-# Start frontend on PORT (Replit's main exposed port)
-echo "🚀 Starting frontend on PORT=${PORT:-3000}..."
-cd "$PROJECT_ROOT/frontend"
-NEXT_PUBLIC_GRAPHQL_URL="http://localhost:4000/graphql" yarn start &
-FRONTEND_PID=$!
-
-echo ""
-echo "✅ Services started:"
-echo "   - Frontend (public): PORT ${PORT:-3000}"
-echo "   - Backend (internal): port 4000"
-echo ""
-
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+# Start Next.js on the public PORT (foreground - main domain)
+echo "🚀 Starting Next.js on PORT ${PORT:-3000} (public)..."
+cd "$PROJECT_ROOT"
+exec npx next start frontend -p "${PORT:-3000}"

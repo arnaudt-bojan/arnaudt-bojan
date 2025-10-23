@@ -25,7 +25,8 @@ export { gql, type ApolloQueryResult, ApolloError } from '@apollo/client/core';
 // Function to create Apollo Client instance for Next.js 16 App Router
 function makeClient() {
   const httpLink = new HttpLink({
-    uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql',
+    // Use relative URL - Next.js rewrites proxy to backend (no CORS needed)
+    uri: '/graphql',
     credentials: 'include',
     fetchOptions: {
       cache: 'no-store',

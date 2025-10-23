@@ -49,8 +49,8 @@ async function bootstrap() {
     });
   });
 
-  // Replit sets PORT env var - use it for deployment
-  const port = Number(process.env.PORT) || Number(process.env.NESTJS_PORT) || 4000;
+  // Backend always on port 4000 (Next.js rewrites proxy public traffic)
+  const port = Number(process.env.PORT) || 4000;
   
   await app.listen(port, '0.0.0.0');
   
