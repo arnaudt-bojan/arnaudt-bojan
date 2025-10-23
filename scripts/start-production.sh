@@ -4,6 +4,9 @@ set -e
 echo "🚀 Starting Upfirst in production mode..."
 echo ""
 
+# Re-enable Yarn scripts for our controlled installs
+export YARN_ENABLE_SCRIPTS=1
+
 # Ensure dependencies are installed
 if [ ! -d "backend/node_modules" ]; then
   echo "📦 Installing backend dependencies..."

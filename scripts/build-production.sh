@@ -4,6 +4,9 @@ set -e
 echo "🏗️  Building Upfirst for production..."
 echo ""
 
+# Re-enable Yarn scripts for our controlled installs
+export YARN_ENABLE_SCRIPTS=1
+
 # Build Backend
 echo "📦 Building backend..."
 cd backend
