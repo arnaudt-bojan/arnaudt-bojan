@@ -28,10 +28,32 @@ if [ ! -f "$PROJECT_ROOT/backend/dist/main.js" ]; then
   cd "$PROJECT_ROOT/backend" && yarn build
 fi
 
-# Start backend (which listens on $PORT set by Replit)
-echo "🚀 Starting backend server..."
-echo "   Backend will listen on PORT=${PORT:-4000}"
+# Ensure frontend dependencies are installed
+if [ ! -d "$PROJECT_ROOT/frontend/node_modules" ]; then
+  echo "📦 Installing frontend dependencies..."
+  cd "$PROJECT_ROOT/frontend" && yarn install --immutable
+fi
+
+# Start backend on port 4000 (internal GraphQL API)
+echo "🚀 Starting backend on port 4000..."
+cd "$PROJECT_ROOT/backend"
+NESTJS_PORT=4000 node dist/main.js &
+BACKEND_PID=$!
+
+# Give backend a moment to start
+sleep 2
+
+# Start frontend on PORT (Replit's main exposed port)
+echo "🚀 Starting frontend on PORT=${PORT:-3000}..."
+cd "$PROJECT_ROOT/frontend"
+NEXT_PUBLIC_GRAPHQL_URL="http://localhost:4000/graphql" yarn start &
+FRONTEND_PID=$!
+
+echo ""
+echo "✅ Services started:"
+echo "   - Frontend (public): PORT ${PORT:-3000}"
+echo "   - Backend (internal): port 4000"
 echo ""
 
-cd "$PROJECT_ROOT/backend"
-exec node dist/main.js
+# Wait for both processes
+wait $BACKEND_PID $FRONTEND_PID

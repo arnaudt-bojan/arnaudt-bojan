@@ -10,10 +10,12 @@ async function bootstrap() {
   const allowedOrigins = [
     'http://localhost:5000',
     'http://localhost:3000',
-    // Production domains
+    // Production domains - Replit sets these automatically
     process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
     process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : null,
     process.env.FRONTEND_URL, // Custom frontend URL
+    // Allow all *.replit.app domains (safe for Replit deployment)
+    ...(process.env.REPL_SLUG ? [`https://${process.env.REPL_SLUG}-${process.env.REPL_OWNER}.replit.app`] : []),
   ].filter(Boolean);
 
   app.enableCors({
