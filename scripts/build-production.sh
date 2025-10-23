@@ -7,7 +7,7 @@ echo ""
 # Re-enable Yarn scripts for our controlled installs
 export YARN_ENABLE_SCRIPTS=1
 
-# Build Backend
+# Build Backend (independent service with its own lockfile)
 echo "📦 Building backend..."
 cd backend
 yarn install --immutable
@@ -17,15 +17,10 @@ cd ..
 echo "✅ Backend build complete"
 echo ""
 
-# Build Frontend
+# Build Frontend (independent service with its own lockfile)
 echo "📦 Building frontend..."
 cd frontend
-
-# Create empty yarn.lock for independent service
-touch yarn.lock
-
-# Install dependencies (not immutable since this is independent service)
-yarn install
+yarn install --immutable
 
 # Try building with Next.js
 echo "   Building with Next.js (this may take several minutes)..."
@@ -37,10 +32,6 @@ else
   echo "   Frontend will run in development mode"
   echo "development" > .build-mode
 fi
-
-# Clean up temporary lockfile
-rm -f yarn.lock
-
 cd ..
 echo ""
 
